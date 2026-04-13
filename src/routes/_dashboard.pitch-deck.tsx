@@ -500,7 +500,6 @@ function PitchDeck() {
         </div>
 
         {/* ──────── SLIDE 9 — ROI CALCULATOR ──────── */}
-        <SlideHeader />
         <ROICalculator />
 
         {/* ──────── SLIDE 10 — TRIAL GUARANTEE ──────── */}
