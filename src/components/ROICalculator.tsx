@@ -29,14 +29,14 @@ export default function ROICalculator() {
     "w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary";
 
   return (
-    <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
+    <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24">
       <SlideHeader />
       <div className="max-w-4xl w-full">
-        <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-4">
-          Your Numbers
+        <p className="text-primary text-sm font-bold tracking-[0.25em] uppercase mb-5">
+          YOUR NUMBERS
         </p>
         <h2
-          className="text-3xl md:text-5xl font-extrabold text-foreground mb-12 leading-tight"
+          className="text-4xl md:text-[4rem] font-extrabold text-foreground mb-12 leading-[1.08] tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}
         >
           See What This Is Worth To Your Clinic.
