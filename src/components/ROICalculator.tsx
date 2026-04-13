@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import SlideHeader from "./SlideHeader";
 
 const CONVERT_RATES: Record<string, number> = {
   "1 in 4": 0.25,
@@ -29,11 +28,10 @@ export default function ROICalculator() {
 
   return (
     <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
-      <SlideHeader />
       <div className="max-w-5xl w-full">
         <span className="text-primary text-sm font-bold tracking-widest uppercase mb-3 block">Your Numbers</span>
         <h2 className="text-3xl md:text-5xl font-black text-foreground mb-10" style={{ fontFamily: "var(--font-display)" }}>
-          SEE WHAT UPPER HAND IS WORTH TO YOUR CLINIC
+          SEE WHAT THIS IS WORTH TO YOUR CLINIC
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
@@ -74,7 +72,7 @@ export default function ROICalculator() {
             <p className="text-3xl md:text-4xl font-black text-foreground">{fmt(results.annualRevenue)}</p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground mb-2">Upper Hand Investment</p>
+            <p className="text-sm text-muted-foreground mb-2">Your Investment</p>
             <p className="text-3xl md:text-4xl font-black text-muted-foreground">{fmt(results.investment)}</p>
           </div>
         </div>

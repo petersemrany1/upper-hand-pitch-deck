@@ -1,18 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import SlideHeader from "../components/SlideHeader";
 import FeatureCard from "../components/FeatureCard";
 import ROICalculator from "../components/ROICalculator";
-import Logo from "../components/Logo";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
   head: () => ({
     meta: [
-      { title: "Upper Hand — Hair Transplant Marketing That Works" },
-      { name: "description", content: "A done-for-you patient acquisition system for hair transplant clinics." },
+      { title: "Pitch Deck" },
+      { name: "description", content: "Hair transplant marketing pitch deck." },
     ],
   }),
 });
@@ -71,7 +69,6 @@ function PitchDeck() {
     return () => window.removeEventListener("keydown", handler);
   }, [activeSlide, scrollToSlide]);
 
-  // Touch swipe
   const touchStart = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientY; };
   const handleTouchEnd = (e: React.TouchEvent) => {
@@ -122,7 +119,6 @@ function PitchDeck() {
       >
         {/* SLIDE 1 — COVER */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.h1 variants={fadeIn} className="text-5xl md:text-8xl lg:text-9xl font-black leading-none tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
               HAIR TRANSPLANT<br />
@@ -140,7 +136,6 @@ function PitchDeck() {
 
         {/* SLIDE 2 — THE PROBLEM */}
         <div className="deck-slide flex flex-col justify-center px-6 md:px-16">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-6xl">
             <motion.span variants={fadeIn} className="text-primary text-sm font-bold tracking-widest uppercase mb-3 block">The Problem</motion.span>
             <motion.h2 variants={fadeIn} className="text-3xl md:text-6xl font-black text-foreground mb-10" style={{ fontFamily: "var(--font-display)" }}>
@@ -156,7 +151,6 @@ function PitchDeck() {
 
         {/* SLIDE 3 — THE SOLUTION */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6 md:px-16">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-5xl">
             <motion.span variants={fadeIn} className="text-primary text-sm font-bold tracking-widest uppercase mb-3 block">The Solution</motion.span>
             <motion.h2 variants={fadeIn} className="text-3xl md:text-6xl font-black text-foreground mb-10" style={{ fontFamily: "var(--font-display)" }}>
@@ -173,7 +167,6 @@ function PitchDeck() {
 
         {/* SLIDE 4 — WHO WE TARGET */}
         <div className="deck-slide flex flex-col md:flex-row">
-          <SlideHeader />
           <div className="hidden md:block md:w-1/2 h-full bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=900&q=80&auto=format&fit=crop')" }} />
           <div className="flex-1 flex flex-col justify-center px-6 md:px-12 py-20 md:py-0">
             <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
@@ -192,7 +185,6 @@ function PitchDeck() {
 
         {/* SLIDE 5 — AD CREATIVE */}
         <div className="deck-slide flex flex-col md:flex-row">
-          <SlideHeader />
           <div className="hidden md:flex md:w-1/2 h-full bg-cover bg-center relative" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=900&q=80&auto=format&fit=crop')" }}>
             <div className="absolute bottom-8 left-8 right-8">
               <h2 className="text-3xl lg:text-4xl font-black text-foreground drop-shadow-lg" style={{ fontFamily: "var(--font-display)" }}>
@@ -217,7 +209,6 @@ function PitchDeck() {
 
         {/* SLIDE 6 — LEAD HANDLING */}
         <div className="deck-slide flex flex-col md:flex-row">
-          <SlideHeader />
           <div className="hidden md:block md:w-1/2 h-full bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=900&q=80&auto=format&fit=crop')" }} />
           <div className="flex-1 flex flex-col justify-center px-6 md:px-12 py-20 md:py-0">
             <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
@@ -236,7 +227,6 @@ function PitchDeck() {
 
         {/* SLIDE 7 — POST CONSULT */}
         <div className="deck-slide flex flex-col md:flex-row">
-          <SlideHeader />
           <div className="hidden md:block md:w-1/2 h-full bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-1580489944761-15a19d654956?w=900&q=80&auto=format&fit=crop')" }} />
           <div className="flex-1 flex flex-col justify-center px-6 md:px-12 py-20 md:py-0">
             <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
@@ -256,13 +246,11 @@ function PitchDeck() {
 
         {/* SLIDE 9 — PRICING */}
         <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-5xl w-full text-center">
             <motion.h2 variants={fadeIn} className="text-3xl md:text-6xl font-black text-foreground mb-10" style={{ fontFamily: "var(--font-display)" }}>
               SIMPLE PRICING. PAY PER SHOW.
             </motion.h2>
             <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Starter */}
               <div className="bg-foreground text-background rounded-lg p-8 text-left">
                 <p className="text-sm font-bold tracking-widest uppercase mb-4">STARTER</p>
                 <p className="text-3xl font-black mb-1" style={{ fontFamily: "var(--font-display)" }}>$1,300</p>
@@ -274,7 +262,6 @@ function PitchDeck() {
                   ))}
                 </ul>
               </div>
-              {/* Scale */}
               <div className="bg-foreground text-background rounded-lg p-8 text-left border-2 border-primary relative">
                 <span className="absolute top-4 right-4 bg-primary text-primary-foreground text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</span>
                 <p className="text-sm font-bold tracking-widest uppercase mb-4">SCALE</p>
@@ -297,14 +284,12 @@ function PitchDeck() {
 
         {/* SLIDE 10 — HOW IT WORKS */}
         <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-6xl w-full">
             <motion.span variants={fadeIn} className="text-primary text-sm font-bold tracking-widest uppercase mb-3 block text-center">The Process</motion.span>
             <motion.h2 variants={fadeIn} className="text-3xl md:text-6xl font-black text-foreground mb-14 text-center" style={{ fontFamily: "var(--font-display)" }}>
               FROM ZERO TO FULL CALENDAR IN 7 DAYS
             </motion.h2>
             <motion.div variants={fadeIn} className="relative">
-              {/* Timeline line */}
               <div className="hidden md:block absolute top-6 left-0 right-0 h-0.5 bg-primary" />
               <div className="grid grid-cols-2 md:grid-cols-6 gap-6">
                 {timelineSteps.map((step, i) => (
@@ -326,7 +311,6 @@ function PitchDeck() {
 
         {/* SLIDE 11 — FAQ */}
         <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl w-full">
             <motion.h2 variants={fadeIn} className="text-3xl md:text-5xl font-black text-foreground mb-10 text-center" style={{ fontFamily: "var(--font-display)" }}>
               QUESTIONS I GET ASKED EVERY TIME
@@ -344,7 +328,6 @@ function PitchDeck() {
 
         {/* SLIDE 12 — CLOSING */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.h2 variants={fadeIn} className="text-4xl md:text-7xl font-black text-foreground mb-4" style={{ fontFamily: "var(--font-display)" }}>
               READY TO FILL YOUR CALENDAR?
@@ -361,8 +344,7 @@ function PitchDeck() {
               LET'S TALK →
             </motion.a>
             <motion.p variants={fadeIn} className="text-muted-foreground text-base mt-6">(02) 5300 8009</motion.p>
-            <motion.div variants={fadeIn} className="mt-8"><Logo /></motion.div>
-            <motion.p variants={fadeIn} className="text-xs text-muted-foreground mt-8">© 2026 Upper Hand. All rights reserved.</motion.p>
+            <motion.p variants={fadeIn} className="text-xs text-muted-foreground mt-8">© 2026 All rights reserved.</motion.p>
           </motion.div>
         </div>
       </div>
