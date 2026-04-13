@@ -30,7 +30,7 @@ export default function ROICalculator() {
 
   return (
     <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
-      <div className="max-w-4xl w-full">
+      <SlideHeader />
         <p className="text-primary text-xs font-bold tracking-[0.2em] uppercase mb-4">
           Your Numbers
         </p>
