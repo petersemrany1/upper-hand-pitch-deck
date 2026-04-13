@@ -164,16 +164,6 @@ function PitchDeck() {
     { service: "Post-Consult Follow-Up", value: "Included" },
   ];
 
-  const pricingFeatures = [
-    "10 Guaranteed Shows",
-    "Full Ad Creative",
-    "Lead Qualification & Calling",
-    "Calendar Booking",
-    "Show-Up Reminders",
-    "Post-Consult Follow-Up",
-    "No Show = No Charge",
-    "No Fixed Term",
-  ];
 
   return (
     <div className="relative">
