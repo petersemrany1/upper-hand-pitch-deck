@@ -36,7 +36,7 @@ export default function ROICalculator() {
           YOUR NUMBERS
         </p>
         <h2
-          className="text-3xl md:text-5xl font-extrabold text-foreground mb-12 leading-tight"
+          className="text-4xl md:text-[4rem] font-extrabold text-foreground mb-12 leading-[1.08] tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}
         >
           See What This Is Worth To Your Clinic.

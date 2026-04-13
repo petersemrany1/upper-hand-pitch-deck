@@ -15,7 +15,7 @@ export default function FeatureCard({ title, description, variant = "dark" }: Fe
       }`}
     >
       <h3 className="text-sm font-bold text-foreground leading-snug">{title}</h3>
-      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{description}</p>
+      <p className="text-xs text-[#CCCCCC] mt-1 leading-relaxed">{description}</p>
     </div>
   );
 }
