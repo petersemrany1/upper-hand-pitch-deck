@@ -17,7 +17,7 @@ export const Route = createFileRoute("/_dashboard/pitch-deck")({
   }),
 });
 
-const TOTAL_SLIDES = 13;
+const TOTAL_SLIDES = 12;
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -164,16 +164,6 @@ function PitchDeck() {
     { service: "Post-Consult Follow-Up", value: "Included" },
   ];
 
-  const pricingFeatures = [
-    "10 Guaranteed Shows",
-    "Full Ad Creative",
-    "Lead Qualification & Calling",
-    "Calendar Booking",
-    "Show-Up Reminders",
-    "Post-Consult Follow-Up",
-    "No Show = No Charge",
-    "No Fixed Term",
-  ];
 
   return (
     <div className="relative">
@@ -547,94 +537,7 @@ function PitchDeck() {
           </motion.div>
         </div>
 
-        {/* ──────── SLIDE 11 — PRICING ──────── */}
-        <div className="deck-slide flex flex-col items-center justify-center px-6 md:px-16">
-          <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-4xl w-full text-center"
-          >
-            <motion.div variants={fadeIn} className="mb-10">
-              <H>Simple Pricing.</H>
-            </motion.div>
-            <motion.div
-              variants={fadeIn}
-              className="grid grid-cols-1 md:grid-cols-2 gap-6"
-            >
-              {/* Starter */}
-              <div className="bg-foreground text-background rounded-xl p-8 text-left">
-                <p
-                  className="text-xs font-bold tracking-[0.15em] uppercase mb-5 opacity-60"
-                >
-                  STARTER
-                </p>
-                <p
-                  className="text-3xl font-extrabold mb-1"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  $1,300
-                </p>
-                <p className="text-xs opacity-50 mb-1">per showed consultation</p>
-                <p className="text-xs opacity-50 mb-6">
-                  10 show trial package
-                </p>
-                <ul className="space-y-2.5 text-sm">
-                  {pricingFeatures.map((f) => (
-                    <li key={f} className="flex items-start">
-                      <Tick />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              {/* Scale */}
-              <div className="bg-foreground text-background rounded-xl p-8 text-left border-2 border-primary relative">
-                <span className="absolute top-4 right-4 bg-primary text-primary-foreground text-[10px] font-bold px-3 py-1 rounded-full">
-                  MOST POPULAR
-                </span>
-                <p
-                  className="text-xs font-bold tracking-[0.15em] uppercase mb-5 opacity-60"
-                >
-                  SCALE
-                </p>
-                <p
-                  className="text-3xl font-extrabold mb-1"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  $1,300
-                </p>
-                <p className="text-xs opacity-50 mb-1">per showed consultation</p>
-                <p className="text-xs opacity-50 mb-6">
-                  20–40 shows per month
-                </p>
-                <ul className="space-y-2.5 text-sm">
-                  {pricingFeatures.map((f) => (
-                    <li key={f} className="flex items-start">
-                      <Tick />
-                      {f}
-                    </li>
-                  ))}
-                  <li className="flex items-start">
-                    <Tick />
-                    Priority Onboarding
-                  </li>
-                </ul>
-              </div>
-            </motion.div>
-            <motion.p
-              variants={fadeIn}
-              className="text-[11px] text-muted-foreground mt-6"
-            >
-              *Single implant enquiries that come through are a bonus — not
-              counted toward your package.
-            </motion.p>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 12 — FAQ ──────── */}
+        {/* ──────── SLIDE 11 — FAQ ──────── */}
         <div className="deck-slide flex flex-col justify-center px-8 md:px-16">
           <SlideHeader />
           <motion.div
@@ -662,7 +565,7 @@ function PitchDeck() {
           </motion.div>
         </div>
 
-        {/* ──────── SLIDE 13 — CLOSE ──────── */}
+        {/* ──────── SLIDE 12 — CLOSE ──────── */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
           <SlideHeader />
           <motion.div
