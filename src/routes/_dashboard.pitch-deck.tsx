@@ -575,7 +575,7 @@ function PitchDeck() {
           </motion.div>
         </div>
 
-        {/* ──────── SLIDE 13 — CLOSE ──────── */}
+        {/* ──────── SLIDE 12 — CLOSE ──────── */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
           <SlideHeader />
           <motion.div
