@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import SlideHeader from "./SlideHeader";
 
 const CONVERT_RATES: Record<string, number> = {
   "1 in 4": 0.25,
