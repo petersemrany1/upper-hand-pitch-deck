@@ -7,6 +7,13 @@ export const Route = createFileRoute("/_dashboard")({
 });
 
 function DashboardLayout() {
+  const location = useLocation();
+  const isFullscreen = location.pathname === "/pitch-deck";
+
+  if (isFullscreen) {
+    return <Outlet />;
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
