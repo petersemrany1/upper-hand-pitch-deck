@@ -5,14 +5,17 @@ interface FeatureCardProps {
 }
 
 export default function FeatureCard({ title, description, variant = "dark" }: FeatureCardProps) {
-  const bg = variant === "blue" ? "bg-primary" : "bg-card";
-  const border = variant === "blue" ? "border-primary" : "border-border";
+  const isBlue = variant === "blue";
   return (
-    <div className={`${bg} ${border} border rounded-lg p-6 md:p-8`}>
-      <h3 className="text-lg md:text-xl font-bold text-foreground mb-2" style={{ fontFamily: "var(--font-display)" }}>
-        {title}
-      </h3>
-      <p className="text-sm md:text-base text-muted-foreground leading-relaxed">{description}</p>
+    <div
+      className={`rounded-xl border px-5 py-4 ${
+        isBlue
+          ? "bg-primary border-primary"
+          : "bg-card border-border"
+      }`}
+    >
+      <h3 className="text-sm font-bold text-foreground leading-snug">{title}</h3>
+      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{description}</p>
     </div>
   );
 }

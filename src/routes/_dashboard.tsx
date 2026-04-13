@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
@@ -7,6 +7,13 @@ export const Route = createFileRoute("/_dashboard")({
 });
 
 function DashboardLayout() {
+  const location = useLocation();
+  const isFullscreen = location.pathname === "/pitch-deck";
+
+  if (isFullscreen) {
+    return <Outlet />;
+  }
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
