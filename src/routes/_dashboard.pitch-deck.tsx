@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";
 import FeatureCard from "../components/FeatureCard";
 import ROICalculator from "../components/ROICalculator";
-import Logo from "../components/Logo";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
 
@@ -585,21 +584,12 @@ function PitchDeck() {
             </motion.p>
             <motion.a
               variants={fadeIn}
-              href="mailto:hello@upperhand.com.au"
+              href="mailto:hello@example.com"
               className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               LET'S TALK →
             </motion.a>
-            <motion.p
-              variants={fadeIn}
-              className="text-muted-foreground text-sm mt-6"
-            >
-              (02) 5300 8009
-            </motion.p>
-            <motion.div variants={fadeIn} className="mt-8">
-              <Logo />
-            </motion.div>
           </motion.div>
         </div>
       </div>
