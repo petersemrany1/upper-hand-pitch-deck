@@ -27,13 +27,13 @@ const stagger = { visible: { transition: { staggerChildren: 0.08 } } };
 /* Unsplash photos — curated for hair clinic / premium professional context */
 const PHOTOS = {
   emptyClinic:
-    "https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&q=80&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80",
   confidentMan:
-    "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=1200&q=80&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80",
   videoStudio:
     "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?w=1200&q=80&auto=format&fit=crop",
   officePhone:
-    "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80&auto=format&fit=crop",
+    "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=800&q=80",
   officeReview:
     "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=1200&q=80&auto=format&fit=crop",
 };
