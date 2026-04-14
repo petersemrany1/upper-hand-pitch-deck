@@ -1,0 +1,72 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const TWILIO_ACCOUNT_SID = "AC4e4b3797155ad508c8dffa4b13a1fd6e";
+const TWILIO_AUTH_TOKEN = "376714289a02806ab80049a4afde9b04";
+const TWILIO_FROM = "+61468031075";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  try {
+    const { clientPhone, userPhone } = await req.json();
+
+    if (!clientPhone || !userPhone) {
+      return new Response(
+        JSON.stringify({ success: false, error: "clientPhone and userPhone are required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Build the TwiML webhook URL pointing to our twilio-twiml edge function
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const twimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?clientPhone=${encodeURIComponent(clientPhone)}`;
+    const statusUrl = `${supabaseUrl}/functions/v1/twilio-status`;
+
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`;
+
+    const response = await fetch(twilioUrl, {
+      method: "POST",
+      headers: {
+        "Authorization": "Basic " + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: userPhone,
+        From: TWILIO_FROM,
+        Url: twimlUrl,
+        StatusCallback: statusUrl,
+        StatusCallbackMethod: "POST",
+        StatusCallbackEvent: "completed",
+      }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      console.error("Twilio error:", JSON.stringify(result));
+      return new Response(
+        JSON.stringify({ success: false, error: result.message || "Failed to initiate call" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, callSid: result.sid }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("Error:", error);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
