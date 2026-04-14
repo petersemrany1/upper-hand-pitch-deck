@@ -103,6 +103,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setPhone("");
     setSelectedPack(null);
     setCustomAmount("");
+    setSmsStatus(null);
     onClose();
   };
 
