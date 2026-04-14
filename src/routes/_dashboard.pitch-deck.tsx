@@ -201,7 +201,7 @@ function PitchDeck() {
 
   const slides = [
     /* ──────── SLIDE 1 — COVER ──────── */
-    <div key="cover" className="deck-slide flex flex-col items-center justify-center text-center px-6">
+    <div key="cover" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full gap-12 text-center px-6">
       <SlideHeader />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
         <motion.h1
@@ -222,7 +222,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
-    <div key="opportunity" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="opportunity" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <div className="w-full max-w-4xl">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
@@ -258,7 +258,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS ──────── */
-    <div key="process" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="process" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <div>
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
@@ -270,46 +270,47 @@ function PitchDeck() {
           </motion.div>
         </motion.div>
       </div>
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl">
-        {[
-          { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
-          { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
-          { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
-          { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
-        ].map((item) => (
-          <div key={item.step} className="flex gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
-              {item.step}
+      <div className="flex flex-col flex-1 justify-between">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl">
+          {[
+            { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
+            { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
+            { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
+            { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
+          ].map((item) => (
+            <div key={item.step} className="flex gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
+                {item.step}
+              </div>
+              <div>
+                <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
+                <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
-              <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
-            </div>
-          </div>
-        ))}
-      </motion.div>
-      {/* Pay Per Show — centered, full width bottom section */}
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={fadeIn}
-        className="w-full text-center"
-      >
-        <p
-          className={`font-extrabold text-foreground leading-snug ${isFullscreen ? "text-5xl md:text-6xl" : "text-3xl md:text-4xl"}`}
-          style={{ fontFamily: "var(--font-heading)" }}
+          ))}
+        </motion.div>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeIn}
+          className="w-full text-center pt-8"
         >
-          Pay Per Show. Not Per Click.
-        </p>
-        <p className="text-[#CCCCCC] text-sm md:text-base mt-4">
-          You only pay when a qualified patient is sitting in your chair.
-        </p>
-      </motion.div>
+          <p
+            className={`font-extrabold text-foreground leading-snug ${isFullscreen ? "text-5xl md:text-6xl" : "text-3xl md:text-4xl"}`}
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Pay Per Show. Not Per Click.
+          </p>
+          <p className="text-[#CCCCCC] text-sm md:text-base mt-4">
+            You only pay when a qualified patient is sitting in your chair.
+          </p>
+        </motion.div>
+      </div>
     </div>,
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */
-    <div key="patients" className="deck-slide relative flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="patients" className="deck-slide relative flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80" alt="Confident man" />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
@@ -347,7 +348,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 5 — POST CONSULT ──────── */
-    <div key="post-consult" className="deck-slide relative flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="post-consult" className="deck-slide relative flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=800&q=80" alt="Professional conversation" />
       <div className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
@@ -374,7 +375,7 @@ function PitchDeck() {
     <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} />,
 
     /* ──────── SLIDE 7 — PACKAGES ──────── */
-    <div key="packages" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="packages" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <div className="max-w-4xl w-full">
         <ChapterLabel>PACKAGES</ChapterLabel>
@@ -410,7 +411,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 8 — THE GUARANTEE ──────── */
-    <div key="guarantee" className="deck-slide flex flex-col items-start justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="guarantee" className="deck-slide flex flex-col items-start justify-center min-h-screen w-full gap-12 px-8 md:px-16 lg:px-24 py-16">
       <SlideHeader />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
         <motion.div variants={fadeIn}>
@@ -438,7 +439,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 9 — FAQ ──────── */
-    <div key="faq" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="faq" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <div className="max-w-3xl">
         <ChapterLabel>FAQ</ChapterLabel>
@@ -455,7 +456,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 10 — CLOSE ──────── */
-    <div key="close" className="deck-slide relative flex flex-col items-center justify-center text-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full gap-12 text-center px-8 md:px-16 lg:px-24 py-16">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800&q=80" alt="Sydney aerial view" />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="relative z-10">
