@@ -75,6 +75,7 @@ function ClientsPage() {
   const [activeTab, setActiveTab] = useState<"dialer" | "contacts" | "history">("dialer");
   const [dialNumber, setDialNumber] = useState("");
   const [calling, setCalling] = useState(false);
+  const [callMessage, setCallMessage] = useState<string | null>(null);
   const [lastCallSid, setLastCallSid] = useState<string | null>(null);
   const [showSaveContact, setShowSaveContact] = useState(false);
   const [saveContactName, setSaveContactName] = useState("");
@@ -159,6 +160,7 @@ function ClientsPage() {
   const handleInitiateCall = async () => {
     if (!dialNumber || !selectedPhone) return;
     setCalling(true);
+    setCallMessage(null);
 
     try {
       const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
@@ -169,25 +171,51 @@ function ClientsPage() {
 
       if (result?.success && result?.callSid) {
         setLastCallSid(result.callSid);
+        setCallMessage("Calling your phone... answer within 20 seconds.");
 
-        // Check if number matches a saved contact
         const matchingClient = clients.find((c) => c.phone === dialNumber);
 
-        // Always create a call record
         await supabase.from("call_records").insert({
           client_id: matchingClient?.id || null,
           twilio_call_sid: result.callSid,
           status: "initiated",
         });
 
-        if (!matchingClient) {
-          setShowSaveContact(true);
+        // Poll for call status to detect timeout/no-answer
+        let resolved = false;
+        for (let i = 0; i < 15; i++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          const { data: records } = await supabase
+            .from("call_records")
+            .select("status")
+            .eq("twilio_call_sid", result.callSid)
+            .single();
+
+          if (records?.status === "completed") {
+            resolved = true;
+            setCallMessage(null);
+            if (!matchingClient) setShowSaveContact(true);
+            break;
+          }
+          if (records?.status === "no-answer" || records?.status === "busy" || records?.status === "failed" || records?.status === "canceled") {
+            resolved = true;
+            setCallMessage("Call cancelled — you didn't answer in time.");
+            setTimeout(() => setCallMessage(null), 5000);
+            break;
+          }
+        }
+
+        if (!resolved) {
+          setCallMessage("Call cancelled — you didn't answer in time.");
+          setTimeout(() => setCallMessage(null), 5000);
         }
 
         loadAllRecords();
       }
     } catch (err) {
       console.error("Call failed:", err);
+      setCallMessage("Call failed. Please try again.");
+      setTimeout(() => setCallMessage(null), 5000);
     } finally {
       setCalling(false);
     }
@@ -433,6 +461,17 @@ function ClientsPage() {
                 )}
               </div>
             </div>
+
+            {/* Call Status Message */}
+            {callMessage && (
+              <div className={`mt-4 text-center text-sm font-medium px-4 py-3 rounded-lg ${
+                callMessage.includes("cancelled") || callMessage.includes("failed")
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-primary/10 text-primary"
+              }`}>
+                {callMessage}
+              </div>
+            )}
 
             {/* Save Contact Prompt */}
             {showSaveContact && (

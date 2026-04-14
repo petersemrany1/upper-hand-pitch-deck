@@ -35,15 +35,10 @@ serve(async (req) => {
     const formattedClient = formatAUPhone(clientPhone);
     const formattedUser = formatAUPhone(userPhone);
 
-    console.log("Initiating call:", { formattedUser, formattedClient, from: TWILIO_FROM });
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-
-    // TwiML URL: when the user answers, say a message then dial the client
     const twimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?clientPhone=${encodeURIComponent(formattedClient)}`;
     const statusUrl = `${supabaseUrl}/functions/v1/twilio-status`;
 
-    // Step 1: Call the USER's phone only. Twilio will fetch twimlUrl when user answers.
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`;
 
     const response = await fetch(twilioUrl, {
@@ -53,10 +48,11 @@ serve(async (req) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        To: formattedUser,       // Call MY phone first
-        From: TWILIO_FROM,       // Twilio number
-        Url: twimlUrl,           // TwiML fetched ONLY after I answer
+        To: formattedUser,
+        From: TWILIO_FROM,
+        Url: twimlUrl,
         Method: "GET",
+        Timeout: "20",
         StatusCallback: statusUrl,
         StatusCallbackMethod: "POST",
         StatusCallbackEvent: "initiated ringing answered completed",
@@ -72,8 +68,6 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
-
-    console.log("Call created successfully:", result.sid);
 
     return new Response(
       JSON.stringify({ success: true, callSid: result.sid }),
