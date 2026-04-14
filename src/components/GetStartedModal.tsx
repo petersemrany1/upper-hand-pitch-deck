@@ -356,12 +356,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                   className="text-2xl font-extrabold text-foreground mb-3"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  You're On The List.
+                  You're All Set.
                 </h3>
                 <p className="text-[#CCCCCC] text-sm leading-relaxed max-w-sm mx-auto mb-6">
-                  We'll send your contract to{" "}
-                  <span className="text-foreground font-medium">{email}</span> within 24 hours.
-                  Once signed, your invoice will follow. We'll be in touch shortly.
+                  Your payment link has been sent to{" "}
+                  <span className="text-foreground font-medium">{sentVia === "email" ? email : phone}</span>.
+                  Complete your payment to lock in your spot.
                 </p>
                 <p className="text-xs text-[#999] mb-8">
                   Questions?{" "}
