@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateContractFromTemplate } from "./contract-pdf";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
+const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
 
 function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
