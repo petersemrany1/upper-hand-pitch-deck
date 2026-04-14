@@ -316,8 +316,8 @@ function PitchDeck() {
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU (2x2 cards centered) ──────── */
     <div key="patients" className="deck-slide flex min-h-screen w-full bg-black">
-      {/* Left content — 65% */}
-      <div className="w-[65%] flex flex-col justify-center px-16 py-12">
+      {/* Left content — 70% */}
+      <div className="w-[70%] flex flex-col justify-center px-16 py-12">
         <div className="w-full text-center">
           <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
@@ -355,8 +355,8 @@ function PitchDeck() {
           </motion.p>
         </div>
       </div>
-      {/* Right photo panel — 35% */}
-      <div className="w-[35%] relative">
+      {/* Right photo panel — 30% */}
+      <div className="w-[30%] relative">
         <img
           src={patientProfile}
           alt="Confident professional man"
@@ -369,7 +369,7 @@ function PitchDeck() {
     /* ──────── SLIDE 5 — POST CONSULT (two columns) ──────── */
     <div key="post-consult" className="deck-slide flex min-h-screen w-full">
       {/* Left column */}
-      <div className="w-1/2 bg-black flex flex-col justify-center px-16 py-12">
+      <div className="w-[70%] bg-black flex flex-col justify-center px-16 py-12">
         <SlideHeader />
         <ChapterLabel>POST CONSULT</ChapterLabel>
         <h2
@@ -392,8 +392,8 @@ function PitchDeck() {
           ))}
         </motion.div>
       </div>
-      {/* Right column — photo */}
-      <div className="w-1/2">
+      {/* Right column — photo 30% */}
+      <div className="w-[30%] relative">
         <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&q=80" alt="Professional conversation" className="w-full h-full object-cover" />
       </div>
     </div>,
