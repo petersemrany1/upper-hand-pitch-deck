@@ -1,0 +1,1 @@
+ALTER TABLE public.call_records ALTER COLUMN client_id DROP NOT NULL;

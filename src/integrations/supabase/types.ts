@@ -17,7 +17,7 @@ export type Database = {
       call_records: {
         Row: {
           called_at: string
-          client_id: string
+          client_id: string | null
           created_at: string
           duration: number | null
           id: string
@@ -29,7 +29,7 @@ export type Database = {
         }
         Insert: {
           called_at?: string
-          client_id: string
+          client_id?: string | null
           created_at?: string
           duration?: number | null
           id?: string
@@ -41,7 +41,7 @@ export type Database = {
         }
         Update: {
           called_at?: string
-          client_id?: string
+          client_id?: string | null
           created_at?: string
           duration?: number | null
           id?: string
