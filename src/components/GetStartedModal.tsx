@@ -312,7 +312,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                     <p className="text-xs text-[#CCCCCC] mt-1">We'll email you a secure payment link instantly</p>
                   </button>
                   <button
-                    onClick={handlePayByCard}
+                    onClick={handleSendSMS}
                     className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
