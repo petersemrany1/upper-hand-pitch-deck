@@ -258,7 +258,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS ──────── */
-    <div key="process" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="process" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <div>
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
@@ -270,42 +270,43 @@ function PitchDeck() {
           </motion.div>
         </motion.div>
       </div>
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl">
-        {[
-          { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
-          { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
-          { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
-          { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
-        ].map((item) => (
-          <div key={item.step} className="flex gap-4">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
-              {item.step}
+      <div className="flex flex-col flex-1 justify-between">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl">
+          {[
+            { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
+            { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
+            { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
+            { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
+          ].map((item) => (
+            <div key={item.step} className="flex gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
+                {item.step}
+              </div>
+              <div>
+                <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
+                <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
-              <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
-            </div>
-          </div>
-        ))}
-      </motion.div>
-      {/* Pay Per Show — centered, full width bottom section */}
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true }}
-        variants={fadeIn}
-        className="w-full text-center"
-      >
-        <p
-          className={`font-extrabold text-foreground leading-snug ${isFullscreen ? "text-5xl md:text-6xl" : "text-3xl md:text-4xl"}`}
-          style={{ fontFamily: "var(--font-heading)" }}
+          ))}
+        </motion.div>
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={fadeIn}
+          className="w-full text-center pt-8"
         >
-          Pay Per Show. Not Per Click.
-        </p>
-        <p className="text-[#CCCCCC] text-sm md:text-base mt-4">
-          You only pay when a qualified patient is sitting in your chair.
-        </p>
-      </motion.div>
+          <p
+            className={`font-extrabold text-foreground leading-snug ${isFullscreen ? "text-5xl md:text-6xl" : "text-3xl md:text-4xl"}`}
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Pay Per Show. Not Per Click.
+          </p>
+          <p className="text-[#CCCCCC] text-sm md:text-base mt-4">
+            You only pay when a qualified patient is sitting in your chair.
+          </p>
+        </motion.div>
+      </div>
     </div>,
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */
