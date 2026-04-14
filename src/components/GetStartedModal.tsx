@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Check, FileText } from "lucide-react";
+import { X, Check, FileText, ArrowLeft } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
@@ -28,6 +28,7 @@ const CONTRACT_PACKS = [
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 
 export default function GetStartedModal({ open, onClose }: GetStartedModalProps) {
+  // step: 1=details, 2=package, 3=hub, 4=payment sub-screen, 5=contract sub-screen
   const [step, setStep] = useState(1);
 
   // Step 1
@@ -40,14 +41,18 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
   const [customAmount, setCustomAmount] = useState("");
 
-  // Contract screen (step 5)
+  // Contract fields (step 5)
   const [contractPack, setContractPack] = useState<string | null>(null);
   const [contractCustomShows, setContractCustomShows] = useState("");
   const [perShowFee, setPerShowFee] = useState("1100");
   const [contractStatus, setContractStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
+  // Completion tracking
+  const [paymentSent, setPaymentSent] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"email" | "sms" | null>(null);
+  const [contractSent, setContractSent] = useState(false);
+
   const [sending, setSending] = useState(false);
-  const [sentVia, setSentVia] = useState<"email" | "sms" | "contract" | null>(null);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -84,8 +89,9 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         },
       });
       if (result.success) {
-        setSentVia("email");
-        setStep(4);
+        setPaymentSent(true);
+        setPaymentMethod("email");
+        setStep(3);
       } else {
         setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
       }
@@ -99,8 +105,9 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
 
   const handleSendSMS = async () => {
     if (selectedPack === "custom") {
-      setSentVia("sms");
-      setStep(4);
+      setPaymentSent(true);
+      setPaymentMethod("sms");
+      setStep(3);
       return;
     }
     if (chosenPack?.stripeLink) {
@@ -110,8 +117,9 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         const firstName = fullName.trim().split(" ")[0];
         const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: chosenPack.stripeLink } });
         if (result.success) {
-          setSentVia("sms");
-          setStep(4);
+          setPaymentSent(true);
+          setPaymentMethod("sms");
+          setStep(3);
         } else {
           setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
         }
@@ -141,8 +149,8 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         },
       });
       if (result.success) {
-        setSentVia("contract");
-        setStep(4);
+        setContractSent(true);
+        setStep(3);
       } else {
         setContractStatus({ type: "error", message: "Something went wrong — please try again." });
       }
@@ -166,13 +174,16 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setContractStatus(null);
     setSmsStatus(null);
     setInvoiceStatus(null);
-    setSentVia(null);
+    setPaymentSent(false);
+    setPaymentMethod(null);
+    setContractSent(false);
     onClose();
   };
 
   if (!open) return null;
 
-  const currentStepDisplay = step === 5 ? 3 : Math.min(step, 3);
+  // Steps 4 and 5 are sub-screens of step 3
+  const currentStepDisplay = step >= 3 ? 3 : step;
 
   return (
     <AnimatePresence>
@@ -347,48 +358,131 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
               </div>
             )}
 
-            {/* ─── STEP 3 ─── */}
+            {/* ─── STEP 3 — ACTION HUB ─── */}
             {step === 3 && (
               <div>
+                <h3
+                  className="text-2xl font-extrabold text-foreground mb-2"
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  Send to Client
+                </h3>
+                <p className="text-sm text-[#999] mb-6">Complete both actions in any order.</p>
+
+                <div className="space-y-3">
+                  {/* Contract card */}
+                  <button
+                    onClick={() => !contractSent && setStep(5)}
+                    disabled={contractSent}
+                    className={"w-full rounded-xl border-2 p-5 text-left transition-all flex items-center gap-4 " +
+                      (contractSent
+                        ? "border-green-500/50 bg-green-500/5 cursor-default"
+                        : "border-border bg-card hover:border-primary")
+                    }
+                  >
+                    <div className={"w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 " +
+                      (contractSent ? "bg-green-500/20" : "bg-primary/10")
+                    }>
+                      {contractSent ? (
+                        <Check className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <FileText className="w-5 h-5 text-primary" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground">
+                        {contractSent ? "Contract Sent ✓" : "Send Contract"}
+                      </p>
+                      <p className="text-xs text-[#CCCCCC] mt-0.5">
+                        {contractSent
+                          ? "Sent to " + email
+                          : "Email the agreement to review and sign"}
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Payment link card */}
+                  <button
+                    onClick={() => !paymentSent && setStep(4)}
+                    disabled={paymentSent}
+                    className={"w-full rounded-xl border-2 p-5 text-left transition-all flex items-center gap-4 " +
+                      (paymentSent
+                        ? "border-green-500/50 bg-green-500/5 cursor-default"
+                        : "border-border bg-card hover:border-primary")
+                    }
+                  >
+                    <div className={"w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 " +
+                      (paymentSent ? "bg-green-500/20" : "bg-primary/10")
+                    }>
+                      {paymentSent ? (
+                        <Check className="w-5 h-5 text-green-400" />
+                      ) : (
+                        <span className="text-lg">💳</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-foreground">
+                        {paymentSent ? "Payment Link Sent ✓" : "Send Payment Link"}
+                      </p>
+                      <p className="text-xs text-[#CCCCCC] mt-0.5">
+                        {paymentSent
+                          ? "Sent via " + (paymentMethod === "email" ? "email to " + email : "SMS to " + phone)
+                          : "Email or SMS a secure payment link"}
+                      </p>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Done button — always visible */}
+                {(paymentSent || contractSent) && (
+                  <button
+                    onClick={resetAndClose}
+                    className="w-full mt-6 bg-primary text-primary-foreground font-bold py-3.5 rounded-lg transition-opacity hover:opacity-90"
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    {paymentSent && contractSent ? "All Done — Close" : "Done for Now — Close"}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* ─── STEP 4 — PAYMENT SUB-SCREEN ─── */}
+            {step === 4 && (
+              <div>
+                <button
+                  onClick={() => setStep(3)}
+                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
                 <h3
                   className="text-2xl font-extrabold text-foreground mb-6"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  How would you like to proceed?
+                  Send Payment Link
                 </h3>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={handleRequestInvoice}
                     disabled={sending}
-                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-5 text-center transition-all group"
+                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
                       ✉️
                     </p>
-                    <p className="text-xs font-bold text-foreground mt-2">Send Payment Link via Email</p>
-                    <p className="text-[10px] text-[#CCCCCC] mt-1">Email a secure payment link</p>
+                    <p className="text-sm font-bold text-foreground mt-2">Via Email</p>
+                    <p className="text-[10px] text-[#CCCCCC] mt-1">Send to {email}</p>
                   </button>
                   <button
                     onClick={handleSendSMS}
                     disabled={sending}
-                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-5 text-center transition-all group"
+                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
                       💬
                     </p>
-                    <p className="text-xs font-bold text-foreground mt-2">Send Payment Link via SMS</p>
-                    <p className="text-[10px] text-[#CCCCCC] mt-1">Text a secure payment link</p>
-                  </button>
-                  <button
-                    onClick={() => setStep(5)}
-                    disabled={sending}
-                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-5 text-center transition-all group"
-                  >
-                    <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
-                      <FileText className="w-5 h-5 mx-auto" />
-                    </p>
-                    <p className="text-xs font-bold text-foreground mt-2">Send Contract</p>
-                    <p className="text-[10px] text-[#CCCCCC] mt-1">Email the agreement to review and sign</p>
+                    <p className="text-sm font-bold text-foreground mt-2">Via SMS</p>
+                    <p className="text-[10px] text-[#CCCCCC] mt-1">Send to {phone}</p>
                   </button>
                 </div>
 
@@ -409,6 +503,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
             {/* ─── STEP 5 — CONTRACT FORM ─── */}
             {step === 5 && (
               <div>
+                <button
+                  onClick={() => setStep(3)}
+                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
                 <h3
                   className="text-2xl font-extrabold text-foreground mb-6"
                   style={{ fontFamily: "var(--font-heading)" }}
@@ -500,43 +600,6 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   {sending ? "Sending..." : "Send Contract"}
-                </button>
-              </div>
-            )}
-
-            {/* ─── STEP 4 — CONFIRMATION ─── */}
-            {step === 4 && (
-              <div className="text-center py-6">
-                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Check className="w-8 h-8 text-primary" />
-                </div>
-                <h3
-                  className="text-2xl font-extrabold text-foreground mb-3"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  {sentVia === "contract" ? "Contract Sent." : "You're All Set."}
-                </h3>
-                <p className="text-[#CCCCCC] text-sm leading-relaxed max-w-sm mx-auto mb-6">
-                  {sentVia === "contract" ? (
-                    <>Contract sent to <span className="text-foreground font-medium">{email}</span>. They will receive it shortly to review and sign.</>
-                  ) : (
-                    <>Your payment link has been sent to{" "}
-                    <span className="text-foreground font-medium">{sentVia === "email" ? email : phone}</span>.
-                    Complete your payment to lock in your spot.</>
-                  )}
-                </p>
-                <p className="text-xs text-[#999] mb-8">
-                  Questions?{" "}
-                  <a href="mailto:petersemrany1@gmail.com" className="text-primary underline">
-                    petersemrany1@gmail.com
-                  </a>
-                </p>
-                <button
-                  onClick={resetAndClose}
-                  className="bg-primary text-primary-foreground font-bold px-8 py-3 rounded-lg hover:opacity-90 transition-opacity"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  Close
                 </button>
               </div>
             )}
