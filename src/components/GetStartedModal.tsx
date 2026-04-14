@@ -34,6 +34,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [customAmount, setCustomAmount] = useState("");
 
   const [sending, setSending] = useState(false);
+  const [sentVia, setSentVia] = useState<"email" | "sms" | null>(null);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -62,7 +63,8 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         },
       });
       if (result.success) {
-        setInvoiceStatus({ type: "success", message: `Invoice sent to ${email}. Check your inbox.` });
+        setSentVia("email");
+        setStep(4);
       } else {
         setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
       }
@@ -74,24 +76,28 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
 
-  const handlePayByCard = async () => {
+  const handleSendSMS = async () => {
     if (selectedPack === "custom") {
+      setSentVia("sms");
       setStep(4);
       return;
     }
     if (chosenPack?.stripeLink) {
+      setSending(true);
       setSmsStatus(null);
       try {
         const firstName = fullName.trim().split(" ")[0];
         const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: chosenPack.stripeLink } });
         if (result.success) {
-          setSmsStatus({ type: "success", message: `Payment link sent to ${phone}.` });
+          setSentVia("sms");
+          setStep(4);
         } else {
           setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
         }
       } catch {
         setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
       }
+      setSending(false);
     }
   };
 
@@ -105,6 +111,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setCustomAmount("");
     setSmsStatus(null);
     setInvoiceStatus(null);
+    setSentVia(null);
     onClose();
   };
 
@@ -305,7 +312,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                     <p className="text-xs text-[#CCCCCC] mt-1">We'll email you a secure payment link instantly</p>
                   </button>
                   <button
-                    onClick={handlePayByCard}
+                    onClick={handleSendSMS}
                     className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
@@ -349,12 +356,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                   className="text-2xl font-extrabold text-foreground mb-3"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  You're On The List.
+                  You're All Set.
                 </h3>
                 <p className="text-[#CCCCCC] text-sm leading-relaxed max-w-sm mx-auto mb-6">
-                  We'll send your contract to{" "}
-                  <span className="text-foreground font-medium">{email}</span> within 24 hours.
-                  Once signed, your invoice will follow. We'll be in touch shortly.
+                  Your payment link has been sent to{" "}
+                  <span className="text-foreground font-medium">{sentVia === "email" ? email : phone}</span>.
+                  Complete your payment to lock in your spot.
                 </p>
                 <p className="text-xs text-[#999] mb-8">
                   Questions?{" "}
