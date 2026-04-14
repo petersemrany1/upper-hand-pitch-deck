@@ -29,13 +29,14 @@ interface Props {
 
 export default function ROICalculator({ caseValue, convertRate, onCaseValueChange, onConvertRateChange }: Props) {
   const shows = 20;
-  const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
+  const fmt = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
 
   const columns = useMemo(() => {
     return (["1 in 4", "1 in 3", "1 in 2"] as const).map((label) => {
-      const r = ALL_CONVERT_RATES[label];
-      const revenue = shows * r * caseValue;
-      return { label, rate: r, revenue };
+      const denom = parseInt(label.split("in ")[1]) || 4;
+      const procedures = shows / denom;
+      const revenue = procedures * caseValue;
+      return { label, revenue };
     });
   }, [caseValue]);
 
