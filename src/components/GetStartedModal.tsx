@@ -2,6 +2,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check } from "lucide-react";
 import emailjs from "@emailjs/browser";
+import { useServerFn } from "@tanstack/react-start";
+import { sendPaymentLinkSMS } from "../utils/twilio.functions";
 
 interface GetStartedModalProps {
   open: boolean;
@@ -31,6 +33,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [customAmount, setCustomAmount] = useState("");
 
   const [sending, setSending] = useState(false);
+  const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const step1Valid = fullName.trim() && clinicName.trim() && email.trim() && phone.trim();
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
@@ -67,14 +70,28 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setStep(4);
   };
 
-  const handlePayByCard = () => {
+  const sendSMSFn = useServerFn(sendPaymentLinkSMS);
+
+  const handlePayByCard = async () => {
     if (selectedPack === "custom") {
-      // Can't pay custom via Stripe link
-      setStep(4); // show contact message variant handled inline
+      setStep(4);
       return;
     }
     if (chosenPack?.stripeLink) {
       window.open(chosenPack.stripeLink, "_blank");
+      // Send SMS with payment link
+      setSmsStatus(null);
+      try {
+        const firstName = fullName.trim().split(" ")[0];
+        const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: chosenPack.stripeLink } });
+        if (result.success) {
+          setSmsStatus({ type: "success", message: `Payment link sent to ${phone}.` });
+        } else {
+          setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
+        }
+      } catch {
+        setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
+      }
     }
   };
 
@@ -86,6 +103,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setPhone("");
     setSelectedPack(null);
     setCustomAmount("");
+    setSmsStatus(null);
     onClose();
   };
 
@@ -296,6 +314,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                     <p className="text-xs text-[#CCCCCC] mt-1">We'll send it within 24hrs</p>
                   </button>
                 </div>
+
+                {smsStatus && (
+                  <p className={`text-sm mt-4 text-center font-medium ${smsStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                    {smsStatus.message}
+                  </p>
+                )}
 
                 {selectedPack === "custom" && (
                   <p className="text-xs text-[#999] mt-4 text-center">
