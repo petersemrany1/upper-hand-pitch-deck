@@ -79,7 +79,7 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
             <input
               type="text"
               inputMode="numeric"
-              value={caseValue}
+              value={formattedCaseValue}
               onChange={(e) => handleCaseValueChange(e.target.value)}
               className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
             />
