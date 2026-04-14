@@ -257,10 +257,11 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS (2x2 grid centered) ──────── */
-    <div key="process" className="deck-slide flex flex-col min-h-screen w-full px-16 py-12 bg-black">
-      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col justify-center flex-1 text-center">
+    <div key="process" className="deck-slide flex min-h-screen w-full bg-black">
+      {/* Left content — 70% */}
+      <div className="w-[70%] flex flex-col justify-center px-16 py-12">
         <SlideHeader />
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center">
           <motion.div variants={fadeIn} className="mb-12">
             <h2
               className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
@@ -299,6 +300,15 @@ function PitchDeck() {
             You only pay when a qualified patient is sitting in your chair.
           </p>
         </motion.div>
+      </div>
+      {/* Right photo panel — 30% */}
+      <div className="w-[30%] relative">
+        <img
+          src="https://images.unsplash.com/photo-1556157382-97eda2d62296?w=800&q=80"
+          alt="Professional on a phone call"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/50" />
       </div>
     </div>,
 
