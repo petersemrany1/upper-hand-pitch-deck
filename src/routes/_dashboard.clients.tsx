@@ -3,7 +3,20 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Phone, Plus, Play, Download, Loader2, Trash2 } from "lucide-react";
+import {
+  Phone,
+  PhoneCall,
+  PhoneOff,
+  Play,
+  Pause,
+  Download,
+  Loader2,
+  Trash2,
+  UserPlus,
+  Delete,
+  Clock,
+  Users,
+} from "lucide-react";
 import { initiateCall, fetchCallRecordings } from "@/utils/twilio-voice.functions";
 
 export const Route = createFileRoute("/_dashboard/clients")({
@@ -29,16 +42,28 @@ type CallRecord = {
   called_at: string;
 };
 
+const DIAL_PAD = [
+  ["1", "2", "3"],
+  ["4", "5", "6"],
+  ["7", "8", "9"],
+  ["*", "0", "#"],
+];
+
 function ClientsPage() {
+  const [activeTab, setActiveTab] = useState<"dialer" | "contacts" | "history">("dialer");
+  const [dialNumber, setDialNumber] = useState("");
+  const [yourPhone, setYourPhone] = useState("");
+  const [calling, setCalling] = useState(false);
+  const [lastCallSid, setLastCallSid] = useState<string | null>(null);
+  const [showSaveContact, setShowSaveContact] = useState(false);
+  const [saveContactName, setSaveContactName] = useState("");
+  const [saveContactEmail, setSaveContactEmail] = useState("");
+
   const [clients, setClients] = useState<Client[]>([]);
-  const [callRecords, setCallRecords] = useState<Record<string, CallRecord[]>>({});
+  const [allRecords, setAllRecords] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newClient, setNewClient] = useState({ name: "", phone: "", email: "" });
-  const [callingClientId, setCallingClientId] = useState<string | null>(null);
-  const [userPhone, setUserPhone] = useState("");
-  const [showCallPrompt, setShowCallPrompt] = useState<string | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
 
   const loadClients = useCallback(async () => {
     const { data } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
@@ -46,70 +71,104 @@ function ClientsPage() {
     setLoading(false);
   }, []);
 
-  const loadCallRecords = useCallback(async (clientId: string) => {
+  const loadAllRecords = useCallback(async () => {
     const { data } = await supabase
       .from("call_records")
       .select("*")
-      .eq("client_id", clientId)
-      .order("called_at", { ascending: false });
-    if (data) {
-      setCallRecords((prev) => ({ ...prev, [clientId]: data }));
-    }
+      .order("called_at", { ascending: false })
+      .limit(50);
+    if (data) setAllRecords(data);
   }, []);
 
   useEffect(() => {
     loadClients();
-  }, [loadClients]);
+    loadAllRecords();
+  }, [loadClients, loadAllRecords]);
 
-  useEffect(() => {
-    clients.forEach((c) => loadCallRecords(c.id));
-  }, [clients, loadCallRecords]);
-
-  const handleAddClient = async () => {
-    if (!newClient.name || !newClient.phone) return;
-    await supabase.from("clients").insert({
-      name: newClient.name,
-      phone: newClient.phone,
-      email: newClient.email || null,
-    });
-    setNewClient({ name: "", phone: "", email: "" });
-    setShowAddForm(false);
-    loadClients();
+  const handleDialPress = (digit: string) => {
+    setDialNumber((prev) => prev + digit);
   };
 
-  const handleDeleteClient = async (id: string) => {
-    await supabase.from("clients").delete().eq("id", id);
-    loadClients();
+  const handleBackspace = () => {
+    setDialNumber((prev) => prev.slice(0, -1));
   };
 
-  const handleCall = async (client: Client) => {
-    if (!userPhone) return;
-    setCallingClientId(client.id);
-    setShowCallPrompt(null);
+  const handleInitiateCall = async () => {
+    if (!dialNumber || !yourPhone) return;
+    setCalling(true);
 
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
 
     try {
       const result = await initiateCall({
-        data: { clientPhone: client.phone, userPhone, callbackUrl: baseUrl },
+        data: { clientPhone: dialNumber, userPhone: yourPhone, callbackUrl: baseUrl },
       });
 
       if (result.success && result.callSid) {
-        await supabase.from("call_records").insert({
-          client_id: client.id,
-          twilio_call_sid: result.callSid,
-          status: "initiated",
-        });
-        loadCallRecords(client.id);
+        setLastCallSid(result.callSid);
+
+        // Check if number matches a saved contact
+        const matchingClient = clients.find((c) => c.phone === dialNumber);
+        if (matchingClient) {
+          await supabase.from("call_records").insert({
+            client_id: matchingClient.id,
+            twilio_call_sid: result.callSid,
+            status: "initiated",
+          });
+        } else {
+          // Create a temporary client or just show save option
+          setShowSaveContact(true);
+        }
+        loadAllRecords();
       }
     } catch (err) {
       console.error("Call failed:", err);
     } finally {
-      setCallingClientId(null);
+      setCalling(false);
     }
   };
 
-  const handleCheckRecordings = async (record: CallRecord) => {
+  const handleSaveContact = async () => {
+    if (!saveContactName || !dialNumber) return;
+
+    const { data } = await supabase
+      .from("clients")
+      .insert({
+        name: saveContactName,
+        phone: dialNumber,
+        email: saveContactEmail || null,
+      })
+      .select()
+      .single();
+
+    if (data && lastCallSid) {
+      await supabase.from("call_records").insert({
+        client_id: data.id,
+        twilio_call_sid: lastCallSid,
+        status: "initiated",
+      });
+    }
+
+    setSaveContactName("");
+    setSaveContactEmail("");
+    setShowSaveContact(false);
+    setLastCallSid(null);
+    loadClients();
+    loadAllRecords();
+  };
+
+  const handleCallContact = (client: Client) => {
+    setDialNumber(client.phone);
+    setActiveTab("dialer");
+  };
+
+  const handleDeleteClient = async (id: string) => {
+    await supabase.from("clients").delete().eq("id", id);
+    loadClients();
+    loadAllRecords();
+  };
+
+  const handleCheckRecording = async (record: CallRecord) => {
     if (!record.twilio_call_sid || record.recording_url) return;
     const result = await fetchCallRecordings({ data: { callSid: record.twilio_call_sid } });
     if (result.success && result.recordings.length > 0) {
@@ -118,7 +177,16 @@ function ClientsPage() {
         .from("call_records")
         .update({ recording_url: rec.url, recording_sid: rec.sid, duration: rec.duration })
         .eq("id", record.id);
-      loadCallRecords(record.client_id);
+      loadAllRecords();
+    }
+  };
+
+  const togglePlayback = (url: string) => {
+    if (playingUrl === url) {
+      audioRef?.pause();
+      setPlayingUrl(null);
+    } else {
+      setPlayingUrl(url);
     }
   };
 
@@ -133,10 +201,19 @@ function ClientsPage() {
     return new Date(dateStr).toLocaleDateString("en-AU", {
       day: "numeric",
       month: "short",
-      year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getClientName = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    return client?.name || "Unknown";
+  };
+
+  const getClientPhone = (clientId: string) => {
+    const client = clients.find((c) => c.id === clientId);
+    return client?.phone || "";
   };
 
   if (loading) {
@@ -148,175 +225,280 @@ function ClientsPage() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-black" style={{ fontFamily: "var(--font-display)" }}>
-          CLIENTS
-        </h1>
-        <Button onClick={() => setShowAddForm(!showAddForm)} size="sm">
-          <Plus className="w-4 h-4 mr-1" /> Add Client
-        </Button>
+    <div className="p-8 max-w-5xl mx-auto">
+      <h1 className="text-3xl font-black mb-6" style={{ fontFamily: "var(--font-display)" }}>
+        PHONE
+      </h1>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-1 mb-6 bg-card border border-border rounded-lg p-1">
+        {[
+          { id: "dialer" as const, label: "Dialer", icon: Phone },
+          { id: "contacts" as const, label: "Contacts", icon: Users },
+          { id: "history" as const, label: "History", icon: Clock },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === tab.id
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {showAddForm && (
-        <div className="bg-card border border-border rounded-lg p-4 mb-6 space-y-3">
-          <Input
-            placeholder="Client name"
-            value={newClient.name}
-            onChange={(e) => setNewClient((p) => ({ ...p, name: e.target.value }))}
-          />
-          <Input
-            placeholder="Phone (e.g. +61412345678)"
-            value={newClient.phone}
-            onChange={(e) => setNewClient((p) => ({ ...p, phone: e.target.value }))}
-          />
-          <Input
-            placeholder="Email (optional)"
-            value={newClient.email}
-            onChange={(e) => setNewClient((p) => ({ ...p, email: e.target.value }))}
-          />
-          <div className="flex gap-2">
-            <Button onClick={handleAddClient} size="sm">Save</Button>
-            <Button onClick={() => setShowAddForm(false)} size="sm" variant="ghost">Cancel</Button>
+      {/* DIALER TAB */}
+      {activeTab === "dialer" && (
+        <div className="flex flex-col items-center">
+          <div className="w-full max-w-xs">
+            {/* Number Display */}
+            <div className="bg-card border border-border rounded-xl p-6 mb-4 text-center">
+              <p className="text-3xl font-mono font-bold text-foreground tracking-wider min-h-[2.5rem]">
+                {dialNumber || (
+                  <span className="text-muted-foreground/40">Enter number</span>
+                )}
+              </p>
+            </div>
+
+            {/* Dial Pad */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              {DIAL_PAD.flat().map((digit) => (
+                <button
+                  key={digit}
+                  onClick={() => handleDialPress(digit)}
+                  className="h-16 rounded-xl bg-card border border-border text-2xl font-semibold text-foreground hover:bg-accent/20 active:scale-95 transition-all"
+                >
+                  {digit}
+                </button>
+              ))}
+            </div>
+
+            {/* Your Phone Input */}
+            <div className="mb-4">
+              <Input
+                placeholder="Your phone number (to receive the call)"
+                value={yourPhone}
+                onChange={(e) => setYourPhone(e.target.value)}
+                className="text-center text-sm"
+              />
+            </div>
+
+            {/* Call / Backspace Buttons */}
+            <div className="flex items-center gap-3">
+              <div className="flex-1" />
+              <button
+                onClick={handleInitiateCall}
+                disabled={!dialNumber || !yourPhone || calling}
+                className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:hover:bg-green-600 flex items-center justify-center transition-colors"
+              >
+                {calling ? (
+                  <Loader2 className="w-7 h-7 text-white animate-spin" />
+                ) : (
+                  <PhoneCall className="w-7 h-7 text-white" />
+                )}
+              </button>
+              <div className="flex-1 flex justify-start">
+                {dialNumber && (
+                  <button
+                    onClick={handleBackspace}
+                    className="w-12 h-12 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Delete className="w-6 h-6" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Save Contact Prompt */}
+            {showSaveContact && (
+              <div className="mt-6 bg-card border border-border rounded-xl p-4 space-y-3">
+                <p className="text-sm font-medium text-foreground">Save this number?</p>
+                <p className="text-xs text-muted-foreground">{dialNumber}</p>
+                <Input
+                  placeholder="Contact name"
+                  value={saveContactName}
+                  onChange={(e) => setSaveContactName(e.target.value)}
+                />
+                <Input
+                  placeholder="Email (optional)"
+                  value={saveContactEmail}
+                  onChange={(e) => setSaveContactEmail(e.target.value)}
+                />
+                <div className="flex gap-2">
+                  <Button onClick={handleSaveContact} size="sm" className="flex-1">
+                    <UserPlus className="w-4 h-4 mr-1" /> Save Contact
+                  </Button>
+                  <Button
+                    onClick={() => setShowSaveContact(false)}
+                    size="sm"
+                    variant="ghost"
+                  >
+                    Skip
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {clients.length === 0 ? (
-        <p className="text-muted-foreground">No clients yet. Add your first client above.</p>
-      ) : (
-        <div className="space-y-4">
-          {clients.map((client) => {
-            const records = callRecords[client.id] || [];
-            return (
-              <div key={client.id} className="bg-card border border-border rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="font-bold text-foreground">{client.name}</h3>
-                    <p className="text-sm text-muted-foreground">{client.phone}</p>
-                    {client.email && (
-                      <p className="text-xs text-muted-foreground">{client.email}</p>
-                    )}
+      {/* CONTACTS TAB */}
+      {activeTab === "contacts" && (
+        <div className="space-y-2">
+          {clients.length === 0 ? (
+            <p className="text-muted-foreground text-center py-12">
+              No saved contacts yet. Make a call and save the contact after.
+            </p>
+          ) : (
+            clients.map((client) => (
+              <div
+                key={client.id}
+                className="bg-card border border-border rounded-lg px-4 py-3 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <span className="text-sm font-bold text-primary">
+                      {client.name.charAt(0).toUpperCase()}
+                    </span>
                   </div>
-                  <div className="flex gap-2">
-                    {showCallPrompt === client.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          placeholder="Your phone number"
-                          value={userPhone}
-                          onChange={(e) => setUserPhone(e.target.value)}
-                          className="w-48 h-8 text-sm"
-                        />
+                  <div>
+                    <p className="font-medium text-foreground">{client.name}</p>
+                    <p className="text-xs text-muted-foreground">{client.phone}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 w-9 p-0 text-green-500 hover:text-green-400"
+                    onClick={() => handleCallContact(client)}
+                  >
+                    <Phone className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-9 w-9 p-0 text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteClient(client.id)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* HISTORY TAB */}
+      {activeTab === "history" && (
+        <div className="space-y-2">
+          {allRecords.length === 0 ? (
+            <p className="text-muted-foreground text-center py-12">No call history yet.</p>
+          ) : (
+            allRecords.map((record) => (
+              <div
+                key={record.id}
+                className="bg-card border border-border rounded-lg px-4 py-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                        record.status === "completed"
+                          ? "bg-green-500/20"
+                          : "bg-yellow-500/20"
+                      }`}
+                    >
+                      {record.status === "completed" ? (
+                        <PhoneOff className="w-4 h-4 text-green-400" />
+                      ) : (
+                        <PhoneCall className="w-4 h-4 text-yellow-400" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground text-sm">
+                        {getClientName(record.client_id)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {getClientPhone(record.client_id)} · {formatDate(record.called_at)} ·{" "}
+                        {formatDuration(record.duration)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {record.recording_url ? (
+                      <>
                         <Button
                           size="sm"
-                          onClick={() => handleCall(client)}
-                          disabled={!userPhone || callingClientId === client.id}
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={() => togglePlayback(record.recording_url!)}
                         >
-                          {callingClientId === client.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
+                          {playingUrl === record.recording_url ? (
+                            <Pause className="w-4 h-4" />
                           ) : (
-                            "Connect"
+                            <Play className="w-4 h-4" />
                           )}
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => setShowCallPrompt(null)}>
-                          ✕
-                        </Button>
-                      </div>
-                    ) : (
+                        <a
+                          href={record.recording_url}
+                          download
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </a>
+                      </>
+                    ) : record.twilio_call_sid ? (
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => setShowCallPrompt(client.id)}
-                        disabled={callingClientId === client.id}
+                        variant="ghost"
+                        className="text-xs"
+                        onClick={() => handleCheckRecording(record)}
                       >
-                        <Phone className="w-4 h-4 mr-1" /> Call
+                        Check Recording
                       </Button>
-                    )}
+                    ) : null}
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleDeleteClient(client.id)}
-                      className="text-destructive hover:text-destructive"
+                      className="h-8 w-8 p-0 text-green-500"
+                      onClick={() => {
+                        const phone = getClientPhone(record.client_id);
+                        if (phone) {
+                          setDialNumber(phone);
+                          setActiveTab("dialer");
+                        }
+                      }}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Phone className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
 
-                {records.length > 0 && (
-                  <div className="mt-3 border-t border-border pt-3">
-                    <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-2">
-                      Call History
-                    </h4>
-                    <div className="space-y-2">
-                      {records.map((record) => (
-                        <div
-                          key={record.id}
-                          className="flex items-center justify-between text-sm bg-background/50 rounded px-3 py-2"
-                        >
-                          <div className="flex items-center gap-3">
-                            <span className="text-muted-foreground">{formatDate(record.called_at)}</span>
-                            <span className="text-foreground">{formatDuration(record.duration)}</span>
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${
-                                record.status === "completed"
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-yellow-500/20 text-yellow-400"
-                              }`}
-                            >
-                              {record.status || "initiated"}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            {record.recording_url ? (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  className="h-7 w-7 p-0"
-                                  onClick={() =>
-                                    setPlayingUrl(
-                                      playingUrl === record.recording_url ? null : record.recording_url
-                                    )
-                                  }
-                                >
-                                  <Play className="w-3 h-3" />
-                                </Button>
-                                <a
-                                  href={record.recording_url}
-                                  download
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                                    <Download className="w-3 h-3" />
-                                  </Button>
-                                </a>
-                              </>
-                            ) : (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-xs"
-                                onClick={() => handleCheckRecordings(record)}
-                              >
-                                Check Recording
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {playingUrl && (
-                      <div className="mt-2">
-                        <audio controls autoPlay src={playingUrl} className="w-full h-8" />
-                      </div>
-                    )}
+                {playingUrl === record.recording_url && record.recording_url && (
+                  <div className="mt-2">
+                    <audio
+                      controls
+                      autoPlay
+                      src={record.recording_url}
+                      ref={(el) => setAudioRef(el)}
+                      onEnded={() => setPlayingUrl(null)}
+                      className="w-full h-8"
+                    />
                   </div>
                 )}
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       )}
     </div>
