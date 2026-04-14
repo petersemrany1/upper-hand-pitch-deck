@@ -7,6 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize } from "lucide-react";
 import processPhoneCall from "../assets/process-phone-call.jpg";
 import patientProfile from "../assets/patient-profile.jpg";
+import guaranteeHandshake from "../assets/guarantee-handshake.jpg";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
