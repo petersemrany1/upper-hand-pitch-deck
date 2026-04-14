@@ -131,6 +131,9 @@ function ClientsPage() {
         setDialNumber((prev) => prev.slice(0, -1));
       } else if (e.key === "+" && dialNumber === "") {
         setDialNumber("+");
+      } else if (e.key === "Enter" && dialNumber && selectedPhone && !calling) {
+        e.preventDefault();
+        handleInitiateCall();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
