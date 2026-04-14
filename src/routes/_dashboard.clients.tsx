@@ -17,8 +17,6 @@ import {
   Clock,
   Users,
 } from "lucide-react";
-} from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/clients")({
   component: ClientsPage,
