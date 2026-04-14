@@ -384,7 +384,7 @@ function PitchDeck() {
       </div>
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
         {packs.map((pack) => {
-          const procedures = pack.shows * rate;
+          const procedures = pack.shows * 0.333;
           const revenue = procedures * caseValue;
           const cost = pack.shows * COST_PER_SHOW;
           return (
