@@ -229,18 +229,18 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
-    <div key="opportunity" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
+    <div key="opportunity" className="deck-slide flex flex-col min-h-screen w-full px-16 py-12 bg-black">
       <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="w-full max-w-5xl text-center">
-        <motion.div variants={fadeIn} className="mb-12">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="flex-1 flex flex-col justify-center w-full max-w-5xl mx-auto text-center">
+        <motion.div variants={fadeIn}>
           <h2
-            className="text-3xl md:text-4xl font-extrabold text-foreground leading-[1.15] tracking-tight"
+            className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
             style={{ fontFamily: "var(--font-heading)" }}
           >
             The Leaks In Your Pipeline.
           </h2>
         </motion.div>
-        <motion.div variants={fadeIn} className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <motion.div variants={fadeIn} className="grid grid-cols-2 gap-6 max-w-4xl mx-auto mt-16">
           {[
             { emoji: "💸", title: "Empty chairs cost $15,000 a day" },
             { emoji: "⏱️", title: "Leads go to turkey if you don't call them in 5 minutes" },
