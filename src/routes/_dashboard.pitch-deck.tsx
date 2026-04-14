@@ -96,6 +96,7 @@ function PitchDeck() {
   const [caseValue, setCaseValue] = useState(12000);
   const [convertRate, setConvertRate] = useState("1 in 4");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showGetStarted, setShowGetStarted] = useState(false);
 
   const handleEnter = (cv: number, cr: string) => {
     setCaseValue(cv);
