@@ -54,6 +54,10 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
     setCaseValue(val.replace(/[^0-9]/g, ""));
   };
 
+  const formattedCaseValue = caseValue
+    ? Number(caseValue).toLocaleString("en-US")
+    : "";
+
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
       <div className="max-w-md w-full">
@@ -75,7 +79,7 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
             <input
               type="text"
               inputMode="numeric"
-              value={caseValue}
+              value={formattedCaseValue}
               onChange={(e) => handleCaseValueChange(e.target.value)}
               className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
             />
