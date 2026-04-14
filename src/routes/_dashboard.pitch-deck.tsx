@@ -10,6 +10,7 @@ import patientProfile from "../assets/patient-profile.jpg";
 import guaranteeHandshake from "../assets/guarantee-handshake.jpg";
 import postConsultCoordinator from "../assets/post-consult-coordinator.jpg";
 import faqFounder from "../assets/faq-founder.jpg";
+import clinicReception from "../assets/clinic-reception.jpg";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -528,8 +529,10 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 10 — CLOSE ──────── */
-    <div key="close" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
-      <div>
+    <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
+      <img src={clinicReception} alt="Modern clinic reception" className="absolute inset-0 w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-black/70" />
+      <div className="relative z-10">
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.div variants={fadeIn}>
