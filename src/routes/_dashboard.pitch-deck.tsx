@@ -453,36 +453,48 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 8 — THE GUARANTEE ──────── */
-    <div key="guarantee" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
-      <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl text-center">
-        <motion.div variants={fadeIn}>
-          <ChapterLabel>THE GUARANTEE</ChapterLabel>
+    <div key="guarantee" className="deck-slide flex min-h-screen w-full">
+      {/* Left photo panel — 30% */}
+      <div className="w-[30%] relative">
+        <img
+          src={guaranteeHandshake}
+          alt="Professional handshake"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/50" />
+      </div>
+      {/* Right content — 70% */}
+      <div className="w-[70%] flex items-center justify-center px-16 py-12 bg-black">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl text-center">
+          <SlideHeader />
+          <motion.div variants={fadeIn}>
+            <ChapterLabel>THE GUARANTEE</ChapterLabel>
+          </motion.div>
+          <motion.div variants={fadeIn} className="mb-16">
+            <h2
+              className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              If We Don't Deliver,
+              <br />
+              You Don't Lose.
+            </h2>
+          </motion.div>
+          <motion.div variants={fadeIn} className="space-y-10 text-left max-w-2xl mx-auto">
+            {[
+              "No show = no charge. Ever.",
+              "Don't get 2 procedures from your first 10 shows? We give you 5 more free.",
+              "No lock in. Cancel any time.",
+              "No risk — land just 1 deal and your entire investment is covered.",
+            ].map((item) => (
+              <div key={item} className="flex items-start gap-5">
+                <span className="text-primary font-bold flex-shrink-0 text-3xl">✓</span>
+                <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item}</p>
+              </div>
+            ))}
+          </motion.div>
         </motion.div>
-        <motion.div variants={fadeIn} className="mb-16">
-          <h2
-            className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            If We Don't Deliver,
-            <br />
-            You Don't Lose.
-          </h2>
-        </motion.div>
-        <motion.div variants={fadeIn} className="space-y-10 text-left max-w-2xl mx-auto">
-          {[
-            "No show = no charge. Ever.",
-            "Don't get 2 procedures from your first 10 shows? We give you 5 more free.",
-            "No lock in. Cancel any time.",
-            "No risk — land just 1 deal and your entire investment is covered.",
-          ].map((item) => (
-            <div key={item} className="flex items-start gap-5">
-              <span className="text-primary font-bold flex-shrink-0 text-3xl">✓</span>
-              <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item}</p>
-            </div>
-          ))}
-        </motion.div>
-      </motion.div>
+      </div>
     </div>,
 
     /* ──────── SLIDE 9 — FAQ (black bg, large text) ──────── */
