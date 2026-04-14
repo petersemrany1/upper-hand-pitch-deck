@@ -303,13 +303,13 @@ export async function generateContractFromTemplate(data: ContractData): Promise<
   w.drawParagraph("This Agreement is entered into on: " + data.date);
   w.space(6);
 
-  w.drawCentered("BETWEEN", w["bold"], 11);
+  w.drawCentered("BETWEEN", w.bold, 11);
   w.space(4);
-  w.drawParagraph("Upper Hand Digital (ABN 98 910 419 248) of 5 George Street, North Strathfield, NSW (\"Agency\")", 10, 0, w["bold"]);
+  w.drawParagraph("Upper Hand Digital (ABN 98 910 419 248) of 5 George Street, North Strathfield, NSW (\"Agency\")", 10, 0, w.bold);
   w.space(4);
-  w.drawCentered("AND", w["bold"], 11);
+  w.drawCentered("AND", w.bold, 11);
   w.space(4);
-  w.drawParagraph(data.clinicName + " (" + data.clientName + ", " + data.clientEmail + ", " + data.clientPhone + ") (\"Client\")", 10, 0, w["bold"]);
+  w.drawParagraph(data.clinicName + " (" + data.clientName + ", " + data.clientEmail + ", " + data.clientPhone + ") (\"Client\")", 10, 0, w.bold);
   w.space(10);
 
   // RECITALS
@@ -463,7 +463,7 @@ export async function generateContractFromTemplate(data: ContractData): Promise<
   w.drawScheduleRow("Total Amount Payable (inc. GST):", fmtDollar(data.totalIncGst));
 
   w.space(15);
-  w.drawParagraph("Note: Services commence only upon receipt of full payment of the Total Amount Payable.", 9, 0, w["italic"]);
+  w.drawParagraph("Note: Services commence only upon receipt of full payment of the Total Amount Payable.", 9, 0, w.italic);
 
   // ═══════ SIGNATURE PAGE ═══════
   w.forceNewPage();
@@ -472,7 +472,7 @@ export async function generateContractFromTemplate(data: ContractData): Promise<
   w.space(20);
 
   // Agency block
-  w.drawParagraph("Signed for and on behalf of Upper Hand Digital", 10, 0, w["bold"]);
+  w.drawParagraph("Signed for and on behalf of Upper Hand Digital", 10, 0, w.bold);
   w.drawParagraph("by its authorised representative:");
   w.space(10);
   w.drawBoldLine("Upper Hand Digital");
@@ -484,7 +484,7 @@ export async function generateContractFromTemplate(data: ContractData): Promise<
   w.space(30);
 
   // Client block
-  w.drawParagraph("Signed for and on behalf of the Client", 10, 0, w["bold"]);
+  w.drawParagraph("Signed for and on behalf of the Client", 10, 0, w.bold);
   w.drawParagraph("by its authorised representative:");
   w.space(10);
   w.drawBoldLine(data.clinicName);
