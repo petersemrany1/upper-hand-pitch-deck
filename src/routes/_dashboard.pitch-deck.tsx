@@ -301,19 +301,18 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU (2x2 cards centered) ──────── */
-    <div key="patients" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
-      <FullBg src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&q=80" alt="Confident man" />
-      <div className="relative z-10 w-full max-w-5xl text-center">
+    <div key="patients" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
+      <div className="w-full max-w-5xl text-center">
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.div variants={fadeIn} className="mb-4">
             <H>Who We'll Be Sending You.</H>
           </motion.div>
-          <motion.p variants={fadeIn} className="text-lg md:text-xl lg:text-2xl font-bold text-[#CCCCCC] mb-12 max-w-3xl mx-auto leading-snug">
+          <motion.p variants={fadeIn} className="text-xl md:text-2xl lg:text-3xl font-bold text-[#CCCCCC] mb-12 max-w-3xl mx-auto leading-snug">
             Patients who know it costs $10,000–$20,000 and want the surgery. Not a consultation about maybe.
           </motion.p>
         </motion.div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-4xl w-full mx-auto">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-5xl w-full mx-auto">
           {[
             { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
             { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
@@ -322,19 +321,19 @@ function PitchDeck() {
           ].map((card) => (
             <div
               key={card.title}
-              className={`rounded-xl p-8 backdrop-blur-sm ${
+              className={`rounded-xl p-10 ${
                 card.highlight
                   ? "bg-primary/15 border border-primary"
                   : "bg-card/80 border border-border"
               }`}
             >
-              <p className="text-3xl mb-3">{card.emoji}</p>
-              <p className="text-xl font-extrabold text-foreground mb-2">{card.title}</p>
-              <p className="text-[#CCCCCC] text-sm leading-relaxed">{card.desc}</p>
+              <p className="text-5xl mb-4">{card.emoji}</p>
+              <p className="text-2xl font-extrabold text-foreground mb-3">{card.title}</p>
+              <p className="text-[#CCCCCC] text-base leading-relaxed">{card.desc}</p>
             </div>
           ))}
         </motion.div>
-        <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-xs text-[#999] mt-6 max-w-xl text-center mx-auto">
+        <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-sm text-[#999] mt-8 max-w-xl text-center mx-auto">
           Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
         </motion.p>
       </div>
