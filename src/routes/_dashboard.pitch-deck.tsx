@@ -201,7 +201,7 @@ function PitchDeck() {
 
   const slides = [
     /* ──────── SLIDE 1 — COVER ──────── */
-    <div key="cover" className="deck-slide flex flex-col items-center justify-center text-center px-6">
+    <div key="cover" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full gap-12 text-center px-6">
       <SlideHeader />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
         <motion.h1
@@ -222,7 +222,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
-    <div key="opportunity" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="opportunity" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <div className="w-full max-w-4xl">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
@@ -309,7 +309,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */
-    <div key="patients" className="deck-slide relative flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="patients" className="deck-slide relative flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80" alt="Confident man" />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
@@ -347,7 +347,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 5 — POST CONSULT ──────── */
-    <div key="post-consult" className="deck-slide relative flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="post-consult" className="deck-slide relative flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=800&q=80" alt="Professional conversation" />
       <div className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
@@ -374,7 +374,7 @@ function PitchDeck() {
     <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} />,
 
     /* ──────── SLIDE 7 — PACKAGES ──────── */
-    <div key="packages" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="packages" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <div className="max-w-4xl w-full">
         <ChapterLabel>PACKAGES</ChapterLabel>
@@ -410,7 +410,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 8 — THE GUARANTEE ──────── */
-    <div key="guarantee" className="deck-slide flex flex-col items-start justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="guarantee" className="deck-slide flex flex-col items-start justify-center min-h-screen w-full gap-12 px-8 md:px-16 lg:px-24 py-16">
       <SlideHeader />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
         <motion.div variants={fadeIn}>
@@ -438,7 +438,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 9 — FAQ ──────── */
-    <div key="faq" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
+    <div key="faq" className="deck-slide flex flex-col justify-between min-h-screen w-full px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <div className="max-w-3xl">
         <ChapterLabel>FAQ</ChapterLabel>
@@ -455,7 +455,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 10 — CLOSE ──────── */
-    <div key="close" className="deck-slide relative flex flex-col items-center justify-center text-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full gap-12 text-center px-8 md:px-16 lg:px-24 py-16">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=800&q=80" alt="Sydney aerial view" />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="relative z-10">
