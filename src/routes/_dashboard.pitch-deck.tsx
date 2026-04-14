@@ -222,14 +222,19 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
-    <div key="opportunity" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="opportunity" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-8">
       <SlideHeader />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="w-full max-w-4xl">
         <motion.div variants={fadeIn}>
           <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
         </motion.div>
-        <motion.div variants={fadeIn} className="mb-16">
-          <H>You're Spending Money On People Who Were Never Going To Buy.</H>
+        <motion.div variants={fadeIn} className="mb-8">
+          <h2
+            className="text-2xl md:text-3xl font-extrabold text-foreground leading-[1.15] tracking-tight"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            You're Spending Money On People Who Were Never Going To Buy.
+          </h2>
         </motion.div>
         <motion.div variants={fadeIn} className="w-full">
           {[
@@ -239,9 +244,9 @@ function PitchDeck() {
             { title: "Patients who don't book on the day never come back.", sub: "There's no system bringing them back. Until now." },
           ].map((item, i, arr) => (
             <div key={item.title}>
-              <div className="py-8">
-                <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item.title}</p>
-                <p className="text-[#CCCCCC] text-sm md:text-base mt-3">{item.sub}</p>
+              <div className="py-5">
+                <p className="text-lg md:text-xl lg:text-2xl font-extrabold text-foreground leading-snug">{item.title}</p>
+                <p className="text-[#CCCCCC] text-sm mt-2">{item.sub}</p>
               </div>
               {i < arr.length - 1 && <div className="border-t border-border" />}
             </div>
