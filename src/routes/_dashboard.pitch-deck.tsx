@@ -312,7 +312,7 @@ function PitchDeck() {
             </span>
           </p>
           <p className="text-[#CCCCCC] text-base mt-4">
-            You only pay when a qualified patient is sitting in your chair.
+            You only pay when a show up appointment is sitting in your chair.
           </p>
         </motion.div>
       </div>
@@ -444,8 +444,8 @@ function PitchDeck() {
                 </span>
               )}
               <h3 className="text-3xl font-extrabold text-foreground mb-2">{pack.name}</h3>
-              <p className="text-[#CCCCCC] text-base mb-1">{pack.shows} qualified patients</p>
-              <p className="text-[#CCCCCC] text-base mb-8">${COST_PER_SHOW.toLocaleString()} per patient</p>
+              <p className="text-[#CCCCCC] text-base mb-1">{pack.shows} show up appointments</p>
+              <p className="text-[#CCCCCC] text-base mb-8">${COST_PER_SHOW.toLocaleString()} per appointment</p>
               <div className="border-t border-border pt-8 space-y-6">
                 <div>
                   <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Est. Revenue</p>
