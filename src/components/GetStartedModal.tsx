@@ -142,6 +142,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
           to: email,
           clinicName,
           contactName: fullName,
+          phone,
           packageName: packLabel,
           shows: contractShows,
           perShowFee: perShowFeeNum,
