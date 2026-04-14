@@ -462,6 +462,17 @@ function ClientsPage() {
               </div>
             </div>
 
+            {/* Call Status Message */}
+            {callMessage && (
+              <div className={`mt-4 text-center text-sm font-medium px-4 py-3 rounded-lg ${
+                callMessage.includes("cancelled") || callMessage.includes("failed")
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-primary/10 text-primary"
+              }`}>
+                {callMessage}
+              </div>
+            )}
+
             {/* Save Contact Prompt */}
             {showSaveContact && (
               <div className="mt-6 bg-card border border-border rounded-xl p-4 space-y-3">

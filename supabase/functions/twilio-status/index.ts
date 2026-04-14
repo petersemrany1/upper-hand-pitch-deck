@@ -17,7 +17,6 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     if (recordingSid && recordingUrl) {
-      // Recording completed
       const mp3Url = `${recordingUrl}.mp3`;
       const { error } = await supabase
         .from("call_records")
@@ -29,13 +28,15 @@ serve(async (req) => {
         })
         .eq("twilio_call_sid", callSid);
       if (error) console.error("DB update error (recording):", error);
-    } else if (callStatus === "completed") {
+    } else if (callStatus) {
+      // Update status for all events: completed, no-answer, busy, failed, canceled
+      const updateData: Record<string, unknown> = { status: callStatus };
+      if (callDuration && parseInt(callDuration) > 0) {
+        updateData.duration = parseInt(callDuration);
+      }
       const { error } = await supabase
         .from("call_records")
-        .update({
-          status: callStatus,
-          duration: parseInt(callDuration) || null,
-        })
+        .update(updateData)
         .eq("twilio_call_sid", callSid);
       if (error) console.error("DB update error (status):", error);
     }
