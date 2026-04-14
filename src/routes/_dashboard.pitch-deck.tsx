@@ -222,77 +222,79 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
-    <div key="opportunity" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-8">
+    <div key="opportunity" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="w-full max-w-4xl">
-        <motion.div variants={fadeIn}>
-          <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
+      <div className="w-full max-w-4xl">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          <motion.div variants={fadeIn}>
+            <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
+          </motion.div>
+          <motion.div variants={fadeIn}>
+            <h2
+              className="text-2xl md:text-3xl font-extrabold text-foreground leading-[1.15] tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              You're Spending Money On People Who Were Never Going To Buy.
+            </h2>
+          </motion.div>
         </motion.div>
-        <motion.div variants={fadeIn} className="mb-8">
-          <h2
-            className="text-2xl md:text-3xl font-extrabold text-foreground leading-[1.15] tracking-tight"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            You're Spending Money On People Who Were Never Going To Buy.
-          </h2>
-        </motion.div>
-        <motion.div variants={fadeIn} className="w-full">
-          {[
-            { title: "Your surgeon's chair costs $15,000 a day to leave empty.", sub: "Every no-show and wrong patient is money gone." },
-            { title: "Leads go cold in 5 minutes.", sub: "If you're not calling first, someone else is." },
-            { title: "Price shoppers and tyre kickers are killing your conversion.", sub: "Wrong people waste your best resource — surgeon time." },
-            { title: "Patients who don't book on the day never come back.", sub: "There's no system bringing them back. Until now." },
-          ].map((item, i, arr) => (
-            <div key={item.title}>
-              <div className="py-5">
-                <p className="text-lg md:text-xl lg:text-2xl font-extrabold text-foreground leading-snug">{item.title}</p>
-                <p className="text-[#CCCCCC] text-sm mt-2">{item.sub}</p>
-              </div>
-              {i < arr.length - 1 && <div className="border-t border-border" />}
+      </div>
+      <div className="w-full max-w-4xl flex-1 flex flex-col justify-evenly">
+        {[
+          { title: "Your surgeon's chair costs $15,000 a day to leave empty.", sub: "Every no-show and wrong patient is money gone." },
+          { title: "Leads go cold in 5 minutes.", sub: "If you're not calling first, someone else is." },
+          { title: "Price shoppers and tyre kickers are killing your conversion.", sub: "Wrong people waste your best resource — surgeon time." },
+          { title: "Patients who don't book on the day never come back.", sub: "There's no system bringing them back. Until now." },
+        ].map((item, i, arr) => (
+          <div key={item.title}>
+            <div className="py-3">
+              <p className="text-lg md:text-xl lg:text-2xl font-extrabold text-foreground leading-snug">{item.title}</p>
+              <p className="text-[#CCCCCC] text-sm mt-2">{item.sub}</p>
             </div>
-          ))}
-        </motion.div>
-      </motion.div>
+            {i < arr.length - 1 && <div className="border-t border-border" />}
+          </div>
+        ))}
+      </div>
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS ──────── */
-    <div key="process" className="deck-slide flex flex-col justify-between px-8 md:px-16 lg:px-24 py-16">
+    <div key="process" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
       <div>
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
           <motion.div variants={fadeIn}>
             <ChapterLabel>OUR PROCESS</ChapterLabel>
           </motion.div>
-          <motion.div variants={fadeIn} className="mb-14">
+          <motion.div variants={fadeIn} className="mb-8">
             <H>Here's How We Work.</H>
-          </motion.div>
-          <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-3xl">
-            {[
-              { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
-              { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
-              { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
-              { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
-            ].map((item) => (
-              <div key={item.step} className="flex gap-4">
-                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
-                  {item.step}
-                </div>
-                <div>
-                  <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
-                  <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
-                </div>
-              </div>
-            ))}
           </motion.div>
         </motion.div>
       </div>
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl">
+        {[
+          { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
+          { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
+          { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
+          { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
+        ].map((item) => (
+          <div key={item.step} className="flex gap-4">
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
+              {item.step}
+            </div>
+            <div>
+              <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
+              <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
+            </div>
+          </div>
+        ))}
+      </motion.div>
       {/* Pay Per Show — centered, full width bottom section */}
       <motion.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
         variants={fadeIn}
-        className="w-full text-center mt-auto pt-12"
+        className="w-full text-center"
       >
         <p
           className={`font-extrabold text-foreground leading-snug ${isFullscreen ? "text-5xl md:text-6xl" : "text-3xl md:text-4xl"}`}
@@ -307,68 +309,64 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */
-    <div key="patients" className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="patients" className="deck-slide relative flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80" alt="Confident man" />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
-        <motion.div variants={fadeIn} className="mb-12">
+        <motion.div variants={fadeIn} className="mb-6">
           <H>Who We'll Be Sending You.</H>
           <p className={`${subClass} mt-4 max-w-xl`}>
             Patients who know it costs between $10,000–$20,000 and want the surgery. Not a consultation about maybe.
           </p>
         </motion.div>
-        <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          {[
-            { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
-            { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
-            { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant done right.", emoji: "✅", highlight: false },
-            { title: "Not Going To Turkey", desc: "Pre-qualified against overseas. They want local, accountable, quality care.", emoji: "🇦🇺", highlight: false },
-          ].map((card) => (
-            <div
-              key={card.title}
-              className={`rounded-xl p-8 ${
-                card.highlight
-                  ? "bg-primary/10 border border-primary"
-                  : "bg-card border border-border"
-              }`}
-            >
-              <p className="text-3xl mb-3">{card.emoji}</p>
-              <p className="text-xl font-extrabold text-foreground mb-2">{card.title}</p>
-              <p className="text-[#CCCCCC] text-sm leading-relaxed">{card.desc}</p>
-            </div>
-          ))}
-        </motion.div>
-        <motion.p variants={fadeIn} className="text-xs text-[#999] mt-10 max-w-xl">
-          Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
-        </motion.p>
       </motion.div>
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className={`relative z-10 grid grid-cols-1 sm:grid-cols-2 gap-6 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
+        {[
+          { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
+          { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
+          { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant done right.", emoji: "✅", highlight: false },
+          { title: "Not Going To Turkey", desc: "Pre-qualified against overseas. They want local, accountable, quality care.", emoji: "🇦🇺", highlight: false },
+        ].map((card) => (
+          <div
+            key={card.title}
+            className={`rounded-xl p-8 ${
+              card.highlight
+                ? "bg-primary/10 border border-primary"
+                : "bg-card border border-border"
+            }`}
+          >
+            <p className="text-3xl mb-3">{card.emoji}</p>
+            <p className="text-xl font-extrabold text-foreground mb-2">{card.title}</p>
+            <p className="text-[#CCCCCC] text-sm leading-relaxed">{card.desc}</p>
+          </div>
+        ))}
+      </motion.div>
+      <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-xs text-[#999] mt-4 max-w-xl relative z-10">
+        Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
+      </motion.p>
     </div>,
 
     /* ──────── SLIDE 5 — POST CONSULT ──────── */
-    <div key="post-consult" className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="post-consult" className="deck-slide relative flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
       <PhotoSide src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=800&q=80" alt="Professional conversation" />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
-        <motion.div variants={fadeIn}>
-          <ChapterLabel>POST CONSULT</ChapterLabel>
-        </motion.div>
-        <motion.div variants={fadeIn} className="mb-12">
-          <H>Not Booked On The Day? We're Not Done.</H>
-        </motion.div>
-        <motion.div variants={fadeIn} className="space-y-10 max-w-xl">
-          <div>
-            <p className="text-lg font-bold text-foreground mb-1.5">We Bring Them Back</p>
-            <p className="text-[#CCCCCC] text-sm leading-relaxed">Undecided patients get a structured follow-up sequence. Not aggressive. Just consistent.</p>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-foreground mb-1.5">Objection Handling</p>
-            <p className="text-[#CCCCCC] text-sm leading-relaxed">We know the objections before they say them. Price, timing, Turkey. All handled.</p>
-          </div>
-          <div>
-            <p className="text-lg font-bold text-foreground mb-1.5">We Protect Your Reputation</p>
-            <p className="text-[#CCCCCC] text-sm leading-relaxed">We don't push patients to the point of frustration. No one leaves angry and no one leaves a review before they've given you a fair shot.</p>
-          </div>
-        </motion.div>
+      <div className={`relative z-10 ${isFullscreen ? "max-w-[70%]" : "max-w-4xl"}`}>
+        <ChapterLabel>POST CONSULT</ChapterLabel>
+        <H>Not Booked On The Day? We're Not Done.</H>
+      </div>
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className={`relative z-10 space-y-10 max-w-xl ${isFullscreen ? "" : ""}`}>
+        <div>
+          <p className="text-lg font-bold text-foreground mb-1.5">We Bring Them Back</p>
+          <p className="text-[#CCCCCC] text-sm leading-relaxed">Undecided patients get a structured follow-up sequence. Not aggressive. Just consistent.</p>
+        </div>
+        <div>
+          <p className="text-lg font-bold text-foreground mb-1.5">Objection Handling</p>
+          <p className="text-[#CCCCCC] text-sm leading-relaxed">We know the objections before they say them. Price, timing, Turkey. All handled.</p>
+        </div>
+        <div>
+          <p className="text-lg font-bold text-foreground mb-1.5">We Protect Your Reputation</p>
+          <p className="text-[#CCCCCC] text-sm leading-relaxed">We don't push patients to the point of frustration. No one leaves angry and no one leaves a review before they've given you a fair shot.</p>
+        </div>
       </motion.div>
     </div>,
 
@@ -376,47 +374,43 @@ function PitchDeck() {
     <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} />,
 
     /* ──────── SLIDE 7 — PACKAGES ──────── */
-    <div key="packages" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="packages" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl w-full">
-        <motion.div variants={fadeIn}>
-          <ChapterLabel>PACKAGES</ChapterLabel>
-        </motion.div>
-        <motion.div variants={fadeIn} className="mb-12">
-          <H>Choose How Many Patients You Want.</H>
-        </motion.div>
-        <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {packs.map((pack) => {
-            const procedures = pack.shows * rate;
-            const revenue = procedures * caseValue;
-            const cost = pack.shows * COST_PER_SHOW;
-            return (
-              <div
-                key={pack.name}
-                className="rounded-xl border border-border bg-card p-8"
-              >
-                <h3 className="text-2xl font-extrabold text-foreground mb-2">{pack.name}</h3>
-                <p className="text-[#CCCCCC] text-sm mb-1">{pack.shows} qualified patients</p>
-                <p className="text-[#CCCCCC] text-sm mb-6">${COST_PER_SHOW.toLocaleString()} per patient inc GST</p>
-                <div className="border-t border-border pt-5 space-y-4">
-                  <div>
-                    <p className="text-xs text-[#CCCCCC] mb-1">Est. Revenue</p>
-                    <p className="text-3xl font-extrabold text-primary">{fmt(revenue)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-[#CCCCCC] mb-1">Your Investment</p>
-                    <p className="text-lg font-bold text-foreground">{fmt(cost)}</p>
-                  </div>
+      <div className="max-w-4xl w-full">
+        <ChapterLabel>PACKAGES</ChapterLabel>
+        <H>Choose How Many Patients You Want.</H>
+      </div>
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl w-full">
+        {packs.map((pack) => {
+          const procedures = pack.shows * rate;
+          const revenue = procedures * caseValue;
+          const cost = pack.shows * COST_PER_SHOW;
+          return (
+            <div
+              key={pack.name}
+              className="rounded-xl border border-border bg-card p-8"
+            >
+              <h3 className="text-2xl font-extrabold text-foreground mb-2">{pack.name}</h3>
+              <p className="text-[#CCCCCC] text-sm mb-1">{pack.shows} qualified patients</p>
+              <p className="text-[#CCCCCC] text-sm mb-6">${COST_PER_SHOW.toLocaleString()} per patient inc GST</p>
+              <div className="border-t border-border pt-5 space-y-4">
+                <div>
+                  <p className="text-xs text-[#CCCCCC] mb-1">Est. Revenue</p>
+                  <p className="text-3xl font-extrabold text-primary">{fmt(revenue)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[#CCCCCC] mb-1">Your Investment</p>
+                  <p className="text-lg font-bold text-foreground">{fmt(cost)}</p>
                 </div>
               </div>
-            );
-          })}
-        </motion.div>
+            </div>
+          );
+        })}
       </motion.div>
     </div>,
 
     /* ──────── SLIDE 8 — THE GUARANTEE ──────── */
-    <div key="guarantee" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="guarantee" className="deck-slide flex flex-col items-start justify-center px-8 md:px-16 lg:px-24 py-16">
       <SlideHeader />
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
         <motion.div variants={fadeIn}>
@@ -444,23 +438,19 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 9 — FAQ ──────── */
-    <div key="faq" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div key="faq" className="deck-slide flex flex-col justify-evenly px-8 md:px-16 lg:px-24 py-10">
       <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
-        <motion.div variants={fadeIn}>
-          <ChapterLabel>FAQ</ChapterLabel>
-        </motion.div>
-        <motion.div variants={fadeIn} className="mb-10">
-          <H>Questions I Get Asked.</H>
-        </motion.div>
-        <motion.div variants={fadeIn} className="divide-y divide-border">
-          {faqItems.map((item, i) => (
-            <div key={i} className="py-5">
-              <p className="text-base font-semibold text-foreground">{item.q}</p>
-              <p className="text-sm text-[#CCCCCC] mt-1.5">{item.a}</p>
-            </div>
-          ))}
-        </motion.div>
+      <div className="max-w-3xl">
+        <ChapterLabel>FAQ</ChapterLabel>
+        <H>Questions I Get Asked.</H>
+      </div>
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="divide-y divide-border max-w-3xl">
+        {faqItems.map((item, i) => (
+          <div key={i} className="py-4">
+            <p className="text-base font-semibold text-foreground">{item.q}</p>
+            <p className="text-sm text-[#CCCCCC] mt-1.5">{item.a}</p>
+          </div>
+        ))}
       </motion.div>
     </div>,
 
