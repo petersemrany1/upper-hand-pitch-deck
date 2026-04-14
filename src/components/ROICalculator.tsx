@@ -14,6 +14,12 @@ const ALL_CONVERT_RATES: Record<string, number> = {
   "1 in 10": 0.1,
 };
 
+const CONVERT_LABELS: Record<string, string> = {
+  "1 in 4": "1 in 4 Conversion",
+  "1 in 3": "1 in 3 Conversion",
+  "1 in 2": "1 in 2 Conversion",
+};
+
 interface Props {
   caseValue: number;
   convertRate: string;
@@ -42,7 +48,7 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
   return (
     <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
       <SlideHeader />
-      <div className="max-w-4xl w-full">
+      <div className="max-w-5xl w-full">
         <p className="text-primary text-lg md:text-xl font-bold tracking-[0.25em] uppercase mb-5">
           YOUR NUMBERS
         </p>
@@ -54,7 +60,7 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
         </h2>
 
         {/* Editable inputs */}
-        <div className="flex flex-wrap gap-4 mb-10">
+        <div className="flex flex-wrap gap-4 mb-12">
           <div>
             <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
               Average Case Value ($)
@@ -83,24 +89,29 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
           </div>
         </div>
 
-        {/* 3 conversion columns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          {columns.map((col) => (
-            <div
-              key={col.label}
-              className={`rounded-xl border p-8 text-center ${
-                col.label === convertRate
-                  ? "bg-primary/10 border-primary ring-1 ring-primary"
-                  : "bg-card border-border"
-              }`}
-            >
-              <p className="text-xs text-[#CCCCCC] mb-2 font-medium uppercase tracking-wide">{col.label} Convert</p>
-              <p className={`text-4xl md:text-5xl font-extrabold ${col.label === convertRate ? "text-primary" : "text-foreground"}`}>
-                {fmt(col.revenue)}
-              </p>
-              <p className="text-xs text-[#CCCCCC] mt-2">Monthly Revenue</p>
-            </div>
-          ))}
+        {/* 3 conversion columns — larger cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {columns.map((col) => {
+            const isSelected = col.label === convertRate;
+            return (
+              <div
+                key={col.label}
+                className={`rounded-xl border p-10 text-center ${
+                  isSelected
+                    ? "bg-primary/15 border-primary ring-2 ring-primary"
+                    : "bg-card border-border"
+                }`}
+              >
+                <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
+                  {CONVERT_LABELS[col.label]}
+                </p>
+                <p className={`text-5xl md:text-6xl lg:text-7xl font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`}>
+                  {fmt(col.revenue)}
+                </p>
+                <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>
+              </div>
+            );
+          })}
         </div>
 
         {/* Included list */}
