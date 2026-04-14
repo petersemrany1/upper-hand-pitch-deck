@@ -418,18 +418,27 @@ function PitchDeck() {
           return (
             <div
               key={pack.name}
-              className="rounded-xl border border-border bg-zinc-900 p-10 text-center"
+              className={`rounded-xl bg-zinc-900 px-10 py-14 text-center relative ${
+                pack.name === "Starter"
+                  ? "border-2 border-primary"
+                  : "border border-border"
+              }`}
             >
+              {pack.name === "Starter" && (
+                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-4 py-1 rounded-full tracking-wide uppercase">
+                  Most Popular
+                </span>
+              )}
               <h3 className="text-3xl font-extrabold text-foreground mb-2">{pack.name}</h3>
               <p className="text-[#CCCCCC] text-base mb-1">{pack.shows} qualified patients</p>
-              <p className="text-[#CCCCCC] text-base mb-6">${COST_PER_SHOW.toLocaleString()} per patient</p>
-              <div className="border-t border-border pt-6 space-y-5">
+              <p className="text-[#CCCCCC] text-base mb-8">${COST_PER_SHOW.toLocaleString()} per patient</p>
+              <div className="border-t border-border pt-8 space-y-6">
                 <div>
-                  <p className="text-xs text-[#CCCCCC] mb-1">Est. Revenue</p>
+                  <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Est. Revenue</p>
                   <p className="text-4xl font-extrabold text-primary">{fmt(revenue)}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-[#CCCCCC] mb-1">Your Investment</p>
+                  <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Your Investment</p>
                   <p className="text-xl font-bold text-foreground">{fmt(cost)}</p>
                 </div>
               </div>
