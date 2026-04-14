@@ -173,8 +173,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       }
 
       // Extract client signing URL from DocuSeal response
-      // Response is an array of submitter objects with embed_src / slug
-      const submitters = Array.isArray(result) ? result : [];
+      // Response is { id, submitters: [...] } with embed_src on each submitter
+      const submitters = Array.isArray(result) ? result : (result.submitters || []);
       const clientSubmitter = submitters.find(
         (s: { role?: string; email?: string }) => s.role === "Client" || s.email === data.to
       );
