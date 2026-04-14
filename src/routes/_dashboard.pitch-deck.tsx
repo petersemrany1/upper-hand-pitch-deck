@@ -6,6 +6,7 @@ import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize } from "lucide-react";
 import processPhoneCall from "../assets/process-phone-call.jpg";
+import patientProfile from "../assets/patient-profile.jpg";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -314,42 +315,54 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU (2x2 cards centered) ──────── */
-    <div key="patients" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
-      <div className="w-full max-w-5xl text-center">
-        <SlideHeader />
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn} className="mb-4">
-            <H>Who We'll Be Sending You.</H>
+    <div key="patients" className="deck-slide flex min-h-screen w-full bg-black">
+      {/* Left content — 65% */}
+      <div className="w-[65%] flex flex-col justify-center px-16 py-12">
+        <div className="w-full text-center">
+          <SlideHeader />
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+            <motion.div variants={fadeIn} className="mb-4">
+              <H>Who We'll Be Sending You.</H>
+            </motion.div>
+            <motion.p variants={fadeIn} className="text-xl md:text-2xl lg:text-3xl font-bold text-[#CCCCCC] mb-12 max-w-none mx-auto leading-snug whitespace-nowrap">
+              Patients who know it costs $10,000–$20,000 and want the surgery.<br />
+              Not a consultation about maybe.
+            </motion.p>
           </motion.div>
-          <motion.p variants={fadeIn} className="text-xl md:text-2xl lg:text-3xl font-bold text-[#CCCCCC] mb-12 max-w-none mx-auto leading-snug whitespace-nowrap">
-            Patients who know it costs $10,000–$20,000 and want the surgery.<br />
-            Not a consultation about maybe.
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full mx-auto">
+            {[
+              { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
+              { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
+              { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant done right.", emoji: "✅", highlight: false },
+              { title: "Not Going To Turkey", desc: "Pre-qualified against overseas. They want local, accountable, quality care.", emoji: "🇦🇺", highlight: false },
+            ].map((card) => (
+              <div
+                key={card.title}
+                className={`rounded-xl p-10 ${
+                  card.highlight
+                    ? "bg-primary/15 border border-primary"
+                    : "bg-card/80 border border-border"
+                }`}
+              >
+                <p className="text-5xl mb-4">{card.emoji}</p>
+                <p className="text-2xl font-extrabold text-foreground mb-3">{card.title}</p>
+                <p className="text-[#CCCCCC] text-base leading-relaxed">{card.desc}</p>
+              </div>
+            ))}
+          </motion.div>
+          <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-sm text-[#999] mt-8 max-w-xl text-center mx-auto">
+            Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
           </motion.p>
-        </motion.div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-5xl w-full mx-auto">
-          {[
-            { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
-            { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
-            { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant done right.", emoji: "✅", highlight: false },
-            { title: "Not Going To Turkey", desc: "Pre-qualified against overseas. They want local, accountable, quality care.", emoji: "🇦🇺", highlight: false },
-          ].map((card) => (
-            <div
-              key={card.title}
-              className={`rounded-xl p-10 ${
-                card.highlight
-                  ? "bg-primary/15 border border-primary"
-                  : "bg-card/80 border border-border"
-              }`}
-            >
-              <p className="text-5xl mb-4">{card.emoji}</p>
-              <p className="text-2xl font-extrabold text-foreground mb-3">{card.title}</p>
-              <p className="text-[#CCCCCC] text-base leading-relaxed">{card.desc}</p>
-            </div>
-          ))}
-        </motion.div>
-        <motion.p initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-sm text-[#999] mt-8 max-w-xl text-center mx-auto">
-          Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
-        </motion.p>
+        </div>
+      </div>
+      {/* Right photo panel — 35% */}
+      <div className="w-[35%] relative">
+        <img
+          src={patientProfile}
+          alt="Confident professional man"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
     </div>,
 
