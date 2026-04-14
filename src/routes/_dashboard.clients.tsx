@@ -200,9 +200,12 @@ function ClientsPage() {
             if (!matchingClient) setShowSaveContact(true);
             break;
           }
-          if (records?.status === "no-answer" || records?.status === "busy" || records?.status === "failed" || records?.status === "canceled") {
+          if (records?.status === "no-answer" || records?.status === "busy" || records?.status === "failed" || records?.status === "canceled" || records?.status === "machine_detected") {
             resolved = true;
-            setCallMessage("Call cancelled — you didn't answer in time.");
+            const msg = records?.status === "machine_detected"
+              ? "Call cancelled — went to voicemail."
+              : "Call cancelled — you didn't answer in time.";
+            setCallMessage(msg);
             setTimeout(() => setCallMessage(null), 5000);
             break;
           }
