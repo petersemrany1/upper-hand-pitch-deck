@@ -105,7 +105,7 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
                 <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
                   {CONVERT_LABELS[col.label]}
                 </p>
-                <p className={`text-5xl md:text-6xl lg:text-7xl font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`}>
+                <p className={`font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1.5rem, 5vw, 4.5rem)', overflowWrap: 'break-word', wordBreak: 'break-all', whiteSpace: 'nowrap', maxWidth: '100%', textOverflow: 'ellipsis', overflow: 'hidden' }}>
                   {fmt(col.revenue)}
                 </p>
                 <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>

@@ -448,7 +448,7 @@ function PitchDeck() {
               <div className="border-t border-border pt-8 space-y-6">
                 <div>
                   <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Est. Revenue</p>
-                  <p className="text-5xl font-extrabold text-primary">{fmtRounded(revenue)}</p>
+                  <p className="font-extrabold text-primary" style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtRounded(revenue)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Your Investment</p>
