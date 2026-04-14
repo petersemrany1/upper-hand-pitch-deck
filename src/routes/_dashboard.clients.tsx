@@ -16,6 +16,8 @@ import {
   Delete,
   Clock,
   Users,
+  Plus,
+  ChevronDown,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/clients")({
@@ -32,13 +34,18 @@ type Client = {
 
 type CallRecord = {
   id: string;
-  client_id: string;
+  client_id: string | null;
   twilio_call_sid: string | null;
   status: string | null;
   duration: number | null;
   recording_url: string | null;
   recording_sid: string | null;
   called_at: string;
+};
+
+type SavedPhone = {
+  name: string;
+  phone: string;
 };
 
 const DIAL_PAD = [
@@ -48,21 +55,46 @@ const DIAL_PAD = [
   ["*", "0", "#"],
 ];
 
+const DEFAULT_PHONES: SavedPhone[] = [
+  { name: "Peter Semrany", phone: "0418214953" },
+];
+
+function getStoredPhones(): SavedPhone[] {
+  try {
+    const stored = localStorage.getItem("saved_caller_phones");
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return DEFAULT_PHONES;
+}
+
+function storePhones(phones: SavedPhone[]) {
+  localStorage.setItem("saved_caller_phones", JSON.stringify(phones));
+}
+
 function ClientsPage() {
   const [activeTab, setActiveTab] = useState<"dialer" | "contacts" | "history">("dialer");
   const [dialNumber, setDialNumber] = useState("");
-  const [yourPhone, setYourPhone] = useState("");
   const [calling, setCalling] = useState(false);
   const [lastCallSid, setLastCallSid] = useState<string | null>(null);
   const [showSaveContact, setShowSaveContact] = useState(false);
   const [saveContactName, setSaveContactName] = useState("");
   const [saveContactEmail, setSaveContactEmail] = useState("");
 
+  // Caller phone dropdown
+  const [savedPhones, setSavedPhones] = useState<SavedPhone[]>(getStoredPhones);
+  const [selectedPhoneIdx, setSelectedPhoneIdx] = useState(0);
+  const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
+  const [showAddPhone, setShowAddPhone] = useState(false);
+  const [newPhoneName, setNewPhoneName] = useState("");
+  const [newPhoneNumber, setNewPhoneNumber] = useState("");
+
   const [clients, setClients] = useState<Client[]>([]);
   const [allRecords, setAllRecords] = useState<CallRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
+
+  const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
   const loadClients = useCallback(async () => {
     const { data } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
@@ -76,13 +108,33 @@ function ClientsPage() {
       .select("*")
       .order("called_at", { ascending: false })
       .limit(50);
-    if (data) setAllRecords(data);
+    if (data) setAllRecords(data as CallRecord[]);
   }, []);
 
   useEffect(() => {
     loadClients();
     loadAllRecords();
   }, [loadClients, loadAllRecords]);
+
+  // Keyboard support for dialer
+  useEffect(() => {
+    if (activeTab !== "dialer") return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+
+      if ("0123456789*#".includes(e.key)) {
+        setDialNumber((prev) => prev + e.key);
+      } else if (e.key === "Backspace") {
+        setDialNumber((prev) => prev.slice(0, -1));
+      } else if (e.key === "+" && dialNumber === "") {
+        setDialNumber("+");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [activeTab, dialNumber]);
 
   const handleDialPress = (digit: string) => {
     setDialNumber((prev) => prev + digit);
@@ -92,13 +144,25 @@ function ClientsPage() {
     setDialNumber((prev) => prev.slice(0, -1));
   };
 
+  const handleAddPhone = () => {
+    if (!newPhoneName || !newPhoneNumber) return;
+    const updated = [...savedPhones, { name: newPhoneName, phone: newPhoneNumber }];
+    setSavedPhones(updated);
+    storePhones(updated);
+    setSelectedPhoneIdx(updated.length - 1);
+    setNewPhoneName("");
+    setNewPhoneNumber("");
+    setShowAddPhone(false);
+    setShowPhoneDropdown(false);
+  };
+
   const handleInitiateCall = async () => {
-    if (!dialNumber || !yourPhone) return;
+    if (!dialNumber || !selectedPhone) return;
     setCalling(true);
 
     try {
       const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
-        body: { clientPhone: dialNumber, userPhone: yourPhone },
+        body: { clientPhone: dialNumber, userPhone: selectedPhone.phone },
       });
 
       if (error) throw error;
@@ -108,15 +172,18 @@ function ClientsPage() {
 
         // Check if number matches a saved contact
         const matchingClient = clients.find((c) => c.phone === dialNumber);
-        if (matchingClient) {
-          await supabase.from("call_records").insert({
-            client_id: matchingClient.id,
-            twilio_call_sid: result.callSid,
-            status: "initiated",
-          });
-        } else {
+
+        // Always create a call record
+        await supabase.from("call_records").insert({
+          client_id: matchingClient?.id || null,
+          twilio_call_sid: result.callSid,
+          status: "initiated",
+        });
+
+        if (!matchingClient) {
           setShowSaveContact(true);
         }
+
         loadAllRecords();
       }
     } catch (err) {
@@ -140,11 +207,11 @@ function ClientsPage() {
       .single();
 
     if (data && lastCallSid) {
-      await supabase.from("call_records").insert({
-        client_id: data.id,
-        twilio_call_sid: lastCallSid,
-        status: "initiated",
-      });
+      // Link the call record to the new client
+      await supabase
+        .from("call_records")
+        .update({ client_id: data.id })
+        .eq("twilio_call_sid", lastCallSid);
     }
 
     setSaveContactName("");
@@ -168,8 +235,6 @@ function ClientsPage() {
 
   const handleCheckRecording = async (record: CallRecord) => {
     if (!record.twilio_call_sid || record.recording_url) return;
-    // Recordings are saved automatically via the twilio-status callback.
-    // Reload from DB to check if it's arrived yet.
     loadAllRecords();
   };
 
@@ -198,12 +263,14 @@ function ClientsPage() {
     });
   };
 
-  const getClientName = (clientId: string) => {
+  const getClientName = (clientId: string | null) => {
+    if (!clientId) return "Unknown";
     const client = clients.find((c) => c.id === clientId);
     return client?.name || "Unknown";
   };
 
-  const getClientPhone = (clientId: string) => {
+  const getClientPhone = (clientId: string | null) => {
+    if (!clientId) return "";
     const client = clients.find((c) => c.id === clientId);
     return client?.phone || "";
   };
@@ -270,14 +337,75 @@ function ClientsPage() {
               ))}
             </div>
 
-            {/* Your Phone Input */}
-            <div className="mb-4">
-              <Input
-                placeholder="Your phone number (to receive the call)"
-                value={yourPhone}
-                onChange={(e) => setYourPhone(e.target.value)}
-                className="text-center text-sm"
-              />
+            {/* Select Phone Dropdown */}
+            <div className="mb-4 relative">
+              <button
+                onClick={() => setShowPhoneDropdown(!showPhoneDropdown)}
+                className="w-full flex items-center justify-between bg-card border border-border rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-accent/10 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-muted-foreground" />
+                  <span>
+                    {selectedPhone
+                      ? `${selectedPhone.name} - ${selectedPhone.phone}`
+                      : "Select phone"}
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showPhoneDropdown ? "rotate-180" : ""}`} />
+              </button>
+
+              {showPhoneDropdown && (
+                <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
+                  {savedPhones.map((p, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setSelectedPhoneIdx(idx);
+                        setShowPhoneDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-2.5 text-sm hover:bg-accent/20 transition-colors ${
+                        idx === selectedPhoneIdx ? "bg-accent/10 font-medium" : ""
+                      }`}
+                    >
+                      {p.name} - {p.phone}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => {
+                      setShowAddPhone(true);
+                      setShowPhoneDropdown(false);
+                    }}
+                    className="w-full text-left px-3 py-2.5 text-sm text-primary hover:bg-accent/20 transition-colors flex items-center gap-2 border-t border-border"
+                  >
+                    <Plus className="w-4 h-4" /> Add new number
+                  </button>
+                </div>
+              )}
+
+              {showAddPhone && (
+                <div className="mt-2 bg-card border border-border rounded-lg p-3 space-y-2">
+                  <Input
+                    placeholder="Name"
+                    value={newPhoneName}
+                    onChange={(e) => setNewPhoneName(e.target.value)}
+                    className="text-sm"
+                  />
+                  <Input
+                    placeholder="Phone number"
+                    value={newPhoneNumber}
+                    onChange={(e) => setNewPhoneNumber(e.target.value)}
+                    className="text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <Button onClick={handleAddPhone} size="sm" className="flex-1">
+                      Save
+                    </Button>
+                    <Button onClick={() => setShowAddPhone(false)} size="sm" variant="ghost">
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Call / Backspace Buttons */}
@@ -285,7 +413,7 @@ function ClientsPage() {
               <div className="flex-1" />
               <button
                 onClick={handleInitiateCall}
-                disabled={!dialNumber || !yourPhone || calling}
+                disabled={!dialNumber || !selectedPhone || calling}
                 className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:hover:bg-green-600 flex items-center justify-center transition-colors"
               >
                 {calling ? (
