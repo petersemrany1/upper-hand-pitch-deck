@@ -34,6 +34,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [customAmount, setCustomAmount] = useState("");
 
   const [sending, setSending] = useState(false);
+  const [sentVia, setSentVia] = useState<"email" | "sms" | null>(null);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
@@ -62,7 +63,8 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         },
       });
       if (result.success) {
-        setInvoiceStatus({ type: "success", message: `Invoice sent to ${email}. Check your inbox.` });
+        setSentVia("email");
+        setStep(4);
       } else {
         setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
       }
@@ -74,24 +76,28 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
 
-  const handlePayByCard = async () => {
+  const handleSendSMS = async () => {
     if (selectedPack === "custom") {
+      setSentVia("sms");
       setStep(4);
       return;
     }
     if (chosenPack?.stripeLink) {
+      setSending(true);
       setSmsStatus(null);
       try {
         const firstName = fullName.trim().split(" ")[0];
         const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: chosenPack.stripeLink } });
         if (result.success) {
-          setSmsStatus({ type: "success", message: `Payment link sent to ${phone}.` });
+          setSentVia("sms");
+          setStep(4);
         } else {
           setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
         }
       } catch {
         setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
       }
+      setSending(false);
     }
   };
 
@@ -105,6 +111,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setCustomAmount("");
     setSmsStatus(null);
     setInvoiceStatus(null);
+    setSentVia(null);
     onClose();
   };
 
