@@ -131,11 +131,14 @@ function ClientsPage() {
         setDialNumber((prev) => prev.slice(0, -1));
       } else if (e.key === "+" && dialNumber === "") {
         setDialNumber("+");
+      } else if (e.key === "Enter" && dialNumber && selectedPhone && !calling) {
+        e.preventDefault();
+        handleInitiateCall();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, dialNumber]);
+  }, [activeTab, dialNumber, selectedPhone, calling]);
 
   const handleDialPress = (digit: string) => {
     setDialNumber((prev) => prev + digit);
