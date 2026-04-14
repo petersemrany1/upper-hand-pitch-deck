@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check } from "lucide-react";
-import emailjs from "@emailjs/browser";
+
 import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
 import { sendInvoiceEmail } from "../utils/resend.functions";
