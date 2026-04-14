@@ -1,10 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";
 import FeatureCard from "../components/FeatureCard";
 import ROICalculator from "../components/ROICalculator";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -37,6 +37,13 @@ const PHOTOS = {
     "https://images.unsplash.com/photo-1553877522-43269d4ea984?w=1200&q=80&auto=format&fit=crop",
 };
 
+const CONVERT_RATES: Record<string, number> = {
+  "1 in 4": 0.25,
+  "1 in 3": 0.333,
+  "1 in 2": 0.5,
+};
+const COST_PER_SHOW = 1100; // $1,000 + GST
+
 /* Small accent photo in top-right corner */
 function AccentPhoto({ src }: { src: string }) {
   return (
@@ -47,9 +54,76 @@ function AccentPhoto({ src }: { src: string }) {
   );
 }
 
+/* Pre-deck settings popup */
+function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: string) => void }) {
+  const [caseValue, setCaseValue] = useState(12000);
+  const [convertRate, setConvertRate] = useState("1 in 4");
+
+  return (
+    <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
+      <div className="max-w-md w-full">
+        <h2
+          className="text-3xl md:text-4xl font-extrabold text-foreground mb-3 tracking-tight"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          Before We Begin
+        </h2>
+        <p className="text-[#CCCCCC] text-sm mb-10">
+          Set your clinic's numbers so the deck is personalised to you.
+        </p>
+
+        <div className="space-y-6 mb-10">
+          <div>
+            <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
+              Average Case Value ($)
+            </label>
+            <input
+              type="number"
+              value={caseValue}
+              onChange={(e) => setCaseValue(Number(e.target.value) || 0)}
+              className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
+              Conversion Rate
+            </label>
+            <select
+              value={convertRate}
+              onChange={(e) => setConvertRate(e.target.value)}
+              className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+            >
+              {Object.keys(CONVERT_RATES).map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <button
+          onClick={() => onEnter(caseValue, convertRate)}
+          className="w-full bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          ENTER PRESENTATION →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PitchDeck() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
+  const [showPopup, setShowPopup] = useState(true);
+  const [caseValue, setCaseValue] = useState(12000);
+  const [convertRate, setConvertRate] = useState("1 in 4");
+
+  const handleEnter = (cv: number, cr: string) => {
+    setCaseValue(cv);
+    setConvertRate(cr);
+    setShowPopup(false);
+  };
 
   const scrollToSlide = useCallback((index: number) => {
     const el = containerRef.current;
@@ -77,6 +151,7 @@ function PitchDeck() {
   }, []);
 
   useEffect(() => {
+    if (showPopup) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
@@ -88,7 +163,7 @@ function PitchDeck() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeSlide, scrollToSlide]);
+  }, [activeSlide, scrollToSlide, showPopup]);
 
   const touchStart = useRef(0);
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -105,11 +180,7 @@ function PitchDeck() {
     }
   };
 
-  const Tick = () => (
-    <Check className="w-4 h-4 text-primary inline mr-3 shrink-0 mt-0.5" />
-  );
-
-  /* Large headline — minimum 64px on desktop */
+  /* Helpers */
   const H = ({ children }: { children: React.ReactNode }) => (
     <h2
       className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
@@ -119,33 +190,36 @@ function PitchDeck() {
     </h2>
   );
 
-  /* Bigger, more readable label — 14px, wider tracking */
-  const Label = ({ children }: { children: React.ReactNode }) => (
-    <p className="text-primary text-sm font-bold tracking-[0.25em] uppercase mb-5">
+  const ChapterLabel = ({ children }: { children: React.ReactNode }) => (
+    <p className="text-primary text-lg md:text-xl font-bold tracking-[0.25em] uppercase mb-5">
       {children}
     </p>
   );
 
-  /* Higher-contrast subtext color */
   const subClass = "text-[#CCCCCC] text-sm md:text-base leading-relaxed";
 
+  const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
+
+  /* Dynamic pricing packs */
+  const rate = CONVERT_RATES[convertRate] ?? 0.25;
+  const packs = useMemo(() => [
+    { name: "Demo", shows: 10, highlight: false },
+    { name: "Starter", shows: 20, highlight: true },
+    { name: "Scale", shows: 50, highlight: false },
+  ], []);
+
   const faqItems = [
+    { q: "What if a patient doesn't show?", a: "You don't pay. Simple as that. We credit or refund immediately." },
+    { q: "What if you can't get me leads in time?", a: "That hasn't happened in this industry. But if it did, we'd refund your investment in full." },
     { q: "Where is your team?", a: "Sydney, Australia." },
-    { q: "Can I see ad examples?", a: "Shared once you're onboard. All approved by you before publishing." },
-    { q: "What if a patient doesn't show?", a: "You don't pay. We credit or refund." },
-    { q: "How do you book?", a: "Directly into your calendar. We prioritise mid-morning and early afternoon slots." },
-    { q: "Whose Meta account?", a: "Ours. You just give us page access. We carry the risk." },
-    { q: "Who have you worked with?", a: "Confidentiality agreements in place. Google reviews show our clients." },
+    { q: "Can I see ad examples?", a: "Shared once you're onboard. All approved by you before anything goes live." },
+    { q: "Whose Meta account?", a: "Ours. You give us page access. We carry the risk." },
+    { q: "What about confidentiality?", a: "Everything is white label. We never share your name or results with other clinics." },
   ];
 
-  const valueItems = [
-    { service: "Video Ad Creative", value: "$3,000 value" },
-    { service: "Meta Campaign Management", value: "$2,000/month value" },
-    { service: "Lead Response Team", value: "$5,000/month value" },
-    { service: "Qualification Calling", value: "Included" },
-    { service: "Calendar Booking", value: "Included" },
-    { service: "Post-Consult Follow-Up", value: "Included" },
-  ];
+  if (showPopup) {
+    return <SettingsPopup onEnter={handleEnter} />;
+  }
 
   return (
     <div className="relative">
@@ -158,12 +232,7 @@ function PitchDeck() {
         {/* ──────── SLIDE 1 — COVER ──────── */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
           <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.h1
               variants={fadeIn}
               className="text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] tracking-tight"
@@ -188,72 +257,63 @@ function PitchDeck() {
         <div className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
           <AccentPhoto src={PHOTOS.emptyClinic} />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-3xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
             <motion.div variants={fadeIn}>
-              <Label>THE OPPORTUNITY</Label>
+              <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-10">
-              <H>More Procedures. Less Effort.</H>
+              <H>Your Chair Is Too Expensive To Leave Empty.</H>
             </motion.div>
-            <motion.div variants={fadeIn} className="space-y-3 max-w-lg">
-              <FeatureCard title="Slow Follow-Up" description="Leads go cold before anyone calls." />
-              <FeatureCard title="Wrong Patients" description="Price shoppers waste your surgeon's time." />
-              <FeatureCard title="No Shows" description="Empty consult slots = lost procedure revenue." />
+            <motion.div variants={fadeIn} className="space-y-3 max-w-xl">
+              <FeatureCard title="Your Surgeon Is Sitting Idle" description="Every empty consult slot is a $15,000 procedure that didn't happen." />
+              <FeatureCard title="Leads Go Cold In Minutes" description="If you're not calling within 5 minutes, someone else is. Usually Turkey." />
+              <FeatureCard title="Wrong People Waste Everyone's Time" description="Price shoppers and tyre kickers burn your surgeon's day and your team's energy." />
+              <FeatureCard title="No Follow Up System" description="Patients who don't book on the day disappear forever. There's no one bringing them back." />
+              <FeatureCard variant="blue" title="You're Running A Clinic, Not A Sales Team" description="You shouldn't have to be. That's exactly what we are." />
             </motion.div>
           </motion.div>
         </div>
 
-        {/* ──────── SLIDE 3 — THE SOLUTION ──────── */}
+        {/* ──────── SLIDE 3 — WE FILL YOUR CALENDAR ──────── */}
         <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-4xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
             <motion.div variants={fadeIn}>
-              <Label>THE SOLUTION</Label>
+              <ChapterLabel>THE MODEL</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-10">
-              <H>We Fill Your Calendar. You Just Show Up.</H>
+              <H>We're Not An Agency. We're Your Sales Team.</H>
             </motion.div>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
-              <FeatureCard variant="blue" title="Done For You" description="Ads, calling, booking, follow-up. All handled." />
-              <FeatureCard title="Pay Per Show" description="Only pay when the patient attends." />
-              <FeatureCard title="No Lock In" description="Rolling monthly. Cancel any time." />
-              <FeatureCard title="Exclusive" description="One clinic per city. That clinic is yours." />
+            <motion.div variants={fadeIn} className="space-y-3 max-w-xl">
+              <FeatureCard variant="blue" title="We Run The Entire Pipeline" description="Ads, calls, qualification, booking, follow-up. You do nothing until they're in your chair." />
+              <FeatureCard title="Pay Per Show. Not Per Click." description="Every other agency charges you to run ads. We charge you when a qualified patient shows up." />
+              <FeatureCard title="No Guesswork On Budget" description="You know exactly what each patient costs before you start. $1,000 + GST per show." />
+              <FeatureCard title="Exclusive To Your City" description="We don't work with your competitors. One clinic per market, full stop." />
+              <FeatureCard title="Proven Systems" description="Scripts, ad creative, follow-up sequences — all built and tested. Nothing experimental." />
             </motion.div>
           </motion.div>
         </div>
 
-        {/* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */}
+        {/* ──────── SLIDE 4 — YOUR IDEAL PATIENT ──────── */}
         <div className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
           <AccentPhoto src={PHOTOS.confidentMan} />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-4xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
             <motion.div variants={fadeIn} className="mb-10">
-              <H>Your Ideal Patient.<br />Ready To Start.</H>
+              <H>We Only Send You People Ready To Buy.</H>
+              <p className={`${subClass} mt-4 max-w-xl`}>
+                Patients who know it costs between $10,000–$20,000 and want the surgery. Not a consultation about maybe.
+              </p>
             </motion.div>
             <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
-              <FeatureCard variant="blue" title="Financially Ready" description="Strong credit or super access." />
-              <FeatureCard title="Urgently Motivated" description="Ready to act now." />
-              <FeatureCard title="Trust-Oriented" description="Open to expert recommendation." />
-              <FeatureCard title="Permanent Solution" description="Not looking at Turkey." />
+              <FeatureCard variant="blue" title="Financially Ready" description="They've done the research. They know the price. They're not shocked by the number." />
+              <FeatureCard title="Pain Driven" description="They've been sitting on this for years. They're ready to stop waiting." />
+              <FeatureCard title="Wants Permanent Results" description="Not interested in medications or SMP. They want the transplant and they want it done right." />
+              <FeatureCard title="Not Going To Turkey" description="Pre-qualified against the overseas option. They want local, accountable, quality care." />
             </motion.div>
+            <motion.p variants={fadeIn} className="text-xs text-[#999] mt-6 max-w-xl">
+              Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
+            </motion.p>
           </motion.div>
         </div>
 
@@ -261,23 +321,17 @@ function PitchDeck() {
         <div className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
           <AccentPhoto src={PHOTOS.videoStudio} />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-4xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
             <motion.div variants={fadeIn}>
-              <Label>AD CREATIVE</Label>
+              <ChapterLabel>AD CREATIVE</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-10">
               <H>Proven Creative That Converts.</H>
             </motion.div>
             <motion.div variants={fadeIn} className="space-y-3 max-w-lg">
-              <FeatureCard variant="blue" title="Speaks To Confidence" description="Pain, identity and outcome-driven messaging." />
-              <FeatureCard title="Builds Trust Early" description="Patients feel comfortable before they arrive." />
-              <FeatureCard title="AHPRA Compliant" description="Safe to run. No risk to your registration." />
+              <FeatureCard variant="blue" title="Built Around Your Ideal Patient" description="Every ad speaks directly to men who know they have a problem and are ready to fix it." />
+              <FeatureCard title="AHPRA Compliant" description="No before and after language. No guarantee claims. Safe to run, nothing at risk." />
+              <FeatureCard title="Fresh Every 3 Weeks" description="Ad fatigue kills results. We rotate creative continuously so performance stays consistent." />
             </motion.div>
           </motion.div>
         </div>
@@ -286,24 +340,19 @@ function PitchDeck() {
         <div className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
           <AccentPhoto src={PHOTOS.officePhone} />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-4xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
             <motion.div variants={fadeIn}>
-              <Label>LEAD HANDLING</Label>
+              <ChapterLabel>LEAD HANDLING</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-10">
-              <H>Lead Handling You'll Be Proud Of.</H>
+              <H>Every Lead Handled Like It's Worth $15,000. Because It Is.</H>
             </motion.div>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl">
-              <FeatureCard variant="blue" title="Qualified Before Booking" description="Only the right patients reach your chair." />
-              <FeatureCard title="5 Minute Response" description="Every lead called within 5 minutes." />
-              <FeatureCard title="Show-Up System" description="SMS, calls and reminders until they arrive." />
-              <FeatureCard title="Same Person" description="One contact builds rapport start to finish." />
+            <motion.div variants={fadeIn} className="space-y-3 max-w-xl">
+              <FeatureCard variant="blue" title="5 Minute Response" description="Every inquiry called within 5 minutes. No exceptions." />
+              <FeatureCard title="Qualified Before They Hit Your Calendar" description="We confirm budget, motivation, and transplant intent before a single booking is made." />
+              <FeatureCard title="We Know When To Push" description="Our team knows how to move a patient forward without burning them or leaving them with a bad taste." />
+              <FeatureCard title="One Person, Start To Finish" description="Same contact builds the relationship. No handoffs that lose trust." />
+              <FeatureCard title="No Show Prevention" description="SMS, calls, reminders. We make sure they actually arrive." />
             </motion.div>
           </motion.div>
         </div>
@@ -312,80 +361,76 @@ function PitchDeck() {
         <div className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
           <AccentPhoto src={PHOTOS.officeReview} />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-4xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
             <motion.div variants={fadeIn}>
-              <Label>POST CONSULT</Label>
+              <ChapterLabel>POST CONSULT</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-10">
-              <H>We Follow Up. You Close More.</H>
+              <H>Not Booked On The Day? We're Not Done.</H>
             </motion.div>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg">
-              <FeatureCard variant="blue" title="Objection Handling" description="We call undecided patients and remove roadblocks." />
-              <FeatureCard title="Momentum Building" description="Warm follow-ups shorten the decision cycle." />
+            <motion.div variants={fadeIn} className="space-y-3 max-w-xl">
+              <FeatureCard variant="blue" title="We Bring Them Back" description="Undecided patients get a structured follow-up sequence. Not aggressive. Just consistent." />
+              <FeatureCard title="Objection Handling" description="We know the objections before they say them. Price, timing, Turkey. All handled." />
+              <FeatureCard title="We Protect Your Reputation" description="We don't push patients to the point of frustration. No one leaves angry and no one leaves a review before they've given you a fair shot." />
             </motion.div>
           </motion.div>
         </div>
 
-        {/* ──────── SLIDE 8 — VALUE STACK ──────── */}
+        {/* ──────── SLIDE 8 — ROI CALCULATOR ──────── */}
+        <ROICalculator caseValue={caseValue} convertRate={convertRate} />
+
+        {/* ──────── SLIDE 9 — CHOOSE YOUR PACK ──────── */}
         <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-3xl w-full"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl w-full">
             <motion.div variants={fadeIn}>
-              <Label>WHAT YOU'RE GETTING</Label>
+              <ChapterLabel>PACKAGES</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-12">
-              <H>Built Internally This Costs $10,000/Month.</H>
+              <H>Choose How Many Patients You Want.</H>
             </motion.div>
-            <motion.div variants={fadeIn} className="space-y-0">
-              {valueItems.map((item, i) => (
-                <div key={i} className="flex items-center justify-between py-3.5 border-b border-border">
-                  <span className="flex items-center text-sm font-semibold text-foreground">
-                    <Tick />
-                    {item.service}
-                  </span>
-                  <span className="text-xs text-[#CCCCCC] font-medium">{item.value}</span>
-                </div>
-              ))}
-            </motion.div>
-            <motion.div variants={fadeIn} className="mt-12">
-              <p
-                className="text-xl md:text-2xl font-extrabold text-foreground"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Your investment:{" "}
-                <span className="text-primary">$1,300 per patient who shows up.</span>
-              </p>
+            <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {packs.map((pack) => {
+                const revenue = pack.shows * rate * caseValue;
+                const cost = pack.shows * COST_PER_SHOW;
+                return (
+                  <div
+                    key={pack.name}
+                    className={`rounded-xl border p-6 ${
+                      pack.highlight
+                        ? "bg-primary/10 border-primary ring-1 ring-primary"
+                        : "bg-card border-border"
+                    }`}
+                  >
+                    {pack.highlight && (
+                      <p className="text-xs text-primary font-bold tracking-widest uppercase mb-3">RECOMMENDED</p>
+                    )}
+                    <h3 className="text-xl font-extrabold text-foreground mb-1">{pack.name}</h3>
+                    <p className="text-[#CCCCCC] text-sm mb-6">{pack.shows} qualified patients</p>
+                    <p className="text-xs text-[#CCCCCC] mb-1">$1,000 + GST each</p>
+                    <div className="border-t border-border mt-4 pt-4 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#CCCCCC]">Est. Revenue</span>
+                        <span className="text-primary font-bold">{fmt(revenue)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-[#CCCCCC]">Investment</span>
+                        <span className="text-foreground font-bold">{fmt(cost)}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </motion.div>
           </motion.div>
         </div>
-
-        {/* ──────── SLIDE 9 — ROI CALCULATOR ──────── */}
-        <ROICalculator />
 
         {/* ──────── SLIDE 10 — TRIAL GUARANTEE ──────── */}
         <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-3xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
             <motion.div variants={fadeIn}>
-              <Label>THE GUARANTEE</Label>
+              <ChapterLabel>THE GUARANTEE</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-8">
               <H>Start With 10 Shows. Risk Free.</H>
@@ -406,15 +451,9 @@ function PitchDeck() {
         {/* ──────── SLIDE 11 — FAQ ──────── */}
         <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24">
           <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="max-w-3xl"
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
             <motion.div variants={fadeIn}>
-              <Label>FAQ</Label>
+              <ChapterLabel>FAQ</ChapterLabel>
             </motion.div>
             <motion.div variants={fadeIn} className="mb-10">
               <H>Questions I Get Asked.</H>
@@ -433,12 +472,7 @@ function PitchDeck() {
         {/* ──────── SLIDE 12 — CLOSE ──────── */}
         <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
           <SlideHeader />
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={stagger}
-          >
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.div variants={fadeIn}>
               <H>Ready To Fill Your Calendar?</H>
             </motion.div>
