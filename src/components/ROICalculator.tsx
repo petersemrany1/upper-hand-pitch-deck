@@ -1,10 +1,17 @@
 import { useState, useMemo } from "react";
 import SlideHeader from "./SlideHeader";
 
-const CONVERT_RATES: Record<string, number> = {
-  "1 in 4": 0.25,
-  "1 in 3": 0.333,
+const ALL_CONVERT_RATES: Record<string, number> = {
+  "1 in 1": 1,
   "1 in 2": 0.5,
+  "1 in 3": 0.333,
+  "1 in 4": 0.25,
+  "1 in 5": 0.2,
+  "1 in 6": 0.167,
+  "1 in 7": 0.143,
+  "1 in 8": 0.125,
+  "1 in 9": 0.111,
+  "1 in 10": 0.1,
 };
 
 interface Props {
@@ -21,11 +28,16 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
 
   const columns = useMemo(() => {
     return (["1 in 4", "1 in 3", "1 in 2"] as const).map((label) => {
-      const r = CONVERT_RATES[label];
+      const r = ALL_CONVERT_RATES[label];
       const revenue = shows * r * caseValue;
       return { label, rate: r, revenue };
     });
   }, [caseValue]);
+
+  const handleCaseValueChange = (val: string) => {
+    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
+    setCaseValue(isNaN(num) ? 0 : num);
+  };
 
   return (
     <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
@@ -48,9 +60,10 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
               Average Case Value ($)
             </label>
             <input
-              type="number"
-              value={caseValue}
-              onChange={(e) => setCaseValue(Number(e.target.value) || 0)}
+              type="text"
+              inputMode="numeric"
+              value={caseValue === 0 ? "" : caseValue.toString()}
+              onChange={(e) => handleCaseValueChange(e.target.value)}
               className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary w-48"
             />
           </div>
@@ -63,8 +76,8 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
               onChange={(e) => setConvertRate(e.target.value)}
               className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer w-48"
             >
-              {Object.keys(CONVERT_RATES).map((r) => (
-                <option key={r} value={r}>{r}</option>
+              {Object.entries(ALL_CONVERT_RATES).map(([label, r]) => (
+                <option key={label} value={label}>{label} ({Math.round(r * 100)}%)</option>
               ))}
             </select>
           </div>

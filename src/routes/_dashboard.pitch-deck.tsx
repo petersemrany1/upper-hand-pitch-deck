@@ -4,7 +4,7 @@ import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, ChevronDown, Maximize, Minimize } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, Minimize } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/_dashboard/pitch-deck")({
   }),
 });
 
-const TOTAL_SLIDES = 10;
+const TOTAL_SLIDES = 9;
 
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
@@ -25,16 +25,27 @@ const fadeIn = {
 const stagger = { visible: { transition: { staggerChildren: 0.08 } } };
 
 const CONVERT_RATES: Record<string, number> = {
-  "1 in 4": 0.25,
-  "1 in 3": 0.333,
+  "1 in 1": 1,
   "1 in 2": 0.5,
+  "1 in 3": 0.333,
+  "1 in 4": 0.25,
+  "1 in 5": 0.2,
+  "1 in 6": 0.167,
+  "1 in 7": 0.143,
+  "1 in 8": 0.125,
+  "1 in 9": 0.111,
+  "1 in 10": 0.1,
 };
 const COST_PER_SHOW = 1100;
 
 /* Pre-deck settings popup */
 function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: string) => void }) {
-  const [caseValue, setCaseValue] = useState(12000);
+  const [caseValue, setCaseValue] = useState("12000");
   const [convertRate, setConvertRate] = useState("1 in 4");
+
+  const handleCaseValueChange = (val: string) => {
+    setCaseValue(val.replace(/[^0-9]/g, ""));
+  };
 
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
@@ -55,9 +66,10 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
               Average Case Value ($)
             </label>
             <input
-              type="number"
+              type="text"
+              inputMode="numeric"
               value={caseValue}
-              onChange={(e) => setCaseValue(Number(e.target.value) || 0)}
+              onChange={(e) => handleCaseValueChange(e.target.value)}
               className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
@@ -70,15 +82,15 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
               onChange={(e) => setConvertRate(e.target.value)}
               className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
             >
-              {Object.keys(CONVERT_RATES).map((r) => (
-                <option key={r} value={r}>{r}</option>
+              {Object.entries(CONVERT_RATES).map(([label, r]) => (
+                <option key={label} value={label}>{label} ({Math.round(r * 100)}%)</option>
               ))}
             </select>
           </div>
         </div>
 
         <button
-          onClick={() => onEnter(caseValue, convertRate)}
+          onClick={() => onEnter(parseInt(caseValue, 10) || 12000, convertRate)}
           className="w-full bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity"
           style={{ fontFamily: "var(--font-heading)" }}
         >
@@ -104,9 +116,15 @@ function PitchDeck() {
     setShowPopup(false);
   };
 
+  const goToSlide = useCallback((index: number) => {
+    setActiveSlide(index);
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
+    const el = containerRef.current?.parentElement;
+    if (!el) return;
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      el.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
     } else {
       document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
     }
@@ -118,54 +136,20 @@ function PitchDeck() {
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  const scrollToSlide = useCallback((index: number) => {
-    const el = containerRef.current;
-    if (!el) return;
-    const target = el.children[index] as HTMLElement;
-    if (target) target.scrollIntoView({ behavior: "smooth" });
-  }, []);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const idx = Array.from(el.children).indexOf(entry.target as HTMLElement);
-            if (idx >= 0) setActiveSlide(idx);
-          }
-        });
-      },
-      { root: el, threshold: 0.6 }
-    );
-    Array.from(el.children).forEach((child) => observer.observe(child));
-    return () => observer.disconnect();
-  }, []);
-
   useEffect(() => {
     if (showPopup) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
-        scrollToSlide(Math.min(activeSlide + 1, TOTAL_SLIDES - 1));
+        setActiveSlide((prev) => Math.min(prev + 1, TOTAL_SLIDES - 1));
       } else if (e.key === "ArrowUp" || e.key === "ArrowLeft") {
         e.preventDefault();
-        scrollToSlide(Math.max(activeSlide - 1, 0));
+        setActiveSlide((prev) => Math.max(prev - 1, 0));
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeSlide, scrollToSlide, showPopup]);
-
-  const touchStart = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientY; };
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    const diff = touchStart.current - e.changedTouches[0].clientY;
-    if (Math.abs(diff) > 50) {
-      scrollToSlide(diff > 0 ? Math.min(activeSlide + 1, TOTAL_SLIDES - 1) : Math.max(activeSlide - 1, 0));
-    }
-  };
+  }, [showPopup]);
 
   /* Helpers */
   const H = ({ children }: { children: React.ReactNode }) => (
@@ -203,17 +187,294 @@ function PitchDeck() {
     { q: "Whose Meta account do you use?", a: "Ours. You give us page access. We carry the risk." },
   ];
 
-  /* Guarantee dynamic values */
-  const guaranteeProcs = 2;
-  const guaranteeRevenue = guaranteeProcs * caseValue;
-
   if (showPopup) {
     return <SettingsPopup onEnter={handleEnter} />;
   }
 
+  /* Photo overlay helper */
+  const PhotoSide = ({ src, alt }: { src: string; alt: string }) => (
+    <div className="absolute right-0 top-0 w-[35%] h-full hidden md:block">
+      <img src={src} alt={alt} className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
+    </div>
+  );
+
+  const slides = [
+    /* ──────── SLIDE 1 — COVER ──────── */
+    <div key="cover" className="deck-slide flex flex-col items-center justify-center text-center px-6">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+        <motion.h1
+          variants={fadeIn}
+          className="text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] tracking-tight"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          HAIR TRANSPLANT
+          <br />
+          <span className="text-primary">MARKETING</span>
+          <br />
+          THAT WORKS
+        </motion.h1>
+        <motion.p variants={fadeIn} className={`${subClass} mt-8 max-w-md mx-auto`}>
+          A done-for-you patient acquisition system.
+        </motion.p>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
+    <div key="opportunity" className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <PhotoSide src="https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=800&q=80" alt="Empty modern clinic" />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl relative z-10">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
+        </motion.div>
+        <motion.div variants={fadeIn} className="mb-16">
+          <H>You're Spending Money On People Who Were Never Going To Buy.</H>
+        </motion.div>
+        <motion.div variants={fadeIn} className="space-y-12 max-w-2xl">
+          {[
+            { title: "Your surgeon's chair costs $15,000 a day to leave empty.", sub: "Every no-show and wrong patient is money gone." },
+            { title: "Leads go cold in 5 minutes.", sub: "If you're not calling first, someone else is." },
+            { title: "Price shoppers and tyre kickers are killing your conversion.", sub: "Wrong people waste your best resource — surgeon time." },
+            { title: "Patients who don't book on the day never come back.", sub: "There's no system bringing them back. Until now." },
+          ].map((item) => (
+            <div key={item.title}>
+              <p className="text-xl md:text-2xl font-extrabold text-foreground leading-snug">{item.title}</p>
+              <p className="text-[#AAAAAA] text-sm mt-2">{item.sub}</p>
+            </div>
+          ))}
+        </motion.div>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 3 — OUR PROCESS ──────── */
+    <div key="process" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>OUR PROCESS</ChapterLabel>
+        </motion.div>
+        <motion.div variants={fadeIn} className="mb-14">
+          <H>Here's How We Work.</H>
+        </motion.div>
+        <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-3xl mb-16">
+          {[
+            { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
+            { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
+            { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
+            { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
+          ].map((item) => (
+            <div key={item.step} className="flex gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
+                {item.step}
+              </div>
+              <div>
+                <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
+                <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
+              </div>
+            </div>
+          ))}
+        </motion.div>
+        <motion.div variants={fadeIn}>
+          <p
+            className="text-3xl md:text-4xl font-extrabold text-foreground leading-snug mb-3"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Pay Per Show. Not Per Click.
+          </p>
+          <p className="text-[#AAAAAA] text-sm">
+            You only pay when a qualified patient is sitting in your chair.
+          </p>
+        </motion.div>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */
+    <div key="patients" className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <PhotoSide src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800&q=80" alt="Confident man" />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl relative z-10">
+        <motion.div variants={fadeIn} className="mb-12">
+          <H>Who We'll Be Sending You.</H>
+          <p className={`${subClass} mt-4 max-w-xl`}>
+            Patients who know it costs between $10,000–$20,000 and want the surgery. Not a consultation about maybe.
+          </p>
+        </motion.div>
+        <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
+          {[
+            { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
+            { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
+            { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant done right.", emoji: "✅", highlight: false },
+            { title: "Not Going To Turkey", desc: "Pre-qualified against overseas. They want local, accountable, quality care.", emoji: "🇦🇺", highlight: false },
+          ].map((card) => (
+            <div
+              key={card.title}
+              className={`rounded-xl p-6 ${
+                card.highlight
+                  ? "bg-primary/10 border border-primary"
+                  : "bg-card border border-border"
+              }`}
+            >
+              <p className="text-2xl mb-3">{card.emoji}</p>
+              <p className="text-lg font-extrabold text-foreground mb-1.5">{card.title}</p>
+              <p className="text-[#CCCCCC] text-sm leading-relaxed">{card.desc}</p>
+            </div>
+          ))}
+        </motion.div>
+        <motion.p variants={fadeIn} className="text-xs text-[#999] mt-10 max-w-xl">
+          Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
+        </motion.p>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 5 — POST CONSULT ──────── */
+    <div key="post-consult" className="deck-slide relative flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <PhotoSide src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=800&q=80" alt="Professional conversation" />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl relative z-10">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>POST CONSULT</ChapterLabel>
+        </motion.div>
+        <motion.div variants={fadeIn} className="mb-12">
+          <H>Not Booked On The Day? We're Not Done.</H>
+        </motion.div>
+        <motion.div variants={fadeIn} className="space-y-10 max-w-xl">
+          <div>
+            <p className="text-lg font-bold text-foreground mb-1.5">We Bring Them Back</p>
+            <p className="text-[#CCCCCC] text-sm leading-relaxed">Undecided patients get a structured follow-up sequence. Not aggressive. Just consistent.</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-foreground mb-1.5">Objection Handling</p>
+            <p className="text-[#CCCCCC] text-sm leading-relaxed">We know the objections before they say them. Price, timing, Turkey. All handled.</p>
+          </div>
+          <div>
+            <p className="text-lg font-bold text-foreground mb-1.5">We Protect Your Reputation</p>
+            <p className="text-[#CCCCCC] text-sm leading-relaxed">We don't push patients to the point of frustration. No one leaves angry and no one leaves a review before they've given you a fair shot.</p>
+          </div>
+        </motion.div>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 6 — ROI CALCULATOR ──────── */
+    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} />,
+
+    /* ──────── SLIDE 7 — PACKAGES ──────── */
+    <div key="packages" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl w-full">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>PACKAGES</ChapterLabel>
+        </motion.div>
+        <motion.div variants={fadeIn} className="mb-12">
+          <H>Choose How Many Patients You Want.</H>
+        </motion.div>
+        <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {packs.map((pack) => {
+            const procedures = pack.shows * rate;
+            const revenue = procedures * caseValue;
+            const cost = pack.shows * COST_PER_SHOW;
+            const marketingPct = revenue > 0 ? (cost / revenue) * 100 : 0;
+            return (
+              <div
+                key={pack.name}
+                className="rounded-xl border border-border bg-card p-8"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="text-xl font-extrabold text-foreground">{pack.name}</h3>
+                  <span className="text-[10px] font-bold bg-primary/20 text-primary px-2 py-0.5 rounded-full">
+                    {marketingPct.toFixed(0)}% of revenue
+                  </span>
+                </div>
+                <p className="text-[#CCCCCC] text-sm mb-2">{pack.shows} qualified patients</p>
+                <p className="text-xs text-[#999] mb-6">
+                  {pack.shows} × {convertRate} = {procedures.toFixed(1)} procedures × {fmt(caseValue)}
+                </p>
+                <div className="border-t border-border pt-4 space-y-3">
+                  <div>
+                    <p className="text-xs text-[#CCCCCC] mb-0.5">Est. Revenue</p>
+                    <p className="text-2xl font-extrabold text-primary">{fmt(revenue)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-[#CCCCCC] mb-0.5">Your Investment</p>
+                    <p className="text-lg font-bold text-foreground">{fmt(cost)}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </motion.div>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 8 — THE GUARANTEE ──────── */
+    <div key="guarantee" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>THE GUARANTEE</ChapterLabel>
+        </motion.div>
+        <motion.div variants={fadeIn} className="mb-16">
+          <H>If We Don't Deliver, You Don't Lose.</H>
+        </motion.div>
+        <motion.div variants={fadeIn} className="space-y-10 mb-12">
+          {[
+            "No show = no charge. Ever.",
+            "Don't get 2 procedures from your first 10 shows? We give you 5 more free.",
+            "No lock in. Cancel any time.",
+          ].map((item) => (
+            <div key={item} className="flex items-start gap-4">
+              <span className="text-primary text-2xl font-bold flex-shrink-0">✓</span>
+              <p className="text-xl md:text-2xl font-extrabold text-foreground leading-snug">{item}</p>
+            </div>
+          ))}
+        </motion.div>
+        <motion.p variants={fadeIn} className="text-sm text-[#AAAAAA]">
+          At {fmt(caseValue)} per procedure, 2 conversions covers your full investment.
+        </motion.p>
+      </motion.div>
+    </div>,
+
+    /* ──────── SLIDE 9 — FAQ + CLOSE ──────── */
+    <div key="faq-close" className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>FAQ</ChapterLabel>
+        </motion.div>
+        <motion.div variants={fadeIn} className="mb-10">
+          <H>Questions I Get Asked.</H>
+        </motion.div>
+        <motion.div variants={fadeIn} className="divide-y divide-border mb-16">
+          {faqItems.map((item, i) => (
+            <div key={i} className="py-5">
+              <p className="text-base font-semibold text-foreground">{item.q}</p>
+              <p className="text-sm text-[#CCCCCC] mt-1.5">{item.a}</p>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Close CTA */}
+        <motion.div variants={fadeIn} className="text-center pt-8 border-t border-border">
+          <H>Let Us Fill Your Calendar.</H>
+          <p className={`${subClass} mt-4 mb-10`}>
+            One clinic per city. Spots are limited.
+          </p>
+          <button
+            onClick={() => setShowGetStarted(true)}
+            className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            GET STARTED →
+          </button>
+        </motion.div>
+      </motion.div>
+    </div>,
+  ];
+
   return (
-    <div className="relative group">
-      {/* Fullscreen toggle — visible on hover */}
+    <div className="relative group" style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
+      {/* Fullscreen toggle */}
       <button
         onClick={toggleFullscreen}
         className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
@@ -222,309 +483,39 @@ function PitchDeck() {
         {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
       </button>
 
-      <div
-        ref={containerRef}
-        className="deck-container"
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* ──────── SLIDE 1 — COVER ──────── */}
-        <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-            <motion.h1
-              variants={fadeIn}
-              className="text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] tracking-tight"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              HAIR TRANSPLANT
-              <br />
-              <span className="text-primary">MARKETING</span>
-              <br />
-              THAT WORKS
-            </motion.h1>
-            <motion.p variants={fadeIn} className={`${subClass} mt-8 max-w-md mx-auto`}>
-              A done-for-you patient acquisition system.
-            </motion.p>
-          </motion.div>
-          <div className="absolute bottom-10 animate-pulse-bounce">
-            <ChevronDown className="w-6 h-6 text-[#CCCCCC]" />
-          </div>
-        </div>
-
-        {/* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
-            <motion.div variants={fadeIn}>
-              <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
-            </motion.div>
-            <motion.div variants={fadeIn} className="mb-6">
-              <H>You're Spending Money On People Who Were Never Going To Buy.</H>
-            </motion.div>
-            <motion.p variants={fadeIn} className={`${subClass} mb-12 max-w-2xl`}>
-              Most clinics are drowning in the wrong leads. Tyre kickers, price shoppers, and people who were always going to book Turkey.
-            </motion.p>
-            <motion.div variants={fadeIn} className="space-y-8 max-w-2xl">
-              <div>
-                <p className="text-lg md:text-xl font-bold text-foreground leading-snug">Your surgeon's time is your most expensive asset.</p>
-                <p className="text-[#CCCCCC] text-sm mt-1.5">Empty chairs and wrong patients are costing you $15,000 a slot.</p>
-              </div>
-              <div>
-                <p className="text-lg md:text-xl font-bold text-foreground leading-snug">Leads go cold in minutes.</p>
-                <p className="text-[#CCCCCC] text-sm mt-1.5">If you're not calling within 5 minutes someone else is.</p>
-              </div>
-              <div>
-                <p className="text-lg md:text-xl font-bold text-foreground leading-snug">No follow-up system means patients who don't book on the day are gone forever.</p>
-                <p className="text-[#CCCCCC] text-sm mt-1.5">There's no one bringing them back.</p>
-              </div>
-              <div>
-                <p className="text-lg md:text-xl font-bold text-foreground leading-snug">You're running a clinic. You shouldn't also have to run a sales team.</p>
-                <p className="text-[#CCCCCC] text-sm mt-1.5">That's exactly what we are.</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 3 — OUR PROCESS ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
-            <motion.div variants={fadeIn}>
-              <ChapterLabel>OUR PROCESS</ChapterLabel>
-            </motion.div>
-            <motion.div variants={fadeIn} className="mb-12">
-              <H>Here's How We Work.</H>
-            </motion.div>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mb-12">
-              {[
-                { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
-                { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
-                { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
-                { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
-              ].map((item) => (
-                <div key={item.step} className="flex gap-4">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">
-                    {item.step}
-                  </div>
-                  <div>
-                    <p className="text-base md:text-lg font-bold text-foreground mb-1.5">{item.title}</p>
-                    <p className="text-[#CCCCCC] text-sm leading-relaxed">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </motion.div>
-            <motion.div variants={fadeIn}>
-              <p
-                className="text-2xl md:text-3xl font-extrabold text-foreground leading-snug"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Pay Per Show. Not Per Click.{" "}
-                <span className="text-[#CCCCCC] font-normal text-lg md:text-xl">
-                  You only pay when a qualified patient sits in your chair.
-                </span>
-              </p>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 4 — WHO WE SEND YOU ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
-            <motion.div variants={fadeIn} className="mb-10">
-              <H>Who We'll Be Sending You.</H>
-              <p className={`${subClass} mt-4 max-w-xl`}>
-                Patients who know it costs between $10,000–$20,000 and want the surgery. Not a consultation about maybe.
-              </p>
-            </motion.div>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-2xl">
-              {[
-                { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number." },
-                { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting." },
-                { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant and they want it done right." },
-                { title: "Not Going To Turkey", desc: "Pre-qualified against the overseas option. They want local, accountable, quality care." },
-              ].map((card) => (
-                <div key={card.title} className="py-2">
-                  <p className="text-base font-bold text-foreground mb-1">{card.title}</p>
-                  <p className="text-[#CCCCCC] text-sm leading-relaxed">{card.desc}</p>
-                </div>
-              ))}
-            </motion.div>
-            <motion.p variants={fadeIn} className="text-xs text-[#999] mt-8 max-w-xl">
-              Other inquiries like SMP or medication consultations? We send those through as a bonus at no charge.
-            </motion.p>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 5 — POST CONSULT ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl">
-            <motion.div variants={fadeIn}>
-              <ChapterLabel>POST CONSULT</ChapterLabel>
-            </motion.div>
-            <motion.div variants={fadeIn} className="mb-10">
-              <H>Not Booked On The Day? We're Not Done.</H>
-            </motion.div>
-            <motion.div variants={fadeIn} className="space-y-6 max-w-xl">
-              <div>
-                <p className="text-base font-bold text-foreground mb-1">We Bring Them Back</p>
-                <p className="text-[#CCCCCC] text-sm leading-relaxed">Undecided patients get a structured follow-up sequence. Not aggressive. Just consistent.</p>
-              </div>
-              <div>
-                <p className="text-base font-bold text-foreground mb-1">Objection Handling</p>
-                <p className="text-[#CCCCCC] text-sm leading-relaxed">We know the objections before they say them. Price, timing, Turkey. All handled.</p>
-              </div>
-              <div>
-                <p className="text-base font-bold text-foreground mb-1">We Protect Your Reputation</p>
-                <p className="text-[#CCCCCC] text-sm leading-relaxed">We don't push patients to the point of frustration. No one leaves angry and no one leaves a review before they've given you a fair shot.</p>
-              </div>
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 6 — ROI CALCULATOR ──────── */}
-        <ROICalculator caseValue={caseValue} convertRate={convertRate} />
-
-        {/* ──────── SLIDE 7 — PACKAGES ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-4xl w-full">
-            <motion.div variants={fadeIn}>
-              <ChapterLabel>PACKAGES</ChapterLabel>
-            </motion.div>
-            <motion.div variants={fadeIn} className="mb-12">
-              <H>Choose How Many Patients You Want.</H>
-            </motion.div>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {packs.map((pack) => {
-                const revenue = pack.shows * rate * caseValue;
-                const cost = pack.shows * COST_PER_SHOW;
-                return (
-                  <div
-                    key={pack.name}
-                    className="rounded-xl border border-border bg-card p-8"
-                  >
-                    <h3 className="text-xl font-extrabold text-foreground mb-1">{pack.name}</h3>
-                    <p className="text-[#CCCCCC] text-sm mb-6">{pack.shows} qualified patients</p>
-                    <p className="text-xs text-[#CCCCCC] mb-4">$1,000 + GST each</p>
-                    <div className="border-t border-border pt-4 space-y-3">
-                      <div>
-                        <p className="text-xs text-[#CCCCCC] mb-0.5">Est. Revenue</p>
-                        <p className="text-2xl font-extrabold text-primary">{fmt(revenue)}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-[#CCCCCC] mb-0.5">Investment</p>
-                        <p className="text-lg font-bold text-foreground">{fmt(cost)}</p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 8 — THE GUARANTEE ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
-            <motion.div variants={fadeIn}>
-              <ChapterLabel>THE GUARANTEE</ChapterLabel>
-            </motion.div>
-            <motion.div variants={fadeIn} className="mb-8">
-              <H>If We Don't Deliver, You Don't Lose.</H>
-            </motion.div>
-            <motion.p variants={fadeIn} className={`${subClass} mb-10 max-w-2xl text-base`}>
-              Start with 10 qualified shows. At {convertRate}, that's {Math.round(10 * rate)} procedures — worth{" "}
-              <span className="text-primary font-bold">{fmt(Math.round(10 * rate) * caseValue)}</span> in revenue.
-              If you don't get at least {guaranteeProcs} procedures go ahead, we'll give you 5 additional shows completely free.
-              <br /><br />
-              At <span className="text-primary font-bold">{fmt(caseValue)}</span> per procedure,{" "}
-              {guaranteeProcs} conversions = <span className="text-primary font-bold">{fmt(guaranteeRevenue)}</span> — more than covers your full investment.
-              We qualify hard. We back ourselves completely.
-            </motion.p>
-            <motion.div variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl">
-              {[
-                { title: "No Show = No Charge", desc: "You never pay for an empty seat." },
-                { title: "Free Top-Up", desc: "5 free shows if 2 don't convert from your first 10." },
-                { title: "No Lock In", desc: "Cancel any time after your trial." },
-              ].map((card) => (
-                <div key={card.title} className="bg-card border border-border rounded-xl p-5">
-                  <p className="text-sm font-bold text-foreground mb-1">{card.title}</p>
-                  <p className="text-xs text-[#CCCCCC]">{card.desc}</p>
-                </div>
-              ))}
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 9 — FAQ ──────── */}
-        <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl">
-            <motion.div variants={fadeIn}>
-              <ChapterLabel>FAQ</ChapterLabel>
-            </motion.div>
-            <motion.div variants={fadeIn} className="mb-10">
-              <H>Questions I Get Asked.</H>
-            </motion.div>
-            <motion.div variants={fadeIn} className="divide-y divide-border">
-              {faqItems.map((item, i) => (
-                <div key={i} className="py-5">
-                  <p className="text-base font-semibold text-foreground">{item.q}</p>
-                  <p className="text-sm text-[#CCCCCC] mt-1.5">{item.a}</p>
-                </div>
-              ))}
-            </motion.div>
-          </motion.div>
-        </div>
-
-        {/* ──────── SLIDE 10 — CLOSE ──────── */}
-        <div className="deck-slide flex flex-col items-center justify-center text-center px-6">
-          <SlideHeader />
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-            <motion.div variants={fadeIn}>
-              <H>Let Us Fill Your Calendar.</H>
-            </motion.div>
-            <motion.p variants={fadeIn} className={`${subClass} mt-4 mb-10`}>
-              One clinic per city. Spots are limited.
-            </motion.p>
-            <motion.button
-              variants={fadeIn}
-              onClick={() => setShowGetStarted(true)}
-              className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              GET STARTED →
-            </motion.button>
-          </motion.div>
-        </div>
+      {/* Single slide display — no scroll */}
+      <div ref={containerRef} className="w-full h-full">
+        {slides[activeSlide]}
       </div>
 
       <GetStartedModal open={showGetStarted} onClose={() => setShowGetStarted(false)} />
-      <button
-        onClick={() => scrollToSlide(Math.max(activeSlide - 1, 0))}
-        className="fixed left-3 top-1/2 -translate-y-1/2 z-50 text-[#CCCCCC] hover:text-foreground transition-colors opacity-30 hover:opacity-80"
-        aria-label="Previous slide"
-      >
-        <ChevronLeft className="w-7 h-7" />
-      </button>
-      <button
-        onClick={() => scrollToSlide(Math.min(activeSlide + 1, TOTAL_SLIDES - 1))}
-        className="fixed right-3 top-1/2 -translate-y-1/2 z-50 text-[#CCCCCC] hover:text-foreground transition-colors opacity-30 hover:opacity-80"
-        aria-label="Next slide"
-      >
-        <ChevronRight className="w-7 h-7" />
-      </button>
+
+      {/* Nav arrows — always visible */}
+      {activeSlide > 0 && (
+        <button
+          onClick={() => goToSlide(activeSlide - 1)}
+          className="fixed left-4 top-1/2 -translate-y-1/2 z-50 p-2 rounded-full bg-card/60 border border-border text-foreground opacity-80 hover:opacity-100 transition-opacity"
+          aria-label="Previous slide"
+        >
+          <ChevronLeft className="w-8 h-8" />
+        </button>
+      )}
+      {activeSlide < TOTAL_SLIDES - 1 && (
+        <button
+          onClick={() => goToSlide(activeSlide + 1)}
+          className="fixed right-4 top-1/2 -translate-y-1/2 z-50 p-2 rounded-full bg-card/60 border border-border text-foreground opacity-80 hover:opacity-100 transition-opacity"
+          aria-label="Next slide"
+        >
+          <ChevronRight className="w-8 h-8" />
+        </button>
+      )}
 
       {/* Progress dots */}
       <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex gap-1.5">
         {Array.from({ length: TOTAL_SLIDES }).map((_, i) => (
           <button
             key={i}
-            onClick={() => scrollToSlide(i)}
+            onClick={() => goToSlide(i)}
             className={`w-2 h-2 rounded-full transition-all ${
               i === activeSlide
                 ? "bg-primary scale-125"
