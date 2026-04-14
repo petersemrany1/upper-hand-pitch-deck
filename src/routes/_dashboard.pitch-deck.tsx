@@ -9,6 +9,7 @@ import processPhoneCall from "../assets/process-phone-call.jpg";
 import patientProfile from "../assets/patient-profile.jpg";
 import guaranteeHandshake from "../assets/guarantee-handshake.jpg";
 import postConsultCoordinator from "../assets/post-consult-coordinator.jpg";
+import faqFounder from "../assets/faq-founder.jpg";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -185,7 +186,7 @@ function PitchDeck() {
   const faqItems = [
     { q: "What if a patient doesn't show?", a: "You don't pay. Simple as that. We credit or refund immediately." },
     { q: "What if you can't get me leads in time?", a: "That hasn't happened in this industry. But if it did, we'd refund your investment in full." },
-    { q: "What dental implant clients have you worked with?", a: "We've worked with clinics all over Australia. Confidentiality agreements prevent us from naming them — the same protection applies to you." },
+    { q: "What hair transplant clients have you worked with?", a: "We've worked with clinics all over Australia. Confidentiality agreements prevent us from naming them — the same protection applies to you." },
     { q: "Can I see ad examples?", a: "Yes. Shared once you're onboard. Everything approved by you before it goes live." },
     { q: "Where is your team?", a: "Sydney, Australia." },
     { q: "Whose Meta account do you use?", a: "Ours. You give us page access. We carry the risk." },
@@ -500,21 +501,29 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 9 — FAQ (black bg, large text) ──────── */
-    <div key="faq" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
-      <div className="w-full max-w-4xl">
-        <SlideHeader />
-        <div className="text-center mb-12">
-          <ChapterLabel>FAQ</ChapterLabel>
-          <H>Questions I Get Asked</H>
+    <div key="faq" className="deck-slide flex min-h-screen w-full bg-black">
+      {/* Left content — 70% */}
+      <div className="w-[70%] flex flex-col justify-center px-16 py-12">
+        <div className="w-full max-w-4xl">
+          <SlideHeader />
+          <div className="text-center mb-12">
+            <ChapterLabel>FAQ</ChapterLabel>
+            <H>Questions I Get Asked</H>
+          </div>
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="divide-y divide-border w-full">
+            {faqItems.map((item, i) => (
+              <div key={i} className="py-5">
+                <p className="text-lg md:text-xl font-bold text-foreground">{item.q}</p>
+                <p className="text-base text-[#CCCCCC] mt-2 leading-relaxed">{item.a}</p>
+              </div>
+            ))}
+          </motion.div>
         </div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="divide-y divide-border w-full">
-          {faqItems.map((item, i) => (
-            <div key={i} className="py-5">
-              <p className="text-lg md:text-xl font-bold text-foreground">{item.q}</p>
-              <p className="text-base text-[#CCCCCC] mt-2 leading-relaxed">{item.a}</p>
-            </div>
-          ))}
-        </motion.div>
+      </div>
+      {/* Right photo panel — 30% */}
+      <div className="w-[30%] relative">
+        <img src={faqFounder} alt="Founder in conversation" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
     </div>,
 
