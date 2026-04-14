@@ -257,16 +257,12 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS (2x2 grid centered) ──────── */
-    <div key="process" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
-      <FullBg src="https://images.unsplash.com/photo-1557804506-669a67965ba0?w=1200&q=80" alt="Team working" />
+    <div key="process" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
       <div className="relative z-10 w-full max-w-5xl text-center">
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn}>
-            <ChapterLabel>OUR PROCESS</ChapterLabel>
-          </motion.div>
           <motion.div variants={fadeIn} className="mb-12">
-            <H>Here's How We Work.</H>
+            <H>Our Process.</H>
           </motion.div>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full mx-auto">
