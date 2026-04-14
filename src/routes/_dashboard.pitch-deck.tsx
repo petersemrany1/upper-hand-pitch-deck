@@ -237,15 +237,15 @@ function PitchDeck() {
             className="text-3xl md:text-4xl font-extrabold text-foreground leading-[1.15] tracking-tight"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            You're Spending Money On People Who Were Never Going To Buy.
+            The Leaks In Your Pipeline.
           </h2>
         </motion.div>
         <motion.div variants={fadeIn} className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
           {[
-            { emoji: "💸", title: "Your surgeon's chair costs $15,000 a day to leave empty." },
-            { emoji: "⏱️", title: "Leads go cold in 5 minutes." },
-            { emoji: "🚫", title: "Price shoppers and tyre kickers are killing your conversion." },
-            { emoji: "📅", title: "Patients who don't book on the day never come back." },
+            { emoji: "💸", title: "Empty chairs cost $15,000 a day" },
+            { emoji: "⏱️", title: "Leads go to turkey if you don't call them in 5 minutes" },
+            { emoji: "🚫", title: "Price shoppers waste your time" },
+            { emoji: "📅", title: "Undecided patients never come back on their own" },
           ].map((item) => (
             <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-zinc-900 border border-white/10">
               <span className="text-5xl">{item.emoji}</span>
