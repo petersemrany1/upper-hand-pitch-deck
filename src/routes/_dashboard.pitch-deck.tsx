@@ -288,11 +288,9 @@ function PitchDeck() {
             className="text-3xl md:text-5xl font-extrabold text-foreground leading-snug"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            <span className="relative inline-block">
+            <span className="relative inline-block pb-3">
               Pay Per Show. Not Per Click.
-              <svg className="absolute -bottom-3 left-0 w-full" viewBox="0 0 300 16" preserveAspectRatio="none" style={{ height: '14px' }}>
-                <path d="M0 4 L300 12" fill="none" stroke="hsl(217, 91%, 60%)" strokeWidth="5" strokeLinecap="round" />
-              </svg>
+              <span className="absolute bottom-0 left-0 w-full h-[5px] rounded-full" style={{ backgroundColor: 'hsl(217, 91%, 60%)' }} />
             </span>
           </p>
           <p className="text-[#CCCCCC] text-base mt-4">
