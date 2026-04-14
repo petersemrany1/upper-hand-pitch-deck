@@ -304,7 +304,7 @@ function PitchDeck() {
       {/* Right photo panel — 30% */}
       <div className="w-[30%] relative">
         <img
-          src="https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=800&q=80&fit=crop&crop=top"
+          src="https://images.unsplash.com/photo-1719937206498-b31987cc83bc?w=800&q=80&fit=crop"
           alt="Professional on a phone call"
           className="w-full h-full object-cover"
         />
