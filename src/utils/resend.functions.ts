@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateContractFromTemplate } from "./contract-pdf";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
+const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
 
 function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -98,37 +99,88 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     });
 
     const pdfBase64 = uint8ToBase64(pdfBytes);
-    const firstName = data.contactName.trim().split(" ")[0];
 
-    const html = [
-      '<!DOCTYPE html><html><head><meta charset="utf-8" /></head>',
-      '<body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">',
-      '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:40px 0;">',
-      '<tr><td align="center">',
-      '<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">',
-      '<tr><td style="background:#0f172a;padding:32px 40px;">',
-      '<h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:800;">Upper Hand</h1>',
-      "</td></tr>",
-      '<tr><td style="padding:40px;">',
-      '<p style="margin:0 0 16px;color:#0f172a;font-size:15px;line-height:1.6;">Hi ' + firstName + ",</p>",
-      '<p style="margin:0 0 16px;color:#0f172a;font-size:15px;line-height:1.6;">Please find your Upper Hand Digital Services Agreement attached.</p>',
-      '<p style="margin:0 0 16px;color:#0f172a;font-size:15px;line-height:1.6;">Review the terms, sign the last page, and reply with the signed copy.</p>',
-      '<p style="margin:0 0 16px;color:#0f172a;font-size:15px;line-height:1.6;">Any questions just reply to this message.</p>',
-      '<p style="margin:32px 0 0;color:#9ca3af;font-size:12px;">\u2014 Upper Hand Digital</p>',
-      "</td></tr></table></td></tr></table></body></html>",
-    ].join("");
-
-    return sendViaResend(
-      data.to,
-      "Your Upper Hand Digital Services Agreement \u2014 Please Review and Sign",
-      html,
-      [
-        {
-          filename: "Upper_Hand_Agreement_" + data.clinicName.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf",
-          content: pdfBase64,
+    try {
+      const response = await fetch("https://api.docuseal.com/submissions/pdf", {
+        method: "POST",
+        headers: {
+          "X-Auth-Token": DOCUSEAL_API_KEY,
+          "Content-Type": "application/json",
         },
-      ]
-    );
+        body: JSON.stringify({
+          name: "Upper Hand Agreement — " + data.clinicName,
+          send_email: true,
+          order: "preserved",
+          documents: [
+            {
+              name: "Upper_Hand_Agreement_" + data.clinicName.replace(/[^a-zA-Z0-9]/g, "_") + ".pdf",
+              file: pdfBase64,
+              fields: [
+                {
+                  name: "Provider Signature",
+                  type: "signature",
+                  role: "Provider",
+                  required: true,
+                  areas: [{ x: 60, y: 680, w: 200, h: 40, page: -1 }],
+                },
+                {
+                  name: "Provider Date",
+                  type: "date",
+                  role: "Provider",
+                  required: true,
+                  areas: [{ x: 60, y: 730, w: 150, h: 20, page: -1 }],
+                },
+                {
+                  name: "Client Signature",
+                  type: "signature",
+                  role: "Client",
+                  required: true,
+                  areas: [{ x: 320, y: 680, w: 200, h: 40, page: -1 }],
+                },
+                {
+                  name: "Client Date",
+                  type: "date",
+                  role: "Client",
+                  required: true,
+                  areas: [{ x: 320, y: 730, w: 150, h: 20, page: -1 }],
+                },
+              ],
+            },
+          ],
+          submitters: [
+            {
+              name: "Peter Semrany",
+              email: "petersemrany1@gmail.com",
+              role: "Provider",
+              completed: true,
+              send_email: false,
+            },
+            {
+              name: data.contactName,
+              email: data.to,
+              role: "Client",
+              send_email: true,
+              message: {
+                subject: "Your Upper Hand Digital Services Agreement — Please Review and Sign",
+                body: "Hi " + data.contactName.trim().split(" ")[0] + ",\n\nPlease find your Upper Hand Digital Services Agreement ready for your review and signature.\n\nReview the terms, sign the document, and it will be automatically sent to both parties once completed.\n\nIf you have any questions, simply reply to this email.",
+              },
+            },
+          ],
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("DocuSeal error:", JSON.stringify(result));
+        return { success: false, error: result.error || result.message || "Failed to send contract for signing" };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("DocuSeal request failed:", error);
+      return { success: false, error: "Request failed" };
+    }
   });
 
 export const sendInvoiceEmail = createServerFn({ method: "POST" })
