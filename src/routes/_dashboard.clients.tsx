@@ -610,7 +610,7 @@ function ClientsPage() {
                           className="h-8 w-8 p-0"
                           onClick={() => togglePlayback(getProxyUrl(record.recording_url!))}
                         >
-                          {playingUrl === record.recording_url ? (
+                          {playingUrl === getProxyUrl(record.recording_url!) ? (
                             <Pause className="w-4 h-4" />
                           ) : (
                             <Play className="w-4 h-4" />
