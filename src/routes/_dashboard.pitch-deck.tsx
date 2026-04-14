@@ -507,7 +507,7 @@ function PitchDeck() {
         <div className="w-full max-w-4xl">
           <SlideHeader />
           <div className="text-center mb-12">
-            <ChapterLabel>FAQ</ChapterLabel>
+            <ChapterLabel>QUESTIONS</ChapterLabel>
             <H>Questions I Get Asked</H>
           </div>
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="divide-y divide-border w-full">
