@@ -1,11 +1,34 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Only fetched AFTER the user answers. If they don't answer within 20s,
-// Twilio hangs up and this URL is never called — client is never dialed.
+// Only fetched AFTER the user answers. If machine detected, Twilio will have
+// already hung up before reaching this point via the IfMachine=Hangup approach.
+// But as a safety net, we also check AnsweredBy here.
 
 serve(async (req) => {
   const url = new URL(req.url);
   const clientPhone = url.searchParams.get("clientPhone") || "";
+
+  // Check if Twilio detected a machine — GET params or POST form data
+  let answeredBy = url.searchParams.get("AnsweredBy") || "";
+  if (!answeredBy && req.method === "POST") {
+    try {
+      const formData = await req.formData();
+      answeredBy = formData.get("AnsweredBy")?.toString() || "";
+    } catch {}
+  }
+
+  console.log("TwiML requested. clientPhone:", clientPhone, "AnsweredBy:", answeredBy);
+
+  // If machine/voicemail detected, hang up immediately — never dial client
+  if (answeredBy && answeredBy !== "human") {
+    return new Response(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Hangup/>
+</Response>`,
+      { status: 200, headers: { "Content-Type": "application/xml" } },
+    );
+  }
 
   if (!clientPhone) {
     return new Response(
