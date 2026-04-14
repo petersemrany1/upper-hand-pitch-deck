@@ -272,6 +272,11 @@ function ClientsPage() {
     loadAllRecords();
   };
 
+  const getProxyUrl = (recordingUrl: string, download = false) => {
+    const base = import.meta.env.VITE_SUPABASE_URL;
+    return `${base}/functions/v1/twilio-recording?url=${encodeURIComponent(recordingUrl)}${download ? "&download=1" : ""}`;
+  };
+
   const togglePlayback = (url: string) => {
     if (playingUrl === url) {
       audioRef?.pause();
