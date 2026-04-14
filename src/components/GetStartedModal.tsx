@@ -290,29 +290,29 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                   className="text-2xl font-extrabold text-foreground mb-6"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  How would you like to pay?
+                  How would you like to receive your payment link?
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
-                  <button
-                    onClick={handlePayByCard}
-                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
-                  >
-                    <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
-                      💳
-                    </p>
-                    <p className="text-sm font-bold text-foreground mt-2">Pay By Card</p>
-                    <p className="text-xs text-[#CCCCCC] mt-1">Secure checkout via Stripe</p>
-                  </button>
                   <button
                     onClick={handleRequestInvoice}
                     disabled={sending}
                     className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
-                      📄
+                      ✉️
                     </p>
-                    <p className="text-sm font-bold text-foreground mt-2">Request Invoice</p>
-                    <p className="text-xs text-[#CCCCCC] mt-1">We'll send it within 24hrs</p>
+                    <p className="text-sm font-bold text-foreground mt-2">Send Payment Link via Email</p>
+                    <p className="text-xs text-[#CCCCCC] mt-1">We'll email you a secure payment link instantly</p>
+                  </button>
+                  <button
+                    onClick={handlePayByCard}
+                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
+                  >
+                    <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
+                      💬
+                    </p>
+                    <p className="text-sm font-bold text-foreground mt-2">Send Payment Link via SMS</p>
+                    <p className="text-xs text-[#CCCCCC] mt-1">We'll text you a secure payment link instantly</p>
                   </button>
                 </div>
 
