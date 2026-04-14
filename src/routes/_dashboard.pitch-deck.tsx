@@ -4,7 +4,8 @@ import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Maximize, Minimize } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, Minimize, Home } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import processPhoneCall from "../assets/process-phone-call.jpg";
 import patientProfile from "../assets/patient-profile.jpg";
 import guaranteeHandshake from "../assets/guarantee-handshake.jpg";
@@ -534,6 +535,13 @@ function PitchDeck() {
       <div className="absolute inset-0 bg-black/85" />
       <div className="relative z-10">
         <SlideHeader />
+        <Link
+          to="/"
+          className="fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-card/30 border border-border/30 text-[#666] hover:text-foreground hover:bg-card/60 transition-all"
+          aria-label="Back to dashboard"
+        >
+          <Home className="w-4 h-4" />
+        </Link>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.div variants={fadeIn}>
             <H>Let Us Fill Your Calendar.</H>
