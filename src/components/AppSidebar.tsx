@@ -15,7 +15,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Clients", url: "/clients", icon: Users },
+  { title: "Phone", url: "/clients", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
 ];
 
