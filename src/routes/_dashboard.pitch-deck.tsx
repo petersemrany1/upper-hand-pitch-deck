@@ -247,7 +247,7 @@ function PitchDeck() {
             { emoji: "🚫", title: "Price shoppers and tyre kickers are killing your conversion." },
             { emoji: "👻", title: "Patients who don't book on the day never come back." },
           ].map((item) => (
-            <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-primary/15">
+            <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-primary/30">
               <span className="text-5xl">{item.emoji}</span>
               <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item.title}</p>
             </div>
