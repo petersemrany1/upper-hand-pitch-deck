@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, Maximize, Minimize } from "lucide-react";
 import processPhoneCall from "../assets/process-phone-call.jpg";
 import patientProfile from "../assets/patient-profile.jpg";
 import guaranteeHandshake from "../assets/guarantee-handshake.jpg";
+import postConsultCoordinator from "../assets/post-consult-coordinator.jpg";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -374,7 +375,7 @@ function PitchDeck() {
         <SlideHeader />
         <ChapterLabel>POST CONSULT</ChapterLabel>
         <h2
-          className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-foreground leading-[1.1] tracking-tight"
+          className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}
         >
           Not Booked On The Day?<br />
@@ -382,9 +383,9 @@ function PitchDeck() {
         </h2>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-12 divide-y divide-white/10">
           {[
-            { num: "1", title: "We follow them up" },
-            { num: "2", title: "We handle any objections" },
-            { num: "3", title: "We get them back in the clinic respectfully" },
+            { num: "1", title: "We Follow Up Until They're Ready" },
+            { num: "2", title: "We Handle Every Objection" },
+            { num: "3", title: "We Never Burn The Relationship" },
           ].map((item) => (
             <div key={item.num} className="py-6 flex items-center gap-4">
               <span className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">{item.num}</span>
@@ -395,7 +396,8 @@ function PitchDeck() {
       </div>
       {/* Right column — photo 30% */}
       <div className="w-[30%] relative">
-        <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&q=80" alt="Professional conversation" className="w-full h-full object-cover" />
+        <img src={postConsultCoordinator} alt="Patient coordinator" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/40" />
       </div>
     </div>,
 
