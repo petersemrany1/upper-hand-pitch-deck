@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check } from "lucide-react";
-import emailjs from "@emailjs/browser";
+
 import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
+import { sendInvoiceEmail } from "../utils/resend.functions";
 
 interface GetStartedModalProps {
   open: boolean;
@@ -34,6 +35,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
 
   const [sending, setSending] = useState(false);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const step1Valid = fullName.trim() && clinicName.trim() && email.trim() && phone.trim();
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
@@ -42,32 +44,32 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const displayAmount = selectedPack === "custom" ? customAmount : chosenPack ? fmt(chosenPack.total) : "";
   const displayPackName = selectedPack === "custom" ? `Custom (${customAmount})` : chosenPack?.name ?? "";
 
-  const sendInvoiceEmail = async () => {
-    setSending(true);
-    const subject = `New Invoice Request — ${clinicName}`;
-    const body = `Name: ${fullName}\nClinic: ${clinicName}\nEmail: ${email}\nPhone: ${phone}\nPack: ${displayPackName}\nAmount: ${displayAmount}`;
+  const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
 
-    // Try EmailJS first, fall back to mailto
+  const handleRequestInvoice = async () => {
+    setSending(true);
+    setInvoiceStatus(null);
     try {
-      await emailjs.send(
-        "service_placeholder", // user needs to set up EmailJS service
-        "template_placeholder", // user needs to set up EmailJS template
-        {
-          to_email: "petersemrany1@gmail.com",
-          subject,
-          message: body,
-          from_name: fullName,
-          from_email: email,
+      const result = await sendInvoiceEmailFn({
+        data: {
+          to: email,
+          clinicName,
+          contactName: fullName,
+          phone,
+          packageName: displayPackName,
+          amount: displayAmount,
+          stripeLink: chosenPack?.stripeLink || "",
         },
-        "public_key_placeholder" // user needs to set up EmailJS public key
-      );
+      });
+      if (result.success) {
+        setInvoiceStatus({ type: "success", message: `Invoice sent to ${email}. Check your inbox.` });
+      } else {
+        setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
+      }
     } catch {
-      // Fallback: open mailto
-      const mailtoLink = `mailto:petersemrany1@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-      window.open(mailtoLink, "_blank");
+      setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
     }
     setSending(false);
-    setStep(4);
   };
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
@@ -102,6 +104,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setSelectedPack(null);
     setCustomAmount("");
     setSmsStatus(null);
+    setInvoiceStatus(null);
     onClose();
   };
 
@@ -301,7 +304,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                     <p className="text-xs text-[#CCCCCC] mt-1">Secure checkout via Stripe</p>
                   </button>
                   <button
-                    onClick={sendInvoiceEmail}
+                    onClick={handleRequestInvoice}
                     disabled={sending}
                     className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
                   >
@@ -316,6 +319,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                 {smsStatus && (
                   <p className={`text-sm mt-4 text-center font-medium ${smsStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
                     {smsStatus.message}
+                  </p>
+                )}
+
+                {invoiceStatus && (
+                  <p className={`text-sm mt-4 text-center font-medium ${invoiceStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                    {invoiceStatus.message}
                   </p>
                 )}
 
