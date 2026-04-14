@@ -138,7 +138,7 @@ function ClientsPage() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeTab, dialNumber]);
+  }, [activeTab, dialNumber, selectedPhone, calling]);
 
   const handleDialPress = (digit: string) => {
     setDialNumber((prev) => prev + digit);
