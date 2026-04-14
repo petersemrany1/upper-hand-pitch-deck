@@ -654,12 +654,12 @@ function ClientsPage() {
                   </div>
                 </div>
 
-                {playingUrl === record.recording_url && record.recording_url && (
+                {playingUrl === getProxyUrl(record.recording_url!) && record.recording_url && (
                   <div className="mt-2">
                     <audio
                       controls
                       autoPlay
-                      src={record.recording_url}
+                      src={getProxyUrl(record.recording_url!)}
                       ref={(el) => setAudioRef(el)}
                       onEnded={() => setPlayingUrl(null)}
                       className="w-full h-8"
