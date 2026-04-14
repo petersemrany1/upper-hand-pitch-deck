@@ -150,7 +150,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         },
       });
       if (result.success) {
-        setContractSent(true);
+        setContractStatus({ type: "success", message: "Contract sent to " + email + " for signing." });
         setStep(3);
       } else {
         setContractStatus({ type: "error", message: "Something went wrong — please try again." });
