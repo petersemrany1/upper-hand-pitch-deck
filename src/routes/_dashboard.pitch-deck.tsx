@@ -5,6 +5,7 @@ import ROICalculator from "../components/ROICalculator";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize } from "lucide-react";
+import processPhoneCall from "../assets/process-phone-call.jpg";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
