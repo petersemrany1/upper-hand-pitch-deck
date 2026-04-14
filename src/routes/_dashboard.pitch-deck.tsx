@@ -531,7 +531,7 @@ function PitchDeck() {
     /* ──────── SLIDE 10 — CLOSE ──────── */
     <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
       <img src={clinicReception} alt="Modern clinic reception" className="absolute inset-0 w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/70" />
+      <div className="absolute inset-0 bg-black/85" />
       <div className="relative z-10">
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
