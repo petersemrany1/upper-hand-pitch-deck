@@ -324,7 +324,7 @@ function PitchDeck() {
             <motion.div variants={fadeIn} className="mb-4">
               <H>Who We'll Be Sending You.</H>
             </motion.div>
-            <motion.p variants={fadeIn} className="text-xl md:text-2xl lg:text-3xl font-bold text-[#CCCCCC] mb-12 max-w-none mx-auto leading-snug whitespace-nowrap">
+            <motion.p variants={fadeIn} className="text-xl md:text-2xl font-bold text-[#CCCCCC] mb-12 max-w-none mx-auto leading-snug">
               Patients who know it costs $10,000–$20,000 and want the surgery.<br />
               Not a consultation about maybe.
             </motion.p>
