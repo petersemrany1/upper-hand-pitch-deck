@@ -65,31 +65,24 @@
   }
 }
 
-/* Scroll snap */
-.deck-container {
-  scroll-snap-type: y mandatory;
-  overflow-y: auto;
-  height: 100vh;
-  scroll-behavior: smooth;
-}
-
+/* Slide fills viewport */
 .deck-slide {
-  scroll-snap-align: start;
   min-height: 100vh;
   height: 100vh;
+  width: 100vw;
   position: relative;
   overflow: hidden;
 }
 
-/* Pulsing arrow */
-@keyframes pulse-bounce {
-  0%, 100% { transform: translateY(0); opacity: 0.4; }
-  50% { transform: translateY(6px); opacity: 0.8; }
+/* Fullscreen fill */
+:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: var(--background);
 }
-.animate-pulse-bounce {
-  animation: pulse-bounce 2.5s ease-in-out infinite;
+:fullscreen .deck-slide {
+  width: 100vw !important;
+  height: 100vh !important;
 }
-
-/* Hide scrollbar */
-.deck-container::-webkit-scrollbar { display: none; }
-.deck-container { -ms-overflow-style: none; scrollbar-width: none; }
