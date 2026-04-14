@@ -346,11 +346,22 @@ function PitchDeck() {
       <div className="w-1/2 bg-black flex flex-col justify-center px-16 py-12">
         <SlideHeader />
         <ChapterLabel>POST CONSULT</ChapterLabel>
-        <H>Not Booked On The Day? We're Not Done.</H>
+        <h2
+          className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-foreground leading-[1.1] tracking-tight"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          Not Booked On The Day?<br />
+          We're Not Done.
+        </h2>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-12 divide-y divide-white/10">
-          {["We Bring Them Back", "Objection Handling", "We Protect Your Reputation"].map((title) => (
-            <div key={title} className="py-6">
-              <p className="text-xl md:text-2xl font-extrabold text-foreground">{title}</p>
+          {[
+            { num: "1", title: "We follow them up" },
+            { num: "2", title: "We handle any objections" },
+            { num: "3", title: "We get them back in the clinic respectfully" },
+          ].map((item) => (
+            <div key={item.num} className="py-6 flex items-center gap-4">
+              <span className="text-primary font-extrabold text-2xl">{item.num}</span>
+              <p className="text-xl md:text-2xl font-extrabold text-foreground">{item.title}</p>
             </div>
           ))}
         </motion.div>
