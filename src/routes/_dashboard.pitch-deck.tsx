@@ -257,45 +257,33 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS (2x2 grid centered) ──────── */
-    <div key="process" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
-      <div className="relative z-10 w-full max-w-5xl text-center">
+    <div key="process" className="deck-slide flex flex-col min-h-screen w-full px-16 py-12 bg-black">
+      <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col justify-center flex-1 text-center">
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn} className="mb-12">
-            <H>Our Process</H>
+          <motion.div variants={fadeIn} className="mb-16">
+            <h2
+              className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              Our Process
+            </h2>
           </motion.div>
         </motion.div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full mx-auto">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-2 gap-x-12 gap-y-10 max-w-4xl w-full mx-auto">
           {[
-            { step: 1, title: "We Run The Ads", desc: "Targeted creative built around your ideal patient. AHPRA compliant. Nothing goes live without your approval." },
-            { step: 2, title: "We Call Every Lead Within 5 Minutes", desc: "Every inquiry qualified on the phone. Budget, motivation, and transplant intent confirmed before anyone touches your calendar." },
-            { step: 3, title: "We Book Confirmed Appointments", desc: "Only vetted, ready-to-buy patients land in your diary. No tyre kickers. No price shoppers." },
-            { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
+            { step: 1, title: "We Run The Ads" },
+            { step: 2, title: "We Call Every Lead Within 5 Minutes" },
+            { step: 3, title: "We Book Confirmed Appointments" },
+            { step: 4, title: "We Follow Up After The Consult" },
           ].map((item) => (
-            <div key={item.step} className="flex gap-4 text-left">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/30 text-primary flex items-center justify-center font-extrabold text-xl" style={{ color: 'hsl(217, 91%, 65%)' }}>
+            <div key={item.step} className="flex items-center gap-5 text-left">
+              <div className="flex-shrink-0 w-16 h-16 rounded-full bg-primary/30 text-primary flex items-center justify-center font-extrabold text-2xl" style={{ color: 'hsl(217, 91%, 65%)' }}>
                 {item.step}
               </div>
-              <div>
-                <p className="text-lg md:text-xl font-bold text-foreground mb-1.5">{item.title}</p>
-                <p className="text-[#CCCCCC] text-sm md:text-base leading-relaxed">{item.desc}</p>
-              </div>
+              <p className="text-2xl md:text-3xl font-bold text-foreground leading-tight">{item.title}</p>
             </div>
           ))}
-        </motion.div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-center mt-12">
-          <p
-            className="text-3xl md:text-5xl font-extrabold text-foreground leading-snug"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            <span className="relative inline-block pb-3">
-              Pay Per Show. Not Per Click.
-              <span className="absolute bottom-0 left-0 w-full h-[5px] rounded-full" style={{ backgroundColor: 'hsl(217, 91%, 60%)' }} />
-            </span>
-          </p>
-          <p className="text-[#CCCCCC] text-base mt-4">
-            You only pay when a qualified patient is sitting in your chair.
-          </p>
         </motion.div>
       </div>
     </div>,
