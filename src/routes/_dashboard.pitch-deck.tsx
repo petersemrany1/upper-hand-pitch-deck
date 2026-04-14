@@ -180,8 +180,11 @@ function PitchDeck() {
 
   const subClass = "text-[#CCCCCC] text-sm md:text-base leading-relaxed";
   const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
+  const fmtRounded = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
 
   const rate = CONVERT_RATES[convertRate] ?? 0.25;
+  // Extract the denominator (e.g. "1 in 3" → 3) for exact division
+  const convertDenom = parseInt(convertRate.split("in ")[1]) || 4;
 
   const packs = useMemo(() => [
     { name: "Demo", shows: 10, highlight: false },
