@@ -208,27 +208,24 @@ function PitchDeck() {
 
   const slides = [
     /* ──────── SLIDE 1 — COVER ──────── */
-    <div key="cover" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center">
-      <FullBg src="https://images.unsplash.com/photo-1631549916768-4119b2e5f926?w=1200&q=80" alt="Hair transplant clinic" />
-      <div className="relative z-10">
-        <SlideHeader />
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.h1
-            variants={fadeIn}
-            className="text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] tracking-tight"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            HAIR TRANSPLANT
-            <br />
-            <span className="text-primary">MARKETING</span>
-            <br />
-            THAT WORKS
-          </motion.h1>
-          <motion.p variants={fadeIn} className={`${subClass} mt-8 max-w-md mx-auto`}>
-            A done-for-you patient acquisition system.
-          </motion.p>
-        </motion.div>
-      </div>
+    <div key="cover" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+        <motion.h1
+          variants={fadeIn}
+          className="text-5xl md:text-7xl lg:text-8xl font-extrabold leading-[1.05] tracking-tight"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          HAIR TRANSPLANT
+          <br />
+          <span className="text-primary">MARKETING</span>
+          <br />
+          THAT WORKS
+        </motion.h1>
+        <motion.p variants={fadeIn} className={`${subClass} mt-8 max-w-md mx-auto`}>
+          A done-for-you patient acquisition system.
+        </motion.p>
+      </motion.div>
     </div>,
 
     /* ──────── SLIDE 2 — THE OPPORTUNITY (2x2 emoji grid) ──────── */
