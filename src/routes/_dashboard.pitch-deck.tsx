@@ -290,8 +290,8 @@ function PitchDeck() {
           >
             <span className="relative inline-block">
               Pay Per Show. Not Per Click.
-              <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" preserveAspectRatio="none" style={{ height: '10px' }}>
-                <path d="M2 8 Q30 2, 60 7 T120 5 T180 8 T240 4 T298 7" fill="none" stroke="hsl(217, 91%, 60%)" strokeWidth="3" strokeLinecap="round" />
+              <svg className="absolute -bottom-3 left-0 w-full" viewBox="0 0 300 16" preserveAspectRatio="none" style={{ height: '14px' }}>
+                <path d="M0 4 L300 12" fill="none" stroke="hsl(217, 91%, 60%)" strokeWidth="5" strokeLinecap="round" />
               </svg>
             </span>
           </p>
