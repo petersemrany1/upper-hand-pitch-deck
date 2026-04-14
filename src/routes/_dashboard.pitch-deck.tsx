@@ -503,7 +503,7 @@ function PitchDeck() {
         </div>
       </div>
 
-      {/* Side arrows */}
+      <GetStartedModal open={showGetStarted} onClose={() => setShowGetStarted(false)} />
       <button
         onClick={() => scrollToSlide(Math.max(activeSlide - 1, 0))}
         className="fixed left-3 top-1/2 -translate-y-1/2 z-50 text-[#CCCCCC] hover:text-foreground transition-colors opacity-30 hover:opacity-80"
