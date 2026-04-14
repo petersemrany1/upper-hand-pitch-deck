@@ -465,18 +465,14 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 10 — CLOSE ──────── */
-    <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center">
-      <FullBg src="https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=1200&q=80" alt="Sydney aerial view" />
-      <div className="relative z-10">
+    <div key="close" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
+      <div>
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.div variants={fadeIn}>
             <H>Let Us Fill Your Calendar.</H>
           </motion.div>
-          <motion.p variants={fadeIn} className={`${subClass} mt-4 mb-10`}>
-            One clinic per city. Spots are limited.
-          </motion.p>
-          <motion.div variants={fadeIn}>
+          <motion.div variants={fadeIn} className="mt-10">
             <button
               onClick={() => setShowGetStarted(true)}
               className="inline-block bg-primary text-primary-foreground font-bold text-lg px-12 py-5 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
