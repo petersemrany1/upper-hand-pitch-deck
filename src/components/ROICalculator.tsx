@@ -46,9 +46,9 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
   };
 
   return (
-    <div className="deck-slide flex flex-col justify-center px-8 md:px-16 lg:px-24 py-16">
+    <div className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
       <SlideHeader />
-      <div className="max-w-5xl w-full">
+      <div className="w-full max-w-5xl text-center">
         <p className="text-primary text-lg md:text-xl font-bold tracking-[0.25em] uppercase mb-5">
           YOUR NUMBERS
         </p>
@@ -59,9 +59,9 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
           See What This Is Worth To Your Clinic.
         </h2>
 
-        {/* Editable inputs */}
-        <div className="flex flex-wrap gap-4 mb-12">
-          <div>
+        {/* Editable inputs — centered side by side */}
+        <div className="flex flex-wrap justify-center gap-6 mb-12">
+          <div className="text-left">
             <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
               Average Case Value ($)
             </label>
@@ -73,7 +73,7 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
               className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary w-48"
             />
           </div>
-          <div>
+          <div className="text-left">
             <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
               Conversion Rate
             </label>
@@ -89,7 +89,7 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
           </div>
         </div>
 
-        {/* 3 conversion columns — larger cards */}
+        {/* 3 conversion columns — centered */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {columns.map((col) => {
             const isSelected = col.label === convertRate;
@@ -114,8 +114,8 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
           })}
         </div>
 
-        {/* Included list */}
-        <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-[#CCCCCC]">
+        {/* Included list — centered */}
+        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-[#CCCCCC]">
           {["20 Showed Appointments", "Ad Creative", "Lead Handling", "After Consult Follow-Up"].map((item) => (
             <span key={item} className="flex items-center gap-1.5">
               <span className="text-primary">✓</span> {item}
