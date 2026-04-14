@@ -261,7 +261,7 @@ function PitchDeck() {
       <div className="relative z-10 w-full max-w-5xl mx-auto flex flex-col justify-center flex-1 text-center">
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn} className="mb-16">
+          <motion.div variants={fadeIn} className="mb-12">
             <h2
               className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
               style={{ fontFamily: "var(--font-heading)" }}
@@ -284,6 +284,20 @@ function PitchDeck() {
               <p className="text-2xl md:text-3xl font-bold text-foreground leading-tight">{item.title}</p>
             </div>
           ))}
+        </motion.div>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="text-center mt-12">
+          <p
+            className="text-3xl md:text-5xl font-extrabold text-foreground leading-snug"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            <span className="relative inline-block pb-3">
+              Pay Per Show. Not Per Click.
+              <span className="absolute bottom-0 left-0 w-full h-[5px] rounded-full" style={{ backgroundColor: 'hsl(217, 91%, 60%)' }} />
+            </span>
+          </p>
+          <p className="text-[#CCCCCC] text-base mt-4">
+            You only pay when a qualified patient is sitting in your chair.
+          </p>
         </motion.div>
       </div>
     </div>,
