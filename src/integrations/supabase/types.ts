@@ -14,7 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      call_records: {
+        Row: {
+          called_at: string
+          client_id: string
+          created_at: string
+          duration: number | null
+          id: string
+          recording_sid: string | null
+          recording_url: string | null
+          status: string | null
+          twilio_call_sid: string | null
+          updated_at: string
+        }
+        Insert: {
+          called_at?: string
+          client_id: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          recording_sid?: string | null
+          recording_url?: string | null
+          status?: string | null
+          twilio_call_sid?: string | null
+          updated_at?: string
+        }
+        Update: {
+          called_at?: string
+          client_id?: string
+          created_at?: string
+          duration?: number | null
+          id?: string
+          recording_sid?: string | null
+          recording_url?: string | null
+          status?: string | null
+          twilio_call_sid?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_records_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
