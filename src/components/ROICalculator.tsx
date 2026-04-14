@@ -29,13 +29,14 @@ interface Props {
 
 export default function ROICalculator({ caseValue, convertRate, onCaseValueChange, onConvertRateChange }: Props) {
   const shows = 20;
-  const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
+  const fmt = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
 
   const columns = useMemo(() => {
     return (["1 in 4", "1 in 3", "1 in 2"] as const).map((label) => {
-      const r = ALL_CONVERT_RATES[label];
-      const revenue = shows * r * caseValue;
-      return { label, rate: r, revenue };
+      const denom = parseInt(label.split("in ")[1]) || 4;
+      const procedures = shows / denom;
+      const revenue = procedures * caseValue;
+      return { label, revenue };
     });
   }, [caseValue]);
 
@@ -67,7 +68,7 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
             <input
               type="text"
               inputMode="numeric"
-              value={caseValue === 0 ? "" : caseValue.toString()}
+              value={caseValue === 0 ? "" : caseValue.toLocaleString()}
               onChange={(e) => handleCaseValueChange(e.target.value)}
               className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary w-48"
             />

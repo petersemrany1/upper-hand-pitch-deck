@@ -180,8 +180,11 @@ function PitchDeck() {
 
   const subClass = "text-[#CCCCCC] text-sm md:text-base leading-relaxed";
   const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
+  const fmtRounded = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
 
   const rate = CONVERT_RATES[convertRate] ?? 0.25;
+  // Extract the denominator (e.g. "1 in 3" → 3) for exact division
+  const convertDenom = parseInt(convertRate.split("in ")[1]) || 4;
 
   const packs = useMemo(() => [
     { name: "Demo", shows: 10, highlight: false },
@@ -422,7 +425,7 @@ function PitchDeck() {
       </div>
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
         {packs.map((pack) => {
-          const procedures = pack.shows * 0.333;
+          const procedures = pack.shows / convertDenom;
           const revenue = procedures * caseValue;
           const cost = pack.shows * COST_PER_SHOW;
           return (
@@ -445,7 +448,7 @@ function PitchDeck() {
               <div className="border-t border-border pt-8 space-y-6">
                 <div>
                   <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Est. Revenue</p>
-                  <p className="text-5xl font-extrabold text-primary">{fmt(revenue)}</p>
+                  <p className="text-5xl font-extrabold text-primary">{fmtRounded(revenue)}</p>
                 </div>
                 <div>
                   <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Your Investment</p>
@@ -456,7 +459,7 @@ function PitchDeck() {
           );
         })}
       </motion.div>
-      <p className="text-xs text-[#999] italic mt-8 text-center">*Based on a 1 in 3 conversion rate in line with our existing clients in this industry.</p>
+      <p className="text-xs text-[#999] italic mt-8 text-center">*Based on a {convertRate} conversion rate in line with our existing clients in this industry.</p>
       </div>
       <div className="flex-1" />
     </div>,
