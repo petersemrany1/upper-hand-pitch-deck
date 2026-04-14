@@ -262,7 +262,7 @@ function PitchDeck() {
         <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
           <motion.div variants={fadeIn} className="mb-12">
-            <H>Our Process.</H>
+            <H>Our Process</H>
           </motion.div>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl w-full mx-auto">
@@ -273,7 +273,7 @@ function PitchDeck() {
             { step: 4, title: "We Follow Up After The Consult", desc: "Didn't book on the day? We bring them back. Structured follow-up without burning the relationship." },
           ].map((item) => (
             <div key={item.step} className="flex gap-4 text-left">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-xl">
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/30 text-primary flex items-center justify-center font-extrabold text-xl" style={{ color: 'hsl(217, 91%, 65%)' }}>
                 {item.step}
               </div>
               <div>
@@ -288,7 +288,12 @@ function PitchDeck() {
             className="text-3xl md:text-5xl font-extrabold text-foreground leading-snug"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Pay Per Show. Not Per Click.
+            <span className="relative inline-block">
+              Pay Per Show. Not Per Click.
+              <svg className="absolute -bottom-2 left-0 w-full" viewBox="0 0 300 12" preserveAspectRatio="none" style={{ height: '10px' }}>
+                <path d="M2 8 Q30 2, 60 7 T120 5 T180 8 T240 4 T298 7" fill="none" stroke="hsl(217, 91%, 60%)" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+            </span>
           </p>
           <p className="text-[#CCCCCC] text-base mt-4">
             You only pay when a qualified patient is sitting in your chair.
