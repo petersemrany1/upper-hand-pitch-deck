@@ -486,19 +486,19 @@ function PitchDeck() {
           <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.div variants={fadeIn}>
-              <H>Ready To Fill Your Calendar?</H>
+              <H>Let Us Fill Your Calendar.</H>
             </motion.div>
             <motion.p variants={fadeIn} className={`${subClass} mt-4 mb-10`}>
               One clinic per city. Spots are limited.
             </motion.p>
-            <motion.a
+            <motion.button
               variants={fadeIn}
-              href="mailto:hello@example.com"
-              className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity"
+              onClick={() => setShowGetStarted(true)}
+              className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              LET'S TALK →
-            </motion.a>
+              GET STARTED →
+            </motion.button>
           </motion.div>
         </div>
       </div>
