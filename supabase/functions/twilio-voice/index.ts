@@ -4,6 +4,13 @@ const TWILIO_ACCOUNT_SID = "AC4e4b3797155ad508c8dffa4b13a1fd6e";
 const TWILIO_AUTH_TOKEN = "376714289a02806ab80049a4afde9b04";
 const TWILIO_FROM = "+61468031075";
 
+function formatAUPhone(num: string): string {
+  let cleaned = num.replace(/[\s\-()]/g, "");
+  if (cleaned.startsWith("+")) return cleaned;
+  if (cleaned.startsWith("0")) return "+61" + cleaned.slice(1);
+  return "+61" + cleaned;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -25,9 +32,11 @@ serve(async (req) => {
       );
     }
 
-    // Build the TwiML webhook URL pointing to our twilio-twiml edge function
+    const formattedClient = formatAUPhone(clientPhone);
+    const formattedUser = formatAUPhone(userPhone);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
-    const twimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?clientPhone=${encodeURIComponent(clientPhone)}`;
+    const twimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?clientPhone=${encodeURIComponent(formattedClient)}`;
     const statusUrl = `${supabaseUrl}/functions/v1/twilio-status`;
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Calls.json`;
@@ -39,7 +48,7 @@ serve(async (req) => {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        To: userPhone,
+        To: formattedUser,
         From: TWILIO_FROM,
         Url: twimlUrl,
         StatusCallback: statusUrl,
