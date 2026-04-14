@@ -59,10 +59,10 @@ class DocWriter {
   private y: number = 0;
   private pageNum: number = 0;
   private totalPages: number = 7;
-  private regular!: PDFFont;
-  private bold!: PDFFont;
-  private italic!: PDFFont;
-  private boldItalic!: PDFFont;
+  regular!: PDFFont;
+  bold!: PDFFont;
+  italic!: PDFFont;
+  boldItalic!: PDFFont;
 
   constructor(pdfDoc: PDFDocument) {
     this.pdfDoc = pdfDoc;
