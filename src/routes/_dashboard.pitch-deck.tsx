@@ -308,8 +308,9 @@ function PitchDeck() {
           <motion.div variants={fadeIn} className="mb-4">
             <H>Who We'll Be Sending You.</H>
           </motion.div>
-          <motion.p variants={fadeIn} className="text-xl md:text-2xl lg:text-3xl font-bold text-[#CCCCCC] mb-12 max-w-3xl mx-auto leading-snug">
-            Patients who know it costs $10,000–$20,000 and want the surgery. Not a consultation about maybe.
+          <motion.p variants={fadeIn} className="text-xl md:text-2xl lg:text-3xl font-bold text-[#CCCCCC] mb-12 max-w-4xl mx-auto leading-snug">
+            Patients who know it costs $10,000–$20,000 and want the surgery.<br />
+            Not a consultation about maybe.
           </motion.p>
         </motion.div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-8 max-w-5xl w-full mx-auto">
