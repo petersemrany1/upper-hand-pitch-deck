@@ -86,19 +86,10 @@
   width: 100vw !important;
   height: 100vh !important;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 :-webkit-full-screen .deck-slide {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
 :-moz-full-screen .deck-slide {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
 }
