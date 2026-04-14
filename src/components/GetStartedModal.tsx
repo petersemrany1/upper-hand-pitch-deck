@@ -314,6 +314,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                   </button>
                 </div>
 
+                {smsStatus && (
+                  <p className={`text-sm mt-4 text-center font-medium ${smsStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                    {smsStatus.message}
+                  </p>
+                )}
+
                 {selectedPack === "custom" && (
                   <p className="text-xs text-[#999] mt-4 text-center">
                     For custom amounts, we'll arrange payment directly.{" "}
