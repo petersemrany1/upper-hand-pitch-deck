@@ -360,7 +360,7 @@ function PitchDeck() {
             { num: "3", title: "We get them back in the clinic respectfully" },
           ].map((item) => (
             <div key={item.num} className="py-6 flex items-center gap-4">
-              <span className="text-primary font-extrabold text-2xl">{item.num}</span>
+              <span className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">{item.num}</span>
               <p className="text-xl md:text-2xl font-extrabold text-foreground">{item.title}</p>
             </div>
           ))}
