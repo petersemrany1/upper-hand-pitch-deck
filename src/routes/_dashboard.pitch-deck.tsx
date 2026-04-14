@@ -445,14 +445,13 @@ function PitchDeck() {
       </motion.div>
     </div>,
 
-    /* ──────── SLIDE 9 — FAQ (bg image, large text) ──────── */
-    <div key="faq" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
-      <FullBg src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80" alt="Modern office" />
-      <div className="relative z-10 w-full max-w-4xl">
+    /* ──────── SLIDE 9 — FAQ (black bg, large text) ──────── */
+    <div key="faq" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
+      <div className="w-full max-w-4xl">
         <SlideHeader />
         <div className="text-center mb-12">
           <ChapterLabel>FAQ</ChapterLabel>
-          <H>Questions I Get Asked.</H>
+          <H>Questions I Get Asked</H>
         </div>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="divide-y divide-border w-full">
           {faqItems.map((item, i) => (
