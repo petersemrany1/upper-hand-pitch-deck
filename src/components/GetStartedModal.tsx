@@ -334,6 +334,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                     {invoiceStatus.message}
                   </p>
                 )}
+              </div>
             )}
 
             {/* ─── STEP 4 — CONFIRMATION ─── */}
