@@ -78,8 +78,6 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
       return;
     }
     if (chosenPack?.stripeLink) {
-      window.open(chosenPack.stripeLink, "_blank");
-      // Send SMS with payment link
       setSmsStatus(null);
       try {
         const firstName = fullName.trim().split(" ")[0];
