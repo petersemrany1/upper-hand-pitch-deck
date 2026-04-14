@@ -75,6 +75,7 @@ function ClientsPage() {
   const [activeTab, setActiveTab] = useState<"dialer" | "contacts" | "history">("dialer");
   const [dialNumber, setDialNumber] = useState("");
   const [calling, setCalling] = useState(false);
+  const [callMessage, setCallMessage] = useState<string | null>(null);
   const [lastCallSid, setLastCallSid] = useState<string | null>(null);
   const [showSaveContact, setShowSaveContact] = useState(false);
   const [saveContactName, setSaveContactName] = useState("");
