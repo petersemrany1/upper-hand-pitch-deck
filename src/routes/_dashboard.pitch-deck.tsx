@@ -402,7 +402,9 @@ function PitchDeck() {
     <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} />,
 
     /* ──────── SLIDE 7 — PACKAGES (centered) ──────── */
-    <div key="packages" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
+    <div key="packages" className="deck-slide flex flex-col items-center min-h-screen w-full px-16 py-12">
+      <div className="flex-1" />
+      <div className="flex flex-col items-center w-full">
       <SlideHeader />
       <div className="w-full max-w-5xl text-center mb-12">
         <ChapterLabel>PACKAGES</ChapterLabel>
