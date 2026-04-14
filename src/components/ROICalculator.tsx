@@ -68,7 +68,7 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
             <input
               type="text"
               inputMode="numeric"
-              value={caseValue === 0 ? "" : caseValue.toString()}
+              value={caseValue === 0 ? "" : caseValue.toLocaleString()}
               onChange={(e) => handleCaseValueChange(e.target.value)}
               className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary w-48"
             />
