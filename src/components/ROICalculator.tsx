@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import SlideHeader from "./SlideHeader";
 
 const ALL_CONVERT_RATES: Record<string, number> = {
@@ -23,12 +23,11 @@ const CONVERT_LABELS: Record<string, string> = {
 interface Props {
   caseValue: number;
   convertRate: string;
+  onCaseValueChange: (value: number) => void;
+  onConvertRateChange: (value: string) => void;
 }
 
-export default function ROICalculator({ caseValue: initialCaseValue, convertRate: initialConvertRate }: Props) {
-  const [caseValue, setCaseValue] = useState(initialCaseValue);
-  const [convertRate, setConvertRate] = useState(initialConvertRate);
-
+export default function ROICalculator({ caseValue, convertRate, onCaseValueChange, onConvertRateChange }: Props) {
   const shows = 20;
   const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 
@@ -42,7 +41,7 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
 
   const handleCaseValueChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-    setCaseValue(isNaN(num) ? 0 : num);
+    onCaseValueChange(isNaN(num) ? 0 : num);
   };
 
   return (
@@ -79,7 +78,7 @@ export default function ROICalculator({ caseValue: initialCaseValue, convertRate
             </label>
             <select
               value={convertRate}
-              onChange={(e) => setConvertRate(e.target.value)}
+              onChange={(e) => onConvertRateChange(e.target.value)}
               className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer w-48"
             >
               {Object.entries(ALL_CONVERT_RATES).map(([label, r]) => (

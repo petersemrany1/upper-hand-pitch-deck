@@ -404,7 +404,7 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 6 — ROI CALCULATOR ──────── */
-    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} />,
+    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} />,
 
     /* ──────── SLIDE 7 — PACKAGES (centered) ──────── */
     <div key="packages" className="deck-slide flex flex-col items-center min-h-screen w-full px-16 py-12">
