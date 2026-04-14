@@ -340,26 +340,25 @@ function PitchDeck() {
       </div>
     </div>,
 
-    /* ──────── SLIDE 5 — POST CONSULT (with bg image) ──────── */
-    <div key="post-consult" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
-      <FullBg src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&q=80" alt="Professional conversation" />
-      <div className="relative z-10 w-full max-w-4xl text-center mb-12">
+    /* ──────── SLIDE 5 — POST CONSULT (two columns) ──────── */
+    <div key="post-consult" className="deck-slide flex min-h-screen w-full">
+      {/* Left column */}
+      <div className="w-1/2 bg-black flex flex-col justify-center px-16 py-12">
         <SlideHeader />
         <ChapterLabel>POST CONSULT</ChapterLabel>
         <H>Not Booked On The Day? We're Not Done.</H>
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-12 divide-y divide-white/10">
+          {["We Bring Them Back", "Objection Handling", "We Protect Your Reputation"].map((title) => (
+            <div key={title} className="py-6">
+              <p className="text-xl md:text-2xl font-extrabold text-foreground">{title}</p>
+            </div>
+          ))}
+        </motion.div>
       </div>
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="relative z-10 w-full max-w-3xl divide-y divide-border/50">
-        {[
-          { title: "We Bring Them Back", desc: "Undecided patients get a structured follow-up sequence. Not aggressive. Just consistent." },
-          { title: "Objection Handling", desc: "We know the objections before they say them. Price, timing, Turkey. All handled." },
-          { title: "We Protect Your Reputation", desc: "We don't push patients to frustration. No one leaves angry and no one leaves a review before they've given you a fair shot." },
-        ].map((item) => (
-          <div key={item.title} className="py-8 text-center">
-            <p className="text-2xl md:text-3xl font-extrabold text-foreground mb-3">{item.title}</p>
-            <p className="text-[#CCCCCC] text-base md:text-lg leading-relaxed max-w-xl mx-auto">{item.desc}</p>
-          </div>
-        ))}
-      </motion.div>
+      {/* Right column — photo */}
+      <div className="w-1/2">
+        <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=1200&q=80" alt="Professional conversation" className="w-full h-full object-cover" />
+      </div>
     </div>,
 
     /* ──────── SLIDE 6 — ROI CALCULATOR ──────── */
