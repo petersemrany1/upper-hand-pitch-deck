@@ -380,7 +380,7 @@ function PitchDeck() {
       <SlideHeader />
       <div className="w-full max-w-5xl text-center mb-12">
         <ChapterLabel>PACKAGES</ChapterLabel>
-        <H>Choose How Many Patients You Want.</H>
+        <h2 className="text-4xl md:text-[3.2rem] font-extrabold text-foreground leading-[1.08] tracking-tight whitespace-nowrap" style={{ fontFamily: "var(--font-heading)" }}>Choose How Many Patients You Want.</h2>
       </div>
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
         {packs.map((pack) => {
@@ -390,7 +390,7 @@ function PitchDeck() {
           return (
             <div
               key={pack.name}
-              className="rounded-xl border border-border bg-card p-10 text-center"
+              className="rounded-xl border border-border bg-zinc-900 p-10 text-center"
             >
               <h3 className="text-3xl font-extrabold text-foreground mb-2">{pack.name}</h3>
               <p className="text-[#CCCCCC] text-base mb-1">{pack.shows} qualified patients</p>
