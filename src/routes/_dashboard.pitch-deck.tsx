@@ -51,7 +51,8 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
   const [convertRate, setConvertRate] = useState("1 in 4");
 
   const handleCaseValueChange = (val: string) => {
-    setCaseValue(val.replace(/[^0-9]/g, ""));
+    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
+    setCaseValue(isNaN(num) ? "" : String(Math.min(num, 999999)));
   };
 
   const formattedCaseValue = caseValue

@@ -42,7 +42,7 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
 
   const handleCaseValueChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-    onCaseValueChange(isNaN(num) ? 0 : num);
+    onCaseValueChange(isNaN(num) ? 0 : Math.min(num, 999999));
   };
 
   return (
@@ -105,7 +105,7 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
                 <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
                   {CONVERT_LABELS[col.label]}
                 </p>
-                <p className={`font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1.5rem, 5vw, 4.5rem)', overflowWrap: 'break-word', wordBreak: 'break-all', whiteSpace: 'nowrap', maxWidth: '100%', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                <p className={`font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1rem, 4vw, 4.5rem)', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                   {fmt(col.revenue)}
                 </p>
                 <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>
