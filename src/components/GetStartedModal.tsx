@@ -182,6 +182,8 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     onClose();
   };
 
+  const canCloseModal = paymentSent && contractSent;
+
   if (!open) return null;
 
   // Steps 4 and 5 are sub-screens of step 3
