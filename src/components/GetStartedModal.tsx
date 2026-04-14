@@ -334,15 +334,6 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                     {invoiceStatus.message}
                   </p>
                 )}
-
-                {selectedPack === "custom" && (
-                  <p className="text-xs text-[#999] mt-4 text-center">
-                    For custom amounts, we'll arrange payment directly.{" "}
-                    <a href="mailto:petersemrany1@gmail.com" className="text-primary underline">
-                      petersemrany1@gmail.com
-                    </a>
-                  </p>
-                )}
               </div>
             )}
 
