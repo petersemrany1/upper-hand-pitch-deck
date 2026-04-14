@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
+import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, ChevronDown, Maximize, Minimize } from "lucide-react";
 
