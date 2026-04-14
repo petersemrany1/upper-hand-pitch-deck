@@ -459,7 +459,7 @@ function PitchDeck() {
           );
         })}
       </motion.div>
-      <p className="text-xs text-[#999] italic mt-8 text-center">*Based on a 1 in 3 conversion rate in line with our existing clients in this industry.</p>
+      <p className="text-xs text-[#999] italic mt-8 text-center">*Based on a {convertRate} conversion rate in line with our existing clients in this industry.</p>
       </div>
       <div className="flex-1" />
     </div>,
