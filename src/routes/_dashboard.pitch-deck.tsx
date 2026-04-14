@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
+import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, ChevronDown, Maximize, Minimize } from "lucide-react";
 
@@ -95,6 +96,7 @@ function PitchDeck() {
   const [caseValue, setCaseValue] = useState(12000);
   const [convertRate, setConvertRate] = useState("1 in 4");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showGetStarted, setShowGetStarted] = useState(false);
 
   const handleEnter = (cv: number, cr: string) => {
     setCaseValue(cv);
@@ -484,24 +486,24 @@ function PitchDeck() {
           <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.div variants={fadeIn}>
-              <H>Ready To Fill Your Calendar?</H>
+              <H>Let Us Fill Your Calendar.</H>
             </motion.div>
             <motion.p variants={fadeIn} className={`${subClass} mt-4 mb-10`}>
               One clinic per city. Spots are limited.
             </motion.p>
-            <motion.a
+            <motion.button
               variants={fadeIn}
-              href="mailto:hello@example.com"
-              className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity"
+              onClick={() => setShowGetStarted(true)}
+              className="inline-block bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              LET'S TALK →
-            </motion.a>
+              GET STARTED →
+            </motion.button>
           </motion.div>
         </div>
       </div>
 
-      {/* Side arrows */}
+      <GetStartedModal open={showGetStarted} onClose={() => setShowGetStarted(false)} />
       <button
         onClick={() => scrollToSlide(Math.max(activeSlide - 1, 0))}
         className="fixed left-3 top-1/2 -translate-y-1/2 z-50 text-[#CCCCCC] hover:text-foreground transition-colors opacity-30 hover:opacity-80"
