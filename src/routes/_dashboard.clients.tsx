@@ -96,14 +96,14 @@ function ClientsPage() {
     if (!dialNumber || !yourPhone) return;
     setCalling(true);
 
-    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
-
     try {
-      const result = await initiateCall({
-        data: { clientPhone: dialNumber, userPhone: yourPhone, callbackUrl: baseUrl },
+      const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
+        body: { clientPhone: dialNumber, userPhone: yourPhone },
       });
 
-      if (result.success && result.callSid) {
+      if (error) throw error;
+
+      if (result?.success && result?.callSid) {
         setLastCallSid(result.callSid);
 
         // Check if number matches a saved contact
@@ -115,7 +115,6 @@ function ClientsPage() {
             status: "initiated",
           });
         } else {
-          // Create a temporary client or just show save option
           setShowSaveContact(true);
         }
         loadAllRecords();
@@ -169,15 +168,9 @@ function ClientsPage() {
 
   const handleCheckRecording = async (record: CallRecord) => {
     if (!record.twilio_call_sid || record.recording_url) return;
-    const result = await fetchCallRecordings({ data: { callSid: record.twilio_call_sid } });
-    if (result.success && result.recordings.length > 0) {
-      const rec = result.recordings[0];
-      await supabase
-        .from("call_records")
-        .update({ recording_url: rec.url, recording_sid: rec.sid, duration: rec.duration })
-        .eq("id", record.id);
-      loadAllRecords();
-    }
+    // Recordings are saved automatically via the twilio-status callback.
+    // Reload from DB to check if it's arrived yet.
+    loadAllRecords();
   };
 
   const togglePlayback = (url: string) => {
