@@ -617,7 +617,7 @@ function ClientsPage() {
                           )}
                         </Button>
                         <a
-                          href={record.recording_url}
+                          href={getProxyUrl(record.recording_url!, true)}
                           download
                           target="_blank"
                           rel="noopener noreferrer"
