@@ -228,38 +228,32 @@ function PitchDeck() {
       </motion.div>
     </div>,
 
-    /* ──────── SLIDE 2 — THE OPPORTUNITY (2x2 emoji grid) ──────── */
-    <div key="opportunity" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
-      <FullBg src="https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&q=80" alt="Business strategy" />
-      <div className="relative z-10 w-full max-w-5xl text-center">
-        <SlideHeader />
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn}>
-            <ChapterLabel>THE OPPORTUNITY</ChapterLabel>
-          </motion.div>
-          <motion.div variants={fadeIn} className="mb-16">
-            <h2
-              className="text-3xl md:text-4xl font-extrabold text-foreground leading-[1.15] tracking-tight"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              You're Spending Money On People Who Were Never Going To Buy.
-            </h2>
-          </motion.div>
-          <motion.div variants={fadeIn} className="grid grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {[
-              { emoji: "💸", title: "Your surgeon's chair costs $15,000 a day to leave empty." },
-              { emoji: "⏱️", title: "Leads go cold in 5 minutes." },
-              { emoji: "🚫", title: "Price shoppers and tyre kickers are killing your conversion." },
-              { emoji: "👻", title: "Patients who don't book on the day never come back." },
-            ].map((item) => (
-              <div key={item.title} className="flex flex-col items-center gap-4 p-6">
-                <span className="text-5xl">{item.emoji}</span>
-                <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item.title}</p>
-              </div>
-            ))}
-          </motion.div>
+    /* ──────── SLIDE 2 — THE OPPORTUNITY ──────── */
+    <div key="opportunity" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 bg-black">
+      <SlideHeader />
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="w-full max-w-5xl text-center">
+        <motion.div variants={fadeIn} className="mb-12">
+          <h2
+            className="text-3xl md:text-4xl font-extrabold text-foreground leading-[1.15] tracking-tight"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            You're Spending Money On People Who Were Never Going To Buy.
+          </h2>
         </motion.div>
-      </div>
+        <motion.div variants={fadeIn} className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
+          {[
+            { emoji: "💸", title: "Your surgeon's chair costs $15,000 a day to leave empty." },
+            { emoji: "⏱️", title: "Leads go cold in 5 minutes." },
+            { emoji: "🚫", title: "Price shoppers and tyre kickers are killing your conversion." },
+            { emoji: "👻", title: "Patients who don't book on the day never come back." },
+          ].map((item) => (
+            <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-primary/15">
+              <span className="text-5xl">{item.emoji}</span>
+              <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item.title}</p>
+            </div>
+          ))}
+        </motion.div>
+      </motion.div>
     </div>,
 
     /* ──────── SLIDE 3 — OUR PROCESS (2x2 grid centered) ──────── */
