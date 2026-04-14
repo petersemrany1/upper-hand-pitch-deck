@@ -245,9 +245,9 @@ function PitchDeck() {
             { emoji: "💸", title: "Your surgeon's chair costs $15,000 a day to leave empty." },
             { emoji: "⏱️", title: "Leads go cold in 5 minutes." },
             { emoji: "🚫", title: "Price shoppers and tyre kickers are killing your conversion." },
-            { emoji: "👻", title: "Patients who don't book on the day never come back." },
+            { emoji: "📅", title: "Patients who don't book on the day never come back." },
           ].map((item) => (
-            <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-primary/30">
+            <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-zinc-900 border border-white/10">
               <span className="text-5xl">{item.emoji}</span>
               <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item.title}</p>
             </div>
