@@ -154,10 +154,10 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         setContractSent(true);
         setStep(3);
       } else {
-        setContractStatus({ type: "error", message: "Something went wrong — please try again." });
+        setContractStatus({ type: "error", message: "Something went wrong — please try again or contact hello@upperhand.digital" });
       }
     } catch {
-      setContractStatus({ type: "error", message: "Something went wrong — please try again." });
+      setContractStatus({ type: "error", message: "Something went wrong — please try again or contact hello@upperhand.digital" });
     }
     setSending(false);
   };
