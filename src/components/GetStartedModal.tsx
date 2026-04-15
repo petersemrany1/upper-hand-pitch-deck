@@ -150,14 +150,14 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         },
       });
       if (result.success) {
-        setContractStatus({ type: "success", message: "Contract sent to " + email + " for signing." });
+        setContractStatus({ type: "success", message: "We've sent the agreement to " + email + ". Once signed, we'll be in touch to get started." });
         setContractSent(true);
         setStep(3);
       } else {
-        setContractStatus({ type: "error", message: "Something went wrong — please try again." });
+        setContractStatus({ type: "error", message: "Something went wrong — please try again or contact hello@upperhand.digital" });
       }
     } catch {
-      setContractStatus({ type: "error", message: "Something went wrong — please try again." });
+      setContractStatus({ type: "error", message: "Something went wrong — please try again or contact hello@upperhand.digital" });
     }
     setSending(false);
   };
