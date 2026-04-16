@@ -20,7 +20,7 @@ serve(async (req) => {
   console.log("TwiML requested. clientPhone:", clientPhone, "AnsweredBy:", answeredBy);
 
   // If machine/voicemail detected, hang up immediately — never dial client
-  if (answeredBy && answeredBy !== "human") {
+  if (answeredBy && (answeredBy.startsWith("machine") || answeredBy === "fax")) {
     return new Response(
       `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
