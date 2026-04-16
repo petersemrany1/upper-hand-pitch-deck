@@ -415,3 +415,39 @@ function DashboardHome() {
     </div>
   );
 }
+
+function FollowUpsDue() {
+  const [followUps, setFollowUps] = useState<Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>>([]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    supabase
+      .from("clinics")
+      .select("id, clinic_name, phone, next_follow_up")
+      .lte("next_follow_up", today)
+      .order("next_follow_up", { ascending: true })
+      .limit(5)
+      .then(({ data }) => {
+        if (data) setFollowUps(data as any);
+      });
+  }, []);
+
+  if (followUps.length === 0) return null;
+
+  return (
+    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
+      {followUps.map((f) => (
+        <div key={f.id} className="flex items-center gap-3" style={{ height: 32 }}>
+          <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
+          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
+          <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
+          {f.phone && (
+            <button className="p-1 rounded hover:bg-white/5">
+              <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
