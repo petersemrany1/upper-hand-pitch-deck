@@ -623,6 +623,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                 </button>
               </div>
             )}
+          </div>
           {/* Exit confirmation overlay */}
           <AnimatePresence>
             {showExitConfirm && (
