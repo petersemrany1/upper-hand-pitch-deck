@@ -63,6 +63,13 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
 
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
+      <Link
+        to="/"
+        className="absolute top-6 left-6 p-2 rounded-lg text-[#666] hover:text-foreground hover:bg-card/60 transition-all z-10"
+        aria-label="Back to dashboard"
+      >
+        <Home className="w-5 h-5" />
+      </Link>
       <div className="max-w-md w-full">
         <h2
           className="text-3xl md:text-4xl font-extrabold text-foreground mb-3 tracking-tight"
