@@ -391,38 +391,22 @@ function DashboardHome() {
         className="col-span-3 rounded-lg flex flex-col overflow-hidden"
         style={{ background: "transparent" }}
       >
-        <div className="px-4 pt-3 pb-2">
-          <span
-            style={{
-              fontSize: 10,
-              color: "#2D6BE4",
-              letterSpacing: "0.2em",
-              fontWeight: 600,
-            }}
-          >
-            ACTIVITY
-          </span>
+        <div className="px-4 pt-3 pb-2 flex items-center gap-4">
+          <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
+          <span style={{ fontSize: 10, color: "#f59e0b", letterSpacing: "0.2em", fontWeight: 600, marginLeft: "auto", cursor: "pointer" }}>FOLLOW UPS DUE</span>
         </div>
         <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
+          {/* Follow ups due */}
+          <FollowUpsDue />
+          {/* Activity */}
           {activity.length === 0 ? (
             <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
           ) : (
             activity.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3"
-                style={{ height: 36 }}
-              >
-                <span
-                  className="rounded-full shrink-0"
-                  style={{ width: 6, height: 6, background: item.color }}
-                />
-                <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>
-                  {item.text}
-                </span>
-                <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>
-                  {item.time}
-                </span>
+              <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
+                <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
+                <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
+                <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
               </div>
             ))
           )}
