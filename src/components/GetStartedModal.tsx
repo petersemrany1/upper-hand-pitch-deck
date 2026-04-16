@@ -183,10 +183,13 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setPaymentSent(false);
     setPaymentMethod(null);
     setContractSent(false);
+    setShowExitConfirm(false);
     onClose();
   };
 
-  const canCloseModal = paymentSent && contractSent;
+  const handleAttemptClose = () => {
+    setShowExitConfirm(true);
+  };
 
   if (!open) return null;
 
