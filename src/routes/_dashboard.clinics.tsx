@@ -207,7 +207,7 @@ function ClinicsPage() {
     setShowLogModal(false);
     setLogNotes(""); setLogNextAction(""); setLogNextDate(""); setLogDuration("");
     loadContacts(selectedClinic.id);
-    loadLastContacts();
+    loadLastNotes();
   };
 
   const handleAddClinic = async () => {
