@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Users, Clock, CheckCircle2, DollarSign, PhoneOff } from "lucide-react";
+import { Users, Clock, CheckCircle2, DollarSign, PhoneOff, XCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pipeline")({
   component: PipelinePage,
@@ -90,9 +90,35 @@ function generateInitialData(): PatientRow[] {
   return rows;
 }
 
+function usePageVisible() {
+  const [visible, setVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
+  useEffect(() => {
+    const handler = () => setVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+  return visible;
+}
+
+function usePausableInterval(callback: () => void, getDelay: () => number, visible: boolean) {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+  useEffect(() => {
+    if (!visible) return;
+    let timeout: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      callbackRef.current();
+      timeout = setTimeout(tick, getDelay());
+    };
+    timeout = setTimeout(tick, getDelay());
+    return () => clearTimeout(timeout);
+  }, [visible, getDelay]);
+}
+
 function PipelinePage() {
   const [rows, setRows] = useState<PatientRow[]>(() => generateInitialData());
   const parentRef = useRef<HTMLDivElement>(null);
+  const visible = usePageVisible();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -105,47 +131,33 @@ function PipelinePage() {
     return () => clearTimeout(timer);
   }, [rows]);
 
-  useEffect(() => {
-    const schedule = () => rand(30000, 60000);
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      setRows((prev) => {
-        const awaiting = prev.filter((r) => r.status === "Awaiting clinic");
-        if (awaiting.length === 0) return prev;
-        const target = pickRandom(awaiting);
-        return prev.map((r) => (r.id === target.id ? { ...r, status: "Allocated", flash: true } : r));
-      });
-      timeout = setTimeout(tick, schedule());
-    };
-    timeout = setTimeout(tick, schedule());
-    return () => clearTimeout(timeout);
-  }, []);
+  // Flip awaiting -> allocated
+  const flipDelay = useCallback(() => rand(30000, 60000), []);
+  usePausableInterval(() => {
+    setRows((prev) => {
+      const awaiting = prev.filter((r) => r.status === "Awaiting clinic");
+      if (awaiting.length === 0) return prev;
+      const target = pickRandom(awaiting);
+      return prev.map((r) => (r.id === target.id ? { ...r, status: "Allocated", flash: true } : r));
+    });
+  }, flipDelay, visible);
 
-  useEffect(() => {
-    const schedule = () => rand(60000, 90000);
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      const p = generatePatient("Awaiting clinic");
-      p.isNew = true;
-      setRows((prev) => [p, ...prev]);
-      timeout = setTimeout(tick, schedule());
-    };
-    timeout = setTimeout(tick, schedule());
-    return () => clearTimeout(timeout);
-  }, []);
+  // Add new row + increment disqualified
+  const [disqualified, setDisqualified] = useState(1847);
+  const newRowDelay = useCallback(() => rand(60000, 90000), []);
+  usePausableInterval(() => {
+    const p = generatePatient("Awaiting clinic");
+    p.isNew = true;
+    setRows((prev) => [p, ...prev]);
+    setDisqualified((d) => d + rand(3, 7));
+  }, newRowDelay, visible);
 
+  // Extra counter tick
   const [extraCount, setExtraCount] = useState(0);
-  useEffect(() => {
-    const schedule = () => rand(45000, 90000);
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      setExtraCount((c) => c + 1);
-      timeout = setTimeout(tick, schedule());
-    };
-    timeout = setTimeout(tick, schedule());
-    return () => clearTimeout(timeout);
-  }, []);
-
+  const extraDelay = useCallback(() => rand(45000, 90000), []);
+  usePausableInterval(() => {
+    setExtraCount((c) => c + 1);
+  }, extraDelay, visible);
   const totalQualified = 247 + extraCount + rows.filter((r) => r.isNew).length;
   const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
   const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
@@ -163,13 +175,14 @@ function PipelinePage() {
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
     { label: "Avg Procedure Budget", value: "$14,800", icon: DollarSign, color: "#8B5CF6" },
     { label: "Not Yet Called", value: 183, icon: PhoneOff, color: "#EF4444" },
+    { label: "Disqualified", value: disqualified.toLocaleString(), icon: XCircle, color: "#DC2626" },
   ];
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
       <div className="px-6 pt-5 pb-3">
         <h1 className="text-lg font-semibold text-white mb-4">Patient Pipeline</h1>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {stats.map((s) => (
             <div
               key={s.label}
