@@ -279,8 +279,14 @@ function PipelinePage() {
                   <div className="truncate">{row.suburb}</div>
                   <div>$15,000–$20,000</div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-green-400">$75</span>
-                    <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                    {row.status === "Awaiting clinic" || row.status === "Allocated" ? (
+                      <>
+                        <span className="text-green-400">$75</span>
+                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
+                      </>
+                    ) : (
+                      <span style={{ color: "#555" }}>—</span>
+                    )}
                   </div>
                   <div>
                     <span
