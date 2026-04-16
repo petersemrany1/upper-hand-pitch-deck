@@ -383,64 +383,81 @@ function ClinicsPage() {
               </button>
               {/* Clinic rows */}
               {!isCollapsed && (
-                <table className="w-full" style={{ fontSize: 13 }}>
-                  <tbody>
-                    {stateClinics.map((c) => {
-                      const sc = STATUS_COLORS[c.status] || STATUS_COLORS.New;
-                      const overdue = isOverdue(c.next_follow_up);
-                      return (
-                        <tr key={c.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: "1px solid #111" }}>
-                          <td className="px-4 py-2 w-[200px]">
-                            <button onClick={() => openDetail(c)} className="text-left hover:underline font-medium truncate max-w-[190px] block" style={{ color: "#fff" }}>{c.clinic_name}</button>
-                          </td>
-                          <td className="px-4 py-2 w-[100px]" style={{ color: "#888" }}>{c.city || "—"}</td>
-                          <td className="px-4 py-2 w-[160px]">
-                            {c.phone ? (
-                              <button onClick={() => handleCall(c)} className="flex items-center gap-1 hover:text-green-400 transition-colors" style={{ color: "#22c55e" }}>
-                                {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" />}
-                                <span className="text-xs">{c.phone}</span>
-                              </button>
-                            ) : <span style={{ color: "#333" }}>—</span>}
-                          </td>
-                          <td className="px-4 py-2">
-                            {c.email ? (
-                              <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-blue-400 transition-colors" style={{ color: "#60a5fa" }}>
-                                <Mail className="w-3 h-3" />
-                                <span className="text-xs truncate max-w-[120px]">{c.email}</span>
-                              </a>
-                            ) : <span style={{ color: "#333" }}>—</span>}
-                          </td>
-                          <td className="px-4 py-2 w-[100px]">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: sc.bg, color: sc.text }}>{c.status}</span>
-                          </td>
-                          <td className="px-4 py-2 w-[90px]" style={{ color: "#555", fontSize: 11 }}>
-                            {lastContacts[c.id] ? relativeTime(lastContacts[c.id]) : "—"}
-                          </td>
-                          <td className="px-4 py-2 w-[90px]" style={{ fontSize: 11, color: overdue ? "#ef4444" : "#888" }}>
-                            {c.next_follow_up || "—"}
-                          </td>
-                          <td className="px-4 py-2 w-[80px]">
-                            <div className="flex items-center gap-1">
-                              {c.phone && (
-                                <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
-                                  <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
-                                </button>
-                              )}
-                              {c.email && (
-                                <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-white/5" title="Email">
-                                  <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
-                                </a>
-                              )}
-                              <button onClick={() => { openDetail(c); setShowLogModal(true); }} className="p-1 rounded hover:bg-white/5" title="Log Activity">
-                                <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                <div>
+                  {stateClinics.map((c) => {
+                    const sc = STATUS_COLORS[c.status] || STATUS_COLORS.New;
+                    const overdue = isOverdue(c.next_follow_up);
+                    const isToday = c.next_follow_up === new Date().toISOString().split("T")[0];
+                    const followUpColor = overdue ? "#ef4444" : isToday ? "#f59e0b" : "#555";
+                    const borderColor = c.priority === "High" ? "#2D6BE4" : c.priority === "Medium" ? "#333" : "transparent";
+                    const ln = lastNotes[c.id];
+                    const typeEmoji: Record<string, string> = { Call: "📞", Email: "✉️", Loom: "🎥", Meeting: "🤝" };
+                    const lastNoteText = ln
+                      ? `${typeEmoji[ln.type] || "📝"} ${(ln.notes || ln.type).slice(0, 60)}`
+                      : null;
+
+                    return (
+                      <div
+                        key={c.id}
+                        className="flex items-center hover:bg-white/[0.02] transition-colors"
+                        style={{ height: 44, borderBottom: "1px solid #111", borderLeft: `3px solid ${borderColor}` }}
+                      >
+                        {/* Clinic Name */}
+                        <div className="w-[180px] shrink-0 px-3 truncate">
+                          <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#fff" }}>{c.clinic_name}</button>
+                        </div>
+                        {/* City */}
+                        <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#666" }}>{c.city || "—"}</div>
+                        {/* Phone */}
+                        <div className="w-[140px] shrink-0 px-2">
+                          {c.phone ? (
+                            <button onClick={() => handleCall(c)} className="flex items-center gap-1 text-[11px] hover:brightness-125 transition" style={{ color: "#22c55e" }}>
+                              {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
+                              <span className="truncate">{c.phone}</span>
+                            </button>
+                          ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
+                        </div>
+                        {/* Email */}
+                        <div className="w-[150px] shrink-0 px-2 truncate">
+                          {c.email ? (
+                            <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-[11px] hover:brightness-125 transition" style={{ color: "#60a5fa" }}>
+                              <Mail className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{c.email}</span>
+                            </a>
+                          ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
+                        </div>
+                        {/* Status */}
+                        <div className="w-[85px] shrink-0 px-2">
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>{c.status}</span>
+                        </div>
+                        {/* Last Note */}
+                        <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#666" }}>
+                          {lastNoteText || "—"}
+                        </div>
+                        {/* Follow Up */}
+                        <div className="w-[80px] shrink-0 px-2 text-[10px] font-medium" style={{ color: followUpColor }}>
+                          {c.next_follow_up || "—"}
+                        </div>
+                        {/* Actions */}
+                        <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
+                          {c.phone && (
+                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
+                              <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
+                            </button>
+                          )}
+                          {c.email && (
+                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-white/5" title="Email">
+                              <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
+                            </a>
+                          )}
+                          <button onClick={() => { openDetail(c); setShowLogModal(true); }} className="p-1 rounded hover:bg-white/5" title="Log">
+                            <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           );
