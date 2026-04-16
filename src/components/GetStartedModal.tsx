@@ -30,6 +30,7 @@ const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 export default function GetStartedModal({ open, onClose }: GetStartedModalProps) {
   // step: 1=details, 2=package, 3=hub, 4=payment sub-screen, 5=contract sub-screen
   const [step, setStep] = useState(1);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Step 1
   const [fullName, setFullName] = useState("");
