@@ -215,14 +215,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
           transition={{ duration: 0.25 }}
           className="relative z-10 w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
         >
-          {canCloseModal && (
-            <button
-              onClick={resetAndClose}
-              className="absolute top-4 right-4 text-[#999] hover:text-foreground transition-colors z-20"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={handleAttemptClose}
+            className="absolute top-4 right-4 text-[#999] hover:text-foreground transition-colors z-20"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           {/* Step indicator */}
           <div className="px-8 pt-8 pb-2">
