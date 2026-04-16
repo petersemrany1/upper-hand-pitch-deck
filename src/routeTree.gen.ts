@@ -15,6 +15,7 @@ import { Route as ApiTwimlRouteImport } from './routes/api/twiml'
 import { Route as ApiTwilioStatusRouteImport } from './routes/api/twilio-status'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
+import { Route as DashboardPipelineRouteImport } from './routes/_dashboard.pipeline'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
@@ -49,6 +50,11 @@ const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   path: '/pitch-deck',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardPipelineRoute = DashboardPipelineRouteImport.update({
+  id: '/pipeline',
+  path: '/pipeline',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardLogsRoute = DashboardLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/logs': typeof DashboardLogsRoute
+  '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/logs': typeof DashboardLogsRoute
+  '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
+  '/_dashboard/pipeline': typeof DashboardPipelineRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clinics'
     | '/logs'
+    | '/pipeline'
     | '/pitch-deck'
     | '/settings'
     | '/api/twilio-status'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clinics'
     | '/logs'
+    | '/pipeline'
     | '/pitch-deck'
     | '/settings'
     | '/api/twilio-status'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/_dashboard/clients'
     | '/_dashboard/clinics'
     | '/_dashboard/logs'
+    | '/_dashboard/pipeline'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/settings'
     | '/api/twilio-status'
@@ -192,6 +204,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPitchDeckRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/pipeline': {
+      id: '/_dashboard/pipeline'
+      path: '/pipeline'
+      fullPath: '/pipeline'
+      preLoaderRoute: typeof DashboardPipelineRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/logs': {
       id: '/_dashboard/logs'
       path: '/logs'
@@ -228,6 +247,7 @@ interface DashboardRouteChildren {
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
+  DashboardPipelineRoute: typeof DashboardPipelineRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -238,6 +258,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardLogsRoute: DashboardLogsRoute,
+  DashboardPipelineRoute: DashboardPipelineRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
