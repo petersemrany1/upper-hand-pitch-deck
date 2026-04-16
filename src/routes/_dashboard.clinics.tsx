@@ -307,9 +307,22 @@ function ClinicsPage() {
     const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
     const matchState = !filterState || c.state === filterState;
     const matchStatus = !filterStatus || c.status === filterStatus;
-    const matchPriority = !filterPriority || c.priority === filterPriority;
-    return matchSearch && matchState && matchStatus && matchPriority;
+    return matchSearch && matchState && matchStatus;
   });
+
+  // Group by state
+  const grouped: Record<string, Clinic[]> = {};
+  for (const c of filtered) {
+    const st = c.state || "Unknown";
+    if (!grouped[st]) grouped[st] = [];
+    grouped[st].push(c);
+  }
+  const stateOrder = [...STATES, "Unknown"];
+  const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
+
+  const toggleState = (state: string) => {
+    setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
+  };
 
   const isOverdue = (d: string | null) => {
     if (!d) return false;
@@ -340,7 +353,6 @@ function ClinicsPage() {
         </div>
         <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
         <FilterDropdown label="Status" options={STATUSES} value={filterStatus} onChange={setFilterStatus} />
-        <FilterDropdown label="Priority" options={PRIORITIES} value={filterPriority} onChange={setFilterPriority} />
         <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
