@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
 
 const TWILIO_ACCOUNT_SID = "AC4e4b3797155ad508c8dffa4b13a1fd6e";
-const TWILIO_AUTH_TOKEN = "376714289a02806ab80049a4afde9b04";
+const TWILIO_AUTH_TOKEN = "db7da46e7305ae7fed4ac4dd7e49ee6a";
 const TWILIO_FROM = "+61468031075";
 
 export const initiateCall = createServerFn({ method: "POST" })
