@@ -494,11 +494,6 @@ function ClinicsPage() {
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </FieldRow>
-                <FieldRow label="Priority">
-                  <select value={editPriority} onChange={(e) => { setEditPriority(e.target.value); updateClinicField("priority", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
-                    {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </FieldRow>
                 <FieldRow label="Follow Up">
                   <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                 </FieldRow>
