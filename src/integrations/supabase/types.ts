@@ -97,6 +97,7 @@ export type Database = {
           id: string
           next_action: string | null
           next_action_date: string | null
+          next_action_time: string | null
           notes: string | null
           outcome: string | null
         }
@@ -108,6 +109,7 @@ export type Database = {
           id?: string
           next_action?: string | null
           next_action_date?: string | null
+          next_action_time?: string | null
           notes?: string | null
           outcome?: string | null
         }
@@ -119,6 +121,7 @@ export type Database = {
           id?: string
           next_action?: string | null
           next_action_date?: string | null
+          next_action_time?: string | null
           notes?: string | null
           outcome?: string | null
         }
@@ -144,6 +147,7 @@ export type Database = {
           owner_name: string | null
           phone: string | null
           priority: string
+          reminder_sent: boolean
           state: string | null
           status: string
           updated_at: string
@@ -160,6 +164,7 @@ export type Database = {
           owner_name?: string | null
           phone?: string | null
           priority?: string
+          reminder_sent?: boolean
           state?: string | null
           status?: string
           updated_at?: string
@@ -176,6 +181,7 @@ export type Database = {
           owner_name?: string | null
           phone?: string | null
           priority?: string
+          reminder_sent?: boolean
           state?: string | null
           status?: string
           updated_at?: string
