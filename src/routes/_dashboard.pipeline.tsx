@@ -1,14 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Card, CardContent } from "@/components/ui/card";
-import { Users, Clock, CheckCircle2, DollarSign } from "lucide-react";
+import { Users, Clock, CheckCircle2, DollarSign, PhoneOff } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pipeline")({
   component: PipelinePage,
 });
-
-// --- Data generation ---
 
 const FIRST_NAMES = [
   "James","Jack","Liam","Noah","Oliver","William","Thomas","Lucas","Henry","Ethan",
@@ -23,7 +20,13 @@ const FIRST_NAMES = [
   "Dane","Ezra","Harley","Jaxon","Kobe","Logan","Marshall","Nico","Parker","Quinn",
 ];
 
-const LAST_INITIALS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+const LAST_NAMES = [
+  "Hartley","Russo","Webb","Mitchell","O'Brien","Sullivan","Clarke","Henderson","Murray","Campbell",
+  "Thompson","Anderson","Taylor","Wilson","Brown","Walker","Harris","Robinson","Kelly","Evans",
+  "Stewart","Morgan","Bennett","Cooper","Hughes","Ward","Foster","Barnes","Graham","Palmer",
+  "Stone","Reid","Burns","Walsh","Byrne","Murphy","Collins","Doyle","Ryan","Lynch",
+  "Gallagher","Murray","Quinn","Brady","Carroll","Duffy","Brennan","Nolan","Daly","Kavanagh",
+];
 
 const SUBURBS = [
   "Bondi","Manly","Surry Hills","Newtown","Parramatta","Chatswood","Cronulla",
@@ -35,6 +38,12 @@ const SUBURBS = [
   "Alexandria","Mascot","Botany","Maroubra","Coogee","Bronte","Waverley","Ashfield",
 ];
 
+const BUDGET_RANGES = [
+  { label: "$5,000–$10,000", weight: 0.2 },
+  { label: "$10,000–$15,000", weight: 0.5 },
+  { label: "$15,000–$20,000", weight: 0.3 },
+];
+
 function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -43,12 +52,18 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function pickBudget(): string {
+  const r = Math.random();
+  if (r < 0.2) return BUDGET_RANGES[0].label;
+  if (r < 0.7) return BUDGET_RANGES[1].label;
+  return BUDGET_RANGES[2].label;
+}
+
 type PatientRow = {
   id: string;
   name: string;
   suburb: string;
-  grafts: number;
-  budget: number;
+  budget: string;
   status: "Awaiting clinic" | "Allocated";
   flash?: boolean;
   isNew?: boolean;
@@ -56,14 +71,11 @@ type PatientRow = {
 
 let idCounter = 0;
 function generatePatient(status: "Awaiting clinic" | "Allocated" = "Awaiting clinic"): PatientRow {
-  const grafts = rand(1800, 4000);
-  const budget = rand(10, 22) * 1000;
   return {
     id: `p-${++idCounter}`,
-    name: `${pickRandom(FIRST_NAMES)} ${pickRandom(LAST_INITIALS)}.`,
+    name: `${pickRandom(FIRST_NAMES)} ${pickRandom(LAST_NAMES)}`,
     suburb: pickRandom(SUBURBS),
-    grafts,
-    budget,
+    budget: pickBudget(),
     status,
     flash: false,
     isNew: false,
@@ -73,19 +85,15 @@ function generatePatient(status: "Awaiting clinic" | "Allocated" = "Awaiting cli
 function generateInitialData(): PatientRow[] {
   const rows: PatientRow[] = [];
   for (let i = 0; i < 250; i++) {
-    const status = Math.random() < 0.35 ? "Allocated" : "Awaiting clinic";
-    rows.push(generatePatient(status));
+    rows.push(generatePatient(Math.random() < 0.35 ? "Allocated" : "Awaiting clinic"));
   }
   return rows;
 }
-
-// --- Component ---
 
 function PipelinePage() {
   const [rows, setRows] = useState<PatientRow[]>(() => generateInitialData());
   const parentRef = useRef<HTMLDivElement>(null);
 
-  // Clear flash/isNew after animation
   useEffect(() => {
     const timer = setTimeout(() => {
       setRows((prev) => {
@@ -97,7 +105,6 @@ function PipelinePage() {
     return () => clearTimeout(timer);
   }, [rows]);
 
-  // Flip an "Awaiting clinic" row to "Allocated" every 30-60s
   useEffect(() => {
     const schedule = () => rand(30000, 60000);
     let timeout: ReturnType<typeof setTimeout>;
@@ -114,21 +121,19 @@ function PipelinePage() {
     return () => clearTimeout(timeout);
   }, []);
 
-  // Add a new row every 60-90s
   useEffect(() => {
     const schedule = () => rand(60000, 90000);
     let timeout: ReturnType<typeof setTimeout>;
     const tick = () => {
-      const newPatient = generatePatient("Awaiting clinic");
-      newPatient.isNew = true;
-      setRows((prev) => [newPatient, ...prev]);
+      const p = generatePatient("Awaiting clinic");
+      p.isNew = true;
+      setRows((prev) => [p, ...prev]);
       timeout = setTimeout(tick, schedule());
     };
     timeout = setTimeout(tick, schedule());
     return () => clearTimeout(timeout);
   }, []);
 
-  // Increment total counter every 45-90s (independent of new row adds)
   const [extraCount, setExtraCount] = useState(0);
   useEffect(() => {
     const schedule = () => rand(45000, 90000);
@@ -157,14 +162,14 @@ function PipelinePage() {
     { label: "Awaiting Clinic", value: awaitingCount, icon: Clock, color: "#F59E0B" },
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
     { label: "Avg Procedure Budget", value: "$14,800", icon: DollarSign, color: "#8B5CF6" },
+    { label: "Not Yet Called", value: 183, icon: PhoneOff, color: "#EF4444" },
   ];
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
-      {/* Header */}
       <div className="px-6 pt-5 pb-3">
         <h1 className="text-lg font-semibold text-white mb-4">Patient Pipeline</h1>
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           {stats.map((s) => (
             <div
               key={s.label}
@@ -186,13 +191,11 @@ function PipelinePage() {
         </div>
       </div>
 
-      {/* Table */}
       <div className="flex-1 mx-6 mb-4 rounded-lg border overflow-hidden flex flex-col" style={{ borderColor: "#1f1f23", background: "#111114" }}>
-        {/* Table header */}
         <div
           className="grid text-[11px] uppercase tracking-wider font-medium px-4 py-2.5 border-b"
           style={{
-            gridTemplateColumns: "1.5fr 1fr 0.8fr 0.8fr 0.9fr 0.8fr",
+            gridTemplateColumns: "1.5fr 1fr 1fr 0.9fr 0.8fr",
             color: "#666",
             borderColor: "#1f1f23",
             background: "#0d0d10",
@@ -200,25 +203,21 @@ function PipelinePage() {
         >
           <div>Name</div>
           <div>Suburb</div>
-          <div>Grafts</div>
           <div>Budget</div>
           <div>Deposit Paid</div>
           <div>Status</div>
         </div>
 
-        {/* Virtual rows */}
         <div ref={parentRef} className="flex-1 overflow-auto">
           <div style={{ height: `${virtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
             {virtualizer.getVirtualItems().map((vRow) => {
               const row = rows[vRow.index];
-              const isFlash = row.flash;
-              const isNew = row.isNew;
               return (
                 <div
                   key={row.id}
                   className="grid items-center px-4 border-b transition-colors duration-700"
                   style={{
-                    gridTemplateColumns: "1.5fr 1fr 0.8fr 0.8fr 0.9fr 0.8fr",
+                    gridTemplateColumns: "1.5fr 1fr 1fr 0.9fr 0.8fr",
                     position: "absolute",
                     top: 0,
                     left: 0,
@@ -226,9 +225,9 @@ function PipelinePage() {
                     height: `${vRow.size}px`,
                     transform: `translateY(${vRow.start}px)`,
                     borderColor: "#1a1a1e",
-                    background: isFlash
+                    background: row.flash
                       ? "rgba(34,197,94,0.12)"
-                      : isNew
+                      : row.isNew
                         ? "rgba(245,158,11,0.08)"
                         : "transparent",
                     color: "#ccc",
@@ -237,8 +236,7 @@ function PipelinePage() {
                 >
                   <div className="text-white font-medium truncate">{row.name}</div>
                   <div className="truncate">{row.suburb}</div>
-                  <div>{row.grafts.toLocaleString()}</div>
-                  <div>${row.budget.toLocaleString()}</div>
+                  <div>{row.budget}</div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-green-400">$75</span>
                     <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
