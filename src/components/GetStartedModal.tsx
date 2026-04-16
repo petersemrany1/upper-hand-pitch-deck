@@ -34,6 +34,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   // Step 1
   const [fullName, setFullName] = useState("");
   const [clinicName, setClinicName] = useState("");
+  const [clinicAddress, setClinicAddress] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
@@ -56,7 +57,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const step1Valid = fullName.trim() && clinicName.trim() && email.trim() && phone.trim();
+  const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phone.trim();
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
@@ -141,6 +142,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         data: {
           to: email,
           clinicName,
+          clinicAddress,
           contactName: fullName,
           phone,
           packageName: packLabel,
@@ -166,6 +168,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setStep(1);
     setFullName("");
     setClinicName("");
+    setClinicAddress("");
     setEmail("");
     setPhone("");
     setSelectedPack(null);
@@ -263,6 +266,16 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                       onChange={(e) => setClinicName(e.target.value)}
                       className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       placeholder="Sydney Hair Clinic"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Clinic Address</label>
+                    <input
+                      type="text"
+                      value={clinicAddress}
+                      onChange={(e) => setClinicAddress(e.target.value)}
+                      className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Full address including suburb and state"
                     />
                   </div>
                   <div>
