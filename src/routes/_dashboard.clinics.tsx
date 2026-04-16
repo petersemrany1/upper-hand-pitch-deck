@@ -137,8 +137,8 @@ function ClinicsPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const savedPhones = getStoredPhones();
 
-  // Last contact cache
-  const [lastContacts, setLastContacts] = useState<Record<string, string>>({});
+  // Last contact cache — store full note info
+  const [lastNotes, setLastNotes] = useState<Record<string, { type: string; notes: string | null; created_at: string }>>({});
 
   const loadClinics = useCallback(async () => {
     const { data } = await supabase.from("clinics").select("*").order("created_at", { ascending: false });
@@ -146,18 +146,18 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
-  const loadLastContacts = useCallback(async () => {
-    const { data } = await supabase.from("clinic_contacts").select("clinic_id, created_at").order("created_at", { ascending: false });
+  const loadLastNotes = useCallback(async () => {
+    const { data } = await supabase.from("clinic_contacts").select("clinic_id, contact_type, notes, created_at").order("created_at", { ascending: false });
     if (data) {
-      const map: Record<string, string> = {};
+      const map: Record<string, { type: string; notes: string | null; created_at: string }> = {};
       for (const d of data) {
-        if (!map[d.clinic_id]) map[d.clinic_id] = d.created_at;
+        if (!map[d.clinic_id]) map[d.clinic_id] = { type: d.contact_type, notes: d.notes, created_at: d.created_at };
       }
-      setLastContacts(map);
+      setLastNotes(map);
     }
   }, []);
 
-  useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
+  useEffect(() => { loadClinics(); loadLastNotes(); }, [loadClinics, loadLastNotes]);
 
   const loadContacts = async (clinicId: string) => {
     const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
