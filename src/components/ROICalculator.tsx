@@ -14,11 +14,9 @@ const ALL_CONVERT_RATES: Record<string, number> = {
   "1 in 10": 0.1,
 };
 
-const CONVERT_LABELS: Record<string, string> = {
-  "1 in 4": "1 in 4 Conversion",
-  "1 in 3": "1 in 3 Conversion",
-  "1 in 2": "1 in 2 Conversion",
-};
+function getConvertLabel(label: string): string {
+  return label + " Conversion";
+}
 
 interface Props {
   caseValue: number;
@@ -32,13 +30,25 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
   const fmt = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
 
   const columns = useMemo(() => {
-    return (["1 in 4", "1 in 3", "1 in 2"] as const).map((label) => {
-      const denom = parseInt(label.split("in ")[1]) || 4;
-      const procedures = shows / denom;
+    // Always include the selected rate plus two neighbors for context
+    const allRates = ["1 in 10","1 in 9","1 in 8","1 in 7","1 in 6","1 in 5","1 in 4","1 in 3","1 in 2","1 in 1"];
+    const idx = allRates.indexOf(convertRate);
+    const centerIdx = idx === -1 ? 6 : idx; // default to "1 in 4"
+    // Pick center and one on each side
+    const leftIdx = Math.max(centerIdx - 1, 0);
+    const rightIdx = Math.min(centerIdx + 1, allRates.length - 1);
+    const labels = [allRates[leftIdx], allRates[centerIdx], allRates[rightIdx]].filter((v, i, a) => a.indexOf(v) === i);
+    // Pad to 3 if at edges
+    while (labels.length < 3 && leftIdx > 0) labels.unshift(allRates[leftIdx - 1]);
+    while (labels.length < 3 && rightIdx < allRates.length - 1) labels.push(allRates[rightIdx + 1]);
+
+    return labels.map((label) => {
+      const r = ALL_CONVERT_RATES[label] ?? 0.25;
+      const procedures = shows * r;
       const revenue = procedures * caseValue;
       return { label, revenue };
     });
-  }, [caseValue]);
+  }, [caseValue, convertRate]);
 
   const handleCaseValueChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
@@ -103,7 +113,7 @@ export default function ROICalculator({ caseValue, convertRate, onCaseValueChang
                 }`}
               >
                 <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
-                  {CONVERT_LABELS[col.label]}
+                  {getConvertLabel(col.label)}
                 </p>
                 <p className={`font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1rem, 4vw, 4.5rem)', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                   {fmt(col.revenue)}

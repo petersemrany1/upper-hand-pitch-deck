@@ -59,6 +59,8 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
     ? Number(caseValue).toLocaleString("en-US")
     : "";
 
+  const isValid = parseInt(caseValue, 10) >= 1000;
+
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
       <div className="max-w-md w-full">
@@ -102,12 +104,16 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
         </div>
 
         <button
+          disabled={!isValid}
           onClick={() => onEnter(parseInt(caseValue, 10) || 12000, convertRate)}
-          className="w-full bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity"
+          className="w-full bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity disabled:opacity-40"
           style={{ fontFamily: "var(--font-heading)" }}
         >
           START PRESENTATION →
         </button>
+        {!isValid && caseValue !== "" && (
+          <p className="text-xs text-red-400 mt-2 text-center">Please enter a case value of at least $1,000</p>
+        )}
       </div>
     </div>
   );
@@ -184,8 +190,6 @@ function PitchDeck() {
   const fmtRounded = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
 
   const rate = CONVERT_RATES[convertRate] ?? 0.25;
-  // Extract the denominator (e.g. "1 in 3" → 3) for exact division
-  const convertDenom = parseInt(convertRate.split("in ")[1]) || 4;
 
   const packs = useMemo(() => [
     { name: "Demo", shows: 10, highlight: false },
@@ -426,23 +430,14 @@ function PitchDeck() {
       </div>
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
         {packs.map((pack) => {
-          const procedures = pack.shows / convertDenom;
+          const procedures = pack.shows * rate;
           const revenue = procedures * caseValue;
           const cost = pack.shows * COST_PER_SHOW;
           return (
             <div
               key={pack.name}
-              className={`rounded-xl bg-zinc-900 px-10 py-14 text-center relative ${
-                pack.name === "Starter"
-                  ? "border-2 border-primary"
-                  : "border border-border"
-              }`}
+              className="rounded-xl bg-zinc-900 px-10 py-14 text-center relative border border-border"
             >
-              {pack.name === "Starter" && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-bold px-4 py-1 rounded-full tracking-wide uppercase">
-                  Most Popular
-                </span>
-              )}
               <h3 className="text-3xl font-extrabold text-foreground mb-2">{pack.name}</h3>
               <p className="text-[#CCCCCC] text-base mb-1">{pack.shows} show up appointments</p>
               <p className="text-[#CCCCCC] text-base mb-8">${COST_PER_SHOW.toLocaleString()} per appointment</p>
@@ -498,7 +493,6 @@ function PitchDeck() {
               "No show = no charge. Ever.",
               "Don't get 2 procedures from your first 10 shows? We give you 5 more free.",
               "No lock in. Cancel any time.",
-              "No risk — land just 1 deal and your entire investment is covered.",
             ].map((item) => (
               <div key={item} className="flex items-start gap-5">
                 <span className="text-primary font-bold flex-shrink-0 text-3xl">✓</span>

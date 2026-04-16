@@ -58,7 +58,9 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
-  const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phone.trim();
+  const phoneClean = phone.replace(/\s/g, '');
+  const phoneValid = /^(\+?61|0)4[0-9]{8}$/.test(phoneClean);
+  const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phoneValid;
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
@@ -299,6 +301,9 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                       className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                       placeholder="04XX XXX XXX"
                     />
+                    {phone.trim() && !phoneValid && (
+                      <p className="text-xs text-red-400 mt-1">Please enter a valid Australian mobile number</p>
+                    )}
                   </div>
                 </div>
                 <button
@@ -524,7 +529,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
             {step === 5 && (
               <div>
                 <button
-                  onClick={() => setStep(3)}
+                  onClick={() => { setContractStatus(null); setStep(3); }}
                   className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
