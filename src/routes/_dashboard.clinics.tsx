@@ -741,19 +741,29 @@ function ClinicsPage() {
                             waitingOn={waitingOn}
                             onDelete={async () => {
                               await supabase.from("clinic_contacts").delete().eq("id", ct.id);
-                              // Check if any remaining contacts have a follow-up date
-                              const { data: remaining } = await supabase
+                              const { count } = await supabase
                                 .from("clinic_contacts")
-                                .select("next_action_date")
-                                .eq("clinic_id", selectedClinic.id)
-                                .not("next_action_date", "is", null)
-                                .order("next_action_date", { ascending: false })
-                                .limit(1);
-                              if (!remaining || remaining.length === 0) {
-                                await supabase.from("clinics").update({ next_follow_up: null }).eq("id", selectedClinic.id);
-                                setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, next_follow_up: null } : c));
-                                setSelectedClinic((prev) => prev ? { ...prev, next_follow_up: null } : prev);
+                                .select("*", { count: "exact", head: true })
+                                .eq("clinic_id", selectedClinic.id);
+                              if (!count || count === 0) {
+                                await supabase.from("clinics").update({ status: "Not Started", next_follow_up: null }).eq("id", selectedClinic.id);
+                                setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, status: "Not Started", next_follow_up: null } : c));
+                                setSelectedClinic((prev) => prev ? { ...prev, status: "Not Started", next_follow_up: null } : prev);
+                                setEditStatus("Not Started");
                                 setEditFollowUp("");
+                              } else {
+                                const { data: withDates } = await supabase
+                                  .from("clinic_contacts")
+                                  .select("next_action_date")
+                                  .eq("clinic_id", selectedClinic.id)
+                                  .not("next_action_date", "is", null)
+                                  .limit(1);
+                                if (!withDates || withDates.length === 0) {
+                                  await supabase.from("clinics").update({ next_follow_up: null }).eq("id", selectedClinic.id);
+                                  setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, next_follow_up: null } : c));
+                                  setSelectedClinic((prev) => prev ? { ...prev, next_follow_up: null } : prev);
+                                  setEditFollowUp("");
+                                }
                               }
                               loadContacts(selectedClinic.id);
                               loadLastContacts();
