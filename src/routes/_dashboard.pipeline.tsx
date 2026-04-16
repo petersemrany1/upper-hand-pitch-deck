@@ -164,7 +164,7 @@ function PipelinePage() {
   // Add a new qualified row + 3-7 disqualified rows every 60-90s
   const newRowDelay = useCallback(() => rand(60000, 90000), []);
   usePausableInterval(() => {
-    const p = generatePatient("Awaiting clinic");
+    const p = generatePatient("Not Yet Called");
     p.isNew = true;
     const dqCount = rand(3, 7);
     const newDQ: PatientRow[] = [];
