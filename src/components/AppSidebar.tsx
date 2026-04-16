@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Settings, Users, BarChart3, AlertTriangle } from "lucide-react";
+import { Presentation, LayoutDashboard, Settings, Phone, BarChart3, AlertTriangle } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -17,7 +17,7 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Phone", url: "/clients", icon: Users },
+  { title: "Phone & Contacts", url: "/clients", icon: Phone },
   { title: "Logs", url: "/logs", icon: AlertTriangle },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

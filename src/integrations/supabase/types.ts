@@ -88,6 +88,36 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_logs: {
+        Row: {
+          clinic_name: string
+          contact_name: string
+          created_at: string
+          email: string
+          id: string
+          package_name: string
+          status: string
+        }
+        Insert: {
+          clinic_name: string
+          contact_name: string
+          created_at?: string
+          email: string
+          id?: string
+          package_name: string
+          status?: string
+        }
+        Update: {
+          clinic_name?: string
+          contact_name?: string
+          created_at?: string
+          email?: string
+          id?: string
+          package_name?: string
+          status?: string
+        }
+        Relationships: []
+      }
       error_logs: {
         Row: {
           context: Json | null

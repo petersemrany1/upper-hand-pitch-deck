@@ -1,9 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
-
+import { createClient } from "@supabase/supabase-js";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
 const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+
+function getAdminClient() {
+  const url = process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing Supabase env vars for server");
+  return createClient(url, key);
+}
 
 function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
@@ -201,6 +208,20 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           rawResponse: (resendResult as any).rawResponse,
           stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
         });
+      } else {
+        // Log successful contract send
+        try {
+          const admin = getAdminClient();
+          await admin.from("contract_logs").insert({
+            clinic_name: data.clinicName,
+            contact_name: data.contactName,
+            email: data.to,
+            package_name: data.packageName,
+            status: "sent",
+          });
+        } catch (logErr) {
+          console.error("Failed to log contract:", logErr);
+        }
       }
 
       return resendResult;
