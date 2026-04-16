@@ -30,6 +30,7 @@ const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 export default function GetStartedModal({ open, onClose }: GetStartedModalProps) {
   // step: 1=details, 2=package, 3=hub, 4=payment sub-screen, 5=contract sub-screen
   const [step, setStep] = useState(1);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Step 1
   const [fullName, setFullName] = useState("");
@@ -182,10 +183,13 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
     setPaymentSent(false);
     setPaymentMethod(null);
     setContractSent(false);
+    setShowExitConfirm(false);
     onClose();
   };
 
-  const canCloseModal = paymentSent && contractSent;
+  const handleAttemptClose = () => {
+    setShowExitConfirm(true);
+  };
 
   if (!open) return null;
 
@@ -201,7 +205,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         className="fixed inset-0 z-[200] flex items-center justify-center p-4"
       >
         {/* Overlay */}
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={resetAndClose} />
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleAttemptClose} />
 
         {/* Modal */}
         <motion.div
@@ -211,14 +215,12 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
           transition={{ duration: 0.25 }}
           className="relative z-10 w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl overflow-hidden"
         >
-          {canCloseModal && (
-            <button
-              onClick={resetAndClose}
-              className="absolute top-4 right-4 text-[#999] hover:text-foreground transition-colors z-20"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <button
+            onClick={handleAttemptClose}
+            className="absolute top-4 right-4 text-[#999] hover:text-foreground transition-colors z-20"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
           {/* Step indicator */}
           <div className="px-8 pt-8 pb-2">
@@ -452,7 +454,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                 </div>
 
                 {/* Done button */}
-                {canCloseModal && (
+                {(paymentSent && contractSent) && (
                   <button
                     onClick={resetAndClose}
                     className="w-full mt-6 bg-primary text-primary-foreground font-bold py-3.5 rounded-lg transition-opacity hover:opacity-90"
@@ -622,6 +624,48 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
               </div>
             )}
           </div>
+          {/* Exit confirmation overlay */}
+          <AnimatePresence>
+            {showExitConfirm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 rounded-2xl"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-card border border-border rounded-xl p-6 mx-6 max-w-sm w-full shadow-xl"
+                >
+                  <h4
+                    className="text-lg font-extrabold text-foreground mb-2"
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    Are you sure you want to exit?
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Your progress will not be saved and you'll need to start again.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowExitConfirm(false)}
+                      className="flex-1 border border-border text-foreground font-bold py-2.5 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      onClick={resetAndClose}
+                      className="flex-1 bg-red-600 text-white font-bold py-2.5 rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Exit
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
     </AnimatePresence>
