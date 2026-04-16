@@ -111,10 +111,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
               role: "client",
               email: data.to,
               name: data.contactName,
-              values: {
-                "client_name": data.contactName,
-                "client_date": new Date().toLocaleDateString("en-AU"),
-              },
+              values: {},
             },
           ],
         }),
