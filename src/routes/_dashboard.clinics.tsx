@@ -86,7 +86,7 @@ const CALL_OUTCOMES = [
 ];
 const EMAIL_OUTCOMES = ["Sent", "Replied — Interested", "Replied — Not Interested", "No Reply"];
 const LOOM_OUTCOMES = ["Sent", "Opened", "Replied"];
-const ZOOM_OUTCOMES = ["Completed — Interested", "Completed — Not Interested", "No Show"];
+const ZOOM_OUTCOMES = ["Qualified — Ready to Sign", "Qualified — Needs Follow Up", "Not Qualified — Budget", "Not Qualified — Wrong Fit", "No Show", "Rescheduled"];
 
 const OUTCOME_MAP: Record<string, string[]> = {
   Call: CALL_OUTCOMES, Email: EMAIL_OUTCOMES, Loom: LOOM_OUTCOMES, Zoom: ZOOM_OUTCOMES,
@@ -101,9 +101,12 @@ const OUTCOME_TO_STAGE: Record<string, string> = {
   "Spoke — Call Me Back": "Contacted — Call Me Back",
   "Spoke — Interested": "Contacted — Call Me Back",
   "Spoke — Zoom Set": "Zoom Set",
-  "Completed — Interested": "Zoom Completed",
-  "Completed — Not Interested": "Lost",
+  "Qualified — Ready to Sign": "Signed",
+  "Qualified — Needs Follow Up": "Zoom Completed",
+  "Not Qualified — Budget": "Lost",
+  "Not Qualified — Wrong Fit": "Lost",
   "No Show": "Zoom Set",
+  "Rescheduled": "Zoom Set",
   "Replied — Not Interested": "Contacted — Not Interested",
 };
 
@@ -733,29 +736,8 @@ function ClinicsPage() {
               {/* ===== SECTION 2: LOG ACTIVITY ===== */}
               <div className="rounded-lg p-4" style={{ background: "#0f1117", border: "1px solid #1e293b" }}>
                 <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>LOG ACTIVITY</div>
-                <div className="flex items-center gap-2 mb-3">
-                  {CONTACT_TYPES.map((t) => {
-                    const icons: Record<string, React.ReactNode> = {
-                      Call: <PhoneCall className="w-4 h-4" />,
-                      Email: <Mail className="w-4 h-4" />,
-                      Loom: <Video className="w-4 h-4" />,
-                      Zoom: <Send className="w-4 h-4" />,
-                    };
-                    return (
-                      <button
-                        key={t}
-                        onClick={() => { handleTypeChange(t); }}
-                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-[10px]"
-                        style={{ background: logType === t ? "#1e293b" : "transparent", color: logType === t ? "#60a5fa" : "#555", border: logType === t ? "1px solid #334155" : "1px solid transparent" }}
-                      >
-                        {icons[t]}
-                        {t}
-                      </button>
-                    );
-                  })}
-                </div>
                 <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#2D6BE4", color: "#fff" }}>
-                  <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log {logType} Activity
+                  <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log Activity
                 </Button>
               </div>
 
