@@ -931,7 +931,7 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
   );
 }
 
-
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: "#555", letterSpacing: "0.12em" }}>{label}</div>
