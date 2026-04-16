@@ -264,35 +264,6 @@ function ClinicsPage() {
 
   useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
 
-  // Check for follow-up reminders on page load
-  useEffect(() => {
-    const checkReminders = async () => {
-      const today = new Date().toISOString().split("T")[0];
-      const { data: dueClinics } = await supabase
-        .from("clinics")
-        .select("id, clinic_name, phone, next_follow_up, reminder_sent")
-        .eq("next_follow_up", today)
-        .eq("reminder_sent", false);
-
-      if (dueClinics && dueClinics.length > 0) {
-        for (const c of dueClinics) {
-          try {
-            await sendPaymentLinkSMS({
-              data: {
-                to: "+61418214953",
-                firstName: "Peter",
-                stripeLink: `Upper Hand reminder: Follow up with ${c.clinic_name} today. Phone: ${c.phone || "N/A"}`,
-              },
-            });
-            await supabase.from("clinics").update({ reminder_sent: true }).eq("id", c.id);
-          } catch (err) {
-            console.error("Reminder SMS failed:", err);
-          }
-        }
-      }
-    };
-    checkReminders();
-  }, []);
 
   const loadContacts = async (clinicId: string) => {
     const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
@@ -350,9 +321,9 @@ function ClinicsPage() {
 
     // Update follow-up date if set
     if (logNextDate) {
-      await supabase.from("clinics").update({ next_follow_up: logNextDate, reminder_sent: false }).eq("id", selectedClinic.id);
-      setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, next_follow_up: logNextDate, reminder_sent: false } : c));
-      setSelectedClinic((prev) => prev ? { ...prev, next_follow_up: logNextDate, reminder_sent: false } : prev);
+      await supabase.from("clinics").update({ next_follow_up: logNextDate }).eq("id", selectedClinic.id);
+      setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, next_follow_up: logNextDate } : c));
+      setSelectedClinic((prev) => prev ? { ...prev, next_follow_up: logNextDate } : prev);
       setEditFollowUp(logNextDate);
     }
 
