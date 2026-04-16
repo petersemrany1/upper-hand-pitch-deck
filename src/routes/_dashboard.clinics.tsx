@@ -347,8 +347,9 @@ function ClinicsPage() {
         <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
-        <Button onClick={handleImport} disabled={importing} size="sm" variant="ghost" className="text-xs" style={{ color: "#666" }}>
-          <Upload className="w-3 h-3 mr-1" /> {importing ? "Importing..." : "Import"}
+        <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
+        <Button onClick={() => fileInputRef.current?.click()} disabled={importing} size="sm" variant="ghost" className="text-xs" style={{ color: "#666" }}>
+          <Upload className="w-3 h-3 mr-1" /> {importing ? "Importing..." : "Bulk Upload CSV"}
         </Button>
         <span className="text-xs ml-auto" style={{ color: "#555" }}>{filtered.length} clinics</span>
       </div>
