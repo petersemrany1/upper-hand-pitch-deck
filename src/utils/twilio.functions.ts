@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { logError } from "./error-logger.functions";
 
 export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
   .inputValidator((data: { to: string; firstName: string; stripeLink: string }) => data)
@@ -35,6 +36,13 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       console.error("Twilio error:", JSON.stringify(result));
+      await logError("sendPaymentLinkSMS", result.message || "Twilio SMS failed", {
+        phone: data.to,
+        formattedPhone,
+        firstName: data.firstName,
+        rawResponse: result,
+        stepsToReproduce: `Sending payment link SMS to ${data.to} for ${data.firstName}`,
+      });
       return { success: false, error: result.message || "Failed to send SMS" };
     }
 

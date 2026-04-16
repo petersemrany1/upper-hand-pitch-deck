@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { logError } from "./error-logger.functions";
 
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
@@ -38,7 +39,7 @@ async function sendViaResend(
 
     if (!response.ok) {
       console.error("Resend error:", JSON.stringify(result));
-      return { success: false, error: result.message || "Failed to send email" };
+      return { success: false, error: result.message || "Failed to send email", rawResponse: result };
     }
 
     return { success: true, id: result.id };
@@ -114,6 +115,13 @@ export const sendContractEmail = createServerFn({ method: "POST" })
 
       if (!docusealResponse.ok) {
         console.error("DocuSeal error:", JSON.stringify(docusealResult));
+        await logError("sendContractEmail", "DocuSeal API returned error", {
+          email: data.to,
+          clinicName: data.clinicName,
+          packageName: data.packageName,
+          rawResponse: docusealResult,
+          stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
+        });
         return { success: false, error: "Failed to prepare contract" };
       }
 
@@ -128,6 +136,13 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       }
       if (!signingUrl) {
         console.error("Could not extract signing URL. Full DocuSeal response:", JSON.stringify(docusealResult));
+        await logError("sendContractEmail", "Could not extract signing URL from DocuSeal response", {
+          email: data.to,
+          clinicName: data.clinicName,
+          packageName: data.packageName,
+          rawResponse: docusealResult,
+          stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
+        });
         return { success: false, error: "Could not get signing link — please try again." };
       }
 
@@ -172,14 +187,33 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         '</td></tr></table></td></tr></table></body></html>',
       ].join("");
 
-      return sendViaResend(
+      const resendResult = await sendViaResend(
         data.to,
         "Your Upper Hand Digital Services Agreement",
         html
       );
 
+      if (!resendResult.success) {
+        await logError("sendContractEmail", resendResult.error || "Resend failed", {
+          email: data.to,
+          clinicName: data.clinicName,
+          packageName: data.packageName,
+          rawResponse: (resendResult as any).rawResponse,
+          stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
+        });
+      }
+
+      return resendResult;
+
     } catch (error) {
+      const errMsg = error instanceof Error ? error.message : String(error);
       console.error("Contract email failed:", error);
+      await logError("sendContractEmail", errMsg, {
+        email: data.to,
+        clinicName: data.clinicName,
+        packageName: data.packageName,
+        stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
+      });
       return { success: false, error: "Request failed" };
     }
   });
@@ -222,5 +256,17 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
       "</td></tr></table></td></tr></table></body></html>",
     ].join("");
 
-    return sendViaResend(data.to, "Your Upper Hand Invoice", html);
+    const result = await sendViaResend(data.to, "Your Upper Hand Invoice", html);
+
+    if (!result.success) {
+      await logError("sendInvoiceEmail", result.error || "Resend failed", {
+        email: data.to,
+        clinicName: data.clinicName,
+        packageName: data.packageName,
+        rawResponse: (result as any).rawResponse,
+        stepsToReproduce: `Sending invoice to ${data.to} for ${data.packageName} pack (${data.amount})`,
+      });
+    }
+
+    return result;
   });

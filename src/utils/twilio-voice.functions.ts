@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { logError } from "./error-logger.functions";
 
 const TWILIO_ACCOUNT_SID = "AC4e4b3797155ad508c8dffa4b13a1fd6e";
 const TWILIO_AUTH_TOKEN = "376714289a02806ab80049a4afde9b04";
@@ -35,6 +36,12 @@ export const initiateCall = createServerFn({ method: "POST" })
 
     if (!response.ok) {
       console.error("Twilio call error:", JSON.stringify(result));
+      await logError("initiateCall", result.message || "Twilio call failed", {
+        clientPhone: data.clientPhone,
+        userPhone: data.userPhone,
+        rawResponse: result,
+        stepsToReproduce: `Initiating call to ${data.userPhone} bridging to ${data.clientPhone}`,
+      });
       return { success: false, error: result.message || "Failed to initiate call" };
     }
 
