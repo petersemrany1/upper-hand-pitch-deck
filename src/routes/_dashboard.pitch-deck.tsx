@@ -49,6 +49,18 @@ const COST_PER_SHOW = 1100;
 function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: string) => void }) {
   const [caseValue, setCaseValue] = useState("12000");
   const [convertRate, setConvertRate] = useState("1 in 4");
+  const [appReady, setAppReady] = useState(false);
+  const [clicked, setClicked] = useState(false);
+
+  useEffect(() => {
+    if (document.readyState === 'complete') {
+      setAppReady(true);
+    } else {
+      const handler = () => setAppReady(true);
+      window.addEventListener('load', handler);
+      return () => window.removeEventListener('load', handler);
+    }
+  }, []);
 
   const handleCaseValueChange = (val: string) => {
     const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
@@ -60,6 +72,14 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
     : "";
 
   const isValid = parseInt(caseValue, 10) >= 1000;
+
+  const handleStart = () => {
+    if (clicked) return;
+    setClicked(true);
+    onEnter(parseInt(caseValue, 10) || 12000, convertRate);
+  };
+
+  const buttonDisabled = !isValid || !appReady || clicked;
 
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
@@ -111,12 +131,12 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
         </div>
 
         <button
-          disabled={!isValid}
-          onClick={() => onEnter(parseInt(caseValue, 10) || 12000, convertRate)}
-          className="w-full bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity disabled:opacity-40"
+          disabled={buttonDisabled}
+          onClick={handleStart}
+          className={`w-full bg-primary text-primary-foreground font-bold text-base px-10 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity disabled:opacity-40 ${!appReady ? "animate-pulse" : ""}`}
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          START PRESENTATION →
+          {!appReady ? "Loading..." : "START PRESENTATION →"}
         </button>
         {!isValid && caseValue !== "" && (
           <p className="text-xs text-red-400 mt-2 text-center">Please enter a case value of at least $1,000</p>
