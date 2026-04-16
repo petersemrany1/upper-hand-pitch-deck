@@ -142,23 +142,20 @@ function PipelinePage() {
     });
   }, flipDelay, visible);
 
-  // Add new row + increment disqualified
+  // Add new row + increment disqualified + decrement notYetCalled
   const [disqualified, setDisqualified] = useState(1847);
+  const [notYetCalled, setNotYetCalled] = useState(183);
   const newRowDelay = useCallback(() => rand(60000, 90000), []);
   usePausableInterval(() => {
     const p = generatePatient("Awaiting clinic");
     p.isNew = true;
     setRows((prev) => [p, ...prev]);
     setDisqualified((d) => d + rand(3, 7));
+    setNotYetCalled((n) => Math.max(0, n - 1));
   }, newRowDelay, visible);
 
-  // Extra counter tick
-  const [extraCount, setExtraCount] = useState(0);
-  const extraDelay = useCallback(() => rand(45000, 90000), []);
-  usePausableInterval(() => {
-    setExtraCount((c) => c + 1);
-  }, extraDelay, visible);
-  const totalQualified = 247 + extraCount + rows.filter((r) => r.isNew).length;
+  // Derived stats — always consistent with table
+  const totalQualified = rows.length;
   const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
   const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
 
