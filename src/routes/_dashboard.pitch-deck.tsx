@@ -273,9 +273,9 @@ function PitchDeck() {
 
     /* ──────── SLIDE 3 — OUR PROCESS (2x2 grid centered) ──────── */
     <div key="process" className="deck-slide flex min-h-screen w-full bg-black">
+      <SlideHeader />
       {/* Left content — 70% */}
       <div className="w-[70%] flex flex-col justify-center px-16 py-12">
-        <SlideHeader />
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center">
           <motion.div variants={fadeIn} className="mb-12">
             <h2
@@ -329,10 +329,10 @@ function PitchDeck() {
 
     /* ──────── SLIDE 4 — WHO WE SEND YOU (2x2 cards centered) ──────── */
     <div key="patients" className="deck-slide flex min-h-screen w-full bg-black">
+      <SlideHeader />
       {/* Left content — 70% */}
       <div className="w-[70%] flex flex-col justify-center px-16 py-12">
         <div className="w-full text-center">
-          <SlideHeader />
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
             <motion.div variants={fadeIn} className="mb-4">
               <H>Who We'll Be Sending You.</H>
@@ -381,9 +381,9 @@ function PitchDeck() {
 
     /* ──────── SLIDE 5 — POST CONSULT (two columns) ──────── */
     <div key="post-consult" className="deck-slide flex min-h-screen w-full">
+      <SlideHeader />
       {/* Left column */}
       <div className="w-[70%] bg-black flex flex-col justify-center px-16 py-12">
-        <SlideHeader />
         <ChapterLabel>POST CONSULT</ChapterLabel>
         <h2
           className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
@@ -417,9 +417,9 @@ function PitchDeck() {
 
     /* ──────── SLIDE 7 — PACKAGES (centered) ──────── */
     <div key="packages" className="deck-slide flex flex-col items-center min-h-screen w-full px-16 py-12">
+      <SlideHeader />
       <div className="flex-1" />
       <div className="flex flex-col items-center w-full">
-      <SlideHeader />
       <div className="w-full max-w-5xl text-center mb-12">
         <ChapterLabel>PACKAGES</ChapterLabel>
         <h2 className="text-4xl md:text-[3.2rem] font-extrabold text-foreground leading-[1.08] tracking-tight whitespace-nowrap" style={{ fontFamily: "var(--font-heading)" }}>Choose How Many Patients You Want.</h2>
@@ -467,6 +467,7 @@ function PitchDeck() {
 
     /* ──────── SLIDE 8 — THE GUARANTEE ──────── */
     <div key="guarantee" className="deck-slide flex min-h-screen w-full">
+      <SlideHeader />
       {/* Left photo panel — 30% */}
       <div className="w-[30%] relative">
         <img
@@ -479,7 +480,6 @@ function PitchDeck() {
       {/* Right content — 70% */}
       <div className="w-[70%] flex items-center justify-center px-16 py-12 bg-black">
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-3xl text-center">
-          <SlideHeader />
           <motion.div variants={fadeIn}>
             <ChapterLabel>THE GUARANTEE</ChapterLabel>
           </motion.div>
@@ -512,10 +512,10 @@ function PitchDeck() {
 
     /* ──────── SLIDE 9 — FAQ (black bg, large text) ──────── */
     <div key="faq" className="deck-slide flex min-h-screen w-full bg-black">
+      <SlideHeader />
       {/* Left content — 70% */}
       <div className="w-[70%] flex flex-col justify-center px-16 py-12">
         <div className="w-full max-w-4xl">
-          <SlideHeader />
           <div className="text-center mb-12">
             <ChapterLabel>QUESTIONS</ChapterLabel>
             <H>Questions I Get Asked</H>
@@ -539,10 +539,10 @@ function PitchDeck() {
 
     /* ──────── SLIDE 10 — CLOSE ──────── */
     <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
+      <SlideHeader />
       <img src={clinicReception} alt="Modern clinic reception" className="absolute inset-0 w-full h-full object-cover" />
       <div className="absolute inset-0 bg-black/85" />
       <div className="relative z-10">
-        <SlideHeader />
         <Link
           to="/"
           className="fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-card/30 border border-border/30 text-[#666] hover:text-foreground hover:bg-card/60 transition-all"
