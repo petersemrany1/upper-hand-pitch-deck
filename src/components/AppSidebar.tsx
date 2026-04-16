@@ -43,17 +43,7 @@ export function AppSidebar() {
       style={{ background: "#0f0f12" }}
     >
       <SidebarContent style={{ background: "#0f0f12" }}>
-        {/* Logo */}
-        <div className="px-4 pt-5 pb-6 flex items-center gap-1">
-          <span style={{ fontWeight: 800, fontSize: 14, color: "#fff", letterSpacing: "0.02em" }}>
-            UPPER
-          </span>
-          <span style={{ fontWeight: 800, fontSize: 14, color: "#2D6BE4", letterSpacing: "0.02em" }}>
-            HAND
-          </span>
-        </div>
-
-        <SidebarGroup>
+        <SidebarGroup className="pt-4">
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
