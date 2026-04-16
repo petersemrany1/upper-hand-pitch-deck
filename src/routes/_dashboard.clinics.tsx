@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Plus, Phone, Mail, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
-  Upload, Clock, AlertCircle,
+  Upload, Clock, AlertCircle, Trash2, Video, Send,
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 
