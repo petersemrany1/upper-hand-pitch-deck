@@ -177,11 +177,12 @@ function ClinicsPage() {
     loadContacts(clinic.id);
   };
 
-  const updateClinicField = async (field: string, value: string) => {
+  const updateClinicField = async (field: keyof Clinic, value: string) => {
     if (!selectedClinic) return;
-    await supabase.from("clinics").update({ [field]: value || null }).eq("id", selectedClinic.id);
-    setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: value || null } : c));
-    setSelectedClinic((prev) => prev ? { ...prev, [field]: value || null } : prev);
+    const updateData = { [field]: value || null } as any;
+    await supabase.from("clinics").update(updateData).eq("id", selectedClinic.id);
+    setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: value || null } as Clinic : c));
+    setSelectedClinic((prev) => prev ? { ...prev, [field]: value || null } as Clinic : prev);
   };
 
   const handleNotesChange = (val: string) => {
