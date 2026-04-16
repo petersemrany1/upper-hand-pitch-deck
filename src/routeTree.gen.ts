@@ -16,6 +16,7 @@ import { Route as ApiTwilioStatusRouteImport } from './routes/api/twilio-status'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
+import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 
@@ -53,6 +54,11 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
+  id: '/clinics',
+  path: '/clinics',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardClientsRoute = DashboardClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
+  '/clinics': typeof DashboardClinicsRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
@@ -77,6 +84,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
+  '/clinics': typeof DashboardClinicsRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardRouteWithChildren
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
+  '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
@@ -102,6 +111,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analytics'
     | '/clients'
+    | '/clinics'
     | '/logs'
     | '/pitch-deck'
     | '/settings'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
   to:
     | '/analytics'
     | '/clients'
+    | '/clinics'
     | '/logs'
     | '/pitch-deck'
     | '/settings'
@@ -122,6 +133,7 @@ export interface FileRouteTypes {
     | '/_dashboard'
     | '/_dashboard/analytics'
     | '/_dashboard/clients'
+    | '/_dashboard/clinics'
     | '/_dashboard/logs'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/settings'
@@ -187,6 +199,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardLogsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/clinics': {
+      id: '/_dashboard/clinics'
+      path: '/clinics'
+      fullPath: '/clinics'
+      preLoaderRoute: typeof DashboardClinicsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/clients': {
       id: '/_dashboard/clients'
       path: '/clients'
@@ -207,6 +226,7 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
+  DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
@@ -216,6 +236,7 @@ interface DashboardRouteChildren {
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardClientsRoute: DashboardClientsRoute,
+  DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,

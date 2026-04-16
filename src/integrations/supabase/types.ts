@@ -88,6 +88,101 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_contacts: {
+        Row: {
+          clinic_id: string
+          contact_type: string
+          created_at: string
+          duration: string | null
+          id: string
+          next_action: string | null
+          next_action_date: string | null
+          notes: string | null
+          outcome: string | null
+        }
+        Insert: {
+          clinic_id: string
+          contact_type: string
+          created_at?: string
+          duration?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_date?: string | null
+          notes?: string | null
+          outcome?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          contact_type?: string
+          created_at?: string
+          duration?: string | null
+          id?: string
+          next_action?: string | null
+          next_action_date?: string | null
+          notes?: string | null
+          outcome?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_contacts_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinics: {
+        Row: {
+          city: string | null
+          clinic_name: string
+          created_at: string
+          email: string | null
+          id: string
+          next_follow_up: string | null
+          notes: string | null
+          owner_name: string | null
+          phone: string | null
+          priority: string
+          state: string | null
+          status: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          city?: string | null
+          clinic_name: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          next_follow_up?: string | null
+          notes?: string | null
+          owner_name?: string | null
+          phone?: string | null
+          priority?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          city?: string | null
+          clinic_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          next_follow_up?: string | null
+          notes?: string | null
+          owner_name?: string | null
+          phone?: string | null
+          priority?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
       contract_logs: {
         Row: {
           clinic_name: string

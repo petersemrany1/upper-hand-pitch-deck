@@ -391,43 +391,63 @@ function DashboardHome() {
         className="col-span-3 rounded-lg flex flex-col overflow-hidden"
         style={{ background: "transparent" }}
       >
-        <div className="px-4 pt-3 pb-2">
-          <span
-            style={{
-              fontSize: 10,
-              color: "#2D6BE4",
-              letterSpacing: "0.2em",
-              fontWeight: 600,
-            }}
-          >
-            ACTIVITY
-          </span>
+        <div className="px-4 pt-3 pb-2 flex items-center gap-4">
+          <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
+          <span style={{ fontSize: 10, color: "#f59e0b", letterSpacing: "0.2em", fontWeight: 600, marginLeft: "auto", cursor: "pointer" }}>FOLLOW UPS DUE</span>
         </div>
         <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
+          {/* Follow ups due */}
+          <FollowUpsDue />
+          {/* Activity */}
           {activity.length === 0 ? (
             <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
           ) : (
             activity.map((item, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3"
-                style={{ height: 36 }}
-              >
-                <span
-                  className="rounded-full shrink-0"
-                  style={{ width: 6, height: 6, background: item.color }}
-                />
-                <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>
-                  {item.text}
-                </span>
-                <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>
-                  {item.time}
-                </span>
+              <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
+                <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
+                <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
+                <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
               </div>
             ))
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function FollowUpsDue() {
+  const [followUps, setFollowUps] = useState<Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>>([]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().split("T")[0];
+    supabase
+      .from("clinics")
+      .select("id, clinic_name, phone, next_follow_up")
+      .lte("next_follow_up", today)
+      .order("next_follow_up", { ascending: true })
+      .limit(5)
+      .then(({ data }) => {
+        if (data) setFollowUps(data as any);
+      });
+  }, []);
+
+  if (followUps.length === 0) return null;
+
+  return (
+    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
+      {followUps.map((f) => (
+        <div key={f.id} className="flex items-center gap-3" style={{ height: 32 }}>
+          <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
+          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
+          <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
+          {f.phone && (
+            <button className="p-1 rounded hover:bg-white/5">
+              <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
