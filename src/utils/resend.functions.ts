@@ -78,7 +78,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     const totalIncGst = data.totalFee + gst;
 
     try {
-      const response = await fetch("https://api.docuseal.com/submissions", {
+      // Step 1 — Create DocuSeal submission but don't send their email
+      const docusealResponse = await fetch("https://api.docuseal.com/submissions", {
         method: "POST",
         headers: {
           "X-Auth-Token": DOCUSEAL_API_KEY,
@@ -86,7 +87,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         },
         body: JSON.stringify({
           template_id: 3431176,
-          send_email: true,
+          send_email: false,
           submitters: [
             {
               role: "First Party",
@@ -110,10 +111,6 @@ export const sendContractEmail = createServerFn({ method: "POST" })
               role: "client",
               email: data.to,
               name: data.contactName,
-              message: {
-                subject: "Your Upper Hand Digital Services Agreement",
-                body: `Hi ${data.clinicName},\n\nThank you for choosing Upper Hand Digital. Please find your Services Agreement attached for review and signature.\n\nOnce signed we will be in touch to get everything underway.\n\nIf you have any questions please don't hesitate to reach out.\n\nKind regards,\n\nPeter Semrany\nUpper Hand Digital\nhello@upperhand.digital\nwww.upperhand.digital`,
-              },
               values: {
                 "client_name": data.contactName,
                 "client_date": new Date().toLocaleDateString("en-AU"),
@@ -123,16 +120,74 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         }),
       });
 
-      const result = await response.json();
+      const docusealResult = await docusealResponse.json();
 
-      if (!response.ok) {
-        console.error("DocuSeal error:", JSON.stringify(result));
-        return { success: false, error: result.error || result.message || "Failed to send contract for signing" };
+      if (!docusealResponse.ok) {
+        console.error("DocuSeal error:", JSON.stringify(docusealResult));
+        return { success: false, error: "Failed to prepare contract" };
       }
 
-      return { success: true };
+      // Step 2 — Extract the client signing URL from DocuSeal response
+      const clientSubmitter = docusealResult.find(
+        (s: { role: string; slug: string }) => s.role === "client" || s.role === "Client"
+      );
+      const signingUrl = clientSubmitter
+        ? `https://docuseal.com/s/${clientSubmitter.slug}`
+        : null;
+
+      if (!signingUrl) {
+        return { success: false, error: "Could not get signing link" };
+      }
+
+      // Step 3 — Send our own branded email via Resend
+      const firstName = data.contactName.trim().split(" ")[0];
+      const html = [
+        '<!DOCTYPE html><html><head><meta charset="utf-8" /></head>',
+        '<body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">',
+        '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:40px 0;">',
+        '<tr><td align="center">',
+        '<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">',
+
+        // Header
+        '<tr><td style="background:#0f172a;padding:32px 40px;">',
+        '<span style="color:#ffffff;font-weight:800;font-size:20px;letter-spacing:-0.02em;">UPPER</span><span style="color:#2D6BE4;font-weight:800;font-size:20px;letter-spacing:-0.02em;">HAND</span>',
+        '</td></tr>',
+
+        // Body
+        '<tr><td style="padding:40px;">',
+
+        '<p style="margin:0 0 20px;color:#0f172a;font-size:18px;font-weight:600;">Hi ' + firstName + ',</p>',
+        '<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Thank you for choosing Upper Hand Digital. Please find your Services Agreement ready for review and signature.</p>',
+        '<p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.6;">Please click the button below to review and sign your agreement. It only takes a few minutes.</p>',
+
+        // Button
+        '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">',
+        '<a href="' + signingUrl + '" style="display:inline-block;background:#2D6BE4;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Review &amp; Sign Agreement &rarr;</a>',
+        '</td></tr></table>',
+
+        '<p style="margin:32px 0 16px;color:#374151;font-size:15px;line-height:1.6;">Once signed we will be in touch to get everything underway.</p>',
+        '<p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.6;">If you have any questions please reply to this email or reach out directly.</p>',
+
+        // Divider
+        '<hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />',
+
+        // Signature
+        '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Peter Semrany</p>',
+        '<p style="margin:2px 0 0;color:#6b7280;font-size:13px;">Upper Hand Digital</p>',
+        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:hello@upperhand.digital" style="color:#2D6BE4;text-decoration:none;">hello@upperhand.digital</a></p>',
+        '<p style="margin:2px 0 0;font-size:13px;"><a href="https://www.upperhand.digital" style="color:#2D6BE4;text-decoration:none;">www.upperhand.digital</a></p>',
+
+        '</td></tr></table></td></tr></table></body></html>',
+      ].join("");
+
+      return sendViaResend(
+        data.to,
+        "Your Upper Hand Digital Services Agreement",
+        html
+      );
+
     } catch (error) {
-      console.error("DocuSeal request failed:", error);
+      console.error("Contract email failed:", error);
       return { success: false, error: "Request failed" };
     }
   });
