@@ -196,6 +196,23 @@ function PitchDeck() {
     return () => window.removeEventListener("keydown", handler);
   }, [showPopup]);
 
+  // Preload images after popup is dismissed
+  useEffect(() => {
+    if (showPopup) return;
+    const imageSrcs = [
+      processPhoneCall,
+      patientProfile,
+      guaranteeHandshake,
+      postConsultCoordinator,
+      faqFounder,
+      clinicReception,
+    ];
+    imageSrcs.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [showPopup]);
+
   /* Helpers */
   const H = ({ children }: { children: React.ReactNode }) => (
     <h2
