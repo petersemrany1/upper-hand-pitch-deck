@@ -142,23 +142,20 @@ function PipelinePage() {
     });
   }, flipDelay, visible);
 
-  // Add new row + increment disqualified
+  // Add new row + increment disqualified + decrement notYetCalled
   const [disqualified, setDisqualified] = useState(1847);
+  const [notYetCalled, setNotYetCalled] = useState(183);
   const newRowDelay = useCallback(() => rand(60000, 90000), []);
   usePausableInterval(() => {
     const p = generatePatient("Awaiting clinic");
     p.isNew = true;
     setRows((prev) => [p, ...prev]);
     setDisqualified((d) => d + rand(3, 7));
+    setNotYetCalled((n) => Math.max(0, n - 1));
   }, newRowDelay, visible);
 
-  // Extra counter tick
-  const [extraCount, setExtraCount] = useState(0);
-  const extraDelay = useCallback(() => rand(45000, 90000), []);
-  usePausableInterval(() => {
-    setExtraCount((c) => c + 1);
-  }, extraDelay, visible);
-  const totalQualified = 247 + extraCount + rows.filter((r) => r.isNew).length;
+  // Derived stats — always consistent with table
+  const totalQualified = rows.length;
   const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
   const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
 
@@ -174,7 +171,7 @@ function PipelinePage() {
     { label: "Awaiting Clinic", value: awaitingCount, icon: Clock, color: "#F59E0B" },
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
     { label: "Avg Procedure Budget", value: "$14,800", icon: DollarSign, color: "#8B5CF6" },
-    { label: "Not Yet Called", value: 183, icon: PhoneOff, color: "#EF4444" },
+    { label: "Not Yet Called", value: notYetCalled, icon: PhoneOff, color: "#EF4444" },
     { label: "Disqualified", value: disqualified.toLocaleString(), icon: XCircle, color: "#DC2626" },
   ];
 
