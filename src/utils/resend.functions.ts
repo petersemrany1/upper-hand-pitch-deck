@@ -64,6 +64,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     (data: {
       to: string;
       clinicName: string;
+      clinicAddress: string;
       contactName: string;
       phone: string;
       packageName: string;
@@ -95,7 +96,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
               values: {
                 "agreement_date": new Date().toLocaleDateString("en-AU"),
                 "clinic_name": data.clinicName,
-                "clinic_address": "",
+                "clinic_address": data.clinicAddress || "",
                 "package_selected": data.packageName,
                 "num_shows": String(data.shows),
                 "per_show_fee": fmtDollar(data.perShowFee),
