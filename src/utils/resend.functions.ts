@@ -16,7 +16,7 @@ async function sendViaResend(
 ) {
   try {
     const body: Record<string, unknown> = {
-      from: "Upper Hand <onboarding@resend.dev>",
+      from: "Peter Semrany <hello@upperhand.digital>",
       to: [to],
       subject,
       html,
