@@ -59,6 +59,8 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
     ? Number(caseValue).toLocaleString("en-US")
     : "";
 
+  const isValid = parseInt(caseValue, 10) >= 1000;
+
   return (
     <div className="fixed inset-0 z-[100] bg-background/95 flex items-center justify-center px-6">
       <div className="max-w-md w-full">
@@ -100,8 +102,6 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
             </select>
           </div>
         </div>
-
-        const isValid = parseInt(caseValue, 10) >= 1000;
 
         <button
           disabled={!isValid}
