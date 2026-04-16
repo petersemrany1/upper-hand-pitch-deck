@@ -65,7 +65,7 @@ function DashboardHome() {
   const [totalContacts, setTotalContacts] = useState<number | null>(null);
   const [callsThisWeek, setCallsThisWeek] = useState<number | null>(null);
   const [contractsSent, setContractsSent] = useState<number | null>(null);
-  const [pendingSignatures, setPendingSignatures] = useState<number | null>(null);
+  
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [recentCalls, setRecentCalls] = useState<Array<{ name: string; time: string; duration: string }>>([]);
 
@@ -89,8 +89,6 @@ function DashboardHome() {
     const { count: sentCount } = await supabase.from("contract_logs").select("*", { count: "exact", head: true });
     setContractsSent(sentCount ?? 0);
 
-    const { count: pendCount } = await supabase.from("contract_logs").select("*", { count: "exact", head: true }).eq("status", "sent");
-    setPendingSignatures(pendCount ?? 0);
 
     // Recent activity
     const activityItems: ActivityItem[] = [];
@@ -191,14 +189,6 @@ function DashboardHome() {
       gradient: "linear-gradient(135deg, #1a0f29 0%, #0d0d0d 100%)",
       borderColor: "#a855f7",
       iconColor: "#a855f7",
-    },
-    {
-      label: "PENDING SIGNATURES",
-      value: pendingSignatures,
-      icon: Clock,
-      gradient: "linear-gradient(135deg, #1f1500 0%, #0d0d0d 100%)",
-      borderColor: "#f59e0b",
-      iconColor: "#f59e0b",
     },
   ];
 
