@@ -126,14 +126,25 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       }
 
       // Step 2 — Extract the client signing URL from DocuSeal response
-      const clientSubmitter = Array.isArray(docusealResult)
-        ? docusealResult.find(
-            (s: { role: string; slug: string }) => s.role === "client" || s.role === "Client"
-          )
-        : null;
-      const signingUrl = clientSubmitter
-        ? `https://docuseal.com/s/${clientSubmitter.slug}`
-        : null;
+      let signingUrl: string | null = null;
+
+      if (Array.isArray(docusealResult)) {
+        const clientSub = docusealResult.find(
+          (s: any) => s.role?.toLowerCase() === "client"
+        );
+        if (clientSub?.slug) {
+          signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
+        } else if (clientSub?.uuid) {
+          signingUrl = `https://docuseal.com/s/${clientSub.uuid}`;
+        }
+      } else if (docusealResult?.submitters) {
+        const clientSub = docusealResult.submitters.find(
+          (s: any) => s.role?.toLowerCase() === "client"
+        );
+        if (clientSub?.slug) {
+          signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
+        }
+      }
 
       if (!signingUrl) {
         return { success: false, error: "Could not get signing link" };
@@ -226,7 +237,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
       data.stripeLink
         ? '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><a href="' + data.stripeLink + '" style="display:inline-block;background:#3b82f6;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Pay Now</a></td></tr></table>'
         : "",
-      '<p style="margin:32px 0 0;color:#9ca3af;font-size:12px;text-align:center;">Questions? Reply to this email or contact petersemrany1@gmail.com</p>',
+      '<p style="margin:32px 0 0;color:#9ca3af;font-size:12px;text-align:center;">Questions? Reply to this email or contact hello@upperhand.digital</p>',
       "</td></tr></table></td></tr></table></body></html>",
     ].join("");
 

@@ -7,6 +7,13 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
     const authToken = "376714289a02806ab80049a4afde9b04";
     const from = "+61483938205";
 
+    let formattedPhone = data.to.replace(/\s/g, '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '+61' + formattedPhone.slice(1);
+    } else if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+61' + formattedPhone;
+    }
+
     const message = `Hi ${data.firstName}, here's your secure payment link to get started with Upper Hand: ${data.stripeLink}. Any questions? Just reply to this message.`;
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
@@ -18,7 +25,7 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        To: data.to,
+        To: formattedPhone,
         From: from,
         Body: message,
       }),
