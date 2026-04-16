@@ -15,7 +15,7 @@ function DashboardLayout() {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={false}>
       <div className="h-screen flex w-full overflow-hidden" style={{ background: "#09090b" }}>
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-hidden" style={{ borderLeft: "1px solid #1f1f23" }}>
