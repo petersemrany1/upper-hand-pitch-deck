@@ -118,6 +118,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       });
 
       const docusealResult = await docusealResponse.json();
+      console.error("DocuSeal full response:", JSON.stringify(docusealResult));
 
       if (!docusealResponse.ok) {
         console.error("DocuSeal error:", JSON.stringify(docusealResult));
@@ -125,9 +126,11 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       }
 
       // Step 2 — Extract the client signing URL from DocuSeal response
-      const clientSubmitter = docusealResult.find(
-        (s: { role: string; slug: string }) => s.role === "client" || s.role === "Client"
-      );
+      const clientSubmitter = Array.isArray(docusealResult)
+        ? docusealResult.find(
+            (s: { role: string; slug: string }) => s.role === "client" || s.role === "Client"
+          )
+        : null;
       const signingUrl = clientSubmitter
         ? `https://docuseal.com/s/${clientSubmitter.slug}`
         : null;
