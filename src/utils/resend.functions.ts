@@ -1,9 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
-
+import { createClient } from "@supabase/supabase-js";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
 const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+
+function getAdminClient() {
+  const url = process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("Missing Supabase env vars for server");
+  return createClient(url, key);
+}
 
 function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
