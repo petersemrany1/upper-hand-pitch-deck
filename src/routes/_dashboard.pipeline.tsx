@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Users, Clock, CheckCircle2, DollarSign, PhoneOff } from "lucide-react";
+import { Users, Clock, CheckCircle2, DollarSign, PhoneOff, XCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pipeline")({
   component: PipelinePage,
@@ -175,6 +175,7 @@ function PipelinePage() {
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
     { label: "Avg Procedure Budget", value: "$14,800", icon: DollarSign, color: "#8B5CF6" },
     { label: "Not Yet Called", value: 183, icon: PhoneOff, color: "#EF4444" },
+    { label: "Disqualified", value: disqualified.toLocaleString(), icon: XCircle, color: "#DC2626" },
   ];
 
   return (
