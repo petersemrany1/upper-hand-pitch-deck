@@ -454,7 +454,7 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                 </div>
 
                 {/* Done button */}
-                {canCloseModal && (
+                {(paymentSent && contractSent) && (
                   <button
                     onClick={resetAndClose}
                     className="w-full mt-6 bg-primary text-primary-foreground font-bold py-3.5 rounded-lg transition-opacity hover:opacity-90"
