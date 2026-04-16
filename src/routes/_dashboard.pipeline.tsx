@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Users, Clock, CheckCircle2, PhoneOff, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Clock, CheckCircle2, PhoneOff, XCircle, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pipeline")({
   component: PipelinePage,
@@ -199,17 +199,18 @@ function PipelinePage() {
   });
 
   const stats = [
-    { label: "Disqualified", value: disqualifiedCount.toLocaleString(), icon: XCircle, color: "#DC2626" },
-    { label: "Total Qualified", value: totalQualified.toLocaleString(), icon: Users, color: "#22C55E" },
     { label: "Not Yet Called", value: notYetCalledCount, icon: PhoneOff, color: "#71717A" },
+    { label: "Disqualified", value: disqualifiedCount.toLocaleString(), icon: XCircle, color: "#DC2626" },
+    { label: "Qualified", value: totalQualified.toLocaleString(), icon: Users, color: "#2D6BE4" },
     { label: "Awaiting Clinic", value: awaitingCount, icon: Clock, color: "#F59E0B" },
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
+    { label: "Leading Budget", value: "$15,000–$20,000", icon: DollarSign, color: "#14B8A6" },
   ];
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
       <div className="px-6 pt-5 pb-3">
         <h1 className="text-lg font-semibold text-white mb-4">Patient Pipeline</h1>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-6 gap-3">
           {stats.map((s) => (
             <div
               key={s.label}
