@@ -7,7 +7,7 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
     const authToken = "376714289a02806ab80049a4afde9b04";
     const from = "+61483938205";
 
-    let formattedPhone = data.to.replace(/\s/g, '');
+    let formattedPhone = data.to.replace(/[\s\-()]/g, '');
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+61' + formattedPhone.slice(1);
     } else if (!formattedPhone.startsWith('+')) {

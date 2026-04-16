@@ -608,16 +608,16 @@ function ClientsPage() {
                           size="sm"
                           variant="ghost"
                           className="h-8 w-8 p-0"
-                          onClick={() => togglePlayback(getProxyUrl(record.recording_url!))}
+                          onClick={() => togglePlayback(getProxyUrl(record.recording_url ?? ""))}
                         >
-                          {playingUrl === getProxyUrl(record.recording_url!) ? (
+                          {playingUrl === getProxyUrl(record.recording_url ?? "") ? (
                             <Pause className="w-4 h-4" />
                           ) : (
                             <Play className="w-4 h-4" />
                           )}
                         </Button>
                         <a
-                          href={getProxyUrl(record.recording_url!, true)}
+                          href={getProxyUrl(record.recording_url ?? "", true)}
                           download
                           target="_blank"
                           rel="noopener noreferrer"
@@ -654,12 +654,12 @@ function ClientsPage() {
                   </div>
                 </div>
 
-                {playingUrl === getProxyUrl(record.recording_url!) && record.recording_url && (
+                {record.recording_url && playingUrl === getProxyUrl(record.recording_url) && (
                   <div className="mt-2">
                     <audio
                       controls
                       autoPlay
-                      src={getProxyUrl(record.recording_url!)}
+                      src={getProxyUrl(record.recording_url)}
                       ref={(el) => setAudioRef(el)}
                       onEnded={() => setPlayingUrl(null)}
                       className="w-full h-8"

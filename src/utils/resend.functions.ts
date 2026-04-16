@@ -48,14 +48,6 @@ async function sendViaResend(
   }
 }
 
-// ─── Uint8Array to base64 ───
-function uint8ToBase64(bytes: Uint8Array): string {
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 // ─── SERVER FUNCTIONS ───
 
@@ -127,27 +119,16 @@ export const sendContractEmail = createServerFn({ method: "POST" })
 
       // Step 2 — Extract the client signing URL from DocuSeal response
       let signingUrl: string | null = null;
-
       if (Array.isArray(docusealResult)) {
-        const clientSub = docusealResult.find(
-          (s: any) => s.role?.toLowerCase() === "client"
-        );
-        if (clientSub?.slug) {
-          signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-        } else if (clientSub?.uuid) {
-          signingUrl = `https://docuseal.com/s/${clientSub.uuid}`;
-        }
+        const clientSub = docusealResult.find((s: any) => s.role?.toLowerCase() === "client");
+        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
       } else if (docusealResult?.submitters) {
-        const clientSub = docusealResult.submitters.find(
-          (s: any) => s.role?.toLowerCase() === "client"
-        );
-        if (clientSub?.slug) {
-          signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-        }
+        const clientSub = docusealResult.submitters.find((s: any) => s.role?.toLowerCase() === "client");
+        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
       }
-
       if (!signingUrl) {
-        return { success: false, error: "Could not get signing link" };
+        console.error("Could not extract signing URL. Full DocuSeal response:", JSON.stringify(docusealResult));
+        return { success: false, error: "Could not get signing link — please try again." };
       }
 
       // Step 3 — Send our own branded email via Resend
