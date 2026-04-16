@@ -15,6 +15,7 @@ import { Route as ApiTwimlRouteImport } from './routes/api/twiml'
 import { Route as ApiTwilioStatusRouteImport } from './routes/api/twilio-status'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
+import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 
@@ -47,6 +48,11 @@ const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   path: '/pitch-deck',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardLogsRoute = DashboardLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardClientsRoute = DashboardClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
@@ -62,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
+  '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
@@ -70,6 +77,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
+  '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
@@ -81,6 +89,7 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardRouteWithChildren
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
+  '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
     | '/'
     | '/analytics'
     | '/clients'
+    | '/logs'
     | '/pitch-deck'
     | '/settings'
     | '/api/twilio-status'
@@ -101,6 +111,7 @@ export interface FileRouteTypes {
   to:
     | '/analytics'
     | '/clients'
+    | '/logs'
     | '/pitch-deck'
     | '/settings'
     | '/api/twilio-status'
@@ -111,6 +122,7 @@ export interface FileRouteTypes {
     | '/_dashboard'
     | '/_dashboard/analytics'
     | '/_dashboard/clients'
+    | '/_dashboard/logs'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/settings'
     | '/api/twilio-status'
@@ -168,6 +180,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPitchDeckRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/logs': {
+      id: '/_dashboard/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof DashboardLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/clients': {
       id: '/_dashboard/clients'
       path: '/clients'
@@ -188,6 +207,7 @@ declare module '@tanstack/react-router' {
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
+  DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -196,6 +216,7 @@ interface DashboardRouteChildren {
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardClientsRoute: DashboardClientsRoute,
+  DashboardLogsRoute: DashboardLogsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
