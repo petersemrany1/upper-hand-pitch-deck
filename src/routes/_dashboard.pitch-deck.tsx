@@ -212,15 +212,15 @@ function PitchDeck() {
 
   /* Photo overlay helper — responsive to fullscreen */
   const FullBg = ({ src, alt }: { src: string; alt: string }) => (
-    <div className="absolute inset-0">
-      <img src={src} alt={alt} className="w-full h-full object-cover" />
+    <div className="absolute inset-0" style={{ willChange: "transform" }}>
+      <img src={src} alt={alt} loading="lazy" className="w-full h-full object-cover" />
       <div className="absolute inset-0 bg-black/60" />
     </div>
   );
 
   const PhotoSide = ({ src, alt }: { src: string; alt: string }) => (
-    <div className={`absolute right-0 top-0 h-full hidden md:block ${isFullscreen ? "w-[25%]" : "w-[35%]"}`}>
-      <img src={src} alt={alt} className="w-full h-full object-cover" />
+    <div className={`absolute right-0 top-0 h-full hidden md:block ${isFullscreen ? "w-[25%]" : "w-[35%]"}`} style={{ willChange: "transform" }}>
+      <img src={src} alt={alt} loading="lazy" className="w-full h-full object-cover" />
       <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-transparent" />
     </div>
   );
@@ -321,10 +321,11 @@ function PitchDeck() {
         </motion.div>
       </div>
       {/* Right photo panel — 30% */}
-      <div className="w-[30%] relative">
+      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
         <img
           src={processPhoneCall}
           alt="Professional on a phone call"
+          loading="lazy"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/50" />
@@ -373,10 +374,11 @@ function PitchDeck() {
         </div>
       </div>
       {/* Right photo panel — 30% */}
-      <div className="w-[30%] relative">
+      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
         <img
           src={patientProfile}
           alt="Confident professional man"
+          loading="lazy"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/40" />
@@ -410,8 +412,8 @@ function PitchDeck() {
         </motion.div>
       </div>
       {/* Right column — photo 30% */}
-      <div className="w-[30%] relative">
-        <img src={postConsultCoordinator} alt="Patient coordinator" className="w-full h-full object-cover" />
+      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
+        <img src={postConsultCoordinator} alt="Patient coordinator" loading="lazy" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40" />
       </div>
     </div>,
@@ -464,10 +466,11 @@ function PitchDeck() {
     <div key="guarantee" className="deck-slide flex min-h-screen w-full">
       <SlideHeader />
       {/* Left photo panel — 30% */}
-      <div className="w-[30%] relative">
+      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
         <img
           src={guaranteeHandshake}
           alt="Professional handshake"
+          loading="lazy"
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-black/50" />
@@ -525,8 +528,8 @@ function PitchDeck() {
         </div>
       </div>
       {/* Right photo panel — 30% */}
-      <div className="w-[30%] relative">
-        <img src={faqFounder} alt="Founder in conversation" className="w-full h-full object-cover" />
+      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
+        <img src={faqFounder} alt="Founder in conversation" loading="lazy" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40" />
       </div>
     </div>,
@@ -534,7 +537,7 @@ function PitchDeck() {
     /* ──────── SLIDE 10 — CLOSE ──────── */
     <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
       <SlideHeader />
-      <img src={clinicReception} alt="Modern clinic reception" className="absolute inset-0 w-full h-full object-cover" />
+      <img src={clinicReception} alt="Modern clinic reception" loading="lazy" className="absolute inset-0 w-full h-full object-cover" style={{ willChange: "transform" }} />
       <div className="absolute inset-0 bg-black/85" />
       <div className="relative z-10">
         <Link
@@ -572,9 +575,16 @@ function PitchDeck() {
         {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
       </button>
 
-      {/* Single slide display — no scroll */}
+      {/* Single slide display — only mount active ±1 for performance */}
       <div ref={containerRef} className="w-full h-full">
-        {slides[activeSlide]}
+        {slides.map((slide, i) => {
+          if (Math.abs(i - activeSlide) > 1) return null;
+          return (
+            <div key={i} style={{ display: i === activeSlide ? "block" : "none", width: "100%", height: "100%" }}>
+              {slide}
+            </div>
+          );
+        })}
       </div>
 
       <GetStartedModal open={showGetStarted} onClose={() => setShowGetStarted(false)} />
