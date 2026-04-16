@@ -9,7 +9,7 @@ import {
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
   Upload,
 } from "lucide-react";
-import { CLINIC_IMPORT_DATA } from "@/data/clinics-data";
+
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -131,8 +131,9 @@ function ClinicsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
 
-  // Import
+  // Bulk CSV upload
   const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Call
   const [callingId, setCallingId] = useState<string | null>(null);
@@ -227,27 +228,66 @@ function ClinicsPage() {
     loadClinics();
   };
 
-  const handleImport = async () => {
+  const handleBulkUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
     setImporting(true);
-    const { count } = await supabase.from("clinics").select("*", { count: "exact", head: true });
-    if (count && count > 0) {
-      alert("Clinics table is not empty. Import skipped.");
-      setImporting(false);
-      return;
+    try {
+      const text = await file.text();
+      const lines = text.split("\n").filter((l) => l.trim());
+      if (lines.length < 2) { alert("CSV is empty"); setImporting(false); return; }
+      const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+      const nameIdx = headers.findIndex((h) => h.includes("clinicname") || h.includes("clinic_name") || h === "name");
+      const stateIdx = headers.indexOf("state");
+      const cityIdx = headers.indexOf("city");
+      const phoneIdx = headers.indexOf("phone");
+      const emailIdx = headers.indexOf("email");
+      const websiteIdx = headers.indexOf("website");
+      const priorityIdx = headers.indexOf("priority");
+      const statusIdx = headers.indexOf("status");
+      if (nameIdx === -1) { alert("CSV must have a clinicName or clinic_name column"); setImporting(false); return; }
+
+      const parseRow = (line: string) => {
+        const values: string[] = [];
+        let current = "";
+        let inQuotes = false;
+        for (const ch of line) {
+          if (ch === '"') { inQuotes = !inQuotes; continue; }
+          if (ch === ',' && !inQuotes) { values.push(current.trim()); current = ""; continue; }
+          current += ch;
+        }
+        values.push(current.trim());
+        return values;
+      };
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseRow(lines[i]);
+        const name = vals[nameIdx];
+        if (!name) continue;
+        rows.push({
+          clinic_name: name,
+          state: (stateIdx >= 0 ? vals[stateIdx] : null) || null,
+          city: (cityIdx >= 0 ? vals[cityIdx] : null) || null,
+          phone: (phoneIdx >= 0 ? vals[phoneIdx] : null) || null,
+          email: (emailIdx >= 0 ? vals[emailIdx] : null) || null,
+          website: (websiteIdx >= 0 ? vals[websiteIdx] : null) || null,
+          priority: (priorityIdx >= 0 ? vals[priorityIdx] : null) || "Medium",
+          status: (statusIdx >= 0 ? vals[statusIdx] : null) || "New",
+        });
+      }
+
+      // Insert in batches of 100
+      for (let i = 0; i < rows.length; i += 100) {
+        await supabase.from("clinics").insert(rows.slice(i, i + 100));
+      }
+      alert(`Imported ${rows.length} clinics`);
+      loadClinics();
+    } catch (err) {
+      alert("Import failed. Check CSV format.");
     }
-    const rows = CLINIC_IMPORT_DATA.map((c) => ({
-      clinic_name: c.clinicName,
-      state: c.state,
-      city: c.city,
-      phone: c.phone,
-      email: c.email || null,
-      website: c.website || null,
-      priority: c.priority,
-      status: c.status,
-    }));
-    await supabase.from("clinics").insert(rows);
     setImporting(false);
-    loadClinics();
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleCall = async (clinic: Clinic) => {
@@ -307,8 +347,9 @@ function ClinicsPage() {
         <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
-        <Button onClick={handleImport} disabled={importing} size="sm" variant="ghost" className="text-xs" style={{ color: "#666" }}>
-          <Upload className="w-3 h-3 mr-1" /> {importing ? "Importing..." : "Import"}
+        <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
+        <Button onClick={() => fileInputRef.current?.click()} disabled={importing} size="sm" variant="ghost" className="text-xs" style={{ color: "#666" }}>
+          <Upload className="w-3 h-3 mr-1" /> {importing ? "Importing..." : "Bulk Upload CSV"}
         </Button>
         <span className="text-xs ml-auto" style={{ color: "#555" }}>{filtered.length} clinics</span>
       </div>
