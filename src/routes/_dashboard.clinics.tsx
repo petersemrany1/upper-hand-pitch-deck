@@ -9,7 +9,7 @@ import {
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
   Upload,
 } from "lucide-react";
-import { CLINIC_IMPORT_DATA } from "@/data/clinics-data";
+
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
