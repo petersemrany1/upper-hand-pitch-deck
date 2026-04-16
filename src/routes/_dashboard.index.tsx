@@ -240,7 +240,6 @@ function DashboardHome() {
             className="rounded-lg relative overflow-hidden flex flex-col justify-center px-5"
             style={{
               background: s.gradient,
-              borderLeft: `3px solid ${s.borderColor}`,
               border: `1px solid #1f1f23`,
               borderLeft: `3px solid ${s.borderColor}`,
             }}
@@ -280,7 +279,6 @@ function DashboardHome() {
         className="row-span-2 rounded-lg flex flex-col overflow-hidden"
         style={{
           background: "#0f0f12",
-          borderLeft: "3px solid #2D6BE4",
           border: "1px solid #1f1f23",
           borderLeft: "3px solid #2D6BE4",
         }}
