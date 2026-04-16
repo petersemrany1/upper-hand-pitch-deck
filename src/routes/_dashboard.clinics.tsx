@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Search, Plus, Phone, Mail, Building2, X, ChevronDown,
+  Search, Plus, Phone, Mail, Building2, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
   Upload,
 } from "lucide-react";
@@ -50,7 +50,11 @@ type ClinicContact = {
 };
 
 const STATUSES = ["New", "Contacted", "Interested", "Negotiating", "Won", "Lost", "Not Interested"];
-const PRIORITIES = ["High", "Medium", "Low"];
+const STATES_ABBR: Record<string, string> = {
+  "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
+  "Western Australia": "WA", "South Australia": "SA", "Tasmania": "TAS",
+  "ACT": "ACT", "Northern Territory": "NT",
+};
 const STATES = ["New South Wales", "Victoria", "Queensland", "Western Australia", "South Australia", "Tasmania", "ACT", "Northern Territory"];
 const CONTACT_TYPES = ["Call", "Email", "Loom", "Meeting"];
 const OUTCOMES = ["No Answer", "Left Voicemail", "Spoke", "Interested", "Not Interested", "Follow Up", "Won"];
@@ -65,11 +69,6 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   "Not Interested": { bg: "#1e293b", text: "#94a3b8" },
 };
 
-const PRIORITY_COLORS: Record<string, string> = {
-  High: "#ef4444",
-  Medium: "#f59e0b",
-  Low: "#6b7280",
-};
 
 type SavedPhone = { name: string; phone: string };
 const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
@@ -99,7 +98,7 @@ function ClinicsPage() {
   const [search, setSearch] = useState("");
   const [filterState, setFilterState] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
+  const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
 
   // Detail panel
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -109,7 +108,6 @@ function ClinicsPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editStatus, setEditStatus] = useState("");
-  const [editPriority, setEditPriority] = useState("");
   const [editFollowUp, setEditFollowUp] = useState("");
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -173,7 +171,6 @@ function ClinicsPage() {
     setEditPhone(clinic.phone || "");
     setEditEmail(clinic.email || "");
     setEditStatus(clinic.status);
-    setEditPriority(clinic.priority);
     setEditFollowUp(clinic.next_follow_up || "");
     loadContacts(clinic.id);
   };
@@ -310,9 +307,22 @@ function ClinicsPage() {
     const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
     const matchState = !filterState || c.state === filterState;
     const matchStatus = !filterStatus || c.status === filterStatus;
-    const matchPriority = !filterPriority || c.priority === filterPriority;
-    return matchSearch && matchState && matchStatus && matchPriority;
+    return matchSearch && matchState && matchStatus;
   });
+
+  // Group by state
+  const grouped: Record<string, Clinic[]> = {};
+  for (const c of filtered) {
+    const st = c.state || "Unknown";
+    if (!grouped[st]) grouped[st] = [];
+    grouped[st].push(c);
+  }
+  const stateOrder = [...STATES, "Unknown"];
+  const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
+
+  const toggleState = (state: string) => {
+    setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
+  };
 
   const isOverdue = (d: string | null) => {
     if (!d) return false;
@@ -343,7 +353,6 @@ function ClinicsPage() {
         </div>
         <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
         <FilterDropdown label="Status" options={STATUSES} value={filterStatus} onChange={setFilterStatus} />
-        <FilterDropdown label="Priority" options={PRIORITIES} value={filterPriority} onChange={setFilterPriority} />
         <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
@@ -356,75 +365,86 @@ function ClinicsPage() {
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto">
-        <table className="w-full" style={{ fontSize: 13 }}>
-          <thead>
-            <tr style={{ borderBottom: "1px solid #1a1a1a" }}>
-              {["Clinic", "State", "City", "Phone", "Email", "Status", "Priority", "Last Contact", "Follow Up", "Actions"].map((h) => (
-                <th key={h} className="text-left px-4 py-2 font-medium" style={{ color: "#555", fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase" }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => {
-              const sc = STATUS_COLORS[c.status] || STATUS_COLORS.New;
-              const overdue = isOverdue(c.next_follow_up);
-              return (
-                <tr key={c.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: "1px solid #111" }}>
-                  <td className="px-4 py-2">
-                    <button onClick={() => openDetail(c)} className="text-left hover:underline font-medium" style={{ color: "#fff" }}>{c.clinic_name}</button>
-                  </td>
-                  <td className="px-4 py-2" style={{ color: "#888" }}>{c.state ? c.state.replace("New South Wales", "NSW").replace("Victoria", "VIC").replace("Queensland", "QLD").replace("Western Australia", "WA").replace("South Australia", "SA").replace("Northern Territory", "NT").replace("Tasmania", "TAS") : "—"}</td>
-                  <td className="px-4 py-2" style={{ color: "#888" }}>{c.city || "—"}</td>
-                  <td className="px-4 py-2">
-                    {c.phone ? (
-                      <button onClick={() => handleCall(c)} className="flex items-center gap-1 hover:text-green-400 transition-colors" style={{ color: "#22c55e" }}>
-                        {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" />}
-                        <span className="text-xs">{c.phone}</span>
-                      </button>
-                    ) : <span style={{ color: "#333" }}>—</span>}
-                  </td>
-                  <td className="px-4 py-2">
-                    {c.email ? (
-                      <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-blue-400 transition-colors" style={{ color: "#60a5fa" }}>
-                        <Mail className="w-3 h-3" />
-                        <span className="text-xs truncate max-w-[120px]">{c.email}</span>
-                      </a>
-                    ) : <span style={{ color: "#333" }}>—</span>}
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: sc.bg, color: sc.text }}>{c.status}</span>
-                  </td>
-                  <td className="px-4 py-2">
-                    <span className="text-[10px] font-bold" style={{ color: PRIORITY_COLORS[c.priority] || "#666" }}>● {c.priority}</span>
-                  </td>
-                  <td className="px-4 py-2" style={{ color: "#555", fontSize: 11 }}>
-                    {lastContacts[c.id] ? relativeTime(lastContacts[c.id]) : "—"}
-                  </td>
-                  <td className="px-4 py-2" style={{ fontSize: 11, color: overdue ? "#ef4444" : "#888" }}>
-                    {c.next_follow_up || "—"}
-                  </td>
-                  <td className="px-4 py-2">
-                    <div className="flex items-center gap-1">
-                      {c.phone && (
-                        <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
-                          <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
-                        </button>
-                      )}
-                      {c.email && (
-                        <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-white/5" title="Email">
-                          <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
-                        </a>
-                      )}
-                      <button onClick={() => { openDetail(c); setShowLogModal(true); }} className="p-1 rounded hover:bg-white/5" title="Log Activity">
-                        <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {sortedStates.map((state) => {
+          const isCollapsed = collapsedStates[state];
+          const stateClinics = grouped[state];
+          const abbr = STATES_ABBR[state] || state;
+          return (
+            <div key={state}>
+              {/* State folder header */}
+              <button
+                onClick={() => toggleState(state)}
+                className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/[0.02] transition-colors"
+                style={{ borderBottom: "1px solid #1a1a1a" }}
+              >
+                {isCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#555" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#555" }} />}
+                <span className="text-xs font-semibold" style={{ color: "#2D6BE4", letterSpacing: "0.1em" }}>{abbr}</span>
+                <span className="text-[10px]" style={{ color: "#555" }}>({stateClinics.length})</span>
+              </button>
+              {/* Clinic rows */}
+              {!isCollapsed && (
+                <table className="w-full" style={{ fontSize: 13 }}>
+                  <tbody>
+                    {stateClinics.map((c) => {
+                      const sc = STATUS_COLORS[c.status] || STATUS_COLORS.New;
+                      const overdue = isOverdue(c.next_follow_up);
+                      return (
+                        <tr key={c.id} className="hover:bg-white/[0.02] transition-colors" style={{ borderBottom: "1px solid #111" }}>
+                          <td className="px-4 py-2 w-[200px]">
+                            <button onClick={() => openDetail(c)} className="text-left hover:underline font-medium truncate max-w-[190px] block" style={{ color: "#fff" }}>{c.clinic_name}</button>
+                          </td>
+                          <td className="px-4 py-2 w-[100px]" style={{ color: "#888" }}>{c.city || "—"}</td>
+                          <td className="px-4 py-2 w-[160px]">
+                            {c.phone ? (
+                              <button onClick={() => handleCall(c)} className="flex items-center gap-1 hover:text-green-400 transition-colors" style={{ color: "#22c55e" }}>
+                                {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" />}
+                                <span className="text-xs">{c.phone}</span>
+                              </button>
+                            ) : <span style={{ color: "#333" }}>—</span>}
+                          </td>
+                          <td className="px-4 py-2">
+                            {c.email ? (
+                              <a href={`mailto:${c.email}`} className="flex items-center gap-1 hover:text-blue-400 transition-colors" style={{ color: "#60a5fa" }}>
+                                <Mail className="w-3 h-3" />
+                                <span className="text-xs truncate max-w-[120px]">{c.email}</span>
+                              </a>
+                            ) : <span style={{ color: "#333" }}>—</span>}
+                          </td>
+                          <td className="px-4 py-2 w-[100px]">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold" style={{ background: sc.bg, color: sc.text }}>{c.status}</span>
+                          </td>
+                          <td className="px-4 py-2 w-[90px]" style={{ color: "#555", fontSize: 11 }}>
+                            {lastContacts[c.id] ? relativeTime(lastContacts[c.id]) : "—"}
+                          </td>
+                          <td className="px-4 py-2 w-[90px]" style={{ fontSize: 11, color: overdue ? "#ef4444" : "#888" }}>
+                            {c.next_follow_up || "—"}
+                          </td>
+                          <td className="px-4 py-2 w-[80px]">
+                            <div className="flex items-center gap-1">
+                              {c.phone && (
+                                <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
+                                  <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
+                                </button>
+                              )}
+                              {c.email && (
+                                <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-white/5" title="Email">
+                                  <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
+                                </a>
+                              )}
+                              <button onClick={() => { openDetail(c); setShowLogModal(true); }} className="p-1 rounded hover:bg-white/5" title="Log Activity">
+                                <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })}
         {filtered.length === 0 && (
           <div className="text-center py-12" style={{ color: "#333", fontSize: 13 }}>No clinics found. Try adjusting your filters or import data.</div>
         )}
@@ -472,11 +492,6 @@ function ClinicsPage() {
                 <FieldRow label="Status">
                   <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
                     {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </FieldRow>
-                <FieldRow label="Priority">
-                  <select value={editPriority} onChange={(e) => { setEditPriority(e.target.value); updateClinicField("priority", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
-                    {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
                   </select>
                 </FieldRow>
                 <FieldRow label="Follow Up">
