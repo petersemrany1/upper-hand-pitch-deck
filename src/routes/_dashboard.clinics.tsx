@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Plus, Phone, Mail, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
-  Upload, Clock, AlertCircle,
+  Upload, Clock, AlertCircle, Trash2, Video, Send,
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 
@@ -666,83 +666,106 @@ function ClinicsPage() {
           <div className="absolute inset-0 bg-black/60" />
           <div
             className="relative w-full max-w-md h-full overflow-y-auto"
-            style={{ background: "#0f0f12", borderLeft: "1px solid #1f1f23" }}
+            style={{ background: "#09090b", borderLeft: "1px solid #1f1f23" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-lg font-bold" style={{ color: "#fff" }}>{selectedClinic.clinic_name}</h2>
-                  <p className="text-xs mt-1" style={{ color: "#666" }}>
-                    {selectedClinic.city && `${selectedClinic.city}, `}{selectedClinic.state}
-                  </p>
-                  {selectedClinic.website && (
-                    <a href={selectedClinic.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mt-1 text-xs hover:underline" style={{ color: "#2D6BE4" }}>
-                      <ExternalLink className="w-3 h-3" /> Website
-                    </a>
-                  )}
-                </div>
+            <div className="p-5 space-y-4">
+              {/* Close button */}
+              <div className="flex justify-end">
                 <button onClick={() => setSelectedClinic(null)} className="p-1 rounded hover:bg-white/5">
                   <X className="w-4 h-4" style={{ color: "#666" }} />
                 </button>
               </div>
 
-              {/* NEXT ACTION banner */}
-              {(() => {
-                const action = getNextActionText(selectedClinic, contacts[0] || null);
-                if (action.text === "—") return null;
-                return (
-                  <div className="rounded-lg p-3 mb-4 flex items-center gap-2" style={{ background: action.overdue ? "#451a03" : "#172554", border: `1px solid ${action.overdue ? "#92400e" : "#1e40af"}` }}>
-                    <Clock className="w-4 h-4 shrink-0" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa" }} />
-                    <div>
-                      <div className="text-[10px] uppercase font-bold" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa", letterSpacing: "0.1em" }}>NEXT ACTION</div>
-                      <div className="text-xs font-medium" style={{ color: "#fff" }}>{action.text}</div>
+              {/* ===== SECTION 1: CLINIC INFO ===== */}
+              <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
+                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>CLINIC INFO</div>
+
+                <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>{selectedClinic.clinic_name}</h2>
+                <p className="text-xs mb-1" style={{ color: "#666" }}>
+                  {selectedClinic.city && `${selectedClinic.city}, `}{selectedClinic.state}
+                </p>
+                {selectedClinic.website && (
+                  <a href={selectedClinic.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mb-3 text-xs hover:underline" style={{ color: "#2D6BE4" }}>
+                    <ExternalLink className="w-3 h-3" /> Website
+                  </a>
+                )}
+
+                {/* NEXT ACTION banner */}
+                {(() => {
+                  const action = getNextActionText(selectedClinic, contacts[0] || null);
+                  if (action.text === "—") return null;
+                  return (
+                    <div className="rounded-lg p-3 mb-3 flex items-center gap-2" style={{ background: action.overdue ? "#451a03" : "#172554", border: `1px solid ${action.overdue ? "#92400e" : "#1e40af"}` }}>
+                      <Clock className="w-4 h-4 shrink-0" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa" }} />
+                      <div>
+                        <div className="text-[10px] uppercase font-bold" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa", letterSpacing: "0.1em" }}>NEXT ACTION</div>
+                        <div className="text-xs font-medium" style={{ color: "#fff" }}>{action.text}</div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
 
-              {/* Editable fields */}
-              <div className="space-y-3 mb-4">
-                <FieldRow label="Owner">
-                  <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-                </FieldRow>
-                <FieldRow label="Phone">
-                  <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-                </FieldRow>
-                <FieldRow label="Email">
-                  <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-                </FieldRow>
-                <FieldRow label="Stage">
-                  <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
-                    {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </FieldRow>
-                <FieldRow label="Follow Up">
-                  <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-                </FieldRow>
+                <div className="space-y-3">
+                  <FieldRow label="Owner">
+                    <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  </FieldRow>
+                  <FieldRow label="Phone">
+                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  </FieldRow>
+                  <FieldRow label="Email">
+                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  </FieldRow>
+                  <FieldRow label="Stage">
+                    <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
+                      {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </FieldRow>
+                  <FieldRow label="Follow Up">
+                    <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  </FieldRow>
+                  <FieldRow label="Notes">
+                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
+                  </FieldRow>
+                </div>
               </div>
 
-              {/* Notes */}
-              <div className="mb-4">
-                <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: "#555", letterSpacing: "0.12em" }}>Notes</div>
-                <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
+              {/* ===== SECTION 2: LOG ACTIVITY ===== */}
+              <div className="rounded-lg p-4" style={{ background: "#0f1117", border: "1px solid #1e293b" }}>
+                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>LOG ACTIVITY</div>
+                <div className="flex items-center gap-2 mb-3">
+                  {CONTACT_TYPES.map((t) => {
+                    const icons: Record<string, React.ReactNode> = {
+                      Call: <PhoneCall className="w-4 h-4" />,
+                      Email: <Mail className="w-4 h-4" />,
+                      Loom: <Video className="w-4 h-4" />,
+                      Zoom: <Send className="w-4 h-4" />,
+                    };
+                    return (
+                      <button
+                        key={t}
+                        onClick={() => { handleTypeChange(t); }}
+                        className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-[10px]"
+                        style={{ background: logType === t ? "#1e293b" : "transparent", color: logType === t ? "#60a5fa" : "#555", border: logType === t ? "1px solid #334155" : "1px solid transparent" }}
+                      >
+                        {icons[t]}
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+                <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#2D6BE4", color: "#fff" }}>
+                  <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log {logType} Activity
+                </Button>
               </div>
 
-              {/* Log Activity Button */}
-              <Button onClick={openLogModal} className="w-full mb-5 border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
-                <MessageSquare className="w-3 h-3 mr-1" /> Log Activity
-              </Button>
-
-              {/* Activity Timeline */}
-              <div>
-                <div className="text-[10px] uppercase font-semibold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>Activity Timeline</div>
+              {/* ===== SECTION 3: ACTIVITY TIMELINE ===== */}
+              <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
+                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>ACTIVITY TIMELINE</div>
                 {contacts.length === 0 ? (
                   <p className="text-xs" style={{ color: "#333" }}>No activity logged yet.</p>
                 ) : (
                   <div className="relative pl-4">
-                    {/* Timeline line */}
                     <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ background: "#222" }} />
                     <div className="space-y-4">
                       {contacts.map((ct) => {
@@ -758,25 +781,17 @@ function ClinicsPage() {
                           : null;
 
                         return (
-                          <div key={ct.id} className="relative">
-                            {/* Timeline dot */}
-                            <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#2D6BE4" }} />
-                            <div className="rounded-lg p-3" style={{ background: "#1a1a1a" }}>
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[11px] font-semibold" style={{ color: "#fff" }}>
-                                  {emoji} {ct.contact_type}
-                                </span>
-                                <span className="text-[10px]" style={{ color: "#555" }}>{formatDateTime(ct.created_at)}</span>
-                              </div>
-                              {ct.outcome && <div className="text-[11px] mb-1" style={{ color: "#999" }}>{ct.outcome}</div>}
-                              {ct.notes && <div className="text-xs" style={{ color: "#888" }}>{ct.notes}</div>}
-                              {waitingOn && (
-                                <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#172554", color: "#60a5fa" }}>
-                                  {waitingOn}
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                          <TimelineEntry
+                            key={ct.id}
+                            contact={ct}
+                            emoji={emoji}
+                            waitingOn={waitingOn}
+                            onDelete={async () => {
+                              await supabase.from("clinic_contacts").delete().eq("id", ct.id);
+                              loadContacts(selectedClinic.id);
+                              loadLastContacts();
+                            }}
+                          />
                         );
                       })}
                     </div>
@@ -859,6 +874,59 @@ function ClinicsPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: ClinicContact; emoji: string; waitingOn: string | null; onDelete: () => Promise<void> }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await onDelete();
+    setDeleting(false);
+    setConfirmDelete(false);
+  };
+
+  return (
+    <div className="relative group">
+      <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#2D6BE4" }} />
+      <div className="rounded-lg p-3" style={{ background: "#1a1a1a" }}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] font-semibold" style={{ color: "#fff" }}>
+            {emoji} {contact.contact_type}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px]" style={{ color: "#555" }}>{formatDateTime(contact.created_at)}</span>
+            {!confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10"
+                title="Delete entry"
+              >
+                <Trash2 className="w-3 h-3" style={{ color: "#ef4444" }} />
+              </button>
+            )}
+          </div>
+        </div>
+        {confirmDelete && (
+          <div className="flex items-center gap-2 mb-1 p-1.5 rounded" style={{ background: "#1c1c1c" }}>
+            <span className="text-[10px]" style={{ color: "#f87171" }}>Delete this entry?</span>
+            <button onClick={handleDelete} disabled={deleting} className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "#dc2626", color: "#fff" }}>
+              {deleting ? "..." : "Yes"}
+            </button>
+            <button onClick={() => setConfirmDelete(false)} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#333", color: "#999" }}>No</button>
+          </div>
+        )}
+        {contact.outcome && <div className="text-[11px] mb-1" style={{ color: "#999" }}>{contact.outcome}</div>}
+        {contact.notes && <div className="text-xs" style={{ color: "#888" }}>{contact.notes}</div>}
+        {waitingOn && (
+          <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#172554", color: "#60a5fa" }}>
+            {waitingOn}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
