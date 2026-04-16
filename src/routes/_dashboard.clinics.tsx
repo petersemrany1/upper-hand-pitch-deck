@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Search, Plus, Phone, Mail, Building2, X, ChevronDown,
+  Search, Plus, Phone, Mail, Building2, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
   Upload,
 } from "lucide-react";
@@ -50,7 +50,11 @@ type ClinicContact = {
 };
 
 const STATUSES = ["New", "Contacted", "Interested", "Negotiating", "Won", "Lost", "Not Interested"];
-const PRIORITIES = ["High", "Medium", "Low"];
+const STATES_ABBR: Record<string, string> = {
+  "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
+  "Western Australia": "WA", "South Australia": "SA", "Tasmania": "TAS",
+  "ACT": "ACT", "Northern Territory": "NT",
+};
 const STATES = ["New South Wales", "Victoria", "Queensland", "Western Australia", "South Australia", "Tasmania", "ACT", "Northern Territory"];
 const CONTACT_TYPES = ["Call", "Email", "Loom", "Meeting"];
 const OUTCOMES = ["No Answer", "Left Voicemail", "Spoke", "Interested", "Not Interested", "Follow Up", "Won"];
@@ -65,11 +69,6 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   "Not Interested": { bg: "#1e293b", text: "#94a3b8" },
 };
 
-const PRIORITY_COLORS: Record<string, string> = {
-  High: "#ef4444",
-  Medium: "#f59e0b",
-  Low: "#6b7280",
-};
 
 type SavedPhone = { name: string; phone: string };
 const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
@@ -99,7 +98,7 @@ function ClinicsPage() {
   const [search, setSearch] = useState("");
   const [filterState, setFilterState] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [filterPriority, setFilterPriority] = useState("");
+  const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
 
   // Detail panel
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -109,7 +108,6 @@ function ClinicsPage() {
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editStatus, setEditStatus] = useState("");
-  const [editPriority, setEditPriority] = useState("");
   const [editFollowUp, setEditFollowUp] = useState("");
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -173,7 +171,6 @@ function ClinicsPage() {
     setEditPhone(clinic.phone || "");
     setEditEmail(clinic.email || "");
     setEditStatus(clinic.status);
-    setEditPriority(clinic.priority);
     setEditFollowUp(clinic.next_follow_up || "");
     loadContacts(clinic.id);
   };
