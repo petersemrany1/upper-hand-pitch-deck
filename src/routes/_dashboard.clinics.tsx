@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Search, Plus, Phone, Mail, Building2, X, ChevronDown, ChevronRight,
+  Search, Plus, Phone, Mail, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
-  Upload,
+  Upload, Clock, AlertCircle,
 } from "lucide-react";
-
+import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -35,6 +35,7 @@ type Clinic = {
   next_follow_up: string | null;
   notes: string | null;
   created_at: string;
+  reminder_sent: boolean;
 };
 
 type ClinicContact = {
@@ -45,30 +46,77 @@ type ClinicContact = {
   notes: string | null;
   next_action: string | null;
   next_action_date: string | null;
+  next_action_time: string | null;
   duration: string | null;
   created_at: string;
 };
 
-const STATUSES = ["New", "Contacted", "Interested", "Negotiating", "Won", "Lost", "Not Interested"];
+// Pipeline stages
+const PIPELINE_STAGES = [
+  "Not Started",
+  "Contacted — No Answer",
+  "Contacted — Left Voicemail",
+  "Contacted — Wrong Person",
+  "Contacted — Call Me Back",
+  "Contacted — Not Interested",
+  "Zoom Set",
+  "Zoom Completed",
+  "Signed",
+  "Lost",
+] as const;
+
+const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
+  "Not Started": { bg: "#27272a", text: "#a1a1aa" },
+  "Contacted — No Answer": { bg: "#1e293b", text: "#94a3b8" },
+  "Contacted — Left Voicemail": { bg: "#1e293b", text: "#94a3b8" },
+  "Contacted — Wrong Person": { bg: "#431407", text: "#fb923c" },
+  "Contacted — Call Me Back": { bg: "#451a03", text: "#fbbf24" },
+  "Contacted — Not Interested": { bg: "#450a0a", text: "#f87171" },
+  "Zoom Set": { bg: "#2e1065", text: "#c084fc" },
+  "Zoom Completed": { bg: "#1e3a5f", text: "#60a5fa" },
+  "Signed": { bg: "#064e3b", text: "#34d399" },
+  "Lost": { bg: "#3b0a0a", text: "#dc2626" },
+};
+
+// Outcome options by contact type
+const CALL_OUTCOMES = [
+  "No Answer", "Left Voicemail", "Spoke — Wrong Person",
+  "Spoke — Not Interested", "Spoke — Call Me Back",
+  "Spoke — Interested", "Spoke — Zoom Set",
+];
+const EMAIL_OUTCOMES = ["Sent", "Replied — Interested", "Replied — Not Interested", "No Reply"];
+const LOOM_OUTCOMES = ["Sent", "Opened", "Replied"];
+const ZOOM_OUTCOMES = ["Completed — Interested", "Completed — Not Interested", "No Show"];
+
+const OUTCOME_MAP: Record<string, string[]> = {
+  Call: CALL_OUTCOMES, Email: EMAIL_OUTCOMES, Loom: LOOM_OUTCOMES, Zoom: ZOOM_OUTCOMES,
+};
+
+// Map outcomes to pipeline stages
+const OUTCOME_TO_STAGE: Record<string, string> = {
+  "No Answer": "Contacted — No Answer",
+  "Left Voicemail": "Contacted — Left Voicemail",
+  "Spoke — Wrong Person": "Contacted — Wrong Person",
+  "Spoke — Not Interested": "Contacted — Not Interested",
+  "Spoke — Call Me Back": "Contacted — Call Me Back",
+  "Spoke — Interested": "Contacted — Call Me Back",
+  "Spoke — Zoom Set": "Zoom Set",
+  "Completed — Interested": "Zoom Completed",
+  "Completed — Not Interested": "Lost",
+  "No Show": "Zoom Set",
+  "Replied — Not Interested": "Contacted — Not Interested",
+};
+
+const CONTACT_TYPES = ["Call", "Email", "Loom", "Zoom"];
+
 const STATES_ABBR: Record<string, string> = {
   "New South Wales": "NSW", "Victoria": "VIC", "Queensland": "QLD",
   "Western Australia": "WA", "South Australia": "SA", "Tasmania": "TAS",
   "ACT": "ACT", "Northern Territory": "NT",
 };
 const STATES = ["New South Wales", "Victoria", "Queensland", "Western Australia", "South Australia", "Tasmania", "ACT", "Northern Territory"];
-const CONTACT_TYPES = ["Call", "Email", "Loom", "Meeting"];
-const OUTCOMES = ["No Answer", "Left Voicemail", "Spoke", "Interested", "Not Interested", "Follow Up", "Won"];
 
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  New: { bg: "#27272a", text: "#a1a1aa" },
-  Contacted: { bg: "#1e3a5f", text: "#60a5fa" },
-  Interested: { bg: "#14532d", text: "#4ade80" },
-  Negotiating: { bg: "#451a03", text: "#fbbf24" },
-  Won: { bg: "#064e3b", text: "#34d399" },
-  Lost: { bg: "#450a0a", text: "#f87171" },
-  "Not Interested": { bg: "#1e293b", text: "#94a3b8" },
-};
-
+const TYPE_EMOJI: Record<string, string> = { Call: "📞", Email: "✉️", Loom: "🎥", Zoom: "📹" };
 
 type SavedPhone = { name: string; phone: string };
 const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
@@ -78,6 +126,13 @@ function getStoredPhones(): SavedPhone[] {
     if (stored) return JSON.parse(stored);
   } catch {}
   return DEFAULT_PHONES;
+}
+
+function formatDateTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+  const time = d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${day} ${time}`;
 }
 
 function relativeTime(dateStr: string): string {
@@ -92,13 +147,56 @@ function relativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
+function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): { text: string; overdue: boolean } {
+  const today = new Date().toISOString().split("T")[0];
+
+  if (clinic.status === "Not Started") return { text: "🆕 Not contacted", overdue: false };
+  if (clinic.status === "Signed" || clinic.status === "Lost" || clinic.status === "Contacted — Not Interested") return { text: "—", overdue: false };
+
+  if (clinic.status === "Zoom Set" && clinic.next_follow_up) {
+    const isOverdue = clinic.next_follow_up < today;
+    return { text: `📹 Zoom ${clinic.next_follow_up}`, overdue: isOverdue };
+  }
+
+  if (clinic.status === "Contacted — Call Me Back" && clinic.next_follow_up) {
+    const isOverdue = clinic.next_follow_up < today;
+    return { text: `📞 Call back ${clinic.next_follow_up}`, overdue: isOverdue };
+  }
+
+  if (clinic.status === "Contacted — No Answer" || clinic.status === "Contacted — Left Voicemail") {
+    const isOverdue = clinic.next_follow_up ? clinic.next_follow_up < today : false;
+    return { text: "📞 Follow up — no answer", overdue: isOverdue };
+  }
+
+  if (clinic.status === "Contacted — Wrong Person") {
+    return { text: "📞 Call back — waiting for owner", overdue: false };
+  }
+
+  if (clinic.status === "Zoom Completed") {
+    return { text: "✉️ Send follow-up", overdue: false };
+  }
+
+  if (clinic.next_follow_up) {
+    const isOverdue = clinic.next_follow_up < today;
+    return { text: `📞 Follow up ${clinic.next_follow_up}`, overdue: isOverdue };
+  }
+
+  return { text: "—", overdue: false };
+}
+
 function ClinicsPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filterState, setFilterState] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>({});
+  // All states collapsed by default
+  const [collapsedStates, setCollapsedStates] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const s of STATES) init[s] = true;
+    init["Unknown"] = true;
+    return init;
+  });
 
   // Detail panel
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
@@ -114,10 +212,11 @@ function ClinicsPage() {
   // Log activity modal
   const [showLogModal, setShowLogModal] = useState(false);
   const [logType, setLogType] = useState("Call");
-  const [logOutcome, setLogOutcome] = useState("Spoke");
+  const [logOutcome, setLogOutcome] = useState("No Answer");
   const [logNotes, setLogNotes] = useState("");
-  const [logNextAction, setLogNextAction] = useState("");
   const [logNextDate, setLogNextDate] = useState("");
+  const [logNextTime, setLogNextTime] = useState("");
+  const [logOwnerName, setLogOwnerName] = useState("");
   const [logDuration, setLogDuration] = useState("");
 
   // Add clinic modal
@@ -129,7 +228,7 @@ function ClinicsPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
 
-  // Bulk CSV upload
+  // Bulk CSV
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,8 +236,11 @@ function ClinicsPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const savedPhones = getStoredPhones();
 
-  // Last contact cache — store full note info
-  const [lastNotes, setLastNotes] = useState<Record<string, { type: string; notes: string | null; created_at: string }>>({});
+  // Last contact per clinic
+  const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
+
+  // Today's actions panel
+  const [todayExpanded, setTodayExpanded] = useState(false);
 
   const loadClinics = useCallback(async () => {
     const { data } = await supabase.from("clinics").select("*").order("created_at", { ascending: false });
@@ -146,18 +248,48 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
-  const loadLastNotes = useCallback(async () => {
-    const { data } = await supabase.from("clinic_contacts").select("clinic_id, contact_type, notes, created_at").order("created_at", { ascending: false });
+  const loadLastContacts = useCallback(async () => {
+    const { data } = await supabase.from("clinic_contacts").select("*").order("created_at", { ascending: false });
     if (data) {
-      const map: Record<string, { type: string; notes: string | null; created_at: string }> = {};
-      for (const d of data) {
-        if (!map[d.clinic_id]) map[d.clinic_id] = { type: d.contact_type, notes: d.notes, created_at: d.created_at };
+      const map: Record<string, ClinicContact> = {};
+      for (const d of data as ClinicContact[]) {
+        if (!map[d.clinic_id]) map[d.clinic_id] = d;
       }
-      setLastNotes(map);
+      setLastContacts(map);
     }
   }, []);
 
-  useEffect(() => { loadClinics(); loadLastNotes(); }, [loadClinics, loadLastNotes]);
+  useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
+
+  // Check for follow-up reminders on page load
+  useEffect(() => {
+    const checkReminders = async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: dueClinics } = await supabase
+        .from("clinics")
+        .select("id, clinic_name, phone, next_follow_up, reminder_sent")
+        .eq("next_follow_up", today)
+        .eq("reminder_sent", false);
+
+      if (dueClinics && dueClinics.length > 0) {
+        for (const c of dueClinics) {
+          try {
+            await sendPaymentLinkSMS({
+              data: {
+                to: "+61418214953",
+                firstName: "Peter",
+                stripeLink: `Upper Hand reminder: Follow up with ${c.clinic_name} today. Phone: ${c.phone || "N/A"}`,
+              },
+            });
+            await supabase.from("clinics").update({ reminder_sent: true }).eq("id", c.id);
+          } catch (err) {
+            console.error("Reminder SMS failed:", err);
+          }
+        }
+      }
+    };
+    checkReminders();
+  }, []);
 
   const loadContacts = async (clinicId: string) => {
     const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
@@ -175,12 +307,12 @@ function ClinicsPage() {
     loadContacts(clinic.id);
   };
 
-  const updateClinicField = async (field: keyof Clinic, value: string) => {
+  const updateClinicField = async (field: keyof Clinic, value: string | boolean) => {
     if (!selectedClinic) return;
-    const updateData = { [field]: value || null } as any;
+    const updateData = { [field]: value === "" ? null : value } as any;
     await supabase.from("clinics").update(updateData).eq("id", selectedClinic.id);
-    setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: value || null } as Clinic : c));
-    setSelectedClinic((prev) => prev ? { ...prev, [field]: value || null } as Clinic : prev);
+    setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: value === "" ? null : value } as any : c));
+    setSelectedClinic((prev) => prev ? { ...prev, [field]: value === "" ? null : value } as any : prev);
   };
 
   const handleNotesChange = (val: string) => {
@@ -191,24 +323,64 @@ function ClinicsPage() {
 
   const handleLogActivity = async () => {
     if (!selectedClinic) return;
+
+    // Insert contact
     await supabase.from("clinic_contacts").insert({
       clinic_id: selectedClinic.id,
       contact_type: logType,
       outcome: logOutcome,
       notes: logNotes || null,
-      next_action: logNextAction || null,
+      next_action: null,
       next_action_date: logNextDate || null,
+      next_action_time: logNextTime || null,
       duration: logDuration || null,
     });
+
+    // Auto-update stage based on outcome
+    const newStage = OUTCOME_TO_STAGE[logOutcome];
+    if (newStage) {
+      await supabase.from("clinics").update({ status: newStage }).eq("id", selectedClinic.id);
+      setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, status: newStage } : c));
+      setSelectedClinic((prev) => prev ? { ...prev, status: newStage } : prev);
+      setEditStatus(newStage);
+    }
+
+    // Update follow-up date if set
     if (logNextDate) {
-      await updateClinicField("next_follow_up", logNextDate);
+      await supabase.from("clinics").update({ next_follow_up: logNextDate, reminder_sent: false }).eq("id", selectedClinic.id);
+      setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, next_follow_up: logNextDate, reminder_sent: false } : c));
+      setSelectedClinic((prev) => prev ? { ...prev, next_follow_up: logNextDate, reminder_sent: false } : prev);
       setEditFollowUp(logNextDate);
     }
+
+    // Update owner if provided
+    if (logOwnerName) {
+      await supabase.from("clinics").update({ owner_name: logOwnerName }).eq("id", selectedClinic.id);
+      setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, owner_name: logOwnerName } : c));
+      setSelectedClinic((prev) => prev ? { ...prev, owner_name: logOwnerName } : prev);
+      setEditOwner(logOwnerName);
+    }
+
     setShowLogModal(false);
-    setLogNotes(""); setLogNextAction(""); setLogNextDate(""); setLogDuration("");
+    setLogNotes(""); setLogNextDate(""); setLogNextTime(""); setLogDuration("");
     loadContacts(selectedClinic.id);
-    loadLastNotes();
+    loadLastContacts();
   };
+
+  const openLogModal = () => {
+    setLogType("Call");
+    setLogOutcome(CALL_OUTCOMES[0]);
+    setLogOwnerName(selectedClinic?.owner_name || "");
+    setShowLogModal(true);
+  };
+
+  const handleTypeChange = (type: string) => {
+    setLogType(type);
+    const outcomes = OUTCOME_MAP[type] || CALL_OUTCOMES;
+    setLogOutcome(outcomes[0]);
+  };
+
+  const needsDateTimePicker = logOutcome === "Spoke — Call Me Back" || logOutcome === "Spoke — Zoom Set";
 
   const handleAddClinic = async () => {
     if (!newName) return;
@@ -219,6 +391,7 @@ function ClinicsPage() {
       phone: newPhone || null,
       email: newEmail || null,
       website: newWebsite || null,
+      status: "Not Started",
     });
     setShowAddModal(false);
     setNewName(""); setNewState(""); setNewCity(""); setNewPhone(""); setNewEmail(""); setNewWebsite("");
@@ -240,8 +413,6 @@ function ClinicsPage() {
       const phoneIdx = headers.indexOf("phone");
       const emailIdx = headers.indexOf("email");
       const websiteIdx = headers.indexOf("website");
-      const priorityIdx = headers.indexOf("priority");
-      const statusIdx = headers.indexOf("status");
       if (nameIdx === -1) { alert("CSV must have a clinicName or clinic_name column"); setImporting(false); return; }
 
       const parseRow = (line: string) => {
@@ -269,18 +440,16 @@ function ClinicsPage() {
           phone: (phoneIdx >= 0 ? vals[phoneIdx] : null) || null,
           email: (emailIdx >= 0 ? vals[emailIdx] : null) || null,
           website: (websiteIdx >= 0 ? vals[websiteIdx] : null) || null,
-          priority: (priorityIdx >= 0 ? vals[priorityIdx] : null) || "Medium",
-          status: (statusIdx >= 0 ? vals[statusIdx] : null) || "New",
+          status: "Not Started",
         });
       }
 
-      // Insert in batches of 100
       for (let i = 0; i < rows.length; i += 100) {
         await supabase.from("clinics").insert(rows.slice(i, i + 100));
       }
       alert(`Imported ${rows.length} clinics`);
       loadClinics();
-    } catch (err) {
+    } catch {
       alert("Import failed. Check CSV format.");
     }
     setImporting(false);
@@ -302,6 +471,7 @@ function ClinicsPage() {
     setCallingId(null);
   };
 
+  // Filtering
   const filtered = clinics.filter((c) => {
     const q = search.toLowerCase();
     const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
@@ -324,10 +494,12 @@ function ClinicsPage() {
     setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
   };
 
-  const isOverdue = (d: string | null) => {
-    if (!d) return false;
-    return new Date(d) < new Date(new Date().toDateString());
-  };
+  // Today's actions
+  const today = new Date().toISOString().split("T")[0];
+  const todayActions = clinics.filter((c) => {
+    if (c.next_follow_up && c.next_follow_up <= today && c.status !== "Signed" && c.status !== "Lost" && c.status !== "Contacted — Not Interested") return true;
+    return false;
+  });
 
   if (loading) {
     return (
@@ -339,6 +511,39 @@ function ClinicsPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
+      {/* Today's Actions Panel */}
+      {todayActions.length > 0 && (
+        <div style={{ borderBottom: "1px solid #1a1a1a" }}>
+          <button
+            onClick={() => setTodayExpanded(!todayExpanded)}
+            className="w-full flex items-center gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors"
+          >
+            {todayExpanded ? <ChevronDown className="w-3 h-3" style={{ color: "#f59e0b" }} /> : <ChevronRight className="w-3 h-3" style={{ color: "#f59e0b" }} />}
+            <AlertCircle className="w-3.5 h-3.5" style={{ color: "#f59e0b" }} />
+            <span className="text-xs font-bold" style={{ color: "#f59e0b" }}>TODAY'S ACTIONS</span>
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "#dc2626", color: "#fff" }}>{todayActions.length}</span>
+          </button>
+          {todayExpanded && (
+            <div className="px-5 pb-3 space-y-1">
+              {todayActions.map((c) => {
+                const action = getNextActionText(c, lastContacts[c.id] || null);
+                return (
+                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-3 rounded" style={{ background: "#1a1a1a" }}>
+                    <button onClick={() => openDetail(c)} className="text-xs font-semibold hover:underline truncate" style={{ color: "#fff", minWidth: 120 }}>{c.clinic_name}</button>
+                    <span className="text-[11px] flex-1 truncate" style={{ color: "#f59e0b" }}>{action.text}</span>
+                    {c.phone && (
+                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call now">
+                        <PhoneCall className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Top bar */}
       <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
         <div className="relative flex-1 max-w-sm">
@@ -352,7 +557,7 @@ function ClinicsPage() {
           />
         </div>
         <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
-        <FilterDropdown label="Status" options={STATUSES} value={filterStatus} onChange={setFilterStatus} />
+        <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
         <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
@@ -366,12 +571,11 @@ function ClinicsPage() {
       {/* Table */}
       <div className="flex-1 overflow-y-auto">
         {sortedStates.map((state) => {
-          const isCollapsed = collapsedStates[state];
+          const isCollapsed = collapsedStates[state] !== false;
           const stateClinics = grouped[state];
           const abbr = STATES_ABBR[state] || state;
           return (
             <div key={state}>
-              {/* State folder header */}
               <button
                 onClick={() => toggleState(state)}
                 className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/[0.02] transition-colors"
@@ -381,26 +585,17 @@ function ClinicsPage() {
                 <span className="text-xs font-semibold" style={{ color: "#2D6BE4", letterSpacing: "0.1em" }}>{abbr}</span>
                 <span className="text-[10px]" style={{ color: "#555" }}>({stateClinics.length})</span>
               </button>
-              {/* Clinic rows */}
               {!isCollapsed && (
                 <div>
                   {stateClinics.map((c) => {
-                    const sc = STATUS_COLORS[c.status] || STATUS_COLORS.New;
-                    const overdue = isOverdue(c.next_follow_up);
-                    const isToday = c.next_follow_up === new Date().toISOString().split("T")[0];
-                    const followUpColor = overdue ? "#ef4444" : isToday ? "#f59e0b" : "#555";
-                    const borderColor = c.priority === "High" ? "#2D6BE4" : c.priority === "Medium" ? "#333" : "transparent";
-                    const ln = lastNotes[c.id];
-                    const typeEmoji: Record<string, string> = { Call: "📞", Email: "✉️", Loom: "🎥", Meeting: "🤝" };
-                    const lastNoteText = ln
-                      ? `${typeEmoji[ln.type] || "📝"} ${(ln.notes || ln.type).slice(0, 60)}`
-                      : null;
+                    const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
+                    const nextAction = getNextActionText(c, lastContacts[c.id] || null);
 
                     return (
                       <div
                         key={c.id}
                         className="flex items-center hover:bg-white/[0.02] transition-colors"
-                        style={{ height: 44, borderBottom: "1px solid #111", borderLeft: `3px solid ${borderColor}` }}
+                        style={{ height: 44, borderBottom: "1px solid #111" }}
                       >
                         {/* Clinic Name */}
                         <div className="w-[180px] shrink-0 px-3 truncate">
@@ -426,17 +621,15 @@ function ClinicsPage() {
                             </a>
                           ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
                         </div>
-                        {/* Status */}
-                        <div className="w-[85px] shrink-0 px-2">
-                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>{c.status}</span>
+                        {/* Stage */}
+                        <div className="w-[130px] shrink-0 px-2">
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>
+                            {c.status === "Not Started" ? "Not Started" : c.status.replace("Contacted — ", "")}
+                          </span>
                         </div>
-                        {/* Last Note */}
-                        <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#666" }}>
-                          {lastNoteText || "—"}
-                        </div>
-                        {/* Follow Up */}
-                        <div className="w-[80px] shrink-0 px-2 text-[10px] font-medium" style={{ color: followUpColor }}>
-                          {c.next_follow_up || "—"}
+                        {/* Next Action */}
+                        <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: nextAction.overdue ? "#ef4444" : "#888" }}>
+                          {nextAction.text}
                         </div>
                         {/* Actions */}
                         <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
@@ -450,7 +643,7 @@ function ClinicsPage() {
                               <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
                             </a>
                           )}
-                          <button onClick={() => { openDetail(c); setShowLogModal(true); }} className="p-1 rounded hover:bg-white/5" title="Log">
+                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-white/5" title="Log">
                             <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
                           </button>
                         </div>
@@ -463,7 +656,7 @@ function ClinicsPage() {
           );
         })}
         {filtered.length === 0 && (
-          <div className="text-center py-12" style={{ color: "#333", fontSize: 13 }}>No clinics found. Try adjusting your filters or import data.</div>
+          <div className="text-center py-12" style={{ color: "#333", fontSize: 13 }}>No clinics found.</div>
         )}
       </div>
 
@@ -478,7 +671,7 @@ function ClinicsPage() {
           >
             <div className="p-5">
               {/* Header */}
-              <div className="flex items-start justify-between mb-5">
+              <div className="flex items-start justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold" style={{ color: "#fff" }}>{selectedClinic.clinic_name}</h2>
                   <p className="text-xs mt-1" style={{ color: "#666" }}>
@@ -495,8 +688,23 @@ function ClinicsPage() {
                 </button>
               </div>
 
+              {/* NEXT ACTION banner */}
+              {(() => {
+                const action = getNextActionText(selectedClinic, contacts[0] || null);
+                if (action.text === "—") return null;
+                return (
+                  <div className="rounded-lg p-3 mb-4 flex items-center gap-2" style={{ background: action.overdue ? "#451a03" : "#172554", border: `1px solid ${action.overdue ? "#92400e" : "#1e40af"}` }}>
+                    <Clock className="w-4 h-4 shrink-0" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa" }} />
+                    <div>
+                      <div className="text-[10px] uppercase font-bold" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa", letterSpacing: "0.1em" }}>NEXT ACTION</div>
+                      <div className="text-xs font-medium" style={{ color: "#fff" }}>{action.text}</div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Editable fields */}
-              <div className="space-y-3 mb-5">
+              <div className="space-y-3 mb-4">
                 <FieldRow label="Owner">
                   <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                 </FieldRow>
@@ -506,9 +714,9 @@ function ClinicsPage() {
                 <FieldRow label="Email">
                   <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                 </FieldRow>
-                <FieldRow label="Status">
+                <FieldRow label="Stage">
                   <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
-                    {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </FieldRow>
                 <FieldRow label="Follow Up">
@@ -517,35 +725,61 @@ function ClinicsPage() {
               </div>
 
               {/* Notes */}
-              <div className="mb-5">
+              <div className="mb-4">
                 <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: "#555", letterSpacing: "0.12em" }}>Notes</div>
                 <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
               </div>
 
               {/* Log Activity Button */}
-              <Button onClick={() => setShowLogModal(true)} className="w-full mb-5 border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
+              <Button onClick={openLogModal} className="w-full mb-5 border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
                 <MessageSquare className="w-3 h-3 mr-1" /> Log Activity
               </Button>
 
-              {/* Activity Log */}
+              {/* Activity Timeline */}
               <div>
-                <div className="text-[10px] uppercase font-semibold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>Activity Log</div>
+                <div className="text-[10px] uppercase font-semibold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>Activity Timeline</div>
                 {contacts.length === 0 ? (
                   <p className="text-xs" style={{ color: "#333" }}>No activity logged yet.</p>
                 ) : (
-                  <div className="space-y-3">
-                    {contacts.map((ct) => (
-                      <div key={ct.id} className="rounded-lg p-3" style={{ background: "#1a1a1a" }}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-semibold" style={{ color: "#2D6BE4" }}>{ct.contact_type}</span>
-                          <span className="text-[10px]" style={{ color: "#555" }}>{relativeTime(ct.created_at)}</span>
-                        </div>
-                        {ct.outcome && <div className="text-xs mb-1" style={{ color: "#999" }}>Outcome: {ct.outcome}</div>}
-                        {ct.notes && <div className="text-xs" style={{ color: "#888" }}>{ct.notes}</div>}
-                        {ct.next_action && <div className="text-[10px] mt-1" style={{ color: "#666" }}>Next: {ct.next_action} {ct.next_action_date && `(${ct.next_action_date})`}</div>}
-                        {ct.duration && <div className="text-[10px]" style={{ color: "#555" }}>Duration: {ct.duration}</div>}
-                      </div>
-                    ))}
+                  <div className="relative pl-4">
+                    {/* Timeline line */}
+                    <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ background: "#222" }} />
+                    <div className="space-y-4">
+                      {contacts.map((ct) => {
+                        const emoji = TYPE_EMOJI[ct.contact_type] || "📝";
+                        const waitingOn = ct.outcome?.includes("Call Me Back")
+                          ? "Waiting for owner callback"
+                          : ct.outcome?.includes("Wrong Person")
+                          ? "Waiting for owner callback"
+                          : ct.outcome?.includes("Zoom Set")
+                          ? `Zoom scheduled${ct.next_action_date ? ` — ${ct.next_action_date}${ct.next_action_time ? ` ${ct.next_action_time}` : ""}` : ""}`
+                          : ct.outcome?.includes("Interested") && !ct.outcome?.includes("Not")
+                          ? "You need to follow up"
+                          : null;
+
+                        return (
+                          <div key={ct.id} className="relative">
+                            {/* Timeline dot */}
+                            <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#2D6BE4" }} />
+                            <div className="rounded-lg p-3" style={{ background: "#1a1a1a" }}>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[11px] font-semibold" style={{ color: "#fff" }}>
+                                  {emoji} {ct.contact_type}
+                                </span>
+                                <span className="text-[10px]" style={{ color: "#555" }}>{formatDateTime(ct.created_at)}</span>
+                              </div>
+                              {ct.outcome && <div className="text-[11px] mb-1" style={{ color: "#999" }}>{ct.outcome}</div>}
+                              {ct.notes && <div className="text-xs" style={{ color: "#888" }}>{ct.notes}</div>}
+                              {waitingOn && (
+                                <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#172554", color: "#60a5fa" }}>
+                                  {waitingOn}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
@@ -562,34 +796,38 @@ function ClinicsPage() {
             <h3 className="text-sm font-bold mb-4" style={{ color: "#fff" }}>Log Activity — {selectedClinic.clinic_name}</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Type</label>
-                <select value={logType} onChange={(e) => setLogType(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Contact Type</label>
+                <select value={logType} onChange={(e) => handleTypeChange(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
                   {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Outcome</label>
                 <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
-                  {OUTCOMES.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
-              {logType === "Call" && (
-                <div>
-                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Duration</label>
-                  <Input value={logDuration} onChange={(e) => setLogDuration(e.target.value)} placeholder="e.g. 5 mins" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-                </div>
-              )}
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Notes</label>
                 <Textarea value={logNotes} onChange={(e) => setLogNotes(e.target.value)} rows={2} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} />
               </div>
+              {needsDateTimePicker && (
+                <>
+                  <div>
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>
+                      {logOutcome === "Spoke — Zoom Set" ? "Zoom Date" : "Call Back Date"}
+                    </label>
+                    <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Time</label>
+                    <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  </div>
+                </>
+              )}
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Next Action</label>
-                <Input value={logNextAction} onChange={(e) => setLogNextAction(e.target.value)} placeholder="e.g. Follow up call" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-              </div>
-              <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Next Action Date</label>
-                <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Owner Name</label>
+                <Input value={logOwnerName} onChange={(e) => setLogOwnerName(e.target.value)} placeholder="Clinic owner name" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
               </div>
               <div className="flex gap-2 pt-2">
                 <Button onClick={handleLogActivity} className="flex-1 border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>Save</Button>
