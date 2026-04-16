@@ -14,6 +14,7 @@ import { getUnresolvedCount } from "@/utils/error-logger.functions";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Pipeline", url: "/pipeline", icon: Activity },
   { title: "Clinics", url: "/clinics", icon: Building2 },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
