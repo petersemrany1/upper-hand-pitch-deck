@@ -623,7 +623,48 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
                 </button>
               </div>
             )}
-          </div>
+          {/* Exit confirmation overlay */}
+          <AnimatePresence>
+            {showExitConfirm && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 rounded-2xl"
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="bg-card border border-border rounded-xl p-6 mx-6 max-w-sm w-full shadow-xl"
+                >
+                  <h4
+                    className="text-lg font-extrabold text-foreground mb-2"
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    Are you sure you want to exit?
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-6">
+                    Your progress will not be saved and you'll need to start again.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowExitConfirm(false)}
+                      className="flex-1 border border-border text-foreground font-bold py-2.5 rounded-lg hover:bg-muted transition-colors"
+                    >
+                      Go Back
+                    </button>
+                    <button
+                      onClick={resetAndClose}
+                      className="flex-1 bg-red-600 text-white font-bold py-2.5 rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Exit
+                    </button>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </motion.div>
     </AnimatePresence>
