@@ -5,7 +5,7 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
   .inputValidator((data: { to: string; firstName: string; stripeLink: string }) => data)
   .handler(async ({ data }) => {
     const accountSid = "AC4e4b3797155ad508c8dffa4b13a1fd6e";
-    const authToken = "376714289a02806ab80049a4afde9b04";
+    const authToken = "db7da46e7305ae7fed4ac4dd7e49ee6a";
     const from = "+61483938205";
 
     let formattedPhone = data.to.replace(/[\s\-()]/g, '');
