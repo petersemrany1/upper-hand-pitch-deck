@@ -90,9 +90,35 @@ function generateInitialData(): PatientRow[] {
   return rows;
 }
 
+function usePageVisible() {
+  const [visible, setVisible] = useState(() => typeof document !== "undefined" ? document.visibilityState === "visible" : true);
+  useEffect(() => {
+    const handler = () => setVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+  return visible;
+}
+
+function usePausableInterval(callback: () => void, getDelay: () => number, visible: boolean) {
+  const callbackRef = useRef(callback);
+  callbackRef.current = callback;
+  useEffect(() => {
+    if (!visible) return;
+    let timeout: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      callbackRef.current();
+      timeout = setTimeout(tick, getDelay());
+    };
+    timeout = setTimeout(tick, getDelay());
+    return () => clearTimeout(timeout);
+  }, [visible, getDelay]);
+}
+
 function PipelinePage() {
   const [rows, setRows] = useState<PatientRow[]>(() => generateInitialData());
   const parentRef = useRef<HTMLDivElement>(null);
+  const visible = usePageVisible();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -105,47 +131,33 @@ function PipelinePage() {
     return () => clearTimeout(timer);
   }, [rows]);
 
-  useEffect(() => {
-    const schedule = () => rand(30000, 60000);
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      setRows((prev) => {
-        const awaiting = prev.filter((r) => r.status === "Awaiting clinic");
-        if (awaiting.length === 0) return prev;
-        const target = pickRandom(awaiting);
-        return prev.map((r) => (r.id === target.id ? { ...r, status: "Allocated", flash: true } : r));
-      });
-      timeout = setTimeout(tick, schedule());
-    };
-    timeout = setTimeout(tick, schedule());
-    return () => clearTimeout(timeout);
-  }, []);
+  // Flip awaiting -> allocated
+  const flipDelay = useCallback(() => rand(30000, 60000), []);
+  usePausableInterval(() => {
+    setRows((prev) => {
+      const awaiting = prev.filter((r) => r.status === "Awaiting clinic");
+      if (awaiting.length === 0) return prev;
+      const target = pickRandom(awaiting);
+      return prev.map((r) => (r.id === target.id ? { ...r, status: "Allocated", flash: true } : r));
+    });
+  }, flipDelay, visible);
 
-  useEffect(() => {
-    const schedule = () => rand(60000, 90000);
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      const p = generatePatient("Awaiting clinic");
-      p.isNew = true;
-      setRows((prev) => [p, ...prev]);
-      timeout = setTimeout(tick, schedule());
-    };
-    timeout = setTimeout(tick, schedule());
-    return () => clearTimeout(timeout);
-  }, []);
+  // Add new row + increment disqualified
+  const [disqualified, setDisqualified] = useState(1847);
+  const newRowDelay = useCallback(() => rand(60000, 90000), []);
+  usePausableInterval(() => {
+    const p = generatePatient("Awaiting clinic");
+    p.isNew = true;
+    setRows((prev) => [p, ...prev]);
+    setDisqualified((d) => d + rand(3, 7));
+  }, newRowDelay, visible);
 
+  // Extra counter tick
   const [extraCount, setExtraCount] = useState(0);
-  useEffect(() => {
-    const schedule = () => rand(45000, 90000);
-    let timeout: ReturnType<typeof setTimeout>;
-    const tick = () => {
-      setExtraCount((c) => c + 1);
-      timeout = setTimeout(tick, schedule());
-    };
-    timeout = setTimeout(tick, schedule());
-    return () => clearTimeout(timeout);
-  }, []);
-
+  const extraDelay = useCallback(() => rand(45000, 90000), []);
+  usePausableInterval(() => {
+    setExtraCount((c) => c + 1);
+  }, extraDelay, visible);
   const totalQualified = 247 + extraCount + rows.filter((r) => r.isNew).length;
   const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
   const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
