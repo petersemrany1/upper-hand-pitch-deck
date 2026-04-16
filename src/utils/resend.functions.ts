@@ -208,6 +208,20 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           rawResponse: (resendResult as any).rawResponse,
           stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
         });
+      } else {
+        // Log successful contract send
+        try {
+          const admin = getAdminClient();
+          await admin.from("contract_logs").insert({
+            clinic_name: data.clinicName,
+            contact_name: data.contactName,
+            email: data.to,
+            package_name: data.packageName,
+            status: "sent",
+          });
+        } catch (logErr) {
+          console.error("Failed to log contract:", logErr);
+        }
       }
 
       return resendResult;
