@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 
 export const Route = createFileRoute("/_dashboard")({
@@ -16,13 +16,10 @@ function DashboardLayout() {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="h-screen flex w-full overflow-hidden" style={{ background: "#09090b" }}>
         <AppSidebar />
-        <div className="flex-1 flex flex-col">
-          <header className="h-14 flex items-center border-b border-border px-4">
-            <SidebarTrigger className="mr-4" />
-          </header>
-          <main className="flex-1 overflow-auto">
+        <div className="flex-1 flex flex-col overflow-hidden" style={{ borderLeft: "1px solid #1f1f23" }}>
+          <main className="flex-1 overflow-hidden">
             <Outlet />
           </main>
         </div>
