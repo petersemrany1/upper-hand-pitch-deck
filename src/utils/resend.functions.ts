@@ -110,6 +110,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
               role: "client",
               email: data.to,
               name: data.contactName,
+              message: {
+                subject: "Your Upper Hand Digital Services Agreement",
+                body: `Hi ${data.clinicName},\n\nThank you for choosing Upper Hand Digital. Please find your Services Agreement attached for review and signature.\n\nOnce signed we will be in touch to get everything underway.\n\nIf you have any questions please don't hesitate to reach out.\n\nKind regards,\n\nPeter Semrany\nUpper Hand Digital\nhello@upperhand.digital\nwww.upperhand.digital`,
+              },
               values: {
                 "client_name": data.contactName,
                 "client_date": new Date().toLocaleDateString("en-AU"),
