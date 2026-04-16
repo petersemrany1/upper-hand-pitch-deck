@@ -878,7 +878,60 @@ function ClinicsPage() {
   );
 }
 
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: ClinicContact; emoji: string; waitingOn: string | null; onDelete: () => Promise<void> }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await onDelete();
+    setDeleting(false);
+    setConfirmDelete(false);
+  };
+
+  return (
+    <div className="relative group">
+      <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#2D6BE4" }} />
+      <div className="rounded-lg p-3" style={{ background: "#1a1a1a" }}>
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[11px] font-semibold" style={{ color: "#fff" }}>
+            {emoji} {contact.contact_type}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px]" style={{ color: "#555" }}>{formatDateTime(contact.created_at)}</span>
+            {!confirmDelete && (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/10"
+                title="Delete entry"
+              >
+                <Trash2 className="w-3 h-3" style={{ color: "#ef4444" }} />
+              </button>
+            )}
+          </div>
+        </div>
+        {confirmDelete && (
+          <div className="flex items-center gap-2 mb-1 p-1.5 rounded" style={{ background: "#1c1c1c" }}>
+            <span className="text-[10px]" style={{ color: "#f87171" }}>Delete this entry?</span>
+            <button onClick={handleDelete} disabled={deleting} className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "#dc2626", color: "#fff" }}>
+              {deleting ? "..." : "Yes"}
+            </button>
+            <button onClick={() => setConfirmDelete(false)} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#333", color: "#999" }}>No</button>
+          </div>
+        )}
+        {contact.outcome && <div className="text-[11px] mb-1" style={{ color: "#999" }}>{contact.outcome}</div>}
+        {contact.notes && <div className="text-xs" style={{ color: "#888" }}>{contact.notes}</div>}
+        {waitingOn && (
+          <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#172554", color: "#60a5fa" }}>
+            {waitingOn}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
   return (
     <div>
       <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: "#555", letterSpacing: "0.12em" }}>{label}</div>
