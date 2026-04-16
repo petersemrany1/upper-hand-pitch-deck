@@ -88,6 +88,33 @@ export type Database = {
         }
         Relationships: []
       }
+      error_logs: {
+        Row: {
+          context: Json | null
+          created_at: string
+          error_message: string
+          function_name: string
+          id: string
+          resolved: boolean
+        }
+        Insert: {
+          context?: Json | null
+          created_at?: string
+          error_message: string
+          function_name: string
+          id?: string
+          resolved?: boolean
+        }
+        Update: {
+          context?: Json | null
+          created_at?: string
+          error_message?: string
+          function_name?: string
+          id?: string
+          resolved?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
