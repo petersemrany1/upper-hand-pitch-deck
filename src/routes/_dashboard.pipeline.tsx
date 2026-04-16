@@ -171,7 +171,7 @@ function PipelinePage() {
     { label: "Awaiting Clinic", value: awaitingCount, icon: Clock, color: "#F59E0B" },
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
     { label: "Avg Procedure Budget", value: "$14,800", icon: DollarSign, color: "#8B5CF6" },
-    { label: "Not Yet Called", value: 183, icon: PhoneOff, color: "#EF4444" },
+    { label: "Not Yet Called", value: notYetCalled, icon: PhoneOff, color: "#EF4444" },
     { label: "Disqualified", value: disqualified.toLocaleString(), icon: XCircle, color: "#DC2626" },
   ];
 
