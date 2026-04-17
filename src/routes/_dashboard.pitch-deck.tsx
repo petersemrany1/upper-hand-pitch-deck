@@ -4,13 +4,13 @@ import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Maximize, Minimize, Home } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import processPhoneCall from "../assets/process-phone-call.jpg";
-import patientProfile from "../assets/patient-profile.jpg";
-import postConsultCoordinator from "../assets/post-consult-coordinator.jpg";
-import faqFounder from "../assets/faq-founder.jpg";
-import clinicReception from "../assets/clinic-reception.jpg";
+import processPhoneCall from "../assets/process-phone-call.webp";
+import patientProfile from "../assets/patient-profile.webp";
+import postConsultCoordinator from "../assets/post-consult-coordinator.webp";
+import faqFounder from "../assets/faq-founder.webp";
+import clinicReception from "../assets/clinic-reception.webp";
 import { loadDeckSettings } from "./_dashboard.settings";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
