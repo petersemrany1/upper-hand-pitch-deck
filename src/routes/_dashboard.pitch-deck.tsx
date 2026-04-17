@@ -322,19 +322,18 @@ function PitchDeck() {
             className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            The Leaks In Your Pipeline.
+            Where Most Clinics Lose Patients.
           </h2>
         </motion.div>
-        <motion.div variants={fadeIn} className="grid grid-cols-2 gap-6 max-w-4xl mx-auto mt-16">
+        <motion.div variants={fadeIn} className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto mt-16">
           {[
-            { emoji: "💸", title: "Empty chairs cost $15,000 a day" },
-            { emoji: "⏱️", title: "Leads go to turkey if you don't call them in 5 minutes" },
-            { emoji: "🚫", title: "Price shoppers waste your time" },
-            { emoji: "📅", title: "Undecided patients never come back on their own" },
+            { emoji: "🪑", title: "Empty chairs cost you every day they're not booked" },
+            { emoji: "⏱️", title: "Leads go cold if you don't call them within 5 minutes" },
+            { emoji: "📅", title: "Undecided patients rarely come back on their own" },
           ].map((item) => (
             <div key={item.title} className="flex flex-col items-center gap-4 p-8 rounded-xl bg-zinc-900 border border-white/10">
               <span className="text-5xl">{item.emoji}</span>
-              <p className="text-xl md:text-2xl lg:text-3xl font-extrabold text-foreground leading-snug">{item.title}</p>
+              <p className="text-lg md:text-xl lg:text-2xl font-extrabold text-foreground leading-snug text-center">{item.title}</p>
             </div>
           ))}
         </motion.div>
@@ -382,7 +381,7 @@ function PitchDeck() {
             </span>
           </p>
           <p className="text-[#CCCCCC] text-base mt-4">
-            You only pay when a show up appointment is sitting in your chair.
+            You only pay when a patient is sitting in your consult chair. Patients pay a deposit to attend the consult, which keeps our show rate around <span className="text-foreground font-bold">80%</span>.
           </p>
         </motion.div>
       </div>
@@ -409,16 +408,15 @@ function PitchDeck() {
               <H>Who We'll Be Sending You.</H>
             </motion.div>
             <motion.p variants={fadeIn} className="text-xl md:text-2xl font-bold text-[#CCCCCC] mb-12 max-w-none mx-auto leading-snug">
-              Patients who know it costs $10,000–$20,000 and want the surgery.<br />
-              Not a consultation about maybe.
+              Patients who know it costs $10,000–$20,000 and have paid a deposit to attend the consult.<br />
+              Not browsers — confirmed bookings.
             </motion.p>
           </motion.div>
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-2 gap-8 w-full mx-auto">
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-3 gap-8 w-full mx-auto">
             {[
-              { title: "Financially Ready", desc: "They've done the research. They know the price. They're not shocked by the number.", emoji: "💰", highlight: true },
-              { title: "Pain Driven", desc: "They've been sitting on this for years. They're ready to stop waiting.", emoji: "🎯", highlight: false },
-              { title: "Wants Permanent Results", desc: "Not interested in medications or SMP. They want the transplant done right.", emoji: "✅", highlight: false },
-              { title: "Not Going To Turkey", desc: "Pre-qualified against overseas. They want local, accountable, quality care.", emoji: "🇦🇺", highlight: false },
+              { title: "Financially Ready", desc: "They've done the research, know the price, and aren't shocked by the number.", emoji: "💰", highlight: true },
+              { title: "Ready To Move", desc: "They've been thinking about this for years and have decided it's time.", emoji: "🎯", highlight: false },
+              { title: "Wants Permanent Results", desc: "Not interested in medication or SMP. They want the transplant done properly.", emoji: "✅", highlight: false },
             ].map((card) => (
               <div
                 key={card.title}
@@ -485,14 +483,14 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 6 — ROI CALCULATOR ──────── */
-    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} />,
+    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} pricePerShow={pricePerShow} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} onPricePerShowChange={setPricePerShow} />,
 
     /* ──────── SLIDE 7 — PACKAGES (centered) ──────── */
     <div key="packages" className="deck-slide flex flex-col items-center min-h-screen w-full px-16 py-12">
       <SlideHeader />
       <div className="flex-1" />
       <div className="flex flex-col items-center w-full">
-      <div className="w-full max-w-5xl text-center mb-12">
+      <div className="w-full max-w-5xl text-center mb-8">
         <ChapterLabel>PACKAGES</ChapterLabel>
         <h2 className="text-4xl md:text-[3.2rem] font-extrabold text-foreground leading-[1.08] tracking-tight whitespace-nowrap" style={{ fontFamily: "var(--font-heading)" }}>Choose How Many Patients You Want.</h2>
       </div>
@@ -500,18 +498,18 @@ function PitchDeck() {
         {packs.map((pack) => {
           const procedures = pack.shows * rate;
           const revenue = procedures * caseValue;
-          const cost = pack.shows * COST_PER_SHOW;
+          const cost = pack.shows * pricePerShow;
           return (
             <div
               key={pack.name}
-              className="rounded-xl bg-zinc-900 px-10 py-14 text-center relative border border-border"
+              className="rounded-xl bg-zinc-900 px-10 py-12 text-center relative border border-border"
             >
               <h3 className="text-3xl font-extrabold text-foreground mb-2">{pack.name}</h3>
               <p className="text-[#CCCCCC] text-base mb-1">{pack.shows} show up appointments</p>
-              <p className="text-[#CCCCCC] text-base mb-8">${COST_PER_SHOW.toLocaleString()} per appointment</p>
+              <p className="text-[#CCCCCC] text-base mb-8">${pricePerShow.toLocaleString()} per appointment</p>
               <div className="border-t border-border pt-8 space-y-6">
                 <div>
-                  <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Est. Revenue</p>
+                  <p className="text-[10px] text-[#888] mb-1.5 uppercase tracking-wider">Est. Procedure Revenue</p>
                   <p className="font-extrabold text-primary" style={{ fontSize: 'clamp(1.5rem, 4vw, 3rem)', whiteSpace: 'nowrap', maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{fmtRounded(revenue)}</p>
                 </div>
                 <div>
@@ -523,7 +521,30 @@ function PitchDeck() {
           );
         })}
       </motion.div>
-      <p className="text-xs text-[#999] italic mt-8 text-center">*Based on a {convertRate} conversion rate in line with our existing clients in this industry.</p>
+      <p className="text-xs text-[#999] italic mt-6 text-center">*Based on a {convertRate} conversion rate, in line with our existing clients in this industry.</p>
+
+      {/* Lifetime value section — the upfront procedure isn't where the value ends */}
+      <div className="w-full max-w-5xl mt-10 rounded-xl border border-border bg-zinc-900/60 px-8 py-7">
+        <div className="flex items-baseline justify-between flex-wrap gap-2 mb-4">
+          <h3 className="text-xl md:text-2xl font-extrabold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+            The Numbers Above Are Just The First Procedure.
+          </h3>
+          <p className="text-xs text-[#999] uppercase tracking-wider">Lifetime Value</p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Membership Plans", desc: "Recurring monthly aftercare and maintenance." },
+            { label: "Future Procedures", desc: "Top-ups and second sessions over time." },
+            { label: "Referrals", desc: "Friends and family from a happy result." },
+            { label: "Take-Home Products", desc: "Shampoos, serums and ongoing add-ons." },
+          ].map((item) => (
+            <div key={item.label} className="rounded-lg border border-border bg-black/40 px-4 py-3">
+              <p className="text-sm font-bold text-foreground">{item.label}</p>
+              <p className="text-xs text-[#CCCCCC] mt-1 leading-relaxed">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </div>
       </div>
       <div className="flex-1" />
     </div>,
