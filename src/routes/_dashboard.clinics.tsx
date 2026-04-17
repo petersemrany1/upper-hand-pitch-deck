@@ -57,33 +57,42 @@ const PIPELINE_STAGES = [
   "Not Started",
   "Contacted — No Answer",
   "Contacted — Left Voicemail",
-  "Contacted — Wrong Person",
+  "Contacted — Gatekeeper",
   "Contacted — Call Me Back",
+  "Call Back — Specific Time",
   "Contacted — Not Interested",
   "Zoom Set",
   "Zoom Completed",
   "Signed",
   "Lost",
+  "Not Applicable",
 ] as const;
+
+// Stages considered inactive — collapsed/hidden from main pipeline view by default
+const NOT_APPLICABLE_STAGES = new Set(["Not Applicable"]);
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Not Started": { bg: "#27272a", text: "#a1a1aa" },
   "Contacted — No Answer": { bg: "#1e293b", text: "#94a3b8" },
   "Contacted — Left Voicemail": { bg: "#1e293b", text: "#94a3b8" },
-  "Contacted — Wrong Person": { bg: "#431407", text: "#fb923c" },
+  "Contacted — Gatekeeper": { bg: "#431407", text: "#fb923c" },
   "Contacted — Call Me Back": { bg: "#451a03", text: "#fbbf24" },
+  "Call Back — Specific Time": { bg: "#451a03", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#450a0a", text: "#f87171" },
   "Zoom Set": { bg: "#2e1065", text: "#c084fc" },
   "Zoom Completed": { bg: "#1e3a5f", text: "#60a5fa" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
   "Lost": { bg: "#3b0a0a", text: "#dc2626" },
+  "Not Applicable": { bg: "#1a1a1a", text: "#555" },
 };
 
 // Outcome options by contact type
 const CALL_OUTCOMES = [
-  "No Answer", "Left Voicemail", "Spoke — Wrong Person",
+  "No Answer", "Left Voicemail", "Spoke — Gatekeeper",
   "Spoke — Not Interested", "Spoke — Call Me Back",
+  "Call Back — Specific Time",
   "Spoke — Interested", "Spoke — Zoom Set",
+  "Not Applicable — Doesn't Do Transplants",
 ];
 const EMAIL_OUTCOMES = ["Sent", "Replied — Interested", "Replied — Not Interested", "No Reply"];
 const LOOM_OUTCOMES = ["Sent", "Opened", "Replied"];
@@ -97,11 +106,13 @@ const OUTCOME_MAP: Record<string, string[]> = {
 const OUTCOME_TO_STAGE: Record<string, string> = {
   "No Answer": "Contacted — No Answer",
   "Left Voicemail": "Contacted — Left Voicemail",
-  "Spoke — Wrong Person": "Contacted — Wrong Person",
+  "Spoke — Gatekeeper": "Contacted — Gatekeeper",
   "Spoke — Not Interested": "Contacted — Not Interested",
   "Spoke — Call Me Back": "Contacted — Call Me Back",
+  "Call Back — Specific Time": "Call Back — Specific Time",
   "Spoke — Interested": "Contacted — Call Me Back",
   "Spoke — Zoom Set": "Zoom Set",
+  "Not Applicable — Doesn't Do Transplants": "Not Applicable",
   "Qualified — Ready to Sign": "Signed",
   "Qualified — Needs Follow Up": "Zoom Completed",
   "Not Qualified — Budget": "Lost",
@@ -155,11 +166,17 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   const today = new Date().toISOString().split("T")[0];
 
   if (clinic.status === "Not Started") return { text: "🆕 Not contacted", overdue: false };
-  if (clinic.status === "Signed" || clinic.status === "Lost" || clinic.status === "Contacted — Not Interested") return { text: "—", overdue: false };
+  if (clinic.status === "Signed" || clinic.status === "Lost" || clinic.status === "Contacted — Not Interested" || clinic.status === "Not Applicable") return { text: "—", overdue: false };
 
   if (clinic.status === "Zoom Set" && clinic.next_follow_up) {
     const isOverdue = clinic.next_follow_up < today;
     return { text: `📹 Zoom ${clinic.next_follow_up}`, overdue: isOverdue };
+  }
+
+  if (clinic.status === "Call Back — Specific Time" && clinic.next_follow_up) {
+    const isOverdue = clinic.next_follow_up < today;
+    const timeWindow = lastContact?.next_action_time ? ` ${lastContact.next_action_time}` : "";
+    return { text: `📞 Call back ${clinic.next_follow_up}${timeWindow}`, overdue: isOverdue };
   }
 
   if (clinic.status === "Contacted — Call Me Back" && clinic.next_follow_up) {
@@ -172,7 +189,7 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
     return { text: "📞 Follow up — no answer", overdue: isOverdue };
   }
 
-  if (clinic.status === "Contacted — Wrong Person") {
+  if (clinic.status === "Contacted — Gatekeeper") {
     return { text: "📞 Call back — waiting for owner", overdue: false };
   }
 
@@ -186,6 +203,14 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   }
 
   return { text: "—", overdue: false };
+}
+
+// Truncate latest activity note for inline table preview
+function truncateNote(text: string | null | undefined, max = 40): string {
+  if (!text) return "";
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= max) return oneLine;
+  return oneLine.slice(0, max - 1) + "…";
 }
 
 function ClinicsPage() {
@@ -264,6 +289,16 @@ function ClinicsPage() {
   }, []);
 
   useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
+
+  // Escape key dismisses the side panel
+  useEffect(() => {
+    if (!selectedClinic) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedClinic(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedClinic]);
 
 
   const loadContacts = async (clinicId: string) => {
@@ -355,7 +390,11 @@ function ClinicsPage() {
     setLogOutcome(outcomes[0]);
   };
 
-  const needsDateTimePicker = logOutcome === "Spoke — Call Me Back" || logOutcome === "Spoke — Zoom Set";
+  const needsDateTimePicker =
+    logOutcome === "Spoke — Call Me Back" ||
+    logOutcome === "Spoke — Zoom Set" ||
+    logOutcome === "Call Back — Specific Time";
+  const isSpecificTimeRange = logOutcome === "Call Back — Specific Time";
 
   const handleAddClinic = async () => {
     if (!newName) return;
@@ -469,15 +508,18 @@ function ClinicsPage() {
     return matchSearch && matchState && matchStatus;
   });
 
-  // Group by state
+  // Split active vs not-applicable, then group active by state
+  const activeFiltered = filtered.filter((c) => !NOT_APPLICABLE_STAGES.has(c.status));
+  const notApplicableFiltered = filtered.filter((c) => NOT_APPLICABLE_STAGES.has(c.status));
   const grouped: Record<string, Clinic[]> = {};
-  for (const c of filtered) {
+  for (const c of activeFiltered) {
     const st = c.state || "Unknown";
     if (!grouped[st]) grouped[st] = [];
     grouped[st].push(c);
   }
   const stateOrder = [...STATES, "Unknown"];
   const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
+  const [naCollapsed, setNaCollapsed] = [collapsedStates["__NA__"] !== false, (v: boolean) => setCollapsedStates((p) => ({ ...p, __NA__: !v }))];
 
   const toggleState = (state: string) => {
     setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
@@ -554,7 +596,9 @@ function ClinicsPage() {
         <Button onClick={() => fileInputRef.current?.click()} disabled={importing} size="sm" variant="ghost" className="text-xs" style={{ color: "#666" }}>
           <Upload className="w-3 h-3 mr-1" /> {importing ? "Importing..." : "Bulk Upload CSV"}
         </Button>
-        <span className="text-xs ml-auto" style={{ color: "#555" }}>{filtered.length} clinics</span>
+        <span className="text-xs ml-auto" style={{ color: "#555" }}>
+          {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
+        </span>
       </div>
 
       {/* Table */}
@@ -579,6 +623,8 @@ function ClinicsPage() {
                   {stateClinics.map((c) => {
                     const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
                     const nextAction = getNextActionText(c, lastContacts[c.id] || null);
+                    const lastCt = lastContacts[c.id];
+                    const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
 
                     return (
                       <div
@@ -601,14 +647,9 @@ function ClinicsPage() {
                             </button>
                           ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
                         </div>
-                        {/* Email */}
-                        <div className="w-[150px] shrink-0 px-2 truncate">
-                          {c.email ? (
-                            <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-[11px] hover:brightness-125 transition" style={{ color: "#60a5fa" }}>
-                              <Mail className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{c.email}</span>
-                            </a>
-                          ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
+                        {/* Latest Note */}
+                        <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: notePreview ? "#9ca3af" : "#222" }}>
+                          {notePreview || "—"}
                         </div>
                         {/* Stage */}
                         <div className="w-[130px] shrink-0 px-2">
@@ -644,6 +685,50 @@ function ClinicsPage() {
             </div>
           );
         })}
+
+        {/* Not Applicable section — collapsed by default */}
+        {notApplicableFiltered.length > 0 && (
+          <div>
+            <button
+              onClick={() => setNaCollapsed(!naCollapsed)}
+              className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/[0.02] transition-colors"
+              style={{ borderBottom: "1px solid #1a1a1a" }}
+            >
+              {naCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#555" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#555" }} />}
+              <span className="text-xs font-semibold" style={{ color: "#555", letterSpacing: "0.1em" }}>NOT APPLICABLE</span>
+              <span className="text-[10px]" style={{ color: "#555" }}>({notApplicableFiltered.length})</span>
+            </button>
+            {!naCollapsed && (
+              <div>
+                {notApplicableFiltered.map((c) => {
+                  const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
+                  const lastCt = lastContacts[c.id];
+                  const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
+                      style={{ height: 44, borderBottom: "1px solid #111" }}
+                    >
+                      <div className="w-[180px] shrink-0 px-3 truncate">
+                        <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#aaa" }}>{c.clinic_name}</button>
+                      </div>
+                      <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#555" }}>{c.city || "—"}</div>
+                      <div className="w-[140px] shrink-0 px-2 text-[11px]" style={{ color: "#555" }}>{c.phone || "—"}</div>
+                      <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: "#555" }}>{notePreview || "—"}</div>
+                      <div className="w-[130px] shrink-0 px-2">
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
+                      </div>
+                      <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#555" }}>—</div>
+                      <div className="w-[70px] shrink-0 px-2" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {filtered.length === 0 && (
           <div className="text-center py-12" style={{ color: "#333", fontSize: 13 }}>No clinics found.</div>
         )}
@@ -740,7 +825,7 @@ function ClinicsPage() {
                         const emoji = TYPE_EMOJI[ct.contact_type] || "📝";
                         const waitingOn = ct.outcome?.includes("Call Me Back")
                           ? "Waiting for owner callback"
-                          : ct.outcome?.includes("Wrong Person")
+                          : ct.outcome?.includes("Wrong Person") || ct.outcome?.includes("Gatekeeper")
                           ? "Waiting for owner callback"
                           : ct.outcome?.includes("Zoom Set")
                           ? `Zoom scheduled${ct.next_action_date ? ` — ${ct.next_action_date}${ct.next_action_time ? ` ${ct.next_action_time}` : ""}` : ""}`
@@ -827,8 +912,21 @@ function ClinicsPage() {
                     <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Time</label>
-                    <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>
+                      {isSpecificTimeRange ? "Time Window (e.g. 9am–12pm)" : "Time"}
+                    </label>
+                    {isSpecificTimeRange ? (
+                      <Input
+                        type="text"
+                        value={logNextTime}
+                        onChange={(e) => setLogNextTime(e.target.value)}
+                        placeholder="9am–12pm"
+                        className="border-0 text-xs h-8"
+                        style={{ background: "#1a1a1a", color: "#fff" }}
+                      />
+                    ) : (
+                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    )}
                   </div>
                 </>
               )}
