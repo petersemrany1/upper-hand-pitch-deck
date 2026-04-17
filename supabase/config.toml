@@ -1,1 +1,13 @@
 project_id = "sfwokpeeffgrkxaptqji"
+
+[functions.twilio-token]
+verify_jwt = false
+
+[functions.twilio-twiml]
+verify_jwt = false
+
+[functions.twilio-status]
+verify_jwt = false
+
+[functions.twilio-recording]
+verify_jwt = false

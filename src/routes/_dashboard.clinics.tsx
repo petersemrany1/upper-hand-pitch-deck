@@ -10,6 +10,7 @@ import {
   Upload, Clock, AlertCircle, Trash2, Video, Send,
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -235,9 +236,9 @@ function ClinicsPage() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Call
+  // Call (browser-based via Twilio Voice SDK)
   const [callingId, setCallingId] = useState<string | null>(null);
-  const savedPhones = getStoredPhones();
+  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
 
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
@@ -431,19 +432,33 @@ function ClinicsPage() {
   };
 
   const handleCall = async (clinic: Clinic) => {
-    if (!clinic.phone || callingId) return;
+    if (!clinic.phone) return;
+    // If already on a call with this clinic, hang up
+    if (callingId === clinic.id) {
+      deviceHangup();
+      setCallingId(null);
+      return;
+    }
+    if (callingId) return; // another call in progress
+    if (deviceStatus !== "ready" && deviceStatus !== "in-call") {
+      alert("Phone is still connecting. Try again in a moment.");
+      return;
+    }
     setCallingId(clinic.id);
     try {
-      const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
-        body: { clientPhone: clinic.phone, userPhone: savedPhones[0]?.phone },
-      });
-      if (error) throw error;
-      if (result?.success) {
-        await supabase.from("call_records").insert({ twilio_call_sid: result.callSid, status: "initiated" });
-      }
-    } catch {}
-    setCallingId(null);
+      await deviceCall(clinic.phone);
+    } catch (err) {
+      console.error("Call failed:", err);
+      setCallingId(null);
+    }
   };
+
+  // Reset callingId when call ends
+  useEffect(() => {
+    if (deviceStatus === "ready" && callingId) {
+      setCallingId(null);
+    }
+  }, [deviceStatus, callingId]);
 
   // Filtering
   const filtered = clinics.filter((c) => {
