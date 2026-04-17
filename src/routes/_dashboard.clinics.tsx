@@ -290,6 +290,16 @@ function ClinicsPage() {
 
   useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
 
+  // Escape key dismisses the side panel
+  useEffect(() => {
+    if (!selectedClinic) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSelectedClinic(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedClinic]);
+
 
   const loadContacts = async (clinicId: string) => {
     const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
