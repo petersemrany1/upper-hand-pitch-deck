@@ -166,11 +166,17 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   const today = new Date().toISOString().split("T")[0];
 
   if (clinic.status === "Not Started") return { text: "🆕 Not contacted", overdue: false };
-  if (clinic.status === "Signed" || clinic.status === "Lost" || clinic.status === "Contacted — Not Interested") return { text: "—", overdue: false };
+  if (clinic.status === "Signed" || clinic.status === "Lost" || clinic.status === "Contacted — Not Interested" || clinic.status === "Not Applicable") return { text: "—", overdue: false };
 
   if (clinic.status === "Zoom Set" && clinic.next_follow_up) {
     const isOverdue = clinic.next_follow_up < today;
     return { text: `📹 Zoom ${clinic.next_follow_up}`, overdue: isOverdue };
+  }
+
+  if (clinic.status === "Call Back — Specific Time" && clinic.next_follow_up) {
+    const isOverdue = clinic.next_follow_up < today;
+    const timeWindow = lastContact?.next_action_time ? ` ${lastContact.next_action_time}` : "";
+    return { text: `📞 Call back ${clinic.next_follow_up}${timeWindow}`, overdue: isOverdue };
   }
 
   if (clinic.status === "Contacted — Call Me Back" && clinic.next_follow_up) {
@@ -183,7 +189,7 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
     return { text: "📞 Follow up — no answer", overdue: isOverdue };
   }
 
-  if (clinic.status === "Contacted — Wrong Person") {
+  if (clinic.status === "Contacted — Gatekeeper") {
     return { text: "📞 Call back — waiting for owner", overdue: false };
   }
 
@@ -197,6 +203,14 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   }
 
   return { text: "—", overdue: false };
+}
+
+// Truncate latest activity note for inline table preview
+function truncateNote(text: string | null | undefined, max = 40): string {
+  if (!text) return "";
+  const oneLine = text.replace(/\s+/g, " ").trim();
+  if (oneLine.length <= max) return oneLine;
+  return oneLine.slice(0, max - 1) + "…";
 }
 
 function ClinicsPage() {
