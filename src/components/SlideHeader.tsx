@@ -1,17 +1,12 @@
 export default function SlideHeader() {
   return (
     <div
+      className="absolute top-5 left-16 md:left-6 z-50 flex items-center"
       style={{
-        position: "absolute",
-        top: 20,
-        left: 24,
-        zIndex: 50,
-        display: "flex",
-        alignItems: "center",
         fontWeight: 800,
         fontSize: 13,
         letterSpacing: "-0.02em",
-        textTransform: "uppercase" as const,
+        textTransform: "uppercase",
         lineHeight: 1,
       }}
     >
