@@ -57,33 +57,42 @@ const PIPELINE_STAGES = [
   "Not Started",
   "Contacted — No Answer",
   "Contacted — Left Voicemail",
-  "Contacted — Wrong Person",
+  "Contacted — Gatekeeper",
   "Contacted — Call Me Back",
+  "Call Back — Specific Time",
   "Contacted — Not Interested",
   "Zoom Set",
   "Zoom Completed",
   "Signed",
   "Lost",
+  "Not Applicable",
 ] as const;
+
+// Stages considered inactive — collapsed/hidden from main pipeline view by default
+const NOT_APPLICABLE_STAGES = new Set(["Not Applicable"]);
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Not Started": { bg: "#27272a", text: "#a1a1aa" },
   "Contacted — No Answer": { bg: "#1e293b", text: "#94a3b8" },
   "Contacted — Left Voicemail": { bg: "#1e293b", text: "#94a3b8" },
-  "Contacted — Wrong Person": { bg: "#431407", text: "#fb923c" },
+  "Contacted — Gatekeeper": { bg: "#431407", text: "#fb923c" },
   "Contacted — Call Me Back": { bg: "#451a03", text: "#fbbf24" },
+  "Call Back — Specific Time": { bg: "#451a03", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#450a0a", text: "#f87171" },
   "Zoom Set": { bg: "#2e1065", text: "#c084fc" },
   "Zoom Completed": { bg: "#1e3a5f", text: "#60a5fa" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
   "Lost": { bg: "#3b0a0a", text: "#dc2626" },
+  "Not Applicable": { bg: "#1a1a1a", text: "#555" },
 };
 
 // Outcome options by contact type
 const CALL_OUTCOMES = [
-  "No Answer", "Left Voicemail", "Spoke — Wrong Person",
+  "No Answer", "Left Voicemail", "Spoke — Gatekeeper",
   "Spoke — Not Interested", "Spoke — Call Me Back",
+  "Call Back — Specific Time",
   "Spoke — Interested", "Spoke — Zoom Set",
+  "Not Applicable — Doesn't Do Transplants",
 ];
 const EMAIL_OUTCOMES = ["Sent", "Replied — Interested", "Replied — Not Interested", "No Reply"];
 const LOOM_OUTCOMES = ["Sent", "Opened", "Replied"];
