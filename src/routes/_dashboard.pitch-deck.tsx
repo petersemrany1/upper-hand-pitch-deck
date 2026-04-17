@@ -43,11 +43,11 @@ const CONVERT_RATES: Record<string, number> = {
   "1 in 9": 0.111,
   "1 in 10": 0.1,
 };
-const COST_PER_SHOW = 1100;
 
-/* Pre-deck settings popup */
-function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: string) => void }) {
+/* Pre-deck settings popup — Peter sets the headline numbers that flow through every slide */
+function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: string, pricePerShow: number) => void }) {
   const [caseValue, setCaseValue] = useState("12000");
+  const [pricePerShow, setPricePerShow] = useState("1100");
   const [convertRate, setConvertRate] = useState("1 in 4");
   const [appReady, setAppReady] = useState(false);
   const [clicked, setClicked] = useState(false);
@@ -67,16 +67,24 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
     setCaseValue(isNaN(num) ? "" : String(Math.min(num, 999999)));
   };
 
+  const handlePriceChange = (val: string) => {
+    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
+    setPricePerShow(isNaN(num) ? "" : String(Math.min(num, 99999)));
+  };
+
   const formattedCaseValue = caseValue
     ? Number(caseValue).toLocaleString("en-US")
     : "";
+  const formattedPrice = pricePerShow
+    ? Number(pricePerShow).toLocaleString("en-US")
+    : "";
 
-  const isValid = parseInt(caseValue, 10) >= 1000;
+  const isValid = parseInt(caseValue, 10) >= 1000 && parseInt(pricePerShow, 10) >= 100;
 
   const handleStart = () => {
     if (clicked) return;
     setClicked(true);
-    onEnter(parseInt(caseValue, 10) || 12000, convertRate);
+    onEnter(parseInt(caseValue, 10) || 12000, convertRate, parseInt(pricePerShow, 10) || 1100);
   };
 
   const buttonDisabled = !isValid || !appReady || clicked;
@@ -98,13 +106,13 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
           Set Your Presentation Numbers
         </h2>
         <p className="text-[#CCCCCC] text-sm mb-10">
-          These values personalise the ROI, packages, and guarantee slides.
+          These flow through to every slide — pricing, ROI, packages and the guarantee.
         </p>
 
-        <div className="space-y-6 mb-10">
+        <div className="space-y-5 mb-10">
           <div>
             <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
-              Average Case Value ($)
+              Average Procedure Value ($)
             </label>
             <input
               type="text"
@@ -116,7 +124,19 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
           </div>
           <div>
             <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
-              Conversion Rate
+              Price Per Show ($)
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={formattedPrice}
+              onChange={(e) => handlePriceChange(e.target.value)}
+              className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
+              Estimated Conversion Rate
             </label>
             <select
               value={convertRate}
@@ -138,8 +158,8 @@ function SettingsPopup({ onEnter }: { onEnter: (caseValue: number, convertRate: 
         >
           {!appReady ? "Loading..." : "START PRESENTATION →"}
         </button>
-        {!isValid && caseValue !== "" && (
-          <p className="text-xs text-red-400 mt-2 text-center">Please enter a case value of at least $1,000</p>
+        {!isValid && (caseValue !== "" || pricePerShow !== "") && (
+          <p className="text-xs text-red-400 mt-2 text-center">Procedure value must be at least $1,000 and price per show at least $100.</p>
         )}
       </div>
     </div>
