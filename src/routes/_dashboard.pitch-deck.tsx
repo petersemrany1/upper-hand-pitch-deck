@@ -7,6 +7,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { loadDeckSettings } from "./_dashboard.settings";
+import patientPhoto from "../assets/pitch/patient.jpg";
+import teamPhoto from "../assets/pitch/team.jpg";
+import hairPhoto from "../assets/pitch/hair.jpg";
+import clinicPhoto from "../assets/pitch/clinic.jpg";
+
+const DECK_PHOTOS = [patientPhoto, teamPhoto, hairPhoto, clinicPhoto];
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
@@ -66,6 +72,13 @@ function PitchDeck() {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+  // Eager-preload every deck photo before any slide renders an <img>.
+  useEffect(() => {
+    DECK_PHOTOS.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
   }, []);
 
 
@@ -272,51 +285,14 @@ function PitchDeck() {
         </motion.div>
       </div>
       <div className="w-[35%] relative overflow-hidden bg-black">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(198,255,0,0.18),transparent_55%),linear-gradient(180deg,#0a0a0a,#000)]" />
-        <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
-            backgroundSize: "32px 32px",
-          }}
+        <img
+          src={patientPhoto}
+          alt="A man in his 40s sitting at a cafe in natural light, looking thoughtful"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
         />
-        <div className="absolute inset-0 flex items-end justify-center">
-          <svg
-            viewBox="0 0 400 600"
-            preserveAspectRatio="xMidYMax meet"
-            className="w-[88%] h-[92%]"
-            aria-hidden="true"
-          >
-            <defs>
-              <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#1a1a1a" />
-                <stop offset="100%" stopColor="#050505" />
-              </linearGradient>
-              <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor="rgba(198,255,0,0)" />
-                <stop offset="55%" stopColor="rgba(198,255,0,0)" />
-                <stop offset="100%" stopColor="rgba(198,255,0,0.55)" />
-              </linearGradient>
-              <radialGradient id="headGlow" cx="0.5" cy="0.35" r="0.6">
-                <stop offset="0%" stopColor="rgba(255,255,255,0.07)" />
-                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
-              </radialGradient>
-            </defs>
-            <path d="M40 600 L40 470 C40 410 110 360 200 360 C290 360 360 410 360 470 L360 600 Z" fill="url(#bodyGrad)" />
-            <path d="M165 360 L200 460 L235 360 Z" fill="#000" />
-            <path d="M178 360 L200 425 L222 360 Z" fill="#0d0d0d" />
-            <path d="M188 360 L200 395 L212 360 Z" fill="#1f1f1f" />
-            <path d="M194 360 L206 360 L210 395 L208 470 L200 485 L192 470 L190 395 Z" fill="#0a0a0a" stroke="rgba(198,255,0,0.25)" strokeWidth="0.5" />
-            <rect x="180" y="300" width="40" height="70" fill="#161616" />
-            <ellipse cx="200" cy="240" rx="78" ry="92" fill="#141414" />
-            <path d="M125 230 C125 165 160 135 200 135 C240 135 275 165 275 230 C275 215 260 195 240 188 C225 184 215 192 200 192 C185 192 175 184 160 188 C140 195 125 215 125 230 Z" fill="#080808" />
-            <ellipse cx="200" cy="245" rx="55" ry="75" fill="url(#headGlow)" />
-            <path d="M40 470 C40 410 110 360 200 360 C290 360 360 410 360 470 L360 600 L40 600 Z" fill="url(#rimGrad)" opacity="0.9" />
-            <path d="M125 230 C125 165 160 135 200 135 C240 135 275 165 275 230 L275 320 C275 320 260 332 250 332 L250 240 C250 200 230 175 200 175 L200 135 Z" fill="url(#rimGrad)" opacity="0.7" />
-          </svg>
-        </div>
-        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/30 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
         <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black to-transparent" />
       </div>
     </div>,
@@ -346,8 +322,15 @@ function PitchDeck() {
           ))}
         </motion.div>
       </div>
-      <div className="w-[30%] relative overflow-hidden" style={{ willChange: "transform" }}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_35%),linear-gradient(180deg,rgba(22,22,22,0.2),rgba(10,10,10,0.95))]" />
+      <div className="w-[30%] relative overflow-hidden bg-black" style={{ willChange: "transform" }}>
+        <img
+          src={teamPhoto}
+          alt="Two people on phones at a desk in a small office, both smiling and engaged"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
     </div>,
 
@@ -414,37 +397,56 @@ function PitchDeck() {
           </motion.div>
         </div>
       </div>
-      <div className="w-[30%] relative overflow-hidden" style={{ willChange: "transform" }}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(198,255,0,0.16),transparent_30%),linear-gradient(180deg,rgba(22,22,22,0.15),rgba(10,10,10,0.95))]" />
+      <div className="w-[30%] relative overflow-hidden bg-black" style={{ willChange: "transform" }}>
+        <img
+          src={hairPhoto}
+          alt="A confident man with a thick, full head of hair in natural light"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
     </div>,
 
     /* ──────── SLIDE 8 — CLOSE ──────── */
-    <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
+    <div key="close" className="deck-slide flex min-h-screen w-full bg-black">
       <SlideHeader />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_32%),linear-gradient(180deg,rgba(18,18,18,0.45),rgba(0,0,0,0.94))]" />
-      <div className="relative z-10">
-        <Link
-          to="/"
-          className="fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-card/30 border border-border/30 text-[#666] hover:text-foreground hover:bg-card/60 transition-all"
-          aria-label="Back to dashboard"
-        >
-          <Home className="w-4 h-4" />
-        </Link>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn}>
-            <H>Let Us Fill Your Calendar.</H>
+      <div className="w-[70%] relative flex flex-col items-center justify-center px-16 py-12 text-center">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_32%),linear-gradient(180deg,rgba(18,18,18,0.45),rgba(0,0,0,0.94))]" />
+        <div className="relative z-10">
+          <Link
+            to="/"
+            className="fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-card/30 border border-border/30 text-[#666] hover:text-foreground hover:bg-card/60 transition-all"
+            aria-label="Back to dashboard"
+          >
+            <Home className="w-4 h-4" />
+          </Link>
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+            <motion.div variants={fadeIn}>
+              <H>Let Us Fill Your Calendar.</H>
+            </motion.div>
+            <motion.div variants={fadeIn} className="mt-10">
+              <button
+                onClick={() => setShowGetStarted(true)}
+                className="inline-block bg-primary text-primary-foreground font-bold text-lg px-12 py-5 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                GET STARTED →
+              </button>
+            </motion.div>
           </motion.div>
-          <motion.div variants={fadeIn} className="mt-10">
-            <button
-              onClick={() => setShowGetStarted(true)}
-              className="inline-block bg-primary text-primary-foreground font-bold text-lg px-12 py-5 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              GET STARTED →
-            </button>
-          </motion.div>
-        </motion.div>
+        </div>
+      </div>
+      <div className="w-[30%] relative overflow-hidden bg-black">
+        <img
+          src={clinicPhoto}
+          alt="A modern, clean cosmetic clinic reception desk with bright contemporary interior"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
     </div>,
   ];
