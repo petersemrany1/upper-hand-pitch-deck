@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Users, Clock, CheckCircle2, PhoneOff, XCircle, DollarSign, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Clock, CheckCircle2, PhoneOff, XCircle, DollarSign, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/pipeline")({
   component: PipelinePage,
@@ -46,7 +46,7 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-type PipelineStatus = "Awaiting clinic" | "Allocated" | "Not Yet Called" | "Disqualified";
+type PipelineStatus = "Awaiting clinic" | "Finance Check" | "Allocated" | "Not Yet Called" | "Disqualified";
 
 type PatientRow = {
   id: string;
@@ -71,12 +71,14 @@ function generatePatient(status: PipelineStatus): PatientRow {
 
 function generateInitialData(): PatientRow[] {
   const rows: PatientRow[] = [];
-  // ~67 allocated, ~183 not yet called, rest awaiting clinic ≈ 250 qualified
   for (let i = 0; i < 183; i++) rows.push(generatePatient("Not Yet Called"));
-  for (let i = 0; i < 67; i++) rows.push(generatePatient(Math.random() < 0.52 ? "Allocated" : "Awaiting clinic"));
-  // 1847 disqualified
+  // Mix awaiting / finance check / allocated for ~67 in-flight
+  for (let i = 0; i < 67; i++) {
+    const r = Math.random();
+    const status: PipelineStatus = r < 0.45 ? "Awaiting clinic" : r < 0.7 ? "Finance Check" : "Allocated";
+    rows.push(generatePatient(status));
+  }
   for (let i = 0; i < 1847; i++) rows.push(generatePatient("Disqualified"));
-  // Shuffle qualified rows (first 250) so they're mixed
   const qualified = rows.slice(0, 250);
   for (let i = qualified.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -112,6 +114,7 @@ function usePausableInterval(callback: () => void, getDelay: () => number, visib
 
 const STATUS_PILL: Record<PipelineStatus, { bg: string; color: string }> = {
   "Allocated": { bg: "rgba(34,197,94,0.15)", color: "#4ade80" },
+  "Finance Check": { bg: "rgba(139,92,246,0.18)", color: "#c4b5fd" },
   "Awaiting clinic": { bg: "rgba(245,158,11,0.15)", color: "#fbbf24" },
   "Not Yet Called": { bg: "rgba(161,161,170,0.15)", color: "#a1a1aa" },
   "Disqualified": { bg: "rgba(220,38,38,0.15)", color: "#f87171" },
@@ -124,7 +127,6 @@ function PipelinePage() {
   const visible = usePageVisible();
   const [showDQ, setShowDQ] = useState(false);
 
-  // Separate qualified and disqualified
   const qualifiedRows = rows.filter((r) => r.status !== "Disqualified");
   const disqualifiedRows = rows.filter((r) => r.status === "Disqualified");
 
@@ -139,7 +141,7 @@ function PipelinePage() {
     return () => clearTimeout(timer);
   }, [rows]);
 
-  // Flip a "Not Yet Called" -> "Awaiting clinic" every 30-60s
+  // Not Yet Called -> Awaiting clinic
   const flipDelay = useCallback(() => rand(30000, 60000), []);
   usePausableInterval(() => {
     setRows((prev) => {
@@ -150,18 +152,29 @@ function PipelinePage() {
     });
   }, flipDelay, visible);
 
-  // Flip an "Awaiting clinic" -> "Allocated" every 35-70s
-  const allocDelay = useCallback(() => rand(35000, 70000), []);
+  // Awaiting clinic -> Finance Check
+  const financeDelay = useCallback(() => rand(35000, 65000), []);
   usePausableInterval(() => {
     setRows((prev) => {
       const awaiting = prev.filter((r) => r.status === "Awaiting clinic");
       if (awaiting.length === 0) return prev;
       const target = pickRandom(awaiting);
+      return prev.map((r) => (r.id === target.id ? { ...r, status: "Finance Check", flash: true } : r));
+    });
+  }, financeDelay, visible);
+
+  // Finance Check -> Allocated
+  const allocDelay = useCallback(() => rand(40000, 75000), []);
+  usePausableInterval(() => {
+    setRows((prev) => {
+      const finance = prev.filter((r) => r.status === "Finance Check");
+      if (finance.length === 0) return prev;
+      const target = pickRandom(finance);
       return prev.map((r) => (r.id === target.id ? { ...r, status: "Allocated", flash: true } : r));
     });
   }, allocDelay, visible);
 
-  // Add a new qualified row + 3-7 disqualified rows every 60-90s
+  // Add new qualified + DQ rows
   const newRowDelay = useCallback(() => rand(60000, 90000), []);
   usePausableInterval(() => {
     const p = generatePatient("Not Yet Called");
@@ -170,18 +183,17 @@ function PipelinePage() {
     const newDQ: PatientRow[] = [];
     for (let i = 0; i < dqCount; i++) newDQ.push(generatePatient("Disqualified"));
     setRows((prev) => {
-      // Insert qualified at top of qualified section, DQ at end
       const qual = prev.filter((r) => r.status !== "Disqualified");
       const dq = prev.filter((r) => r.status === "Disqualified");
       return [p, ...qual, ...newDQ, ...dq];
     });
   }, newRowDelay, visible);
 
-  // Derived stats
   const disqualifiedCount = disqualifiedRows.length;
   const totalQualified = qualifiedRows.length;
   const notYetCalledCount = rows.filter((r) => r.status === "Not Yet Called").length;
   const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
+  const financeCount = rows.filter((r) => r.status === "Finance Check").length;
   const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
 
   const qualifiedVirtualizer = useVirtualizer({
@@ -203,14 +215,18 @@ function PipelinePage() {
     { label: "Disqualified", value: disqualifiedCount.toLocaleString(), icon: XCircle, color: "#DC2626" },
     { label: "Qualified", value: totalQualified.toLocaleString(), icon: Users, color: "#2D6BE4" },
     { label: "Awaiting Clinic", value: awaitingCount, icon: Clock, color: "#F59E0B" },
+    { label: "Finance Check", value: financeCount, icon: ShieldCheck, color: "#8B5CF6" },
     { label: "Allocated", value: allocatedCount, icon: CheckCircle2, color: "#22C55E" },
-    { label: "Leading Budget", value: "$15,000–$20,000", icon: DollarSign, color: "#14B8A6" },
+    { label: "Leading Budget", value: "$15k–$20k", icon: DollarSign, color: "#14B8A6" },
   ];
+
+  const gridCols = "1.6fr 1fr 0.9fr";
+
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
       <div className="px-6 pt-5 pb-3">
         <h1 className="text-lg font-semibold text-white mb-4">Patient Pipeline</h1>
-        <div className="grid grid-cols-6 gap-3">
+        <div className="grid grid-cols-7 gap-3">
           {stats.map((s) => (
             <div
               key={s.label}
@@ -225,7 +241,7 @@ function PipelinePage() {
               </div>
               <div className="min-w-0">
                 <div className="text-[10px] uppercase tracking-wider truncate" style={{ color: "#666" }}>{s.label}</div>
-                <div className="text-lg font-bold text-white">{s.value}</div>
+                <div className="text-base font-bold text-white">{s.value}</div>
               </div>
             </div>
           ))}
@@ -237,7 +253,7 @@ function PipelinePage() {
         <div
           className="grid text-[11px] uppercase tracking-wider font-medium px-4 py-2.5 border-b"
           style={{
-            gridTemplateColumns: "1.5fr 1fr 1fr 0.9fr 0.8fr",
+            gridTemplateColumns: gridCols,
             color: "#666",
             borderColor: "#1f1f23",
             background: "#0d0d10",
@@ -245,8 +261,6 @@ function PipelinePage() {
         >
           <div>Name</div>
           <div>Suburb</div>
-          <div>Budget</div>
-          <div>Deposit Paid</div>
           <div>Status</div>
         </div>
 
@@ -259,7 +273,7 @@ function PipelinePage() {
                   key={row.id}
                   className="grid items-center px-4 border-b transition-colors duration-700"
                   style={{
-                    gridTemplateColumns: "1.5fr 1fr 1fr 0.9fr 0.8fr",
+                    gridTemplateColumns: gridCols,
                     position: "absolute",
                     top: 0,
                     left: 0,
@@ -278,17 +292,6 @@ function PipelinePage() {
                 >
                   <div className="text-white font-medium truncate">{row.name}</div>
                   <div className="truncate">{row.suburb}</div>
-                  <div>$15,000–$20,000</div>
-                  <div className="flex items-center gap-1.5">
-                    {row.status === "Awaiting clinic" || row.status === "Allocated" ? (
-                      <>
-                        <span className="text-green-400">$75</span>
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      </>
-                    ) : (
-                      <span style={{ color: "#555" }}>—</span>
-                    )}
-                  </div>
                   <div>
                     <span
                       className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
@@ -324,7 +327,7 @@ function PipelinePage() {
                     key={row.id}
                     className="grid items-center px-4 border-b"
                     style={{
-                      gridTemplateColumns: "1.5fr 1fr 1fr 0.9fr 0.8fr",
+                      gridTemplateColumns: gridCols,
                       position: "absolute",
                       top: 0,
                       left: 0,
@@ -338,8 +341,6 @@ function PipelinePage() {
                   >
                     <div className="font-medium truncate">{row.name}</div>
                     <div className="truncate">{row.suburb}</div>
-                    <div>—</div>
-                    <div>—</div>
                     <div>
                       <span
                         className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold"
