@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Users, Phone, FileText, Clock, PhoneCall, Loader2, ChevronDown, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -140,26 +141,26 @@ function DashboardHome() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const { status: deviceStatus, call: placeCall, hangup } = useTwilioDevice();
+
   const handleQuickDial = async () => {
-    if (!dialNumber || !selectedPhone || calling) return;
+    if (!dialNumber || calling) return;
+    if (deviceStatus === "in-call" || deviceStatus === "connecting") {
+      hangup();
+      setCallMessage(null);
+      return;
+    }
+    if (deviceStatus !== "ready") {
+      setCallMessage("Dialer not ready yet — please wait a moment.");
+      return;
+    }
     setCalling(true);
     setCallMessage(null);
     try {
-      const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
-        body: { clientPhone: dialNumber, userPhone: selectedPhone.phone },
-      });
-      if (error) throw error;
-      if (result?.success) {
-        setCallMessage("Calling your phone...");
-        await supabase.from("call_records").insert({
-          twilio_call_sid: result.callSid,
-          status: "initiated",
-        });
-      } else {
-        setCallMessage(result?.error || "Call failed");
-      }
-    } catch {
-      setCallMessage("Call failed. Try again.");
+      await placeCall(dialNumber);
+      setCallMessage("Connecting...");
+    } catch (err) {
+      setCallMessage(err instanceof Error ? err.message : "Call failed. Try again.");
     } finally {
       setCalling(false);
     }
