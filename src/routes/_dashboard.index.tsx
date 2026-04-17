@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Phone, FileText, Clock, PhoneCall, Loader2, ChevronDown, Bell } from "lucide-react";
+import { Users, Phone, FileText, PhoneCall, Loader2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
@@ -17,10 +17,9 @@ export const Route = createFileRoute("/_dashboard/")({
 });
 
 type SavedPhone = { name: string; phone: string };
+type ActivityItem = { color: string; text: string; time: string; sortDate: string };
 
-const DEFAULT_PHONES: SavedPhone[] = [
-  { name: "Peter Semrany", phone: "0418214953" },
-];
+const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
 
 function getStoredPhones(): SavedPhone[] {
   try {
@@ -60,100 +59,117 @@ function formatDate(): string {
   });
 }
 
-type ActivityItem = { color: string; text: string; time: string; sortDate: string };
-
 function DashboardHome() {
   const [totalContacts, setTotalContacts] = useState<number | null>(null);
   const [callsThisWeek, setCallsThisWeek] = useState<number | null>(null);
   const [contractsSent, setContractsSent] = useState<number | null>(null);
-  
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [recentCalls, setRecentCalls] = useState<Array<{ name: string; time: string; duration: string }>>([]);
 
-  // Quick Dial state
   const [dialNumber, setDialNumber] = useState("");
   const [calling, setCalling] = useState(false);
   const [callMessage, setCallMessage] = useState<string | null>(null);
-  const [savedPhones, setSavedPhones] = useState<SavedPhone[]>(getStoredPhones);
+  const [savedPhones] = useState<SavedPhone[]>(getStoredPhones);
   const [selectedPhoneIdx, setSelectedPhoneIdx] = useState(0);
   const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
+  const {
+    status: deviceStatus,
+    dialerStatus,
+    error: dialerError,
+    call: placeCall,
+    hangup,
+    retry,
+  } = useTwilioDevice();
+
+  const dialerStateLabel =
+    dialerStatus === "ready" ? "Ready" : dialerStatus === "failed" ? "Failed" : "Connecting";
+  const dialerStateColor =
+    dialerStatus === "ready" ? "#22c55e" : dialerStatus === "failed" ? "#ef4444" : "#f59e0b";
+  const isCallActive = deviceStatus === "in-call" || deviceStatus === "connecting";
+
   const loadData = useCallback(async () => {
-    const { count: contactCount } = await supabase.from("clients").select("*", { count: "exact", head: true });
+    const [
+      { count: contactCount },
+      { count: callCount },
+      { count: sentCount },
+      { data: callData },
+      { data: recentContracts },
+    ] = await Promise.all([
+      supabase.from("clients").select("*", { count: "exact", head: true }),
+      supabase
+        .from("call_records")
+        .select("*", { count: "exact", head: true })
+        .gte("called_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
+      supabase.from("contract_logs").select("*", { count: "exact", head: true }),
+      supabase.from("call_records").select("*, clients(name)").order("called_at", { ascending: false }).limit(8),
+      supabase.from("contract_logs").select("*").order("created_at", { ascending: false }).limit(8),
+    ]);
+
     setTotalContacts(contactCount ?? 0);
-
-    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-    const { count: callCount } = await supabase.from("call_records").select("*", { count: "exact", head: true }).gte("called_at", weekAgo);
     setCallsThisWeek(callCount ?? 0);
-
-    const { count: sentCount } = await supabase.from("contract_logs").select("*", { count: "exact", head: true });
     setContractsSent(sentCount ?? 0);
 
-
-    // Recent activity
     const activityItems: ActivityItem[] = [];
 
-    const { data: callData } = await supabase.from("call_records").select("*, clients(name)").order("called_at", { ascending: false }).limit(8);
     if (callData) {
       for (const c of callData) {
-        const clientName = (c as any).clients?.name || "Unknown";
-        const dur = c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : "No answer";
-        activityItems.push({ color: "#22c55e", text: `Call to ${clientName} — ${dur}`, time: relativeTime(c.called_at), sortDate: c.called_at });
+        activityItems.push({
+          color: "#22c55e",
+          text: `Call ${c.status || "updated"}${(c as { clients?: { name?: string } | null }).clients?.name ? ` with ${(c as { clients?: { name?: string } | null }).clients?.name}` : ""}`,
+          time: relativeTime(c.called_at),
+          sortDate: c.called_at,
+        });
       }
-    }
 
-    const { data: recentErrors } = await supabase.from("error_logs").select("*").order("created_at", { ascending: false }).limit(8);
-    if (recentErrors) {
-      const fnLabels: Record<string, string> = {
-        sendContractEmail: "Contract email",
-        sendInvoiceEmail: "Invoice email",
-        sendPaymentLinkSMS: "Payment SMS",
-        initiateCall: "Phone call",
-      };
-      for (const e of recentErrors) {
-        const label = fnLabels[e.function_name] || e.function_name;
-        activityItems.push({ color: "#ef4444", text: `${label} failed`, time: relativeTime(e.created_at), sortDate: e.created_at });
-      }
-    }
-
-    const { data: recentContracts } = await supabase.from("contract_logs").select("*").order("created_at", { ascending: false }).limit(8);
-    if (recentContracts) {
-      for (const c of recentContracts as any[]) {
-        activityItems.push({ color: "#2D6BE4", text: `Contract sent to ${c.clinic_name}`, time: relativeTime(c.created_at), sortDate: c.created_at });
-      }
-    }
-
-    activityItems.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
-    setActivity(activityItems.slice(0, 12));
-
-    // Recent calls for quick dial history
-    if (callData) {
       setRecentCalls(
         callData.slice(0, 3).map((c) => ({
-          name: (c as any).clients?.name || "Unknown",
+          name: (c as { clients?: { name?: string } | null }).clients?.name || "Unknown",
           time: relativeTime(c.called_at),
           duration: c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : "—",
         }))
       );
     }
+
+    if (recentContracts) {
+      for (const c of recentContracts as Array<{ clinic_name: string; created_at: string }>) {
+        activityItems.push({
+          color: "#2D6BE4",
+          text: `Contract sent to ${c.clinic_name}`,
+          time: relativeTime(c.created_at),
+          sortDate: c.created_at,
+        });
+      }
+    }
+
+    activityItems.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
+    setActivity(activityItems.slice(0, 12));
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
-
-  const { status: deviceStatus, call: placeCall, hangup } = useTwilioDevice();
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
 
   const handleQuickDial = async () => {
     if (!dialNumber || calling) return;
-    if (deviceStatus === "in-call" || deviceStatus === "connecting") {
+
+    if (isCallActive) {
       hangup();
-      setCallMessage(null);
+      setCallMessage("Call ended.");
       return;
     }
-    if (deviceStatus !== "ready") {
-      setCallMessage("Dialer not ready yet — please wait a moment.");
+
+    if (dialerStatus === "failed") {
+      setCallMessage("Connection failed — click to retry");
       return;
     }
+
+    if (dialerStatus !== "ready") {
+      setCallMessage("Dialer is connecting...");
+      return;
+    }
+
     setCalling(true);
     setCallMessage(null);
     try {
@@ -165,6 +181,12 @@ function DashboardHome() {
       setCalling(false);
     }
   };
+
+  useEffect(() => {
+    if (dialerStatus === "failed") {
+      setCallMessage(dialerError || "Connection failed — click to retry");
+    }
+  }, [dialerError, dialerStatus]);
 
   const stats = [
     {
@@ -198,74 +220,88 @@ function DashboardHome() {
       className="h-full overflow-hidden p-4 gap-3"
       style={{
         display: "grid",
+        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
         gridTemplateRows: "48px 1fr 1fr",
-        gridTemplateColumns: "1fr 1fr 1fr 280px",
-        background: "#09090b",
       }}
     >
-      {/* Header strip */}
       <div
-        className="col-span-4 flex items-center justify-between px-4"
-        style={{ borderBottom: "1px solid #1a1a1a" }}
+        className="col-span-4 rounded-lg flex items-center justify-between px-4"
+        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
       >
-        <div className="flex items-center gap-1">
-          <span style={{ fontWeight: 800, fontSize: 14, color: "#fff", letterSpacing: "0.02em" }}>UPPER</span>
-          <span style={{ fontWeight: 800, fontSize: 14, color: "#2D6BE4", letterSpacing: "0.02em" }}>HAND</span>
-        </div>
-        <span style={{ fontSize: 16, color: "#fff" }}>
-          {getGreeting()}, <span style={{ fontWeight: 600 }}>Peter</span>
-        </span>
-        <div className="flex items-center gap-4">
-          <span style={{ fontSize: 12, color: "#555" }}>{formatDate()}</span>
-          <Bell className="w-4 h-4" style={{ color: "#555" }} />
+        <div>
+          <div style={{ fontSize: 18, color: "#fff", fontWeight: 600 }}>{getGreeting()}, Peter</div>
+          <div style={{ fontSize: 11, color: "#666" }}>{formatDate()}</div>
         </div>
       </div>
 
-      {/* Stat cards — 2x2 grid in left 3 cols, middle row */}
-      <div
-        className="col-span-3 grid grid-cols-2 grid-rows-2 gap-3"
-      >
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="rounded-lg relative overflow-hidden flex flex-col justify-center px-5"
-            style={{
-              background: s.gradient,
-              border: `1px solid #1f1f23`,
-              borderLeft: `3px solid ${s.borderColor}`,
-            }}
-          >
-            <s.icon
-              className="absolute top-3 right-3 w-4 h-4"
-              style={{ color: s.iconColor, opacity: 0.7 }}
-            />
+      <div className="col-span-3 grid grid-cols-3 gap-3">
+        {stats.map((s) => {
+          const Icon = s.icon;
+          return (
             <div
+              key={s.label}
+              className="rounded-lg p-4"
               style={{
-                fontSize: 40,
-                fontWeight: 700,
-                color: "#fff",
-                fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
-                lineHeight: 1,
+                background: s.gradient,
+                border: `1px solid ${s.borderColor}33`,
+                borderLeft: `3px solid ${s.borderColor}`,
               }}
             >
-              {s.value === null ? "—" : s.value}
+              <div className="flex items-start justify-between">
+                <div>
+                  <div style={{ fontSize: 28, color: "#fff", fontWeight: 700, lineHeight: 1.1 }}>
+                    {s.value === null ? "—" : s.value}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "#666",
+                      letterSpacing: "0.15em",
+                      marginTop: 6,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                </div>
+                <Icon className="h-5 w-5" style={{ color: s.iconColor }} />
+              </div>
             </div>
-            <div
+          );
+        })}
+
+        <div className="col-span-3 rounded-lg flex flex-col overflow-hidden" style={{ background: "transparent" }}>
+          <div className="px-4 pt-3 pb-2 flex items-center gap-4">
+            <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
+            <span
               style={{
-                fontSize: 11,
-                color: "#666",
-                letterSpacing: "0.15em",
-                marginTop: 6,
-                fontWeight: 500,
+                fontSize: 10,
+                color: "#f59e0b",
+                letterSpacing: "0.2em",
+                fontWeight: 600,
+                marginLeft: "auto",
               }}
             >
-              {s.label}
-            </div>
+              FOLLOW UPS DUE
+            </span>
           </div>
-        ))}
+          <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
+            <FollowUpsDue />
+            {activity.length === 0 ? (
+              <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
+            ) : (
+              activity.map((item, i) => (
+                <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
+                  <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
+                  <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
+                  <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Quick Dial — right column, spans both middle + bottom rows */}
       <div
         className="row-span-2 rounded-lg flex flex-col overflow-hidden"
         style={{
@@ -288,6 +324,41 @@ function DashboardHome() {
           </div>
           <p style={{ fontSize: 11, color: "#555", marginBottom: 12 }}>Call a clinic directly</p>
 
+          <div
+            className="mb-3 rounded px-3 py-2 flex items-center justify-between gap-3"
+            style={{
+              background: "#151518",
+              border: `1px solid ${dialerStateColor}33`,
+            }}
+          >
+            <div>
+              <div className="flex items-center gap-2" style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
+                <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
+                {dialerStateLabel}
+              </div>
+              <div style={{ fontSize: 10, color: dialerStatus === "failed" ? "#fca5a5" : "#777", marginTop: 4 }}>
+                {dialerStatus === "failed"
+                  ? "Connection failed — click to retry"
+                  : dialerStatus === "ready"
+                    ? "Dialler ready"
+                    : "Connecting to Twilio..."}
+              </div>
+            </div>
+            {dialerStatus === "failed" && (
+              <Button
+                type="button"
+                onClick={() => {
+                  setCallMessage(null);
+                  retry();
+                }}
+                className="border-0 text-white text-xs px-3"
+                style={{ background: "#ef4444", height: 32 }}
+              >
+                Retry
+              </Button>
+            )}
+          </div>
+
           <Input
             placeholder="Phone number"
             value={dialNumber}
@@ -298,12 +369,17 @@ function DashboardHome() {
 
           <Button
             onClick={handleQuickDial}
-            disabled={!dialNumber || calling}
+            disabled={!dialNumber || calling || (dialerStatus === "connecting" && !isCallActive)}
             className="w-full border-0 text-white font-semibold text-sm"
-            style={{ background: "#22c55e", height: 48 }}
+            style={{ background: isCallActive ? "#ef4444" : "#22c55e", height: 48 }}
           >
             {calling ? (
               <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isCallActive ? (
+              <>
+                <PhoneCall className="h-4 w-4 mr-2" />
+                Hang Up
+              </>
             ) : (
               <>
                 <PhoneCall className="h-4 w-4 mr-2" />
@@ -313,12 +389,18 @@ function DashboardHome() {
           </Button>
 
           {callMessage && (
-            <div className="mt-2 rounded px-3 py-2" style={{ fontSize: 11, color: "#999", background: "#1a1a1a" }}>
+            <div
+              className="mt-2 rounded px-3 py-2"
+              style={{
+                fontSize: 11,
+                color: dialerStatus === "failed" ? "#fca5a5" : "#999",
+                background: "#1a1a1a",
+              }}
+            >
               {callMessage}
             </div>
           )}
 
-          {/* Caller selector */}
           <div className="relative mt-3">
             <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 4 }}>CALL FROM</div>
             <button
@@ -337,7 +419,10 @@ function DashboardHome() {
                 {savedPhones.map((p, idx) => (
                   <button
                     key={idx}
-                    onClick={() => { setSelectedPhoneIdx(idx); setShowPhoneDropdown(false); }}
+                    onClick={() => {
+                      setSelectedPhoneIdx(idx);
+                      setShowPhoneDropdown(false);
+                    }}
                     className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
                     style={{ color: idx === selectedPhoneIdx ? "#2D6BE4" : "#999" }}
                   >
@@ -349,7 +434,6 @@ function DashboardHome() {
           </div>
         </div>
 
-        {/* Recent calls mini history */}
         <div className="mt-auto px-4 pb-4">
           <div
             style={{
@@ -376,33 +460,6 @@ function DashboardHome() {
           )}
         </div>
       </div>
-
-      {/* Activity feed — bottom left 3 cols */}
-      <div
-        className="col-span-3 rounded-lg flex flex-col overflow-hidden"
-        style={{ background: "transparent" }}
-      >
-        <div className="px-4 pt-3 pb-2 flex items-center gap-4">
-          <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
-          <span style={{ fontSize: 10, color: "#f59e0b", letterSpacing: "0.2em", fontWeight: 600, marginLeft: "auto", cursor: "pointer" }}>FOLLOW UPS DUE</span>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
-          {/* Follow ups due */}
-          <FollowUpsDue />
-          {/* Activity */}
-          {activity.length === 0 ? (
-            <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
-          ) : (
-            activity.map((item, i) => (
-              <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
-                <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
-                <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
-                <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
     </div>
   );
 }
@@ -419,7 +476,7 @@ function FollowUpsDue() {
       .order("next_follow_up", { ascending: true })
       .limit(5)
       .then(({ data }) => {
-        if (data) setFollowUps(data as any);
+        if (data) setFollowUps(data as Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>);
       });
   }, []);
 
@@ -433,7 +490,7 @@ function FollowUpsDue() {
           <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
           <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
           {f.phone && (
-            <button className="p-1 rounded hover:bg-white/5">
+            <button className="p-1 rounded hover:bg-white/5" type="button">
               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
             </button>
           )}
