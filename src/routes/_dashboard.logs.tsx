@@ -15,6 +15,11 @@ const FUNCTION_LABELS: Record<string, string> = {
   sendInvoiceEmail: "Send Invoice Email",
   sendPaymentLinkSMS: "Send Payment Link SMS",
   initiateCall: "Initiate Phone Call",
+  "twilio-token": "Twilio Token Generation",
+  "twilio-device": "Twilio Device (Browser)",
+  "twilio-call": "Twilio Call (Browser)",
+  "window.error": "Uncaught Browser Error",
+  "window.unhandledrejection": "Unhandled Promise Rejection",
 };
 
 function formatTime(ts: string) {
