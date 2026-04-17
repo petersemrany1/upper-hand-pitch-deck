@@ -1,40 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-// Only fetched AFTER the user answers. If machine detected, Twilio will have
-// already hung up before reaching this point via the IfMachine=Hangup approach.
-// But as a safety net, we also check AnsweredBy here.
+// Called by Twilio when the browser-based Voice SDK client connects.
+// The browser passes "To" as a custom param via Device.connect({ params: { To } }).
+// We dial that number and record the call. CallerID must be a Twilio number on the account.
+
+const TWILIO_CALLER_ID = "+61483938205";
 
 serve(async (req) => {
+  // Twilio posts form-encoded data; also support GET for legacy/testing
+  let to = "";
   const url = new URL(req.url);
-  const clientPhone = url.searchParams.get("clientPhone") || "";
+  to = url.searchParams.get("To") || url.searchParams.get("clientPhone") || "";
 
-  // Check if Twilio detected a machine — GET params or POST form data
-  let answeredBy = url.searchParams.get("AnsweredBy") || "";
-  if (!answeredBy && req.method === "POST") {
+  if (!to && req.method === "POST") {
     try {
       const formData = await req.formData();
-      answeredBy = formData.get("AnsweredBy")?.toString() || "";
+      to = formData.get("To")?.toString() || formData.get("clientPhone")?.toString() || "";
     } catch {}
   }
 
-  console.log("TwiML requested. clientPhone:", clientPhone, "AnsweredBy:", answeredBy);
+  console.log("TwiML requested. To:", to);
 
-  // If machine/voicemail detected, hang up immediately — never dial client
-  if (answeredBy && (answeredBy.startsWith("machine") || answeredBy === "fax")) {
+  if (!to) {
     return new Response(
       `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Hangup/>
-</Response>`,
-      { status: 200, headers: { "Content-Type": "application/xml" } },
-    );
-  }
-
-  if (!clientPhone) {
-    return new Response(
-      `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Say voice="alice">Error: No client phone number provided.</Say>
+  <Say voice="alice">Error: No destination number provided.</Say>
   <Hangup/>
 </Response>`,
       { status: 200, headers: { "Content-Type": "application/xml" } },
@@ -47,11 +38,9 @@ serve(async (req) => {
   return new Response(
     `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="alice">Connecting your call now.</Say>
-  <Dial record="record-from-answer-dual" recordingStatusCallback="${recordingStatusUrl}" recordingStatusCallbackMethod="POST" timeout="30" callerId="+61483938205">
-    <Number>${clientPhone}</Number>
+  <Dial record="record-from-answer-dual" recordingStatusCallback="${recordingStatusUrl}" recordingStatusCallbackMethod="POST" timeout="30" callerId="${TWILIO_CALLER_ID}" answerOnBridge="true">
+    <Number>${to}</Number>
   </Dial>
-  <Say voice="alice">The other party did not answer. Goodbye.</Say>
 </Response>`,
     { status: 200, headers: { "Content-Type": "application/xml" } },
   );
