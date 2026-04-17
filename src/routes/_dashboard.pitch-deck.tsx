@@ -7,6 +7,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { loadDeckSettings } from "./_dashboard.settings";
+import patientPhoto from "../assets/pitch/patient.jpg";
+import teamPhoto from "../assets/pitch/team.jpg";
+import hairPhoto from "../assets/pitch/hair.jpg";
+import clinicPhoto from "../assets/pitch/clinic.jpg";
+
+const DECK_PHOTOS = [patientPhoto, teamPhoto, hairPhoto, clinicPhoto];
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
