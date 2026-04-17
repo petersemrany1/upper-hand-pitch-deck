@@ -38,8 +38,6 @@ const CONVERT_RATES: Record<string, number> = {
   "1 in 10": 0.1,
 };
 
-const PATIENT_PROFILE_URL = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=60";
-
 function PitchDeck() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -49,8 +47,6 @@ function PitchDeck() {
   const [pricePerShow, setPricePerShow] = useState(initial.pricePerShow);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
-  const [patientImageReady, setPatientImageReady] = useState(false);
-  const [patientImageFailed, setPatientImageFailed] = useState(false);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
@@ -72,32 +68,6 @@ function PitchDeck() {
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const image = new Image();
-    const timeoutId = window.setTimeout(() => {
-      if (!cancelled) setPatientImageFailed(true);
-    }, 1000);
-
-    image.onload = () => {
-      if (cancelled) return;
-      window.clearTimeout(timeoutId);
-      setPatientImageReady(true);
-    };
-
-    image.onerror = () => {
-      if (cancelled) return;
-      window.clearTimeout(timeoutId);
-      setPatientImageFailed(true);
-    };
-
-    image.src = PATIENT_PROFILE_URL;
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
 
   /* Helpers */
   const H = ({ children }: { children: React.ReactNode }) => (
