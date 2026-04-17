@@ -254,19 +254,53 @@ function PitchDeck() {
           </motion.div>
         </motion.div>
       </div>
-      <div className="w-[35%] relative overflow-hidden" style={{ willChange: "transform" }}>
-        {patientImageReady && !patientImageFailed ? (
-          <img
-            src={PATIENT_PROFILE_URL}
-            alt="Confident man in his 40s"
-            loading="eager"
-            decoding="async"
-            fetchPriority="high"
-            className="w-full h-full object-cover"
-          />
-        ) : null}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.22),transparent_45%),linear-gradient(180deg,rgba(10,10,10,0.35),rgba(10,10,10,0.92))]" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/20 to-transparent" />
+      <div className="w-[35%] relative overflow-hidden bg-black">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(198,255,0,0.18),transparent_55%),linear-gradient(180deg,#0a0a0a,#000)]" />
+        <div
+          className="absolute inset-0 opacity-[0.06]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(255,255,255,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.6) 1px, transparent 1px)",
+            backgroundSize: "32px 32px",
+          }}
+        />
+        <div className="absolute inset-0 flex items-end justify-center">
+          <svg
+            viewBox="0 0 400 600"
+            preserveAspectRatio="xMidYMax meet"
+            className="w-[88%] h-[92%]"
+            aria-hidden="true"
+          >
+            <defs>
+              <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#1a1a1a" />
+                <stop offset="100%" stopColor="#050505" />
+              </linearGradient>
+              <linearGradient id="rimGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="rgba(198,255,0,0)" />
+                <stop offset="55%" stopColor="rgba(198,255,0,0)" />
+                <stop offset="100%" stopColor="rgba(198,255,0,0.55)" />
+              </linearGradient>
+              <radialGradient id="headGlow" cx="0.5" cy="0.35" r="0.6">
+                <stop offset="0%" stopColor="rgba(255,255,255,0.07)" />
+                <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+              </radialGradient>
+            </defs>
+            <path d="M40 600 L40 470 C40 410 110 360 200 360 C290 360 360 410 360 470 L360 600 Z" fill="url(#bodyGrad)" />
+            <path d="M165 360 L200 460 L235 360 Z" fill="#000" />
+            <path d="M178 360 L200 425 L222 360 Z" fill="#0d0d0d" />
+            <path d="M188 360 L200 395 L212 360 Z" fill="#1f1f1f" />
+            <path d="M194 360 L206 360 L210 395 L208 470 L200 485 L192 470 L190 395 Z" fill="#0a0a0a" stroke="rgba(198,255,0,0.25)" strokeWidth="0.5" />
+            <rect x="180" y="300" width="40" height="70" fill="#161616" />
+            <ellipse cx="200" cy="240" rx="78" ry="92" fill="#141414" />
+            <path d="M125 230 C125 165 160 135 200 135 C240 135 275 165 275 230 C275 215 260 195 240 188 C225 184 215 192 200 192 C185 192 175 184 160 188 C140 195 125 215 125 230 Z" fill="#080808" />
+            <ellipse cx="200" cy="245" rx="55" ry="75" fill="url(#headGlow)" />
+            <path d="M40 470 C40 410 110 360 200 360 C290 360 360 410 360 470 L360 600 L40 600 Z" fill="url(#rimGrad)" opacity="0.9" />
+            <path d="M125 230 C125 165 160 135 200 135 C240 135 275 165 275 230 L275 320 C275 320 260 332 250 332 L250 240 C250 200 230 175 200 175 L200 135 Z" fill="url(#rimGrad)" opacity="0.7" />
+          </svg>
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/30 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black to-transparent" />
       </div>
     </div>,
 
