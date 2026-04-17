@@ -18,7 +18,10 @@ import {
   Users,
   Plus,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { CallAnalysisPanel, type CallAnalysis } from "@/components/CallAnalysisPanel";
 
 export const Route = createFileRoute("/_dashboard/clients")({
   component: ClientsPage,
@@ -41,6 +44,7 @@ type CallRecord = {
   recording_url: string | null;
   recording_sid: string | null;
   called_at: string;
+  call_analysis: CallAnalysis | null;
 };
 
 type SavedPhone = {
@@ -94,6 +98,13 @@ function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
+
+  // Selection + analysis
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+  const [analysisRecord, setAnalysisRecord] = useState<CallRecord | null>(null);
+
+  // Browser-based dialer
+  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
 
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
@@ -161,62 +172,39 @@ function ClientsPage() {
   };
 
   const handleInitiateCall = async () => {
-    if (!dialNumber || !selectedPhone) return;
+    if (!dialNumber) return;
+
+    // Hang up if already on a call
+    if (deviceStatus === "in-call") {
+      deviceHangup();
+      setCalling(false);
+      setCallMessage(null);
+      // Refresh records and offer save-contact prompt
+      const matchingClient = clients.find((c) => c.phone === dialNumber);
+      if (!matchingClient) setShowSaveContact(true);
+      loadAllRecords();
+      return;
+    }
+
+    if (deviceStatus !== "ready") {
+      setCallMessage("Phone is still connecting. Try again in a moment.");
+      setTimeout(() => setCallMessage(null), 4000);
+      return;
+    }
+
     setCalling(true);
-    setCallMessage(null);
+    setCallMessage("Connecting…");
 
     try {
-      const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
-        body: { clientPhone: dialNumber, userPhone: selectedPhone.phone },
-      });
-
-      if (error) throw error;
-
-      if (result?.success && result?.callSid) {
-        setLastCallSid(result.callSid);
-        setCallMessage("Calling your phone... answer within 20 seconds.");
-
-        const matchingClient = clients.find((c) => c.phone === dialNumber);
-
-        await supabase.from("call_records").insert({
-          client_id: matchingClient?.id || null,
-          twilio_call_sid: result.callSid,
-          status: "initiated",
-        });
-
-        // Poll for call status to detect timeout/no-answer
-        let resolved = false;
-        for (let i = 0; i < 15; i++) {
-          await new Promise((r) => setTimeout(r, 2000));
-          const { data: records } = await supabase
-            .from("call_records")
-            .select("status")
-            .eq("twilio_call_sid", result.callSid)
-            .single();
-
-          if (records?.status === "completed") {
-            resolved = true;
-            setCallMessage(null);
-            if (!matchingClient) setShowSaveContact(true);
-            break;
-          }
-          if (records?.status === "no-answer" || records?.status === "busy" || records?.status === "failed" || records?.status === "canceled" || records?.status === "machine_detected") {
-            resolved = true;
-            const msg = records?.status === "machine_detected"
-              ? "Call cancelled — went to voicemail."
-              : "Call cancelled — you didn't answer in time.";
-            setCallMessage(msg);
-            setTimeout(() => setCallMessage(null), 5000);
-            break;
-          }
-        }
-
-        if (!resolved) {
-          setCallMessage("Call cancelled — you didn't answer in time.");
-          setTimeout(() => setCallMessage(null), 5000);
-        }
-
-        loadAllRecords();
+      const matchingClient = clients.find((c) => c.phone === dialNumber);
+      await deviceCall(dialNumber);
+      setCallMessage("In call — click the red button to hang up.");
+      setLastCallSid(null);
+      // The hook inserts the call_record; refresh after a short delay
+      setTimeout(() => loadAllRecords(), 2000);
+      // Show save-contact prompt after call ends if it's a new number
+      if (!matchingClient) {
+        // We'll show it next time the device returns to ready
       }
     } catch (err) {
       console.error("Call failed:", err);
@@ -226,6 +214,16 @@ function ClientsPage() {
       setCalling(false);
     }
   };
+
+  // When the device returns to ready after an in-call state, refresh records
+  useEffect(() => {
+    if (deviceStatus === "ready" && callMessage?.startsWith("In call")) {
+      setCallMessage(null);
+      const matchingClient = clients.find((c) => c.phone === dialNumber);
+      if (!matchingClient && dialNumber) setShowSaveContact(true);
+      loadAllRecords();
+    }
+  }, [deviceStatus, callMessage, dialNumber, clients, loadAllRecords]);
 
   const handleSaveContact = async () => {
     if (!saveContactName || !dialNumber) return;
@@ -452,11 +450,17 @@ function ClientsPage() {
               <div className="flex-1" />
               <button
                 onClick={handleInitiateCall}
-                disabled={!dialNumber || !selectedPhone || calling}
-                className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:hover:bg-green-600 flex items-center justify-center transition-colors"
+                disabled={!dialNumber || (deviceStatus !== "ready" && deviceStatus !== "in-call")}
+                className={`w-16 h-16 rounded-full disabled:opacity-40 flex items-center justify-center transition-colors ${
+                  deviceStatus === "in-call"
+                    ? "bg-red-600 hover:bg-red-500"
+                    : "bg-green-600 hover:bg-green-500 disabled:hover:bg-green-600"
+                }`}
               >
-                {calling ? (
+                {deviceStatus === "loading" || calling ? (
                   <Loader2 className="w-7 h-7 text-white animate-spin" />
+                ) : deviceStatus === "in-call" ? (
+                  <PhoneOff className="w-7 h-7 text-white" />
                 ) : (
                   <PhoneCall className="w-7 h-7 text-white" />
                 )}
@@ -568,108 +572,222 @@ function ClientsPage() {
       {/* HISTORY TAB */}
       {activeTab === "history" && (
         <div className="space-y-2">
+          {/* Bulk action bar */}
+          {selectedRecordIds.size > 0 && (
+            <div className="sticky top-0 z-10 flex items-center justify-between bg-card border border-border rounded-lg px-4 py-2.5 mb-2">
+              <span className="text-sm font-medium text-foreground">
+                {selectedRecordIds.size} call{selectedRecordIds.size === 1 ? "" : "s"} selected
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setSelectedRecordIds(new Set())}
+                >
+                  Clear
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const selected = allRecords.filter((r) => selectedRecordIds.has(r.id) && r.recording_url);
+                    selected.forEach((r, i) => {
+                      // Stagger downloads slightly to avoid browser blocking
+                      setTimeout(() => {
+                        const a = document.createElement("a");
+                        a.href = getProxyUrl(r.recording_url!, true);
+                        a.download = `call-${r.twilio_call_sid || r.id}.mp3`;
+                        a.target = "_blank";
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                      }, i * 300);
+                    });
+                  }}
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Download {selectedRecordIds.size > 1 ? `${selectedRecordIds.size} MP3s` : "MP3"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {allRecords.length === 0 ? (
             <p className="text-muted-foreground text-center py-12">No call history yet.</p>
           ) : (
-            allRecords.map((record) => (
-              <div
-                key={record.id}
-                className="bg-card border border-border rounded-lg px-4 py-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        record.status === "completed"
-                          ? "bg-green-500/20"
-                          : "bg-yellow-500/20"
-                      }`}
-                    >
-                      {record.status === "completed" ? (
-                        <PhoneOff className="w-4 h-4 text-green-400" />
+            allRecords.map((record) => {
+              const hasRecording = !!record.recording_url;
+              const checked = selectedRecordIds.has(record.id);
+              return (
+                <div
+                  key={record.id}
+                  className="bg-card border border-border rounded-lg px-4 py-3"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Checkbox - only for records with recordings */}
+                      {hasRecording ? (
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setSelectedRecordIds((prev) => {
+                              const next = new Set(prev);
+                              if (e.target.checked) next.add(record.id);
+                              else next.delete(record.id);
+                              return next;
+                            });
+                          }}
+                          className="w-4 h-4 rounded shrink-0 cursor-pointer accent-primary"
+                          aria-label="Select call"
+                        />
                       ) : (
-                        <PhoneCall className="w-4 h-4 text-yellow-400" />
+                        <div className="w-4 h-4 shrink-0" />
                       )}
+
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                          record.status === "completed"
+                            ? "bg-green-500/20"
+                            : "bg-yellow-500/20"
+                        }`}
+                      >
+                        {record.status === "completed" ? (
+                          <PhoneOff className="w-4 h-4 text-green-400" />
+                        ) : (
+                          <PhoneCall className="w-4 h-4 text-yellow-400" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-foreground text-sm truncate">
+                            {getClientName(record.client_id)}
+                          </p>
+                          {record.call_analysis && (
+                            <span
+                              className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                              style={{
+                                background:
+                                  record.call_analysis.score >= 8
+                                    ? "rgba(22,163,74,0.2)"
+                                    : record.call_analysis.score >= 5
+                                      ? "rgba(245,158,11,0.2)"
+                                      : "rgba(220,38,38,0.2)",
+                                color:
+                                  record.call_analysis.score >= 8
+                                    ? "#22c55e"
+                                    : record.call_analysis.score >= 5
+                                      ? "#f59e0b"
+                                      : "#dc2626",
+                              }}
+                            >
+                              {record.call_analysis.score}/10
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {getClientPhone(record.client_id)} · {formatDate(record.called_at)} ·{" "}
+                          {formatDuration(record.duration)}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium text-foreground text-sm">
-                        {getClientName(record.client_id)}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {getClientPhone(record.client_id)} · {formatDate(record.called_at)} ·{" "}
-                        {formatDuration(record.duration)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {record.recording_url ? (
-                      <>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {hasRecording ? (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 px-2 text-xs gap-1"
+                            style={{ color: "#a78bfa" }}
+                            onClick={() => setAnalysisRecord(record)}
+                            title={record.call_analysis ? "View analysis" : "Analyse call with AI"}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            {record.call_analysis ? "View" : "Analyse"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0"
+                            onClick={() => togglePlayback(getProxyUrl(record.recording_url ?? ""))}
+                          >
+                            {playingUrl === getProxyUrl(record.recording_url ?? "") ? (
+                              <Pause className="w-4 h-4" />
+                            ) : (
+                              <Play className="w-4 h-4" />
+                            )}
+                          </Button>
+                          <a
+                            href={getProxyUrl(record.recording_url ?? "", true)}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
+                              <Download className="w-4 h-4" />
+                            </Button>
+                          </a>
+                        </>
+                      ) : record.twilio_call_sid ? (
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="h-8 w-8 p-0"
-                          onClick={() => togglePlayback(getProxyUrl(record.recording_url ?? ""))}
+                          className="text-xs"
+                          onClick={() => handleCheckRecording(record)}
                         >
-                          {playingUrl === getProxyUrl(record.recording_url ?? "") ? (
-                            <Pause className="w-4 h-4" />
-                          ) : (
-                            <Play className="w-4 h-4" />
-                          )}
+                          Check Recording
                         </Button>
-                        <a
-                          href={getProxyUrl(record.recording_url ?? "", true)}
-                          download
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                            <Download className="w-4 h-4" />
-                          </Button>
-                        </a>
-                      </>
-                    ) : record.twilio_call_sid ? (
+                      ) : null}
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-xs"
-                        onClick={() => handleCheckRecording(record)}
+                        className="h-8 w-8 p-0 text-green-500"
+                        onClick={() => {
+                          const phone = getClientPhone(record.client_id);
+                          if (phone) {
+                            setDialNumber(phone);
+                            setActiveTab("dialer");
+                          }
+                        }}
                       >
-                        Check Recording
+                        <Phone className="w-4 h-4" />
                       </Button>
-                    ) : null}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-8 w-8 p-0 text-green-500"
-                      onClick={() => {
-                        const phone = getClientPhone(record.client_id);
-                        if (phone) {
-                          setDialNumber(phone);
-                          setActiveTab("dialer");
-                        }
-                      }}
-                    >
-                      <Phone className="w-4 h-4" />
-                    </Button>
+                    </div>
                   </div>
-                </div>
 
-                {record.recording_url && playingUrl === getProxyUrl(record.recording_url) && (
-                  <div className="mt-2">
-                    <audio
-                      controls
-                      autoPlay
-                      src={getProxyUrl(record.recording_url)}
-                      ref={(el) => setAudioRef(el)}
-                      onEnded={() => setPlayingUrl(null)}
-                      className="w-full h-8"
-                    />
-                  </div>
-                )}
-              </div>
-            ))
+                  {record.recording_url && playingUrl === getProxyUrl(record.recording_url) && (
+                    <div className="mt-2">
+                      <audio
+                        controls
+                        autoPlay
+                        src={getProxyUrl(record.recording_url)}
+                        ref={(el) => setAudioRef(el)}
+                        onEnded={() => setPlayingUrl(null)}
+                        className="w-full h-8"
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
+      )}
+
+      {/* Analysis Side Panel */}
+      {analysisRecord && analysisRecord.recording_url && (
+        <CallAnalysisPanel
+          recordId={analysisRecord.id}
+          recordingUrl={analysisRecord.recording_url}
+          existingAnalysis={analysisRecord.call_analysis}
+          onClose={() => setAnalysisRecord(null)}
+          onAnalysisSaved={(analysis) => {
+            // Update local cache so badge appears immediately
+            setAllRecords((prev) =>
+              prev.map((r) => (r.id === analysisRecord.id ? { ...r, call_analysis: analysis } : r)),
+            );
+            setAnalysisRecord((prev) => (prev ? { ...prev, call_analysis: analysis } : prev));
+          }}
+        />
       )}
     </div>
   );
