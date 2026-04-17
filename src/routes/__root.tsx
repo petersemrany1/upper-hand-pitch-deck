@@ -1,4 +1,6 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 
 import appCss from "../styles.css?url";
 
