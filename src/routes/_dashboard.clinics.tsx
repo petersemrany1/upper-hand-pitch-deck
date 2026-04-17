@@ -647,14 +647,9 @@ function ClinicsPage() {
                             </button>
                           ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
                         </div>
-                        {/* Email */}
-                        <div className="w-[150px] shrink-0 px-2 truncate">
-                          {c.email ? (
-                            <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-[11px] hover:brightness-125 transition" style={{ color: "#60a5fa" }}>
-                              <Mail className="w-3 h-3 shrink-0" />
-                              <span className="truncate">{c.email}</span>
-                            </a>
-                          ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
+                        {/* Latest Note */}
+                        <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: notePreview ? "#9ca3af" : "#222" }}>
+                          {notePreview || "—"}
                         </div>
                         {/* Stage */}
                         <div className="w-[130px] shrink-0 px-2">
