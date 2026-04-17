@@ -122,6 +122,7 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           {columns.map((col, i) => {
             const isSelected = i === selectedColIdx;
+            const investment = shows * pricePerShow;
             return (
               <button
                 key={col.label}
@@ -140,6 +141,10 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
                   {fmt(col.revenue)}
                 </p>
                 <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>
+                <div className="mt-5 pt-4 border-t border-border/60">
+                  <p className="text-[10px] text-[#888] uppercase tracking-wider mb-1">Your Investment</p>
+                  <p className="text-base font-bold text-foreground">${investment.toLocaleString()}</p>
+                </div>
               </button>
             );
           })}
