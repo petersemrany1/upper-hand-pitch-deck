@@ -18,7 +18,10 @@ import {
   Users,
   Plus,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { CallAnalysisPanel, type CallAnalysis } from "@/components/CallAnalysisPanel";
 
 export const Route = createFileRoute("/_dashboard/clients")({
   component: ClientsPage,
