@@ -390,7 +390,11 @@ function ClinicsPage() {
     setLogOutcome(outcomes[0]);
   };
 
-  const needsDateTimePicker = logOutcome === "Spoke — Call Me Back" || logOutcome === "Spoke — Zoom Set";
+  const needsDateTimePicker =
+    logOutcome === "Spoke — Call Me Back" ||
+    logOutcome === "Spoke — Zoom Set" ||
+    logOutcome === "Call Back — Specific Time";
+  const isSpecificTimeRange = logOutcome === "Call Back — Specific Time";
 
   const handleAddClinic = async () => {
     if (!newName) return;
