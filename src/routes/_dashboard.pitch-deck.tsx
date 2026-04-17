@@ -6,11 +6,6 @@ import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import processPhoneCall from "../assets/process-phone-call.webp";
-import patientProfile from "../assets/patient-profile.webp";
-import postConsultCoordinator from "../assets/post-consult-coordinator.webp";
-import faqFounder from "../assets/faq-founder.webp";
-import clinicReception from "../assets/clinic-reception.webp";
 import { loadDeckSettings } from "./_dashboard.settings";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
@@ -43,6 +38,8 @@ const CONVERT_RATES: Record<string, number> = {
   "1 in 10": 0.1,
 };
 
+const PATIENT_PROFILE_URL = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=60";
+
 function PitchDeck() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeSlide, setActiveSlide] = useState(0);
@@ -52,6 +49,8 @@ function PitchDeck() {
   const [pricePerShow, setPricePerShow] = useState(initial.pricePerShow);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
+  const [patientImageReady, setPatientImageReady] = useState(false);
+  const [patientImageFailed, setPatientImageFailed] = useState(false);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
@@ -71,6 +70,33 @@ function PitchDeck() {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const image = new Image();
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setPatientImageFailed(true);
+    }, 1000);
+
+    image.onload = () => {
+      if (cancelled) return;
+      window.clearTimeout(timeoutId);
+      setPatientImageReady(true);
+    };
+
+    image.onerror = () => {
+      if (cancelled) return;
+      window.clearTimeout(timeoutId);
+      setPatientImageFailed(true);
+    };
+
+    image.src = PATIENT_PROFILE_URL;
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   /* Helpers */
@@ -125,6 +151,24 @@ function PitchDeck() {
           knowing the price{" "}
           <span className="text-primary">with a deposit.</span>
         </motion.h1>
+
+        <motion.div
+          variants={fadeIn}
+          className="mt-10 flex flex-col items-center gap-3 md:flex-row md:justify-center md:gap-4"
+        >
+          {[
+            "We cover all ad spend",
+            "Patients pay a deposit",
+            "You pay per show",
+          ].map((item) => (
+            <div
+              key={item}
+              className="rounded-full border border-white/10 bg-card/30 px-4 py-2 text-xs md:text-sm font-semibold tracking-wide text-[#D6D6D6]"
+            >
+              {item}
+            </div>
+          ))}
+        </motion.div>
       </motion.div>
     </div>,
 
@@ -135,7 +179,6 @@ function PitchDeck() {
         <motion.div variants={fadeIn}>
           <ChapterLabel>HOW IT WORKS</ChapterLabel>
           <H>The Patient Journey</H>
-          <p className="text-[#888] text-base md:text-lg mt-3">From cold ad to consult chair — every step handled.</p>
         </motion.div>
       </motion.div>
 
@@ -241,16 +284,19 @@ function PitchDeck() {
           </motion.div>
         </motion.div>
       </div>
-      <div className="w-[35%] relative" style={{ willChange: "transform" }}>
-        <img
-          src={patientProfile}
-          alt="Confident man in his 40s"
-          loading="eager"
-          decoding="async"
-          fetchPriority="high"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+      <div className="w-[35%] relative overflow-hidden" style={{ willChange: "transform" }}>
+        {patientImageReady && !patientImageFailed ? (
+          <img
+            src={PATIENT_PROFILE_URL}
+            alt="Confident man in his 40s"
+            loading="eager"
+            decoding="async"
+            fetchPriority="high"
+            className="w-full h-full object-cover"
+          />
+        ) : null}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.22),transparent_45%),linear-gradient(180deg,rgba(10,10,10,0.35),rgba(10,10,10,0.92))]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/20 to-transparent" />
       </div>
     </div>,
 
@@ -279,9 +325,8 @@ function PitchDeck() {
           ))}
         </motion.div>
       </div>
-      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
-        <img src={postConsultCoordinator} alt="Patient coordinator" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/40" />
+      <div className="w-[30%] relative overflow-hidden" style={{ willChange: "transform" }}>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_35%),linear-gradient(180deg,rgba(22,22,22,0.2),rgba(10,10,10,0.95))]" />
       </div>
     </div>,
 
@@ -348,17 +393,15 @@ function PitchDeck() {
           </motion.div>
         </div>
       </div>
-      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
-        <img src={faqFounder} alt="Founder in conversation" loading="lazy" decoding="async" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-black/40" />
+      <div className="w-[30%] relative overflow-hidden" style={{ willChange: "transform" }}>
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(198,255,0,0.16),transparent_30%),linear-gradient(180deg,rgba(22,22,22,0.15),rgba(10,10,10,0.95))]" />
       </div>
     </div>,
 
     /* ──────── SLIDE 8 — CLOSE ──────── */
     <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
       <SlideHeader />
-      <img src={clinicReception} alt="Modern clinic reception" loading="lazy" decoding="async" className="absolute inset-0 w-full h-full object-cover" style={{ willChange: "transform" }} />
-      <div className="absolute inset-0 bg-black/85" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_32%),linear-gradient(180deg,rgba(18,18,18,0.45),rgba(0,0,0,0.94))]" />
       <div className="relative z-10">
         <Link
           to="/"
