@@ -4,13 +4,13 @@ import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Maximize, Minimize, Home } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import processPhoneCall from "../assets/process-phone-call.jpg";
-import patientProfile from "../assets/patient-profile.jpg";
-import postConsultCoordinator from "../assets/post-consult-coordinator.jpg";
-import faqFounder from "../assets/faq-founder.jpg";
-import clinicReception from "../assets/clinic-reception.jpg";
+import processPhoneCall from "../assets/process-phone-call.webp";
+import patientProfile from "../assets/patient-profile.webp";
+import postConsultCoordinator from "../assets/post-consult-coordinator.webp";
+import faqFounder from "../assets/faq-founder.webp";
+import clinicReception from "../assets/clinic-reception.webp";
 import { loadDeckSettings } from "./_dashboard.settings";
 
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
@@ -128,84 +128,129 @@ function PitchDeck() {
       </motion.div>
     </div>,
 
-    /* ──────── SLIDE 2 — OUR PROCESS (4 clear steps) ──────── */
-    <div key="process" className="deck-slide flex min-h-screen w-full bg-black">
+    /* ──────── SLIDE 2 — OUR PROCESS (visual journey) ──────── */
+    <div key="process" className="deck-slide flex flex-col min-h-screen w-full bg-black px-16 py-12">
       <SlideHeader />
-      <div className="w-[70%] flex flex-col justify-center px-16 py-12">
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-12">
-          <motion.div variants={fadeIn}>
-            <ChapterLabel>HOW IT WORKS</ChapterLabel>
-            <H>Our Process</H>
-          </motion.div>
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-14 mt-4">
+        <motion.div variants={fadeIn}>
+          <ChapterLabel>HOW IT WORKS</ChapterLabel>
+          <H>The Patient Journey</H>
+          <p className="text-[#888] text-base md:text-lg mt-3">From cold ad to consult chair — every step handled.</p>
         </motion.div>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 gap-5 max-w-4xl w-full mx-auto">
-          {[
-            "We run proven ads and cover all ad spend.",
-            "We call every lead and sell them specifically on your clinic's expertise.",
-            "We finance check them and discuss how they'll fund the procedure.",
-            "We take a deposit to attend the consult and book them into your calendar.",
-          ].map((title, i) => (
-            <div key={i} className="flex items-center gap-5 text-left bg-zinc-900/60 border border-white/10 rounded-xl px-6 py-5">
-              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-xl">
-                {i + 1}
+      </motion.div>
+
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        variants={stagger}
+        className="flex-1 flex items-center justify-center w-full"
+      >
+        <div className="relative w-full max-w-6xl mx-auto">
+          {/* Connecting line */}
+          <div className="absolute top-12 left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-primary/20 via-primary to-primary/20 hidden md:block" />
+
+          <div className="hidden md:flex items-start justify-between gap-2 relative">
+            {[
+              { icon: Megaphone, label: "We Run The Ads", sub: "Proven creative. We cover the spend." },
+              { icon: Phone, label: "We Call Every Lead", sub: "Selling them on YOUR clinic." },
+              { icon: Wallet, label: "We Finance Check", sub: "Discuss how they'll fund it." },
+              { icon: CalendarCheck, label: "Deposit & Booked", sub: "In your calendar, ready to attend." },
+            ].map((step, i, arr) => (
+              <div key={step.label} className="flex items-start flex-1">
+                <motion.div
+                  variants={fadeIn}
+                  className="flex flex-col items-center text-center flex-1 px-2"
+                >
+                  <div className="relative z-10 w-24 h-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] ring-8 ring-black">
+                    <step.icon className="w-10 h-10" strokeWidth={2} />
+                  </div>
+                  <div className="mt-5">
+                    <p className="text-xs font-bold tracking-widest text-primary uppercase mb-2">Step {i + 1}</p>
+                    <p className="text-base md:text-lg font-extrabold text-foreground leading-tight mb-2">{step.label}</p>
+                    <p className="text-xs text-[#AAA] leading-snug max-w-[180px] mx-auto">{step.sub}</p>
+                  </div>
+                </motion.div>
+                {i < arr.length - 1 && (
+                  <motion.div variants={fadeIn} className="flex items-center justify-center pt-9 -mx-2 z-10">
+                    <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
+                  </motion.div>
+                )}
               </div>
-              <p className="text-lg md:text-xl font-bold text-foreground leading-snug">{title}</p>
+            ))}
+          </div>
+
+          {/* Mobile fallback */}
+          <div className="md:hidden flex flex-col gap-4">
+            {[
+              { icon: Megaphone, label: "We Run The Ads", sub: "Proven creative. We cover the spend." },
+              { icon: Phone, label: "We Call Every Lead", sub: "Selling them on YOUR clinic." },
+              { icon: Wallet, label: "We Finance Check", sub: "Discuss how they'll fund it." },
+              { icon: CalendarCheck, label: "Deposit & Booked", sub: "In your calendar, ready to attend." },
+            ].map((step, i) => (
+              <div key={step.label} className="flex items-center gap-4 bg-zinc-900/60 border border-white/10 rounded-xl p-4">
+                <div className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
+                  <step.icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold tracking-widest text-primary uppercase">Step {i + 1}</p>
+                  <p className="text-base font-extrabold text-foreground">{step.label}</p>
+                  <p className="text-xs text-[#AAA]">{step.sub}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <motion.div variants={fadeIn} className="mt-14 text-center">
+            <div className="inline-flex items-center gap-3 bg-primary/10 border border-primary/30 rounded-full px-6 py-3">
+              <CalendarCheck className="w-5 h-5 text-primary" />
+              <p className="text-sm md:text-base font-bold text-foreground">A qualified, paid-deposit patient sitting in your consult chair.</p>
             </div>
-          ))}
-        </motion.div>
-      </div>
-      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
-        <img
-          src={processPhoneCall}
-          alt="Professional on a phone call"
-          loading="lazy"
-          decoding="async"
-          className="w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-black/50" />
-      </div>
+          </motion.div>
+        </div>
+      </motion.div>
     </div>,
 
     /* ──────── SLIDE 3 — WHO WE SEND YOU ──────── */
     <div key="patients" className="deck-slide flex min-h-screen w-full bg-black">
       <SlideHeader />
-      <div className="w-[70%] flex flex-col justify-center px-16 py-12">
-        <div className="w-full text-center">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-            <motion.div variants={fadeIn} className="mb-4">
-              <H>Who We'll Be Sending You.</H>
-            </motion.div>
-            <motion.p variants={fadeIn} className="text-base md:text-lg text-[#CCCCCC] mb-10 max-w-3xl mx-auto leading-relaxed text-left">
-              Before we ever book a consultation, we've had a real conversation with this person. We've uncovered the moment they decided enough was enough — whether it's confidence, a life event, or something they've carried for years. We share that with your clinic so when they sit down with you, you already know what matters most to them. That's what makes your consultation easier to close.
-            </motion.p>
+      <div className="w-[65%] flex flex-col justify-center px-16 py-12">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+          <motion.div variants={fadeIn} className="mb-10">
+            <ChapterLabel>THE PATIENT</ChapterLabel>
+            <H>Who We'll Be Sending You.</H>
           </motion.div>
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full mx-auto">
+
+          <motion.div variants={fadeIn} className="grid grid-cols-1 gap-5 max-w-2xl">
             {[
-              { title: "Financially Ready", desc: "They've done the research, know the price, and aren't shocked by the number.", emoji: "💰" },
-              { title: "Ready To Move", desc: "Paid a deposit to attend the consult ✓", emoji: "🎯" },
-              { title: "Wants Permanent Results", desc: "Not interested in medication or SMP. They want the transplant done properly.", emoji: "✅" },
+              { title: "Financially Ready", desc: "Knows the price. Not shocked by it.", emoji: "💰" },
+              { title: "Ready To Move", desc: "Paid a deposit to attend the consult.", emoji: "🎯" },
+              { title: "Decided It's Time", desc: "We've uncovered their reason. We'll share it with you.", emoji: "🔑" },
             ].map((card) => (
               <div
                 key={card.title}
-                className="rounded-xl p-8 bg-card/80 border border-border"
+                className="flex items-center gap-5 rounded-xl px-6 py-5 bg-zinc-900/60 border border-white/10 hover:border-primary/40 transition-colors"
               >
-                <p className="text-4xl mb-3">{card.emoji}</p>
-                <p className="text-xl font-extrabold text-foreground mb-2">{card.title}</p>
-                <p className="text-[#CCCCCC] text-sm leading-relaxed">{card.desc}</p>
+                <div className="flex-shrink-0 text-3xl">{card.emoji}</div>
+                <div className="flex-1">
+                  <p className="text-xl md:text-2xl font-extrabold text-foreground leading-tight mb-1">{card.title}</p>
+                  <p className="text-sm md:text-base text-[#CCCCCC] leading-snug">{card.desc}</p>
+                </div>
               </div>
             ))}
           </motion.div>
-        </div>
+        </motion.div>
       </div>
-      <div className="w-[30%] relative" style={{ willChange: "transform" }}>
+      <div className="w-[35%] relative" style={{ willChange: "transform" }}>
         <img
           src={patientProfile}
-          alt="Confident professional"
-          loading="lazy"
+          alt="Confident man in his 40s"
+          loading="eager"
           decoding="async"
+          fetchPriority="high"
           className="w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-black/40" />
+        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
       </div>
     </div>,
 
