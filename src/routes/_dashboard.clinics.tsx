@@ -623,6 +623,8 @@ function ClinicsPage() {
                   {stateClinics.map((c) => {
                     const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
                     const nextAction = getNextActionText(c, lastContacts[c.id] || null);
+                    const lastCt = lastContacts[c.id];
+                    const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
 
                     return (
                       <div
