@@ -69,5 +69,38 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const onError = (event: ErrorEvent) => {
+      const msg = event.message || extractErrorMessage(event.error, "Uncaught error");
+      // Filter noisy ResizeObserver / extension warnings
+      if (/ResizeObserver loop/i.test(msg)) return;
+      void logFrontendError("window.error", `Uncaught browser error: ${msg}`, {
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        stack: event.error instanceof Error ? event.error.stack : null,
+      });
+    };
+
+    const onRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      const msg = extractErrorMessage(reason, "Unhandled promise rejection");
+      void logFrontendError("window.unhandledrejection", `Unhandled promise rejection: ${msg}`, {
+        rawReason: reason instanceof Error
+          ? { name: reason.name, message: reason.message, stack: reason.stack }
+          : (() => { try { return JSON.parse(JSON.stringify(reason)); } catch { return String(reason); } })(),
+      });
+    };
+
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   return <Outlet />;
 }
