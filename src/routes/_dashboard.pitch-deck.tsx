@@ -73,6 +73,13 @@ function PitchDeck() {
     document.addEventListener("fullscreenchange", handler);
     return () => document.removeEventListener("fullscreenchange", handler);
   }, []);
+  // Eager-preload every deck photo before any slide renders an <img>.
+  useEffect(() => {
+    DECK_PHOTOS.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, []);
 
 
   /* Helpers */
