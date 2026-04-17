@@ -108,33 +108,51 @@ function PitchDeck() {
 
   const slides = [
     /* ──────── SLIDE 1 — COVER (hero statement) ──────── */
-    <div key="cover" className="deck-slide flex flex-col justify-center min-h-screen w-full px-12 md:px-24 py-16 bg-black">
+    <div key="cover" className="deck-slide flex flex-col justify-center min-h-screen w-full px-[5vw] py-[6vh] bg-black overflow-hidden">
       <SlideHeader />
       <motion.div
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true }}
         variants={stagger}
-        className="w-full max-w-[1400px] mx-auto flex flex-col justify-center gap-4 md:gap-6"
+        className="w-full flex flex-col justify-center"
+        style={{ gap: "clamp(0.75rem, 2.5vh, 2.5rem)" }}
       >
         <motion.p
           variants={fadeIn}
-          className="text-xl md:text-3xl lg:text-4xl font-medium text-white leading-tight tracking-tight"
-          style={{ fontFamily: "var(--font-heading)" }}
+          className="font-medium text-white tracking-tight"
+          style={{
+            fontFamily: "var(--font-heading)",
+            fontSize: "clamp(1rem, 2.6vw, 2.5rem)",
+            lineHeight: 1.15,
+            whiteSpace: "nowrap",
+          }}
         >
           Guarantee someone arriving at your clinic
         </motion.p>
         <motion.p
           variants={fadeIn}
-          className="text-[3.5rem] md:text-[7rem] lg:text-[9rem] font-black leading-[0.95] tracking-tight"
-          style={{ fontFamily: "var(--font-heading)", color: "#2D6BE4" }}
+          className="font-black tracking-tight"
+          style={{
+            fontFamily: "var(--font-heading)",
+            color: "#2D6BE4",
+            fontSize: "clamp(3rem, 11vw, 11rem)",
+            lineHeight: 0.95,
+            whiteSpace: "nowrap",
+          }}
         >
           knowing the price
         </motion.p>
         <motion.p
           variants={fadeIn}
-          className="text-[3.5rem] md:text-[7rem] lg:text-[9rem] font-black leading-[0.95] tracking-tight"
-          style={{ fontFamily: "var(--font-heading)", color: "#2D6BE4" }}
+          className="font-black tracking-tight"
+          style={{
+            fontFamily: "var(--font-heading)",
+            color: "#2D6BE4",
+            fontSize: "clamp(3rem, 11vw, 11rem)",
+            lineHeight: 0.95,
+            whiteSpace: "nowrap",
+          }}
         >
           with a deposit.
         </motion.p>
