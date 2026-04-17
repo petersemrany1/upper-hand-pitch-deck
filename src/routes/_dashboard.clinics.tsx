@@ -508,15 +508,18 @@ function ClinicsPage() {
     return matchSearch && matchState && matchStatus;
   });
 
-  // Group by state
+  // Split active vs not-applicable, then group active by state
+  const activeFiltered = filtered.filter((c) => !NOT_APPLICABLE_STAGES.has(c.status));
+  const notApplicableFiltered = filtered.filter((c) => NOT_APPLICABLE_STAGES.has(c.status));
   const grouped: Record<string, Clinic[]> = {};
-  for (const c of filtered) {
+  for (const c of activeFiltered) {
     const st = c.state || "Unknown";
     if (!grouped[st]) grouped[st] = [];
     grouped[st].push(c);
   }
   const stateOrder = [...STATES, "Unknown"];
   const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
+  const [naCollapsed, setNaCollapsed] = [collapsedStates["__NA__"] !== false, (v: boolean) => setCollapsedStates((p) => ({ ...p, __NA__: !v }))];
 
   const toggleState = (state: string) => {
     setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
