@@ -108,37 +108,36 @@ function PitchDeck() {
 
   const slides = [
     /* ──────── SLIDE 1 — COVER (hero statement) ──────── */
-    <div key="cover" className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-12 md:px-20 py-12 text-center bg-black">
+    <div key="cover" className="deck-slide flex flex-col justify-center min-h-screen w-full px-12 md:px-24 py-16 bg-black">
       <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="max-w-6xl">
-        <motion.h1
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        variants={stagger}
+        className="w-full max-w-[1400px] mx-auto flex flex-col justify-center gap-4 md:gap-6"
+      >
+        <motion.p
           variants={fadeIn}
-          className="text-[2.5rem] md:text-[5rem] lg:text-[6rem] font-extrabold leading-[1.02] tracking-tight text-foreground"
+          className="text-xl md:text-3xl lg:text-4xl font-medium text-white leading-tight tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          Guarantee someone{" "}
-          <span className="text-primary">arriving at your clinic</span>{" "}
-          knowing the price{" "}
-          <span className="text-primary">with a deposit.</span>
-        </motion.h1>
-
-        <motion.div
+          Guarantee someone arriving at your clinic
+        </motion.p>
+        <motion.p
           variants={fadeIn}
-          className="mt-10 flex flex-col items-center gap-3 md:flex-row md:justify-center md:gap-4"
+          className="text-[3.5rem] md:text-[7rem] lg:text-[9rem] font-black leading-[0.95] tracking-tight"
+          style={{ fontFamily: "var(--font-heading)", color: "#2D6BE4" }}
         >
-          {[
-            "We cover all ad spend",
-            "Patients pay a deposit",
-            "You pay per show",
-          ].map((item) => (
-            <div
-              key={item}
-              className="rounded-full border border-white/10 bg-card/30 px-4 py-2 text-xs md:text-sm font-semibold tracking-wide text-[#D6D6D6]"
-            >
-              {item}
-            </div>
-          ))}
-        </motion.div>
+          knowing the price
+        </motion.p>
+        <motion.p
+          variants={fadeIn}
+          className="text-[3.5rem] md:text-[7rem] lg:text-[9rem] font-black leading-[0.95] tracking-tight"
+          style={{ fontFamily: "var(--font-heading)", color: "#2D6BE4" }}
+        >
+          with a deposit.
+        </motion.p>
       </motion.div>
     </div>,
 
