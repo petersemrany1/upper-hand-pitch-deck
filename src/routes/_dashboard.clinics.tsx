@@ -912,8 +912,21 @@ function ClinicsPage() {
                     <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Time</label>
-                    <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>
+                      {isSpecificTimeRange ? "Time Window (e.g. 9am–12pm)" : "Time"}
+                    </label>
+                    {isSpecificTimeRange ? (
+                      <Input
+                        type="text"
+                        value={logNextTime}
+                        onChange={(e) => setLogNextTime(e.target.value)}
+                        placeholder="9am–12pm"
+                        className="border-0 text-xs h-8"
+                        style={{ background: "#1a1a1a", color: "#fff" }}
+                      />
+                    ) : (
+                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    )}
                   </div>
                 </>
               )}
