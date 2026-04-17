@@ -172,12 +172,14 @@ function PitchDeck() {
   const [showPopup, setShowPopup] = useState(true);
   const [caseValue, setCaseValue] = useState(12000);
   const [convertRate, setConvertRate] = useState("1 in 4");
+  const [pricePerShow, setPricePerShow] = useState(1100);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
 
-  const handleEnter = (cv: number, cr: string) => {
+  const handleEnter = (cv: number, cr: string, pps: number) => {
     setCaseValue(cv);
     setConvertRate(cr);
+    setPricePerShow(pps);
     setShowPopup(false);
   };
 
