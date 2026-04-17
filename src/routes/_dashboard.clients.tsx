@@ -450,11 +450,17 @@ function ClientsPage() {
               <div className="flex-1" />
               <button
                 onClick={handleInitiateCall}
-                disabled={!dialNumber || !selectedPhone || calling}
-                className="w-16 h-16 rounded-full bg-green-600 hover:bg-green-500 disabled:opacity-40 disabled:hover:bg-green-600 flex items-center justify-center transition-colors"
+                disabled={!dialNumber || (deviceStatus !== "ready" && deviceStatus !== "in-call")}
+                className={`w-16 h-16 rounded-full disabled:opacity-40 flex items-center justify-center transition-colors ${
+                  deviceStatus === "in-call"
+                    ? "bg-red-600 hover:bg-red-500"
+                    : "bg-green-600 hover:bg-green-500 disabled:hover:bg-green-600"
+                }`}
               >
-                {calling ? (
+                {deviceStatus === "loading" || calling ? (
                   <Loader2 className="w-7 h-7 text-white animate-spin" />
+                ) : deviceStatus === "in-call" ? (
+                  <PhoneOff className="w-7 h-7 text-white" />
                 ) : (
                   <PhoneCall className="w-7 h-7 text-white" />
                 )}
