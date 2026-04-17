@@ -44,6 +44,7 @@ type CallRecord = {
   recording_url: string | null;
   recording_sid: string | null;
   called_at: string;
+  call_analysis: CallAnalysis | null;
 };
 
 type SavedPhone = {
@@ -97,6 +98,13 @@ function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
+
+  // Selection + analysis
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
+  const [analysisRecord, setAnalysisRecord] = useState<CallRecord | null>(null);
+
+  // Browser-based dialer
+  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
 
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
@@ -164,62 +172,39 @@ function ClientsPage() {
   };
 
   const handleInitiateCall = async () => {
-    if (!dialNumber || !selectedPhone) return;
+    if (!dialNumber) return;
+
+    // Hang up if already on a call
+    if (deviceStatus === "in-call") {
+      deviceHangup();
+      setCalling(false);
+      setCallMessage(null);
+      // Refresh records and offer save-contact prompt
+      const matchingClient = clients.find((c) => c.phone === dialNumber);
+      if (!matchingClient) setShowSaveContact(true);
+      loadAllRecords();
+      return;
+    }
+
+    if (deviceStatus !== "ready") {
+      setCallMessage("Phone is still connecting. Try again in a moment.");
+      setTimeout(() => setCallMessage(null), 4000);
+      return;
+    }
+
     setCalling(true);
-    setCallMessage(null);
+    setCallMessage("Connecting…");
 
     try {
-      const { data: result, error } = await supabase.functions.invoke("twilio-voice", {
-        body: { clientPhone: dialNumber, userPhone: selectedPhone.phone },
-      });
-
-      if (error) throw error;
-
-      if (result?.success && result?.callSid) {
-        setLastCallSid(result.callSid);
-        setCallMessage("Calling your phone... answer within 20 seconds.");
-
-        const matchingClient = clients.find((c) => c.phone === dialNumber);
-
-        await supabase.from("call_records").insert({
-          client_id: matchingClient?.id || null,
-          twilio_call_sid: result.callSid,
-          status: "initiated",
-        });
-
-        // Poll for call status to detect timeout/no-answer
-        let resolved = false;
-        for (let i = 0; i < 15; i++) {
-          await new Promise((r) => setTimeout(r, 2000));
-          const { data: records } = await supabase
-            .from("call_records")
-            .select("status")
-            .eq("twilio_call_sid", result.callSid)
-            .single();
-
-          if (records?.status === "completed") {
-            resolved = true;
-            setCallMessage(null);
-            if (!matchingClient) setShowSaveContact(true);
-            break;
-          }
-          if (records?.status === "no-answer" || records?.status === "busy" || records?.status === "failed" || records?.status === "canceled" || records?.status === "machine_detected") {
-            resolved = true;
-            const msg = records?.status === "machine_detected"
-              ? "Call cancelled — went to voicemail."
-              : "Call cancelled — you didn't answer in time.";
-            setCallMessage(msg);
-            setTimeout(() => setCallMessage(null), 5000);
-            break;
-          }
-        }
-
-        if (!resolved) {
-          setCallMessage("Call cancelled — you didn't answer in time.");
-          setTimeout(() => setCallMessage(null), 5000);
-        }
-
-        loadAllRecords();
+      const matchingClient = clients.find((c) => c.phone === dialNumber);
+      await deviceCall(dialNumber);
+      setCallMessage("In call — click the red button to hang up.");
+      setLastCallSid(null);
+      // The hook inserts the call_record; refresh after a short delay
+      setTimeout(() => loadAllRecords(), 2000);
+      // Show save-contact prompt after call ends if it's a new number
+      if (!matchingClient) {
+        // We'll show it next time the device returns to ready
       }
     } catch (err) {
       console.error("Call failed:", err);
@@ -229,6 +214,16 @@ function ClientsPage() {
       setCalling(false);
     }
   };
+
+  // When the device returns to ready after an in-call state, refresh records
+  useEffect(() => {
+    if (deviceStatus === "ready" && callMessage?.startsWith("In call")) {
+      setCallMessage(null);
+      const matchingClient = clients.find((c) => c.phone === dialNumber);
+      if (!matchingClient && dialNumber) setShowSaveContact(true);
+      loadAllRecords();
+    }
+  }, [deviceStatus, callMessage, dialNumber, clients, loadAllRecords]);
 
   const handleSaveContact = async () => {
     if (!saveContactName || !dialNumber) return;
