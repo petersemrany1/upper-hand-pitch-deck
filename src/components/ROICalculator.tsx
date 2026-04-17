@@ -3,6 +3,7 @@ import SlideHeader from "./SlideHeader";
 
 const ALL_CONVERT_RATES: Record<string, number> = {
   "1 in 1": 1,
+  "3 in 4": 0.75,
   "1 in 2": 0.5,
   "1 in 3": 0.333,
   "1 in 4": 0.25,
@@ -14,7 +15,7 @@ const ALL_CONVERT_RATES: Record<string, number> = {
   "1 in 10": 0.1,
 };
 
-const RATE_ORDER = ["1 in 10","1 in 9","1 in 8","1 in 7","1 in 6","1 in 5","1 in 4","1 in 3","1 in 2","1 in 1"];
+const RATE_ORDER = ["1 in 10","1 in 9","1 in 8","1 in 7","1 in 6","1 in 5","1 in 4","1 in 3","1 in 2","3 in 4","1 in 1"];
 
 function getConvertLabel(label: string): string {
   return label + " Conversion";
