@@ -303,12 +303,12 @@ function PitchDeck() {
         >
           HAIR TRANSPLANT
           <br />
-          <span className="text-primary">MARKETING</span>
+          <span className="text-primary">PATIENT ACQUISITION</span>
           <br />
-          THAT WORKS
+          DONE FOR YOU
         </motion.h1>
         <motion.p variants={fadeIn} className={`${subClass} mt-8 max-w-md mx-auto`}>
-          A done-for-you patient acquisition system.
+          Confirmed consults delivered to your clinic — you only pay when they show.
         </motion.p>
       </motion.div>
     </div>,
@@ -459,14 +459,14 @@ function PitchDeck() {
           className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          Not Booked On The Day?<br />
-          We're Not Done.
+          Didn't Book On The Day?<br />
+          We Stay With Them.
         </h2>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-12 divide-y divide-white/10">
           {[
             { num: "1", title: "We Follow Up Until They're Ready" },
-            { num: "2", title: "We Handle Every Objection" },
-            { num: "3", title: "We Never Burn The Relationship" },
+            { num: "2", title: "We Work Through Their Questions" },
+            { num: "3", title: "We Keep The Relationship Intact" },
           ].map((item) => (
             <div key={item.num} className="py-6 flex items-center gap-4">
               <span className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/20 text-primary flex items-center justify-center font-extrabold text-lg">{item.num}</span>
@@ -573,16 +573,16 @@ function PitchDeck() {
               className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
               style={{ fontFamily: "var(--font-heading)" }}
             >
-              If We Don't Deliver,
+              The Risk Sits With Us,
               <br />
-              You Don't Lose.
+              Not You.
             </h2>
           </motion.div>
           <motion.div variants={fadeIn} className="space-y-10 text-left max-w-2xl mx-auto">
             {[
-              "No show = no charge. Ever.",
-              "Don't get 2 procedures from your first 10 shows? We give you 5 more free.",
-              "No lock in. Cancel any time.",
+              "No show, no charge.",
+              "If your first 10 shows don't produce 2 procedures, we send 5 more at no cost.",
+              "Month to month. Cancel any time.",
             ].map((item) => (
               <div key={item} className="flex items-start gap-5">
                 <span className="text-primary font-bold flex-shrink-0 text-3xl">✓</span>
