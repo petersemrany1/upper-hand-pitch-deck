@@ -410,31 +410,43 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 8 — CLOSE ──────── */
-    <div key="close" className="deck-slide relative flex flex-col items-center justify-center min-h-screen w-full px-16 py-12 text-center bg-black">
+    <div key="close" className="deck-slide flex min-h-screen w-full bg-black">
       <SlideHeader />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_32%),linear-gradient(180deg,rgba(18,18,18,0.45),rgba(0,0,0,0.94))]" />
-      <div className="relative z-10">
-        <Link
-          to="/"
-          className="fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-card/30 border border-border/30 text-[#666] hover:text-foreground hover:bg-card/60 transition-all"
-          aria-label="Back to dashboard"
-        >
-          <Home className="w-4 h-4" />
-        </Link>
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
-          <motion.div variants={fadeIn}>
-            <H>Let Us Fill Your Calendar.</H>
+      <div className="w-[70%] relative flex flex-col items-center justify-center px-16 py-12 text-center">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(198,255,0,0.18),transparent_32%),linear-gradient(180deg,rgba(18,18,18,0.45),rgba(0,0,0,0.94))]" />
+        <div className="relative z-10">
+          <Link
+            to="/"
+            className="fixed bottom-4 right-4 z-50 p-2 rounded-lg bg-card/30 border border-border/30 text-[#666] hover:text-foreground hover:bg-card/60 transition-all"
+            aria-label="Back to dashboard"
+          >
+            <Home className="w-4 h-4" />
+          </Link>
+          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger}>
+            <motion.div variants={fadeIn}>
+              <H>Let Us Fill Your Calendar.</H>
+            </motion.div>
+            <motion.div variants={fadeIn} className="mt-10">
+              <button
+                onClick={() => setShowGetStarted(true)}
+                className="inline-block bg-primary text-primary-foreground font-bold text-lg px-12 py-5 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                GET STARTED →
+              </button>
+            </motion.div>
           </motion.div>
-          <motion.div variants={fadeIn} className="mt-10">
-            <button
-              onClick={() => setShowGetStarted(true)}
-              className="inline-block bg-primary text-primary-foreground font-bold text-lg px-12 py-5 rounded-lg tracking-wide hover:opacity-90 transition-opacity cursor-pointer"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              GET STARTED →
-            </button>
-          </motion.div>
-        </motion.div>
+        </div>
+      </div>
+      <div className="w-[30%] relative overflow-hidden bg-black">
+        <img
+          src={clinicPhoto}
+          alt="A modern, clean cosmetic clinic reception desk with bright contemporary interior"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
     </div>,
   ];
