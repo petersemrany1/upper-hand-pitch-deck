@@ -120,11 +120,11 @@ function PitchDeck() {
       >
         <motion.p
           variants={fadeIn}
-          className="font-medium text-white tracking-tight"
+          className="font-light text-white tracking-tight"
           style={{
             fontFamily: "var(--font-heading)",
-            fontSize: "clamp(1rem, 2.6vw, 2.5rem)",
-            lineHeight: 1.15,
+            fontSize: "clamp(1.75rem, 5vw, 5rem)",
+            lineHeight: 1.05,
             whiteSpace: "nowrap",
           }}
         >
