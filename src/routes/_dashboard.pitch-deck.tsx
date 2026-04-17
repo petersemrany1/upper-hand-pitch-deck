@@ -397,8 +397,15 @@ function PitchDeck() {
           </motion.div>
         </div>
       </div>
-      <div className="w-[30%] relative overflow-hidden" style={{ willChange: "transform" }}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(198,255,0,0.16),transparent_30%),linear-gradient(180deg,rgba(22,22,22,0.15),rgba(10,10,10,0.95))]" />
+      <div className="w-[30%] relative overflow-hidden bg-black" style={{ willChange: "transform" }}>
+        <img
+          src={hairPhoto}
+          alt="A confident man with a thick, full head of hair in natural light"
+          className="absolute inset-0 w-full h-full object-cover"
+          loading="eager"
+          decoding="async"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
       </div>
     </div>,
 
