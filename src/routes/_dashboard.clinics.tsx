@@ -685,6 +685,50 @@ function ClinicsPage() {
             </div>
           );
         })}
+
+        {/* Not Applicable section — collapsed by default */}
+        {notApplicableFiltered.length > 0 && (
+          <div>
+            <button
+              onClick={() => setNaCollapsed(!naCollapsed)}
+              className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/[0.02] transition-colors"
+              style={{ borderBottom: "1px solid #1a1a1a" }}
+            >
+              {naCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#555" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#555" }} />}
+              <span className="text-xs font-semibold" style={{ color: "#555", letterSpacing: "0.1em" }}>NOT APPLICABLE</span>
+              <span className="text-[10px]" style={{ color: "#555" }}>({notApplicableFiltered.length})</span>
+            </button>
+            {!naCollapsed && (
+              <div>
+                {notApplicableFiltered.map((c) => {
+                  const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
+                  const lastCt = lastContacts[c.id];
+                  const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
+                      style={{ height: 44, borderBottom: "1px solid #111" }}
+                    >
+                      <div className="w-[180px] shrink-0 px-3 truncate">
+                        <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#aaa" }}>{c.clinic_name}</button>
+                      </div>
+                      <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#555" }}>{c.city || "—"}</div>
+                      <div className="w-[140px] shrink-0 px-2 text-[11px]" style={{ color: "#555" }}>{c.phone || "—"}</div>
+                      <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: "#555" }}>{notePreview || "—"}</div>
+                      <div className="w-[130px] shrink-0 px-2">
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
+                      </div>
+                      <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#555" }}>—</div>
+                      <div className="w-[70px] shrink-0 px-2" />
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {filtered.length === 0 && (
           <div className="text-center py-12" style={{ color: "#333", fontSize: 13 }}>No clinics found.</div>
         )}
