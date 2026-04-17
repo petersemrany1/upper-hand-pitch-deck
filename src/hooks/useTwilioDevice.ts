@@ -4,6 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorCode, extractErrorMessage } from "@/utils/log-frontend-error";
 
 type Status = "idle" | "loading" | "ready" | "connecting" | "in-call" | "error";
+type DialerStatus = "connecting" | "ready" | "failed";
+
+const DEVICE_INIT_TIMEOUT_MS = 10_000;
 
 function formatAUPhone(num: string): string {
   let cleaned = num.replace(/[\s\-()]/g, "");
@@ -35,117 +38,197 @@ function describeTwilioCode(code: number | string | null): string {
 export function useTwilioDevice() {
   const deviceRef = useRef<Device | null>(null);
   const callRef = useRef<Call | null>(null);
+  const initTimeoutRef = useRef<number | null>(null);
+  const initAttemptRef = useRef(0);
   const [status, setStatus] = useState<Status>("idle");
+  const [dialerStatus, setDialerStatus] = useState<DialerStatus>("connecting");
   const [error, setError] = useState<string | null>(null);
   const [activeCallSid, setActiveCallSid] = useState<string | null>(null);
 
-  // Initialise Device once
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        setStatus("loading");
-        const { data, error: fnErr } = await supabase.functions.invoke("twilio-token", { body: {} });
-        if (fnErr || !data?.token) {
-          const msg = fnErr?.message || "Token edge function returned no token";
-          await logFrontendError(
-            "twilio-token",
-            `Failed to generate Twilio access token: ${msg}`,
-            {
-              fnError: fnErr ? { message: fnErr.message, name: fnErr.name } : null,
-              responseData: data ?? null,
-              stepsToReproduce: "Loading the dialer / call page triggers token generation on mount.",
-            }
-          );
-          throw new Error(msg);
-        }
-        if (cancelled) return;
+  const clearInitTimeout = useCallback(() => {
+    if (initTimeoutRef.current !== null) {
+      window.clearTimeout(initTimeoutRef.current);
+      initTimeoutRef.current = null;
+    }
+  }, []);
 
-        const device = new Device(data.token, {
-          logLevel: 1,
-          codecPreferences: ["opus" as never, "pcmu" as never],
-        });
+  const destroyDevice = useCallback(() => {
+    clearInitTimeout();
+    try {
+      deviceRef.current?.destroy();
+    } catch {}
+    deviceRef.current = null;
+  }, [clearInitTimeout]);
 
-        device.on("registered", () => setStatus("ready"));
-        device.on("error", async (e: unknown) => {
-          const code = extractErrorCode(e);
-          const msg = extractErrorMessage(e, "Twilio Device error");
-          const description = describeTwilioCode(code);
-          console.error("Twilio Device error:", e);
-          setError(msg);
-          setStatus("error");
-          await logFrontendError(
-            "twilio-device",
-            `Twilio Device failure: ${description} (${msg})`,
-            {
-              twilioCode: code,
-              rawMessage: msg,
-              rawError: safeSerializeError(e),
-              stepsToReproduce: "Browser-side Twilio Device emitted an error event during registration or call signaling.",
-            }
-          );
-        });
-        device.on("tokenWillExpire", async () => {
-          try {
-            const { data: refreshed, error: refreshErr } = await supabase.functions.invoke("twilio-token", { body: {} });
-            if (refreshErr || !refreshed?.token) {
-              await logFrontendError(
-                "twilio-token",
-                `Failed to refresh expiring Twilio token: ${refreshErr?.message || "no token returned"}`,
-                {
-                  fnError: refreshErr ? { message: refreshErr.message } : null,
-                  stepsToReproduce: "Twilio token nearing expiry; SDK requested a refresh.",
-                }
-              );
-              return;
-            }
-            device.updateToken(refreshed.token);
-          } catch (err) {
-            await logFrontendError(
-              "twilio-token",
-              `Exception during Twilio token refresh: ${extractErrorMessage(err)}`,
-              { rawError: safeSerializeError(err) }
-            );
-          }
-        });
+  const initializeDevice = useCallback(async () => {
+    const attemptId = ++initAttemptRef.current;
+    destroyDevice();
+    callRef.current = null;
+    setActiveCallSid(null);
+    setError(null);
+    setStatus("loading");
+    setDialerStatus("connecting");
 
-        await device.register();
-        deviceRef.current = device;
-      } catch (err) {
-        const msg = extractErrorMessage(err, "Twilio init failed");
-        console.error("Twilio init failed:", err);
-        setError(msg);
-        setStatus("error");
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke("twilio-token", { body: {} });
+      if (fnErr || !data?.token) {
+        const msg = fnErr?.message || "Token edge function returned no token";
         await logFrontendError(
-          "twilio-device",
-          `Twilio Device failed to initialise: ${msg}`,
+          "twilio-token",
+          `Failed to generate Twilio access token: ${msg}`,
           {
-            twilioCode: extractErrorCode(err),
-            rawError: safeSerializeError(err),
-            stepsToReproduce: "Page load — useTwilioDevice tried to fetch a token and register the Twilio Device.",
+            fnError: fnErr ? { message: fnErr.message, name: fnErr.name } : null,
+            responseData: data ?? null,
+            stepsToReproduce: "Loading the dialer / call page triggers token generation on mount.",
           }
         );
+        throw new Error(msg);
       }
-    })();
+      if (attemptId !== initAttemptRef.current) return;
+
+      const device = new Device(data.token, {
+        logLevel: 1,
+        codecPreferences: ["opus" as never, "pcmu" as never],
+      });
+
+      const failDialer = async (description: string, details: Record<string, unknown> = {}) => {
+        if (attemptId !== initAttemptRef.current) return;
+        clearInitTimeout();
+        console.error("Twilio dialer failed:", description, details);
+        setError("Connection failed — click to retry");
+        setStatus("error");
+        setDialerStatus("failed");
+        await logFrontendError("twilio-device", description, {
+          ...details,
+          troubleshootingHint: "Verify TWILIO_TWIML_APP_SID exactly matches the TwiML App SID in the Twilio console.",
+        });
+        try {
+          device.destroy();
+        } catch {}
+        if (deviceRef.current === device) {
+          deviceRef.current = null;
+        }
+      };
+
+      device.on("registered", () => {
+        if (attemptId !== initAttemptRef.current) return;
+        clearInitTimeout();
+        deviceRef.current = device;
+        setError(null);
+        setStatus("ready");
+        setDialerStatus("ready");
+      });
+
+      device.on("error", async (e: unknown) => {
+        const code = extractErrorCode(e);
+        const msg = extractErrorMessage(e, "Twilio Device error");
+        const description = describeTwilioCode(code);
+        console.error("Twilio Device error:", e);
+        await failDialer(
+          `Twilio Device failure: ${description} (${msg})`,
+          {
+            twilioCode: code,
+            rawMessage: msg,
+            rawError: safeSerializeError(e),
+            stepsToReproduce: "Browser-side Twilio Device emitted an error event during registration or call signaling.",
+          }
+        );
+      });
+
+      device.on("tokenWillExpire", async () => {
+        try {
+          const { data: refreshed, error: refreshErr } = await supabase.functions.invoke("twilio-token", { body: {} });
+          if (refreshErr || !refreshed?.token) {
+            await logFrontendError(
+              "twilio-token",
+              `Failed to refresh expiring Twilio token: ${refreshErr?.message || "no token returned"}`,
+              {
+                fnError: refreshErr ? { message: refreshErr.message } : null,
+                stepsToReproduce: "Twilio token nearing expiry; SDK requested a refresh.",
+              }
+            );
+            return;
+          }
+          device.updateToken(refreshed.token);
+        } catch (err) {
+          await logFrontendError(
+            "twilio-token",
+            `Exception during Twilio token refresh: ${extractErrorMessage(err)}`,
+            { rawError: safeSerializeError(err) }
+          );
+        }
+      });
+
+      initTimeoutRef.current = window.setTimeout(() => {
+        void failDialer(
+          "Twilio Device registration timed out after 10 seconds",
+          {
+            twilioCode: "registration-timeout",
+            timeoutMs: DEVICE_INIT_TIMEOUT_MS,
+            stepsToReproduce: "Open a page that mounts the browser dialer and wait for Twilio Device registration.",
+          }
+        );
+      }, DEVICE_INIT_TIMEOUT_MS);
+
+      deviceRef.current = device;
+      await device.register();
+
+      if (attemptId !== initAttemptRef.current) {
+        try {
+          device.destroy();
+        } catch {}
+      }
+    } catch (err) {
+      if (attemptId !== initAttemptRef.current) return;
+      const msg = extractErrorMessage(err, "Twilio init failed");
+      console.error("Twilio init failed:", err);
+      clearInitTimeout();
+      setError("Connection failed — click to retry");
+      setStatus("error");
+      setDialerStatus("failed");
+      await logFrontendError(
+        "twilio-device",
+        `Twilio Device failed to initialise: ${msg}`,
+        {
+          twilioCode: extractErrorCode(err),
+          rawError: safeSerializeError(err),
+          stepsToReproduce: "Page load — useTwilioDevice tried to fetch a token and register the Twilio Device.",
+          troubleshootingHint: "Verify TWILIO_TWIML_APP_SID exactly matches the TwiML App SID in the Twilio console.",
+        }
+      );
+    }
+  }, [clearInitTimeout, destroyDevice]);
+
+  useEffect(() => {
+    void initializeDevice();
 
     return () => {
-      cancelled = true;
+      initAttemptRef.current += 1;
+      clearInitTimeout();
       try {
         deviceRef.current?.destroy();
       } catch {}
       deviceRef.current = null;
+      callRef.current = null;
     };
-  }, []);
+  }, [clearInitTimeout, initializeDevice]);
+
+  const retry = useCallback(() => {
+    void initializeDevice();
+  }, [initializeDevice]);
 
   const call = useCallback(async (phone: string) => {
     const device = deviceRef.current;
     if (!device) {
+      const userMessage = dialerStatus === "failed"
+        ? "Connection failed — click to retry"
+        : "Dialer is still connecting";
       await logFrontendError(
         "twilio-call",
         "Attempted to place a call before Twilio Device was ready",
-        { phone, stepsToReproduce: "User clicked Call before the Device finished registering." }
+        { phone, dialerStatus, stepsToReproduce: "User clicked Call before the Device finished registering." }
       );
-      throw new Error("Device not ready");
+      throw new Error(userMessage);
     }
     if (callRef.current) return;
 
@@ -210,7 +293,7 @@ export function useTwilioDevice() {
       );
       throw err;
     }
-  }, []);
+  }, [dialerStatus]);
 
   const hangup = useCallback(() => {
     callRef.current?.disconnect();
@@ -219,7 +302,7 @@ export function useTwilioDevice() {
     setStatus("ready");
   }, []);
 
-  return { status, error, call, hangup, activeCallSid };
+  return { status, dialerStatus, error, call, hangup, retry, activeCallSid };
 }
 
 function safeSerializeError(e: unknown): unknown {
