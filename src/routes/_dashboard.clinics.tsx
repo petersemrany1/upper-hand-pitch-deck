@@ -825,7 +825,7 @@ function ClinicsPage() {
                         const emoji = TYPE_EMOJI[ct.contact_type] || "📝";
                         const waitingOn = ct.outcome?.includes("Call Me Back")
                           ? "Waiting for owner callback"
-                          : ct.outcome?.includes("Wrong Person")
+                          : ct.outcome?.includes("Wrong Person") || ct.outcome?.includes("Gatekeeper")
                           ? "Waiting for owner callback"
                           : ct.outcome?.includes("Zoom Set")
                           ? `Zoom scheduled${ct.next_action_date ? ` — ${ct.next_action_date}${ct.next_action_time ? ` ${ct.next_action_time}` : ""}` : ""}`
