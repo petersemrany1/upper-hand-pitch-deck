@@ -1,9 +1,9 @@
 project_id = "sfwokpeeffgrkxaptqji"
 
-[functions.twilio-token]
+[functions.voice-token]
 verify_jwt = false
 
-[functions.twilio-twiml]
+[functions.voice-outbound]
 verify_jwt = false
 
 [functions.twilio-status]
