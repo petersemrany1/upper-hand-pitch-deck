@@ -174,13 +174,19 @@ function DashboardHome() {
     setCallMessage(null);
     try {
       await placeCall(dialNumber);
-      setCallMessage("Connecting...");
+      setCallMessage("Calling your phone… answer it to be connected to the clinic.");
     } catch (err) {
       setCallMessage(err instanceof Error ? err.message : "Call failed. Try again.");
     } finally {
       setCalling(false);
     }
   };
+
+  useEffect(() => {
+    if (deviceStatus === "in-call") {
+      setCallMessage("Connected — you're on the call with the clinic.");
+    }
+  }, [deviceStatus]);
 
   useEffect(() => {
     if (dialerStatus === "failed") {

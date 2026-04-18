@@ -13,7 +13,6 @@ import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as ApiTwimlRouteImport } from './routes/api/twiml'
 import { Route as ApiTwilioStatusRouteImport } from './routes/api/twilio-status'
-import { Route as ApiTwilioDiagnosticRouteImport } from './routes/api/twilio-diagnostic'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardPipelineRouteImport } from './routes/_dashboard.pipeline'
@@ -39,11 +38,6 @@ const ApiTwimlRoute = ApiTwimlRouteImport.update({
 const ApiTwilioStatusRoute = ApiTwilioStatusRouteImport.update({
   id: '/api/twilio-status',
   path: '/api/twilio-status',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiTwilioDiagnosticRoute = ApiTwilioDiagnosticRouteImport.update({
-  id: '/api/twilio-diagnostic',
-  path: '/api/twilio-diagnostic',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
@@ -91,7 +85,6 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
-  '/api/twilio-diagnostic': typeof ApiTwilioDiagnosticRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
   '/api/twiml': typeof ApiTwimlRoute
 }
@@ -103,7 +96,6 @@ export interface FileRoutesByTo {
   '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
-  '/api/twilio-diagnostic': typeof ApiTwilioDiagnosticRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
   '/api/twiml': typeof ApiTwimlRoute
   '/': typeof DashboardIndexRoute
@@ -118,7 +110,6 @@ export interface FileRoutesById {
   '/_dashboard/pipeline': typeof DashboardPipelineRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
-  '/api/twilio-diagnostic': typeof ApiTwilioDiagnosticRoute
   '/api/twilio-status': typeof ApiTwilioStatusRoute
   '/api/twiml': typeof ApiTwimlRoute
   '/_dashboard/': typeof DashboardIndexRoute
@@ -134,7 +125,6 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pitch-deck'
     | '/settings'
-    | '/api/twilio-diagnostic'
     | '/api/twilio-status'
     | '/api/twiml'
   fileRoutesByTo: FileRoutesByTo
@@ -146,7 +136,6 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pitch-deck'
     | '/settings'
-    | '/api/twilio-diagnostic'
     | '/api/twilio-status'
     | '/api/twiml'
     | '/'
@@ -160,7 +149,6 @@ export interface FileRouteTypes {
     | '/_dashboard/pipeline'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/settings'
-    | '/api/twilio-diagnostic'
     | '/api/twilio-status'
     | '/api/twiml'
     | '/_dashboard/'
@@ -168,7 +156,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
-  ApiTwilioDiagnosticRoute: typeof ApiTwilioDiagnosticRoute
   ApiTwilioStatusRoute: typeof ApiTwilioStatusRoute
   ApiTwimlRoute: typeof ApiTwimlRoute
 }
@@ -201,13 +188,6 @@ declare module '@tanstack/react-router' {
       path: '/api/twilio-status'
       fullPath: '/api/twilio-status'
       preLoaderRoute: typeof ApiTwilioStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/twilio-diagnostic': {
-      id: '/api/twilio-diagnostic'
-      path: '/api/twilio-diagnostic'
-      fullPath: '/api/twilio-diagnostic'
-      preLoaderRoute: typeof ApiTwilioDiagnosticRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/settings': {
@@ -290,7 +270,6 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
-  ApiTwilioDiagnosticRoute: ApiTwilioDiagnosticRoute,
   ApiTwilioStatusRoute: ApiTwilioStatusRoute,
   ApiTwimlRoute: ApiTwimlRoute,
 }

@@ -1,324 +1,127 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Device, type Call } from "@twilio/voice-sdk";
 import { supabase } from "@/integrations/supabase/client";
-import { logFrontendError, extractErrorCode, extractErrorMessage } from "@/utils/log-frontend-error";
+import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
+
+// Click-to-call wrapper. Keeps the same surface as the old browser-SDK hook so
+// existing UIs (`status`, `dialerStatus`, `error`, `call`, `hangup`, `retry`,
+// `activeCallSid`) keep working without changes.
+//
+// Flow:
+//   1. `call(phone)` POSTs to the `initiate-call` edge function.
+//   2. Twilio rings Peter's phone (+61418214953) first.
+//   3. When Peter answers, Twilio bridges him to the clinic number.
+//   4. We poll `call_records` for the parent CallSid until the status moves
+//      out of `initiated` so the UI can show "Connected" / "Completed".
 
 type Status = "idle" | "loading" | "ready" | "connecting" | "in-call" | "error";
 type DialerStatus = "connecting" | "ready" | "failed";
 
-const DEVICE_INIT_TIMEOUT_MS = 10_000;
-
-function formatAUPhone(num: string): string {
-  let cleaned = num.replace(/[\s\-()]/g, "");
-  if (cleaned.startsWith("+")) return cleaned;
-  if (cleaned.startsWith("0")) return "+61" + cleaned.slice(1);
-  return "+61" + cleaned;
-}
-
-function describeTwilioCode(code: number | string | null): string {
-  const map: Record<string, string> = {
-    "20101": "Twilio rejected the access token (invalid or expired). Check the token edge function and TWILIO_API_KEY credentials.",
-    "20104": "Access token has expired.",
-    "31000": "General Twilio Voice SDK error.",
-    "31005": "Connection error — the WebSocket dropped.",
-    "31201": "Microphone permission was denied by the browser.",
-    "31202": "No microphone input device available.",
-    "31204": "JWT (access token) is invalid.",
-    "31205": "JWT signature failed validation.",
-    "31206": "Rate exceeded for the access token.",
-    "31208": "Microphone access blocked by the user.",
-    "31402": "No audio received from Twilio.",
-    "31403": "No audio sent to Twilio (likely mic muted/blocked).",
-    "53000": "Signaling connection error.",
-    "53405": "Media connection failed.",
-  };
-  return code ? map[String(code)] || `Twilio error ${code}.` : "Unknown Twilio error.";
-}
+const POLL_INTERVAL_MS = 2_000;
+const POLL_MAX_MS = 5 * 60_000;
 
 export function useTwilioDevice() {
-  const deviceRef = useRef<Device | null>(null);
-  const callRef = useRef<Call | null>(null);
-  const initTimeoutRef = useRef<number | null>(null);
-  const initAttemptRef = useRef(0);
-  const [status, setStatus] = useState<Status>("idle");
-  const [dialerStatus, setDialerStatus] = useState<DialerStatus>("connecting");
+  const [status, setStatus] = useState<Status>("ready");
+  const [dialerStatus] = useState<DialerStatus>("ready"); // no SDK to register — always ready
   const [error, setError] = useState<string | null>(null);
   const [activeCallSid, setActiveCallSid] = useState<string | null>(null);
+  const pollTimerRef = useRef<number | null>(null);
+  const pollStartedAtRef = useRef<number>(0);
 
-  const clearInitTimeout = useCallback(() => {
-    if (initTimeoutRef.current !== null) {
-      window.clearTimeout(initTimeoutRef.current);
-      initTimeoutRef.current = null;
+  const stopPolling = useCallback(() => {
+    if (pollTimerRef.current !== null) {
+      window.clearInterval(pollTimerRef.current);
+      pollTimerRef.current = null;
     }
   }, []);
 
-  const destroyDevice = useCallback(() => {
-    clearInitTimeout();
-    try {
-      deviceRef.current?.destroy();
-    } catch {}
-    deviceRef.current = null;
-  }, [clearInitTimeout]);
-
-  const initializeDevice = useCallback(async () => {
-    const attemptId = ++initAttemptRef.current;
-    destroyDevice();
-    callRef.current = null;
-    setActiveCallSid(null);
-    setError(null);
-    setStatus("loading");
-    setDialerStatus("connecting");
-
-    try {
-      const { data, error: fnErr } = await supabase.functions.invoke("twilio-token", { body: {} });
-      if (fnErr || !data?.token) {
-        const msg = fnErr?.message || "Token edge function returned no token";
-        await logFrontendError(
-          "twilio-token",
-          `Failed to generate Twilio access token: ${msg}`,
-          {
-            fnError: fnErr ? { message: fnErr.message, name: fnErr.name } : null,
-            responseData: data ?? null,
-            stepsToReproduce: "Loading the dialer / call page triggers token generation on mount.",
-          }
-        );
-        throw new Error(msg);
-      }
-      if (attemptId !== initAttemptRef.current) return;
-
-      const deviceOptions = {
-        region: "au1",
-        logLevel: 1,
-        codecPreferences: ["opus" as never, "pcmu" as never],
-      };
-
-      const device = new Device(
-        data.token,
-        deviceOptions as unknown as ConstructorParameters<typeof Device>[1],
-      );
-
-      const failDialer = async (description: string, details: Record<string, unknown> = {}) => {
-        if (attemptId !== initAttemptRef.current) return;
-        clearInitTimeout();
-        console.error("Twilio dialer failed:", description, details);
-        setError("Connection failed — click to retry");
-        setStatus("error");
-        setDialerStatus("failed");
-        await logFrontendError("twilio-device", description, {
-          ...details,
-          troubleshootingHint: "Verify TWILIO_TWIML_APP_SID exactly matches the TwiML App SID in the Twilio console.",
-        });
-        try {
-          device.destroy();
-        } catch {}
-        if (deviceRef.current === device) {
-          deviceRef.current = null;
-        }
-      };
-
-      device.on("registered", () => {
-        if (attemptId !== initAttemptRef.current) return;
-        clearInitTimeout();
-        deviceRef.current = device;
-        setError(null);
-        setStatus("ready");
-        setDialerStatus("ready");
-      });
-
-      device.on("error", async (e: unknown) => {
-        const code = extractErrorCode(e);
-        const msg = extractErrorMessage(e, "Twilio Device error");
-        const description = describeTwilioCode(code);
-        console.error("Twilio Device error:", e);
-        await failDialer(
-          `Twilio Device failure: ${description} (${msg})`,
-          {
-            twilioCode: code,
-            rawMessage: msg,
-            rawError: safeSerializeError(e),
-            stepsToReproduce: "Browser-side Twilio Device emitted an error event during registration or call signaling.",
-          }
-        );
-      });
-
-      device.on("tokenWillExpire", async () => {
-        try {
-          const { data: refreshed, error: refreshErr } = await supabase.functions.invoke("twilio-token", { body: {} });
-          if (refreshErr || !refreshed?.token) {
-            await logFrontendError(
-              "twilio-token",
-              `Failed to refresh expiring Twilio token: ${refreshErr?.message || "no token returned"}`,
-              {
-                fnError: refreshErr ? { message: refreshErr.message } : null,
-                stepsToReproduce: "Twilio token nearing expiry; SDK requested a refresh.",
-              }
-            );
-            return;
-          }
-          device.updateToken(refreshed.token);
-        } catch (err) {
-          await logFrontendError(
-            "twilio-token",
-            `Exception during Twilio token refresh: ${extractErrorMessage(err)}`,
-            { rawError: safeSerializeError(err) }
-          );
-        }
-      });
-
-      initTimeoutRef.current = window.setTimeout(() => {
-        void failDialer(
-          "Twilio Device registration timed out after 10 seconds",
-          {
-            twilioCode: "registration-timeout",
-            timeoutMs: DEVICE_INIT_TIMEOUT_MS,
-            stepsToReproduce: "Open a page that mounts the browser dialer and wait for Twilio Device registration.",
-          }
-        );
-      }, DEVICE_INIT_TIMEOUT_MS);
-
-      deviceRef.current = device;
-      await device.register();
-
-      if (attemptId !== initAttemptRef.current) {
-        try {
-          device.destroy();
-        } catch {}
-      }
-    } catch (err) {
-      if (attemptId !== initAttemptRef.current) return;
-      const msg = extractErrorMessage(err, "Twilio init failed");
-      console.error("Twilio init failed:", err);
-      clearInitTimeout();
-      setError("Connection failed — click to retry");
-      setStatus("error");
-      setDialerStatus("failed");
-      await logFrontendError(
-        "twilio-device",
-        `Twilio Device failed to initialise: ${msg}`,
-        {
-          twilioCode: extractErrorCode(err),
-          rawError: safeSerializeError(err),
-          stepsToReproduce: "Page load — useTwilioDevice tried to fetch a token and register the Twilio Device.",
-          troubleshootingHint: "Verify TWILIO_TWIML_APP_SID exactly matches the TwiML App SID in the Twilio console.",
-        }
-      );
-    }
-  }, [clearInitTimeout, destroyDevice]);
-
   useEffect(() => {
-    void initializeDevice();
+    return () => stopPolling();
+  }, [stopPolling]);
 
-    return () => {
-      initAttemptRef.current += 1;
-      clearInitTimeout();
-      try {
-        deviceRef.current?.destroy();
-      } catch {}
-      deviceRef.current = null;
-      callRef.current = null;
-    };
-  }, [clearInitTimeout, initializeDevice]);
+  const beginPolling = useCallback((callSid: string) => {
+    stopPolling();
+    pollStartedAtRef.current = Date.now();
 
-  const retry = useCallback(() => {
-    void initializeDevice();
-  }, [initializeDevice]);
+    pollTimerRef.current = window.setInterval(async () => {
+      if (Date.now() - pollStartedAtRef.current > POLL_MAX_MS) {
+        stopPolling();
+        setStatus("ready");
+        setActiveCallSid(null);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("call_records")
+        .select("status, duration")
+        .eq("twilio_call_sid", callSid)
+        .maybeSingle();
+
+      if (!data) return;
+      const s = (data.status || "").toLowerCase();
+
+      if (s === "in-progress" || s === "answered") {
+        setStatus("in-call");
+      } else if (
+        s === "completed" ||
+        s === "no-answer" ||
+        s === "busy" ||
+        s === "failed" ||
+        s === "canceled"
+      ) {
+        stopPolling();
+        setStatus("ready");
+        setActiveCallSid(null);
+        if (s !== "completed") {
+          setError(`Call ${s.replace("-", " ")}.`);
+        }
+      }
+    }, POLL_INTERVAL_MS);
+  }, [stopPolling]);
 
   const call = useCallback(async (phone: string) => {
-    const device = deviceRef.current;
-    if (!device) {
-      const userMessage = dialerStatus === "failed"
-        ? "Connection failed — click to retry"
-        : "Dialer is still connecting";
-      await logFrontendError(
-        "twilio-call",
-        "Attempted to place a call before Twilio Device was ready",
-        { phone, dialerStatus, stepsToReproduce: "User clicked Call before the Device finished registering." }
-      );
-      throw new Error(userMessage);
-    }
-    if (callRef.current) return;
-
-    const formatted = formatAUPhone(phone);
+    setError(null);
     setStatus("connecting");
 
     try {
-      const conn = await device.connect({ params: { To: formatted } });
-      callRef.current = conn;
+      const { data, error: fnErr } = await supabase.functions.invoke("initiate-call", {
+        body: { clinicPhone: phone },
+      });
 
-      conn.on("accept", (c: Call) => {
-        setStatus("in-call");
-        const sid = c.parameters?.CallSid || null;
-        setActiveCallSid(sid);
-        if (sid) {
-          supabase.from("call_records").insert({ twilio_call_sid: sid, status: "in-progress" });
-        }
-      });
-      conn.on("disconnect", () => {
-        callRef.current = null;
-        setActiveCallSid(null);
-        setStatus("ready");
-      });
-      conn.on("cancel", () => {
-        callRef.current = null;
-        setActiveCallSid(null);
-        setStatus("ready");
-      });
-      conn.on("error", async (e: unknown) => {
-        const code = extractErrorCode(e);
-        const msg = extractErrorMessage(e, "Twilio call error");
-        console.error("Call error:", e);
+      if (fnErr || !data?.success || !data?.callSid) {
+        const msg = data?.error || fnErr?.message || "Failed to start call";
+        setStatus("error");
         setError(msg);
-        callRef.current = null;
-        setActiveCallSid(null);
-        setStatus("ready");
-        await logFrontendError(
-          "twilio-call",
-          `Twilio call failed: ${describeTwilioCode(code)} (${msg})`,
-          {
-            twilioCode: code,
-            rawMessage: msg,
-            phone: formatted,
-            rawError: safeSerializeError(e),
-            stepsToReproduce: `Outbound call to ${formatted} via browser SDK.`,
-          }
-        );
-      });
+        await logFrontendError("initiate-call", `Click-to-call failed: ${msg}`, {
+          phone,
+          fnError: fnErr ? { message: fnErr.message } : null,
+          responseData: data ?? null,
+          stepsToReproduce: `User clicked Call for ${phone}; initiate-call edge function rejected the request.`,
+        });
+        throw new Error(msg);
+      }
+
+      setActiveCallSid(data.callSid);
+      beginPolling(data.callSid);
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to start call");
-      setStatus("ready");
-      callRef.current = null;
-      await logFrontendError(
-        "twilio-call",
-        `Failed to initiate Twilio call: ${msg}`,
-        {
-          twilioCode: extractErrorCode(err),
-          phone: formatted,
-          rawError: safeSerializeError(err),
-          stepsToReproduce: `User clicked Call for ${formatted}; device.connect() threw before any call events fired.`,
-        }
-      );
-      throw err;
+      setStatus("error");
+      setError(msg);
+      throw err instanceof Error ? err : new Error(msg);
     }
-  }, [dialerStatus]);
+  }, [beginPolling]);
 
   const hangup = useCallback(() => {
-    callRef.current?.disconnect();
-    callRef.current = null;
+    // No active media stream to drop on the client. The PSTN call between Peter
+    // and the clinic continues until either party hangs up. We just reset UI.
+    stopPolling();
     setActiveCallSid(null);
+    setStatus("ready");
+  }, [stopPolling]);
+
+  const retry = useCallback(() => {
+    setError(null);
     setStatus("ready");
   }, []);
 
   return { status, dialerStatus, error, call, hangup, retry, activeCallSid };
-}
-
-function safeSerializeError(e: unknown): unknown {
-  if (!e) return null;
-  if (e instanceof Error) {
-    return { name: e.name, message: e.message, stack: e.stack };
-  }
-  try {
-    return JSON.parse(JSON.stringify(e));
-  } catch {
-    return String(e);
-  }
 }
