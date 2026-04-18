@@ -52,15 +52,9 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
     return { columns: cols, selectedColIdx: labels.indexOf(convertRate) };
   }, [caseValue, convertRate]);
 
-  const handleCaseValueChange = (val: string) => {
-    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-    onCaseValueChange(isNaN(num) ? 0 : Math.min(num, 999999));
-  };
-
-  const handlePricePerShowChange = (val: string) => {
-    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-    onPricePerShowChange(isNaN(num) ? 0 : Math.min(num, 99999));
-  };
+  // Inputs intentionally removed from the deck — values are driven from /settings.
+  void onCaseValueChange;
+  void onPricePerShowChange;
 
   return (
     <div className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
@@ -75,48 +69,6 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
         >
           What This Looks Like For Your Clinic.
         </h2>
-
-        {/* Editable inputs */}
-        <div className="flex flex-wrap justify-center gap-6 mb-12">
-          <div className="text-left">
-            <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
-              Average Case Value ($)
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={caseValue === 0 ? "" : caseValue.toLocaleString()}
-              onChange={(e) => handleCaseValueChange(e.target.value)}
-              className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary w-44"
-            />
-          </div>
-          <div className="text-left">
-            <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
-              Price Per Show ($)
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              value={pricePerShow === 0 ? "" : pricePerShow.toLocaleString()}
-              onChange={(e) => handlePricePerShowChange(e.target.value)}
-              className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary w-44"
-            />
-          </div>
-          <div className="text-left">
-            <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
-              Conversion Rate
-            </label>
-            <select
-              value={convertRate}
-              onChange={(e) => onConvertRateChange(e.target.value)}
-              className="bg-input border border-border rounded-lg px-4 py-2.5 text-foreground text-base font-semibold focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer w-44"
-            >
-              {Object.entries(ALL_CONVERT_RATES).map(([label, r]) => (
-                <option key={label} value={label}>{label} ({Math.round(r * 100)}%)</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
         {/* 3 conversion columns */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
