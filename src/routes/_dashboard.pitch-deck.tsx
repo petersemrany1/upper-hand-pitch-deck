@@ -6,7 +6,7 @@ import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { loadDeckSettings } from "./_dashboard.settings";
+import { loadDeckSettings, DEFAULT_SETTINGS } from "./_dashboard.settings";
 import patientPhoto from "../assets/pitch/patient.jpg";
 import teamPhoto from "../assets/pitch/team.jpg";
 import hairPhoto from "../assets/pitch/hair.jpg";
@@ -53,6 +53,12 @@ function PitchDeck() {
   const [pricePerShow, setPricePerShow] = useState(initial.pricePerShow);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
+  const [started, setStarted] = useState(false);
+
+  // Local setup-screen inputs (string-formatted for typing)
+  const [setupCaseValue, setSetupCaseValue] = useState(String(initial.caseValue));
+  const [setupPricePerShow, setSetupPricePerShow] = useState(String(initial.pricePerShow));
+  const [setupConvertRate, setSetupConvertRate] = useState(initial.convertRate);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
@@ -467,15 +473,108 @@ function PitchDeck() {
     return () => window.removeEventListener("keydown", handler);
   }, [TOTAL_SLIDES]);
 
+  if (!started) {
+    const handleCaseChange = (val: string) => {
+      const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
+      setSetupCaseValue(isNaN(num) ? "" : String(Math.min(num, 999999)));
+    };
+    const handlePriceChange = (val: string) => {
+      const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
+      setSetupPricePerShow(isNaN(num) ? "" : String(Math.min(num, 99999)));
+    };
+    const fmtCase = setupCaseValue ? Number(setupCaseValue).toLocaleString("en-US") : "";
+    const fmtPrice = setupPricePerShow ? Number(setupPricePerShow).toLocaleString("en-US") : "";
+    const setupValid = parseInt(setupCaseValue, 10) >= 1000 && parseInt(setupPricePerShow, 10) >= 100;
+
+    const handleStart = () => {
+      const payload = {
+        caseValue: parseInt(setupCaseValue, 10) || DEFAULT_SETTINGS.caseValue,
+        pricePerShow: parseInt(setupPricePerShow, 10) || DEFAULT_SETTINGS.pricePerShow,
+        convertRate: setupConvertRate,
+      };
+      try { window.localStorage.setItem("pitch-deck-settings", JSON.stringify(payload)); } catch {}
+      setCaseValue(payload.caseValue);
+      setPricePerShow(payload.pricePerShow);
+      setConvertRate(payload.convertRate);
+      setStarted(true);
+    };
+
+    return (
+      <div className="min-h-screen w-full px-6 py-12 flex items-start justify-center bg-black">
+        <div className="max-w-md w-full">
+          <h1
+            className="text-3xl md:text-4xl font-extrabold text-foreground mb-10 tracking-tight"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            Set Your Presentation Numbers
+          </h1>
+
+          <div className="space-y-5 mb-8">
+            <div>
+              <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
+                Average Procedure Value ($)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtCase}
+                onChange={(e) => handleCaseChange(e.target.value)}
+                className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
+                Price Per Show ($)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={fmtPrice}
+                onChange={(e) => handlePriceChange(e.target.value)}
+                className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-[#CCCCCC] block mb-2 font-medium tracking-wide uppercase">
+                Estimated Conversion Rate
+              </label>
+              <select
+                value={setupConvertRate}
+                onChange={(e) => setSetupConvertRate(e.target.value)}
+                className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground text-lg font-semibold focus:outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+              >
+                {Object.entries(CONVERT_RATES).map(([label, r]) => (
+                  <option key={label} value={label}>{label} ({Math.round(r * 100)}%)</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button
+            onClick={handleStart}
+            disabled={!setupValid}
+            className="w-full bg-primary text-primary-foreground font-bold text-base px-6 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity disabled:opacity-40"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            START PRESENTATION →
+          </button>
+          {!setupValid && (setupCaseValue !== "" || setupPricePerShow !== "") && (
+            <p className="text-xs text-red-400 mt-3 text-center">Procedure value must be at least $1,000 and price per show at least $100.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative group" style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
-      <Link
-        to="/settings"
+      <button
+        onClick={() => setStarted(false)}
         className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Edit presentation numbers"
       >
         <Home className="w-5 h-5" />
-      </Link>
+      </button>
       <button
         onClick={toggleFullscreen}
         className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
