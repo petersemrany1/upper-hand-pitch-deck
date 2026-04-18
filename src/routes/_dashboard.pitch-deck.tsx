@@ -53,6 +53,12 @@ function PitchDeck() {
   const [pricePerShow, setPricePerShow] = useState(initial.pricePerShow);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
+  const [started, setStarted] = useState(false);
+
+  // Local setup-screen inputs (string-formatted for typing)
+  const [setupCaseValue, setSetupCaseValue] = useState(String(initial.caseValue));
+  const [setupPricePerShow, setSetupPricePerShow] = useState(String(initial.pricePerShow));
+  const [setupConvertRate, setSetupConvertRate] = useState(initial.convertRate);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
