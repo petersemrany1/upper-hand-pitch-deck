@@ -293,7 +293,7 @@ function PitchDeck() {
       <div className="w-[35%] relative overflow-hidden bg-black">
         <img
           src={patientPhoto}
-          alt="A man in his 40s sitting at a cafe in natural light, looking thoughtful"
+          alt="A relaxed Australian man in his 40s smiling warmly at an outdoor cafe in golden afternoon light"
           className="absolute inset-0 w-full h-full object-cover"
           loading="eager"
           decoding="async"
