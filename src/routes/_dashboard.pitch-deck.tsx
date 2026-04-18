@@ -14,6 +14,21 @@ import clinicPhoto from "../assets/pitch/clinic.jpg";
 
 const DECK_PHOTOS = [patientPhoto, teamPhoto, hairPhoto, clinicPhoto];
 
+// Kick off image preloading the moment this module is imported (i.e. as soon
+// as the user navigates to /pitch-deck and the setup screen mounts) so every
+// deck photo is fully cached before any slide is reached. Runs once.
+if (typeof window !== "undefined") {
+  DECK_PHOTOS.forEach((src) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = src;
+    // Trigger decode pipeline early so the bitmap is ready, not just the bytes.
+    if (typeof img.decode === "function") {
+      img.decode().catch(() => {});
+    }
+  });
+}
+
 export const Route = createFileRoute("/_dashboard/pitch-deck")({
   component: PitchDeck,
   head: () => ({
