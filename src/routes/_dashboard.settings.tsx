@@ -60,7 +60,6 @@ function SettingsPage() {
   const [caseValue, setCaseValue] = useState("12000");
   const [pricePerShow, setPricePerShow] = useState("1100");
   const [convertRate, setConvertRate] = useState("1 in 4");
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     const s = loadDeckSettings();
@@ -91,12 +90,6 @@ function SettingsPage() {
       convertRate,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  };
-
-  const handleSave = () => {
-    persist();
-    setSaved(true);
-    setTimeout(() => setSaved(false), 1800);
   };
 
   const handleStart = () => {
@@ -155,24 +148,14 @@ function SettingsPage() {
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={!isValid}
-            className="flex-1 bg-card border border-border text-foreground font-bold text-base px-6 py-4 rounded-lg tracking-wide hover:bg-card/70 transition-colors disabled:opacity-40"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            {saved ? "SAVED ✓" : "SAVE"}
-          </button>
-          <button
-            onClick={handleStart}
-            disabled={!isValid}
-            className="flex-1 bg-primary text-primary-foreground font-bold text-base px-6 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity disabled:opacity-40"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            START PRESENTATION →
-          </button>
-        </div>
+        <button
+          onClick={handleStart}
+          disabled={!isValid}
+          className="w-full bg-primary text-primary-foreground font-bold text-base px-6 py-4 rounded-lg tracking-wide hover:opacity-90 transition-opacity disabled:opacity-40"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          START PRESENTATION →
+        </button>
         {!isValid && (caseValue !== "" || pricePerShow !== "") && (
           <p className="text-xs text-red-400 mt-3 text-center">Procedure value must be at least $1,000 and price per show at least $100.</p>
         )}
