@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Settings, Phone, BarChart3, AlertTriangle, Building2, Activity } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Activity } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -20,7 +20,6 @@ const items = [
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Phone & Contacts", url: "/clients", icon: Phone },
   { title: "Logs", url: "/logs", icon: AlertTriangle },
-  { title: "Settings", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
