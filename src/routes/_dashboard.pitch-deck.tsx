@@ -312,8 +312,7 @@ function PitchDeck() {
           className="text-4xl md:text-[4rem] font-extrabold text-foreground leading-[1.08] tracking-tight"
           style={{ fontFamily: "var(--font-heading)" }}
         >
-          Didn't Book On The Day?<br />
-          We Stay With Them.
+          Didn't Book On The Day Of Consult?
         </h2>
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="mt-12 divide-y divide-white/10">
           {[
