@@ -86,10 +86,16 @@ export function useTwilioDevice() {
       }
       if (attemptId !== initAttemptRef.current) return;
 
-      const device = new Device(data.token, {
+      const deviceOptions = {
+        region: "au1",
         logLevel: 1,
         codecPreferences: ["opus" as never, "pcmu" as never],
-      });
+      };
+
+      const device = new Device(
+        data.token,
+        deviceOptions as unknown as ConstructorParameters<typeof Device>[1],
+      );
 
       const failDialer = async (description: string, details: Record<string, unknown> = {}) => {
         if (attemptId !== initAttemptRef.current) return;
