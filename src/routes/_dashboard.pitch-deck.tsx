@@ -510,7 +510,14 @@ function PitchDeck() {
     };
 
     return (
-      <div className="min-h-screen w-full px-6 py-12 flex items-start justify-center bg-black">
+      <div className="relative min-h-screen w-full px-6 py-12 flex items-start justify-center bg-black">
+        <Link
+          to="/"
+          aria-label="Back to dashboard"
+          className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground transition-colors"
+        >
+          <Home className="w-5 h-5" />
+        </Link>
         <div className="max-w-md w-full">
           <h1
             className="text-3xl md:text-4xl font-extrabold text-foreground mb-10 tracking-tight"
