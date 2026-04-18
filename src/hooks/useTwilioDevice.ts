@@ -38,7 +38,7 @@ export function useTwilioDevice() {
 
   const fetchToken = useCallback(async (): Promise<string> => {
     const { data, error: fnErr } = await supabase.functions.invoke("voice-token", {
-      body: { identity: "peter-browser" },
+      body: { identity: "peter_browser" },
     });
     if (fnErr || !data?.token) {
       const msg = data?.error || fnErr?.message || "Failed to fetch voice token";

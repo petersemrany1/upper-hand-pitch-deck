@@ -55,14 +55,19 @@ serve(async (req) => {
       );
     }
 
-    // Identity is required by Twilio; tie it to a stable browser-side label.
+    // Identity is required by Twilio; Voice JS only allows [A-Za-z0-9_].
     const url = new URL(req.url);
     let identity = url.searchParams.get("identity") || "";
     if (!identity && req.method === "POST") {
       const body = await req.json().catch(() => ({}));
       identity = body.identity || "";
     }
-    if (!identity) identity = `peter-${crypto.randomUUID().slice(0, 8)}`;
+    if (!identity) {
+      identity = `peter_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+    }
+    // Sanitize: replace any char outside [A-Za-z0-9_] with _, cap at 120 chars.
+    identity = identity.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 120);
+    if (!identity) identity = `peter_${Date.now().toString(36)}`;
 
     const now = Math.floor(Date.now() / 1000);
     const ttl = 60 * 60; // 1 hour
