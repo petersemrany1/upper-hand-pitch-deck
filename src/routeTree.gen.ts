@@ -11,8 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
-import { Route as ApiTwimlRouteImport } from './routes/api/twiml'
-import { Route as ApiTwilioStatusRouteImport } from './routes/api/twilio-status'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardPipelineRouteImport } from './routes/_dashboard.pipeline'
@@ -29,16 +27,6 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardRoute,
-} as any)
-const ApiTwimlRoute = ApiTwimlRouteImport.update({
-  id: '/api/twiml',
-  path: '/api/twiml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiTwilioStatusRoute = ApiTwilioStatusRouteImport.update({
-  id: '/api/twilio-status',
-  path: '/api/twilio-status',
-  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
@@ -85,8 +73,6 @@ export interface FileRoutesByFullPath {
   '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
-  '/api/twilio-status': typeof ApiTwilioStatusRoute
-  '/api/twiml': typeof ApiTwimlRoute
 }
 export interface FileRoutesByTo {
   '/analytics': typeof DashboardAnalyticsRoute
@@ -96,8 +82,6 @@ export interface FileRoutesByTo {
   '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
-  '/api/twilio-status': typeof ApiTwilioStatusRoute
-  '/api/twiml': typeof ApiTwimlRoute
   '/': typeof DashboardIndexRoute
 }
 export interface FileRoutesById {
@@ -110,8 +94,6 @@ export interface FileRoutesById {
   '/_dashboard/pipeline': typeof DashboardPipelineRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
-  '/api/twilio-status': typeof ApiTwilioStatusRoute
-  '/api/twiml': typeof ApiTwimlRoute
   '/_dashboard/': typeof DashboardIndexRoute
 }
 export interface FileRouteTypes {
@@ -125,8 +107,6 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pitch-deck'
     | '/settings'
-    | '/api/twilio-status'
-    | '/api/twiml'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/analytics'
@@ -136,8 +116,6 @@ export interface FileRouteTypes {
     | '/pipeline'
     | '/pitch-deck'
     | '/settings'
-    | '/api/twilio-status'
-    | '/api/twiml'
     | '/'
   id:
     | '__root__'
@@ -149,15 +127,11 @@ export interface FileRouteTypes {
     | '/_dashboard/pipeline'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/settings'
-    | '/api/twilio-status'
-    | '/api/twiml'
     | '/_dashboard/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
-  ApiTwilioStatusRoute: typeof ApiTwilioStatusRoute
-  ApiTwimlRoute: typeof ApiTwimlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -175,20 +149,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
-    }
-    '/api/twiml': {
-      id: '/api/twiml'
-      path: '/api/twiml'
-      fullPath: '/api/twiml'
-      preLoaderRoute: typeof ApiTwimlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/twilio-status': {
-      id: '/api/twilio-status'
-      path: '/api/twilio-status'
-      fullPath: '/api/twilio-status'
-      preLoaderRoute: typeof ApiTwilioStatusRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_dashboard/settings': {
       id: '/_dashboard/settings'
@@ -270,8 +230,6 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
-  ApiTwilioStatusRoute: ApiTwilioStatusRoute,
-  ApiTwimlRoute: ApiTwimlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
