@@ -55,6 +55,7 @@ serve(async (req) => {
       sub: accountSid,
       iat: now,
       exp: now + ttl,
+      region: "au1",
       grants: {
         identity,
         voice: {
