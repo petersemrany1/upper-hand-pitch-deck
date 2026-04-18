@@ -331,7 +331,7 @@ function PitchDeck() {
       <div className="w-[30%] relative overflow-hidden bg-black" style={{ willChange: "transform" }}>
         <img
           src={teamPhoto}
-          alt="Two people on phones at a desk in a small office, both smiling and engaged"
+          alt="A young Australian man at a modern desk wearing a headset, smiling on a call in a small bright office"
           className="absolute inset-0 w-full h-full object-cover"
           loading="eager"
           decoding="async"
