@@ -6,7 +6,7 @@ import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
-import { loadDeckSettings } from "./_dashboard.settings";
+import { loadDeckSettings, DEFAULT_SETTINGS } from "./_dashboard.settings";
 import patientPhoto from "../assets/pitch/patient.jpg";
 import teamPhoto from "../assets/pitch/team.jpg";
 import hairPhoto from "../assets/pitch/hair.jpg";
