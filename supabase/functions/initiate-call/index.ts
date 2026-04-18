@@ -60,21 +60,19 @@ serve(async (req) => {
 
     // REST: POST /2010-04-01/Accounts/{Sid}/Calls.json
     const apiUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`;
-    const params = new URLSearchParams({
-      To: PETER_PHONE,
-      From: TWILIO_CALLER_ID,
-      Url: twimlUrl,
-      Method: "POST",
-      Record: "true",
-      RecordingStatusCallback: statusCallback,
-      RecordingStatusCallbackMethod: "POST",
-      StatusCallback: statusCallback,
-      StatusCallbackMethod: "POST",
-      StatusCallbackEvent: "initiated",
-      StatusCallbackEvent: "ringing",
-      StatusCallbackEvent: "answered",
-      StatusCallbackEvent: "completed",
-    });
+    const params = new URLSearchParams();
+    params.set("To", PETER_PHONE);
+    params.set("From", TWILIO_CALLER_ID);
+    params.set("Url", twimlUrl);
+    params.set("Method", "POST");
+    params.set("Record", "true");
+    params.set("RecordingStatusCallback", statusCallback);
+    params.set("RecordingStatusCallbackMethod", "POST");
+    params.set("StatusCallback", statusCallback);
+    params.set("StatusCallbackMethod", "POST");
+    for (const ev of ["initiated", "ringing", "answered", "completed"]) {
+      params.append("StatusCallbackEvent", ev);
+    }
 
     const twilioRes = await fetch(apiUrl, {
       method: "POST",
