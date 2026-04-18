@@ -52,15 +52,9 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
     return { columns: cols, selectedColIdx: labels.indexOf(convertRate) };
   }, [caseValue, convertRate]);
 
-  const handleCaseValueChange = (val: string) => {
-    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-    onCaseValueChange(isNaN(num) ? 0 : Math.min(num, 999999));
-  };
-
-  const handlePricePerShowChange = (val: string) => {
-    const num = parseInt(val.replace(/[^0-9]/g, ""), 10);
-    onPricePerShowChange(isNaN(num) ? 0 : Math.min(num, 99999));
-  };
+  // Inputs intentionally removed from the deck — values are driven from /settings.
+  void onCaseValueChange;
+  void onPricePerShowChange;
 
   return (
     <div className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
