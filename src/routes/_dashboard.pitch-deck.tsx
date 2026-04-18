@@ -580,7 +580,7 @@ function PitchDeck() {
     <div className="relative group" style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
       <button
         onClick={() => setStarted(false)}
-        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+        className="fixed bottom-4 left-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Edit presentation numbers"
       >
         <Home className="w-5 h-5" />
