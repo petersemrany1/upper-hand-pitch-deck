@@ -93,3 +93,11 @@
 :-moz-full-screen .deck-slide {
   min-height: 100vh;
 }
+
+/* Dashboard grid — desktop only. Mobile uses flex-col stacking. */
+@media (min-width: 768px) {
+  .dashboard-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-rows: 48px 1fr 1fr;
+  }
+}

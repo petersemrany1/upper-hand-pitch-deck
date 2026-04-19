@@ -224,9 +224,9 @@ function PipelinePage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
-      <div className="px-6 pt-5 pb-3">
+      <div className="px-3 md:px-6 pt-5 pb-3">
         <h1 className="text-lg font-semibold text-white mb-4">Patient Pipeline</h1>
-        <div className="grid grid-cols-7 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
           {stats.map((s) => (
             <div
               key={s.label}
@@ -249,7 +249,7 @@ function PipelinePage() {
       </div>
 
       {/* Qualified Pipeline Table */}
-      <div className="flex-1 mx-6 mb-2 rounded-lg border overflow-hidden flex flex-col" style={{ borderColor: "#1f1f23", background: "#111114" }}>
+      <div className="flex-1 mx-3 md:mx-6 mb-2 rounded-lg border overflow-hidden flex flex-col" style={{ borderColor: "#1f1f23", background: "#111114" }}>
         <div
           className="grid text-[11px] uppercase tracking-wider font-medium px-4 py-2.5 border-b"
           style={{
@@ -308,7 +308,7 @@ function PipelinePage() {
       </div>
 
       {/* Disqualified Section — collapsible */}
-      <div className="mx-6 mb-4 rounded-lg border overflow-hidden" style={{ borderColor: "#1f1f23", background: "#111114" }}>
+      <div className="mx-3 md:mx-6 mb-4 rounded-lg border overflow-hidden" style={{ borderColor: "#1f1f23", background: "#111114" }}>
         <button
           onClick={() => setShowDQ((v) => !v)}
           className="w-full flex items-center justify-between px-4 py-2.5 text-[12px] uppercase tracking-wider font-medium"

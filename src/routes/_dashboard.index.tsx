@@ -223,15 +223,10 @@ function DashboardHome() {
 
   return (
     <div
-      className="h-full overflow-hidden p-4 gap-3"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-        gridTemplateRows: "48px 1fr 1fr",
-      }}
+      className="dashboard-grid flex flex-col md:grid h-auto md:h-full overflow-visible md:overflow-hidden p-4 gap-3"
     >
       <div
-        className="col-span-4 rounded-lg flex items-center justify-between px-4"
+        className="md:col-span-4 rounded-lg flex items-center justify-between px-4 py-3 md:py-0"
         style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
       >
         <div>
@@ -240,7 +235,7 @@ function DashboardHome() {
         </div>
       </div>
 
-      <div className="col-span-3 grid grid-cols-3 gap-3">
+      <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
@@ -276,7 +271,7 @@ function DashboardHome() {
           );
         })}
 
-        <div className="col-span-3 rounded-lg flex flex-col overflow-hidden" style={{ background: "transparent" }}>
+        <div className="sm:col-span-3 rounded-lg flex flex-col overflow-hidden min-h-[240px] md:min-h-0" style={{ background: "transparent" }}>
           <div className="px-4 pt-3 pb-2 flex items-center gap-4">
             <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
             <span
@@ -309,7 +304,7 @@ function DashboardHome() {
       </div>
 
       <div
-        className="row-span-2 rounded-lg flex flex-col overflow-hidden"
+        className="md:row-span-2 rounded-lg flex flex-col overflow-hidden"
         style={{
           background: "#0f0f12",
           border: "1px solid #1f1f23",

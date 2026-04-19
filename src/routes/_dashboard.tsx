@@ -24,7 +24,7 @@ function DashboardLayout() {
             style={{ background: "#0f0f12", borderColor: "#1f1f23" }}
             aria-label="Open navigation"
           />
-          <main className="flex-1 overflow-hidden">
+          <main className="flex-1 overflow-y-auto md:overflow-hidden pt-14 md:pt-0">
             <Outlet />
           </main>
         </div>

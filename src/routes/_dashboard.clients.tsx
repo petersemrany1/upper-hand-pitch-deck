@@ -321,7 +321,7 @@ function ClientsPage() {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto">
+    <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <h1 className="text-3xl font-black mb-6" style={{ fontFamily: "var(--font-display)" }}>
         PHONE
       </h1>
