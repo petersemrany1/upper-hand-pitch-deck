@@ -15,6 +15,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.setti
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardPipelineRouteImport } from './routes/_dashboard.pipeline'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
+import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
@@ -48,6 +49,11 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardInboxRoute = DashboardInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
   id: '/clinics',
   path: '/clinics',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
+  '/inbox': typeof DashboardInboxRoute
   '/logs': typeof DashboardLogsRoute
   '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
+  '/inbox': typeof DashboardInboxRoute
   '/logs': typeof DashboardLogsRoute
   '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
@@ -90,6 +98,7 @@ export interface FileRoutesById {
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
+  '/_dashboard/inbox': typeof DashboardInboxRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/pipeline': typeof DashboardPipelineRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
@@ -103,6 +112,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/clients'
     | '/clinics'
+    | '/inbox'
     | '/logs'
     | '/pipeline'
     | '/pitch-deck'
@@ -112,6 +122,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/clients'
     | '/clinics'
+    | '/inbox'
     | '/logs'
     | '/pipeline'
     | '/pitch-deck'
@@ -123,6 +134,7 @@ export interface FileRouteTypes {
     | '/_dashboard/analytics'
     | '/_dashboard/clients'
     | '/_dashboard/clinics'
+    | '/_dashboard/inbox'
     | '/_dashboard/logs'
     | '/_dashboard/pipeline'
     | '/_dashboard/pitch-deck'
@@ -178,6 +190,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardLogsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/inbox': {
+      id: '/_dashboard/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof DashboardInboxRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/clinics': {
       id: '/_dashboard/clinics'
       path: '/clinics'
@@ -206,6 +225,7 @@ interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
+  DashboardInboxRoute: typeof DashboardInboxRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPipelineRoute: typeof DashboardPipelineRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
@@ -217,6 +237,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
+  DashboardInboxRoute: DashboardInboxRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPipelineRoute: DashboardPipelineRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
@@ -234,3 +255,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
