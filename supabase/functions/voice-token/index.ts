@@ -95,8 +95,12 @@ serve(async (req) => {
 
     const token = await signHs256(payload, header, apiKeySecret);
 
+    const incomingAllowed = payload.grants.voice.incoming.allow === true;
+    console.log(`TOKEN IDENTITY: ${identity}`);
+    console.log(`TOKEN INCOMING ALLOWED: ${incomingAllowed}`);
+
     return new Response(
-      JSON.stringify({ token, identity, ttl }),
+      JSON.stringify({ token, identity, ttl, incomingAllowed }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
