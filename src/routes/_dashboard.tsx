@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { IncomingCallDialog } from "@/components/IncomingCallDialog";
+import { SmsNotifier } from "@/components/SmsNotifier";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard")({
@@ -20,6 +21,7 @@ function DashboardLayout() {
       <>
         <Outlet />
         <IncomingCallDialog />
+        <SmsNotifier />
       </>
     );
   }
@@ -40,6 +42,7 @@ function DashboardLayout() {
         </div>
       </div>
       <IncomingCallDialog />
+      <SmsNotifier />
     </SidebarProvider>
   );
 }
