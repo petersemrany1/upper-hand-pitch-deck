@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.analyse-call]
 verify_jwt = false
+
+[functions.sms-inbound]
+verify_jwt = false
+
+[functions.voice-inbound]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Activity } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Activity, Inbox } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -12,11 +12,13 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { getUnresolvedCount } from "@/utils/error-logger.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Pipeline", url: "/pipeline", icon: Activity },
   { title: "Clinics", url: "/clinics", icon: Building2 },
+  { title: "Inbox", url: "/inbox", icon: Inbox },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Phone & Contacts", url: "/clients", icon: Phone },
@@ -27,6 +29,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const [unreadSms, setUnreadSms] = useState(0);
   const { isMobile, setOpenMobile } = useSidebar();
 
   useEffect(() => {
@@ -34,7 +37,21 @@ export function AppSidebar() {
     const interval = setInterval(() => {
       getUnresolvedCount().then((r) => setUnresolvedCount(r.count)).catch(() => {});
     }, 30000);
-    return () => clearInterval(interval);
+
+    const loadUnread = async () => {
+      const { data } = await supabase.from("sms_threads").select("unread_count");
+      const total = (data ?? []).reduce((s, r) => s + (r.unread_count ?? 0), 0);
+      setUnreadSms(total);
+    };
+    void loadUnread();
+    const ch = supabase
+      .channel("sidebar-sms-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, loadUnread)
+      .subscribe();
+    return () => {
+      clearInterval(interval);
+      void supabase.removeChannel(ch);
+    };
   }, []);
 
   const isActive = (path: string) => currentPath === path;
@@ -75,6 +92,11 @@ export function AppSidebar() {
                         {item.title === "Logs" && unresolvedCount > 0 && (
                           <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
                             {unresolvedCount}
+                          </span>
+                        )}
+                        {item.title === "Inbox" && unreadSms > 0 && (
+                          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
+                            {unreadSms}
                           </span>
                         )}
                       </Link>

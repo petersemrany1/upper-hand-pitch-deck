@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -817,6 +818,9 @@ function ClinicsPage() {
                   <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log Activity
                 </Button>
               </div>
+
+              {/* ===== LATEST SMS ===== */}
+              <ClinicSmsPreview clinicId={selectedClinic.id} clinicPhone={selectedClinic.phone} />
 
               {/* ===== SECTION 3: ACTIVITY TIMELINE ===== */}
               <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
