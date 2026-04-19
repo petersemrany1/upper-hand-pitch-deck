@@ -1,14 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { createClient } from "@supabase/supabase-js";
 import { logError } from "./error-logger.functions";
-
-// Sends an SMS or MMS via Twilio (through the Lovable connector gateway) and
-// records both the outbound message and the parent thread in the database.
-//
-// Inputs:
-//   to        — destination phone number (any AU format; auto-normalised to +61)
-//   body      — message text (optional if mediaUrls provided)
-//   mediaUrls — list of public image URLs to attach as MMS
 
 const TWILIO_FROM = "+61468031075";
 
@@ -21,7 +13,16 @@ function formatAUPhone(raw: string): string {
 }
 
 function getAdminClient() {
-  return supabaseAdmin;
+  const url =
+    process.env.SUPABASE_URL ??
+    process.env.VITE_SUPABASE_URL ??
+    "https://sfwokpeeffgrkxaptqji.supabase.co";
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_PUBLISHABLE_KEY ??
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmd29rcGVlZmZncmt4YXB0cWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTI0MTYsImV4cCI6MjA5MTcyODQxNn0.-I-IuBjfut2VVHLUYtGKO6sl4UnqpFbU1nWm4zQRD4E";
+  return createClient(url, key);
 }
 
 export const sendSms = createServerFn({ method: "POST" })
