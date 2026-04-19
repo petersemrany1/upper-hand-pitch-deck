@@ -108,8 +108,9 @@ device.on("registered", () => {
           });
         });
 
-        device.on("incoming", (call: Call) => {
+device.on("incoming", (call: Call) => {
           console.log("Voice SDK: incoming call from", call.parameters?.From, "sid =", call.parameters?.CallSid);
+          console.log("INCOMING CALL");
 
           call.on("accept", (c: Call) => {
             console.log("Voice SDK: incoming call accepted, sid =", c.parameters?.CallSid);
