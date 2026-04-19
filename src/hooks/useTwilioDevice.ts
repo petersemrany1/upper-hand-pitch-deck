@@ -44,6 +44,8 @@ export function useTwilioDevice() {
       const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
       throw new Error(msg);
     }
+    console.log(`TOKEN IDENTITY: ${data.identity}`);
+    console.log(`TOKEN INCOMING ALLOWED: ${data.incomingAllowed === true}`);
     return data.token as string;
   }, []);
 
