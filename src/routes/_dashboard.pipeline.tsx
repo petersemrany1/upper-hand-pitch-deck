@@ -214,10 +214,6 @@ function PipelinePage() {
 
   const disqualifiedCount = disqualifiedRows.length;
   const totalQualified = qualifiedRows.length;
-  const notYetCalledCount = rows.filter((r) => r.status === "Not Yet Called").length;
-  const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
-  const financeCount = rows.filter((r) => r.status === "Finance Check").length;
-  const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
 
   const qualifiedVirtualizer = useVirtualizer({
     count: qualifiedRows.length,
