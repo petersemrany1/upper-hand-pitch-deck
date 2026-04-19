@@ -374,76 +374,7 @@ function ClientsPage() {
               ))}
             </div>
 
-            {/* Select Phone Dropdown */}
-            <div className="mb-4 relative">
-              <button
-                onClick={() => setShowPhoneDropdown(!showPhoneDropdown)}
-                className="w-full flex items-center justify-between bg-card border border-border rounded-lg px-3 py-2.5 text-sm text-foreground hover:bg-accent/10 transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-muted-foreground" />
-                  <span>
-                    {selectedPhone
-                      ? `${selectedPhone.name} - ${selectedPhone.phone}`
-                      : "Select phone"}
-                  </span>
-                </div>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showPhoneDropdown ? "rotate-180" : ""}`} />
-              </button>
-
-              {showPhoneDropdown && (
-                <div className="absolute z-10 w-full mt-1 bg-card border border-border rounded-lg shadow-lg overflow-hidden">
-                  {savedPhones.map((p, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => {
-                        setSelectedPhoneIdx(idx);
-                        setShowPhoneDropdown(false);
-                      }}
-                      className={`w-full text-left px-3 py-2.5 text-sm hover:bg-accent/20 transition-colors ${
-                        idx === selectedPhoneIdx ? "bg-accent/10 font-medium" : ""
-                      }`}
-                    >
-                      {p.name} - {p.phone}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => {
-                      setShowAddPhone(true);
-                      setShowPhoneDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-primary hover:bg-accent/20 transition-colors flex items-center gap-2 border-t border-border"
-                  >
-                    <Plus className="w-4 h-4" /> Add new number
-                  </button>
-                </div>
-              )}
-
-              {showAddPhone && (
-                <div className="mt-2 bg-card border border-border rounded-lg p-3 space-y-2">
-                  <Input
-                    placeholder="Name"
-                    value={newPhoneName}
-                    onChange={(e) => setNewPhoneName(e.target.value)}
-                    className="text-sm"
-                  />
-                  <Input
-                    placeholder="Phone number"
-                    value={newPhoneNumber}
-                    onChange={(e) => setNewPhoneNumber(e.target.value)}
-                    className="text-sm"
-                  />
-                  <div className="flex gap-2">
-                    <Button onClick={handleAddPhone} size="sm" className="flex-1">
-                      Save
-                    </Button>
-                    <Button onClick={() => setShowAddPhone(false)} size="sm" variant="ghost">
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Caller phone selection removed — single default caller */}
 
             {/* Call / Backspace Buttons */}
             <div className="flex items-center gap-3">

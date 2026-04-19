@@ -9,6 +9,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { getUnresolvedCount } from "@/utils/error-logger.functions";
 
@@ -26,6 +27,7 @@ export function AppSidebar() {
   const location = useLocation();
   const currentPath = location.pathname;
   const [unresolvedCount, setUnresolvedCount] = useState(0);
+  const { isMobile, setOpenMobile } = useSidebar();
 
   useEffect(() => {
     getUnresolvedCount().then((r) => setUnresolvedCount(r.count)).catch(() => {});
@@ -63,7 +65,11 @@ export function AppSidebar() {
                         transition: "all 0.15s ease",
                       }}
                     >
-                      <Link to={item.url} className="hover:!text-white">
+                      <Link
+                        to={item.url}
+                        className="hover:!text-white"
+                        onClick={() => { if (isMobile) setOpenMobile(false); }}
+                      >
                         <item.icon className="h-4 w-4" style={{ color: active ? "#2D6BE4" : "#888" }} />
                         <span className="flex-1">{item.title}</span>
                         {item.title === "Logs" && unresolvedCount > 0 && (

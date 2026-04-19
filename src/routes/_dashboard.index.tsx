@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Phone, FileText, PhoneCall, Loader2, ChevronDown } from "lucide-react";
+import { Users, Phone, FileText, PhoneCall, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
@@ -70,9 +70,7 @@ function DashboardHome() {
   const [calling, setCalling] = useState(false);
   const [callMessage, setCallMessage] = useState<string | null>(null);
   const [savedPhones] = useState<SavedPhone[]>(getStoredPhones);
-  const [selectedPhoneIdx, setSelectedPhoneIdx] = useState(0);
-  const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
-  const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
+  void savedPhones;
 
   const {
     status: deviceStatus,
@@ -402,37 +400,6 @@ function DashboardHome() {
             </div>
           )}
 
-          <div className="relative mt-3">
-            <div style={{ fontSize: 10, color: "#555", letterSpacing: "0.1em", marginBottom: 4 }}>CALL FROM</div>
-            <button
-              onClick={() => setShowPhoneDropdown(!showPhoneDropdown)}
-              className="w-full flex items-center justify-between rounded px-3 py-2 text-xs"
-              style={{ background: "#1a1a1a", color: "#999", border: "1px solid #1f1f23" }}
-            >
-              <span>{selectedPhone?.name}</span>
-              <ChevronDown className="h-3 w-3" style={{ color: "#555" }} />
-            </button>
-            {showPhoneDropdown && (
-              <div
-                className="absolute z-10 mt-1 w-full rounded shadow-lg"
-                style={{ background: "#151518", border: "1px solid #1f1f23" }}
-              >
-                {savedPhones.map((p, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      setSelectedPhoneIdx(idx);
-                      setShowPhoneDropdown(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-xs hover:bg-white/5"
-                    style={{ color: idx === selectedPhoneIdx ? "#2D6BE4" : "#999" }}
-                  >
-                    {p.name} ({p.phone})
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="mt-auto px-4 pb-4">
