@@ -94,9 +94,7 @@ export function AppSidebar() {
                             <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold group-data-[collapsible=icon]:hidden">
                               {unresolvedCount}
                             </span>
-                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold md:group-data-[collapsible=icon]:inline hidden">
-                              {unresolvedCount}
-                            </span>
+                            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 md:group-data-[collapsible=icon]:block hidden" style={{ boxShadow: "0 0 0 2px #0f0f12" }} />
                           </>
                         )}
                         {item.title === "Inbox" && unreadSms > 0 && (
@@ -104,9 +102,7 @@ export function AppSidebar() {
                             <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold group-data-[collapsible=icon]:hidden">
                               {unreadSms}
                             </span>
-                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold md:group-data-[collapsible=icon]:inline hidden">
-                              {unreadSms}
-                            </span>
+                            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 md:group-data-[collapsible=icon]:block hidden" style={{ boxShadow: "0 0 0 2px #0f0f12" }} />
                           </>
                         )}
                       </Link>
