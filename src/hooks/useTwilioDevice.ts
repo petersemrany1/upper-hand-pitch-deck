@@ -191,6 +191,10 @@ device.on("incoming", (call: Call) => {
       setError("Dialler not ready yet. Try again in a moment.");
       return;
     }
+    if (status !== "ready" && status !== "in-call") {
+      setError("Dialler still connecting. Wait until DEVICE READY before calling.");
+      return;
+    }
 
     try {
       setStatus("connecting");
