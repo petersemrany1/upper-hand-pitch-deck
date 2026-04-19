@@ -14,6 +14,7 @@ type Status =
   | "loading"
   | "ready"
   | "connecting"
+  | "ringing-incoming"
   | "in-call"
   | "error";
 
@@ -24,6 +25,7 @@ const TOKEN_REFRESH_MS = 50 * 60 * 1000;
 // ----- Singleton state -----
 let device: Device | null = null;
 let activeCall: Call | null = null;
+let pendingIncoming: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
 
@@ -31,12 +33,14 @@ let currentStatus: Status = "loading";
 let currentDialerStatus: DialerStatus = "connecting";
 let currentError: string | null = null;
 let currentCallSid: string | null = null;
+let currentIncomingFrom: string | null = null;
 
 type Snapshot = {
   status: Status;
   dialerStatus: DialerStatus;
   error: string | null;
   activeCallSid: string | null;
+  incomingFrom: string | null;
 };
 
 const subscribers = new Set<() => void>();
@@ -50,6 +54,7 @@ function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.dialerStatus !== undefined) currentDialerStatus = patch.dialerStatus;
   if (patch.error !== undefined) currentError = patch.error;
   if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
+  if (patch.incomingFrom !== undefined) currentIncomingFrom = patch.incomingFrom;
   notify();
 }
 
@@ -127,31 +132,49 @@ async function ensureDevice(): Promise<void> {
       );
 
       d.on("incoming", (call: Call) => {
-        console.log("Voice SDK: incoming call from", call.parameters?.From, "sid =", call.parameters?.CallSid);
+        const from = call.parameters?.From ?? null;
+        console.log("Voice SDK: incoming call from", from, "sid =", call.parameters?.CallSid);
         console.log("INCOMING CALL");
+
+        // If already on a call, auto-reject the new one
+        if (activeCall) {
+          console.log("Voice SDK: rejecting incoming — already on a call");
+          try { call.reject(); } catch { /* noop */ }
+          return;
+        }
+
+        pendingIncoming = call;
+        setSnapshot({ status: "ringing-incoming", incomingFrom: from });
 
         call.on("accept", (c: Call) => {
           console.log("Voice SDK: incoming call accepted, sid =", c.parameters?.CallSid);
           activeCall = c;
-          setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, status: "in-call" });
+          pendingIncoming = null;
+          setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, status: "in-call", incomingFrom: null });
         });
         call.on("disconnect", () => {
           console.log("Voice SDK: incoming call disconnected");
           activeCall = null;
-          setSnapshot({ activeCallSid: null, status: "ready" });
+          pendingIncoming = null;
+          setSnapshot({ activeCallSid: null, status: "ready", incomingFrom: null });
         });
         call.on("cancel", () => {
           console.log("Voice SDK: incoming call cancelled by caller");
           activeCall = null;
-          setSnapshot({ activeCallSid: null, status: "ready" });
+          pendingIncoming = null;
+          setSnapshot({ activeCallSid: null, status: "ready", incomingFrom: null });
+        });
+        call.on("reject", () => {
+          console.log("Voice SDK: incoming call rejected");
+          pendingIncoming = null;
+          setSnapshot({ status: "ready", incomingFrom: null });
         });
         call.on("error", (e: { message?: string; code?: number }) => {
           console.error("Voice SDK: incoming call error:", e);
           activeCall = null;
-          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})` });
+          pendingIncoming = null;
+          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})`, status: "ready", incomingFrom: null });
         });
-
-        call.accept();
       });
 
       await d.register();
@@ -218,8 +241,22 @@ async function placeCall(phone: string): Promise<void> {
 
 function hangupCall() {
   try { activeCall?.disconnect(); } catch { /* noop */ }
+  try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
-  setSnapshot({ activeCallSid: null, status: "ready" });
+  pendingIncoming = null;
+  setSnapshot({ activeCallSid: null, status: "ready", incomingFrom: null });
+}
+
+function answerIncoming() {
+  if (!pendingIncoming) return;
+  try { pendingIncoming.accept(); } catch (e) { console.error("answerIncoming failed", e); }
+}
+
+function rejectIncoming() {
+  if (!pendingIncoming) return;
+  try { pendingIncoming.reject(); } catch (e) { console.error("rejectIncoming failed", e); }
+  pendingIncoming = null;
+  setSnapshot({ status: "ready", incomingFrom: null });
 }
 
 export function useTwilioDevice() {
@@ -239,6 +276,8 @@ export function useTwilioDevice() {
 
   const call = useCallback((phone: string) => placeCall(phone), []);
   const hangup = useCallback(() => hangupCall(), []);
+  const answer = useCallback(() => answerIncoming(), []);
+  const reject = useCallback(() => rejectIncoming(), []);
   const retry = useCallback(() => {
     setSnapshot({ error: null });
     if (device && currentStatus !== "ready") setSnapshot({ status: "ready" });
@@ -249,8 +288,11 @@ export function useTwilioDevice() {
     dialerStatus: currentDialerStatus,
     error: currentError,
     activeCallSid: currentCallSid,
+    incomingFrom: currentIncomingFrom,
     call,
     hangup,
+    answer,
+    reject,
     retry,
   };
 }

@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { IncomingCallDialog } from "@/components/IncomingCallDialog";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
@@ -10,8 +12,16 @@ function DashboardLayout() {
   const location = useLocation();
   const isFullscreen = location.pathname === "/pitch-deck";
 
+  // Initialise the Twilio Device app-wide so inbound calls can ring on any page.
+  useTwilioDevice();
+
   if (isFullscreen) {
-    return <Outlet />;
+    return (
+      <>
+        <Outlet />
+        <IncomingCallDialog />
+      </>
+    );
   }
 
   return (
@@ -29,6 +39,7 @@ function DashboardLayout() {
           </main>
         </div>
       </div>
+      <IncomingCallDialog />
     </SidebarProvider>
   );
 }
