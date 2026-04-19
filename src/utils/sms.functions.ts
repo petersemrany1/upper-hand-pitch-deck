@@ -11,7 +11,6 @@ import { logError } from "./error-logger.functions";
 //   mediaUrls — list of public image URLs to attach as MMS
 
 const TWILIO_FROM = "+61468031075";
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
 
 function formatAUPhone(raw: string): string {
   const cleaned = raw.replace(/[\s\-()]/g, "");
@@ -34,13 +33,10 @@ export const sendSms = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const lovableKey = process.env.LOVABLE_API_KEY;
-    const twilioKey = process.env.TWILIO_API_KEY;
-    if (!lovableKey) {
-      return { success: false as const, error: "LOVABLE_API_KEY is not configured" };
-    }
-    if (!twilioKey) {
-      return { success: false as const, error: "TWILIO_API_KEY is not configured (connect Twilio in Connectors)" };
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken) {
+      return { success: false as const, error: "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be configured" };
     }
     if (!data.to.trim()) {
       return { success: false as const, error: "Recipient phone is required" };
@@ -56,13 +52,15 @@ export const sendSms = createServerFn({ method: "POST" })
     if (data.body) params.set("Body", data.body);
     for (const url of data.mediaUrls) params.append("MediaUrl", url);
 
+    const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+
     let twilioResult: { sid?: string; error_code?: string | number; message?: string; status?: string } = {};
     try {
-      const res = await fetch(`${GATEWAY_URL}/Messages.json`, {
+      const res = await fetch(twilioUrl, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${lovableKey}`,
-          "X-Connection-Api-Key": twilioKey,
+          "Authorization": `Basic ${basicAuth}`,
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: params,
@@ -71,7 +69,7 @@ export const sendSms = createServerFn({ method: "POST" })
       if (!res.ok) {
         await logError("sendSms", twilioResult.message || "Twilio SMS failed", {
           status: res.status, raw: twilioResult, to: formattedTo,
-          stepsToReproduce: `Sent SMS to ${formattedTo} via gateway`,
+          stepsToReproduce: `Sent SMS to ${formattedTo} via Twilio REST API`,
         });
         return { success: false as const, error: twilioResult.message || `Twilio error ${res.status}` };
       }
