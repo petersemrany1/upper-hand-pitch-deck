@@ -108,8 +108,41 @@ export function useTwilioDevice() {
         });
 
         device.on("incoming", (call: Call) => {
-          // Reject incoming for now — outbound only.
-          call.reject();
+          console.log("Voice SDK: incoming call from", call.parameters?.From, "sid =", call.parameters?.CallSid);
+
+          call.on("accept", (c: Call) => {
+            console.log("Voice SDK: incoming call accepted, sid =", c.parameters?.CallSid);
+            if (!mountedRef.current) return;
+            callRef.current = c;
+            setActiveCallSid(c.parameters?.CallSid ?? null);
+            setStatus("in-call");
+          });
+
+          call.on("disconnect", () => {
+            console.log("Voice SDK: incoming call disconnected");
+            if (!mountedRef.current) return;
+            callRef.current = null;
+            setActiveCallSid(null);
+            setStatus("ready");
+          });
+
+          call.on("cancel", () => {
+            console.log("Voice SDK: incoming call cancelled by caller");
+            if (!mountedRef.current) return;
+            callRef.current = null;
+            setActiveCallSid(null);
+            setStatus("ready");
+          });
+
+          call.on("error", (e: { message?: string; code?: number }) => {
+            console.error("Voice SDK: incoming call error:", e);
+            if (!mountedRef.current) return;
+            setError(e?.message || `Incoming call error (${e?.code ?? "unknown"})`);
+            callRef.current = null;
+          });
+
+          // Auto-accept for now.
+          call.accept();
         });
 
         await device.register();
