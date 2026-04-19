@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
