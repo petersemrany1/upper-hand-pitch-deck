@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logError } from "./error-logger.functions";
 
 // Sends an SMS or MMS via Twilio (through the Lovable connector gateway) and
@@ -22,10 +22,7 @@ function formatAUPhone(raw: string): string {
 }
 
 function getAdminClient() {
-  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL ?? "";
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-  if (!url || !key) throw new Error("Supabase admin credentials not configured");
-  return createClient(url, key);
+  return supabaseAdmin;
 }
 
 export const sendSms = createServerFn({ method: "POST" })
