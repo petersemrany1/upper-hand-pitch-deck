@@ -87,6 +87,7 @@ export function useTwilioDevice() {
         device.on("registered", () => {
           console.log("Voice SDK: registered");
           console.log("DEVICE REGISTERED");
+          console.log("DEVICE READY");
           console.log("DEVICE IDENTITY: peter_browser");
           if (!mountedRef.current) return;
           setStatus("ready");
@@ -101,6 +102,7 @@ export function useTwilioDevice() {
         });
 
         device.on("error", (e: { message?: string; code?: number }) => {
+          console.log("DEVICE ERROR", e);
           console.error("Voice SDK error:", e);
           if (!mountedRef.current) return;
           setError(e?.message || `Device error (${e?.code ?? "unknown"})`);
@@ -111,6 +113,13 @@ export function useTwilioDevice() {
             stepsToReproduce: "Twilio Voice SDK emitted an error event on the Device.",
           });
         });
+
+        // Twilio's Device emits 'disconnect' (no 's') when the underlying signalling
+        // connection drops. Surface it for diagnostics; SDK will auto-reconnect.
+        (device as unknown as { on: (e: string, cb: (...a: unknown[]) => void) => void }).on(
+          "disconnect",
+          () => console.log("DEVICE DISCONNECTED"),
+        );
 
 device.on("incoming", (call: Call) => {
           console.log("Voice SDK: incoming call from", call.parameters?.From, "sid =", call.parameters?.CallSid);
