@@ -249,12 +249,112 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_messages: {
+        Row: {
+          body: string | null
+          created_at: string
+          direction: string
+          error_code: string | null
+          from_number: string | null
+          id: string
+          media_urls: Json
+          status: string | null
+          thread_id: string
+          to_number: string | null
+          twilio_message_sid: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          direction: string
+          error_code?: string | null
+          from_number?: string | null
+          id?: string
+          media_urls?: Json
+          status?: string | null
+          thread_id: string
+          to_number?: string | null
+          twilio_message_sid?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          direction?: string
+          error_code?: string | null
+          from_number?: string | null
+          id?: string
+          media_urls?: Json
+          status?: string | null
+          thread_id?: string
+          to_number?: string | null
+          twilio_message_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "sms_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sms_threads: {
+        Row: {
+          clinic_id: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          last_direction: string | null
+          last_message_at: string | null
+          last_message_preview: string | null
+          phone: string
+          phone_normalized: string | null
+          unread_count: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_direction?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          phone: string
+          phone_normalized?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_direction?: string | null
+          last_message_at?: string | null
+          last_message_preview?: string | null
+          phone?: string
+          phone_normalized?: string | null
+          unread_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_threads_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      normalize_phone: { Args: { p: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
