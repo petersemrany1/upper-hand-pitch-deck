@@ -224,7 +224,7 @@ function hangupCall() {
 
 export function useTwilioDevice() {
   const [, forceRender] = useState(0);
-  const subRef = useRef<() => void>();
+  const subRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const sub = () => forceRender((n) => n + 1);
