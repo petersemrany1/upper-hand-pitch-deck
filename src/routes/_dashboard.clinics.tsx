@@ -818,6 +818,9 @@ function ClinicsPage() {
                 </Button>
               </div>
 
+              {/* ===== LATEST SMS ===== */}
+              <ClinicSmsPreview clinicId={selectedClinic.id} clinicPhone={selectedClinic.phone} />
+
               {/* ===== SECTION 3: ACTIVITY TIMELINE ===== */}
               <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
                 <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>ACTIVITY TIMELINE</div>
