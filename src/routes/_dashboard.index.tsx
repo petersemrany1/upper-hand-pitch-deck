@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Phone, FileText, PhoneCall, Loader2, ChevronDown } from "lucide-react";
+import { Users, Phone, FileText, PhoneCall, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
@@ -70,9 +70,7 @@ function DashboardHome() {
   const [calling, setCalling] = useState(false);
   const [callMessage, setCallMessage] = useState<string | null>(null);
   const [savedPhones] = useState<SavedPhone[]>(getStoredPhones);
-  const [selectedPhoneIdx, setSelectedPhoneIdx] = useState(0);
-  const [showPhoneDropdown, setShowPhoneDropdown] = useState(false);
-  const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
+  void savedPhones;
 
   const {
     status: deviceStatus,
