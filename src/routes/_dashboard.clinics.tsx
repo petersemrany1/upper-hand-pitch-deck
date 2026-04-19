@@ -278,7 +278,13 @@ function ClinicsPage() {
   }, []);
 
   const loadLastContacts = useCallback(async () => {
-    const { data } = await supabase.from("clinic_contacts").select("*").order("created_at", { ascending: false });
+    // Only fetch latest contact per clinic. Cap rows to avoid scanning the full
+    // table on every mount and after every Log Activity.
+    const { data } = await supabase
+      .from("clinic_contacts")
+      .select("id, clinic_id, contact_type, outcome, notes, next_action, next_action_date, next_action_time, duration, created_at")
+      .order("created_at", { ascending: false })
+      .limit(1000);
     if (data) {
       const map: Record<string, ClinicContact> = {};
       for (const d of data as ClinicContact[]) {

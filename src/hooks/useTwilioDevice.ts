@@ -3,261 +3,254 @@ import { Device, type Call } from "@twilio/voice-sdk";
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 
-// Browser-based Twilio softphone.
+// Browser-based Twilio softphone — module-level singleton.
 //
-// Flow:
-//   1. On mount, fetch an AccessToken from the voice-token edge function.
-//   2. Create a Device, register it, request mic permission.
-//   3. On call(phone), invoke device.connect({ params: { phone } }).
-//      Twilio fetches the TwiML App's Voice URL (voice-outbound) which dials
-//      the clinic over PSTN with our verified callerId.
-//   4. Surface call lifecycle events as a single `status` for the UI.
+// IMPORTANT: A single Device is shared across the whole app. The hook is a thin
+// subscriber so navigating between pages does NOT tear down / rebuild the
+// Device, fetch a fresh token, re-register, or stack listeners.
 
 type Status =
   | "idle"
-  | "loading"     // fetching token
-  | "ready"       // device registered, ready to dial
-  | "connecting"  // device.connect() in progress / ringing
-  | "in-call"     // call accepted / audio flowing
+  | "loading"
+  | "ready"
+  | "connecting"
+  | "in-call"
   | "error";
 
 type DialerStatus = "connecting" | "ready" | "failed";
 
-const TOKEN_REFRESH_MS = 50 * 60 * 1000; // refresh ~10 min before 1h expiry
+const TOKEN_REFRESH_MS = 50 * 60 * 1000;
+
+// ----- Singleton state -----
+let device: Device | null = null;
+let activeCall: Call | null = null;
+let initPromise: Promise<void> | null = null;
+let refreshTimer: number | null = null;
+
+let currentStatus: Status = "loading";
+let currentDialerStatus: DialerStatus = "connecting";
+let currentError: string | null = null;
+let currentCallSid: string | null = null;
+
+type Snapshot = {
+  status: Status;
+  dialerStatus: DialerStatus;
+  error: string | null;
+  activeCallSid: string | null;
+};
+
+const subscribers = new Set<() => void>();
+
+function notify() {
+  for (const fn of subscribers) fn();
+}
+
+function setSnapshot(patch: Partial<Snapshot>) {
+  if (patch.status !== undefined) currentStatus = patch.status;
+  if (patch.dialerStatus !== undefined) currentDialerStatus = patch.dialerStatus;
+  if (patch.error !== undefined) currentError = patch.error;
+  if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
+  notify();
+}
+
+async function fetchToken(): Promise<string> {
+  const { data, error: fnErr } = await supabase.functions.invoke("voice-token", {
+    body: { identity: "peter_browser" },
+  });
+  if (fnErr || !data?.token) {
+    const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
+    throw new Error(msg);
+  }
+  console.log(`TOKEN IDENTITY: ${data.identity}`);
+  console.log(`TOKEN INCOMING ALLOWED: ${data.incomingAllowed === true}`);
+  return data.token as string;
+}
+
+function scheduleTokenRefresh() {
+  if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+  refreshTimer = window.setTimeout(async () => {
+    try {
+      const next = await fetchToken();
+      device?.updateToken(next);
+      scheduleTokenRefresh();
+    } catch (err) {
+      console.error("Voice SDK: token refresh failed", err);
+    }
+  }, TOKEN_REFRESH_MS);
+}
+
+async function ensureDevice(): Promise<void> {
+  if (device || initPromise) return initPromise ?? Promise.resolve();
+  initPromise = (async () => {
+    try {
+      setSnapshot({ status: "loading", dialerStatus: "connecting" });
+      const token = await fetchToken();
+
+      const d = new Device(token, {
+        logLevel: 1,
+        codecPreferences: ["opus" as never, "pcmu" as never],
+        edge: "sydney",
+        region: "au1",
+      } as ConstructorParameters<typeof Device>[1]);
+      device = d;
+
+      d.on("registered", () => {
+        console.log("Voice SDK: registered");
+        console.log("DEVICE REGISTERED");
+        console.log("DEVICE READY");
+        console.log("DEVICE IDENTITY: peter_browser");
+        setSnapshot({ status: "ready", dialerStatus: "ready", error: null });
+      });
+
+      d.on("unregistered", () => {
+        console.log("Voice SDK: unregistered");
+        setSnapshot({ dialerStatus: "connecting" });
+      });
+
+      d.on("error", (e: { message?: string; code?: number }) => {
+        console.log("DEVICE ERROR", e);
+        console.error("Voice SDK error:", e);
+        setSnapshot({
+          error: e?.message || `Device error (${e?.code ?? "unknown"})`,
+          status: "error",
+          dialerStatus: "failed",
+        });
+        void logFrontendError("voice-sdk", `Device error: ${e?.message || e?.code}`, {
+          code: e?.code,
+          stepsToReproduce: "Twilio Voice SDK emitted an error event on the Device.",
+        });
+      });
+
+      (d as unknown as { on: (e: string, cb: (...a: unknown[]) => void) => void }).on(
+        "disconnect",
+        () => console.log("DEVICE DISCONNECTED"),
+      );
+
+      d.on("incoming", (call: Call) => {
+        console.log("Voice SDK: incoming call from", call.parameters?.From, "sid =", call.parameters?.CallSid);
+        console.log("INCOMING CALL");
+
+        call.on("accept", (c: Call) => {
+          console.log("Voice SDK: incoming call accepted, sid =", c.parameters?.CallSid);
+          activeCall = c;
+          setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, status: "in-call" });
+        });
+        call.on("disconnect", () => {
+          console.log("Voice SDK: incoming call disconnected");
+          activeCall = null;
+          setSnapshot({ activeCallSid: null, status: "ready" });
+        });
+        call.on("cancel", () => {
+          console.log("Voice SDK: incoming call cancelled by caller");
+          activeCall = null;
+          setSnapshot({ activeCallSid: null, status: "ready" });
+        });
+        call.on("error", (e: { message?: string; code?: number }) => {
+          console.error("Voice SDK: incoming call error:", e);
+          activeCall = null;
+          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})` });
+        });
+
+        call.accept();
+      });
+
+      await d.register();
+      scheduleTokenRefresh();
+    } catch (err) {
+      const msg = extractErrorMessage(err, "Failed to initialise dialler");
+      console.error("Voice SDK init failed:", err);
+      setSnapshot({ error: msg, status: "error", dialerStatus: "failed" });
+      await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
+        stepsToReproduce: "Page load triggered Voice SDK initialisation.",
+      });
+      // Allow retry on next consumer mount
+      device = null;
+      initPromise = null;
+    }
+  })();
+  return initPromise;
+}
+
+async function placeCall(phone: string): Promise<void> {
+  if (!device) {
+    setSnapshot({ error: "Dialler not ready yet. Try again in a moment." });
+    return;
+  }
+  if (currentStatus !== "ready" && currentStatus !== "in-call") {
+    setSnapshot({ error: "Dialler still connecting. Wait until DEVICE READY before calling." });
+    return;
+  }
+
+  setSnapshot({ error: null, status: "connecting" });
+  try {
+    const outgoing = await device.connect({ params: { phone } });
+    activeCall = outgoing;
+
+    outgoing.on("ringing", () => setSnapshot({ status: "connecting" }));
+    outgoing.on("accept", (c: Call) => {
+      console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
+      setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, status: "in-call" });
+    });
+    outgoing.on("disconnect", () => {
+      console.log("Voice SDK: call disconnected");
+      activeCall = null;
+      setSnapshot({ activeCallSid: null, status: "ready" });
+    });
+    outgoing.on("cancel", () => {
+      activeCall = null;
+      setSnapshot({ activeCallSid: null, status: "ready" });
+    });
+    outgoing.on("reject", () => {
+      activeCall = null;
+      setSnapshot({ activeCallSid: null, status: "ready" });
+    });
+    outgoing.on("error", (e: { message?: string; code?: number }) => {
+      console.error("Voice SDK call error:", e);
+      activeCall = null;
+      setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, status: "error" });
+    });
+  } catch (err) {
+    const msg = extractErrorMessage(err, "Failed to start call");
+    setSnapshot({ error: msg, status: "error" });
+    throw err instanceof Error ? err : new Error(msg);
+  }
+}
+
+function hangupCall() {
+  try { activeCall?.disconnect(); } catch { /* noop */ }
+  activeCall = null;
+  setSnapshot({ activeCallSid: null, status: "ready" });
+}
 
 export function useTwilioDevice() {
-  const [status, setStatus] = useState<Status>("loading");
-  const [dialerStatus, setDialerStatus] = useState<DialerStatus>("connecting");
-  const [error, setError] = useState<string | null>(null);
-  const [activeCallSid, setActiveCallSid] = useState<string | null>(null);
+  const [, forceRender] = useState(0);
+  const subRef = useRef<() => void>();
 
-  const deviceRef = useRef<Device | null>(null);
-  const callRef = useRef<Call | null>(null);
-  const refreshTimerRef = useRef<number | null>(null);
-  const mountedRef = useRef(true);
-
-  const fetchToken = useCallback(async (): Promise<string> => {
-    const { data, error: fnErr } = await supabase.functions.invoke("voice-token", {
-      body: { identity: "peter_browser" },
-    });
-    if (fnErr || !data?.token) {
-      const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
-      throw new Error(msg);
-    }
-    console.log(`TOKEN IDENTITY: ${data.identity}`);
-    console.log(`TOKEN INCOMING ALLOWED: ${data.incomingAllowed === true}`);
-    return data.token as string;
-  }, []);
-
-  const scheduleTokenRefresh = useCallback(() => {
-    if (refreshTimerRef.current !== null) {
-      window.clearTimeout(refreshTimerRef.current);
-    }
-    refreshTimerRef.current = window.setTimeout(async () => {
-      try {
-        const next = await fetchToken();
-        deviceRef.current?.updateToken(next);
-        scheduleTokenRefresh();
-      } catch (err) {
-        console.error("Voice SDK: token refresh failed", err);
-      }
-    }, TOKEN_REFRESH_MS);
-  }, [fetchToken]);
-
-  // Initialise the Device once on mount.
   useEffect(() => {
-    mountedRef.current = true;
-
-    (async () => {
-      try {
-        setStatus("loading");
-        setDialerStatus("connecting");
-
-        const token = await fetchToken();
-        if (!mountedRef.current) return;
-
-        const device = new Device(token, {
-          logLevel: 1,
-          codecPreferences: ["opus" as never, "pcmu" as never],
-          edge: "sydney",
-          region: "au1",
-        } as ConstructorParameters<typeof Device>[1]);
-        deviceRef.current = device;
-
-        device.on("registered", () => {
-          console.log("Voice SDK: registered");
-          console.log("DEVICE REGISTERED");
-          console.log("DEVICE READY");
-          console.log("DEVICE IDENTITY: peter_browser");
-          if (!mountedRef.current) return;
-          setStatus("ready");
-          setDialerStatus("ready");
-          setError(null);
-        });
-
-        device.on("unregistered", () => {
-          console.log("Voice SDK: unregistered");
-          if (!mountedRef.current) return;
-          setDialerStatus("connecting");
-        });
-
-        device.on("error", (e: { message?: string; code?: number }) => {
-          console.log("DEVICE ERROR", e);
-          console.error("Voice SDK error:", e);
-          if (!mountedRef.current) return;
-          setError(e?.message || `Device error (${e?.code ?? "unknown"})`);
-          setStatus("error");
-          setDialerStatus("failed");
-          void logFrontendError("voice-sdk", `Device error: ${e?.message || e?.code}`, {
-            code: e?.code,
-            stepsToReproduce: "Twilio Voice SDK emitted an error event on the Device.",
-          });
-        });
-
-        // Twilio's Device emits 'disconnect' (no 's') when the underlying signalling
-        // connection drops. Surface it for diagnostics; SDK will auto-reconnect.
-        (device as unknown as { on: (e: string, cb: (...a: unknown[]) => void) => void }).on(
-          "disconnect",
-          () => console.log("DEVICE DISCONNECTED"),
-        );
-
-device.on("incoming", (call: Call) => {
-          console.log("Voice SDK: incoming call from", call.parameters?.From, "sid =", call.parameters?.CallSid);
-          console.log("INCOMING CALL");
-
-          call.on("accept", (c: Call) => {
-            console.log("Voice SDK: incoming call accepted, sid =", c.parameters?.CallSid);
-            if (!mountedRef.current) return;
-            callRef.current = c;
-            setActiveCallSid(c.parameters?.CallSid ?? null);
-            setStatus("in-call");
-          });
-
-          call.on("disconnect", () => {
-            console.log("Voice SDK: incoming call disconnected");
-            if (!mountedRef.current) return;
-            callRef.current = null;
-            setActiveCallSid(null);
-            setStatus("ready");
-          });
-
-          call.on("cancel", () => {
-            console.log("Voice SDK: incoming call cancelled by caller");
-            if (!mountedRef.current) return;
-            callRef.current = null;
-            setActiveCallSid(null);
-            setStatus("ready");
-          });
-
-          call.on("error", (e: { message?: string; code?: number }) => {
-            console.error("Voice SDK: incoming call error:", e);
-            if (!mountedRef.current) return;
-            setError(e?.message || `Incoming call error (${e?.code ?? "unknown"})`);
-            callRef.current = null;
-          });
-
-          // Auto-accept for now.
-          call.accept();
-        });
-
-        await device.register();
-        scheduleTokenRefresh();
-      } catch (err) {
-        const msg = extractErrorMessage(err, "Failed to initialise dialler");
-        console.error("Voice SDK init failed:", err);
-        if (!mountedRef.current) return;
-        setError(msg);
-        setStatus("error");
-        setDialerStatus("failed");
-        await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
-          stepsToReproduce: "Page load triggered Voice SDK initialisation.",
-        });
-      }
-    })();
-
+    const sub = () => forceRender((n) => n + 1);
+    subRef.current = sub;
+    subscribers.add(sub);
+    void ensureDevice();
     return () => {
-      mountedRef.current = false;
-      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
-      try { callRef.current?.disconnect(); } catch { /* noop */ }
-      try { deviceRef.current?.destroy(); } catch { /* noop */ }
-      callRef.current = null;
-      deviceRef.current = null;
+      subscribers.delete(sub);
+      // Intentionally do NOT destroy the Device — it's a singleton.
     };
-  }, [fetchToken, scheduleTokenRefresh]);
-
-  const call = useCallback(async (phone: string) => {
-    setError(null);
-    if (!deviceRef.current) {
-      setError("Dialler not ready yet. Try again in a moment.");
-      return;
-    }
-    if (status !== "ready" && status !== "in-call") {
-      setError("Dialler still connecting. Wait until DEVICE READY before calling.");
-      return;
-    }
-
-    try {
-      setStatus("connecting");
-      const outgoing = await deviceRef.current.connect({ params: { phone } });
-      callRef.current = outgoing;
-
-      outgoing.on("ringing", () => {
-        if (!mountedRef.current) return;
-        setStatus("connecting");
-      });
-      outgoing.on("accept", (c: Call) => {
-        console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
-        if (!mountedRef.current) return;
-        setActiveCallSid(c.parameters?.CallSid ?? null);
-        setStatus("in-call");
-      });
-      outgoing.on("disconnect", () => {
-        console.log("Voice SDK: call disconnected");
-        if (!mountedRef.current) return;
-        setActiveCallSid(null);
-        setStatus("ready");
-        callRef.current = null;
-      });
-      outgoing.on("cancel", () => {
-        if (!mountedRef.current) return;
-        setActiveCallSid(null);
-        setStatus("ready");
-        callRef.current = null;
-      });
-      outgoing.on("reject", () => {
-        if (!mountedRef.current) return;
-        setActiveCallSid(null);
-        setStatus("ready");
-        callRef.current = null;
-      });
-      outgoing.on("error", (e: { message?: string; code?: number }) => {
-        console.error("Voice SDK call error:", e);
-        if (!mountedRef.current) return;
-        setError(e?.message || `Call error (${e?.code ?? "unknown"})`);
-        setStatus("error");
-        callRef.current = null;
-      });
-    } catch (err) {
-      const msg = extractErrorMessage(err, "Failed to start call");
-      setError(msg);
-      setStatus("error");
-      throw err instanceof Error ? err : new Error(msg);
-    }
-  }, [status]);
-
-  const hangup = useCallback(() => {
-    try {
-      callRef.current?.disconnect();
-    } catch { /* noop */ }
-    callRef.current = null;
-    setActiveCallSid(null);
-    setStatus("ready");
   }, []);
 
+  const call = useCallback((phone: string) => placeCall(phone), []);
+  const hangup = useCallback(() => hangupCall(), []);
   const retry = useCallback(() => {
-    setError(null);
-    if (deviceRef.current && status !== "ready") setStatus("ready");
-  }, [status]);
+    setSnapshot({ error: null });
+    if (device && currentStatus !== "ready") setSnapshot({ status: "ready" });
+  }, []);
 
-  return { status, dialerStatus, error, call, hangup, retry, activeCallSid };
+  return {
+    status: currentStatus,
+    dialerStatus: currentDialerStatus,
+    error: currentError,
+    activeCallSid: currentCallSid,
+    call,
+    hangup,
+    retry,
+  };
 }
