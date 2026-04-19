@@ -14,11 +14,7 @@ serve(async (req) => {
   }
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Dial>
-    <Client>peter_browser</Client>
-  </Dial>
-</Response>`;
+<Response> <Dial answerOnBridge="true"> <Client> <Identity>peter_browser</Identity> </Client> </Dial> </Response>`;
 
   return new Response(twiml, {
     status: 200,
