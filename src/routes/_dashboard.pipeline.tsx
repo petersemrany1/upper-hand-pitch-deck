@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Users, Clock, CheckCircle2, PhoneOff, XCircle, DollarSign, ChevronDown, ChevronUp, ShieldCheck } from "lucide-react";
 
@@ -127,9 +127,32 @@ function PipelinePage() {
   const visible = usePageVisible();
   const [showDQ, setShowDQ] = useState(false);
 
-  const qualifiedRows = rows.filter((r) => r.status !== "Disqualified");
-  const disqualifiedRows = rows.filter((r) => r.status === "Disqualified");
-
+  // Single pass over `rows` to derive splits + counts. Avoids 6 separate
+  // `.filter()` traversals of a multi-thousand-row array on every render.
+  const { qualifiedRows, disqualifiedRows, notYetCalledCount, awaitingCount, financeCount, allocatedCount } = useMemo(() => {
+    const qualified: PatientRow[] = [];
+    const disqualified: PatientRow[] = [];
+    let notYet = 0, awaiting = 0, finance = 0, allocated = 0;
+    for (const r of rows) {
+      if (r.status === "Disqualified") {
+        disqualified.push(r);
+      } else {
+        qualified.push(r);
+        if (r.status === "Not Yet Called") notYet++;
+        else if (r.status === "Awaiting clinic") awaiting++;
+        else if (r.status === "Finance Check") finance++;
+        else if (r.status === "Allocated") allocated++;
+      }
+    }
+    return {
+      qualifiedRows: qualified,
+      disqualifiedRows: disqualified,
+      notYetCalledCount: notYet,
+      awaitingCount: awaiting,
+      financeCount: finance,
+      allocatedCount: allocated,
+    };
+  }, [rows]);
   useEffect(() => {
     const timer = setTimeout(() => {
       setRows((prev) => {
@@ -191,10 +214,6 @@ function PipelinePage() {
 
   const disqualifiedCount = disqualifiedRows.length;
   const totalQualified = qualifiedRows.length;
-  const notYetCalledCount = rows.filter((r) => r.status === "Not Yet Called").length;
-  const awaitingCount = rows.filter((r) => r.status === "Awaiting clinic").length;
-  const financeCount = rows.filter((r) => r.status === "Finance Check").length;
-  const allocatedCount = rows.filter((r) => r.status === "Allocated").length;
 
   const qualifiedVirtualizer = useVirtualizer({
     count: qualifiedRows.length,
