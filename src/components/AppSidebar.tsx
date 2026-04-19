@@ -84,20 +84,30 @@ export function AppSidebar() {
                     >
                       <Link
                         to={item.url}
-                        className="hover:!text-white"
+                        className="hover:!text-white relative"
                         onClick={() => { if (isMobile) setOpenMobile(false); }}
                       >
                         <item.icon className="h-4 w-4" style={{ color: active ? "#2D6BE4" : "#888" }} />
                         <span className="flex-1">{item.title}</span>
                         {item.title === "Logs" && unresolvedCount > 0 && (
-                          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
-                            {unresolvedCount}
-                          </span>
+                          <>
+                            <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold group-data-[collapsible=icon]:hidden">
+                              {unresolvedCount}
+                            </span>
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold md:group-data-[collapsible=icon]:inline hidden">
+                              {unresolvedCount}
+                            </span>
+                          </>
                         )}
                         {item.title === "Inbox" && unreadSms > 0 && (
-                          <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold">
-                            {unreadSms}
-                          </span>
+                          <>
+                            <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold group-data-[collapsible=icon]:hidden">
+                              {unreadSms}
+                            </span>
+                            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold md:group-data-[collapsible=icon]:inline hidden">
+                              {unreadSms}
+                            </span>
+                          </>
                         )}
                       </Link>
                     </SidebarMenuButton>
