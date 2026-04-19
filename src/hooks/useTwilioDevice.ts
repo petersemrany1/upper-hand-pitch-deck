@@ -243,7 +243,7 @@ device.on("incoming", (call: Call) => {
       setStatus("error");
       throw err instanceof Error ? err : new Error(msg);
     }
-  }, []);
+  }, [status]);
 
   const hangup = useCallback(() => {
     try {
