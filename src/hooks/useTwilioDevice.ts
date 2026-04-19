@@ -81,9 +81,10 @@ export function useTwilioDevice() {
         });
         deviceRef.current = device;
 
-device.on("registered", () => {
+        device.on("registered", () => {
           console.log("Voice SDK: registered");
           console.log("DEVICE REGISTERED");
+          console.log("DEVICE IDENTITY: peter_browser");
           if (!mountedRef.current) return;
           setStatus("ready");
           setDialerStatus("ready");
