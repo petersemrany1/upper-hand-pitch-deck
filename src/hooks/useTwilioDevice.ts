@@ -79,8 +79,9 @@ export function useTwilioDevice() {
         const device = new Device(token, {
           logLevel: 1,
           codecPreferences: ["opus" as never, "pcmu" as never],
-          edge: ["sydney", "ashburn"],
-        });
+          edge: "sydney",
+          region: "au1",
+        } as ConstructorParameters<typeof Device>[1]);
         deviceRef.current = device;
 
         device.on("registered", () => {
