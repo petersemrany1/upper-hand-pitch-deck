@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw } from "lucide-react";
 
 type Thread = {
   id: string;
@@ -64,6 +64,7 @@ function InboxPage() {
   const [error, setError] = useState<string | null>(null);
   const [newPhone, setNewPhone] = useState("");
   const [showNewThread, setShowNewThread] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const sendSmsFn = useServerFn(sendSms);
@@ -198,13 +199,28 @@ function InboxPage() {
         <div className="p-4" style={{ borderBottom: "1px solid #1f1f23" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold tracking-tight">Inbox</h2>
-            <button
-              onClick={() => { setShowNewThread(true); setActiveId(null); setNewPhone(""); }}
-              className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-white/5"
-              title="New message"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={async () => {
+                  setRefreshing(true);
+                  await loadThreads();
+                  if (activeId) await loadMessages(activeId);
+                  setRefreshing(false);
+                }}
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-white/5 disabled:opacity-50"
+                title="Refresh"
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+              </button>
+              <button
+                onClick={() => { setShowNewThread(true); setActiveId(null); setNewPhone(""); }}
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-white/5"
+                title="New message"
+              >
+                <MessageSquarePlus className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <div className="relative">
             <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
