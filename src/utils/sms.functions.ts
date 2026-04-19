@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logError } from "./error-logger.functions";
 
 // Sends an SMS or MMS via Twilio (through the Lovable connector gateway) and
