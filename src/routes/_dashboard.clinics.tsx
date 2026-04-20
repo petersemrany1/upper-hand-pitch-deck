@@ -845,13 +845,23 @@ function ClinicsPage() {
                     const nextAction = getNextActionText(c, lastContacts[c.id] || null);
                     const lastCt = lastContacts[c.id];
                     const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
+                    const calledToday = calledTodayIds.has(c.id);
+                    const phoneInvalid = !!c.phone && !isValidAUPhone(c.phone);
 
                     return (
                       <div
                         key={c.id}
-                        className="flex items-center hover:bg-white/[0.02] transition-colors"
+                        className="flex items-center hover:bg-white/[0.02] transition-colors relative"
                         style={{ height: 44, borderBottom: "1px solid #111" }}
                       >
+                        {/* Today-called dot (fix #7) */}
+                        {calledToday && (
+                          <span
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+                            style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)" }}
+                            title="Called today"
+                          />
+                        )}
                         {/* Clinic Name */}
                         <div className="w-[180px] shrink-0 px-3 truncate">
                           <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#fff" }}>{c.clinic_name}</button>
@@ -861,10 +871,28 @@ function ClinicsPage() {
                         {/* Phone */}
                         <div className="w-[140px] shrink-0 px-2">
                           {c.phone ? (
-                            <button onClick={() => handleCall(c)} className="flex items-center gap-1 text-[11px] hover:brightness-125 transition" style={{ color: "#22c55e" }}>
-                              {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
-                              <span className="truncate">{c.phone}</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleCall(c)}
+                                disabled={phoneInvalid}
+                                className="flex items-center gap-1 text-[11px] hover:brightness-125 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                style={{ color: phoneInvalid ? "#888" : "#22c55e" }}
+                                title={phoneInvalid ? "Invalid Australian phone number — cannot dial" : "Call"}
+                              >
+                                {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
+                                <span className="truncate">{c.phone}</span>
+                              </button>
+                              {phoneInvalid && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded uppercase"
+                                  style={{ background: "#450a0a", color: "#f87171" }}
+                                  title="Phone number cannot be dialled"
+                                >
+                                  <AlertCircle className="w-2.5 h-2.5" />
+                                  Bad
+                                </span>
+                              )}
+                            </div>
                           ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
                         </div>
                         {/* Latest Note */}
@@ -883,7 +911,7 @@ function ClinicsPage() {
                         </div>
                         {/* Actions */}
                         <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
-                          {c.phone && (
+                          {c.phone && !phoneInvalid && (
                             <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
                               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
                             </button>
