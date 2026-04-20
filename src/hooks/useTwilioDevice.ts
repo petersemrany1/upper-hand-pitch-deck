@@ -259,6 +259,22 @@ function rejectIncoming() {
   setSnapshot({ status: "ready", incomingFrom: null });
 }
 
+function sendDigit(digit: string) {
+  try {
+    (activeCall as unknown as { sendDigits?: (d: string) => void } | null)?.sendDigits?.(digit);
+  } catch (e) {
+    console.error("sendDigit failed", e);
+  }
+}
+
+function setMute(muted: boolean) {
+  try {
+    (activeCall as unknown as { mute?: (m: boolean) => void } | null)?.mute?.(muted);
+  } catch (e) {
+    console.error("setMute failed", e);
+  }
+}
+
 export function useTwilioDevice() {
   const [, forceRender] = useState(0);
   const subRef = useRef<(() => void) | null>(null);
@@ -278,6 +294,8 @@ export function useTwilioDevice() {
   const hangup = useCallback(() => hangupCall(), []);
   const answer = useCallback(() => answerIncoming(), []);
   const reject = useCallback(() => rejectIncoming(), []);
+  const sendDtmf = useCallback((digit: string) => sendDigit(digit), []);
+  const mute = useCallback((m: boolean) => setMute(m), []);
   const retry = useCallback(() => {
     setSnapshot({ error: null });
     if (device && currentStatus !== "ready") setSnapshot({ status: "ready" });
@@ -293,6 +311,8 @@ export function useTwilioDevice() {
     hangup,
     answer,
     reject,
+    sendDtmf,
+    mute,
     retry,
   };
 }

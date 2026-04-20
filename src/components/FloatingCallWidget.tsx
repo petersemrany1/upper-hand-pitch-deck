@@ -1,0 +1,377 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText,
+} from "lucide-react";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+
+// Global floating call widget. Renders nothing unless a call is connecting or
+// in progress. Three visual states:
+//   - minimised pill (bottom-right)
+//   - expanded panel (caller info, mute/hold/keypad/hangup)
+//   - keypad overlay inside the expanded panel (DTMF tones)
+// After the call ends, prompts the user to log the outcome.
+
+type Outcome = "interested" | "not_interested" | "callback" | "voicemail" | "no_answer";
+
+function formatDuration(sec: number): string {
+  const m = Math.floor(sec / 60).toString().padStart(2, "0");
+  const s = Math.floor(sec % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+const KEYPAD: { d: string; sub?: string }[] = [
+  { d: "1" }, { d: "2", sub: "ABC" }, { d: "3", sub: "DEF" },
+  { d: "4", sub: "GHI" }, { d: "5", sub: "JKL" }, { d: "6", sub: "MNO" },
+  { d: "7", sub: "PQRS" }, { d: "8", sub: "TUV" }, { d: "9", sub: "WXYZ" },
+  { d: "*" }, { d: "0", sub: "+" }, { d: "#" },
+];
+
+export function FloatingCallWidget() {
+  const { status, activeCallSid, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+
+  const [expanded, setExpanded] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const [muted, setMuted] = useState(false);
+  const [held, setHeld] = useState(false);
+  const [dtmfTrail, setDtmfTrail] = useState("");
+  const [seconds, setSeconds] = useState(0);
+  const [showOutcome, setShowOutcome] = useState(false);
+  const [endedSid, setEndedSid] = useState<string | null>(null);
+  const [endedFrom, setEndedFrom] = useState<string | null>(null);
+
+  const startedAtRef = useRef<number | null>(null);
+  const prevStatusRef = useRef(status);
+  const prevSidRef = useRef<string | null>(null);
+
+  const isActive = status === "connecting" || status === "in-call";
+  const callerLabel = incomingFrom || "Outbound call";
+
+  // Track call timer
+  useEffect(() => {
+    if (status === "in-call") {
+      if (!startedAtRef.current) startedAtRef.current = Date.now();
+      const id = window.setInterval(() => {
+        if (startedAtRef.current) {
+          setSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
+        }
+      }, 1000);
+      return () => window.clearInterval(id);
+    }
+    if (status === "connecting") setSeconds(0);
+  }, [status]);
+
+  // Auto-expand on first active call
+  useEffect(() => {
+    if (isActive && prevStatusRef.current !== "in-call" && prevStatusRef.current !== "connecting") {
+      setExpanded(true);
+    }
+    if (activeCallSid) prevSidRef.current = activeCallSid;
+    prevStatusRef.current = status;
+  }, [status, isActive, activeCallSid]);
+
+  // Detect end-of-call → reset + prompt outcome
+  useEffect(() => {
+    const wasActive = prevStatusRef.current === "in-call" || prevStatusRef.current === "connecting";
+    if (wasActive && !isActive) {
+      const sid = prevSidRef.current;
+      const from = incomingFrom;
+      setEndedSid(sid);
+      setEndedFrom(from);
+      setShowOutcome(true);
+      // reset internal state
+      startedAtRef.current = null;
+      setSeconds(0);
+      setExpanded(false);
+      setShowKeypad(false);
+      setMuted(false);
+      setHeld(false);
+      setDtmfTrail("");
+      prevSidRef.current = null;
+    }
+  }, [isActive, incomingFrom]);
+
+  const handleDigit = (d: string) => {
+    sendDtmf(d);
+    setDtmfTrail((t) => (t + d).slice(-12));
+  };
+
+  const handleHangup = () => {
+    hangup();
+  };
+
+  const handleMuteToggle = () => {
+    const next = !muted;
+    mute(next);
+    setMuted(next);
+  };
+
+  const handleHoldToggle = () => {
+    // Twilio browser SDK has no native hold; emulate by muting both directions.
+    const next = !held;
+    mute(next);
+    setHeld(next);
+    setMuted(next);
+  };
+
+  const statusLabel = useMemo(() => {
+    if (status === "connecting") return "Connecting…";
+    if (status === "in-call") return held ? "On hold" : "Connected";
+    return "";
+  }, [status, held]);
+
+  if (!isActive && !showOutcome) return null;
+
+  if (showOutcome) {
+    return (
+      <CallOutcomePrompt
+        callSid={endedSid}
+        from={endedFrom}
+        durationSec={seconds}
+        onClose={() => setShowOutcome(false)}
+      />
+    );
+  }
+
+  // Minimised pill
+  if (!expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => setExpanded(true)}
+        className="fixed bottom-4 right-4 z-[90] flex items-center gap-3 rounded-full px-4 py-2.5 shadow-2xl transition active:scale-95"
+        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        aria-label="Expand active call"
+      >
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        </span>
+        <span className="text-sm font-semibold text-white truncate max-w-[160px]">{callerLabel}</span>
+        <span className="font-mono text-xs text-emerald-400">{formatDuration(seconds)}</span>
+      </button>
+    );
+  }
+
+  // Expanded panel
+  return (
+    <div
+      className="fixed z-[95] bottom-4 right-4 left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in"
+      style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+      role="dialog"
+      aria-label="Active call"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          </span>
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400">
+            {statusLabel}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-white/5"
+          aria-label="Minimise call"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Caller info */}
+      <div className="px-4 pb-3 text-center">
+        <div className="text-lg font-bold text-white truncate">{callerLabel}</div>
+        <div className="font-mono text-2xl text-emerald-400 mt-1">{formatDuration(seconds)}</div>
+        {dtmfTrail && (
+          <div className="mt-1 font-mono text-xs text-zinc-500 tracking-widest">{dtmfTrail}</div>
+        )}
+      </div>
+
+      {/* Keypad */}
+      {showKeypad && (
+        <div className="px-4 pb-3 grid grid-cols-3 gap-2">
+          {KEYPAD.map((k) => (
+            <button
+              key={k.d}
+              type="button"
+              onClick={() => handleDigit(k.d)}
+              className="flex flex-col items-center justify-center h-14 rounded-lg text-white active:scale-95 transition"
+              style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+              aria-label={`Send digit ${k.d}`}
+            >
+              <span className="text-xl font-semibold leading-none">{k.d}</span>
+              {k.sub && <span className="text-[9px] text-zinc-500 mt-0.5 tracking-widest">{k.sub}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Action row */}
+      <div className="px-4 pb-4 grid grid-cols-4 gap-2">
+        <ActionButton
+          active={muted}
+          onClick={handleMuteToggle}
+          icon={muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          label={muted ? "Unmute" : "Mute"}
+        />
+        <ActionButton
+          active={held}
+          onClick={handleHoldToggle}
+          icon={held ? <Play className="h-5 w-5" /> : <Pause className="h-5 w-5" />}
+          label={held ? "Resume" : "Hold"}
+        />
+        <ActionButton
+          active={showKeypad}
+          onClick={() => setShowKeypad((v) => !v)}
+          icon={<Grid3x3 className="h-5 w-5" />}
+          label="Keypad"
+        />
+        <button
+          type="button"
+          onClick={handleHangup}
+          className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg bg-red-600 text-white shadow-lg hover:bg-red-500 active:scale-95 transition"
+          aria-label="Hang up"
+        >
+          <PhoneOff className="h-5 w-5" />
+          <span className="text-[10px] font-semibold uppercase tracking-wide">End</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ActionButton({
+  icon, label, onClick, active,
+}: { icon: React.ReactNode; label: string; onClick: () => void; active?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg text-white active:scale-95 transition"
+      style={{
+        background: active ? "#2D6BE4" : "#1a1a1e",
+        border: `1px solid ${active ? "#2D6BE4" : "#1f1f23"}`,
+      }}
+      aria-pressed={active}
+      aria-label={label}
+    >
+      {icon}
+      <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
+    </button>
+  );
+}
+
+function CallOutcomePrompt({
+  callSid, from, durationSec, onClose,
+}: { callSid: string | null; from: string | null; durationSec: number; onClose: () => void }) {
+  const [saving, setSaving] = useState(false);
+  const [notes, setNotes] = useState("");
+
+  const save = async (outcome: Outcome) => {
+    setSaving(true);
+    try {
+      if (callSid) {
+        const { error } = await supabase
+          .from("call_records")
+          .update({
+            status: "completed",
+            duration: durationSec,
+            call_analysis: { outcome, notes, from, loggedAt: new Date().toISOString() },
+          })
+          .eq("twilio_call_sid", callSid);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("call_records").insert({
+          status: "completed",
+          duration: durationSec,
+          call_analysis: { outcome, notes, from, loggedAt: new Date().toISOString() },
+        });
+        if (error) throw error;
+      }
+      toast.success("Call logged");
+      onClose();
+    } catch (e) {
+      console.error("Failed to log call outcome", e);
+      toast.error("Could not log call");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed z-[95] bottom-4 right-4 left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in p-4"
+      style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+      role="dialog"
+      aria-label="Log call outcome"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <FileText className="h-4 w-4 text-emerald-400" />
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400">
+            Log call outcome
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-white/5"
+          aria-label="Skip logging"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="text-sm text-white truncate">{from || "Call ended"}</div>
+      <div className="font-mono text-xs text-zinc-500 mb-3">Duration {formatDuration(durationSec)}</div>
+
+      <textarea
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder="Quick notes (optional)…"
+        rows={2}
+        className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-500 mb-3 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+      />
+
+      <div className="grid grid-cols-2 gap-2">
+        <OutcomeButton onClick={() => save("interested")} disabled={saving} label="Interested" tone="emerald" />
+        <OutcomeButton onClick={() => save("callback")} disabled={saving} label="Callback" tone="blue" />
+        <OutcomeButton onClick={() => save("voicemail")} disabled={saving} label="Voicemail" tone="zinc" />
+        <OutcomeButton onClick={() => save("no_answer")} disabled={saving} label="No answer" tone="zinc" />
+        <button
+          type="button"
+          onClick={() => save("not_interested")}
+          disabled={saving}
+          className="col-span-2 h-10 rounded-md text-sm font-semibold text-white active:scale-95 transition disabled:opacity-50"
+          style={{ background: "#3f1a1a", border: "1px solid #5a1f1f" }}
+        >
+          Not interested
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OutcomeButton({
+  onClick, disabled, label, tone,
+}: { onClick: () => void; disabled: boolean; label: string; tone: "emerald" | "blue" | "zinc" }) {
+  const bg = tone === "emerald" ? "#0f3a25" : tone === "blue" ? "#142a4d" : "#1a1a1e";
+  const border = tone === "emerald" ? "#1c5a3a" : tone === "blue" ? "#2D6BE4" : "#1f1f23";
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="h-10 rounded-md text-sm font-semibold text-white active:scale-95 transition disabled:opacity-50"
+      style={{ background: bg, border: `1px solid ${border}` }}
+    >
+      {label}
+    </button>
+  );
+}
