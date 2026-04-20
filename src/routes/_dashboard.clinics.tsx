@@ -405,6 +405,16 @@ function ClinicsPage() {
     setSelectedClinic(null);
   }, [flushPendingNotes]);
 
+  // Escape key dismisses the side panel (and flushes any pending notes save first).
+  useEffect(() => {
+    if (!selectedClinic) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDetail();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedClinic, closeDetail]);
+
   // Flush on tab close / refresh / navigation away.
   useEffect(() => {
     const onBeforeUnload = () => {
