@@ -54,20 +54,8 @@ export function CallReviewInbox() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [open, setOpen] = useState(false);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
-  const [hidden, setHidden] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Hide the bell when a clinic detail panel is open (it overlaps the panel).
-  useEffect(() => {
-    const onPanel = (e: Event) => {
-      const detail = (e as CustomEvent<{ open: boolean }>).detail;
-      setHidden(!!detail?.open);
-      if (detail?.open) setOpen(false);
-    };
-    window.addEventListener("clinic-detail-panel", onPanel);
-    return () => window.removeEventListener("clinic-detail-panel", onPanel);
-  }, []);
 
   // Resolve clinic name for a clinic_id (cached in component state through items).
   const fetchClinicName = async (clinicId: string | null): Promise<string> => {
@@ -230,25 +218,20 @@ export function CallReviewInbox() {
 
   return (
     <>
-      {/* Floating top-right inbox trigger */}
-      <div
-        className="fixed top-3 right-3 md:top-4 md:right-4 z-[55]"
-        style={{ display: hidden ? "none" : undefined }}
-      >
+      {/* Inline toolbar trigger — mounted by the clinics page toolbar only. */}
+      <div className="relative inline-block">
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
-          className="relative flex items-center justify-center h-10 w-10 rounded-full border shadow-lg hover:bg-white/5 transition-colors"
-          style={{
-            background: "#0f0f12",
-            borderColor: "#2a2a30",
-          }}
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-white/5 transition-colors"
+          style={{ color: "#666" }}
           aria-label="Call review inbox"
+          title="Call reviews"
         >
-          <Bell className="w-4 h-4" style={{ color: "#e5e5e7" }} />
+          <Bell className="w-3.5 h-3.5" />
           {badgeCount > 0 && (
             <span
-              className="absolute -top-1 -right-1 inline-flex items-center justify-center h-5 min-w-5 px-1 rounded-full text-[10px] font-bold text-white"
+              className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-white"
               style={{ background: "#dc2626" }}
             >
               {badgeCount}
@@ -256,10 +239,10 @@ export function CallReviewInbox() {
           )}
           {badgeCount === 0 && processingItems.length > 0 && (
             <span
-              className="absolute -top-1 -right-1 inline-flex items-center justify-center h-4 w-4 rounded-full"
+              className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-3.5 w-3.5 rounded-full"
               style={{ background: "#1e3a5f" }}
             >
-              <Loader2 className="w-2.5 h-2.5 animate-spin text-blue-400" />
+              <Loader2 className="w-2 h-2 animate-spin text-blue-400" />
             </span>
           )}
         </button>

@@ -12,6 +12,7 @@ import {
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
+import { CallReviewInbox } from "@/components/CallReviewInbox";
 
 
 export const Route = createFileRoute("/_dashboard/clinics")({
@@ -343,8 +344,8 @@ function ClinicsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedClinic]);
 
-  // Notify global chrome (CallReviewInbox bell) when the detail panel is open
-  // so it can hide itself and avoid overlapping the right-side panel.
+  // Notify global chrome (no longer used — bell now lives in this page's
+  // toolbar — but kept harmless if other components ever want to listen).
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("clinic-detail-panel", {
@@ -663,6 +664,7 @@ function ClinicsPage() {
         >
           {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
         </Button>
+        <CallReviewInbox />
         <span className="text-xs ml-auto" style={{ color: "#555" }}>
           {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
         </span>
