@@ -245,6 +245,10 @@ function ClinicsPage() {
   const [editStatus, setEditStatus] = useState("");
   const [editFollowUp, setEditFollowUp] = useState("");
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNotesRef = useRef<string | null>(null);
+  const pendingClinicIdRef = useRef<string | null>(null);
+  const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const savedFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Log activity modal
   const [showLogModal, setShowLogModal] = useState(false);
