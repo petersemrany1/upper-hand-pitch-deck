@@ -354,6 +354,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_dashboard_stats: { Args: never; Returns: Json }
       normalize_phone: { Args: { p: string }; Returns: string }
     }
     Enums: {

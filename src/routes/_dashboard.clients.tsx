@@ -103,8 +103,9 @@ function ClientsPage() {
   const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(new Set());
   const [analysisRecord, setAnalysisRecord] = useState<CallRecord | null>(null);
 
-  // Browser-based dialer
-  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
+  // Browser-based dialer — opt-in: this page actively places calls so we
+  // boot the Twilio Device on mount.
+  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice(true);
 
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 

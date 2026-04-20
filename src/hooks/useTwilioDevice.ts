@@ -29,7 +29,7 @@ let pendingIncoming: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
 
-let currentStatus: Status = "loading";
+let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
 let currentError: string | null = null;
 let currentCallSid: string | null = null;
@@ -284,7 +284,13 @@ function setMute(muted: boolean) {
   }
 }
 
-export function useTwilioDevice(enabled: boolean = true) {
+// IMPORTANT: `enabled` defaults to FALSE so the Twilio Device only initialises
+// when a consumer that actually needs to dial (Phone page, dashboard Quick Dial,
+// outbound buttons in Clinics) opts in. Subscribe-only consumers (the floating
+// call widget and incoming-call dialog) pass `false` — they react to state
+// once the device is booted but don't trigger the heavy token + WebSocket init
+// on first paint.
+export function useTwilioDevice(enabled: boolean = false) {
   const [, forceRender] = useState(0);
   const subRef = useRef<(() => void) | null>(null);
 
