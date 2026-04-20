@@ -331,23 +331,7 @@ function ClinicsPage() {
     };
   }, [loadClinics, loadLastContacts]);
 
-  // Auto-dismiss the banner once the popup is shown or after a long timeout
-  useEffect(() => {
-    if (processingStage === "complete" && pendingReview) {
-      const t = window.setTimeout(() => {
-        setProcessingStage(null);
-        setProcessingStartedAt(null);
-      }, 3000);
-      return () => window.clearTimeout(t);
-    }
-    if (processingStage === "failed") {
-      const t = window.setTimeout(() => {
-        setProcessingStage(null);
-        setProcessingStartedAt(null);
-      }, 8000);
-      return () => window.clearTimeout(t);
-    }
-  }, [processingStage, pendingReview]);
+
 
   // Escape key dismisses the side panel
   useEffect(() => {
