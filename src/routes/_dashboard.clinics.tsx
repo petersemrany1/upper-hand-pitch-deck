@@ -343,6 +343,21 @@ function ClinicsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedClinic]);
 
+  // Notify global chrome (CallReviewInbox bell) when the detail panel is open
+  // so it can hide itself and avoid overlapping the right-side panel.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("clinic-detail-panel", {
+        detail: { open: !!selectedClinic },
+      }),
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("clinic-detail-panel", { detail: { open: false } }),
+      );
+    };
+  }, [selectedClinic]);
+
 
   const loadContacts = async (clinicId: string) => {
     const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
