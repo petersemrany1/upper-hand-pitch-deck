@@ -92,67 +92,71 @@ function DashboardHome() {
     dialerStatus === "ready" ? "#22c55e" : dialerStatus === "failed" ? "#ef4444" : "#f59e0b";
   const isCallActive = deviceStatus === "in-call" || deviceStatus === "connecting";
 
+  // Single round-trip: get_dashboard_stats RPC returns counts + recent calls
+  // + recent contracts + due follow-ups in one query (replaces 5 separate
+  // unindexed queries that previously fired on dashboard mount).
   const loadData = useCallback(async () => {
-    const [
-      { count: contactCount },
-      { count: callCount },
-      { count: sentCount },
-      { data: callData },
-      { data: recentContracts },
-    ] = await Promise.all([
-      supabase.from("clients").select("*", { count: "exact", head: true }),
-      supabase
-        .from("call_records")
-        .select("*", { count: "exact", head: true })
-        .gte("called_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      supabase.from("contract_logs").select("*", { count: "exact", head: true }),
-      supabase.from("call_records").select("*, clients(name)").order("called_at", { ascending: false }).limit(8),
-      supabase.from("contract_logs").select("*").order("created_at", { ascending: false }).limit(8),
-    ]);
+    type Stats = {
+      total_contacts: number;
+      calls_this_week: number;
+      contracts_sent: number;
+      recent_calls: Array<{
+        id: string;
+        status: string | null;
+        called_at: string;
+        duration: number | null;
+        client_name: string | null;
+      }>;
+      recent_contracts: Array<{ id: string; clinic_name: string; created_at: string }>;
+      follow_ups: Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>;
+    };
 
-    setTotalContacts(contactCount ?? 0);
-    setCallsThisWeek(callCount ?? 0);
-    setContractsSent(sentCount ?? 0);
+    const { data, error } = await supabase.rpc("get_dashboard_stats" as never);
+    if (error || !data) {
+      console.error("get_dashboard_stats failed", error);
+      return;
+    }
+    const stats = data as unknown as Stats;
+
+    setTotalContacts(stats.total_contacts ?? 0);
+    setCallsThisWeek(stats.calls_this_week ?? 0);
+    setContractsSent(stats.contracts_sent ?? 0);
+    setFollowUps(stats.follow_ups ?? []);
 
     const activityItems: ActivityItem[] = [];
-
-    if (callData) {
-      for (const c of callData) {
-        activityItems.push({
-          color: "#22c55e",
-          text: `Call ${c.status || "updated"}${(c as { clients?: { name?: string } | null }).clients?.name ? ` with ${(c as { clients?: { name?: string } | null }).clients?.name}` : ""}`,
-          time: relativeTime(c.called_at),
-          sortDate: c.called_at,
-        });
-      }
-
-      setRecentCalls(
-        callData.slice(0, 3).map((c) => ({
-          name: (c as { clients?: { name?: string } | null }).clients?.name || "Unknown",
-          time: relativeTime(c.called_at),
-          duration: c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : "—",
-        }))
-      );
+    for (const c of stats.recent_calls ?? []) {
+      activityItems.push({
+        color: "#22c55e",
+        text: `Call ${c.status || "updated"}${c.client_name ? ` with ${c.client_name}` : ""}`,
+        time: relativeTime(c.called_at),
+        sortDate: c.called_at,
+      });
     }
-
-    if (recentContracts) {
-      for (const c of recentContracts as Array<{ clinic_name: string; created_at: string }>) {
-        activityItems.push({
-          color: "#2D6BE4",
-          text: `Contract sent to ${c.clinic_name}`,
-          time: relativeTime(c.created_at),
-          sortDate: c.created_at,
-        });
-      }
+    setRecentCalls(
+      (stats.recent_calls ?? []).slice(0, 3).map((c) => ({
+        name: c.client_name || "Unknown",
+        time: relativeTime(c.called_at),
+        duration: c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : "—",
+      })),
+    );
+    for (const c of stats.recent_contracts ?? []) {
+      activityItems.push({
+        color: "#2D6BE4",
+        text: `Contract sent to ${c.clinic_name}`,
+        time: relativeTime(c.created_at),
+        sortDate: c.created_at,
+      });
     }
-
     activityItems.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
     setActivity(activityItems.slice(0, 12));
   }, []);
 
+  // Auth-ready gate: don't fire data queries until the JWT is attached. This
+  // prevents the wave of unauth round-trips that used to fire on cold start.
   useEffect(() => {
+    if (!authReady || !session) return;
     void loadData();
-  }, [loadData]);
+  }, [authReady, session, loadData]);
 
   const handleQuickDial = async () => {
     if (!dialNumber || calling) return;
