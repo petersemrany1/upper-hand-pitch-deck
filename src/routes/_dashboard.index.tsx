@@ -118,12 +118,28 @@ function DashboardHome() {
       follow_ups: Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>;
     };
 
-    const { data, error } = await supabase.rpc("get_dashboard_stats" as never);
-    if (error || !data) {
-      console.error("get_dashboard_stats failed", error);
+    const [statsRes, zoomsRes, callRecordsRes] = await Promise.all([
+      supabase.rpc("get_dashboard_stats" as never),
+      // Zooms: clinic_contacts rows whose outcome mentions "Zoom"
+      supabase
+        .from("clinic_contacts")
+        .select("id, clinic_id, outcome, next_action_date, created_at, clinics(clinic_name)")
+        .ilike("outcome", "%Zoom%")
+        .order("created_at", { ascending: false })
+        .limit(10),
+      // Recent calls with their clinic so the activity item can deep-link
+      supabase
+        .from("call_records")
+        .select("id, status, called_at, clinic_id, clinics(clinic_name)")
+        .order("called_at", { ascending: false })
+        .limit(8),
+    ]);
+
+    if (statsRes.error || !statsRes.data) {
+      console.error("get_dashboard_stats failed", statsRes.error);
       return;
     }
-    const stats = data as unknown as Stats;
+    const stats = statsRes.data as unknown as Stats;
 
     setTotalContacts(stats.total_contacts ?? 0);
     setCallsThisWeek(stats.calls_this_week ?? 0);
@@ -131,14 +147,21 @@ function DashboardHome() {
     setFollowUps(stats.follow_ups ?? []);
 
     const activityItems: ActivityItem[] = [];
-    for (const c of stats.recent_calls ?? []) {
+
+    // Calls (link to clinic when we have it)
+    type CallRow = { id: string; status: string | null; called_at: string; clinic_id: string | null; clinics: { clinic_name: string } | null };
+    for (const c of (callRecordsRes.data as CallRow[] | null) ?? []) {
+      const name = c.clinics?.clinic_name;
       activityItems.push({
         color: "#22c55e",
-        text: `Call ${c.status || "updated"}${c.client_name ? ` with ${c.client_name}` : ""}`,
+        text: `Call ${c.status || "updated"}${name ? ` with ${name}` : ""}`,
         time: relativeTime(c.called_at),
         sortDate: c.called_at,
+        clinicId: c.clinic_id,
+        icon: "call",
       });
     }
+
     setRecentCalls(
       (stats.recent_calls ?? []).slice(0, 3).map((c) => ({
         name: c.client_name || "Unknown",
@@ -146,16 +169,35 @@ function DashboardHome() {
         duration: c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : "—",
       })),
     );
+
+    // Contracts (no clinic_id stored on contract_logs, so non-clickable)
     for (const c of stats.recent_contracts ?? []) {
       activityItems.push({
         color: "#2D6BE4",
         text: `Contract sent to ${c.clinic_name}`,
         time: relativeTime(c.created_at),
         sortDate: c.created_at,
+        icon: "contract",
       });
     }
+
+    // Zooms — list out scheduled / completed Zoom calls
+    type ZoomRow = { id: string; clinic_id: string; outcome: string | null; next_action_date: string | null; created_at: string; clinics: { clinic_name: string } | null };
+    for (const z of (zoomsRes.data as ZoomRow[] | null) ?? []) {
+      const name = z.clinics?.clinic_name || "Unknown clinic";
+      const when = z.next_action_date ? ` for ${z.next_action_date}` : "";
+      activityItems.push({
+        color: "#a855f7",
+        text: `${z.outcome || "Zoom"}${when} — ${name}`,
+        time: relativeTime(z.created_at),
+        sortDate: z.created_at,
+        clinicId: z.clinic_id,
+        icon: "zoom",
+      });
+    }
+
     activityItems.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
-    setActivity(activityItems.slice(0, 12));
+    setActivity(activityItems.slice(0, 15));
   }, []);
 
   // Auth-ready gate: don't fire data queries until the JWT is attached. This
