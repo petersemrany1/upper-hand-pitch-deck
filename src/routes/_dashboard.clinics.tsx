@@ -55,6 +55,7 @@ type ClinicContact = {
 
 // Pipeline stages
 const PIPELINE_STAGES = [
+  "TEST",
   "Not Started",
   "Contacted — No Answer",
   "Contacted — Left Voicemail",
@@ -73,6 +74,7 @@ const PIPELINE_STAGES = [
 const NOT_APPLICABLE_STAGES = new Set(["Not Applicable"]);
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
+  "TEST": { bg: "#1e3a5f", text: "#60a5fa" },
   "Not Started": { bg: "#27272a", text: "#a1a1aa" },
   "Contacted — No Answer": { bg: "#1e293b", text: "#94a3b8" },
   "Contacted — Left Voicemail": { bg: "#1e293b", text: "#94a3b8" },
