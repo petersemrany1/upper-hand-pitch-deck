@@ -420,6 +420,15 @@ export function CallReviewInbox() {
                           </button>
                         </div>
                       </div>
+                      {/* Universal dismiss — always visible on every item */}
+                      <button
+                        onClick={() => void handleDeleteAny(item)}
+                        className="p-1 rounded hover:bg-white/10 -mr-1"
+                        aria-label="Delete from inbox"
+                        title="Delete from inbox"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#888" }} />
+                      </button>
                     </div>
                   </li>
                 );
