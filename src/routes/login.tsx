@@ -107,7 +107,12 @@ function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
+        <p className="mt-4 text-center text-xs">
+          <a href="/reset-password" className="text-zinc-400 hover:text-zinc-200">
+            Forgot password?
+          </a>
+        </p>
+        <p className="mt-4 text-center text-xs text-zinc-600">
           Access is invite-only. Contact your administrator if you need an account.
         </p>
       </div>
