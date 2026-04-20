@@ -216,12 +216,25 @@ export function CallReviewInbox() {
       .eq("id", item.callRecordId);
   };
 
+  const handleDeleteFailed = async (item: InboxItem) => {
+    setItems((prev) => prev.filter((i) => i.callRecordId !== item.callRecordId));
+    // Mark as resolved by clearing the failed stage and review flag so it
+    // never resurfaces in the inbox.
+    await supabase
+      .from("call_records")
+      .update({ analysis_stage: null, needs_review: false })
+      .eq("id", item.callRecordId);
+  };
+
   const activeItem = items.find((i) => i.callRecordId === activeReviewId) || null;
 
   return (
     <>
       {/* Floating top-right inbox trigger */}
-      <div className="fixed top-3 right-3 md:top-4 md:right-4 z-[55]">
+      <div
+        className="fixed top-3 right-3 md:top-4 md:right-4 z-[55]"
+        style={{ display: hidden ? "none" : undefined }}
+      >
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
