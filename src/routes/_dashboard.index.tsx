@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Phone, FileText, PhoneCall, Loader2 } from "lucide-react";
+import { Users, Phone, FileText, PhoneCall, Loader2, Video, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
