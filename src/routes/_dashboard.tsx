@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { IncomingCallDialog } from "@/components/IncomingCallDialog";
 import { SmsNotifier } from "@/components/SmsNotifier";
+import { FloatingCallWidget } from "@/components/FloatingCallWidget";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard")({
@@ -21,6 +22,7 @@ function DashboardLayout() {
       <>
         <Outlet />
         <IncomingCallDialog />
+        <FloatingCallWidget />
         <SmsNotifier />
       </>
     );
@@ -42,6 +44,7 @@ function DashboardLayout() {
         </div>
       </div>
       <IncomingCallDialog />
+      <FloatingCallWidget />
       <SmsNotifier />
     </SidebarProvider>
   );
