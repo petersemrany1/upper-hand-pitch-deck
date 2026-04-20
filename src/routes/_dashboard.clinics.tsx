@@ -940,9 +940,15 @@ function ClinicsPage() {
                   <FieldRow label="Follow Up">
                     <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                   </FieldRow>
-                  <FieldRow label="Notes">
-                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
-                  </FieldRow>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-[10px] uppercase font-semibold" style={{ color: "#555", letterSpacing: "0.12em" }}>Notes</div>
+                      <div className="text-[10px] font-medium" style={{ color: notesSaveState === "saved" ? "#10b981" : notesSaveState === "saving" ? "#f59e0b" : "transparent", transition: "color 200ms" }}>
+                        {notesSaveState === "saving" ? "Saving…" : notesSaveState === "saved" ? "Saved" : "—"}
+                      </div>
+                    </div>
+                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} onBlur={() => { void flushPendingNotes(); }} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
+                  </div>
                 </div>
               </div>
 
