@@ -24,6 +24,7 @@ export type Database = {
           duration: number | null
           id: string
           needs_review: boolean
+          phone: string | null
           recording_sid: string | null
           recording_url: string | null
           status: string | null
@@ -39,6 +40,7 @@ export type Database = {
           duration?: number | null
           id?: string
           needs_review?: boolean
+          phone?: string | null
           recording_sid?: string | null
           recording_url?: string | null
           status?: string | null
@@ -54,6 +56,7 @@ export type Database = {
           duration?: number | null
           id?: string
           needs_review?: boolean
+          phone?: string | null
           recording_sid?: string | null
           recording_url?: string | null
           status?: string | null
