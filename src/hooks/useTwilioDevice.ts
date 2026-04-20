@@ -219,10 +219,46 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     const outgoing = await device.connect({ params });
     activeCall = outgoing;
 
-    outgoing.on("ringing", () => setSnapshot({ status: "connecting" }));
+    // Insert the call_records row as soon as Twilio assigns a CallSid.
+    // This guarantees a row exists before twilio-status fires, so the
+    // recording webhook + auto-analyse-call chain has something to update.
+    const insertCallRow = async (callSid: string) => {
+      try {
+        await supabase.from("call_records").upsert(
+          {
+            twilio_call_sid: callSid,
+            clinic_id: extraParams?.clinicId || null,
+            phone,
+            status: "initiated",
+          },
+          { onConflict: "twilio_call_sid" },
+        );
+      } catch (e) {
+        console.error("call_records insert failed", e);
+      }
+    };
+
+    // CallSid is usually available immediately after connect(), but
+    // sometimes only on the ringing/accept event. Try both.
+    const earlySid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
+    if (earlySid) {
+      void insertCallRow(earlySid);
+      setSnapshot({ activeCallSid: earlySid });
+    }
+
+    outgoing.on("ringing", () => {
+      const sid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
+      if (sid && sid !== currentCallSid) {
+        void insertCallRow(sid);
+        setSnapshot({ activeCallSid: sid });
+      }
+      setSnapshot({ status: "connecting" });
+    });
     outgoing.on("accept", (c: Call) => {
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
-      setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, status: "in-call" });
+      const sid = c.parameters?.CallSid ?? null;
+      if (sid) void insertCallRow(sid);
+      setSnapshot({ activeCallSid: sid, status: "in-call" });
     });
     outgoing.on("disconnect", () => {
       console.log("Voice SDK: call disconnected");

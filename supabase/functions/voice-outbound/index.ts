@@ -59,19 +59,22 @@ serve(async (req) => {
 
   const dialTo = escapeXml(formatAUPhone(phone));
 
-  // Best-effort tracking row so the dashboard can see call history.
+  // Server-side safety net: ensure a call_records row exists tagged with
+  // clinic_id. The browser also inserts this row, but if that races or
+  // fails we still want the row to exist by the time twilio-status fires.
   if (callSid && supabaseUrl && serviceKey) {
     try {
       const sb = createClient(supabaseUrl, serviceKey);
-      await sb.from("call_records").upsert(
+      const { error: upErr } = await sb.from("call_records").upsert(
         {
           twilio_call_sid: callSid,
           status: "initiated",
           clinic_id: clinicId || null,
-          call_analysis: { mode: "browser-sdk", clinicPhone: dialTo, callerId: TWILIO_CALLER_ID },
+          phone: dialTo,
         },
         { onConflict: "twilio_call_sid" },
       );
+      if (upErr) console.error("voice-outbound: upsert error", upErr);
     } catch (err) {
       console.error("voice-outbound: failed to upsert call_records", err);
     }
