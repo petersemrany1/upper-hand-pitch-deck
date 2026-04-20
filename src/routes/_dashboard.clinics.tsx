@@ -343,6 +343,21 @@ function ClinicsPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [selectedClinic]);
 
+  // Notify global chrome (CallReviewInbox bell) when the detail panel is open
+  // so it can hide itself and avoid overlapping the right-side panel.
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent("clinic-detail-panel", {
+        detail: { open: !!selectedClinic },
+      }),
+    );
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent("clinic-detail-panel", { detail: { open: false } }),
+      );
+    };
+  }, [selectedClinic]);
+
 
   const loadContacts = async (clinicId: string) => {
     const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
@@ -636,8 +651,17 @@ function ClinicsPage() {
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
         <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
-        <Button onClick={() => fileInputRef.current?.click()} disabled={importing} size="sm" variant="ghost" className="text-xs" style={{ color: "#666" }}>
-          <Upload className="w-3 h-3 mr-1" /> {importing ? "Importing..." : "Bulk Upload CSV"}
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+          size="sm"
+          variant="ghost"
+          className="text-xs h-9 w-9 p-0"
+          style={{ color: "#666" }}
+          title={importing ? "Importing..." : "Bulk Upload CSV"}
+          aria-label="Bulk Upload CSV"
+        >
+          {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
         </Button>
         <span className="text-xs ml-auto" style={{ color: "#555" }}>
           {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}

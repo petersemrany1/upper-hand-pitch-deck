@@ -54,8 +54,20 @@ export function CallReviewInbox() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [open, setOpen] = useState(false);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
+  const [hidden, setHidden] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Hide the bell when a clinic detail panel is open (it overlaps the panel).
+  useEffect(() => {
+    const onPanel = (e: Event) => {
+      const detail = (e as CustomEvent<{ open: boolean }>).detail;
+      setHidden(!!detail?.open);
+      if (detail?.open) setOpen(false);
+    };
+    window.addEventListener("clinic-detail-panel", onPanel);
+    return () => window.removeEventListener("clinic-detail-panel", onPanel);
+  }, []);
 
   // Resolve clinic name for a clinic_id (cached in component state through items).
   const fetchClinicName = async (clinicId: string | null): Promise<string> => {
@@ -204,12 +216,25 @@ export function CallReviewInbox() {
       .eq("id", item.callRecordId);
   };
 
+  const handleDeleteFailed = async (item: InboxItem) => {
+    setItems((prev) => prev.filter((i) => i.callRecordId !== item.callRecordId));
+    // Mark as resolved by clearing the failed stage and review flag so it
+    // never resurfaces in the inbox.
+    await supabase
+      .from("call_records")
+      .update({ analysis_stage: null, needs_review: false })
+      .eq("id", item.callRecordId);
+  };
+
   const activeItem = items.find((i) => i.callRecordId === activeReviewId) || null;
 
   return (
     <>
       {/* Floating top-right inbox trigger */}
-      <div className="fixed top-3 right-3 md:top-4 md:right-4 z-[55]">
+      <div
+        className="fixed top-3 right-3 md:top-4 md:right-4 z-[55]"
+        style={{ display: hidden ? "none" : undefined }}
+      >
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
@@ -280,38 +305,78 @@ export function CallReviewInbox() {
 
             <ul className="divide-y" style={{ borderColor: "#1f1f24" }}>
               {/* Processing items first so Peter sees them at the top while waiting */}
-              {processingItems.map((item) => (
-                <li key={item.callRecordId} className="px-4 py-3">
-                  <div className="flex items-start gap-2">
-                    <Loader2
-                      className="w-4 h-4 animate-spin mt-0.5"
-                      style={{
-                        color:
-                          item.analysisStage === "failed" ? "#f87171" : "#60a5fa",
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="text-xs font-semibold text-white truncate">
-                          {item.clinicName}
+              {processingItems.map((item) => {
+                const isFailed = item.analysisStage === "failed";
+                return (
+                  <li
+                    key={item.callRecordId}
+                    className="px-4 py-3"
+                    style={isFailed ? { background: "rgba(220,38,38,0.06)" } : undefined}
+                  >
+                    <div className="flex items-start gap-2">
+                      {isFailed ? (
+                        <X className="w-4 h-4 mt-0.5" style={{ color: "#f87171" }} />
+                      ) : (
+                        <Loader2
+                          className="w-4 h-4 animate-spin mt-0.5"
+                          style={{ color: "#60a5fa" }}
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-xs font-semibold text-white truncate">
+                            {item.clinicName}
+                            {isFailed && (
+                              <span
+                                className="ml-2 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
+                                style={{ background: "#450a0a", color: "#f87171" }}
+                              >
+                                Failed
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px]" style={{ color: "#666" }}>
+                            {relativeTime(item.calledAt)}
+                          </div>
                         </div>
-                        <div className="text-[10px]" style={{ color: "#666" }}>
-                          {relativeTime(item.calledAt)}
+                        <div
+                          className="text-[11px] mt-0.5"
+                          style={{ color: isFailed ? "#f87171" : "#60a5fa" }}
+                        >
+                          {STAGE_LABEL[item.analysisStage || ""] || "Processing…"}
                         </div>
+                        {isFailed && (
+                          <div className="mt-2">
+                            <button
+                              onClick={() => void handleDeleteFailed(item)}
+                              className="text-[11px] px-2 py-1 rounded inline-flex items-center gap-1"
+                              style={{
+                                background: "transparent",
+                                color: "#f87171",
+                                border: "1px solid #450a0a",
+                              }}
+                            >
+                              <X className="w-3 h-3" />
+                              Dismiss failure
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div
-                        className="text-[11px] mt-0.5"
-                        style={{
-                          color:
-                            item.analysisStage === "failed" ? "#f87171" : "#60a5fa",
-                        }}
-                      >
-                        {STAGE_LABEL[item.analysisStage || ""] || "Processing…"}
-                      </div>
+                      {isFailed && (
+                        <button
+                          onClick={() => void handleDeleteFailed(item)}
+                          className="p-1 rounded hover:bg-white/5 -mr-1"
+                          aria-label="Delete failed item"
+                          title="Delete failed item"
+                        >
+                          <X className="w-3.5 h-3.5" style={{ color: "#888" }} />
+                        </button>
+                      )}
                     </div>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
+
 
               {reviewableItems.map((item) => {
                 const a = item.analysis!;
