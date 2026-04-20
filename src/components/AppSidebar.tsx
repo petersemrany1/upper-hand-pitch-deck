@@ -18,10 +18,10 @@ const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Pipeline", url: "/pipeline", icon: Activity },
   { title: "Clinics", url: "/clinics", icon: Building2 },
-  { title: "Inbox", url: "/inbox", icon: Inbox },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
   { title: "Phone & Contacts", url: "/clients", icon: Phone },
+  { title: "Inbox", url: "/inbox", icon: Inbox },
   { title: "Logs", url: "/logs", icon: AlertTriangle },
 ];
 
