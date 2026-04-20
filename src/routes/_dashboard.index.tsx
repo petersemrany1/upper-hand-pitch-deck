@@ -5,6 +5,7 @@ import { Users, Phone, FileText, PhoneCall, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
