@@ -19,9 +19,11 @@ export type Database = {
           call_analysis: Json | null
           called_at: string
           client_id: string | null
+          clinic_id: string | null
           created_at: string
           duration: number | null
           id: string
+          needs_review: boolean
           recording_sid: string | null
           recording_url: string | null
           status: string | null
@@ -32,9 +34,11 @@ export type Database = {
           call_analysis?: Json | null
           called_at?: string
           client_id?: string | null
+          clinic_id?: string | null
           created_at?: string
           duration?: number | null
           id?: string
+          needs_review?: boolean
           recording_sid?: string | null
           recording_url?: string | null
           status?: string | null
@@ -45,9 +49,11 @@ export type Database = {
           call_analysis?: Json | null
           called_at?: string
           client_id?: string | null
+          clinic_id?: string | null
           created_at?: string
           duration?: number | null
           id?: string
+          needs_review?: boolean
           recording_sid?: string | null
           recording_url?: string | null
           status?: string | null
@@ -60,6 +66,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_records_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]

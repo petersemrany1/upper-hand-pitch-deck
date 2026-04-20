@@ -12,6 +12,7 @@ import {
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
+import { CallReviewPopup, type AutoCallAnalysis } from "@/components/CallReviewPopup";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -268,6 +269,16 @@ function ClinicsPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
 
+  // Auto-analysis review popup
+  type PendingReview = {
+    callRecordId: string;
+    clinicId: string;
+    clinicName: string;
+    analysis: AutoCallAnalysis;
+    duration: number | null;
+  };
+  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
+
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
 
@@ -298,6 +309,73 @@ function ClinicsPage() {
   }, []);
 
   useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
+
+  // Subscribe to call_records updates so the AI review popup appears the moment
+  // auto-analyse-call finishes (recording → Whisper → Claude). We only react to
+  // rows tied to a clinic with a pending_review payload, then mark them as
+  // dismissed when the user closes the popup.
+  useEffect(() => {
+    const fetchPending = async () => {
+      const { data } = await supabase
+        .from("call_records")
+        .select("id, clinic_id, call_analysis, duration")
+        .eq("needs_review", true)
+        .not("clinic_id", "is", null)
+        .order("called_at", { ascending: false })
+        .limit(1);
+      if (data && data[0] && !pendingReview) {
+        const row = data[0];
+        const analysis = (row.call_analysis as AutoCallAnalysis | null) || {};
+        const { data: clinicRow } = await supabase
+          .from("clinics")
+          .select("clinic_name")
+          .eq("id", row.clinic_id!)
+          .maybeSingle();
+        setPendingReview({
+          callRecordId: row.id,
+          clinicId: row.clinic_id!,
+          clinicName: clinicRow?.clinic_name || "Clinic",
+          analysis,
+          duration: row.duration,
+        });
+      }
+    };
+    fetchPending();
+
+    const channel = supabase
+      .channel("call_records_review")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "call_records" },
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            clinic_id: string | null;
+            call_analysis: AutoCallAnalysis | null;
+            needs_review: boolean;
+            duration: number | null;
+          };
+          if (!row.needs_review || !row.clinic_id || !row.call_analysis) return;
+          const { data: clinicRow } = await supabase
+            .from("clinics")
+            .select("clinic_name")
+            .eq("id", row.clinic_id)
+            .maybeSingle();
+          setPendingReview({
+            callRecordId: row.id,
+            clinicId: row.clinic_id,
+            clinicName: clinicRow?.clinic_name || "Clinic",
+            analysis: row.call_analysis,
+            duration: row.duration,
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pendingReview]);
 
   // Escape key dismisses the side panel
   useEffect(() => {
@@ -494,7 +572,7 @@ function ClinicsPage() {
     }
     setCallingId(clinic.id);
     try {
-      await deviceCall(clinic.phone);
+      await deviceCall(clinic.phone, { clinicId: clinic.id });
     } catch (err) {
       console.error("Call failed:", err);
       setCallingId(null);
@@ -975,6 +1053,47 @@ function ClinicsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* AI auto-call review popup */}
+      {pendingReview && (
+        <CallReviewPopup
+          callRecordId={pendingReview.callRecordId}
+          clinicId={pendingReview.clinicId}
+          clinicName={pendingReview.clinicName}
+          analysis={pendingReview.analysis}
+          duration={pendingReview.duration}
+          onClose={() => setPendingReview(null)}
+          onApplied={() => {
+            // Refresh CRM views and dismiss popup.
+            loadClinics();
+            loadLastContacts();
+            if (selectedClinic && selectedClinic.id === pendingReview.clinicId) {
+              loadContacts(selectedClinic.id);
+            }
+            setPendingReview(null);
+          }}
+          onEdit={(a) => {
+            // Open the existing Log Activity modal pre-filled with AI fields.
+            const clinic = clinics.find((c) => c.id === pendingReview.clinicId);
+            if (clinic) {
+              setSelectedClinic(clinic);
+              setLogType("Call");
+              setLogOutcome(a.outcome === "Spoke - Interested" ? "Spoke — Interested" : (a.outcome || "No Answer"));
+              setLogNotes(a.notes || "");
+              setLogNextDate(a.follow_up_date || "");
+              setLogOwnerName(a.contact_name || clinic.owner_name || "");
+              setShowLogModal(true);
+            }
+            // Keep popup state cleared; the user is now editing manually.
+            supabase
+              .from("call_records")
+              .update({ needs_review: false })
+              .eq("id", pendingReview.callRecordId)
+              .then(() => {});
+            setPendingReview(null);
+          }}
+        />
       )}
     </div>
   );

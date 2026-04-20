@@ -203,7 +203,7 @@ async function ensureDevice(): Promise<void> {
   return initPromise;
 }
 
-async function placeCall(phone: string): Promise<void> {
+async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
   if (!device) {
     setSnapshot({ error: "Dialler not ready yet. Try again in a moment." });
     return;
@@ -215,7 +215,8 @@ async function placeCall(phone: string): Promise<void> {
 
   setSnapshot({ error: null, status: "connecting" });
   try {
-    const outgoing = await device.connect({ params: { phone } });
+    const params: Record<string, string> = { phone, ...(extraParams || {}) };
+    const outgoing = await device.connect({ params });
     activeCall = outgoing;
 
     outgoing.on("ringing", () => setSnapshot({ status: "connecting" }));
@@ -305,7 +306,7 @@ export function useTwilioDevice(enabled: boolean = false) {
     };
   }, [enabled]);
 
-  const call = useCallback((phone: string) => placeCall(phone), []);
+  const call = useCallback((phone: string, extraParams?: Record<string, string>) => placeCall(phone, extraParams), []);
   const hangup = useCallback(() => hangupCall(), []);
   const answer = useCallback(() => answerIncoming(), []);
   const reject = useCallback(() => rejectIncoming(), []);

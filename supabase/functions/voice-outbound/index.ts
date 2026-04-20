@@ -33,18 +33,20 @@ serve(async (req) => {
   // fields. We also accept query params for manual testing.
   let phone = url.searchParams.get("phone") || url.searchParams.get("To") || "";
   let callSid = url.searchParams.get("CallSid") || "";
+  let clinicId = url.searchParams.get("clinicId") || "";
 
   if (req.method === "POST") {
     try {
       const form = await req.formData();
       phone = phone || (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "");
       callSid = callSid || (form.get("CallSid")?.toString() ?? "");
+      clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");
     } catch {
       // ignore — fall through to validation
     }
   }
 
-  console.log("voice-outbound: incoming", { phone, callSid, method: req.method });
+  console.log("voice-outbound: incoming", { phone, callSid, clinicId, method: req.method });
 
   if (!phone) {
     const errXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -65,6 +67,7 @@ serve(async (req) => {
         {
           twilio_call_sid: callSid,
           status: "initiated",
+          clinic_id: clinicId || null,
           call_analysis: { mode: "browser-sdk", clinicPhone: dialTo, callerId: TWILIO_CALLER_ID },
         },
         { onConflict: "twilio_call_sid" },
