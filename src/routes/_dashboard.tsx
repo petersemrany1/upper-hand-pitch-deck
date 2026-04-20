@@ -74,6 +74,7 @@ function DashboardLayout() {
   if (isFullscreen) {
     return (
       <>
+        <DeviceBootstrap />
         <Outlet />
         <IncomingCallDialog />
         <FloatingCallWidget />
@@ -84,6 +85,7 @@ function DashboardLayout() {
 
   return (
     <SidebarProvider defaultOpen={false}>
+      <DeviceBootstrap />
       <div className="h-screen flex w-full overflow-hidden" style={{ background: "#09090b" }}>
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-hidden" style={{ borderLeft: "1px solid #1f1f23" }}>
