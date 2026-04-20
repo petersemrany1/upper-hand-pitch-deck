@@ -41,6 +41,7 @@ serve(async (req) => {
       patch.recording_sid = recordingSid;
       patch.recording_url = mp3Url;
       patch.status = "completed";
+      patch.analysis_stage = "transcribing";
     } else if (callStatus) {
       patch.status = callStatus;
     }

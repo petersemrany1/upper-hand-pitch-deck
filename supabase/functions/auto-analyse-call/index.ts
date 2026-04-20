@@ -59,6 +59,21 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    const logErr = async (msg: string, ctx: Record<string, unknown> = {}) => {
+      try {
+        await supabase.from("error_logs").insert({
+          function_name: "auto-analyse-call",
+          error_message: msg,
+          context: { callRecordId, ...ctx },
+        });
+      } catch (e) {
+        console.error("error_logs insert failed", e);
+      }
+    };
+    const setStage = async (stage: string) => {
+      await supabase.from("call_records").update({ analysis_stage: stage }).eq("id", callRecordId);
+    };
+
     const { data: row, error: rowErr } = await supabase
       .from("call_records")
       .select("id, recording_url, clinic_id, duration")
@@ -66,9 +81,11 @@ serve(async (req) => {
       .maybeSingle();
 
     if (rowErr || !row) {
+      await logErr(`call_records lookup failed: ${rowErr?.message || "not found"}`);
       throw new Error(`call_records lookup failed: ${rowErr?.message || "not found"}`);
     }
     if (!row.recording_url) {
+      await logErr("No recording_url on call record");
       throw new Error("No recording_url on call record");
     }
     if (!row.clinic_id) {
@@ -79,10 +96,18 @@ serve(async (req) => {
       });
     }
 
+    await setStage("transcribing");
+
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!OPENAI_API_KEY) throw new Error("OPENAI_API_KEY not configured");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+    if (!OPENAI_API_KEY) {
+      await logErr("OPENAI_API_KEY not configured");
+      throw new Error("OPENAI_API_KEY not configured");
+    }
+    if (!ANTHROPIC_API_KEY) {
+      await logErr("ANTHROPIC_API_KEY not configured");
+      throw new Error("ANTHROPIC_API_KEY not configured");
+    }
 
     // 1. Download audio from Twilio
     console.log("auto-analyse-call: fetching recording", row.recording_url);
@@ -111,8 +136,11 @@ serve(async (req) => {
     }
     const transcript = (await whisperResp.text()).trim();
     if (!transcript) {
+      await logErr("Empty transcript from Whisper");
       throw new Error("Empty transcript");
     }
+
+    await setStage("analysing");
 
     // 3. Claude
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -159,10 +187,12 @@ serve(async (req) => {
       .update({
         call_analysis: analysis,
         needs_review: true,
+        analysis_stage: "complete",
       })
       .eq("id", callRecordId);
 
     if (updErr) {
+      await logErr(`DB update failed: ${updErr.message}`);
       throw new Error(`DB update failed: ${updErr.message}`);
     }
 
@@ -172,6 +202,22 @@ serve(async (req) => {
     });
   } catch (err) {
     console.error("auto-analyse-call error:", err);
+    // Best-effort: mark the row as failed so the UI can react.
+    try {
+      const sb = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const body = await req.clone().json().catch(() => ({}));
+      if (body?.callRecordId) {
+        await sb
+          .from("call_records")
+          .update({ analysis_stage: "failed" })
+          .eq("id", body.callRecordId);
+      }
+    } catch {
+      /* noop */
+    }
     return new Response(
       JSON.stringify({ error: (err as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },

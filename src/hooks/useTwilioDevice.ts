@@ -262,6 +262,17 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     });
     outgoing.on("disconnect", () => {
       console.log("Voice SDK: call disconnected");
+      const sid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
+      // Mark the call as awaiting recording so the Clinics page can show progress.
+      if (sid) {
+        void supabase
+          .from("call_records")
+          .update({ analysis_stage: "waiting_for_recording" })
+          .eq("twilio_call_sid", sid)
+          .then(({ error }) => {
+            if (error) console.error("analysis_stage update failed", error);
+          });
+      }
       activeCall = null;
       setSnapshot({ activeCallSid: null, status: "ready" });
     });
