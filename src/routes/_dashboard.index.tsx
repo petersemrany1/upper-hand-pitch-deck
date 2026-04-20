@@ -441,22 +441,9 @@ function DashboardHome() {
   );
 }
 
-function FollowUpsDue() {
-  const [followUps, setFollowUps] = useState<Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>>([]);
+type FollowUp = { id: string; clinic_name: string; phone: string | null; next_follow_up: string };
 
-  useEffect(() => {
-    const today = new Date().toISOString().split("T")[0];
-    supabase
-      .from("clinics")
-      .select("id, clinic_name, phone, next_follow_up")
-      .lte("next_follow_up", today)
-      .order("next_follow_up", { ascending: true })
-      .limit(5)
-      .then(({ data }) => {
-        if (data) setFollowUps(data as Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>);
-      });
-  }, []);
-
+function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
   if (followUps.length === 0) return null;
 
   return (
