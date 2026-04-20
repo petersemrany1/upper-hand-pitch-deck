@@ -33,14 +33,18 @@ export const Route = createRootRoute({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "Upperhand Dashboard" },
+      { name: "description", content: "Upper Hand Portal is a web app for hair transplant clinics to acquire new patients." },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "Upperhand Dashboard" },
+      { property: "og:description", content: "Upper Hand Portal is a web app for hair transplant clinics to acquire new patients." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Upperhand Dashboard" },
+      { name: "twitter:description", content: "Upper Hand Portal is a web app for hair transplant clinics to acquire new patients." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3623e69-825b-4ea0-9f1e-954fb164b4b2/id-preview-d5f0506f--1d2b5d82-7b6e-4a9c-9899-a64f78717875.lovable.app-1776646147165.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3623e69-825b-4ea0-9f1e-954fb164b4b2/id-preview-d5f0506f--1d2b5d82-7b6e-4a9c-9899-a64f78717875.lovable.app-1776646147165.png" },
     ],
     links: [
       {
