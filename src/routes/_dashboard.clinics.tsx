@@ -1054,6 +1054,47 @@ function ClinicsPage() {
           </div>
         </div>
       )}
+
+      {/* AI auto-call review popup */}
+      {pendingReview && (
+        <CallReviewPopup
+          callRecordId={pendingReview.callRecordId}
+          clinicId={pendingReview.clinicId}
+          clinicName={pendingReview.clinicName}
+          analysis={pendingReview.analysis}
+          duration={pendingReview.duration}
+          onClose={() => setPendingReview(null)}
+          onApplied={() => {
+            // Refresh CRM views and dismiss popup.
+            loadClinics();
+            loadLastContacts();
+            if (selectedClinic && selectedClinic.id === pendingReview.clinicId) {
+              loadContacts(selectedClinic.id);
+            }
+            setPendingReview(null);
+          }}
+          onEdit={(a) => {
+            // Open the existing Log Activity modal pre-filled with AI fields.
+            const clinic = clinics.find((c) => c.id === pendingReview.clinicId);
+            if (clinic) {
+              setSelectedClinic(clinic);
+              setLogType("Call");
+              setLogOutcome(a.outcome === "Spoke - Interested" ? "Spoke — Interested" : (a.outcome || "No Answer"));
+              setLogNotes(a.notes || "");
+              setLogNextDate(a.follow_up_date || "");
+              setLogOwnerName(a.contact_name || clinic.owner_name || "");
+              setShowLogModal(true);
+            }
+            // Keep popup state cleared; the user is now editing manually.
+            supabase
+              .from("call_records")
+              .update({ needs_review: false })
+              .eq("id", pendingReview.callRecordId)
+              .then(() => {});
+            setPendingReview(null);
+          }}
+        />
+      )}
     </div>
   );
 }
