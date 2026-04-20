@@ -348,13 +348,30 @@ function DashboardHome() {
             {activity.length === 0 ? (
               <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
             ) : (
-              activity.map((item, i) => (
-                <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
-                  <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
-                  <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
-                  <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
-                </div>
-              ))
+              activity.map((item, i) => {
+                const row = (
+                  <>
+                    <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
+                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
+                    <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
+                  </>
+                );
+                return item.clinicId ? (
+                  <Link
+                    key={i}
+                    to="/clinics"
+                    search={{ clinic: item.clinicId }}
+                    className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+                    style={{ height: 36 }}
+                  >
+                    {row}
+                  </Link>
+                ) : (
+                  <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
+                    {row}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
