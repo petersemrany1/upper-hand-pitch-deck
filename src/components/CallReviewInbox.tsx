@@ -218,6 +218,17 @@ export function CallReviewInbox() {
       .eq("id", item.callRecordId);
   };
 
+  // Universal dismiss — works for every state (waiting, transcribing, analysing,
+  // failed, recording_missing, reviewable). Clears review flag and stage so the
+  // row never resurfaces in the inbox no matter what state it was in.
+  const handleDeleteAny = async (item: InboxItem) => {
+    setItems((prev) => prev.filter((i) => i.callRecordId !== item.callRecordId));
+    await supabase
+      .from("call_records")
+      .update({ needs_review: false, analysis_stage: null })
+      .eq("id", item.callRecordId);
+  };
+
   const activeItem = items.find((i) => i.callRecordId === activeReviewId) || null;
 
   return (
