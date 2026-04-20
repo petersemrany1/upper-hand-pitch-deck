@@ -7,15 +7,23 @@ import { SmsNotifier } from "@/components/SmsNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
 });
 
-// NOTE: We deliberately do NOT initialise the Twilio Device here. Twilio init
-// is heavy (token fetch + WebSocket register) and was blocking first paint on
-// every dashboard page. It now lazily boots only when the user visits a route
-// that actively dials (Phone / Quick Dial widget) — see useTwilioDevice.
+// Boot the Twilio Device once at the dashboard shell — as soon as the user is
+// signed in and any dashboard route mounts. The Device is a module-level
+// singleton, so this is cheap on subsequent route changes and guarantees the
+// dialler is "Ready" no matter which page Peter lands on (Clinics, Dashboard,
+// Clients, etc.). Previously it was opt-in per route, which meant landing
+// directly on /clinics never booted the SDK and calls would silently fail.
+function DeviceBootstrap() {
+  useTwilioDevice(true);
+  return null;
+}
+
 
 function DashboardLayout() {
   const location = useLocation();
