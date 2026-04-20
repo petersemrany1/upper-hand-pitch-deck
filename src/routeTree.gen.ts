@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
@@ -19,6 +20,11 @@ import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinic
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
@@ -66,6 +72,7 @@ const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/login': typeof LoginRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
 }
 export interface FileRoutesByTo {
+  '/login': typeof LoginRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
@@ -87,6 +95,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/login': typeof LoginRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
@@ -100,6 +109,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/analytics'
     | '/clients'
     | '/clinics'
@@ -109,6 +119,7 @@ export interface FileRouteTypes {
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/login'
     | '/analytics'
     | '/clients'
     | '/clinics'
@@ -120,6 +131,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_dashboard'
+    | '/login'
     | '/_dashboard/analytics'
     | '/_dashboard/clients'
     | '/_dashboard/clinics'
@@ -132,10 +144,18 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  LoginRoute: typeof LoginRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard': {
       id: '/_dashboard'
       path: ''
@@ -230,7 +250,17 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  LoginRoute: LoginRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
