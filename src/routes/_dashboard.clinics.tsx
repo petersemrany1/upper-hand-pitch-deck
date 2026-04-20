@@ -277,7 +277,7 @@ function ClinicsPage() {
 
   // Call (browser-based via Twilio Voice SDK)
   const [callingId, setCallingId] = useState<string | null>(null);
-  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
+  const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice(true);
 
   // NOTE: AI auto-call review now lives in the global CallReviewInbox (top-right
   // bell icon in the dashboard chrome). The clinics page no longer owns the
