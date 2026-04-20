@@ -288,6 +288,9 @@ function ClinicsPage() {
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
 
+  // Set of clinic ids that had at least one call today (for the row dot — fix #7)
+  const [calledTodayIds, setCalledTodayIds] = useState<Set<string>>(new Set());
+
   // Today's actions panel
   const [todayExpanded, setTodayExpanded] = useState(false);
 
@@ -314,10 +317,40 @@ function ClinicsPage() {
     }
   }, []);
 
-  useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
+  // Pull today's call_records and surface a coloured dot on each row that had
+  // any call activity today (fix #7).
+  const loadCalledToday = useCallback(async () => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { data } = await supabase
+      .from("call_records")
+      .select("clinic_id")
+      .gte("called_at", startOfDay.toISOString());
+    if (data) {
+      const set = new Set<string>();
+      for (const r of data as { clinic_id: string | null }[]) {
+        if (r.clinic_id) set.add(r.clinic_id);
+      }
+      setCalledTodayIds(set);
+    }
+  }, []);
 
-  // Refresh CRM views whenever a call review is applied from the global inbox
-  // (the inbox writes to clinics + clinic_contacts then we re-read here).
+  useEffect(() => { loadClinics(); loadLastContacts(); loadCalledToday(); }, [loadClinics, loadLastContacts, loadCalledToday]);
+
+  // Patch a single clinic row in place — never re-sort the whole list (fix #9).
+  const patchClinicRow = useCallback(async (clinicId: string) => {
+    const { data } = await supabase.from("clinics").select("*").eq("id", clinicId).maybeSingle();
+    if (!data) return;
+    setClinics((prev) => {
+      const idx = prev.findIndex((c) => c.id === clinicId);
+      if (idx === -1) return [data as Clinic, ...prev];
+      const copy = [...prev];
+      copy[idx] = data as Clinic;
+      return copy;
+    });
+  }, []);
+
+  // Realtime — only patch the changed row, never reload the whole list (fix #9).
   useEffect(() => {
     const channel = supabase
       .channel("clinics_page_refresh")
@@ -331,15 +364,58 @@ function ClinicsPage() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "clinics" },
-        () => {
-          loadClinics();
+        (payload) => {
+          const row = payload.new as { id?: string } | undefined;
+          if (row?.id) void patchClinicRow(row.id);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "call_records" },
+        (payload) => {
+          const row = payload.new as { clinic_id?: string | null } | undefined;
+          if (row?.clinic_id) {
+            setCalledTodayIds((prev) => {
+              if (prev.has(row.clinic_id!)) return prev;
+              const next = new Set(prev);
+              next.add(row.clinic_id!);
+              return next;
+            });
+          }
         },
       )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadClinics, loadLastContacts]);
+  }, [loadLastContacts, patchClinicRow]);
+
+  // Fix #4 — listen for the AI review popup applying changes and patch local
+  // CRM state instantly (no refetch needed).
+  useEffect(() => {
+    const onApplied = (e: Event) => {
+      const detail = (e as CustomEvent<AppliedReview>).detail;
+      if (!detail || !detail.clinicId) return;
+      setClinics((prev) =>
+        prev.map((c) =>
+          c.id === detail.clinicId
+            ? {
+                ...c,
+                status: detail.stage || c.status,
+                next_follow_up: detail.followUpDate ?? c.next_follow_up,
+                owner_name: detail.ownerName ?? c.owner_name,
+              }
+            : c,
+        ),
+      );
+      // Refresh the latest-contact map so the new note + next-action surfaces
+      // in the row immediately.
+      loadLastContacts();
+    };
+    window.addEventListener("clinic-ai-applied", onApplied as EventListener);
+    return () => window.removeEventListener("clinic-ai-applied", onApplied as EventListener);
+  }, [loadLastContacts]);
+
 
 
 
