@@ -62,10 +62,17 @@ serve(async (req) => {
       console.error("twilio-status: upsert error", upErr);
     }
 
-    // Fire-and-forget: trigger AI analysis only when we have a recording,
-    // a clinic_id, and the call was actually answered (duration > 0).
-    if (hasRecording && upserted?.id && upserted?.clinic_id && duration > 0) {
+    // Fire-and-forget: trigger AI analysis whenever a recording URL is present.
+    // Duration is NOT a reliable signal — Twilio's recording status callback
+    // often sends CallDuration: "0" even for real conversations. The presence
+    // of a recording URL is the only gate we need.
+    if (hasRecording && upserted?.id && upserted?.clinic_id) {
       const fnUrl = `${supabaseUrl}/functions/v1/auto-analyse-call`;
+      console.log("twilio-status: dispatching auto-analyse-call", {
+        callRecordId: upserted.id,
+        clinicId: upserted.clinic_id,
+        duration,
+      });
       fetch(fnUrl, {
         method: "POST",
         headers: {
@@ -74,10 +81,14 @@ serve(async (req) => {
         },
         body: JSON.stringify({ callRecordId: upserted.id }),
       }).catch((e) => console.error("auto-analyse-call dispatch failed:", e));
-    } else if (hasRecording && (!upserted?.clinic_id || duration === 0)) {
-      console.log("twilio-status: skipping AI analysis", {
-        clinicId: upserted?.clinic_id,
-        duration,
+    } else if (hasRecording && !upserted?.clinic_id) {
+      console.log("twilio-status: skipping AI analysis — no clinic_id", {
+        callRecordId: upserted?.id,
+      });
+    } else if (!hasRecording) {
+      console.log("twilio-status: no recording URL, skipping analysis", {
+        callSid,
+        callStatus,
       });
     }
 
