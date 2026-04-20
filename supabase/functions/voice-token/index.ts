@@ -1,7 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 // Mints a Twilio AccessToken with a VoiceGrant for the browser SDK.
 // JWT is built manually (HS256) so we don't pull in the Node-only twilio SDK.
+//
+// SECURITY: Requires a valid Supabase auth header. Anonymous callers get 401
+// so an attacker cannot mint tokens against our Twilio account.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,9 +36,41 @@ async function signHs256(payload: object, header: object, secret: string): Promi
   return `${data}.${base64UrlEncode(new Uint8Array(sig))}`;
 }
 
+function unauthorized(msg: string): Response {
+  return new Response(
+    JSON.stringify({ error: msg }),
+    { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  // 1. Require Supabase auth before doing anything else
+  const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
+  if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
+    return unauthorized("Missing Authorization header");
+  }
+  const userJwt = authHeader.slice(7).trim();
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
+  if (!supabaseUrl || !anonKey) {
+    return new Response(
+      JSON.stringify({ error: "Server misconfigured: missing Supabase env vars" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+  try {
+    const sb = createClient(supabaseUrl, anonKey);
+    const { data: userData, error: userErr } = await sb.auth.getUser(userJwt);
+    if (userErr || !userData?.user) {
+      return unauthorized("Invalid or expired session");
+    }
+  } catch (e) {
+    console.error("voice-token: auth check failed", e);
+    return unauthorized("Auth verification failed");
   }
 
   try {

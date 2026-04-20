@@ -59,8 +59,17 @@ function setSnapshot(patch: Partial<Snapshot>) {
 }
 
 async function fetchToken(): Promise<string> {
+  // Pass the user's access token explicitly. supabase.functions.invoke does
+  // this automatically once a session exists, but we also keep the explicit
+  // header so a stale anon-only client still authenticates.
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  if (!accessToken) {
+    throw new Error("Not signed in — cannot fetch voice token");
+  }
   const { data, error: fnErr } = await supabase.functions.invoke("voice-token", {
     body: { identity: "peter_browser" },
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (fnErr || !data?.token) {
     const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
@@ -275,7 +284,7 @@ function setMute(muted: boolean) {
   }
 }
 
-export function useTwilioDevice() {
+export function useTwilioDevice(enabled: boolean = true) {
   const [, forceRender] = useState(0);
   const subRef = useRef<(() => void) | null>(null);
 
@@ -283,12 +292,12 @@ export function useTwilioDevice() {
     const sub = () => forceRender((n) => n + 1);
     subRef.current = sub;
     subscribers.add(sub);
-    void ensureDevice();
+    if (enabled) void ensureDevice();
     return () => {
       subscribers.delete(sub);
       // Intentionally do NOT destroy the Device — it's a singleton.
     };
-  }, []);
+  }, [enabled]);
 
   const call = useCallback((phone: string) => placeCall(phone), []);
   const hangup = useCallback(() => hangupCall(), []);
