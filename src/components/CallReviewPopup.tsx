@@ -52,21 +52,27 @@ export function CallReviewPopup({
   const handleConfirm = async () => {
     setSaving(true);
     try {
-      // 1. Insert a clinic_contacts row capturing the call.
+      // Normalize follow-up to YYYY-MM-DD — Claude sometimes returns a full
+      // ISO datetime which the date-typed clinics.next_follow_up column rejects.
+      const followDate = analysis.follow_up_date
+        ? String(analysis.follow_up_date).slice(0, 10)
+        : null;
+
+      // 1. Insert a clinic_contacts row capturing the call (activity timeline).
       await supabase.from("clinic_contacts").insert({
         clinic_id: clinicId,
         contact_type: "Call",
         outcome: analysis.outcome || null,
         notes: analysis.notes || null,
         next_action: analysis.next_action || null,
-        next_action_date: analysis.follow_up_date || null,
+        next_action_date: followDate,
         duration: duration ? `${duration}s` : null,
       });
 
-      // 2. Apply clinic-level fields.
+      // 2. Apply clinic-level fields so the CRM row reflects Claude's read.
       const update: { status?: string; next_follow_up?: string; owner_name?: string } = {};
       if (stage) update.status = stage;
-      if (analysis.follow_up_date) update.next_follow_up = analysis.follow_up_date;
+      if (followDate) update.next_follow_up = followDate;
       if (analysis.contact_name) update.owner_name = analysis.contact_name;
       if (Object.keys(update).length > 0) {
         await supabase.from("clinics").update(update).eq("id", clinicId);
