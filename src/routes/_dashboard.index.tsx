@@ -72,6 +72,8 @@ function DashboardHome() {
   const [savedPhones] = useState<SavedPhone[]>(getStoredPhones);
   void savedPhones;
 
+  // Opt-in: dashboard hosts the Quick Dial widget so it boots the Device.
+  // (The dashboard layout no longer initialises Twilio app-wide.)
   const {
     status: deviceStatus,
     dialerStatus,
@@ -79,7 +81,7 @@ function DashboardHome() {
     call: placeCall,
     hangup,
     retry,
-  } = useTwilioDevice();
+  } = useTwilioDevice(true);
 
   const dialerStateLabel =
     dialerStatus === "ready" ? "Ready" : dialerStatus === "failed" ? "Failed" : "Connecting";
