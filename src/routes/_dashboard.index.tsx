@@ -61,11 +61,13 @@ function formatDate(): string {
 }
 
 function DashboardHome() {
+  const { ready: authReady, session } = useAuth();
   const [totalContacts, setTotalContacts] = useState<number | null>(null);
   const [callsThisWeek, setCallsThisWeek] = useState<number | null>(null);
   const [contractsSent, setContractsSent] = useState<number | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [recentCalls, setRecentCalls] = useState<Array<{ name: string; time: string; duration: string }>>([]);
+  const [followUps, setFollowUps] = useState<Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>>([]);
 
   const [dialNumber, setDialNumber] = useState("");
   const [calling, setCalling] = useState(false);
