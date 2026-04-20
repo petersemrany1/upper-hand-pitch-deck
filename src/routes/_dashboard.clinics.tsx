@@ -245,6 +245,10 @@ function ClinicsPage() {
   const [editStatus, setEditStatus] = useState("");
   const [editFollowUp, setEditFollowUp] = useState("");
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNotesRef = useRef<string | null>(null);
+  const pendingClinicIdRef = useRef<string | null>(null);
+  const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const savedFlashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Log activity modal
   const [showLogModal, setShowLogModal] = useState(false);
@@ -337,15 +341,8 @@ function ClinicsPage() {
 
 
 
-  // Escape key dismisses the side panel
-  useEffect(() => {
-    if (!selectedClinic) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedClinic(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selectedClinic]);
+  // (Escape key handler is registered further down, after flushPendingNotes
+  // is declared, so it can flush any pending notes save before closing.)
 
   // Notify global chrome (no longer used — bell now lives in this page's
   // toolbar — but kept harmless if other components ever want to listen).
@@ -368,7 +365,30 @@ function ClinicsPage() {
     if (data) setContacts(data as ClinicContact[]);
   };
 
+  // Immediately persist any pending notes edit. Safe to call multiple times.
+  const flushPendingNotes = useCallback(async () => {
+    if (notesTimer.current) {
+      clearTimeout(notesTimer.current);
+      notesTimer.current = null;
+    }
+    const pendingValue = pendingNotesRef.current;
+    const pendingClinic = pendingClinicIdRef.current;
+    if (pendingValue === null || !pendingClinic) return;
+    pendingNotesRef.current = null;
+    pendingClinicIdRef.current = null;
+    setNotesSaveState("saving");
+    const valueToWrite = pendingValue === "" ? null : pendingValue;
+    await supabase.from("clinics").update({ notes: valueToWrite }).eq("id", pendingClinic);
+    setClinics((prev) => prev.map((c) => c.id === pendingClinic ? { ...c, notes: valueToWrite } : c));
+    setSelectedClinic((prev) => prev && prev.id === pendingClinic ? { ...prev, notes: valueToWrite } : prev);
+    setNotesSaveState("saved");
+    if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current);
+    savedFlashTimer.current = setTimeout(() => setNotesSaveState("idle"), 1500);
+  }, []);
+
   const openDetail = useCallback((clinic: Clinic) => {
+    // Flush any unsaved notes from the previously open clinic before swapping.
+    void flushPendingNotes();
     setSelectedClinic(clinic);
     setEditNotes(clinic.notes || "");
     setEditOwner(clinic.owner_name || "");
@@ -376,8 +396,39 @@ function ClinicsPage() {
     setEditEmail(clinic.email || "");
     setEditStatus(clinic.status);
     setEditFollowUp(clinic.next_follow_up || "");
+    setNotesSaveState("idle");
     loadContacts(clinic.id);
-  }, []);
+  }, [flushPendingNotes]);
+
+  const closeDetail = useCallback(() => {
+    void flushPendingNotes();
+    setSelectedClinic(null);
+  }, [flushPendingNotes]);
+
+  // Escape key dismisses the side panel (and flushes any pending notes save first).
+  useEffect(() => {
+    if (!selectedClinic) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeDetail();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedClinic, closeDetail]);
+
+  // Flush on tab close / refresh / navigation away.
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (pendingNotesRef.current !== null && pendingClinicIdRef.current) {
+        void flushPendingNotes();
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      void flushPendingNotes();
+      if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current);
+    };
+  }, [flushPendingNotes]);
 
   // Auto-open the clinic detail panel when ?clinic=<id> is in the URL.
   // This lets the dashboard activity items deep-link straight into a clinic.
@@ -401,9 +452,15 @@ function ClinicsPage() {
   };
 
   const handleNotesChange = (val: string) => {
+    if (!selectedClinic) return;
     setEditNotes(val);
+    pendingNotesRef.current = val;
+    pendingClinicIdRef.current = selectedClinic.id;
+    setNotesSaveState("saving");
     if (notesTimer.current) clearTimeout(notesTimer.current);
-    notesTimer.current = setTimeout(() => updateClinicField("notes", val), 800);
+    notesTimer.current = setTimeout(() => {
+      void flushPendingNotes();
+    }, 300);
   };
 
   const handleLogActivity = async () => {
@@ -821,7 +878,7 @@ function ClinicsPage() {
 
       {/* Detail Panel */}
       {selectedClinic && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelectedClinic(null)}>
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={closeDetail}>
           <div className="absolute inset-0 bg-black/60" />
           <div
             className="relative w-full max-w-md h-full overflow-y-auto"
@@ -831,7 +888,7 @@ function ClinicsPage() {
             <div className="p-5 space-y-4">
               {/* Close button */}
               <div className="flex justify-end">
-                <button onClick={() => setSelectedClinic(null)} className="p-1 rounded hover:bg-white/5">
+                <button onClick={closeDetail} className="p-1 rounded hover:bg-white/5">
                   <X className="w-4 h-4" style={{ color: "#666" }} />
                 </button>
               </div>
@@ -883,9 +940,15 @@ function ClinicsPage() {
                   <FieldRow label="Follow Up">
                     <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
                   </FieldRow>
-                  <FieldRow label="Notes">
-                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
-                  </FieldRow>
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-[10px] uppercase font-semibold" style={{ color: "#555", letterSpacing: "0.12em" }}>Notes</div>
+                      <div className="text-[10px] font-medium" style={{ color: notesSaveState === "saved" ? "#10b981" : notesSaveState === "saving" ? "#f59e0b" : "transparent", transition: "color 200ms" }}>
+                        {notesSaveState === "saving" ? "Saving…" : notesSaveState === "saved" ? "Saved" : "—"}
+                      </div>
+                    </div>
+                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} onBlur={() => { void flushPendingNotes(); }} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
+                  </div>
                 </div>
               </div>
 
