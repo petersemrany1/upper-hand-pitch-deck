@@ -341,15 +341,18 @@ function ClinicsPage() {
 
 
 
-  // Escape key dismisses the side panel
+  // Escape key dismisses the side panel (and flushes any pending notes save).
   useEffect(() => {
     if (!selectedClinic) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSelectedClinic(null);
+      if (e.key === "Escape") {
+        void flushPendingNotes();
+        setSelectedClinic(null);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedClinic]);
+  }, [selectedClinic, flushPendingNotes]);
 
   // Notify global chrome (no longer used — bell now lives in this page's
   // toolbar — but kept harmless if other components ever want to listen).
