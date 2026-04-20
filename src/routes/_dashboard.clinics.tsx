@@ -310,6 +310,73 @@ function ClinicsPage() {
 
   useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
 
+  // Subscribe to call_records updates so the AI review popup appears the moment
+  // auto-analyse-call finishes (recording → Whisper → Claude). We only react to
+  // rows tied to a clinic with a pending_review payload, then mark them as
+  // dismissed when the user closes the popup.
+  useEffect(() => {
+    const fetchPending = async () => {
+      const { data } = await supabase
+        .from("call_records")
+        .select("id, clinic_id, call_analysis, duration")
+        .eq("needs_review", true)
+        .not("clinic_id", "is", null)
+        .order("called_at", { ascending: false })
+        .limit(1);
+      if (data && data[0] && !pendingReview) {
+        const row = data[0];
+        const analysis = (row.call_analysis as AutoCallAnalysis | null) || {};
+        const { data: clinicRow } = await supabase
+          .from("clinics")
+          .select("clinic_name")
+          .eq("id", row.clinic_id!)
+          .maybeSingle();
+        setPendingReview({
+          callRecordId: row.id,
+          clinicId: row.clinic_id!,
+          clinicName: clinicRow?.clinic_name || "Clinic",
+          analysis,
+          duration: row.duration,
+        });
+      }
+    };
+    fetchPending();
+
+    const channel = supabase
+      .channel("call_records_review")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "call_records" },
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            clinic_id: string | null;
+            call_analysis: AutoCallAnalysis | null;
+            needs_review: boolean;
+            duration: number | null;
+          };
+          if (!row.needs_review || !row.clinic_id || !row.call_analysis) return;
+          const { data: clinicRow } = await supabase
+            .from("clinics")
+            .select("clinic_name")
+            .eq("id", row.clinic_id)
+            .maybeSingle();
+          setPendingReview({
+            callRecordId: row.id,
+            clinicId: row.clinic_id,
+            clinicName: clinicRow?.clinic_name || "Clinic",
+            analysis: row.call_analysis,
+            duration: row.duration,
+          });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pendingReview]);
+
   // Escape key dismisses the side panel
   useEffect(() => {
     if (!selectedClinic) return;
