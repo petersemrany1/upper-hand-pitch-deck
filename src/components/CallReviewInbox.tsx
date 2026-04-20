@@ -230,11 +230,8 @@ export function CallReviewInbox() {
 
   return (
     <>
-      {/* Floating top-right inbox trigger */}
-      <div
-        className="fixed top-3 right-3 md:top-4 md:right-4 z-[55]"
-        style={{ display: hidden ? "none" : undefined }}
-      >
+      {/* Inline toolbar trigger — mounted by the clinics page toolbar only. */}
+      <div className="relative inline-block">
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
