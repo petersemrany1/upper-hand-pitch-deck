@@ -54,20 +54,8 @@ export function CallReviewInbox() {
   const [items, setItems] = useState<InboxItem[]>([]);
   const [open, setOpen] = useState(false);
   const [activeReviewId, setActiveReviewId] = useState<string | null>(null);
-  const [hidden, setHidden] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Hide the bell when a clinic detail panel is open (it overlaps the panel).
-  useEffect(() => {
-    const onPanel = (e: Event) => {
-      const detail = (e as CustomEvent<{ open: boolean }>).detail;
-      setHidden(!!detail?.open);
-      if (detail?.open) setOpen(false);
-    };
-    window.addEventListener("clinic-detail-panel", onPanel);
-    return () => window.removeEventListener("clinic-detail-panel", onPanel);
-  }, []);
 
   // Resolve clinic name for a clinic_id (cached in component state through items).
   const fetchClinicName = async (clinicId: string | null): Promise<string> => {
