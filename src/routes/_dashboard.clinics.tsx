@@ -13,6 +13,8 @@ import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
+import { isValidAUPhone } from "@/utils/phone";
+import type { AppliedReview } from "@/components/CallReviewPopup";
 
 
 export const Route = createFileRoute("/_dashboard/clinics")({
@@ -286,6 +288,9 @@ function ClinicsPage() {
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
 
+  // Set of clinic ids that had at least one call today (for the row dot — fix #7)
+  const [calledTodayIds, setCalledTodayIds] = useState<Set<string>>(new Set());
+
   // Today's actions panel
   const [todayExpanded, setTodayExpanded] = useState(false);
 
@@ -312,10 +317,40 @@ function ClinicsPage() {
     }
   }, []);
 
-  useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
+  // Pull today's call_records and surface a coloured dot on each row that had
+  // any call activity today (fix #7).
+  const loadCalledToday = useCallback(async () => {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const { data } = await supabase
+      .from("call_records")
+      .select("clinic_id")
+      .gte("called_at", startOfDay.toISOString());
+    if (data) {
+      const set = new Set<string>();
+      for (const r of data as { clinic_id: string | null }[]) {
+        if (r.clinic_id) set.add(r.clinic_id);
+      }
+      setCalledTodayIds(set);
+    }
+  }, []);
 
-  // Refresh CRM views whenever a call review is applied from the global inbox
-  // (the inbox writes to clinics + clinic_contacts then we re-read here).
+  useEffect(() => { loadClinics(); loadLastContacts(); loadCalledToday(); }, [loadClinics, loadLastContacts, loadCalledToday]);
+
+  // Patch a single clinic row in place — never re-sort the whole list (fix #9).
+  const patchClinicRow = useCallback(async (clinicId: string) => {
+    const { data } = await supabase.from("clinics").select("*").eq("id", clinicId).maybeSingle();
+    if (!data) return;
+    setClinics((prev) => {
+      const idx = prev.findIndex((c) => c.id === clinicId);
+      if (idx === -1) return [data as Clinic, ...prev];
+      const copy = [...prev];
+      copy[idx] = data as Clinic;
+      return copy;
+    });
+  }, []);
+
+  // Realtime — only patch the changed row, never reload the whole list (fix #9).
   useEffect(() => {
     const channel = supabase
       .channel("clinics_page_refresh")
@@ -329,15 +364,58 @@ function ClinicsPage() {
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "clinics" },
-        () => {
-          loadClinics();
+        (payload) => {
+          const row = payload.new as { id?: string } | undefined;
+          if (row?.id) void patchClinicRow(row.id);
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "call_records" },
+        (payload) => {
+          const row = payload.new as { clinic_id?: string | null } | undefined;
+          if (row?.clinic_id) {
+            setCalledTodayIds((prev) => {
+              if (prev.has(row.clinic_id!)) return prev;
+              const next = new Set(prev);
+              next.add(row.clinic_id!);
+              return next;
+            });
+          }
         },
       )
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [loadClinics, loadLastContacts]);
+  }, [loadLastContacts, patchClinicRow]);
+
+  // Fix #4 — listen for the AI review popup applying changes and patch local
+  // CRM state instantly (no refetch needed).
+  useEffect(() => {
+    const onApplied = (e: Event) => {
+      const detail = (e as CustomEvent<AppliedReview>).detail;
+      if (!detail || !detail.clinicId) return;
+      setClinics((prev) =>
+        prev.map((c) =>
+          c.id === detail.clinicId
+            ? {
+                ...c,
+                status: detail.stage || c.status,
+                next_follow_up: detail.followUpDate ?? c.next_follow_up,
+                owner_name: detail.ownerName ?? c.owner_name,
+              }
+            : c,
+        ),
+      );
+      // Refresh the latest-contact map so the new note + next-action surfaces
+      // in the row immediately.
+      loadLastContacts();
+    };
+    window.addEventListener("clinic-ai-applied", onApplied as EventListener);
+    return () => window.removeEventListener("clinic-ai-applied", onApplied as EventListener);
+  }, [loadLastContacts]);
+
 
 
 
@@ -767,13 +845,23 @@ function ClinicsPage() {
                     const nextAction = getNextActionText(c, lastContacts[c.id] || null);
                     const lastCt = lastContacts[c.id];
                     const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
+                    const calledToday = calledTodayIds.has(c.id);
+                    const phoneInvalid = !!c.phone && !isValidAUPhone(c.phone);
 
                     return (
                       <div
                         key={c.id}
-                        className="flex items-center hover:bg-white/[0.02] transition-colors"
+                        className="flex items-center hover:bg-white/[0.02] transition-colors relative"
                         style={{ height: 44, borderBottom: "1px solid #111" }}
                       >
+                        {/* Today-called dot (fix #7) */}
+                        {calledToday && (
+                          <span
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full"
+                            style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)" }}
+                            title="Called today"
+                          />
+                        )}
                         {/* Clinic Name */}
                         <div className="w-[180px] shrink-0 px-3 truncate">
                           <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#fff" }}>{c.clinic_name}</button>
@@ -783,10 +871,28 @@ function ClinicsPage() {
                         {/* Phone */}
                         <div className="w-[140px] shrink-0 px-2">
                           {c.phone ? (
-                            <button onClick={() => handleCall(c)} className="flex items-center gap-1 text-[11px] hover:brightness-125 transition" style={{ color: "#22c55e" }}>
-                              {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
-                              <span className="truncate">{c.phone}</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleCall(c)}
+                                disabled={phoneInvalid}
+                                className="flex items-center gap-1 text-[11px] hover:brightness-125 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                style={{ color: phoneInvalid ? "#888" : "#22c55e" }}
+                                title={phoneInvalid ? "Invalid Australian phone number — cannot dial" : "Call"}
+                              >
+                                {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
+                                <span className="truncate">{c.phone}</span>
+                              </button>
+                              {phoneInvalid && (
+                                <span
+                                  className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded uppercase"
+                                  style={{ background: "#450a0a", color: "#f87171" }}
+                                  title="Phone number cannot be dialled"
+                                >
+                                  <AlertCircle className="w-2.5 h-2.5" />
+                                  Bad
+                                </span>
+                              )}
+                            </div>
                           ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
                         </div>
                         {/* Latest Note */}
@@ -805,7 +911,7 @@ function ClinicsPage() {
                         </div>
                         {/* Actions */}
                         <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
-                          {c.phone && (
+                          {c.phone && !phoneInvalid && (
                             <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
                               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
                             </button>
