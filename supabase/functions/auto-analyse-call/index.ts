@@ -24,11 +24,21 @@ const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Upper H
 {
   "outcome": one of ["Not Interested", "No Answer", "Left Voicemail", "Gatekeeper", "Call Me Back", "Zoom Set", "Spoke - Interested"],
   "next_action": "what Peter should do next in one short sentence",
-  "follow_up_date": "ISO date string if a callback was mentioned, otherwise null",
+  "follow_up_date": "ISO date string (YYYY-MM-DD) for the Zoom date OR the callback date, otherwise null",
   "notes": "2-3 sentence plain English summary of what happened on the call",
   "contact_name": "name of person spoken to if mentioned, otherwise null",
   "owner_reached": true or false
 }
+
+OUTCOME RULES — read carefully:
+- "Zoom Set" → use this whenever a Zoom / video meeting is scheduled, confirmed, OR rescheduled to a specific time. Rescheduling an existing Zoom counts as Zoom Set. If they pick a day/time for a Zoom, it's Zoom Set.
+- "Call Me Back" → use ONLY when the prospect asks Peter to phone them back later (a phone callback, not a Zoom). No Zoom was scheduled.
+- "Spoke - Interested" → they expressed interest but no concrete next step (no Zoom booked, no callback time agreed).
+- "Gatekeeper" → spoke to reception/assistant, owner not reached.
+- "Left Voicemail" → went to voicemail and Peter left a message.
+- "No Answer" → no one picked up, no voicemail left.
+- "Not Interested" → prospect declined.
+
 Return only valid JSON, no preamble.`;
 
 function twilioAuthHeader(): string {
