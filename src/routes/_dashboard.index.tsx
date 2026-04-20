@@ -18,7 +18,14 @@ export const Route = createFileRoute("/_dashboard/")({
 });
 
 type SavedPhone = { name: string; phone: string };
-type ActivityItem = { color: string; text: string; time: string; sortDate: string };
+type ActivityItem = {
+  color: string;
+  text: string;
+  time: string;
+  sortDate: string;
+  clinicId?: string | null;
+  icon?: "call" | "contract" | "zoom" | "followup";
+};
 
 const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
 
