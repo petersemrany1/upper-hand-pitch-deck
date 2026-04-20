@@ -18,7 +18,7 @@ serve(async (req) => {
 
     if (recordingSid && recordingUrl) {
       const mp3Url = `${recordingUrl}.mp3`;
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("call_records")
         .update({
           recording_sid: recordingSid,
@@ -26,8 +26,23 @@ serve(async (req) => {
           duration: parseInt(callDuration) || null,
           status: "completed",
         })
-        .eq("twilio_call_sid", callSid);
+        .eq("twilio_call_sid", callSid)
+        .select("id, clinic_id")
+        .maybeSingle();
       if (error) console.error("DB update error (recording):", error);
+
+      // Fire-and-forget: kick off auto CRM analysis when this call is tied to a clinic.
+      if (updated?.id && updated?.clinic_id) {
+        const fnUrl = `${supabaseUrl}/functions/v1/auto-analyse-call`;
+        fetch(fnUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${supabaseKey}`,
+          },
+          body: JSON.stringify({ callRecordId: updated.id }),
+        }).catch((e) => console.error("auto-analyse-call dispatch failed:", e));
+      }
     } else if (callStatus) {
       // Update status for all events: completed, no-answer, busy, failed, canceled
       const updateData: Record<string, unknown> = { status: callStatus };
