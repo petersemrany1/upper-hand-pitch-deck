@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       call_records: {
         Row: {
+          analysis_stage: string | null
           call_analysis: Json | null
           called_at: string
           client_id: string | null
@@ -32,6 +33,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          analysis_stage?: string | null
           call_analysis?: Json | null
           called_at?: string
           client_id?: string | null
@@ -48,6 +50,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          analysis_stage?: string | null
           call_analysis?: Json | null
           called_at?: string
           client_id?: string | null
