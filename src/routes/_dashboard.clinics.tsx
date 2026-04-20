@@ -13,7 +13,6 @@ import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewPopup, type AutoCallAnalysis } from "@/components/CallReviewPopup";
-import { CallProcessingBanner, type ProcessingStage } from "@/components/CallProcessingBanner";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -270,19 +269,11 @@ function ClinicsPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
 
-  // Auto-analysis review popup
-  type PendingReview = {
-    callRecordId: string;
-    clinicId: string;
-    clinicName: string;
-    analysis: AutoCallAnalysis;
-    duration: number | null;
-  };
-  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
+  // NOTE: AI auto-call review now lives in the global CallReviewInbox (top-right
+  // bell icon in the dashboard chrome). The clinics page no longer owns the
+  // pending-review state or the live processing banner — multiple calls can
+  // stack up in the inbox and Peter works through them one by one.
 
-  // Live processing banner state — driven by realtime updates to call_records.analysis_stage
-  const [processingStage, setProcessingStage] = useState<ProcessingStage>(null);
-  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
 
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
@@ -315,83 +306,30 @@ function ClinicsPage() {
 
   useEffect(() => { loadClinics(); loadLastContacts(); }, [loadClinics, loadLastContacts]);
 
-  // Subscribe to call_records updates so the AI review popup appears the moment
-  // auto-analyse-call finishes (recording → Whisper → Claude). We only react to
-  // rows tied to a clinic with a pending_review payload, then mark them as
-  // dismissed when the user closes the popup.
+  // Refresh CRM views whenever a call review is applied from the global inbox
+  // (the inbox writes to clinics + clinic_contacts then we re-read here).
   useEffect(() => {
-    const fetchPending = async () => {
-      const { data } = await supabase
-        .from("call_records")
-        .select("id, clinic_id, call_analysis, duration")
-        .eq("needs_review", true)
-        .not("clinic_id", "is", null)
-        .order("called_at", { ascending: false })
-        .limit(1);
-      if (data && data[0] && !pendingReview) {
-        const row = data[0];
-        const analysis = (row.call_analysis as AutoCallAnalysis | null) || {};
-        const { data: clinicRow } = await supabase
-          .from("clinics")
-          .select("clinic_name")
-          .eq("id", row.clinic_id!)
-          .maybeSingle();
-        setPendingReview({
-          callRecordId: row.id,
-          clinicId: row.clinic_id!,
-          clinicName: clinicRow?.clinic_name || "Clinic",
-          analysis,
-          duration: row.duration,
-        });
-      }
-    };
-    fetchPending();
-
     const channel = supabase
-      .channel("call_records_review")
+      .channel("clinics_page_refresh")
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "call_records" },
-        async (payload) => {
-          const row = payload.new as {
-            id: string;
-            clinic_id: string | null;
-            call_analysis: AutoCallAnalysis | null;
-            needs_review: boolean;
-            duration: number | null;
-            analysis_stage: ProcessingStage;
-          };
-
-          // Drive the live processing banner from the same row updates.
-          if (row.analysis_stage) {
-            setProcessingStage((prev) => {
-              // First time we see this call → record start time
-              if (!prev) setProcessingStartedAt(Date.now());
-              return row.analysis_stage;
-            });
-          }
-
-          if (!row.needs_review || !row.clinic_id || !row.call_analysis) return;
-          const { data: clinicRow } = await supabase
-            .from("clinics")
-            .select("clinic_name")
-            .eq("id", row.clinic_id)
-            .maybeSingle();
-          setPendingReview({
-            callRecordId: row.id,
-            clinicId: row.clinic_id,
-            clinicName: clinicRow?.clinic_name || "Clinic",
-            analysis: row.call_analysis,
-            duration: row.duration,
-          });
+        { event: "*", schema: "public", table: "clinic_contacts" },
+        () => {
+          loadLastContacts();
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "clinics" },
+        () => {
+          loadClinics();
         },
       )
       .subscribe();
-
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [pendingReview]);
+  }, [loadClinics, loadLastContacts]);
 
   // Auto-dismiss the banner once the popup is shown or after a long timeout
   useEffect(() => {
