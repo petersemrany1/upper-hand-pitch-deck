@@ -664,6 +664,7 @@ function ClinicsPage() {
         >
           {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
         </Button>
+        <CallReviewInbox />
         <span className="text-xs ml-auto" style={{ color: "#555" }}>
           {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
         </span>
