@@ -29,7 +29,7 @@ let pendingIncoming: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
 
-let currentStatus: Status = "loading";
+let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
 let currentError: string | null = null;
 let currentCallSid: string | null = null;
