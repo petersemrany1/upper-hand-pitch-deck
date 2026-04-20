@@ -17,6 +17,9 @@ import { CallReviewInbox } from "@/components/CallReviewInbox";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    clinic: typeof search.clinic === "string" ? search.clinic : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Clinics CRM" },
