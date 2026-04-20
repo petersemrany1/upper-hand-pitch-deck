@@ -368,7 +368,7 @@ function ClinicsPage() {
     if (data) setContacts(data as ClinicContact[]);
   };
 
-  const openDetail = (clinic: Clinic) => {
+  const openDetail = useCallback((clinic: Clinic) => {
     setSelectedClinic(clinic);
     setEditNotes(clinic.notes || "");
     setEditOwner(clinic.owner_name || "");
