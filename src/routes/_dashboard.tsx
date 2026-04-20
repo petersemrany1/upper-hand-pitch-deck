@@ -24,11 +24,11 @@ function DashboardLayout() {
     if (!loading && !session) {
       navigate({
         to: "/login",
-        search: { redirect: location.pathname + location.search },
+        search: { redirect: location.pathname } as never,
         replace: true,
       });
     }
-  }, [loading, session, navigate, location.pathname, location.search]);
+  }, [loading, session, navigate, location.pathname]);
 
   // Initialise the Twilio Device app-wide so inbound calls can ring on any page.
   // Skip until we know we have a session — voice-token now requires auth.

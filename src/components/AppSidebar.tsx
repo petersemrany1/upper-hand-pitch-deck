@@ -1,5 +1,5 @@
-import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Inbox } from "lucide-react";
-import { Link, useLocation } from "@tanstack/react-router";
+import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Inbox, LogOut } from "lucide-react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
   Sidebar,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getUnresolvedCount } from "@/utils/error-logger.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -26,10 +27,12 @@ const items = [
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const currentPath = location.pathname;
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [unreadSms, setUnreadSms] = useState(0);
   const { isMobile, setOpenMobile } = useSidebar();
+  const { signOut } = useAuth();
 
   useEffect(() => {
     getUnresolvedCount().then((r) => setUnresolvedCount(r.count)).catch(() => {});
@@ -113,8 +116,18 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Avatar at bottom */}
-        <div className="mt-auto px-4 pb-4">
+        {/* Sign out + avatar at bottom */}
+        <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-white/5 w-full justify-center group-data-[collapsible=icon]:justify-center"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+            <span className="group-data-[collapsible=icon]:hidden">Sign out</span>
+          </button>
           <div
             className="flex items-center justify-center rounded-full"
             style={{
