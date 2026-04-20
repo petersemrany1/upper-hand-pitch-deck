@@ -294,7 +294,7 @@ function DashboardHome() {
             </span>
           </div>
           <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
-            <FollowUpsDue />
+            <FollowUpsDue followUps={followUps} />
             {activity.length === 0 ? (
               <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
             ) : (
