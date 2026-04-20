@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Bell, Loader2, Phone, X, Sparkles, Check } from "lucide-react";
+import { Bell, Loader2, Phone, X, Sparkles, Check, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { CallReviewPopup, type AutoCallAnalysis } from "@/components/CallReviewPopup";
+import { CallReviewPopup, type AutoCallAnalysis, type AppliedReview } from "@/components/CallReviewPopup";
 
 // Stages that mean the call is still in flight through the auto-analysis chain.
 const IN_PROGRESS_STAGES = new Set([
@@ -10,11 +10,15 @@ const IN_PROGRESS_STAGES = new Set([
   "analysing",
 ]);
 
+// Auto-flip waiting_for_recording → recording_missing after this window.
+const STUCK_RECORDING_MS = 3 * 60 * 1000;
+
 const STAGE_LABEL: Record<string, string> = {
   waiting_for_recording: "Waiting for recording…",
   transcribing: "Transcribing…",
   analysing: "Analysing with AI…",
   failed: "Auto-analysis failed",
+  recording_missing: "Recording not received",
 };
 
 type InboxItem = {
@@ -440,23 +444,16 @@ export function CallReviewInbox() {
           analysis={activeItem.analysis}
           duration={activeItem.duration}
           onClose={() => setActiveReviewId(null)}
-          onApplied={() => {
+          onApplied={(result: AppliedReview) => {
             setItems((prev) =>
               prev.filter((i) => i.callRecordId !== activeItem.callRecordId),
             );
             setActiveReviewId(null);
-          }}
-          onEdit={() => {
-            // For edit flow, drop from inbox and clear the review flag — Peter
-            // will log it manually from the clinic detail panel.
-            setItems((prev) =>
-              prev.filter((i) => i.callRecordId !== activeItem.callRecordId),
+            // Issue #4: tell the clinics page to patch its local row
+            // immediately, no refetch / re-sort needed.
+            window.dispatchEvent(
+              new CustomEvent("clinic-ai-applied", { detail: result }),
             );
-            void supabase
-              .from("call_records")
-              .update({ needs_review: false })
-              .eq("id", activeItem.callRecordId);
-            setActiveReviewId(null);
           }}
         />
       )}

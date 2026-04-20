@@ -8,12 +8,36 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 const TWILIO_CALLER_ID = "+61468031075";
 
-function formatAUPhone(raw: string): string {
-  const cleaned = raw.replace(/[\s\-()]/g, "");
-  if (cleaned.startsWith("+")) return cleaned;
-  if (cleaned.startsWith("0")) return "+61" + cleaned.slice(1);
-  if (cleaned.startsWith("61")) return "+" + cleaned;
-  return "+61" + cleaned;
+// Mirror of src/utils/phone.ts — keep in sync. Returns E.164 (+61...)
+// when valid, otherwise null so we can refuse to dial bad numbers.
+function formatAUPhone(raw: string): string | null {
+  if (!raw) return null;
+  const trimmed = String(raw).trim();
+  const hasPlus = trimmed.startsWith("+");
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  if (!digits) return null;
+  if (hasPlus && digits.startsWith("61")) {
+    const rest = digits.slice(2);
+    if (rest.length < 8 || rest.length > 12) return null;
+    return "+" + digits;
+  }
+  if (hasPlus) {
+    if (digits.length < 8 || digits.length > 15) return null;
+    return "+" + digits;
+  }
+  if (digits.startsWith("61") && digits.length >= 10) return "+" + digits;
+  if (digits.startsWith("1300") || digits.startsWith("1800")) {
+    if (digits.length !== 10) return null;
+    return "+61" + digits;
+  }
+  if (digits.startsWith("13") && digits.length === 6) return "+61" + digits;
+  if (digits.startsWith("0")) {
+    if (digits.length !== 10) return null;
+    if (!"234578".includes(digits[1])) return null;
+    return "+61" + digits.slice(1);
+  }
+  if (digits.length === 9 && "234578".includes(digits[0])) return "+61" + digits;
+  return null;
 }
 
 function escapeXml(s: string): string {
@@ -57,7 +81,17 @@ serve(async (req) => {
     return new Response(errXml, { status: 200, headers: { "Content-Type": "text/xml" } });
   }
 
-  const dialTo = escapeXml(formatAUPhone(phone));
+  const formatted = formatAUPhone(phone);
+  if (!formatted) {
+    console.log("voice-outbound: rejected unformattable number", phone);
+    const errXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice">The destination number could not be formatted.</Say>
+  <Hangup/>
+</Response>`;
+    return new Response(errXml, { status: 200, headers: { "Content-Type": "text/xml" } });
+  }
+  const dialTo = escapeXml(formatted);
 
   // Server-side safety net: ensure a call_records row exists tagged with
   // clinic_id. The browser also inserts this row, but if that races or

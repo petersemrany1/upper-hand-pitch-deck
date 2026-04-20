@@ -28,8 +28,56 @@ const KEYPAD: { d: string; sub?: string }[] = [
   { d: "*" }, { d: "0", sub: "+" }, { d: "#" },
 ];
 
+// Resolve the clinic + contact name for the active call SID by reading the
+// call_records → clinics join. Polls briefly because the row is upserted by
+// voice-outbound right around the time the call connects.
+function useCallContext(callSid: string | null) {
+  const [clinicName, setClinicName] = useState<string | null>(null);
+  const [contactName, setContactName] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!callSid) {
+      setClinicName(null);
+      setContactName(null);
+      setPhone(null);
+      return;
+    }
+    let cancelled = false;
+    let attempts = 0;
+    const fetchCtx = async () => {
+      attempts += 1;
+      const { data } = await supabase
+        .from("call_records")
+        .select("phone, clinic_id, call_analysis, clinics(clinic_name, owner_name)")
+        .eq("twilio_call_sid", callSid)
+        .maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        const clinic = (data as { clinics: { clinic_name?: string; owner_name?: string } | null }).clinics;
+        if (clinic?.clinic_name) setClinicName(clinic.clinic_name);
+        const analysis = data.call_analysis as { contact_name?: string | null } | null;
+        const owner = analysis?.contact_name || clinic?.owner_name || null;
+        if (owner) setContactName(owner);
+        if (data.phone) setPhone(data.phone);
+      }
+      if (!cancelled && !clinicName && attempts < 5) {
+        setTimeout(fetchCtx, 1000);
+      }
+    };
+    void fetchCtx();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [callSid]);
+
+  return { clinicName, contactName, phone };
+}
+
 export function FloatingCallWidget() {
   const { status, activeCallSid, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+  const { clinicName, contactName, phone } = useCallContext(activeCallSid);
 
   const [expanded, setExpanded] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
@@ -46,7 +94,12 @@ export function FloatingCallWidget() {
   const prevSidRef = useRef<string | null>(null);
 
   const isActive = status === "connecting" || status === "in-call";
-  const callerLabel = incomingFrom || "Outbound call";
+
+  // Display label hierarchy: clinic name → incoming caller → phone → fallback.
+  // Issue #10: clinic name must be prominent, not just the phone number.
+  const primaryLabel = clinicName || incomingFrom || phone || "Outbound call";
+  const secondaryLabel =
+    clinicName && contactName ? contactName : clinicName ? phone : null;
 
   // Track call timer
   useEffect(() => {
@@ -70,6 +123,23 @@ export function FloatingCallWidget() {
     if (activeCallSid) prevSidRef.current = activeCallSid;
     prevStatusRef.current = status;
   }, [status, isActive, activeCallSid]);
+
+  // Toast on state transitions so Peter has audible/visible feedback (#1).
+  const toastedRef = useRef<{ connecting?: boolean; connected?: boolean }>({});
+  useEffect(() => {
+    if (status === "connecting" && !toastedRef.current.connecting) {
+      toastedRef.current = { connecting: true };
+      toast.loading("Calling your phone…", { id: "call-status" });
+    }
+    if (status === "in-call" && !toastedRef.current.connected) {
+      toastedRef.current.connected = true;
+      toast.success("Connected — call in progress", { id: "call-status" });
+    }
+    if (status !== "connecting" && status !== "in-call") {
+      toastedRef.current = {};
+      toast.dismiss("call-status");
+    }
+  }, [status]);
 
   // Detect end-of-call → reset + prompt outcome
   useEffect(() => {
@@ -116,8 +186,8 @@ export function FloatingCallWidget() {
   };
 
   const statusLabel = useMemo(() => {
-    if (status === "connecting") return "Connecting…";
-    if (status === "in-call") return held ? "On hold" : "Connected";
+    if (status === "connecting") return "Calling your phone…";
+    if (status === "in-call") return held ? "On hold" : "Connected — in progress";
     return "";
   }, [status, held]);
 
@@ -148,7 +218,12 @@ export function FloatingCallWidget() {
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
         </span>
-        <span className="text-sm font-semibold text-white truncate max-w-[160px]">{callerLabel}</span>
+        <div className="flex flex-col items-start min-w-0">
+          <span className="text-sm font-semibold text-white truncate max-w-[180px]">{primaryLabel}</span>
+          {secondaryLabel && (
+            <span className="text-[10px] truncate max-w-[180px]" style={{ color: "#888" }}>{secondaryLabel}</span>
+          )}
+        </div>
         <span className="font-mono text-xs text-emerald-400">{formatDuration(seconds)}</span>
       </button>
     );
@@ -185,7 +260,10 @@ export function FloatingCallWidget() {
 
       {/* Caller info */}
       <div className="px-4 pb-3 text-center">
-        <div className="text-lg font-bold text-white truncate">{callerLabel}</div>
+        <div className="text-lg font-bold text-white truncate">{primaryLabel}</div>
+        {secondaryLabel && (
+          <div className="text-xs truncate" style={{ color: "#aaa" }}>{secondaryLabel}</div>
+        )}
         <div className="font-mono text-2xl text-emerald-400 mt-1">{formatDuration(seconds)}</div>
         {dtmfTrail && (
           <div className="mt-1 font-mono text-xs text-zinc-500 tracking-widest">{dtmfTrail}</div>
