@@ -377,7 +377,21 @@ function ClinicsPage() {
     setEditStatus(clinic.status);
     setEditFollowUp(clinic.next_follow_up || "");
     loadContacts(clinic.id);
-  };
+  }, []);
+
+  // Auto-open the clinic detail panel when ?clinic=<id> is in the URL.
+  // This lets the dashboard activity items deep-link straight into a clinic.
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  useEffect(() => {
+    if (!search.clinic || clinics.length === 0) return;
+    const target = clinics.find((c) => c.id === search.clinic);
+    if (target && (!selectedClinic || selectedClinic.id !== target.id)) {
+      openDetail(target);
+      // Clear the param so a refresh doesn't re-trigger.
+      navigate({ search: { clinic: undefined }, replace: true });
+    }
+  }, [search.clinic, clinics, selectedClinic, openDetail, navigate]);
 
   const updateClinicField = async (field: keyof Clinic, value: string | boolean) => {
     if (!selectedClinic) return;
