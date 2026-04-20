@@ -308,7 +308,7 @@ export function CallReviewInbox() {
                 return (
                   <li
                     key={item.callRecordId}
-                    className="px-4 py-3"
+                    className="px-4 py-3 group"
                     style={isFailed ? { background: "rgba(220,38,38,0.06)" } : undefined}
                   >
                     <div className="flex items-start gap-2">
@@ -343,33 +343,16 @@ export function CallReviewInbox() {
                         >
                           {STAGE_LABEL[item.analysisStage || ""] || "Processing…"}
                         </div>
-                        {isFailed && (
-                          <div className="mt-2">
-                            <button
-                              onClick={() => void handleDeleteFailed(item)}
-                              className="text-[11px] px-2 py-1 rounded inline-flex items-center gap-1"
-                              style={{
-                                background: "transparent",
-                                color: "#f87171",
-                                border: "1px solid #450a0a",
-                              }}
-                            >
-                              <X className="w-3 h-3" />
-                              Dismiss failure
-                            </button>
-                          </div>
-                        )}
                       </div>
-                      {isFailed && (
-                        <button
-                          onClick={() => void handleDeleteFailed(item)}
-                          className="p-1 rounded hover:bg-white/5 -mr-1"
-                          aria-label="Delete failed item"
-                          title="Delete failed item"
-                        >
-                          <X className="w-3.5 h-3.5" style={{ color: "#888" }} />
-                        </button>
-                      )}
+                      {/* Universal dismiss — always visible on every item */}
+                      <button
+                        onClick={() => void handleDeleteAny(item)}
+                        className="p-1 rounded hover:bg-white/10 -mr-1"
+                        aria-label="Delete from inbox"
+                        title="Delete from inbox"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#888" }} />
+                      </button>
                     </div>
                   </li>
                 );
