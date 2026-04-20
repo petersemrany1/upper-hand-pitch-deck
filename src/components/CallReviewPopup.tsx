@@ -64,7 +64,7 @@ export function CallReviewPopup({
       });
 
       // 2. Apply clinic-level fields.
-      const update: Record<string, unknown> = {};
+      const update: { status?: string; next_follow_up?: string; owner_name?: string } = {};
       if (stage) update.status = stage;
       if (analysis.follow_up_date) update.next_follow_up = analysis.follow_up_date;
       if (analysis.contact_name) update.owner_name = analysis.contact_name;
