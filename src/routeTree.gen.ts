@@ -13,7 +13,6 @@ import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
-import { Route as DashboardPipelineRouteImport } from './routes/_dashboard.pipeline'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
@@ -37,11 +36,6 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   id: '/pitch-deck',
   path: '/pitch-deck',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardPipelineRoute = DashboardPipelineRouteImport.update({
-  id: '/pipeline',
-  path: '/pipeline',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardLogsRoute = DashboardLogsRouteImport.update({
@@ -77,7 +71,6 @@ export interface FileRoutesByFullPath {
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
   '/logs': typeof DashboardLogsRoute
-  '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
 }
@@ -87,7 +80,6 @@ export interface FileRoutesByTo {
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
   '/logs': typeof DashboardLogsRoute
-  '/pipeline': typeof DashboardPipelineRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/settings': typeof DashboardSettingsRoute
   '/': typeof DashboardIndexRoute
@@ -100,7 +92,6 @@ export interface FileRoutesById {
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
-  '/_dashboard/pipeline': typeof DashboardPipelineRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/': typeof DashboardIndexRoute
@@ -114,7 +105,6 @@ export interface FileRouteTypes {
     | '/clinics'
     | '/inbox'
     | '/logs'
-    | '/pipeline'
     | '/pitch-deck'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
@@ -124,7 +114,6 @@ export interface FileRouteTypes {
     | '/clinics'
     | '/inbox'
     | '/logs'
-    | '/pipeline'
     | '/pitch-deck'
     | '/settings'
     | '/'
@@ -136,7 +125,6 @@ export interface FileRouteTypes {
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
     | '/_dashboard/logs'
-    | '/_dashboard/pipeline'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/settings'
     | '/_dashboard/'
@@ -174,13 +162,6 @@ declare module '@tanstack/react-router' {
       path: '/pitch-deck'
       fullPath: '/pitch-deck'
       preLoaderRoute: typeof DashboardPitchDeckRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/pipeline': {
-      id: '/_dashboard/pipeline'
-      path: '/pipeline'
-      fullPath: '/pipeline'
-      preLoaderRoute: typeof DashboardPipelineRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/logs': {
@@ -227,7 +208,6 @@ interface DashboardRouteChildren {
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
-  DashboardPipelineRoute: typeof DashboardPipelineRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -239,7 +219,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
   DashboardLogsRoute: DashboardLogsRoute,
-  DashboardPipelineRoute: DashboardPipelineRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
