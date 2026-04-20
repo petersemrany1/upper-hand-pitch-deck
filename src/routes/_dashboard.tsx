@@ -5,7 +5,6 @@ import { AppSidebar } from "@/components/AppSidebar";
 import { IncomingCallDialog } from "@/components/IncomingCallDialog";
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
-import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 
