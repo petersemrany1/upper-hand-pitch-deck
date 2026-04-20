@@ -1,10 +1,13 @@
-import { createFileRoute, Outlet, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { IncomingCallDialog } from "@/components/IncomingCallDialog";
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
@@ -12,10 +15,32 @@ export const Route = createFileRoute("/_dashboard")({
 
 function DashboardLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { session, loading } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
 
+  // Redirect unauthenticated users to /login (preserving the target path)
+  useEffect(() => {
+    if (!loading && !session) {
+      navigate({
+        to: "/login",
+        search: { redirect: location.pathname } as never,
+        replace: true,
+      });
+    }
+  }, [loading, session, navigate, location.pathname]);
+
   // Initialise the Twilio Device app-wide so inbound calls can ring on any page.
-  useTwilioDevice();
+  // Skip until we know we have a session — voice-token now requires auth.
+  useTwilioDevice(Boolean(session));
+
+  if (loading || !session) {
+    return (
+      <div className="flex min-h-screen items-center justify-center" style={{ background: "#09090b" }}>
+        <Loader2 className="h-6 w-6 animate-spin text-zinc-500" />
+      </div>
+    );
+  }
 
   if (isFullscreen) {
     return (
