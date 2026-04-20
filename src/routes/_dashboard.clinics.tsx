@@ -12,6 +12,7 @@ import {
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
+import { CallReviewPopup, type AutoCallAnalysis } from "@/components/CallReviewPopup";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -268,6 +269,16 @@ function ClinicsPage() {
   const [callingId, setCallingId] = useState<string | null>(null);
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice();
 
+  // Auto-analysis review popup
+  type PendingReview = {
+    callRecordId: string;
+    clinicId: string;
+    clinicName: string;
+    analysis: AutoCallAnalysis;
+    duration: number | null;
+  };
+  const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
+
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
 
@@ -494,7 +505,7 @@ function ClinicsPage() {
     }
     setCallingId(clinic.id);
     try {
-      await deviceCall(clinic.phone);
+      await deviceCall(clinic.phone, { clinicId: clinic.id });
     } catch (err) {
       console.error("Call failed:", err);
       setCallingId(null);
