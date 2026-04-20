@@ -444,23 +444,16 @@ export function CallReviewInbox() {
           analysis={activeItem.analysis}
           duration={activeItem.duration}
           onClose={() => setActiveReviewId(null)}
-          onApplied={() => {
+          onApplied={(result: AppliedReview) => {
             setItems((prev) =>
               prev.filter((i) => i.callRecordId !== activeItem.callRecordId),
             );
             setActiveReviewId(null);
-          }}
-          onEdit={() => {
-            // For edit flow, drop from inbox and clear the review flag — Peter
-            // will log it manually from the clinic detail panel.
-            setItems((prev) =>
-              prev.filter((i) => i.callRecordId !== activeItem.callRecordId),
+            // Issue #4: tell the clinics page to patch its local row
+            // immediately, no refetch / re-sort needed.
+            window.dispatchEvent(
+              new CustomEvent("clinic-ai-applied", { detail: result }),
             );
-            void supabase
-              .from("call_records")
-              .update({ needs_review: false })
-              .eq("id", activeItem.callRecordId);
-            setActiveReviewId(null);
           }}
         />
       )}
