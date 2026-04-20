@@ -45,8 +45,12 @@ serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
+  let callRecordId: string | undefined;
+  let supabaseForCatch: ReturnType<typeof createClient> | null = null;
+
   try {
-    const { callRecordId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    callRecordId = body?.callRecordId;
     if (!callRecordId) {
       return new Response(JSON.stringify({ error: "callRecordId required" }), {
         status: 400,
@@ -58,6 +62,7 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    supabaseForCatch = supabase;
 
     const logErr = async (msg: string, ctx: Record<string, unknown> = {}) => {
       try {
@@ -151,7 +156,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-5-20251001",
         max_tokens: 1500,
         system: SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Transcript:\n\n${transcript}` }],
@@ -204,16 +209,20 @@ serve(async (req) => {
     console.error("auto-analyse-call error:", err);
     // Best-effort: mark the row as failed so the UI can react.
     try {
-      const sb = createClient(
+      const sb = supabaseForCatch ?? createClient(
         Deno.env.get("SUPABASE_URL")!,
         Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
       );
-      const body = await req.clone().json().catch(() => ({}));
-      if (body?.callRecordId) {
+      if (callRecordId) {
         await sb
           .from("call_records")
           .update({ analysis_stage: "failed" })
-          .eq("id", body.callRecordId);
+          .eq("id", callRecordId);
+        await sb.from("error_logs").insert({
+          function_name: "auto-analyse-call",
+          error_message: (err as Error).message,
+          context: { callRecordId },
+        });
       }
     } catch {
       /* noop */
