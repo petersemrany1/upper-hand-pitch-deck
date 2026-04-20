@@ -878,7 +878,7 @@ function ClinicsPage() {
 
       {/* Detail Panel */}
       {selectedClinic && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelectedClinic(null)}>
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={closeDetail}>
           <div className="absolute inset-0 bg-black/60" />
           <div
             className="relative w-full max-w-md h-full overflow-y-auto"
@@ -888,7 +888,7 @@ function ClinicsPage() {
             <div className="p-5 space-y-4">
               {/* Close button */}
               <div className="flex justify-end">
-                <button onClick={() => setSelectedClinic(null)} className="p-1 rounded hover:bg-white/5">
+                <button onClick={closeDetail} className="p-1 rounded hover:bg-white/5">
                   <X className="w-4 h-4" style={{ color: "#666" }} />
                 </button>
               </div>
