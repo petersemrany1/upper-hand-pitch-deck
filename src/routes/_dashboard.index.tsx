@@ -135,11 +135,12 @@ function DashboardHome() {
         .limit(8),
     ]);
 
-    if (statsRes.error || !statsRes.data) {
-      console.error("get_dashboard_stats failed", statsRes.error);
+    const statsRpc = statsRes as { data: unknown; error: unknown };
+    if (statsRpc.error || !statsRpc.data) {
+      console.error("get_dashboard_stats failed", statsRpc.error);
       return;
     }
-    const stats = statsRes.data as unknown as Stats;
+    const stats = statsRpc.data as Stats;
 
     setTotalContacts(stats.total_contacts ?? 0);
     setCallsThisWeek(stats.calls_this_week ?? 0);
