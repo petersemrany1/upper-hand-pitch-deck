@@ -1089,6 +1089,16 @@ function ClinicsPage() {
         </div>
       )}
 
+      {/* Live processing banner: hangup → recording → Whisper → Claude */}
+      <CallProcessingBanner
+        stage={processingStage}
+        startedAt={processingStartedAt}
+        onDismiss={() => {
+          setProcessingStage(null);
+          setProcessingStartedAt(null);
+        }}
+      />
+
       {/* AI auto-call review popup */}
       {pendingReview && (
         <CallReviewPopup
