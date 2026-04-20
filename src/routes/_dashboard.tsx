@@ -70,7 +70,6 @@ function DashboardLayout() {
         <IncomingCallDialog />
         <FloatingCallWidget />
         <SmsNotifier />
-        <CallReviewInbox />
       </>
     );
   }
@@ -93,7 +92,6 @@ function DashboardLayout() {
       <IncomingCallDialog />
       <FloatingCallWidget />
       <SmsNotifier />
-      <CallReviewInbox />
     </SidebarProvider>
   );
 }
