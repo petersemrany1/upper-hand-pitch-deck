@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Activity, Inbox } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Inbox } from "lucide-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
