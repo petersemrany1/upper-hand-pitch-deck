@@ -516,16 +516,18 @@ function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
   return (
     <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
       {followUps.map((f) => (
-        <div key={f.id} className="flex items-center gap-3" style={{ height: 32 }}>
+        <Link
+          key={f.id}
+          to="/clinics"
+          search={{ clinic: f.id }}
+          className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+          style={{ height: 32 }}
+        >
           <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
           <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
           <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
-          {f.phone && (
-            <button className="p-1 rounded hover:bg-white/5" type="button">
-              <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
-            </button>
-          )}
-        </div>
+          <Calendar className="w-3 h-3 shrink-0" style={{ color: "#f59e0b" }} />
+        </Link>
       ))}
     </div>
   );
