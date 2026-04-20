@@ -372,7 +372,30 @@ function ClinicsPage() {
     if (data) setContacts(data as ClinicContact[]);
   };
 
+  // Immediately persist any pending notes edit. Safe to call multiple times.
+  const flushPendingNotes = useCallback(async () => {
+    if (notesTimer.current) {
+      clearTimeout(notesTimer.current);
+      notesTimer.current = null;
+    }
+    const pendingValue = pendingNotesRef.current;
+    const pendingClinic = pendingClinicIdRef.current;
+    if (pendingValue === null || !pendingClinic) return;
+    pendingNotesRef.current = null;
+    pendingClinicIdRef.current = null;
+    setNotesSaveState("saving");
+    const valueToWrite = pendingValue === "" ? null : pendingValue;
+    await supabase.from("clinics").update({ notes: valueToWrite }).eq("id", pendingClinic);
+    setClinics((prev) => prev.map((c) => c.id === pendingClinic ? { ...c, notes: valueToWrite } : c));
+    setSelectedClinic((prev) => prev && prev.id === pendingClinic ? { ...prev, notes: valueToWrite } : prev);
+    setNotesSaveState("saved");
+    if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current);
+    savedFlashTimer.current = setTimeout(() => setNotesSaveState("idle"), 1500);
+  }, []);
+
   const openDetail = useCallback((clinic: Clinic) => {
+    // Flush any unsaved notes from the previously open clinic before swapping.
+    void flushPendingNotes();
     setSelectedClinic(clinic);
     setEditNotes(clinic.notes || "");
     setEditOwner(clinic.owner_name || "");
@@ -380,8 +403,29 @@ function ClinicsPage() {
     setEditEmail(clinic.email || "");
     setEditStatus(clinic.status);
     setEditFollowUp(clinic.next_follow_up || "");
+    setNotesSaveState("idle");
     loadContacts(clinic.id);
-  }, []);
+  }, [flushPendingNotes]);
+
+  const closeDetail = useCallback(() => {
+    void flushPendingNotes();
+    setSelectedClinic(null);
+  }, [flushPendingNotes]);
+
+  // Flush on tab close / refresh / navigation away.
+  useEffect(() => {
+    const onBeforeUnload = () => {
+      if (pendingNotesRef.current !== null && pendingClinicIdRef.current) {
+        void flushPendingNotes();
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      void flushPendingNotes();
+      if (savedFlashTimer.current) clearTimeout(savedFlashTimer.current);
+    };
+  }, [flushPendingNotes]);
 
   // Auto-open the clinic detail panel when ?clinic=<id> is in the URL.
   // This lets the dashboard activity items deep-link straight into a clinic.
@@ -405,9 +449,15 @@ function ClinicsPage() {
   };
 
   const handleNotesChange = (val: string) => {
+    if (!selectedClinic) return;
     setEditNotes(val);
+    pendingNotesRef.current = val;
+    pendingClinicIdRef.current = selectedClinic.id;
+    setNotesSaveState("saving");
     if (notesTimer.current) clearTimeout(notesTimer.current);
-    notesTimer.current = setTimeout(() => updateClinicField("notes", val), 800);
+    notesTimer.current = setTimeout(() => {
+      void flushPendingNotes();
+    }, 300);
   };
 
   const handleLogActivity = async () => {
