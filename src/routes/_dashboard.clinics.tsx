@@ -17,6 +17,9 @@ import { CallReviewInbox } from "@/components/CallReviewInbox";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
+  validateSearch: (search: Record<string, unknown>) => ({
+    clinic: typeof search.clinic === "string" ? search.clinic : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Clinics CRM" },
@@ -365,7 +368,7 @@ function ClinicsPage() {
     if (data) setContacts(data as ClinicContact[]);
   };
 
-  const openDetail = (clinic: Clinic) => {
+  const openDetail = useCallback((clinic: Clinic) => {
     setSelectedClinic(clinic);
     setEditNotes(clinic.notes || "");
     setEditOwner(clinic.owner_name || "");
@@ -374,7 +377,20 @@ function ClinicsPage() {
     setEditStatus(clinic.status);
     setEditFollowUp(clinic.next_follow_up || "");
     loadContacts(clinic.id);
-  };
+  }, []);
+
+  // Auto-open the clinic detail panel when ?clinic=<id> is in the URL.
+  // This lets the dashboard activity items deep-link straight into a clinic.
+  const routeSearch = Route.useSearch();
+  const routeNavigate = Route.useNavigate();
+  useEffect(() => {
+    if (!routeSearch.clinic || clinics.length === 0) return;
+    const target = clinics.find((c) => c.id === routeSearch.clinic);
+    if (target && (!selectedClinic || selectedClinic.id !== target.id)) {
+      openDetail(target);
+      routeNavigate({ search: { clinic: undefined }, replace: true });
+    }
+  }, [routeSearch.clinic, clinics, selectedClinic, openDetail, routeNavigate]);
 
   const updateClinicField = async (field: keyof Clinic, value: string | boolean) => {
     if (!selectedClinic) return;

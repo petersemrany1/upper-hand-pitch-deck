@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Phone, FileText, PhoneCall, Loader2 } from "lucide-react";
+import { Users, Phone, FileText, PhoneCall, Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
@@ -18,7 +18,14 @@ export const Route = createFileRoute("/_dashboard/")({
 });
 
 type SavedPhone = { name: string; phone: string };
-type ActivityItem = { color: string; text: string; time: string; sortDate: string };
+type ActivityItem = {
+  color: string;
+  text: string;
+  time: string;
+  sortDate: string;
+  clinicId?: string | null;
+  icon?: "call" | "contract" | "zoom" | "followup";
+};
 
 const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
 
@@ -111,12 +118,29 @@ function DashboardHome() {
       follow_ups: Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>;
     };
 
-    const { data, error } = await supabase.rpc("get_dashboard_stats" as never);
-    if (error || !data) {
-      console.error("get_dashboard_stats failed", error);
+    const [statsRes, zoomsRes, callRecordsRes] = await Promise.all([
+      supabase.rpc("get_dashboard_stats" as never),
+      // Zooms: clinic_contacts rows whose outcome mentions "Zoom"
+      supabase
+        .from("clinic_contacts")
+        .select("id, clinic_id, outcome, next_action_date, created_at, clinics(clinic_name)")
+        .ilike("outcome", "%Zoom%")
+        .order("created_at", { ascending: false })
+        .limit(10),
+      // Recent calls with their clinic so the activity item can deep-link
+      supabase
+        .from("call_records")
+        .select("id, status, called_at, clinic_id, clinics(clinic_name)")
+        .order("called_at", { ascending: false })
+        .limit(8),
+    ]);
+
+    const statsRpc = statsRes as { data: unknown; error: unknown };
+    if (statsRpc.error || !statsRpc.data) {
+      console.error("get_dashboard_stats failed", statsRpc.error);
       return;
     }
-    const stats = data as unknown as Stats;
+    const stats = statsRpc.data as Stats;
 
     setTotalContacts(stats.total_contacts ?? 0);
     setCallsThisWeek(stats.calls_this_week ?? 0);
@@ -124,14 +148,21 @@ function DashboardHome() {
     setFollowUps(stats.follow_ups ?? []);
 
     const activityItems: ActivityItem[] = [];
-    for (const c of stats.recent_calls ?? []) {
+
+    // Calls (link to clinic when we have it)
+    type CallRow = { id: string; status: string | null; called_at: string; clinic_id: string | null; clinics: { clinic_name: string } | null };
+    for (const c of (callRecordsRes.data as CallRow[] | null) ?? []) {
+      const name = c.clinics?.clinic_name;
       activityItems.push({
         color: "#22c55e",
-        text: `Call ${c.status || "updated"}${c.client_name ? ` with ${c.client_name}` : ""}`,
+        text: `Call ${c.status || "updated"}${name ? ` with ${name}` : ""}`,
         time: relativeTime(c.called_at),
         sortDate: c.called_at,
+        clinicId: c.clinic_id,
+        icon: "call",
       });
     }
+
     setRecentCalls(
       (stats.recent_calls ?? []).slice(0, 3).map((c) => ({
         name: c.client_name || "Unknown",
@@ -139,16 +170,35 @@ function DashboardHome() {
         duration: c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : "—",
       })),
     );
+
+    // Contracts (no clinic_id stored on contract_logs, so non-clickable)
     for (const c of stats.recent_contracts ?? []) {
       activityItems.push({
         color: "#2D6BE4",
         text: `Contract sent to ${c.clinic_name}`,
         time: relativeTime(c.created_at),
         sortDate: c.created_at,
+        icon: "contract",
       });
     }
+
+    // Zooms — list out scheduled / completed Zoom calls
+    type ZoomRow = { id: string; clinic_id: string; outcome: string | null; next_action_date: string | null; created_at: string; clinics: { clinic_name: string } | null };
+    for (const z of (zoomsRes.data as ZoomRow[] | null) ?? []) {
+      const name = z.clinics?.clinic_name || "Unknown clinic";
+      const when = z.next_action_date ? ` for ${z.next_action_date}` : "";
+      activityItems.push({
+        color: "#a855f7",
+        text: `${z.outcome || "Zoom"}${when} — ${name}`,
+        time: relativeTime(z.created_at),
+        sortDate: z.created_at,
+        clinicId: z.clinic_id,
+        icon: "zoom",
+      });
+    }
+
     activityItems.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
-    setActivity(activityItems.slice(0, 12));
+    setActivity(activityItems.slice(0, 15));
   }, []);
 
   // Auth-ready gate: don't fire data queries until the JWT is attached. This
@@ -298,13 +348,30 @@ function DashboardHome() {
             {activity.length === 0 ? (
               <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
             ) : (
-              activity.map((item, i) => (
-                <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
-                  <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
-                  <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
-                  <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
-                </div>
-              ))
+              activity.map((item, i) => {
+                const row = (
+                  <>
+                    <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
+                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
+                    <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
+                  </>
+                );
+                return item.clinicId ? (
+                  <Link
+                    key={i}
+                    to="/clinics"
+                    search={{ clinic: item.clinicId }}
+                    className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+                    style={{ height: 36 }}
+                  >
+                    {row}
+                  </Link>
+                ) : (
+                  <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
+                    {row}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -449,16 +516,18 @@ function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
   return (
     <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
       {followUps.map((f) => (
-        <div key={f.id} className="flex items-center gap-3" style={{ height: 32 }}>
+        <Link
+          key={f.id}
+          to="/clinics"
+          search={{ clinic: f.id }}
+          className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+          style={{ height: 32 }}
+        >
           <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
           <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
           <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
-          {f.phone && (
-            <button className="p-1 rounded hover:bg-white/5" type="button">
-              <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
-            </button>
-          )}
-        </div>
+          <Calendar className="w-3 h-3 shrink-0" style={{ color: "#f59e0b" }} />
+        </Link>
       ))}
     </div>
   );
