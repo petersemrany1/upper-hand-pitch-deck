@@ -13,6 +13,7 @@ import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewPopup, type AutoCallAnalysis } from "@/components/CallReviewPopup";
+import { CallProcessingBanner, type ProcessingStage } from "@/components/CallProcessingBanner";
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
@@ -279,6 +280,10 @@ function ClinicsPage() {
   };
   const [pendingReview, setPendingReview] = useState<PendingReview | null>(null);
 
+  // Live processing banner state — driven by realtime updates to call_records.analysis_stage
+  const [processingStage, setProcessingStage] = useState<ProcessingStage>(null);
+  const [processingStartedAt, setProcessingStartedAt] = useState<number | null>(null);
+
   // Last contact per clinic
   const [lastContacts, setLastContacts] = useState<Record<string, ClinicContact>>({});
 
@@ -354,7 +359,18 @@ function ClinicsPage() {
             call_analysis: AutoCallAnalysis | null;
             needs_review: boolean;
             duration: number | null;
+            analysis_stage: ProcessingStage;
           };
+
+          // Drive the live processing banner from the same row updates.
+          if (row.analysis_stage) {
+            setProcessingStage((prev) => {
+              // First time we see this call → record start time
+              if (!prev) setProcessingStartedAt(Date.now());
+              return row.analysis_stage;
+            });
+          }
+
           if (!row.needs_review || !row.clinic_id || !row.call_analysis) return;
           const { data: clinicRow } = await supabase
             .from("clinics")
@@ -376,6 +392,24 @@ function ClinicsPage() {
       supabase.removeChannel(channel);
     };
   }, [pendingReview]);
+
+  // Auto-dismiss the banner once the popup is shown or after a long timeout
+  useEffect(() => {
+    if (processingStage === "complete" && pendingReview) {
+      const t = window.setTimeout(() => {
+        setProcessingStage(null);
+        setProcessingStartedAt(null);
+      }, 3000);
+      return () => window.clearTimeout(t);
+    }
+    if (processingStage === "failed") {
+      const t = window.setTimeout(() => {
+        setProcessingStage(null);
+        setProcessingStartedAt(null);
+      }, 8000);
+      return () => window.clearTimeout(t);
+    }
+  }, [processingStage, pendingReview]);
 
   // Escape key dismisses the side panel
   useEffect(() => {
