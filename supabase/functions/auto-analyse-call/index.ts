@@ -20,11 +20,12 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 
-const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Upper Hand Digital and a hair transplant clinic. Based on the transcript, return a JSON object with exactly these fields:
+const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Upper Hand Digital and a hair transplant clinic. Today's date is ${new Date().toISOString().slice(0, 10)} (UTC). Based on the transcript, return a JSON object with exactly these fields:
 {
   "outcome": one of ["Not Interested", "No Answer", "Left Voicemail", "Gatekeeper", "Call Me Back", "Zoom Set", "Spoke - Interested"],
-  "next_action": "what Peter should do next in one short sentence",
+  "next_action": "what Peter should do next in one short sentence — INCLUDE the day, date and time window if a callback or Zoom was agreed (e.g. 'Call back Mon 22 Apr between 9am–12pm')",
   "follow_up_date": "ISO date string (YYYY-MM-DD) for the Zoom date OR the callback date, otherwise null",
+  "follow_up_time": "the specific time or time window agreed, in plain English (e.g. '9am', '10:30am', '9am–12pm', 'Monday morning'). null if no time mentioned",
   "notes": "2-3 sentence plain English summary of what happened on the call",
   "contact_name": "name of person spoken to if mentioned, otherwise null",
   "owner_reached": true or false
@@ -38,6 +39,12 @@ OUTCOME RULES — read carefully:
 - "Left Voicemail" → went to voicemail and Peter left a message.
 - "No Answer" → no one picked up, no voicemail left.
 - "Not Interested" → prospect declined.
+
+CALLBACK TIME EXTRACTION — CRITICAL:
+- If the prospect says "call me at 9am", "try Monday morning", "call between 9 and 12", "call tomorrow at 2", etc. — extract the day/date AND the time into BOTH follow_up_date and follow_up_time.
+- Resolve relative dates ("tomorrow", "Monday", "next week") against today's date above into a concrete YYYY-MM-DD.
+- If only a time-of-day is mentioned with no day, assume the next business day.
+- Always echo the exact time/window into next_action so it shows in the CRM list.
 
 Return only valid JSON, no preamble.`;
 
