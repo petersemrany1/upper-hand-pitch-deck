@@ -12,7 +12,7 @@ import {
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
-import { CallReviewPopup, type AutoCallAnalysis } from "@/components/CallReviewPopup";
+
 
 export const Route = createFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
