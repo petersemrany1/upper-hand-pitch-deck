@@ -135,23 +135,24 @@ export function MissedCallsList() {
             return (
               <li
                 key={row.id}
-                className="flex items-center gap-2 rounded-md px-2.5 py-2"
+                className="flex items-center gap-2 rounded-md px-2 py-1.5"
                 style={{ background: "#141418", border: "1px solid #1f1f23" }}
               >
                 <span
-                  className="flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0"
+                  className="flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
                   style={{
                     background: missed ? "#3a1f1f" : "#1f3a25",
                     color: missed ? "#f87171" : "#34d399",
                   }}
                   title={missed ? "Missed" : "Answered"}
                 >
-                  <PhoneIncoming className="h-3.5 w-3.5" />
+                  <PhoneIncoming className="h-3 w-3" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium text-white truncate">{label}</div>
-                  <div className="text-[10px]" style={{ color: "#777" }}>
-                    {row.clinics?.clinic_name && row.phone ? `${row.phone} · ` : ""}
+                  <div className="text-[11px] font-medium text-white truncate leading-tight">
+                    {label}
+                  </div>
+                  <div className="text-[9px] leading-tight" style={{ color: "#777" }}>
                     {relativeTime(row.called_at)}
                     {missed ? " · Missed" : ""}
                   </div>
@@ -160,12 +161,12 @@ export function MissedCallsList() {
                   type="button"
                   onClick={() => void handleCallback(row)}
                   disabled={!row.phone || dialerStatus !== "ready"}
-                  className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-semibold text-white transition active:scale-95 disabled:opacity-40"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-white transition active:scale-95 disabled:opacity-40 flex-shrink-0"
                   style={{ background: "#2D6BE4", border: "1px solid #2D6BE4" }}
                   aria-label={`Call back ${label}`}
+                  title={`Call back ${label}`}
                 >
-                  <PhoneCall className="h-3 w-3" />
-                  Call back
+                  <PhoneCall className="h-3.5 w-3.5" />
                 </button>
               </li>
             );
