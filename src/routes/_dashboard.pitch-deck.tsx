@@ -612,7 +612,7 @@ function PitchDeck() {
         })}
       </div>
 
-      <GetStartedModal open={showGetStarted} onClose={() => setShowGetStarted(false)} />
+      <GetStartedModal open={showGetStarted} onClose={() => setShowGetStarted(false)} pricePerShow={pricePerShow} />
 
       {activeSlide > 0 && (
         <button
