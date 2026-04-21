@@ -159,10 +159,10 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
         setContractSent(true);
         setStep(3);
       } else {
-        setContractStatus({ type: "error", message: "Something went wrong — please try again or contact hello@upperhand.digital" });
+        setContractStatus({ type: "error", message: "Something went wrong — please try again or contact peter@gobold.com.au" });
       }
     } catch {
-      setContractStatus({ type: "error", message: "Something went wrong — please try again or contact hello@upperhand.digital" });
+      setContractStatus({ type: "error", message: "Something went wrong — please try again or contact peter@gobold.com.au" });
     }
     setSending(false);
   };
