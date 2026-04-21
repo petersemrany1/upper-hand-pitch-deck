@@ -93,7 +93,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           send_email: false,
           submitters: [
             {
-              role: "First Party",
+              role: "Agency",
               email: "peter@gobold.com.au",
               name: "Peter Semrany",
               completed: true,
@@ -112,7 +112,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
               },
             },
             {
-              role: "client",
+              role: "Client",
               email: data.to,
               name: data.contactName,
               values: {},
