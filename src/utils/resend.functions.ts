@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
 const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+const BOLD_BLUE = "#2020E8";
 
 function getAdminClient() {
   const url = process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
@@ -74,8 +75,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const gst = data.totalFee * 0.1;
-    const totalIncGst = data.totalFee + gst;
+    // Treat incoming totalFee as inc-GST and derive the exc-GST and GST values
+    const totalIncGst = data.totalFee;
+    const totalExcGst = data.totalFee / 1.1;
+    const gst = totalExcGst * 0.1;
 
     try {
       // Step 1 — Create DocuSeal submission but don't send their email
@@ -86,12 +89,12 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          template_id: 3431176,
+          template_id: 3486601,
           send_email: false,
           submitters: [
             {
               role: "First Party",
-              email: "hello@upperhand.digital",
+              email: "peter@gobold.com.au",
               name: "Peter Semrany",
               completed: true,
               values: {
@@ -101,7 +104,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
                 "package_selected": data.packageName,
                 "num_shows": String(data.shows),
                 "per_show_fee": fmtDollar(data.perShowFee),
-                "total_fee": fmtDollar(data.totalFee),
+                "total_fee": fmtDollar(totalExcGst),
+                "total_exc_gst": fmtDollar(totalExcGst),
                 "gst_amount": fmtDollar(gst),
                 "total_inc_gst": fmtDollar(totalIncGst),
                 "agency_date": new Date().toLocaleDateString("en-AU"),
@@ -153,7 +157,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         return { success: false, error: "Could not get signing link — please try again." };
       }
 
-      // Step 3 — Send our own branded email via Resend
+      // Step 3 — Send our own branded Bold Patients email via Resend
       const firstName = data.contactName.trim().split(" ")[0];
       const html = [
         '<!DOCTYPE html><html><head><meta charset="utf-8" /></head>',
@@ -162,21 +166,21 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         '<tr><td align="center">',
         '<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">',
 
-        // Header
+        // Header — Bold Patients branding
         '<tr><td style="background:#0f172a;padding:32px 40px;">',
-        '<span style="color:#ffffff;font-weight:800;font-size:20px;letter-spacing:-0.02em;">UPPER</span><span style="color:#2D6BE4;font-weight:800;font-size:20px;letter-spacing:-0.02em;">HAND</span>',
+        '<span style="color:#ffffff;font-weight:800;font-size:22px;letter-spacing:-0.02em;">BOLD</span><span style="color:' + BOLD_BLUE + ';font-weight:800;font-size:22px;letter-spacing:-0.02em;"> PATIENTS</span>',
         '</td></tr>',
 
         // Body
         '<tr><td style="padding:40px;">',
 
         '<p style="margin:0 0 20px;color:#0f172a;font-size:18px;font-weight:600;">Hi ' + firstName + ',</p>',
-        '<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Thank you for choosing Upper Hand Digital. Please find your Services Agreement ready for review and signature.</p>',
+        '<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Thank you for choosing Bold Patients. Please find your Services Agreement ready for review and signature.</p>',
         '<p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.6;">Please click the button below to review and sign your agreement. It only takes a few minutes.</p>',
 
         // Button
         '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">',
-        '<a href="' + signingUrl + '" style="display:inline-block;background:#2D6BE4;color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Review &amp; Sign Agreement &rarr;</a>',
+        '<a href="' + signingUrl + '" style="display:inline-block;background:' + BOLD_BLUE + ';color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Review &amp; Sign Agreement &rarr;</a>',
         '</td></tr></table>',
 
         '<p style="margin:32px 0 16px;color:#374151;font-size:15px;line-height:1.6;">Once signed we will be in touch to get everything underway.</p>',
@@ -187,25 +191,48 @@ export const sendContractEmail = createServerFn({ method: "POST" })
 
         // Signature
         '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Peter Semrany</p>',
-        '<p style="margin:2px 0 0;color:#6b7280;font-size:13px;">Upper Hand Digital</p>',
-        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:hello@upperhand.digital" style="color:#2D6BE4;text-decoration:none;">hello@upperhand.digital</a></p>',
-        '<p style="margin:2px 0 0;font-size:13px;"><a href="https://www.upperhand.digital" style="color:#2D6BE4;text-decoration:none;">www.upperhand.digital</a></p>',
+        '<p style="margin:2px 0 0;color:#6b7280;font-size:13px;">Bold Patients</p>',
+        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:peter@gobold.com.au" style="color:' + BOLD_BLUE + ';text-decoration:none;">peter@gobold.com.au</a></p>',
 
         '</td></tr></table></td></tr></table></body></html>',
       ].join("");
 
-      const resendResult = await sendViaResend(
-        data.to,
-        "Your Upper Hand Digital Services Agreement",
-        html
-      );
+      // Send directly via Resend so we can override the "from" address to Bold Patients
+      let resendResult: { success: boolean; id?: string; error?: string };
+      let rawResendResponse: unknown = null;
+      try {
+        const response = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer " + RESEND_API_KEY,
+          },
+          body: JSON.stringify({
+            from: "Peter Semrany <peter@gobold.com.au>",
+            to: [data.to],
+            subject: "Your Bold Patients Services Agreement",
+            html,
+          }),
+        });
+        const r = await response.json();
+        rawResendResponse = r;
+        if (!response.ok) {
+          console.error("Resend error:", JSON.stringify(r));
+          resendResult = { success: false, error: r.message || "Failed to send email" };
+        } else {
+          resendResult = { success: true, id: r.id };
+        }
+      } catch (err) {
+        console.error("Resend request failed:", err);
+        resendResult = { success: false, error: "Request failed" };
+      }
 
       if (!resendResult.success) {
         await logError("sendContractEmail", resendResult.error || "Resend failed", {
           email: data.to,
           clinicName: data.clinicName,
           packageName: data.packageName,
-          rawResponse: (resendResult as any).rawResponse,
+          rawResponse: rawResendResponse,
           stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
         });
       } else {
