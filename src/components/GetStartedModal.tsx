@@ -37,7 +37,7 @@ const CONTRACT_PACKS = [
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 
-export default function GetStartedModal({ open, onClose }: GetStartedModalProps) {
+export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD_PRICE_PER_SHOW }: GetStartedModalProps) {
   // step: 1=details, 2=package, 3=hub, 4=payment sub-screen, 5=contract sub-screen
   const [step, setStep] = useState(1);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
@@ -53,10 +53,10 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
   const [customAmount, setCustomAmount] = useState("");
 
-  // Contract fields (step 5)
+  // Contract fields (step 5) — pre-fill per-show fee from the deck's pricePerShow
   const [contractPack, setContractPack] = useState<string | null>(null);
   const [contractCustomShows, setContractCustomShows] = useState("");
-  const [perShowFee, setPerShowFee] = useState("1100");
+  const [perShowFee, setPerShowFee] = useState(String(pricePerShow));
   const [contractStatus, setContractStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   // Completion tracking
@@ -72,6 +72,16 @@ export default function GetStartedModal({ open, onClose }: GetStartedModalProps)
   const phoneValid = /^(\+?61|0)4[0-9]{8}$/.test(phoneClean);
   const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phoneValid;
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
+
+  // Build packs dynamically from the deck's pricePerShow.
+  // Stripe links only apply when pricePerShow matches the standard price ($1100).
+  // For non-standard prices, the standard packs have no Stripe link — use Custom instead.
+  const isStandardPrice = pricePerShow === STANDARD_PRICE_PER_SHOW;
+  const PACKS = PACK_DEFS.map((p) => ({
+    ...p,
+    total: p.shows * pricePerShow,
+    stripeLink: isStandardPrice ? STANDARD_STRIPE_LINKS[p.id] : "",
+  }));
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
   const displayAmount = selectedPack === "custom" ? customAmount : chosenPack ? fmt(chosenPack.total) : "";
