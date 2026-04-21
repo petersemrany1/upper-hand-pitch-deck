@@ -9,13 +9,23 @@ import { sendInvoiceEmail, sendContractEmail } from "../utils/resend.functions";
 interface GetStartedModalProps {
   open: boolean;
   onClose: () => void;
+  pricePerShow?: number;
 }
 
-const PACKS = [
-  { id: "demo", name: "Demo", shows: 10, total: 11000, stripeLink: "https://buy.stripe.com/4gM6oJ7fO1kH2jXc5qffy00" },
-  { id: "starter", name: "Starter", shows: 20, total: 22000, stripeLink: "https://buy.stripe.com/8x2bJ39nW8N9f6JfhCffy01" },
-  { id: "scale", name: "Scale", shows: 50, total: 55000, stripeLink: "https://buy.stripe.com/fZu8wRdEc4wT0bPfhCffy02" },
-  { id: "custom", name: "Custom", shows: 0, total: 0, stripeLink: "" },
+const STANDARD_PRICE_PER_SHOW = 1100;
+
+// Stripe links are only valid for the standard $1100 price-per-show pricing.
+// If pricePerShow differs, packs become non-standard and we fall back to Custom.
+const STANDARD_STRIPE_LINKS: Record<string, string> = {
+  demo: "https://buy.stripe.com/4gM6oJ7fO1kH2jXc5qffy00",
+  starter: "https://buy.stripe.com/8x2bJ39nW8N9f6JfhCffy01",
+  scale: "https://buy.stripe.com/fZu8wRdEc4wT0bPfhCffy02",
+};
+
+const PACK_DEFS = [
+  { id: "demo", name: "Demo", shows: 10 },
+  { id: "starter", name: "Starter", shows: 20 },
+  { id: "scale", name: "Scale", shows: 50 },
 ];
 
 const CONTRACT_PACKS = [
