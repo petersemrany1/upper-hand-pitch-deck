@@ -198,7 +198,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       ].join("");
 
       // Send directly via Resend so we can override the "from" address to Bold Patients
-      let resendResult: { success: boolean; id?: string; error?: string; rawResponse?: unknown };
+      let resendResult: { success: boolean; id?: string; error?: string };
+      let rawResendResponse: unknown = null;
       try {
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -214,9 +215,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           }),
         });
         const r = await response.json();
+        rawResendResponse = r;
         if (!response.ok) {
           console.error("Resend error:", JSON.stringify(r));
-          resendResult = { success: false, error: r.message || "Failed to send email", rawResponse: r };
+          resendResult = { success: false, error: r.message || "Failed to send email" };
         } else {
           resendResult = { success: true, id: r.id };
         }
@@ -230,7 +232,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           email: data.to,
           clinicName: data.clinicName,
           packageName: data.packageName,
-          rawResponse: (resendResult as any).rawResponse,
+          rawResponse: rawResendResponse,
           stepsToReproduce: `Sending contract to ${data.to} for ${data.packageName} pack`,
         });
       } else {
