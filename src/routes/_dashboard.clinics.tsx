@@ -1144,6 +1144,13 @@ function ClinicsPage() {
                 <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#2D6BE4", color: "#fff" }}>
                   <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log Activity
                 </Button>
+                <Button
+                  onClick={openBoldModal}
+                  className="w-full border-0 text-xs font-semibold mt-2"
+                  style={{ background: "#2020E8", color: "#fff" }}
+                >
+                  <Send className="w-3.5 h-3.5 mr-1.5" /> Send Bold Contract
+                </Button>
               </div>
 
               {/* ===== LATEST SMS ===== */}
