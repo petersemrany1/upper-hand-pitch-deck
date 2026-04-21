@@ -222,6 +222,7 @@ export type Database = {
           email: string
           id: string
           package_name: string
+          source: string
           status: string
         }
         Insert: {
@@ -231,6 +232,7 @@ export type Database = {
           email: string
           id?: string
           package_name: string
+          source?: string
           status?: string
         }
         Update: {
@@ -240,6 +242,7 @@ export type Database = {
           email?: string
           id?: string
           package_name?: string
+          source?: string
           status?: string
         }
         Relationships: []

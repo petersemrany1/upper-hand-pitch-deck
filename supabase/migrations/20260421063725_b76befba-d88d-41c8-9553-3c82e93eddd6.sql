@@ -1,0 +1,1 @@
+ALTER TABLE public.contract_logs ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'upper_hand';
