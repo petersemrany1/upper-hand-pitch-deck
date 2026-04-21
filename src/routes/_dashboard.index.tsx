@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
+import { MissedCallsList } from "@/components/MissedCallsList";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -476,6 +477,9 @@ function DashboardHome() {
             </div>
           )}
 
+          <div className="mt-4">
+            <MissedCallsList />
+          </div>
         </div>
 
         <div className="mt-auto px-4 pb-4">

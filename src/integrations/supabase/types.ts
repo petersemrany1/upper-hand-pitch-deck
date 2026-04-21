@@ -22,6 +22,7 @@ export type Database = {
           client_id: string | null
           clinic_id: string | null
           created_at: string
+          direction: string
           duration: number | null
           id: string
           needs_review: boolean
@@ -39,6 +40,7 @@ export type Database = {
           client_id?: string | null
           clinic_id?: string | null
           created_at?: string
+          direction?: string
           duration?: number | null
           id?: string
           needs_review?: boolean
@@ -56,6 +58,7 @@ export type Database = {
           client_id?: string | null
           clinic_id?: string | null
           created_at?: string
+          direction?: string
           duration?: number | null
           id?: string
           needs_review?: boolean
