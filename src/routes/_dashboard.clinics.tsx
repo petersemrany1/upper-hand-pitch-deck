@@ -1280,6 +1280,102 @@ function ClinicsPage() {
         </div>
       )}
 
+      {/* Bold Patients Contract Modal */}
+      {showBoldModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !boldSending && setShowBoldModal(false)}>
+          <div className="absolute inset-0 bg-black/70" />
+          <div className="relative rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "#0f0f12", border: "1px solid #1f1f23" }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-base font-extrabold tracking-tight" style={{ color: "#fff" }}>BOLD</span>
+              <span className="text-base font-extrabold tracking-tight" style={{ color: "#2020E8" }}>PATIENTS</span>
+              <span className="ml-auto text-[10px] uppercase" style={{ color: "#555", letterSpacing: "0.1em" }}>Send Contract</span>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Clinic Name</label>
+                <Input value={boldClinicName} onChange={(e) => setBoldClinicName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Clinic Address</label>
+                <Input value={boldClinicAddress} onChange={(e) => setBoldClinicAddress(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Date</label>
+                <Input type="date" value={boldDate} onChange={(e) => setBoldDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Pack Name</label>
+                <Input value={boldPackName} onChange={(e) => setBoldPackName(e.target.value)} placeholder="e.g. Custom 5 Pack" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Number of Shows</label>
+                  <Input type="number" min="0" value={boldShows} onChange={(e) => setBoldShows(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Per Show Fee ($)</label>
+                  <Input type="number" min="0" value={boldPerShowFee} onChange={(e) => setBoldPerShowFee(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                </div>
+              </div>
+
+              <div className="rounded-md p-3 space-y-1.5" style={{ background: "#0a0a0d", border: "1px solid #1f1f23" }}>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "#888" }}>Total exc GST</span>
+                  <span className="font-semibold" style={{ color: "#fff" }}>${boldTotalExGst.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span style={{ color: "#888" }}>GST (10%)</span>
+                  <span className="font-semibold" style={{ color: "#fff" }}>${boldGstAmount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between text-sm pt-1.5" style={{ borderTop: "1px solid #1f1f23" }}>
+                  <span className="font-bold" style={{ color: "#fff" }}>Total inc GST</span>
+                  <span className="font-extrabold" style={{ color: "#2020E8" }}>${boldTotalIncGst.toLocaleString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Client Name</label>
+                <Input value={boldClientName} onChange={(e) => setBoldClientName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Client Email</label>
+                <Input type="email" value={boldClientEmail} onChange={(e) => setBoldClientEmail(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              </div>
+
+              {boldStatus && (
+                <div
+                  className="rounded-md px-3 py-2 text-[11px] font-medium"
+                  style={{
+                    background: boldStatus.type === "success" ? "rgba(16,185,129,0.1)" : "rgba(220,38,38,0.1)",
+                    color: boldStatus.type === "success" ? "#10b981" : "#f87171",
+                    border: `1px solid ${boldStatus.type === "success" ? "rgba(16,185,129,0.3)" : "rgba(220,38,38,0.3)"}`,
+                  }}
+                >
+                  {boldStatus.message}
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={handleSendBoldContract}
+                  disabled={!boldValid || boldSending}
+                  className="flex-1 border-0 text-xs font-semibold"
+                  style={{ background: "#2020E8", color: "#fff", opacity: !boldValid || boldSending ? 0.5 : 1 }}
+                >
+                  {boldSending ? (
+                    <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Sending…</>
+                  ) : (
+                    <><Send className="w-3.5 h-3.5 mr-1.5" /> Send Contract</>
+                  )}
+                </Button>
+                <Button onClick={() => setShowBoldModal(false)} disabled={boldSending} variant="ghost" className="text-xs" style={{ color: "#666" }}>Cancel</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Clinic Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowAddModal(false)}>
