@@ -42,20 +42,28 @@ serve(async (req) => {
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      // Best-effort clinic match by normalised phone digits.
+      // Best-effort clinic match: compare last 9 digits of normalised phone.
+      // This handles +61 vs 0-prefix and any spaces/brackets in the stored
+      // clinic phone column.
       let clinicId: string | null = null;
       if (from) {
         const fromDigits = digitsOnly(from);
-        // Try last 9 digits (handles +61 vs 0-prefix variations)
         const tail = fromDigits.slice(-9);
         if (tail.length >= 6) {
-          const { data: clinic } = await supabase
+          // Pull all clinics with a phone and match in JS — clinic phones
+          // contain spaces ("+61 437 778 852") so an ilike on the raw column
+          // with a digits-only tail will never match.
+          const { data: clinics } = await supabase
             .from("clinics")
             .select("id, phone")
-            .ilike("phone", `%${tail}%`)
-            .limit(1)
-            .maybeSingle();
-          if (clinic?.id) clinicId = clinic.id;
+            .not("phone", "is", null);
+          if (clinics) {
+            const match = clinics.find((c) => {
+              const cd = digitsOnly(c.phone || "");
+              return cd.length >= 6 && cd.slice(-9) === tail;
+            });
+            if (match?.id) clinicId = match.id;
+          }
         }
       }
 
