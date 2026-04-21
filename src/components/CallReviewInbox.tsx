@@ -265,8 +265,8 @@ export function CallReviewInbox() {
         {open && (
           <div
             ref={panelRef}
-            className="absolute top-12 right-0 w-[380px] max-h-[70vh] overflow-y-auto rounded-lg shadow-2xl"
-            style={{ background: "#0f0f12", border: "1px solid #2a2a30" }}
+            className="absolute top-12 right-0 w-[380px] max-h-[70vh] overflow-y-auto rounded-lg shadow-2xl z-[70]"
+            style={{ background: "#0f0f12", border: "1px solid #2a2a30", isolation: "isolate" }}
           >
             <div
               className="flex items-center justify-between px-4 py-3 sticky top-0"
