@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
 const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+const BOLD_BLUE = "#2020E8";
 
 function getAdminClient() {
   const url = process.env.SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
