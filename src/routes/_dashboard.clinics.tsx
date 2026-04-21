@@ -10,6 +10,8 @@ import {
   Upload, Clock, AlertCircle, Trash2, Video, Send,
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
+import { sendBoldContractEmail } from "@/utils/bold-contract.functions";
+import { useServerFn } from "@tanstack/react-start";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
