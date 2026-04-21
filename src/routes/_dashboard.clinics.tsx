@@ -277,6 +277,84 @@ function ClinicsPage() {
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Bold Patients contract modal
+  const [showBoldModal, setShowBoldModal] = useState(false);
+  const [boldClinicName, setBoldClinicName] = useState("");
+  const [boldClinicAddress, setBoldClinicAddress] = useState("");
+  const [boldDate, setBoldDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [boldPackName, setBoldPackName] = useState("");
+  const [boldShows, setBoldShows] = useState("");
+  const [boldPerShowFee, setBoldPerShowFee] = useState("800");
+  const [boldClientName, setBoldClientName] = useState("");
+  const [boldClientEmail, setBoldClientEmail] = useState("");
+  const [boldSending, setBoldSending] = useState(false);
+  const [boldStatus, setBoldStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const sendBoldContractFn = useServerFn(sendBoldContractEmail);
+
+  const boldShowsNum = parseInt(boldShows.replace(/[^0-9]/g, "")) || 0;
+  const boldPerShowFeeNum = parseInt(boldPerShowFee.replace(/[^0-9]/g, "")) || 0;
+  const boldTotalExGst = boldShowsNum * boldPerShowFeeNum;
+  const boldGstAmount = Math.round(boldTotalExGst * 0.1);
+  const boldTotalIncGst = boldTotalExGst + boldGstAmount;
+  const boldValid =
+    boldClinicName.trim() &&
+    boldPackName.trim() &&
+    boldShowsNum > 0 &&
+    boldPerShowFeeNum > 0 &&
+    boldClientName.trim() &&
+    /^\S+@\S+\.\S+$/.test(boldClientEmail.trim());
+
+  const openBoldModal = () => {
+    if (!selectedClinic) return;
+    setBoldClinicName(selectedClinic.clinic_name || "");
+    const addr = [selectedClinic.city, selectedClinic.state].filter(Boolean).join(", ");
+    setBoldClinicAddress(addr);
+    setBoldDate(new Date().toISOString().slice(0, 10));
+    setBoldPackName("");
+    setBoldShows("");
+    setBoldPerShowFee("800");
+    setBoldClientName(selectedClinic.owner_name || "");
+    setBoldClientEmail(selectedClinic.email || "");
+    setBoldStatus(null);
+    setShowBoldModal(true);
+  };
+
+  const handleSendBoldContract = async () => {
+    if (!boldValid || !selectedClinic) return;
+    setBoldSending(true);
+    setBoldStatus(null);
+    try {
+      const agreementDate = new Date(boldDate + "T00:00:00").toLocaleDateString("en-AU");
+      const result = await sendBoldContractFn({
+        data: {
+          to: boldClientEmail.trim(),
+          clinicName: boldClinicName.trim(),
+          clinicAddress: boldClinicAddress.trim(),
+          contactName: boldClientName.trim(),
+          packName: boldPackName.trim(),
+          shows: boldShowsNum,
+          perShowFee: boldPerShowFeeNum,
+          totalExGst: boldTotalExGst,
+          gstAmount: boldGstAmount,
+          totalIncGst: boldTotalIncGst,
+          agreementDate,
+        },
+      });
+      if (result.success) {
+        setBoldStatus({
+          type: "success",
+          message: `Bold Patients contract sent to ${boldClinicName.trim()}`,
+        });
+        setTimeout(() => setShowBoldModal(false), 1800);
+      } else {
+        setBoldStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
+      }
+    } catch {
+      setBoldStatus({ type: "error", message: "Something went wrong — please try again." });
+    }
+    setBoldSending(false);
+  };
+
   // Call (browser-based via Twilio Voice SDK)
   const [callingId, setCallingId] = useState<string | null>(null);
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice(true);
