@@ -81,6 +81,43 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     const totalExcGst = data.totalFee / 1.1;
     const gst = totalExcGst * 0.1;
 
+    // Format today as DD/MM/YYYY (en-AU)
+    const today = new Date().toLocaleDateString("en-AU");
+
+    // Build the DocuSeal payload — pre-fill values live on the Client submitter
+    // using the `fields` array with `default_value` (per DocuSeal API spec).
+    const docusealPayload = {
+      template_id: 3486637,
+      send_email: false,
+      submitters: [
+        {
+          role: "Client",
+          email: data.to,
+          name: data.contactName,
+          fields: [
+            { name: "clinic_name", default_value: data.clinicName },
+            { name: "clinic_address", default_value: data.clinicAddress || "" },
+            { name: "agreement_date", default_value: today },
+            { name: "pack_name", default_value: data.packageName },
+            { name: "package_selected", default_value: data.packageName },
+            { name: "num_shows", default_value: String(data.shows) },
+            { name: "per_show_fee", default_value: fmtDollar(data.perShowFee) },
+            { name: "total_exc_gst", default_value: fmtDollar(totalExcGst) },
+            { name: "total_fee", default_value: fmtDollar(totalExcGst) },
+            { name: "gst_amount", default_value: fmtDollar(gst) },
+            { name: "total_inc_gst", default_value: fmtDollar(totalIncGst) },
+          ],
+        },
+        {
+          role: "Agency",
+          email: "admin@bold-patients.com",
+          name: "Bold Patients",
+        },
+      ],
+    };
+
+    console.log("DocuSeal request payload:", JSON.stringify(docusealPayload, null, 2));
+
     try {
       // Step 1 — Create DocuSeal submission but don't send their email
       const docusealResponse = await fetch("https://api.docuseal.com/submissions", {
@@ -89,41 +126,11 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           "X-Auth-Token": DOCUSEAL_API_KEY,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          template_id: 3486637,
-          send_email: false,
-          submitters: [
-            {
-              role: "Agency",
-              email: "admin@bold-patients.com",
-              name: "Bold Patients",
-              completed: true,
-              values: {
-                "agreement_date": new Date().toLocaleDateString("en-AU"),
-                "clinic_name": data.clinicName,
-                "clinic_address": data.clinicAddress || "",
-                "package_selected": data.packageName,
-                "num_shows": String(data.shows),
-                "per_show_fee": fmtDollar(data.perShowFee),
-                "total_fee": fmtDollar(totalExcGst),
-                "total_exc_gst": fmtDollar(totalExcGst),
-                "gst_amount": fmtDollar(gst),
-                "total_inc_gst": fmtDollar(totalIncGst),
-                "agency_date": new Date().toLocaleDateString("en-AU"),
-              },
-            },
-            {
-              role: "Client",
-              email: data.to,
-              name: data.contactName,
-              values: {},
-            },
-          ],
-        }),
+        body: JSON.stringify(docusealPayload),
       });
 
       const docusealResult = await docusealResponse.json();
-      console.error("DocuSeal full response:", JSON.stringify(docusealResult));
+      console.log("DocuSeal full response:", JSON.stringify(docusealResult, null, 2));
 
       if (!docusealResponse.ok) {
         console.error("DocuSeal error:", JSON.stringify(docusealResult));
