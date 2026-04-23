@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Send, Mail, MessageSquare, ExternalLink, Search, FileText, CreditCard, Trash2, StickyNote, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
-import { sendInvoiceEmail } from "@/utils/resend.functions";
+import { sendInvoiceEmail, sendContractEmail, sendContractSMS } from "@/utils/resend.functions";
 import { createStripeCheckoutSession } from "@/utils/stripe.functions";
 import { recordSentLink, updateSentLinkMethod, deleteSentLink, updateSentLinkNotes } from "@/utils/sent-links.functions";
 
