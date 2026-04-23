@@ -291,32 +291,43 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
+    const firstName = data.contactName.trim().split(" ")[0];
+
     const html = [
       '<!DOCTYPE html><html><head><meta charset="utf-8" /></head>',
       '<body style="margin:0;padding:0;background:#f4f4f7;font-family:Arial,Helvetica,sans-serif;">',
       '<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:40px 0;">',
       '<tr><td align="center">',
       '<table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">',
+
+      // Header — Bold branding
       '<tr><td style="background:#0f172a;padding:32px 40px;">',
-      '<h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:800;">Upper Hand</h1>',
-      "</td></tr>",
+      '<span style="color:#ffffff;font-weight:800;font-size:22px;letter-spacing:-0.02em;">BOLD</span>',
+      '</td></tr>',
+
+      // Body
       '<tr><td style="padding:40px;">',
-      '<h2 style="margin:0 0 24px;color:#0f172a;font-size:20px;font-weight:700;">Invoice</h2>',
-      '<table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:32px;">',
-      '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px;width:140px;">Clinic</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">' + data.clinicName + "</td></tr>",
-      '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Contact</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">' + data.contactName + "</td></tr>",
-      '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Phone</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">' + data.phone + "</td></tr>",
-      '<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:14px;">Package</td><td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#0f172a;font-size:14px;font-weight:600;">' + data.packageName + "</td></tr>",
-      '<tr><td style="padding:16px 0;color:#6b7280;font-size:14px;">Investment</td><td style="padding:16px 0;color:#0f172a;font-size:22px;font-weight:800;">' + data.amount + "</td></tr>",
-      "</table>",
+      '<p style="margin:0 0 20px;color:#0f172a;font-size:18px;font-weight:600;">Hi ' + firstName + ',</p>',
+      '<p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.6;">Here\'s your payment link for the <strong>' + data.packageName + '</strong> package (' + data.amount + ' inc GST). Click the button below to pay securely.</p>',
+
+      // Button
       data.stripeLink
-        ? '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><a href="' + data.stripeLink + '" style="display:inline-block;background:#3b82f6;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Pay Now</a></td></tr></table>'
-        : "",
-      '<p style="margin:32px 0 0;color:#9ca3af;font-size:12px;text-align:center;">Questions? Reply to this email or contact admin@bold-patients.com</p>',
-      "</td></tr></table></td></tr></table></body></html>",
+        ? '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><a href="' + data.stripeLink + '" style="display:inline-block;background:' + BOLD_BLUE + ';color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Pay Now &rarr;</a></td></tr></table>'
+        : '<p style="margin:0;color:#dc2626;font-size:14px;text-align:center;">Payment link unavailable — please contact admin@bold-patients.com</p>',
+
+      '<p style="margin:32px 0 0;color:#374151;font-size:14px;line-height:1.6;">Any questions, just reply to this email.</p>',
+
+      // Divider
+      '<hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0 24px;" />',
+
+      // Footer
+      '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Bold Patients</p>',
+      '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:admin@bold-patients.com" style="color:' + BOLD_BLUE + ';text-decoration:none;">admin@bold-patients.com</a></p>',
+
+      '</td></tr></table></td></tr></table></body></html>',
     ].join("");
 
-    const result = await sendViaResend(data.to, "Your Upper Hand Invoice", html);
+    const result = await sendViaResend(data.to, "Your Bold Patients Payment Link", html);
 
     if (!result.success) {
       await logError("sendInvoiceEmail", result.error || "Resend failed", {
@@ -324,7 +335,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
         clinicName: data.clinicName,
         packageName: data.packageName,
         rawResponse: (result as any).rawResponse,
-        stepsToReproduce: `Sending invoice to ${data.to} for ${data.packageName} pack (${data.amount})`,
+        stepsToReproduce: `Sending payment link to ${data.to} for ${data.packageName} pack (${data.amount})`,
       });
     }
 
