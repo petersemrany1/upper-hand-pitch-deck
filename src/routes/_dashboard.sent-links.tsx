@@ -178,7 +178,86 @@ function SentLinksPage() {
     setBusyId(null);
   };
 
-  const handleDelete = async (id: string) => {
+  const resendContract = async (row: SentLink, method: "email" | "sms") => {
+    if (row.kind !== "contract") return;
+    setBusyId(row.id);
+    setToast(null);
+    try {
+      if (method === "email") {
+        if (!row.email) {
+          setToast({ type: "error", msg: "No email on this record." });
+          setBusyId(null);
+          return;
+        }
+        const r = await sendContractEmailFn({
+          data: {
+            to: row.email,
+            clinicName: row.clinic_name,
+            clinicAddress: "",
+            contactName: row.contact_name,
+            phone: row.phone ?? "",
+            packageName: row.package_name,
+            shows: row.shows,
+            perShowFee: Number(row.per_show_fee),
+            totalFee: Number(row.total_exc_gst),
+          },
+        });
+        if (!r.success) {
+          setToast({ type: "error", msg: r.error || "Contract email failed." });
+          setBusyId(null);
+          return;
+        }
+      } else {
+        if (!row.phone) {
+          setToast({ type: "error", msg: "No phone on this record." });
+          setBusyId(null);
+          return;
+        }
+        const r = await sendContractSMSFn({
+          data: {
+            to: row.phone,
+            clinicName: row.clinic_name,
+            clinicAddress: "",
+            contactName: row.contact_name,
+            packageName: row.package_name,
+            shows: row.shows,
+            perShowFee: Number(row.per_show_fee),
+          },
+        });
+        if (!r.success) {
+          setToast({ type: "error", msg: r.error || "Contract SMS failed." });
+          setBusyId(null);
+          return;
+        }
+      }
+
+      await recordSentLinkFn({
+        data: {
+          kind: "contract",
+          clinicName: row.clinic_name,
+          contactName: row.contact_name,
+          email: row.email,
+          phone: row.phone,
+          packageName: row.package_name,
+          shows: row.shows,
+          perShowFee: Number(row.per_show_fee),
+          totalExcGst: Number(row.total_exc_gst),
+          gst: Number(row.gst),
+          totalIncGst: Number(row.total_inc_gst),
+          stripeUrl: null,
+          sendMethod: method,
+        },
+      });
+
+      setToast({ type: "success", msg: "Contract resent via " + (method === "email" ? "email" : "SMS") + "." });
+      await load();
+    } catch {
+      setToast({ type: "error", msg: "Something went wrong — please try again." });
+    }
+    setBusyId(null);
+  };
+
+
     setBusyId(id);
     setToast(null);
     try {
