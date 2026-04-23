@@ -84,36 +84,37 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     // Format today as DD/MM/YYYY (en-AU)
     const today = new Date().toLocaleDateString("en-AU");
 
-    // Build the DocuSeal payload using the template's actual field keys.
-    // Template 3486637 rejects display labels like "Pack Name" and expects
-    // snake_case value keys on the completed first-party submitter.
+    // Template 3486637 accepts the submitter roles "Client" and "Agency".
+    // The client-side fields must be sent via the Client submitter `fields` array,
+    // while the pricing/package values belong to the completed Agency submitter.
     const docusealPayload = {
       template_id: 3486637,
       send_email: false,
       submitters: [
         {
-          role: "First Party",
+          role: "Client",
+          email: data.to,
+          name: data.contactName,
+          fields: [
+            { name: "Clinic Name", value: data.clinicName },
+            { name: "Clinic Address", value: data.clinicAddress || "" },
+            { name: "Date", value: today },
+          ],
+        },
+        {
+          role: "Agency",
           email: "admin@bold-patients.com",
           name: "Bold Patients",
           completed: true,
           values: {
-            agreement_date: today,
-            clinic_name: data.clinicName,
-            clinic_address: data.clinicAddress || "",
-            package_selected: data.packageName,
-            num_shows: String(data.shows),
-            per_show_fee: fmtDollar(data.perShowFee),
-            total_fee: fmtDollar(totalExcGst),
-            gst_amount: fmtDollar(gst),
-            total_inc_gst: fmtDollar(totalIncGst),
-            agency_date: today,
+            "Agency Date": today,
+            "Pack Name": data.packageName,
+            "Number of Shows": String(data.shows),
+            "Per Show Fee": String(Math.round(data.perShowFee)),
+            "Total exc GST": String(Math.round(totalExcGst)),
+            "GST Amount": String(Math.round(gst)),
+            "Total inc GST": String(Math.round(totalIncGst)),
           },
-        },
-        {
-          role: "client",
-          email: data.to,
-          name: data.contactName,
-          values: {},
         },
       ],
     };
