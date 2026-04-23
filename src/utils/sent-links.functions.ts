@@ -68,3 +68,24 @@ export const updateSentLinkMethod = createServerFn({ method: "POST" })
     if (error) return { success: false as const, error: error.message };
     return { success: true as const };
   });
+
+export const deleteSentLink = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => data)
+  .handler(async ({ data }) => {
+    const supabase = getAdminClient();
+    const { error } = await supabase.from("sent_links").delete().eq("id", data.id);
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const };
+  });
+
+export const updateSentLinkNotes = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; notes: string }) => data)
+  .handler(async ({ data }) => {
+    const supabase = getAdminClient();
+    const { error } = await supabase
+      .from("sent_links")
+      .update({ notes: data.notes })
+      .eq("id", data.id);
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const };
+  });
