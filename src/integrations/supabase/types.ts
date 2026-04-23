@@ -283,6 +283,7 @@ export type Database = {
           gst: number
           id: string
           kind: string
+          notes: string | null
           package_name: string
           per_show_fee: number
           phone: string | null
@@ -301,6 +302,7 @@ export type Database = {
           gst?: number
           id?: string
           kind?: string
+          notes?: string | null
           package_name: string
           per_show_fee?: number
           phone?: string | null
@@ -319,6 +321,7 @@ export type Database = {
           gst?: number
           id?: string
           kind?: string
+          notes?: string | null
           package_name?: string
           per_show_fee?: number
           phone?: string | null
