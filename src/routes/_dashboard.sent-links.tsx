@@ -48,6 +48,8 @@ function SentLinksPage() {
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
+  const sendContractEmailFn = useServerFn(sendContractEmail);
+  const sendContractSMSFn = useServerFn(sendContractSMS);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const recordSentLinkFn = useServerFn(recordSentLink);
   const updateSentLinkMethodFn = useServerFn(updateSentLinkMethod);
