@@ -96,6 +96,7 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
                 <div className="mt-5 pt-4 border-t border-border/60">
                   <p className="text-[10px] text-[#888] uppercase tracking-wider mb-1">Your Investment</p>
                   <p className="text-base font-bold text-foreground">${investment.toLocaleString()}</p>
+                  <p className="text-[11px] text-[#888] mt-0.5">+ GST</p>
                 </div>
               </button>
             );
