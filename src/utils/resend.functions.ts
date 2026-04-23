@@ -84,9 +84,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     // Format today as DD/MM/YYYY (en-AU)
     const today = new Date().toLocaleDateString("en-AU");
 
-    // Template 3486637 accepts the submitter roles "Client" and "Agency".
-    // The client-side fields must be sent via the Client submitter `fields` array,
-    // while the pricing/package values belong to the completed Agency submitter.
+    // Template 3486637 only succeeds when all clinic/package/pricing fields are
+    // prefilled on the Client submitter itself. Agency should only complete its
+    // own date field; moving the pricing fields to Agency causes DocuSeal to
+    // reject the template with unknown-field errors.
     const docusealPayload = {
       template_id: 3486637,
       send_email: false,
@@ -99,6 +100,12 @@ export const sendContractEmail = createServerFn({ method: "POST" })
             { name: "Clinic Name", value: data.clinicName },
             { name: "Clinic Address", value: data.clinicAddress || "" },
             { name: "Date", value: today },
+            { name: "Pack Name", value: data.packageName },
+            { name: "Number of Shows", value: String(data.shows) },
+            { name: "Per Show Fee", value: String(Math.round(data.perShowFee)) },
+            { name: "Total exc GST", value: String(Math.round(totalExcGst)) },
+            { name: "GST Amount", value: String(Math.round(gst)) },
+            { name: "Total inc GST", value: String(Math.round(totalIncGst)) },
           ],
         },
         {
@@ -108,12 +115,6 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           completed: true,
           values: {
             "Agency Date": today,
-            "Pack Name": data.packageName,
-            "Number of Shows": String(data.shows),
-            "Per Show Fee": String(Math.round(data.perShowFee)),
-            "Total exc GST": String(Math.round(totalExcGst)),
-            "GST Amount": String(Math.round(gst)),
-            "Total inc GST": String(Math.round(totalIncGst)),
           },
         },
       ],
