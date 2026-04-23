@@ -18,7 +18,7 @@ export type DeckSettings = {
 
 export const DEFAULT_SETTINGS: DeckSettings = {
   caseValue: 12000,
-  pricePerShow: 1100,
+  pricePerShow: 800,
   convertRate: "1 in 4",
 };
 
