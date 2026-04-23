@@ -182,7 +182,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
 
         // Header — Bold Patients branding
         '<tr><td style="background:#0f172a;padding:32px 40px;">',
-        '<span style="color:#ffffff;font-weight:800;font-size:22px;letter-spacing:-0.02em;">BOLD</span><span style="color:' + BOLD_BLUE + ';font-weight:800;font-size:22px;letter-spacing:-0.02em;"> PATIENTS</span>',
+        '<span style="color:#ffffff;font-weight:800;font-size:22px;letter-spacing:-0.02em;">BOLD</span>',
         '</td></tr>',
 
         // Body
