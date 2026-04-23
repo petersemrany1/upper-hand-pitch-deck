@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Mail, MessageSquare, ExternalLink, Search, FileText, CreditCard } from "lucide-react";
+import { Send, Mail, MessageSquare, ExternalLink, Search, FileText, CreditCard, Trash2, StickyNote, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { sendInvoiceEmail } from "@/utils/resend.functions";
 import { createStripeCheckoutSession } from "@/utils/stripe.functions";
-import { recordSentLink, updateSentLinkMethod } from "@/utils/sent-links.functions";
+import { recordSentLink, updateSentLinkMethod, deleteSentLink, updateSentLinkNotes } from "@/utils/sent-links.functions";
 
 export const Route = createFileRoute("/_dashboard/sent-links")({
   component: SentLinksPage,
