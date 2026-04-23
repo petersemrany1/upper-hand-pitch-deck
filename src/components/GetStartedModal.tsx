@@ -41,17 +41,22 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   // Step 2
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
-  const [customAmount, setCustomAmount] = useState(""); // exc GST for custom
+  const [customShowsInput, setCustomShowsInput] = useState("");
+  const [customFeeInput, setCustomFeeInput] = useState("");
 
   // Completion tracking
   const [paymentSent, setPaymentSent] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"email" | "sms" | null>(null);
+  const [paymentSentLinkId, setPaymentSentLinkId] = useState<string | null>(null);
+  const [lastStripeUrl, setLastStripeUrl] = useState<string | null>(null);
   const [contractSent, setContractSent] = useState(false);
+  const [contractMethod, setContractMethod] = useState<"email" | null>(null);
 
   const [sending, setSending] = useState(false);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [contractStatus, setContractStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [crossSendStatus, setCrossSendStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const phoneClean = phone.replace(/\s/g, '');
   const phoneValid = /^(\+?61|0)4[0-9]{8}$/.test(phoneClean);
