@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, FileText, ArrowLeft } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
 import { sendInvoiceEmail, sendContractEmail } from "../utils/resend.functions";
-import { supabase } from "@/integrations/supabase/client";
+import { createStripeCheckoutSession } from "../utils/stripe.functions";
 
 interface GetStartedModalProps {
   open: boolean;
@@ -15,9 +15,8 @@ interface GetStartedModalProps {
 
 const STANDARD_PRICE_PER_SHOW = 1100;
 
-// Stripe payment links are now stored in Supabase (table: stripe_links),
-// one URL per package id (demo / starter / scale / custom). They are
-// independent of the deck's pricePerShow.
+// Stripe payment links are generated dynamically per send via
+// Stripe Checkout Sessions — see src/utils/stripe.functions.ts.
 
 const PACK_DEFS = [
   { id: "demo", name: "Demo", shows: 10 },
@@ -70,48 +69,23 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phoneValid;
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
-  // Stripe payment links per package id (loaded from Supabase: stripe_links table).
-  const [stripeLinks, setStripeLinks] = useState<Record<string, string>>({});
-  const [linksLoading, setLinksLoading] = useState(true);
-
-  useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setLinksLoading(true);
-    (async () => {
-      const { data, error } = await supabase.from("stripe_links").select("package_id, url");
-      if (cancelled) return;
-      if (!error && data) {
-        const next: Record<string, string> = {};
-        (data as Array<{ package_id: string; url: string }>).forEach((r) => {
-          next[r.package_id] = r.url ?? "";
-        });
-        setStripeLinks(next);
-      }
-      setLinksLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open]);
-
   // Build packs dynamically from the deck's pricePerShow.
-  // Stripe URL comes from settings (Supabase), independent of price.
   const PACKS = PACK_DEFS.map((p) => ({
     ...p,
     total: p.shows * pricePerShow,
-    stripeLink: (stripeLinks[p.id] ?? "").trim(),
   }));
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
-  const displayAmount = selectedPack === "custom" ? customAmount : chosenPack ? fmt(chosenPack.total) : "";
-  const displayPackName = selectedPack === "custom" ? "Custom (" + customAmount + ")" : chosenPack?.name ?? "";
 
-  const selectedStripeLink =
-    selectedPack === "custom"
-      ? (stripeLinks["custom"] ?? "").trim()
-      : chosenPack?.stripeLink ?? "";
-  const hasConfiguredPaymentLink = Boolean(selectedStripeLink);
+  // Total inc GST for the selected pack (custom amount is parsed from the input).
+  const customTotal = (() => {
+    const n = parseInt(customAmount.replace(/[^0-9]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  })();
+  const selectedTotalIncGst = selectedPack === "custom" ? customTotal : chosenPack?.total ?? 0;
+
+  const displayAmount = selectedPack === "custom" ? (customAmount || fmt(customTotal)) : chosenPack ? fmt(chosenPack.total) : "";
+  const displayPackName = selectedPack === "custom" ? "Custom (" + customAmount + ")" : chosenPack?.name ?? "";
 
   // Contract calculations
   const contractPackObj = CONTRACT_PACKS.find((p) => p.id === contractPack);
@@ -122,24 +96,48 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
   const sendContractEmailFn = useServerFn(sendContractEmail);
+  const createCheckoutFn = useServerFn(createStripeCheckoutSession);
+  const sendSMSFn = useServerFn(sendPaymentLinkSMS);
 
-  const missingPaymentLinkMessage =
-    "No payment link set for this package — add one in Settings before the email gets sent.";
+  // Creates a fresh Stripe Checkout Session for the selected pack.
+  // Returns the hosted URL or null + sets the appropriate status.
+  const buildCheckoutUrl = async (
+    setStatus: (s: { type: "success" | "error"; message: string } | null) => void
+  ): Promise<string | null> => {
+    if (!selectedTotalIncGst || selectedTotalIncGst < 1) {
+      setStatus({ type: "error", message: "Please enter a valid amount before sending." });
+      return null;
+    }
+    try {
+      const result = await createCheckoutFn({
+        data: {
+          clinicName,
+          contactName: fullName,
+          email,
+          packageName: displayPackName,
+          totalIncGst: selectedTotalIncGst,
+        },
+      });
+      if (!result.success) {
+        setStatus({ type: "error", message: result.error || "Could not generate payment link — please try again." });
+        return null;
+      }
+      return result.url;
+    } catch {
+      setStatus({ type: "error", message: "Could not generate payment link — please try again." });
+      return null;
+    }
+  };
 
   const handleRequestInvoice = async () => {
     setInvoiceStatus(null);
-
-    if (linksLoading) {
-      setInvoiceStatus({ type: "error", message: "Still loading payment links — please try again in a moment." });
-      return;
-    }
-    if (!hasConfiguredPaymentLink) {
-      setInvoiceStatus({ type: "error", message: missingPaymentLinkMessage });
-      return;
-    }
-
     setSending(true);
     try {
+      const checkoutUrl = await buildCheckoutUrl(setInvoiceStatus);
+      if (!checkoutUrl) {
+        setSending(false);
+        return;
+      }
       const result = await sendInvoiceEmailFn({
         data: {
           to: email,
@@ -148,7 +146,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
           phone,
           packageName: displayPackName,
           amount: displayAmount,
-          stripeLink: selectedStripeLink,
+          stripeLink: checkoutUrl,
         },
       });
       if (result.success) {
@@ -164,24 +162,17 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setSending(false);
   };
 
-  const sendSMSFn = useServerFn(sendPaymentLinkSMS);
-
   const handleSendSMS = async () => {
     setSmsStatus(null);
-
-    if (linksLoading) {
-      setSmsStatus({ type: "error", message: "Still loading payment links — please try again in a moment." });
-      return;
-    }
-    if (!hasConfiguredPaymentLink) {
-      setSmsStatus({ type: "error", message: missingPaymentLinkMessage });
-      return;
-    }
-
     setSending(true);
     try {
+      const checkoutUrl = await buildCheckoutUrl(setSmsStatus);
+      if (!checkoutUrl) {
+        setSending(false);
+        return;
+      }
       const firstName = fullName.trim().split(" ")[0];
-      const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: selectedStripeLink } });
+      const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: checkoutUrl } });
       if (result.success) {
         setPaymentSent(true);
         setPaymentMethod("sms");

@@ -28,7 +28,7 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
       formattedPhone = "+61" + formattedPhone;
     }
 
-    const message = `Hi ${data.firstName}, here's your secure payment link to get started with Upper Hand: ${data.stripeLink}. Any questions? Just reply to this message.`;
+    const message = `Hi ${data.firstName}, here's your secure payment link to get started with Bold: ${data.stripeLink}. Any questions? Just reply to this message.`;
     const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
     const response = await fetch(url, {
