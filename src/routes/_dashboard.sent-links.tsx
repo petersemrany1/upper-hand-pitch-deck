@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Mail, MessageSquare, ExternalLink, Search, FileText, CreditCard } from "lucide-react";
+import { Send, Mail, MessageSquare, ExternalLink, Search, FileText, CreditCard, Trash2, StickyNote, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { sendInvoiceEmail } from "@/utils/resend.functions";
 import { createStripeCheckoutSession } from "@/utils/stripe.functions";
-import { recordSentLink, updateSentLinkMethod } from "@/utils/sent-links.functions";
+import { recordSentLink, updateSentLinkMethod, deleteSentLink, updateSentLinkNotes } from "@/utils/sent-links.functions";
 
 export const Route = createFileRoute("/_dashboard/sent-links")({
   component: SentLinksPage,
@@ -28,6 +28,7 @@ type SentLink = {
   stripe_url: string | null;
   send_method: string;
   created_at: string;
+  notes: string | null;
 };
 
 const fmt = (n: number) => "$" + Math.round(Number(n)).toLocaleString();
@@ -41,12 +42,17 @@ function SentLinksPage() {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const recordSentLinkFn = useServerFn(recordSentLink);
   const updateSentLinkMethodFn = useServerFn(updateSentLinkMethod);
+  const deleteSentLinkFn = useServerFn(deleteSentLink);
+  const updateSentLinkNotesFn = useServerFn(updateSentLinkNotes);
 
   const load = async () => {
     setLoading(true);
@@ -170,6 +176,53 @@ function SentLinksPage() {
     setBusyId(null);
   };
 
+  const handleDelete = async (id: string) => {
+    setBusyId(id);
+    setToast(null);
+    try {
+      const r = await deleteSentLinkFn({ data: { id } });
+      if (!r.success) {
+        setToast({ type: "error", msg: r.error || "Could not delete." });
+      } else {
+        setRows((prev) => prev.filter((x) => x.id !== id));
+        setToast({ type: "success", msg: "Deleted." });
+      }
+    } catch {
+      setToast({ type: "error", msg: "Could not delete — please try again." });
+    }
+    setConfirmDeleteId(null);
+    setBusyId(null);
+  };
+
+  const startEditNotes = (row: SentLink) => {
+    setEditingNotesId(row.id);
+    setNotesDraft(row.notes ?? "");
+  };
+
+  const cancelEditNotes = () => {
+    setEditingNotesId(null);
+    setNotesDraft("");
+  };
+
+  const saveNotes = async (id: string) => {
+    setBusyId(id);
+    setToast(null);
+    try {
+      const r = await updateSentLinkNotesFn({ data: { id, notes: notesDraft } });
+      if (!r.success) {
+        setToast({ type: "error", msg: r.error || "Could not save note." });
+      } else {
+        setRows((prev) => prev.map((x) => (x.id === id ? { ...x, notes: notesDraft } : x)));
+        setEditingNotesId(null);
+        setNotesDraft("");
+        setToast({ type: "success", msg: "Note saved." });
+      }
+    } catch {
+      setToast({ type: "error", msg: "Could not save note — please try again." });
+    }
+    setBusyId(null);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
@@ -250,35 +303,105 @@ function SentLinksPage() {
                     )}
                   </div>
 
-                  {!isContract && (
-                    <div className="flex flex-wrap gap-2">
-                      {r.stripe_url && (
-                        <a
-                          href={r.stripe_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" /> Open
-                        </a>
-                      )}
-                      <button
-                        onClick={() => resend(r, "email")}
-                        disabled={busy || !r.email}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                  <div className="flex flex-wrap gap-2">
+                    {!isContract && r.stripe_url && (
+                      <a
+                        href={r.stripe_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
                       >
-                        <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Email"}
+                        <ExternalLink className="w-3.5 h-3.5" /> Open
+                      </a>
+                    )}
+                    {!isContract && (
+                      <>
+                        <button
+                          onClick={() => resend(r, "email")}
+                          disabled={busy || !r.email}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                        >
+                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Email"}
+                        </button>
+                        <button
+                          onClick={() => resend(r, "sms")}
+                          disabled={busy || !r.phone}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend SMS"}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => (editingNotesId === r.id ? cancelEditNotes() : startEditNotes(r))}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                    >
+                      <StickyNote className="w-3.5 h-3.5" /> {r.notes ? "Edit Note" : "Add Note"}
+                    </button>
+                    {confirmDeleteId === r.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5" /> {busy ? "…" : "Confirm"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" /> Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(r.id)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {editingNotesId === r.id ? (
+                  <div className="mt-3 space-y-2">
+                    <textarea
+                      value={notesDraft}
+                      onChange={(e) => setNotesDraft(e.target.value)}
+                      rows={3}
+                      placeholder="Add a note about this send (e.g. follow-up reminders, context)…"
+                      className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-y"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveNotes(r.id)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity"
+                      >
+                        <Check className="w-3.5 h-3.5" /> {busy ? "Saving…" : "Save Note"}
                       </button>
                       <button
-                        onClick={() => resend(r, "sms")}
-                        disabled={busy || !r.phone}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                        onClick={cancelEditNotes}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend SMS"}
+                        <X className="w-3.5 h-3.5" /> Cancel
                       </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : r.notes ? (
+                  <div className="mt-3 rounded-lg bg-muted/50 border border-border p-3 text-xs text-foreground whitespace-pre-wrap">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      <StickyNote className="w-3 h-3" /> Note
+                    </span>
+                    <div>{r.notes}</div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
