@@ -176,6 +176,53 @@ function SentLinksPage() {
     setBusyId(null);
   };
 
+  const handleDelete = async (id: string) => {
+    setBusyId(id);
+    setToast(null);
+    try {
+      const r = await deleteSentLinkFn({ data: { id } });
+      if (!r.success) {
+        setToast({ type: "error", msg: r.error || "Could not delete." });
+      } else {
+        setRows((prev) => prev.filter((x) => x.id !== id));
+        setToast({ type: "success", msg: "Deleted." });
+      }
+    } catch {
+      setToast({ type: "error", msg: "Could not delete — please try again." });
+    }
+    setConfirmDeleteId(null);
+    setBusyId(null);
+  };
+
+  const startEditNotes = (row: SentLink) => {
+    setEditingNotesId(row.id);
+    setNotesDraft(row.notes ?? "");
+  };
+
+  const cancelEditNotes = () => {
+    setEditingNotesId(null);
+    setNotesDraft("");
+  };
+
+  const saveNotes = async (id: string) => {
+    setBusyId(id);
+    setToast(null);
+    try {
+      const r = await updateSentLinkNotesFn({ data: { id, notes: notesDraft } });
+      if (!r.success) {
+        setToast({ type: "error", msg: r.error || "Could not save note." });
+      } else {
+        setRows((prev) => prev.map((x) => (x.id === id ? { ...x, notes: notesDraft } : x)));
+        setEditingNotesId(null);
+        setNotesDraft("");
+        setToast({ type: "success", msg: "Note saved." });
+      }
+    } catch {
+      setToast({ type: "error", msg: "Could not save note — please try again." });
+    }
+    setBusyId(null);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center gap-3 mb-2">
