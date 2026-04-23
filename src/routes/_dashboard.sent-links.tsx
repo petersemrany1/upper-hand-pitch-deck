@@ -303,35 +303,105 @@ function SentLinksPage() {
                     )}
                   </div>
 
-                  {!isContract && (
-                    <div className="flex flex-wrap gap-2">
-                      {r.stripe_url && (
-                        <a
-                          href={r.stripe_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
-                        >
-                          <ExternalLink className="w-3.5 h-3.5" /> Open
-                        </a>
-                      )}
-                      <button
-                        onClick={() => resend(r, "email")}
-                        disabled={busy || !r.email}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                  <div className="flex flex-wrap gap-2">
+                    {!isContract && r.stripe_url && (
+                      <a
+                        href={r.stripe_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
                       >
-                        <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Email"}
+                        <ExternalLink className="w-3.5 h-3.5" /> Open
+                      </a>
+                    )}
+                    {!isContract && (
+                      <>
+                        <button
+                          onClick={() => resend(r, "email")}
+                          disabled={busy || !r.email}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                        >
+                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Email"}
+                        </button>
+                        <button
+                          onClick={() => resend(r, "sms")}
+                          disabled={busy || !r.phone}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend SMS"}
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => (editingNotesId === r.id ? cancelEditNotes() : startEditNotes(r))}
+                      disabled={busy}
+                      className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                    >
+                      <StickyNote className="w-3.5 h-3.5" /> {r.notes ? "Edit Note" : "Add Note"}
+                    </button>
+                    {confirmDeleteId === r.id ? (
+                      <>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5" /> {busy ? "…" : "Confirm"}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" /> Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(r.id)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-red-500/40 text-red-400 hover:bg-red-500/10 disabled:opacity-40 transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {editingNotesId === r.id ? (
+                  <div className="mt-3 space-y-2">
+                    <textarea
+                      value={notesDraft}
+                      onChange={(e) => setNotesDraft(e.target.value)}
+                      rows={3}
+                      placeholder="Add a note about this send (e.g. follow-up reminders, context)…"
+                      className="w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-y"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveNotes(r.id)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-40 transition-opacity"
+                      >
+                        <Check className="w-3.5 h-3.5" /> {busy ? "Saving…" : "Save Note"}
                       </button>
                       <button
-                        onClick={() => resend(r, "sms")}
-                        disabled={busy || !r.phone}
-                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
+                        onClick={cancelEditNotes}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
                       >
-                        <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend SMS"}
+                        <X className="w-3.5 h-3.5" /> Cancel
                       </button>
                     </div>
-                  )}
-                </div>
+                  </div>
+                ) : r.notes ? (
+                  <div className="mt-3 rounded-lg bg-muted/50 border border-border p-3 text-xs text-foreground whitespace-pre-wrap">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      <StickyNote className="w-3 h-3" /> Note
+                    </span>
+                    <div>{r.notes}</div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
