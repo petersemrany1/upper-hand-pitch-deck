@@ -84,40 +84,36 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     // Format today as DD/MM/YYYY (en-AU)
     const today = new Date().toLocaleDateString("en-AU");
 
-    // Build the DocuSeal payload — pre-fill values live on the Client submitter
-    // using the `fields` array with `default_value` (per DocuSeal API spec).
-    // IMPORTANT: field names must match the template's actual field labels.
-    // The template uses Title Case display names (e.g. "Clinic Name"), not
-    // snake_case — passing snake_case causes DocuSeal to reject the submission
-    // with "Unknown field: ...".
+    // Build the DocuSeal payload using the template's actual field keys.
+    // Template 3486637 rejects display labels like "Pack Name" and expects
+    // snake_case value keys on the completed first-party submitter.
     const docusealPayload = {
       template_id: 3486637,
       send_email: false,
       submitters: [
         {
-          role: "Client",
-          email: data.to,
-          name: data.contactName,
-          fields: [
-            { name: "Clinic Name", value: data.clinicName },
-            { name: "Clinic Address", value: data.clinicAddress || "" },
-            { name: "Date", value: today },
-          ],
-        },
-        {
-          role: "Agency",
+          role: "First Party",
           email: "admin@bold-patients.com",
           name: "Bold Patients",
           completed: true,
           values: {
-            "Agency Date": today,
-            "Pack Name": data.packageName,
-            "Number of Shows": String(data.shows),
-            "Per Show Fee": String(Math.round(data.perShowFee)),
-            "Total exc GST": String(Math.round(totalExcGst)),
-            "GST Amount": String(Math.round(gst)),
-            "Total inc GST": String(Math.round(totalIncGst)),
+            agreement_date: today,
+            clinic_name: data.clinicName,
+            clinic_address: data.clinicAddress || "",
+            package_selected: data.packageName,
+            num_shows: String(data.shows),
+            per_show_fee: fmtDollar(data.perShowFee),
+            total_fee: fmtDollar(totalExcGst),
+            gst_amount: fmtDollar(gst),
+            total_inc_gst: fmtDollar(totalIncGst),
+            agency_date: today,
           },
+        },
+        {
+          role: "client",
+          email: data.to,
+          name: data.contactName,
+          values: {},
         },
       ],
     };
