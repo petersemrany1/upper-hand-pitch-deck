@@ -61,7 +61,6 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const phoneClean = phone.replace(/\s/g, '');
   const phoneValid = /^(\+?61|0)4[0-9]{8}$/.test(phoneClean);
   const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phoneValid;
-  const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
   // Pack totals are exc GST. inc GST = exc * 1.1.
   const PACKS = PACK_DEFS.map((p) => ({
@@ -71,16 +70,22 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
 
-  // Custom: user enters exc-GST amount; shows = ceil(custom/perShow) for display.
-  const customExc = (() => {
-    const n = parseInt(customAmount.replace(/[^0-9]/g, ""), 10);
+  // Custom: user enters number of shows + per-show fee separately.
+  const customShows = (() => {
+    const n = parseInt(customShowsInput.replace(/[^0-9]/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
   })();
-  const customShows = customExc > 0 && pricePerShow > 0 ? Math.round(customExc / pricePerShow) : 0;
+  const customFee = (() => {
+    const n = parseInt(customFeeInput.replace(/[^0-9]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  })();
+  const customExc = customShows * customFee;
 
   const isCustom = selectedPack === "custom";
+  const step2Valid = selectedPack !== null && (selectedPack !== "custom" || (customShows > 0 && customFee > 0));
   const summaryShows = isCustom ? customShows : chosenPack?.shows ?? 0;
   const summaryPackName = isCustom ? "Custom" : chosenPack?.name ?? "";
+  const summaryPerShow = isCustom ? customFee : pricePerShow;
   const totalExcGst = isCustom ? customExc : chosenPack?.totalExc ?? 0;
   const gst = Math.round(totalExcGst * 0.10);
   const totalIncGst = totalExcGst + gst;
@@ -89,11 +94,16 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const sendContractEmailFn = useServerFn(sendContractEmail);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
+  const recordSentLinkFn = useServerFn(recordSentLink);
+  const updateSentLinkMethodFn = useServerFn(updateSentLinkMethod);
 
   // Creates a fresh Stripe Checkout Session for the selected pack (inc GST).
   const buildCheckoutUrl = async (
     setStatus: (s: { type: "success" | "error"; message: string } | null) => void
   ): Promise<string | null> => {
+    // Reuse the URL from this modal session so cross-send (after sending one channel)
+    // gives the recipient the exact same Stripe link.
+    if (lastStripeUrl) return lastStripeUrl;
     if (!totalIncGst || totalIncGst < 1) {
       setStatus({ type: "error", message: "Please select a pack with a valid amount before sending." });
       return null;
