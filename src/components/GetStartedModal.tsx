@@ -13,7 +13,7 @@ interface GetStartedModalProps {
   pricePerShow?: number;
 }
 
-const STANDARD_PRICE_PER_SHOW = 1100;
+const STANDARD_PRICE_PER_SHOW = 800;
 
 // Stripe payment links are generated dynamically per send via
 // Stripe Checkout Sessions — see src/utils/stripe.functions.ts.
@@ -24,17 +24,10 @@ const PACK_DEFS = [
   { id: "scale", name: "Scale", shows: 50 },
 ];
 
-const CONTRACT_PACKS = [
-  { id: "demo", label: "Demo — 10 Shows", shows: 10 },
-  { id: "starter", label: "Starter — 20 Shows", shows: 20 },
-  { id: "scale", label: "Scale — 50 Shows", shows: 50 },
-  { id: "custom", label: "Custom", shows: 0 },
-];
-
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 
 export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD_PRICE_PER_SHOW }: GetStartedModalProps) {
-  // step: 1=details, 2=package, 3=hub, 4=payment sub-screen, 5=contract sub-screen
+  // step: 1=details, 2=package, 3=hub, 4=payment send-channel sub-screen
   const [step, setStep] = useState(1);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
 
@@ -47,13 +40,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   // Step 2
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
-  const [customAmount, setCustomAmount] = useState("");
-
-  // Contract fields (step 5) — pre-fill per-show fee from the deck's pricePerShow
-  const [contractPack, setContractPack] = useState<string | null>(null);
-  const [contractCustomShows, setContractCustomShows] = useState("");
-  const [perShowFee, setPerShowFee] = useState(String(pricePerShow));
-  const [contractStatus, setContractStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [customAmount, setCustomAmount] = useState(""); // exc GST for custom
 
   // Completion tracking
   const [paymentSent, setPaymentSent] = useState(false);
@@ -63,49 +50,46 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const [sending, setSending] = useState(false);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [contractStatus, setContractStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const phoneClean = phone.replace(/\s/g, '');
   const phoneValid = /^(\+?61|0)4[0-9]{8}$/.test(phoneClean);
   const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phoneValid;
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
-  // Build packs dynamically from the deck's pricePerShow.
+  // Pack totals are exc GST. inc GST = exc * 1.1.
   const PACKS = PACK_DEFS.map((p) => ({
     ...p,
-    total: p.shows * pricePerShow,
+    totalExc: p.shows * pricePerShow,
   }));
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
 
-  // Total inc GST for the selected pack (custom amount is parsed from the input).
-  const customTotal = (() => {
+  // Custom: user enters exc-GST amount; shows = ceil(custom/perShow) for display.
+  const customExc = (() => {
     const n = parseInt(customAmount.replace(/[^0-9]/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
   })();
-  const selectedTotalIncGst = selectedPack === "custom" ? customTotal : chosenPack?.total ?? 0;
+  const customShows = customExc > 0 && pricePerShow > 0 ? Math.round(customExc / pricePerShow) : 0;
 
-  const displayAmount = selectedPack === "custom" ? (customAmount || fmt(customTotal)) : chosenPack ? fmt(chosenPack.total) : "";
-  const displayPackName = selectedPack === "custom" ? "Custom (" + customAmount + ")" : chosenPack?.name ?? "";
-
-  // Contract calculations
-  const contractPackObj = CONTRACT_PACKS.find((p) => p.id === contractPack);
-  const contractShows = contractPack === "custom" ? parseInt(contractCustomShows) || 0 : contractPackObj?.shows ?? 0;
-  const perShowFeeNum = parseInt(perShowFee.replace(/[^0-9]/g, "")) || 0;
-  const totalContractFee = contractShows * perShowFeeNum;
-  const contractValid = contractPack !== null && contractShows > 0 && perShowFeeNum > 0;
+  const isCustom = selectedPack === "custom";
+  const summaryShows = isCustom ? customShows : chosenPack?.shows ?? 0;
+  const summaryPackName = isCustom ? "Custom" : chosenPack?.name ?? "";
+  const totalExcGst = isCustom ? customExc : chosenPack?.totalExc ?? 0;
+  const gst = Math.round(totalExcGst * 0.10);
+  const totalIncGst = totalExcGst + gst;
 
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
   const sendContractEmailFn = useServerFn(sendContractEmail);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
 
-  // Creates a fresh Stripe Checkout Session for the selected pack.
-  // Returns the hosted URL or null + sets the appropriate status.
+  // Creates a fresh Stripe Checkout Session for the selected pack (inc GST).
   const buildCheckoutUrl = async (
     setStatus: (s: { type: "success" | "error"; message: string } | null) => void
   ): Promise<string | null> => {
-    if (!selectedTotalIncGst || selectedTotalIncGst < 1) {
-      setStatus({ type: "error", message: "Please enter a valid amount before sending." });
+    if (!totalIncGst || totalIncGst < 1) {
+      setStatus({ type: "error", message: "Please select a pack with a valid amount before sending." });
       return null;
     }
     try {
@@ -114,8 +98,8 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
           clinicName,
           contactName: fullName,
           email,
-          packageName: displayPackName,
-          totalIncGst: selectedTotalIncGst,
+          packageName: summaryPackName,
+          totalIncGst,
         },
       });
       if (!result.success) {
@@ -144,8 +128,8 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
           clinicName,
           contactName: fullName,
           phone,
-          packageName: displayPackName,
-          amount: displayAmount,
+          packageName: summaryPackName,
+          amount: fmt(totalIncGst),
           stripeLink: checkoutUrl,
         },
       });
@@ -186,12 +170,17 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setSending(false);
   };
 
+  // Send contract directly using carried-through values from steps 1 & 2.
   const handleSendContract = async () => {
+    if (!summaryShows || summaryShows < 1) {
+      setContractStatus({ type: "error", message: "Please select a pack with at least one show before sending the contract." });
+      return;
+    }
     setSending(true);
     setContractStatus(null);
-    const packLabel = contractPack === "custom"
-      ? "Custom (" + contractShows + " Shows)"
-      : contractPackObj?.label ?? "";
+    const packLabel = isCustom
+      ? "Custom (" + summaryShows + " Shows)"
+      : summaryPackName + " — " + summaryShows + " Shows";
     try {
       const result = await sendContractEmailFn({
         data: {
@@ -201,15 +190,14 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
           contactName: fullName,
           phone,
           packageName: packLabel,
-          shows: contractShows,
-          perShowFee: perShowFeeNum,
-          totalFee: totalContractFee,
+          shows: summaryShows,
+          perShowFee: pricePerShow,
+          totalFee: totalExcGst,
         },
       });
       if (result.success) {
-        setContractStatus({ type: "success", message: "We've sent the agreement to " + email + ". Once signed, we'll be in touch to get started." });
+        setContractStatus({ type: "success", message: "We've sent the agreement to " + email + "." });
         setContractSent(true);
-        setStep(3);
       } else {
         setContractStatus({ type: "error", message: "Something went wrong — please try again or contact admin@bold-patients.com" });
       }
@@ -228,9 +216,6 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setPhone("");
     setSelectedPack(null);
     setCustomAmount("");
-    setContractPack(null);
-    setContractCustomShows("");
-    setPerShowFee("1100");
     setContractStatus(null);
     setSmsStatus(null);
     setInvoiceStatus(null);
@@ -247,7 +232,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   if (!open) return null;
 
-  // Steps 4 and 5 are sub-screens of step 3
+  // Step 4 is a sub-screen of step 3.
   const currentStepDisplay = step >= 3 ? 3 : step;
 
   return (
@@ -379,7 +364,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                   Which pack are you starting with?
                 </h3>
                 <div className="grid grid-cols-3 gap-3 mb-4">
-                  {PACKS.filter((p) => p.id !== "custom").map((pack) => (
+                  {PACKS.map((pack) => (
                     <button
                       key={pack.id}
                       onClick={() => setSelectedPack(pack.id)}
@@ -391,8 +376,9 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     >
                       <p className="text-sm font-extrabold text-foreground">{pack.name}</p>
                       <p className="text-xs text-[#CCCCCC] mt-1">{pack.shows} patients</p>
-                      <p className="text-sm font-bold text-primary mt-2">{fmt(pack.total)}</p>
-                      <p className="text-[10px] text-[#999]">inc GST</p>
+                      <p className="text-sm font-bold text-primary mt-2">{fmt(pack.totalExc)}</p>
+                      <p className="text-[10px] text-[#999]">exc GST</p>
+                      <p className="text-[10px] text-[#999]">{fmt(Math.round(pack.totalExc * 1.1))} inc GST</p>
                     </button>
                   ))}
                 </div>
@@ -412,7 +398,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 {selectedPack === "custom" && (
                   <div className="mb-3">
                     <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
-                      Custom amount (inc GST)
+                      Custom amount (exc GST)
                     </label>
                     <input
                       type="text"
@@ -421,6 +407,11 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       placeholder="$15,000"
                       className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                     />
+                    {customExc > 0 && (
+                      <p className="text-[11px] text-[#999] mt-1.5">
+                        ≈ {customShows} shows · {fmt(Math.round(customExc * 1.1))} inc GST
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -444,17 +435,47 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 >
                   Send to Client
                 </h3>
-                <p className="text-sm text-[#999] mb-6">Complete both actions in any order.</p>
+                <p className="text-sm text-[#999] mb-5">Review the summary then send the agreement and payment link.</p>
+
+                {/* Summary card */}
+                <div className="rounded-xl border border-border bg-input/40 p-4 mb-5 text-sm">
+                  <div className="grid grid-cols-[110px_1fr] gap-y-1.5 gap-x-3">
+                    <span className="text-[#999]">Clinic</span>
+                    <span className="text-foreground font-medium">{clinicName}</span>
+
+                    <span className="text-[#999]">Contact</span>
+                    <span className="text-foreground font-medium">{fullName}</span>
+
+                    <span className="text-[#999]">Package</span>
+                    <span className="text-foreground font-medium">
+                      {summaryPackName} — {summaryShows} shows
+                    </span>
+
+                    <span className="text-[#999]">Per show</span>
+                    <span className="text-foreground font-medium">{fmt(pricePerShow)} + GST</span>
+                  </div>
+
+                  <div className="border-t border-border mt-3 pt-3 grid grid-cols-[110px_1fr] gap-y-1 gap-x-3">
+                    <span className="text-[#999]">Total exc GST</span>
+                    <span className="text-foreground font-medium">{fmt(totalExcGst)}</span>
+
+                    <span className="text-[#999]">GST</span>
+                    <span className="text-foreground font-medium">{fmt(gst)}</span>
+
+                    <span className="text-[#999]">Total inc GST</span>
+                    <span className="text-primary font-extrabold">{fmt(totalIncGst)}</span>
+                  </div>
+                </div>
 
                 <div className="space-y-3">
                   {/* Contract card */}
                   <button
-                    onClick={() => !contractSent && setStep(5)}
-                    disabled={contractSent}
+                    onClick={() => !contractSent && handleSendContract()}
+                    disabled={contractSent || sending}
                     className={"w-full rounded-xl border-2 p-5 text-left transition-all flex items-center gap-4 " +
                       (contractSent
                         ? "border-green-500/50 bg-green-500/5 cursor-default"
-                        : "border-border bg-card hover:border-primary")
+                        : "border-border bg-card hover:border-primary disabled:opacity-60")
                     }
                   >
                     <div className={"w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 " +
@@ -468,12 +489,12 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-foreground">
-                        {contractSent ? "Contract Sent ✓" : "Send Contract"}
+                        {contractSent ? "Contract Sent ✓" : (sending ? "Sending..." : "Send Contract")}
                       </p>
                       <p className="text-xs text-[#CCCCCC] mt-0.5">
                         {contractSent
                           ? "Sent to " + email
-                          : "Email the agreement to review and sign"}
+                          : "Email the agreement to " + email}
                       </p>
                     </div>
                   </button>
@@ -504,11 +525,17 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       <p className="text-xs text-[#CCCCCC] mt-0.5">
                         {paymentSent
                           ? "Sent via " + (paymentMethod === "email" ? "email to " + email : "SMS to " + phone)
-                          : "Email or SMS a secure payment link"}
+                          : "Stripe checkout for " + fmt(totalIncGst) + " inc GST"}
                       </p>
                     </div>
                   </button>
                 </div>
+
+                {contractStatus && (
+                  <p className={"text-sm mt-4 text-center font-medium " + (contractStatus.type === "success" ? "text-green-400" : "text-red-400")}>
+                    {contractStatus.message}
+                  </p>
+                )}
 
                 {/* Done button */}
                 {(paymentSent && contractSent) && (
@@ -533,16 +560,17 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
                 <h3
-                  className="text-2xl font-extrabold text-foreground mb-6"
+                  className="text-2xl font-extrabold text-foreground mb-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   Send Payment Link
                 </h3>
+                <p className="text-sm text-[#999] mb-6">{fmt(totalIncGst)} inc GST · {summaryPackName}</p>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={handleRequestInvoice}
                     disabled={sending}
-                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
+                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group disabled:opacity-60"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
                       ✉️
@@ -553,7 +581,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                   <button
                     onClick={handleSendSMS}
                     disabled={sending}
-                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group"
+                    className="rounded-xl border-2 border-border bg-card hover:border-primary p-6 text-center transition-all group disabled:opacity-60"
                   >
                     <p className="text-lg font-extrabold text-foreground group-hover:text-primary transition-colors">
                       💬
@@ -574,110 +602,6 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     {invoiceStatus.message}
                   </p>
                 )}
-              </div>
-            )}
-
-            {/* ─── STEP 5 — CONTRACT FORM ─── */}
-            {step === 5 && (
-              <div>
-                <button
-                  onClick={() => { setContractStatus(null); setStep(3); }}
-                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
-                >
-                  <ArrowLeft className="w-4 h-4" /> Back
-                </button>
-                <h3
-                  className="text-2xl font-extrabold text-foreground mb-6"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  Send Contract
-                </h3>
-
-                {/* Auto-populated fields */}
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Client Name</label>
-                    <div className="w-full bg-input/50 border border-border rounded-lg px-4 py-3 text-foreground text-sm opacity-70">
-                      {fullName}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Clinic Name</label>
-                    <div className="w-full bg-input/50 border border-border rounded-lg px-4 py-3 text-foreground text-sm opacity-70">
-                      {clinicName}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Package selector */}
-                <div className="mb-4">
-                  <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Package</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CONTRACT_PACKS.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => setContractPack(p.id)}
-                        className={"rounded-lg border-2 px-3 py-2.5 text-left transition-all text-sm " +
-                          (contractPack === p.id
-                            ? "border-primary bg-primary/10 font-bold text-foreground"
-                            : "border-border bg-card hover:border-[#555] text-foreground")
-                        }
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Custom shows */}
-                {contractPack === "custom" && (
-                  <div className="mb-4">
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Number of Shows</label>
-                    <input
-                      type="number"
-                      value={contractCustomShows}
-                      onChange={(e) => setContractCustomShows(e.target.value)}
-                      placeholder="e.g. 30"
-                      className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                )}
-
-                {/* Per Show Fee */}
-                <div className="mb-4">
-                  <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Per Show Fee ($)</label>
-                  <input
-                    type="text"
-                    value={perShowFee}
-                    onChange={(e) => setPerShowFee(e.target.value.replace(/[^0-9]/g, ""))}
-                    placeholder="1100"
-                    className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-
-                {/* Total */}
-                {contractValid && (
-                  <div className="mb-5 rounded-lg bg-primary/10 border border-primary/30 p-4 text-center">
-                    <p className="text-xs text-[#CCCCCC] mb-1">Total Package Fee</p>
-                    <p className="text-2xl font-extrabold text-primary">{fmt(totalContractFee)}</p>
-                    <p className="text-xs text-[#999] mt-1">{contractShows} shows × {fmt(perShowFeeNum)} per show</p>
-                  </div>
-                )}
-
-                {contractStatus && (
-                  <p className={"text-sm mb-3 text-center font-medium " + (contractStatus.type === "success" ? "text-green-400" : "text-red-400")}>
-                    {contractStatus.message}
-                  </p>
-                )}
-
-                <button
-                  disabled={!contractValid || sending}
-                  onClick={handleSendContract}
-                  className="w-full bg-primary text-primary-foreground font-bold py-3.5 rounded-lg disabled:opacity-40 transition-opacity hover:opacity-90"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  {sending ? "Sending..." : "Send Contract"}
-                </button>
               </div>
             )}
           </div>
