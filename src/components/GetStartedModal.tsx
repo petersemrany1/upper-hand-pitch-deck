@@ -122,11 +122,59 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         setStatus({ type: "error", message: result.error || "Could not generate payment link — please try again." });
         return null;
       }
+      setLastStripeUrl(result.url);
       return result.url;
     } catch {
       setStatus({ type: "error", message: "Could not generate payment link — please try again." });
       return null;
     }
+  };
+
+  const recordPaymentSend = async (method: "email" | "sms", checkoutUrl: string) => {
+    try {
+      const result = await recordSentLinkFn({
+        data: {
+          kind: "payment_link",
+          clinicName,
+          contactName: fullName,
+          email: email || null,
+          phone: phone || null,
+          packageName: summaryPackName,
+          shows: summaryShows,
+          perShowFee: summaryPerShow,
+          totalExcGst,
+          gst,
+          totalIncGst,
+          stripeUrl: checkoutUrl,
+          sendMethod: method,
+        },
+      });
+      if (result.success) setPaymentSentLinkId(result.id);
+    } catch {
+      // Non-fatal: history record failed but the send itself succeeded.
+    }
+  };
+
+  const recordContractSend = async () => {
+    try {
+      await recordSentLinkFn({
+        data: {
+          kind: "contract",
+          clinicName,
+          contactName: fullName,
+          email: email || null,
+          phone: phone || null,
+          packageName: summaryPackName,
+          shows: summaryShows,
+          perShowFee: summaryPerShow,
+          totalExcGst,
+          gst,
+          totalIncGst,
+          stripeUrl: null,
+          sendMethod: "email",
+        },
+      });
+    } catch {}
   };
 
   const handleRequestInvoice = async () => {
@@ -150,8 +198,10 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         },
       });
       if (result.success) {
+        await recordPaymentSend("email", checkoutUrl);
         setPaymentSent(true);
         setPaymentMethod("email");
+        setCrossSendStatus(null);
         setStep(3);
       } else {
         setInvoiceStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
@@ -174,8 +224,10 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
       const firstName = fullName.trim().split(" ")[0];
       const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: checkoutUrl } });
       if (result.success) {
+        await recordPaymentSend("sms", checkoutUrl);
         setPaymentSent(true);
         setPaymentMethod("sms");
+        setCrossSendStatus(null);
         setStep(3);
       } else {
         setSmsStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
@@ -212,8 +264,10 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         },
       });
       if (result.success) {
+        await recordContractSend();
         setContractStatus({ type: "success", message: "We've sent the agreement to " + email + "." });
         setContractSent(true);
+        setContractMethod("email");
       } else {
         setContractStatus({ type: "error", message: "Something went wrong — please try again or contact admin@bold-patients.com" });
       }
