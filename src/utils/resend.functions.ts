@@ -84,9 +84,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     // Format today as DD/MM/YYYY (en-AU)
     const today = new Date().toLocaleDateString("en-AU");
 
-    // Template 3486637 accepts the submitter roles "Client" and "Agency".
-    // The client-side fields must be sent via the Client submitter `fields` array,
-    // while the pricing/package values belong to the completed Agency submitter.
+    // Template 3486637 was updated in DocuSeal so most contract fields now belong
+    // to the Agency signer, while the Client signer only owns Client Name/Date.
     const docusealPayload = {
       template_id: 3486637,
       send_email: false,
@@ -95,11 +94,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           role: "Client",
           email: data.to,
           name: data.contactName,
-          fields: [
-            { name: "Clinic Name", value: data.clinicName },
-            { name: "Clinic Address", value: data.clinicAddress || "" },
-            { name: "Date", value: today },
-          ],
+          values: {
+            "Client Name": data.contactName,
+            "Client Date": today,
+          },
         },
         {
           role: "Agency",
@@ -108,6 +106,9 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           completed: true,
           values: {
             "Agency Date": today,
+            "Clinic Name": data.clinicName,
+            "Clinic Address": data.clinicAddress || "",
+            "Date": today,
             "Pack Name": data.packageName,
             "Number of Shows": String(data.shows),
             "Per Show Fee": String(Math.round(data.perShowFee)),
