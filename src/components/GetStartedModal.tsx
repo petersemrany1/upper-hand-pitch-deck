@@ -74,18 +74,17 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
   // Build packs dynamically from the deck's pricePerShow.
-  // Stripe links only apply when pricePerShow matches the standard price ($1100).
-  // For non-standard prices, the standard packs have no Stripe link — use Custom instead.
-  const isStandardPrice = pricePerShow === STANDARD_PRICE_PER_SHOW;
+  // Stripe links are only available for prices that have a configured payment URL.
   const PACKS = PACK_DEFS.map((p) => ({
     ...p,
     total: p.shows * pricePerShow,
-    stripeLink: isStandardPrice ? STANDARD_STRIPE_LINKS[p.id] : "",
+    stripeLink: pricePerShow === STANDARD_PRICE_PER_SHOW ? STANDARD_STRIPE_LINKS[p.id] : "",
   }));
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
   const displayAmount = selectedPack === "custom" ? customAmount : chosenPack ? fmt(chosenPack.total) : "";
   const displayPackName = selectedPack === "custom" ? "Custom (" + customAmount + ")" : chosenPack?.name ?? "";
+  const hasConfiguredPaymentLink = Boolean(chosenPack?.stripeLink?.trim());
 
   // Contract calculations
   const contractPackObj = CONTRACT_PACKS.find((p) => p.id === contractPack);
@@ -97,9 +96,17 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
   const sendContractEmailFn = useServerFn(sendContractEmail);
 
+  const missingPaymentLinkMessage = "No Stripe payment link is configured for this package at the current price.";
+
   const handleRequestInvoice = async () => {
-    setSending(true);
     setInvoiceStatus(null);
+
+    if (!hasConfiguredPaymentLink) {
+      setInvoiceStatus({ type: "error", message: missingPaymentLinkMessage });
+      return;
+    }
+
+    setSending(true);
     try {
       const result = await sendInvoiceEmailFn({
         data: {
@@ -109,7 +116,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
           phone,
           packageName: displayPackName,
           amount: displayAmount,
-          stripeLink: chosenPack?.stripeLink || "",
+          stripeLink: chosenPack!.stripeLink,
         },
       });
       if (result.success) {
@@ -117,7 +124,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         setPaymentMethod("email");
         setStep(3);
       } else {
-        setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
+        setInvoiceStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
       }
     } catch {
       setInvoiceStatus({ type: "error", message: "Something went wrong — please try again." });
@@ -128,30 +135,28 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
 
   const handleSendSMS = async () => {
-    if (selectedPack === "custom") {
-      setPaymentSent(true);
-      setPaymentMethod("sms");
-      setStep(3);
+    setSmsStatus(null);
+
+    if (!hasConfiguredPaymentLink) {
+      setSmsStatus({ type: "error", message: missingPaymentLinkMessage });
       return;
     }
-    if (chosenPack?.stripeLink) {
-      setSending(true);
-      setSmsStatus(null);
-      try {
-        const firstName = fullName.trim().split(" ")[0];
-        const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: chosenPack.stripeLink } });
-        if (result.success) {
-          setPaymentSent(true);
-          setPaymentMethod("sms");
-          setStep(3);
-        } else {
-          setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
-        }
-      } catch {
-        setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
+
+    setSending(true);
+    try {
+      const firstName = fullName.trim().split(" ")[0];
+      const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: chosenPack!.stripeLink } });
+      if (result.success) {
+        setPaymentSent(true);
+        setPaymentMethod("sms");
+        setStep(3);
+      } else {
+        setSmsStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
       }
-      setSending(false);
+    } catch {
+      setSmsStatus({ type: "error", message: "Something went wrong — please try again." });
     }
+    setSending(false);
   };
 
   const handleSendContract = async () => {

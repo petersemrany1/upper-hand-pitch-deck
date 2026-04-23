@@ -291,6 +291,16 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
+    if (!data.stripeLink.trim()) {
+      await logError("sendInvoiceEmail", "Missing payment link", {
+        email: data.to,
+        clinicName: data.clinicName,
+        packageName: data.packageName,
+        stepsToReproduce: `Sending payment link to ${data.to} for ${data.packageName} pack (${data.amount}) without a configured Stripe URL`,
+      });
+      return { success: false, error: "No Stripe payment link is configured for this package at the current price." };
+    }
+
     const firstName = data.contactName.trim().split(" ")[0];
 
     const html = [
@@ -311,9 +321,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
       '<p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.6;">Here\'s your payment link for the <strong>' + data.packageName + '</strong> package (' + data.amount + ' inc GST). Click the button below to pay securely.</p>',
 
       // Button
-      data.stripeLink
-        ? '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><a href="' + data.stripeLink + '" style="display:inline-block;background:' + BOLD_BLUE + ';color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Pay Now &rarr;</a></td></tr></table>'
-        : '<p style="margin:0;color:#dc2626;font-size:14px;text-align:center;">Payment link unavailable — please contact admin@bold-patients.com</p>',
+      '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><a href="' + data.stripeLink + '" style="display:inline-block;background:' + BOLD_BLUE + ';color:#ffffff;font-size:16px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Pay Now &rarr;</a></td></tr></table>',
 
       '<p style="margin:32px 0 0;color:#374151;font-size:14px;line-height:1.6;">Any questions, just reply to this email.</p>',
 
