@@ -101,7 +101,6 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           fields: [
             { name: "Clinic Name", default_value: data.clinicName },
             { name: "Clinic Address", default_value: data.clinicAddress || "" },
-            { name: "Agreement Date", default_value: today },
             { name: "Pack Name", default_value: data.packageName },
             { name: "Package Selected", default_value: data.packageName },
             { name: "Num Shows", default_value: String(data.shows) },
