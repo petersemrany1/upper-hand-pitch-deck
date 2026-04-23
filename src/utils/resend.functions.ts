@@ -86,6 +86,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
 
     // Build the DocuSeal payload — pre-fill values live on the Client submitter
     // using the `fields` array with `default_value` (per DocuSeal API spec).
+    // IMPORTANT: field names must match the template's actual field labels.
+    // The template uses Title Case display names (e.g. "Clinic Name"), not
+    // snake_case — passing snake_case causes DocuSeal to reject the submission
+    // with "Unknown field: ...".
     const docusealPayload = {
       template_id: 3486637,
       send_email: false,
@@ -95,23 +99,27 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           email: data.to,
           name: data.contactName,
           fields: [
-            { name: "clinic_name", default_value: data.clinicName },
-            { name: "clinic_address", default_value: data.clinicAddress || "" },
-            { name: "agreement_date", default_value: today },
-            { name: "pack_name", default_value: data.packageName },
-            { name: "package_selected", default_value: data.packageName },
-            { name: "num_shows", default_value: String(data.shows) },
-            { name: "per_show_fee", default_value: fmtDollar(data.perShowFee) },
-            { name: "total_exc_gst", default_value: fmtDollar(totalExcGst) },
-            { name: "total_fee", default_value: fmtDollar(totalExcGst) },
-            { name: "gst_amount", default_value: fmtDollar(gst) },
-            { name: "total_inc_gst", default_value: fmtDollar(totalIncGst) },
+            { name: "Clinic Name", default_value: data.clinicName },
+            { name: "Clinic Address", default_value: data.clinicAddress || "" },
+            { name: "Agreement Date", default_value: today },
+            { name: "Pack Name", default_value: data.packageName },
+            { name: "Package Selected", default_value: data.packageName },
+            { name: "Num Shows", default_value: String(data.shows) },
+            { name: "Per Show Fee", default_value: fmtDollar(data.perShowFee) },
+            { name: "Total Exc Gst", default_value: fmtDollar(totalExcGst) },
+            { name: "Total Fee", default_value: fmtDollar(totalExcGst) },
+            { name: "Gst Amount", default_value: fmtDollar(gst) },
+            { name: "Total Inc Gst", default_value: fmtDollar(totalIncGst) },
           ],
         },
         {
           role: "Agency",
           email: "admin@bold-patients.com",
           name: "Bold Patients",
+          completed: true,
+          values: {
+            "Agency Date": today,
+          },
         },
       ],
     };
