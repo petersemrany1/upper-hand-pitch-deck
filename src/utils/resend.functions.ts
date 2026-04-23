@@ -189,7 +189,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         '<tr><td style="padding:40px;">',
 
         '<p style="margin:0 0 20px;color:#0f172a;font-size:18px;font-weight:600;">Hi ' + firstName + ',</p>',
-        '<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Thank you for choosing Bold Patients. Please find your Services Agreement ready for review and signature.</p>',
+        '<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">Thank you for choosing Bold. Please find your Services Agreement ready for review and signature.</p>',
         '<p style="margin:0 0 32px;color:#374151;font-size:15px;line-height:1.6;">Please click the button below to review and sign your agreement. It only takes a few minutes.</p>',
 
         // Button
