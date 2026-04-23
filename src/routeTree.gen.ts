@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
+import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
@@ -43,6 +44,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
+  id: '/sent-links',
+  path: '/sent-links',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
@@ -86,6 +92,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof DashboardInboxRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
 }
 export interface FileRoutesByTo {
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof DashboardInboxRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/': typeof DashboardIndexRoute
 }
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_dashboard/inbox': typeof DashboardInboxRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
+  '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/': typeof DashboardIndexRoute
 }
@@ -126,6 +135,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/logs'
     | '/pitch-deck'
+    | '/sent-links'
     | '/settings'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/logs'
     | '/pitch-deck'
+    | '/sent-links'
     | '/settings'
     | '/'
   id:
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/_dashboard/inbox'
     | '/_dashboard/logs'
     | '/_dashboard/pitch-deck'
+    | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/_dashboard/'
   fileRoutesById: FileRoutesById
@@ -195,6 +207,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sent-links': {
+      id: '/_dashboard/sent-links'
+      path: '/sent-links'
+      fullPath: '/sent-links'
+      preLoaderRoute: typeof DashboardSentLinksRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/pitch-deck': {
@@ -249,6 +268,7 @@ interface DashboardRouteChildren {
   DashboardInboxRoute: typeof DashboardInboxRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
+  DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
@@ -260,6 +280,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardInboxRoute: DashboardInboxRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
+  DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
