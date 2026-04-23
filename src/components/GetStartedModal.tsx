@@ -285,13 +285,18 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setEmail("");
     setPhone("");
     setSelectedPack(null);
-    setCustomAmount("");
+    setCustomShowsInput("");
+    setCustomFeeInput("");
     setContractStatus(null);
     setSmsStatus(null);
     setInvoiceStatus(null);
+    setCrossSendStatus(null);
     setPaymentSent(false);
     setPaymentMethod(null);
+    setPaymentSentLinkId(null);
+    setLastStripeUrl(null);
     setContractSent(false);
+    setContractMethod(null);
     setShowExitConfirm(false);
     onClose();
   };
@@ -466,20 +471,36 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 </button>
 
                 {selectedPack === "custom" && (
-                  <div className="mb-3">
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
-                      Custom amount (exc GST)
-                    </label>
-                    <input
-                      type="text"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      placeholder="$15,000"
-                      className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                  <div className="mb-3 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
+                        Number of shows
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={customShowsInput}
+                        onChange={(e) => setCustomShowsInput(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="e.g. 30"
+                        className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
+                        Per show fee (exc GST)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={customFeeInput}
+                        onChange={(e) => setCustomFeeInput(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="e.g. 800"
+                        className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
                     {customExc > 0 && (
-                      <p className="text-[11px] text-[#999] mt-1.5">
-                        ≈ {customShows} shows · {fmt(Math.round(customExc * 1.1))} inc GST
+                      <p className="col-span-2 text-[11px] text-[#999] -mt-1">
+                        {customShows} shows × {fmt(customFee)} = {fmt(customExc)} exc · {fmt(Math.round(customExc * 1.1))} inc GST
                       </p>
                     )}
                   </div>
