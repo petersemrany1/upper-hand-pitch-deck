@@ -76,10 +76,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    // Treat incoming totalFee as inc-GST and derive the exc-GST and GST values
-    const totalIncGst = data.totalFee;
-    const totalExcGst = data.totalFee / 1.1;
-    const gst = totalExcGst * 0.1;
+    // data.totalFee is exc-GST. Forward-calculate from shows × perShowFee.
+    const totalExcGst = data.shows * data.perShowFee;
+    const gst = Math.round(totalExcGst * 0.10);
+    const totalIncGst = totalExcGst + gst;
 
     // Format today as DD/MM/YYYY (en-AU)
     const today = new Date().toLocaleDateString("en-AU");
@@ -99,15 +99,15 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           email: data.to,
           name: data.contactName,
           fields: [
-            { name: "Clinic Name", default_value: data.clinicName },
-            { name: "Clinic Address", default_value: data.clinicAddress || "" },
-            { name: "Date", default_value: today },
-            { name: "Pack Name", default_value: data.packageName },
-            { name: "Number of Shows", default_value: String(data.shows) },
-            { name: "Per Show Fee", default_value: String(Math.round(data.perShowFee)) },
-            { name: "Total exc GST", default_value: String(Math.round(totalExcGst)) },
-            { name: "GST Amount", default_value: String(Math.round(gst)) },
-            { name: "Total inc GST", default_value: String(Math.round(totalIncGst)) },
+            { name: "Clinic Name", value: data.clinicName },
+            { name: "Clinic Address", value: data.clinicAddress || "" },
+            { name: "Date", value: today },
+            { name: "Pack Name", value: data.packageName },
+            { name: "Number of Shows", value: String(data.shows) },
+            { name: "Per Show Fee", value: String(Math.round(data.perShowFee)) },
+            { name: "Total exc GST", value: String(Math.round(totalExcGst)) },
+            { name: "GST Amount", value: String(Math.round(gst)) },
+            { name: "Total inc GST", value: String(Math.round(totalIncGst)) },
           ],
         },
         {
