@@ -432,6 +432,12 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
             {/* ─── STEP 2 ─── */}
             {step === 2 && (
               <div>
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
                 <h3
                   className="text-2xl font-extrabold text-foreground mb-6"
                   style={{ fontFamily: "var(--font-heading)" }}
@@ -517,16 +523,22 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
               </div>
             )}
 
-            {/* ─── STEP 3 — ACTION HUB ─── */}
+            {/* ─── STEP 3 — ACTION HUB / SUMMARY ─── */}
             {step === 3 && (
               <div>
+                <button
+                  onClick={() => setStep(2)}
+                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
                 <h3
                   className="text-2xl font-extrabold text-foreground mb-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Send to Client
+                  Summary
                 </h3>
-                <p className="text-sm text-[#999] mb-5">Review the summary then send the agreement and payment link.</p>
+                <p className="text-sm text-[#999] mb-5">Review the details then send the agreement and payment link.</p>
 
                 {/* Summary card */}
                 <div className="rounded-xl border border-border bg-input/40 p-4 mb-5 text-sm">
@@ -543,7 +555,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     </span>
 
                     <span className="text-[#999]">Per show</span>
-                    <span className="text-foreground font-medium">{fmt(pricePerShow)} + GST</span>
+                    <span className="text-foreground font-medium">{fmt(summaryPerShow)} + GST</span>
                   </div>
 
                   <div className="border-t border-border mt-3 pt-3 grid grid-cols-[110px_1fr] gap-y-1 gap-x-3">
