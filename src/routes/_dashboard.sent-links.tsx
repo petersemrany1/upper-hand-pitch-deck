@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Send, Mail, MessageSquare, ExternalLink, Search, FileText, CreditCard, Trash2, StickyNote, Check, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
-import { sendInvoiceEmail } from "@/utils/resend.functions";
+import { sendInvoiceEmail, sendContractEmail, sendContractSMS } from "@/utils/resend.functions";
 import { createStripeCheckoutSession } from "@/utils/stripe.functions";
 import { recordSentLink, updateSentLinkMethod, deleteSentLink, updateSentLinkNotes } from "@/utils/sent-links.functions";
 
@@ -48,6 +48,8 @@ function SentLinksPage() {
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
+  const sendContractEmailFn = useServerFn(sendContractEmail);
+  const sendContractSMSFn = useServerFn(sendContractSMS);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const recordSentLinkFn = useServerFn(recordSentLink);
   const updateSentLinkMethodFn = useServerFn(updateSentLinkMethod);
@@ -169,6 +171,85 @@ function SentLinksPage() {
       }
 
       setToast({ type: "success", msg: "Resent via " + (method === "email" ? "email" : "SMS") + "." });
+      await load();
+    } catch {
+      setToast({ type: "error", msg: "Something went wrong — please try again." });
+    }
+    setBusyId(null);
+  };
+
+  const resendContract = async (row: SentLink, method: "email" | "sms") => {
+    if (row.kind !== "contract") return;
+    setBusyId(row.id);
+    setToast(null);
+    try {
+      if (method === "email") {
+        if (!row.email) {
+          setToast({ type: "error", msg: "No email on this record." });
+          setBusyId(null);
+          return;
+        }
+        const r = await sendContractEmailFn({
+          data: {
+            to: row.email,
+            clinicName: row.clinic_name,
+            clinicAddress: "",
+            contactName: row.contact_name,
+            phone: row.phone ?? "",
+            packageName: row.package_name,
+            shows: row.shows,
+            perShowFee: Number(row.per_show_fee),
+            totalFee: Number(row.total_exc_gst),
+          },
+        });
+        if (!r.success) {
+          setToast({ type: "error", msg: r.error || "Contract email failed." });
+          setBusyId(null);
+          return;
+        }
+      } else {
+        if (!row.phone) {
+          setToast({ type: "error", msg: "No phone on this record." });
+          setBusyId(null);
+          return;
+        }
+        const r = await sendContractSMSFn({
+          data: {
+            to: row.phone,
+            clinicName: row.clinic_name,
+            clinicAddress: "",
+            contactName: row.contact_name,
+            packageName: row.package_name,
+            shows: row.shows,
+            perShowFee: Number(row.per_show_fee),
+          },
+        });
+        if (!r.success) {
+          setToast({ type: "error", msg: r.error || "Contract SMS failed." });
+          setBusyId(null);
+          return;
+        }
+      }
+
+      await recordSentLinkFn({
+        data: {
+          kind: "contract",
+          clinicName: row.clinic_name,
+          contactName: row.contact_name,
+          email: row.email,
+          phone: row.phone,
+          packageName: row.package_name,
+          shows: row.shows,
+          perShowFee: Number(row.per_show_fee),
+          totalExcGst: Number(row.total_exc_gst),
+          gst: Number(row.gst),
+          totalIncGst: Number(row.total_inc_gst),
+          stripeUrl: null,
+          sendMethod: method,
+        },
+      });
+
+      setToast({ type: "success", msg: "Contract resent via " + (method === "email" ? "email" : "SMS") + "." });
       await load();
     } catch {
       setToast({ type: "error", msg: "Something went wrong — please try again." });
@@ -314,21 +395,38 @@ function SentLinksPage() {
                         <ExternalLink className="w-3.5 h-3.5" /> Open
                       </a>
                     )}
-                    {!isContract && (
+                    {!isContract ? (
                       <>
                         <button
                           onClick={() => resend(r, "email")}
                           disabled={busy || !r.email}
                           className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
                         >
-                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Email"}
+                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Payment (Email)"}
                         </button>
                         <button
                           onClick={() => resend(r, "sms")}
                           disabled={busy || !r.phone}
                           className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
                         >
-                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend SMS"}
+                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Payment (SMS)"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => resendContract(r, "email")}
+                          disabled={busy || !r.email}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-purple-400/60 text-purple-300 hover:bg-purple-500/10 disabled:opacity-40 transition-colors"
+                        >
+                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Contract (Email)"}
+                        </button>
+                        <button
+                          onClick={() => resendContract(r, "sms")}
+                          disabled={busy || !r.phone}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-purple-400/60 text-purple-300 hover:bg-purple-500/10 disabled:opacity-40 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Contract (SMS)"}
                         </button>
                       </>
                     )}

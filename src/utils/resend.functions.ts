@@ -278,6 +278,181 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     }
   });
 
+export const sendContractSMS = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      to: string;
+      clinicName: string;
+      clinicAddress: string;
+      contactName: string;
+      packageName: string;
+      shows: number;
+      perShowFee: number;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const fromNumber = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
+
+    if (!accountSid || !authToken) {
+      const msg = "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be configured";
+      await logError("sendContractSMS", msg, {
+        phone: data.to,
+        clinicName: data.clinicName,
+        stepsToReproduce: "Server env vars missing for Twilio SMS",
+      });
+      return { success: false as const, error: msg };
+    }
+
+    const totalExcGst = data.shows * data.perShowFee;
+    const gst = Math.round(totalExcGst * 0.10);
+    const totalIncGst = totalExcGst + gst;
+    const today = new Date().toLocaleDateString("en-AU");
+
+    // Step 1 — Create DocuSeal submission (no email, we want the URL ourselves)
+    let signingUrl: string | null = null;
+    try {
+      const docusealResponse = await fetch("https://api.docuseal.com/submissions", {
+        method: "POST",
+        headers: {
+          "X-Auth-Token": DOCUSEAL_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          template_id: 3486637,
+          send_email: false,
+          submitters: [
+            {
+              role: "Client",
+              email: data.to,
+              name: data.contactName,
+              values: { "Client Name": data.contactName, "Client Date": today },
+            },
+            {
+              role: "Agency",
+              email: "admin@bold-patients.com",
+              name: "Bold Patients",
+              completed: true,
+              values: {
+                "Agency Date": today,
+                "Clinic Name": data.clinicName,
+                "Clinic Address": data.clinicAddress || "",
+                "Date": today,
+                "Pack Name": data.packageName,
+                "Number of Shows": String(data.shows),
+                "Per Show Fee": String(Math.round(data.perShowFee)),
+                "Total exc GST": String(Math.round(totalExcGst)),
+                "GST Amount": String(Math.round(gst)),
+                "Total inc GST": String(Math.round(totalIncGst)),
+              },
+            },
+          ],
+        }),
+      });
+
+      const docusealResult = await docusealResponse.json();
+      if (!docusealResponse.ok) {
+        await logError("sendContractSMS", "DocuSeal API returned error", {
+          phone: data.to,
+          clinicName: data.clinicName,
+          packageName: data.packageName,
+          rawResponse: docusealResult,
+        });
+        return { success: false as const, error: "Failed to prepare contract" };
+      }
+
+      if (Array.isArray(docusealResult)) {
+        const clientSub = docusealResult.find((s: any) => s.role?.toLowerCase() === "client");
+        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
+      } else if (docusealResult?.submitters) {
+        const clientSub = docusealResult.submitters.find((s: any) => s.role?.toLowerCase() === "client");
+        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
+      }
+
+      if (!signingUrl) {
+        await logError("sendContractSMS", "Could not extract signing URL from DocuSeal response", {
+          phone: data.to,
+          clinicName: data.clinicName,
+          packageName: data.packageName,
+          rawResponse: docusealResult,
+        });
+        return { success: false as const, error: "Could not get signing link — please try again." };
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await logError("sendContractSMS", errMsg, {
+        phone: data.to,
+        clinicName: data.clinicName,
+        packageName: data.packageName,
+      });
+      return { success: false as const, error: "Failed to prepare contract" };
+    }
+
+    // Step 2 — Format AU phone
+    let formattedPhone = data.to.replace(/[\s\-()]/g, "");
+    if (formattedPhone.startsWith("0")) {
+      formattedPhone = "+61" + formattedPhone.slice(1);
+    } else if (!formattedPhone.startsWith("+")) {
+      formattedPhone = "+61" + formattedPhone;
+    }
+
+    const firstName = data.contactName.trim().split(" ")[0] || "there";
+    const message = `Hi ${firstName}, here's your Bold Patients Services Agreement ready to review and sign: ${signingUrl} — any questions, just reply.`;
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          To: formattedPhone,
+          From: fromNumber,
+          Body: message,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        await logError("sendContractSMS", result.message || "Twilio SMS failed", {
+          phone: data.to,
+          formattedPhone,
+          clinicName: data.clinicName,
+          packageName: data.packageName,
+          rawResponse: result,
+        });
+        return { success: false as const, error: result.message || "Failed to send SMS" };
+      }
+
+      // Log successful contract send
+      try {
+        const admin = getAdminClient();
+        await admin.from("contract_logs").insert({
+          clinic_name: data.clinicName,
+          contact_name: data.contactName,
+          email: data.to,
+          package_name: data.packageName,
+          status: "sent",
+        });
+      } catch (logErr) {
+        console.error("Failed to log contract:", logErr);
+      }
+
+      return { success: true as const, sid: result.sid };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await logError("sendContractSMS", errMsg, {
+        phone: data.to,
+        clinicName: data.clinicName,
+        packageName: data.packageName,
+      });
+      return { success: false as const, error: "Request failed" };
+    }
+  });
+
 export const sendInvoiceEmail = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
