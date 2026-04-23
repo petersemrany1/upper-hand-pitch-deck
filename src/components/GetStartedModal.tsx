@@ -325,7 +325,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setSending(false);
   };
 
-
+  const resetAndClose = () => {
     setStep(1);
     setFullName("");
     setClinicName("");
