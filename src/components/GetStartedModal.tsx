@@ -277,7 +277,55 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setSending(false);
   };
 
-  const resetAndClose = () => {
+  // After payment link sent via one channel, allow sending via the other channel
+  // (re-using the same Stripe URL so the recipient gets the same checkout).
+  const handleCrossSendPayment = async () => {
+    if (!paymentMethod || !lastStripeUrl) return;
+    setCrossSendStatus(null);
+    setSending(true);
+    const otherMethod: "email" | "sms" = paymentMethod === "email" ? "sms" : "email";
+    try {
+      if (otherMethod === "sms") {
+        const firstName = fullName.trim().split(" ")[0];
+        const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: lastStripeUrl } });
+        if (!result.success) {
+          setCrossSendStatus({ type: "error", message: result.error || "Could not send SMS — please try again." });
+          setSending(false);
+          return;
+        }
+      } else {
+        const result = await sendInvoiceEmailFn({
+          data: {
+            to: email,
+            clinicName,
+            contactName: fullName,
+            phone,
+            packageName: summaryPackName,
+            amount: fmt(totalIncGst),
+            stripeLink: lastStripeUrl,
+          },
+        });
+        if (!result.success) {
+          setCrossSendStatus({ type: "error", message: result.error || "Could not send email — please try again." });
+          setSending(false);
+          return;
+        }
+      }
+      if (paymentSentLinkId) {
+        await updateSentLinkMethodFn({ data: { id: paymentSentLinkId, method: "both" } });
+      }
+      setPaymentMethod(otherMethod === "sms" ? "sms" : "email");
+      setCrossSendStatus({
+        type: "success",
+        message: "Also sent via " + (otherMethod === "sms" ? "SMS to " + phone : "email to " + email) + ".",
+      });
+    } catch {
+      setCrossSendStatus({ type: "error", message: "Something went wrong — please try again." });
+    }
+    setSending(false);
+  };
+
+
     setStep(1);
     setFullName("");
     setClinicName("");
