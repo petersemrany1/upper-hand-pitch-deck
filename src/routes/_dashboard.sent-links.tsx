@@ -28,6 +28,7 @@ type SentLink = {
   stripe_url: string | null;
   send_method: string;
   created_at: string;
+  notes: string | null;
 };
 
 const fmt = (n: number) => "$" + Math.round(Number(n)).toLocaleString();
