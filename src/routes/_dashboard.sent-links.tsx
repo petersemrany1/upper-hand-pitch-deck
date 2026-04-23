@@ -395,21 +395,38 @@ function SentLinksPage() {
                         <ExternalLink className="w-3.5 h-3.5" /> Open
                       </a>
                     )}
-                    {!isContract && (
+                    {!isContract ? (
                       <>
                         <button
                           onClick={() => resend(r, "email")}
                           disabled={busy || !r.email}
                           className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
                         >
-                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Email"}
+                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Payment (Email)"}
                         </button>
                         <button
                           onClick={() => resend(r, "sms")}
                           disabled={busy || !r.phone}
                           className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-primary text-primary hover:bg-primary/10 disabled:opacity-40 transition-colors"
                         >
-                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend SMS"}
+                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Payment (SMS)"}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => resendContract(r, "email")}
+                          disabled={busy || !r.email}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-purple-400/60 text-purple-300 hover:bg-purple-500/10 disabled:opacity-40 transition-colors"
+                        >
+                          <Mail className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Contract (Email)"}
+                        </button>
+                        <button
+                          onClick={() => resendContract(r, "sms")}
+                          disabled={busy || !r.phone}
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border border-purple-400/60 text-purple-300 hover:bg-purple-500/10 disabled:opacity-40 transition-colors"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> {busy ? "…" : "Resend Contract (SMS)"}
                         </button>
                       </>
                     )}
