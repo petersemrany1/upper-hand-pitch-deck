@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Check, FileText, ArrowLeft } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
 import { sendInvoiceEmail, sendContractEmail } from "../utils/resend.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GetStartedModalProps {
   open: boolean;
@@ -14,13 +15,9 @@ interface GetStartedModalProps {
 
 const STANDARD_PRICE_PER_SHOW = 1100;
 
-// Stripe links are only valid for the standard $1100 price-per-show pricing.
-// If pricePerShow differs, packs become non-standard and we fall back to Custom.
-const STANDARD_STRIPE_LINKS: Record<string, string> = {
-  demo: "https://buy.stripe.com/4gM6oJ7fO1kH2jXc5qffy00",
-  starter: "https://buy.stripe.com/8x2bJ39nW8N9f6JfhCffy01",
-  scale: "https://buy.stripe.com/fZu8wRdEc4wT0bPfhCffy02",
-};
+// Stripe payment links are now stored in Supabase (table: stripe_links),
+// one URL per package id (demo / starter / scale / custom). They are
+// independent of the deck's pricePerShow.
 
 const PACK_DEFS = [
   { id: "demo", name: "Demo", shows: 10 },
