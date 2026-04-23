@@ -374,6 +374,24 @@ export type Database = {
           },
         ]
       }
+      stripe_links: {
+        Row: {
+          package_id: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          package_id: string
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          package_id?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
