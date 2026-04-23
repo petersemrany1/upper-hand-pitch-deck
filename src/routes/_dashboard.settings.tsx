@@ -1,7 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Settings as SettingsIcon, Check, AlertCircle, Loader2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Settings as SettingsIcon, Info } from "lucide-react";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   component: SettingsPage,
@@ -47,71 +45,17 @@ export function loadDeckSettings(): DeckSettings {
     return {
       caseValue: Number(parsed.caseValue) || DEFAULT_SETTINGS.caseValue,
       pricePerShow: Number(parsed.pricePerShow) || DEFAULT_SETTINGS.pricePerShow,
-      convertRate: typeof parsed.convertRate === "string" && parsed.convertRate in CONVERT_RATES ? parsed.convertRate : DEFAULT_SETTINGS.convertRate,
+      convertRate:
+        typeof parsed.convertRate === "string" && parsed.convertRate in CONVERT_RATES
+          ? parsed.convertRate
+          : DEFAULT_SETTINGS.convertRate,
     };
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 
-export const STRIPE_PACKAGES: Array<{ id: string; label: string }> = [
-  { id: "demo", label: "Demo" },
-  { id: "starter", label: "Starter" },
-  { id: "scale", label: "Scale" },
-  { id: "custom", label: "Custom" },
-];
-
-type LinkRow = { package_id: string; url: string };
-
 function SettingsPage() {
-  const [links, setLinks] = useState<Record<string, string>>({
-    demo: "",
-    starter: "",
-    scale: "",
-    custom: "",
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [savedFlash, setSavedFlash] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase.from("stripe_links").select("package_id, url");
-      if (cancelled) return;
-      if (error) {
-        setError("Failed to load Stripe links: " + error.message);
-      } else if (data) {
-        const next: Record<string, string> = { demo: "", starter: "", scale: "", custom: "" };
-        (data as LinkRow[]).forEach((r) => {
-          if (r.package_id in next) next[r.package_id] = r.url ?? "";
-        });
-        setLinks(next);
-      }
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const handleSave = async (packageId: string) => {
-    setSaving(packageId);
-    setError(null);
-    const url = links[packageId]?.trim() ?? "";
-    const { error } = await supabase
-      .from("stripe_links")
-      .upsert({ package_id: packageId, url }, { onConflict: "package_id" });
-    setSaving(null);
-    if (error) {
-      setError("Failed to save: " + error.message);
-      return;
-    }
-    setSavedFlash(packageId);
-    setTimeout(() => setSavedFlash((cur) => (cur === packageId ? null : cur)), 1800);
-  };
-
   return (
     <div className="min-h-screen bg-black px-6 py-10 md:px-10 md:py-12">
       <div className="max-w-3xl mx-auto">
@@ -120,75 +64,32 @@ function SettingsPage() {
             <SettingsIcon className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight" style={{ fontFamily: "var(--font-heading)" }}>
+            <h1
+              className="text-2xl md:text-3xl font-extrabold text-foreground tracking-tight"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
               Settings
             </h1>
-            <p className="text-sm text-[#999] mt-0.5">Manage payment links sent to clinics.</p>
+            <p className="text-sm text-[#999] mt-0.5">
+              Payment links are now generated dynamically.
+            </p>
           </div>
         </div>
 
         <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
-          <h2 className="text-lg font-bold text-foreground mb-1">Stripe Payment Links</h2>
-          <p className="text-sm text-[#999] mb-6">
-            Paste one Stripe payment link per package. These links are sent to clinics via the payment email or SMS.
-          </p>
-
-          {error && (
-            <div className="mb-5 flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{error}</span>
+          <h2 className="text-lg font-bold text-foreground mb-3">Payment Links</h2>
+          <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 text-sm text-foreground">
+            <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+            <div>
+              <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
+              <p className="text-[#CCCCCC] leading-relaxed">
+                When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
+                Session is created for the exact amount of the selected pack — including
+                custom prices. You no longer need to paste Stripe URLs here, and pricing
+                changes will always be reflected in the email/SMS link.
+              </p>
             </div>
-          )}
-
-          {loading ? (
-            <div className="flex items-center gap-2 text-sm text-[#999] py-6">
-              <Loader2 className="w-4 h-4 animate-spin" /> Loading links…
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {STRIPE_PACKAGES.map((pkg) => {
-                const isSaving = saving === pkg.id;
-                const justSaved = savedFlash === pkg.id;
-                const value = links[pkg.id] ?? "";
-                return (
-                  <div key={pkg.id}>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium tracking-wide uppercase">
-                      {pkg.label} — Stripe URL
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="url"
-                        inputMode="url"
-                        spellCheck={false}
-                        value={value}
-                        placeholder="https://buy.stripe.com/…"
-                        onChange={(e) => setLinks((cur) => ({ ...cur, [pkg.id]: e.target.value }))}
-                        className="flex-1 bg-input border border-border rounded-lg px-4 py-3 text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                      <button
-                        onClick={() => handleSave(pkg.id)}
-                        disabled={isSaving}
-                        className="bg-primary text-primary-foreground font-bold text-sm px-5 py-3 rounded-lg disabled:opacity-50 hover:opacity-90 transition-opacity flex items-center gap-2 min-w-[100px] justify-center"
-                      >
-                        {isSaving ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : justSaved ? (
-                          <>
-                            <Check className="w-4 h-4" /> Saved
-                          </>
-                        ) : (
-                          "Save"
-                        )}
-                      </button>
-                    </div>
-                    {!value.trim() && (
-                      <p className="mt-1.5 text-[11px] text-amber-400">No link set — payment emails/SMS for this package will be blocked.</p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          </div>
         </section>
       </div>
     </div>
