@@ -42,12 +42,17 @@ function SentLinksPage() {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const [editingNotesId, setEditingNotesId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
   const sendInvoiceEmailFn = useServerFn(sendInvoiceEmail);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const recordSentLinkFn = useServerFn(recordSentLink);
   const updateSentLinkMethodFn = useServerFn(updateSentLinkMethod);
+  const deleteSentLinkFn = useServerFn(deleteSentLink);
+  const updateSentLinkNotesFn = useServerFn(updateSentLinkNotes);
 
   const load = async () => {
     setLoading(true);
