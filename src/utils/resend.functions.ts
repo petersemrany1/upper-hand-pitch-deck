@@ -84,10 +84,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     // Format today as DD/MM/YYYY (en-AU)
     const today = new Date().toLocaleDateString("en-AU");
 
-    // Template 3486637 only succeeds when all clinic/package/pricing fields are
-    // prefilled on the Client submitter itself. Agency should only complete its
-    // own date field; moving the pricing fields to Agency causes DocuSeal to
-    // reject the template with unknown-field errors.
+    // Template 3486637 was updated in DocuSeal so most contract fields now belong
+    // to the Agency signer, while the Client signer only owns Client Name/Date.
     const docusealPayload = {
       template_id: 3486637,
       send_email: false,
@@ -96,17 +94,10 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           role: "Client",
           email: data.to,
           name: data.contactName,
-          fields: [
-            { name: "Clinic Name", value: data.clinicName },
-            { name: "Clinic Address", value: data.clinicAddress || "" },
-            { name: "Date", value: today },
-            { name: "Pack Name", value: data.packageName },
-            { name: "Number of Shows", value: String(data.shows) },
-            { name: "Per Show Fee", value: String(Math.round(data.perShowFee)) },
-            { name: "Total exc GST", value: String(Math.round(totalExcGst)) },
-            { name: "GST Amount", value: String(Math.round(gst)) },
-            { name: "Total inc GST", value: String(Math.round(totalIncGst)) },
-          ],
+          values: {
+            "Client Name": data.contactName,
+            "Client Date": today,
+          },
         },
         {
           role: "Agency",
@@ -115,6 +106,15 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           completed: true,
           values: {
             "Agency Date": today,
+            "Clinic Name": data.clinicName,
+            "Clinic Address": data.clinicAddress || "",
+            "Date": today,
+            "Pack Name": data.packageName,
+            "Number of Shows": String(data.shows),
+            "Per Show Fee": String(Math.round(data.perShowFee)),
+            "Total exc GST": String(Math.round(totalExcGst)),
+            "GST Amount": String(Math.round(gst)),
+            "Total inc GST": String(Math.round(totalIncGst)),
           },
         },
       ],
