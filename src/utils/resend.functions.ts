@@ -90,7 +90,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          template_id: 3486601,
+          template_id: 3486637,
           send_email: false,
           submitters: [
             {
