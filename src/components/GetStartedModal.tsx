@@ -179,10 +179,10 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         setContractSent(true);
         setStep(3);
       } else {
-        setContractStatus({ type: "error", message: "Something went wrong — please try again or contact peter@gobold.com.au" });
+        setContractStatus({ type: "error", message: "Something went wrong — please try again or contact admin@bold-patients.com" });
       }
     } catch {
-      setContractStatus({ type: "error", message: "Something went wrong — please try again or contact peter@gobold.com.au" });
+      setContractStatus({ type: "error", message: "Something went wrong — please try again or contact admin@bold-patients.com" });
     }
     setSending(false);
   };

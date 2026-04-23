@@ -25,7 +25,8 @@ async function sendViaResend(
 ) {
   try {
     const body: Record<string, unknown> = {
-      from: "Peter Semrany <hello@upperhand.digital>",
+      from: "Bold Patients <admin@bold-patients.com>",
+      reply_to: "admin@bold-patients.com",
       to: [to],
       subject,
       html,
@@ -94,8 +95,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
           submitters: [
             {
               role: "Agency",
-              email: "peter@gobold.com.au",
-              name: "Peter Semrany",
+              email: "admin@bold-patients.com",
+              name: "Bold Patients",
               completed: true,
               values: {
                 "agreement_date": new Date().toLocaleDateString("en-AU"),
@@ -190,9 +191,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         '<hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />',
 
         // Signature
-        '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Peter Semrany</p>',
-        '<p style="margin:2px 0 0;color:#6b7280;font-size:13px;">Bold Patients</p>',
-        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:peter@gobold.com.au" style="color:' + BOLD_BLUE + ';text-decoration:none;">peter@gobold.com.au</a></p>',
+        '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Bold Patients</p>',
+        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:admin@bold-patients.com" style="color:' + BOLD_BLUE + ';text-decoration:none;">admin@bold-patients.com</a></p>',
 
         '</td></tr></table></td></tr></table></body></html>',
       ].join("");
@@ -208,7 +208,8 @@ export const sendContractEmail = createServerFn({ method: "POST" })
             Authorization: "Bearer " + RESEND_API_KEY,
           },
           body: JSON.stringify({
-            from: "Peter Semrany <peter@gobold.com.au>",
+            from: "Bold Patients <admin@bold-patients.com>",
+            reply_to: "admin@bold-patients.com",
             to: [data.to],
             subject: "Your Bold Patients Services Agreement",
             html,
@@ -300,7 +301,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
       data.stripeLink
         ? '<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center"><a href="' + data.stripeLink + '" style="display:inline-block;background:#3b82f6;color:#ffffff;font-size:18px;font-weight:700;text-decoration:none;padding:16px 48px;border-radius:8px;">Pay Now</a></td></tr></table>'
         : "",
-      '<p style="margin:32px 0 0;color:#9ca3af;font-size:12px;text-align:center;">Questions? Reply to this email or contact hello@upperhand.digital</p>',
+      '<p style="margin:32px 0 0;color:#9ca3af;font-size:12px;text-align:center;">Questions? Reply to this email or contact admin@bold-patients.com</p>',
       "</td></tr></table></td></tr></table></body></html>",
     ].join("");
 

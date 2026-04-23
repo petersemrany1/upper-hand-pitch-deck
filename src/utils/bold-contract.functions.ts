@@ -49,8 +49,8 @@ export const sendBoldContractEmail = createServerFn({ method: "POST" })
           submitters: [
             {
               role: "First Party",
-              email: "peter@gobold.com.au",
-              name: "Peter Semrany",
+              email: "admin@bold-patients.com",
+              name: "Bold Patients",
               completed: true,
               values: {
                 agreement_date: data.agreementDate,
@@ -136,9 +136,8 @@ export const sendBoldContractEmail = createServerFn({ method: "POST" })
         '<hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />',
 
         // Signature
-        '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Peter Semrany</p>',
-        '<p style="margin:2px 0 0;color:#6b7280;font-size:13px;">Bold Patients</p>',
-        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:peter@gobold.com.au" style="color:' + BOLD_BLUE + ';text-decoration:none;">peter@gobold.com.au</a></p>',
+        '<p style="margin:0;color:#0f172a;font-size:14px;font-weight:700;">Bold Patients</p>',
+        '<p style="margin:2px 0 0;font-size:13px;"><a href="mailto:admin@bold-patients.com" style="color:' + BOLD_BLUE + ';text-decoration:none;">admin@bold-patients.com</a></p>',
 
         "</td></tr></table></td></tr></table></body></html>",
       ].join("");
@@ -150,7 +149,8 @@ export const sendBoldContractEmail = createServerFn({ method: "POST" })
           Authorization: "Bearer " + RESEND_API_KEY,
         },
         body: JSON.stringify({
-          from: "Peter Semrany <peter@gobold.com.au>",
+          from: "Bold Patients <admin@bold-patients.com>",
+          reply_to: "admin@bold-patients.com",
           to: [data.to],
           subject: "Your Bold Patients Services Agreement",
           html,
