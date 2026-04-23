@@ -682,6 +682,32 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                   </button>
                 </div>
 
+                {/* Cross-send prompt: appears after one channel succeeded so they
+                    can also send via the other channel using the same Stripe URL. */}
+                {paymentSent && paymentMethod && lastStripeUrl && (
+                  <div className="mt-4 rounded-xl border border-border bg-input/40 p-4">
+                    <p className="text-xs text-[#CCCCCC] mb-2">
+                      Also send the payment link via {paymentMethod === "email" ? "SMS" : "email"}?
+                    </p>
+                    <button
+                      onClick={handleCrossSendPayment}
+                      disabled={sending}
+                      className="w-full text-sm font-bold py-2.5 rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                    >
+                      {sending
+                        ? "Sending..."
+                        : paymentMethod === "email"
+                          ? "Also send via SMS to " + phone
+                          : "Also send via email to " + email}
+                    </button>
+                    {crossSendStatus && (
+                      <p className={"text-xs mt-2 text-center font-medium " + (crossSendStatus.type === "success" ? "text-green-400" : "text-red-400")}>
+                        {crossSendStatus.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {contractStatus && (
                   <p className={"text-sm mt-4 text-center font-medium " + (contractStatus.type === "success" ? "text-green-400" : "text-red-400")}>
                     {contractStatus.message}
