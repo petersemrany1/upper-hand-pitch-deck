@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
 import { sendInvoiceEmail, sendContractEmail } from "../utils/resend.functions";
 import { createStripeCheckoutSession } from "../utils/stripe.functions";
+import { recordSentLink, updateSentLinkMethod } from "../utils/sent-links.functions";
 
 interface GetStartedModalProps {
   open: boolean;
@@ -40,22 +41,26 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   // Step 2
   const [selectedPack, setSelectedPack] = useState<string | null>(null);
-  const [customAmount, setCustomAmount] = useState(""); // exc GST for custom
+  const [customShowsInput, setCustomShowsInput] = useState("");
+  const [customFeeInput, setCustomFeeInput] = useState("");
 
   // Completion tracking
   const [paymentSent, setPaymentSent] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"email" | "sms" | null>(null);
+  const [paymentSentLinkId, setPaymentSentLinkId] = useState<string | null>(null);
+  const [lastStripeUrl, setLastStripeUrl] = useState<string | null>(null);
   const [contractSent, setContractSent] = useState(false);
+  const [contractMethod, setContractMethod] = useState<"email" | null>(null);
 
   const [sending, setSending] = useState(false);
   const [smsStatus, setSmsStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [invoiceStatus, setInvoiceStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [contractStatus, setContractStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [crossSendStatus, setCrossSendStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const phoneClean = phone.replace(/\s/g, '');
   const phoneValid = /^(\+?61|0)4[0-9]{8}$/.test(phoneClean);
   const step1Valid = fullName.trim() && clinicName.trim() && clinicAddress.trim() && email.trim() && phoneValid;
-  const step2Valid = selectedPack !== null && (selectedPack !== "custom" || customAmount.trim());
 
   // Pack totals are exc GST. inc GST = exc * 1.1.
   const PACKS = PACK_DEFS.map((p) => ({
@@ -65,16 +70,22 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
 
   const chosenPack = PACKS.find((p) => p.id === selectedPack);
 
-  // Custom: user enters exc-GST amount; shows = ceil(custom/perShow) for display.
-  const customExc = (() => {
-    const n = parseInt(customAmount.replace(/[^0-9]/g, ""), 10);
+  // Custom: user enters number of shows + per-show fee separately.
+  const customShows = (() => {
+    const n = parseInt(customShowsInput.replace(/[^0-9]/g, ""), 10);
     return Number.isFinite(n) ? n : 0;
   })();
-  const customShows = customExc > 0 && pricePerShow > 0 ? Math.round(customExc / pricePerShow) : 0;
+  const customFee = (() => {
+    const n = parseInt(customFeeInput.replace(/[^0-9]/g, ""), 10);
+    return Number.isFinite(n) ? n : 0;
+  })();
+  const customExc = customShows * customFee;
 
   const isCustom = selectedPack === "custom";
+  const step2Valid = selectedPack !== null && (selectedPack !== "custom" || (customShows > 0 && customFee > 0));
   const summaryShows = isCustom ? customShows : chosenPack?.shows ?? 0;
   const summaryPackName = isCustom ? "Custom" : chosenPack?.name ?? "";
+  const summaryPerShow = isCustom ? customFee : pricePerShow;
   const totalExcGst = isCustom ? customExc : chosenPack?.totalExc ?? 0;
   const gst = Math.round(totalExcGst * 0.10);
   const totalIncGst = totalExcGst + gst;
@@ -83,11 +94,16 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
   const sendContractEmailFn = useServerFn(sendContractEmail);
   const createCheckoutFn = useServerFn(createStripeCheckoutSession);
   const sendSMSFn = useServerFn(sendPaymentLinkSMS);
+  const recordSentLinkFn = useServerFn(recordSentLink);
+  const updateSentLinkMethodFn = useServerFn(updateSentLinkMethod);
 
   // Creates a fresh Stripe Checkout Session for the selected pack (inc GST).
   const buildCheckoutUrl = async (
     setStatus: (s: { type: "success" | "error"; message: string } | null) => void
   ): Promise<string | null> => {
+    // Reuse the URL from this modal session so cross-send (after sending one channel)
+    // gives the recipient the exact same Stripe link.
+    if (lastStripeUrl) return lastStripeUrl;
     if (!totalIncGst || totalIncGst < 1) {
       setStatus({ type: "error", message: "Please select a pack with a valid amount before sending." });
       return null;
@@ -106,11 +122,59 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         setStatus({ type: "error", message: result.error || "Could not generate payment link — please try again." });
         return null;
       }
+      setLastStripeUrl(result.url);
       return result.url;
     } catch {
       setStatus({ type: "error", message: "Could not generate payment link — please try again." });
       return null;
     }
+  };
+
+  const recordPaymentSend = async (method: "email" | "sms", checkoutUrl: string) => {
+    try {
+      const result = await recordSentLinkFn({
+        data: {
+          kind: "payment_link",
+          clinicName,
+          contactName: fullName,
+          email: email || null,
+          phone: phone || null,
+          packageName: summaryPackName,
+          shows: summaryShows,
+          perShowFee: summaryPerShow,
+          totalExcGst,
+          gst,
+          totalIncGst,
+          stripeUrl: checkoutUrl,
+          sendMethod: method,
+        },
+      });
+      if (result.success) setPaymentSentLinkId(result.id);
+    } catch {
+      // Non-fatal: history record failed but the send itself succeeded.
+    }
+  };
+
+  const recordContractSend = async () => {
+    try {
+      await recordSentLinkFn({
+        data: {
+          kind: "contract",
+          clinicName,
+          contactName: fullName,
+          email: email || null,
+          phone: phone || null,
+          packageName: summaryPackName,
+          shows: summaryShows,
+          perShowFee: summaryPerShow,
+          totalExcGst,
+          gst,
+          totalIncGst,
+          stripeUrl: null,
+          sendMethod: "email",
+        },
+      });
+    } catch {}
   };
 
   const handleRequestInvoice = async () => {
@@ -134,8 +198,10 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         },
       });
       if (result.success) {
+        await recordPaymentSend("email", checkoutUrl);
         setPaymentSent(true);
         setPaymentMethod("email");
+        setCrossSendStatus(null);
         setStep(3);
       } else {
         setInvoiceStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
@@ -158,8 +224,10 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
       const firstName = fullName.trim().split(" ")[0];
       const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: checkoutUrl } });
       if (result.success) {
+        await recordPaymentSend("sms", checkoutUrl);
         setPaymentSent(true);
         setPaymentMethod("sms");
+        setCrossSendStatus(null);
         setStep(3);
       } else {
         setSmsStatus({ type: "error", message: result.error || "Something went wrong — please try again." });
@@ -196,13 +264,63 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         },
       });
       if (result.success) {
+        await recordContractSend();
         setContractStatus({ type: "success", message: "We've sent the agreement to " + email + "." });
         setContractSent(true);
+        setContractMethod("email");
       } else {
         setContractStatus({ type: "error", message: "Something went wrong — please try again or contact admin@bold-patients.com" });
       }
     } catch {
       setContractStatus({ type: "error", message: "Something went wrong — please try again or contact admin@bold-patients.com" });
+    }
+    setSending(false);
+  };
+
+  // After payment link sent via one channel, allow sending via the other channel
+  // (re-using the same Stripe URL so the recipient gets the same checkout).
+  const handleCrossSendPayment = async () => {
+    if (!paymentMethod || !lastStripeUrl) return;
+    setCrossSendStatus(null);
+    setSending(true);
+    const otherMethod: "email" | "sms" = paymentMethod === "email" ? "sms" : "email";
+    try {
+      if (otherMethod === "sms") {
+        const firstName = fullName.trim().split(" ")[0];
+        const result = await sendSMSFn({ data: { to: phone, firstName, stripeLink: lastStripeUrl } });
+        if (!result.success) {
+          setCrossSendStatus({ type: "error", message: result.error || "Could not send SMS — please try again." });
+          setSending(false);
+          return;
+        }
+      } else {
+        const result = await sendInvoiceEmailFn({
+          data: {
+            to: email,
+            clinicName,
+            contactName: fullName,
+            phone,
+            packageName: summaryPackName,
+            amount: fmt(totalIncGst),
+            stripeLink: lastStripeUrl,
+          },
+        });
+        if (!result.success) {
+          setCrossSendStatus({ type: "error", message: result.error || "Could not send email — please try again." });
+          setSending(false);
+          return;
+        }
+      }
+      if (paymentSentLinkId) {
+        await updateSentLinkMethodFn({ data: { id: paymentSentLinkId, method: "both" } });
+      }
+      setPaymentMethod(otherMethod === "sms" ? "sms" : "email");
+      setCrossSendStatus({
+        type: "success",
+        message: "Also sent via " + (otherMethod === "sms" ? "SMS to " + phone : "email to " + email) + ".",
+      });
+    } catch {
+      setCrossSendStatus({ type: "error", message: "Something went wrong — please try again." });
     }
     setSending(false);
   };
@@ -215,13 +333,18 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
     setEmail("");
     setPhone("");
     setSelectedPack(null);
-    setCustomAmount("");
+    setCustomShowsInput("");
+    setCustomFeeInput("");
     setContractStatus(null);
     setSmsStatus(null);
     setInvoiceStatus(null);
+    setCrossSendStatus(null);
     setPaymentSent(false);
     setPaymentMethod(null);
+    setPaymentSentLinkId(null);
+    setLastStripeUrl(null);
     setContractSent(false);
+    setContractMethod(null);
     setShowExitConfirm(false);
     onClose();
   };
@@ -357,6 +480,12 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
             {/* ─── STEP 2 ─── */}
             {step === 2 && (
               <div>
+                <button
+                  onClick={() => setStep(1)}
+                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
                 <h3
                   className="text-2xl font-extrabold text-foreground mb-6"
                   style={{ fontFamily: "var(--font-heading)" }}
@@ -396,20 +525,36 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 </button>
 
                 {selectedPack === "custom" && (
-                  <div className="mb-3">
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
-                      Custom amount (exc GST)
-                    </label>
-                    <input
-                      type="text"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      placeholder="$15,000"
-                      className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                  <div className="mb-3 grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
+                        Number of shows
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={customShowsInput}
+                        onChange={(e) => setCustomShowsInput(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="e.g. 30"
+                        className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
+                        Per show fee (exc GST)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={customFeeInput}
+                        onChange={(e) => setCustomFeeInput(e.target.value.replace(/[^0-9]/g, ""))}
+                        placeholder="e.g. 800"
+                        className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
                     {customExc > 0 && (
-                      <p className="text-[11px] text-[#999] mt-1.5">
-                        ≈ {customShows} shows · {fmt(Math.round(customExc * 1.1))} inc GST
+                      <p className="col-span-2 text-[11px] text-[#999] -mt-1">
+                        {customShows} shows × {fmt(customFee)} = {fmt(customExc)} exc · {fmt(Math.round(customExc * 1.1))} inc GST
                       </p>
                     )}
                   </div>
@@ -426,16 +571,22 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
               </div>
             )}
 
-            {/* ─── STEP 3 — ACTION HUB ─── */}
+            {/* ─── STEP 3 — ACTION HUB / SUMMARY ─── */}
             {step === 3 && (
               <div>
+                <button
+                  onClick={() => setStep(2)}
+                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                >
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </button>
                 <h3
                   className="text-2xl font-extrabold text-foreground mb-2"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
-                  Send to Client
+                  Summary
                 </h3>
-                <p className="text-sm text-[#999] mb-5">Review the summary then send the agreement and payment link.</p>
+                <p className="text-sm text-[#999] mb-5">Review the details then send the agreement and payment link.</p>
 
                 {/* Summary card */}
                 <div className="rounded-xl border border-border bg-input/40 p-4 mb-5 text-sm">
@@ -452,7 +603,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     </span>
 
                     <span className="text-[#999]">Per show</span>
-                    <span className="text-foreground font-medium">{fmt(pricePerShow)} + GST</span>
+                    <span className="text-foreground font-medium">{fmt(summaryPerShow)} + GST</span>
                   </div>
 
                   <div className="border-t border-border mt-3 pt-3 grid grid-cols-[110px_1fr] gap-y-1 gap-x-3">
@@ -530,6 +681,32 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     </div>
                   </button>
                 </div>
+
+                {/* Cross-send prompt: appears after one channel succeeded so they
+                    can also send via the other channel using the same Stripe URL. */}
+                {paymentSent && paymentMethod && lastStripeUrl && (
+                  <div className="mt-4 rounded-xl border border-border bg-input/40 p-4">
+                    <p className="text-xs text-[#CCCCCC] mb-2">
+                      Also send the payment link via {paymentMethod === "email" ? "SMS" : "email"}?
+                    </p>
+                    <button
+                      onClick={handleCrossSendPayment}
+                      disabled={sending}
+                      className="w-full text-sm font-bold py-2.5 rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                    >
+                      {sending
+                        ? "Sending..."
+                        : paymentMethod === "email"
+                          ? "Also send via SMS to " + phone
+                          : "Also send via email to " + email}
+                    </button>
+                    {crossSendStatus && (
+                      <p className={"text-xs mt-2 text-center font-medium " + (crossSendStatus.type === "success" ? "text-green-400" : "text-red-400")}>
+                        {crossSendStatus.message}
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {contractStatus && (
                   <p className={"text-sm mt-4 text-center font-medium " + (contractStatus.type === "success" ? "text-green-400" : "text-red-400")}>

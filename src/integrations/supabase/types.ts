@@ -274,6 +274,63 @@ export type Database = {
         }
         Relationships: []
       }
+      sent_links: {
+        Row: {
+          clinic_name: string
+          contact_name: string
+          created_at: string
+          email: string | null
+          gst: number
+          id: string
+          kind: string
+          package_name: string
+          per_show_fee: number
+          phone: string | null
+          send_method: string
+          shows: number
+          stripe_url: string | null
+          total_exc_gst: number
+          total_inc_gst: number
+          updated_at: string
+        }
+        Insert: {
+          clinic_name: string
+          contact_name: string
+          created_at?: string
+          email?: string | null
+          gst?: number
+          id?: string
+          kind?: string
+          package_name: string
+          per_show_fee?: number
+          phone?: string | null
+          send_method?: string
+          shows?: number
+          stripe_url?: string | null
+          total_exc_gst?: number
+          total_inc_gst?: number
+          updated_at?: string
+        }
+        Update: {
+          clinic_name?: string
+          contact_name?: string
+          created_at?: string
+          email?: string | null
+          gst?: number
+          id?: string
+          kind?: string
+          package_name?: string
+          per_show_fee?: number
+          phone?: string | null
+          send_method?: string
+          shows?: number
+          stripe_url?: string | null
+          total_exc_gst?: number
+          total_inc_gst?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sms_messages: {
         Row: {
           body: string | null
