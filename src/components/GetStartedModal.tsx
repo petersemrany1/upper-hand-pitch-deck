@@ -6,6 +6,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { sendPaymentLinkSMS } from "../utils/twilio.functions";
 import { sendInvoiceEmail, sendContractEmail } from "../utils/resend.functions";
 import { createStripeCheckoutSession } from "../utils/stripe.functions";
+import { recordSentLink, updateSentLinkMethod } from "../utils/sent-links.functions";
 
 interface GetStartedModalProps {
   open: boolean;
