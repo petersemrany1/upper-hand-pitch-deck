@@ -257,7 +257,7 @@ function SentLinksPage() {
     setBusyId(null);
   };
 
-
+  const handleDelete = async (id: string) => {
     setBusyId(id);
     setToast(null);
     try {
