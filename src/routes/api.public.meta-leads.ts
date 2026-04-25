@@ -103,7 +103,7 @@ export const Route = createFileRoute("/api/public/meta-leads")({
 
         const { data, error } = await supabaseAdmin
           .from("meta_leads")
-          .insert(row)
+          .insert([row])
           .select("id")
           .single();
 
