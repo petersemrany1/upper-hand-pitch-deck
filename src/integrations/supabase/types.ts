@@ -274,6 +274,54 @@ export type Database = {
         }
         Relationships: []
       }
+      meta_leads: {
+        Row: {
+          ad_name: string | null
+          ad_set_name: string | null
+          campaign_name: string | null
+          created_at: string
+          creative_time: string | null
+          email: string | null
+          first_name: string | null
+          funding_preference: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          raw_payload: Json | null
+          updated_at: string
+        }
+        Insert: {
+          ad_name?: string | null
+          ad_set_name?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          creative_time?: string | null
+          email?: string | null
+          first_name?: string | null
+          funding_preference?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          raw_payload?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          ad_name?: string | null
+          ad_set_name?: string | null
+          campaign_name?: string | null
+          created_at?: string
+          creative_time?: string | null
+          email?: string | null
+          first_name?: string | null
+          funding_preference?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          raw_payload?: Json | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sent_links: {
         Row: {
           clinic_name: string
