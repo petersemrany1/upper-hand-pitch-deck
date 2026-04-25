@@ -21,6 +21,7 @@ import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
+import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -81,6 +82,11 @@ const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => DashboardRoute,
 } as any)
+const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
+  id: '/api/public/meta-leads',
+  path: '/api/public/meta-leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
+  '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/': typeof DashboardIndexRoute
+  '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/': typeof DashboardIndexRoute
+  '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -137,6 +146,7 @@ export interface FileRouteTypes {
     | '/pitch-deck'
     | '/sent-links'
     | '/settings'
+    | '/api/public/meta-leads'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/sent-links'
     | '/settings'
     | '/'
+    | '/api/public/meta-leads'
   id:
     | '__root__'
     | '/_dashboard'
@@ -164,12 +175,14 @@ export interface FileRouteTypes {
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/_dashboard/'
+    | '/api/public/meta-leads'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -258,6 +271,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/api/public/meta-leads': {
+      id: '/api/public/meta-leads'
+      path: '/api/public/meta-leads'
+      fullPath: '/api/public/meta-leads'
+      preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -293,6 +313,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
