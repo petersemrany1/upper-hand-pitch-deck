@@ -17,6 +17,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.setti
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
+import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
@@ -62,6 +63,11 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardLeadsRoute = DashboardLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardInboxRoute = DashboardInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
+  '/leads': typeof DashboardLeadsRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sent-links': typeof DashboardSentLinksRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
+  '/leads': typeof DashboardLeadsRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sent-links': typeof DashboardSentLinksRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
+  '/_dashboard/leads': typeof DashboardLeadsRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clinics'
     | '/inbox'
+    | '/leads'
     | '/logs'
     | '/pitch-deck'
     | '/sent-links'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clinics'
     | '/inbox'
+    | '/leads'
     | '/logs'
     | '/pitch-deck'
     | '/sent-links'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/_dashboard/clients'
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
+    | '/_dashboard/leads'
     | '/_dashboard/logs'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sent-links'
@@ -243,6 +255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardLogsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/leads': {
+      id: '/_dashboard/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof DashboardLeadsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/inbox': {
       id: '/_dashboard/inbox'
       path: '/inbox'
@@ -286,6 +305,7 @@ interface DashboardRouteChildren {
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
+  DashboardLeadsRoute: typeof DashboardLeadsRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
@@ -298,6 +318,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
+  DashboardLeadsRoute: DashboardLeadsRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
