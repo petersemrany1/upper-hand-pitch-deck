@@ -70,25 +70,25 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
   }, [clinicId]);
 
   return (
-    <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
+    <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
       <div className="flex items-center justify-between mb-3">
-        <div className="text-[10px] uppercase font-bold" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>LATEST SMS</div>
+        <div className="text-[10px] uppercase font-bold" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>LATEST SMS</div>
         {(threadId || clinicPhone) && (
           <Link
             to="/inbox"
             search={threadId ? { thread: threadId } : { phone: clinicPhone ?? undefined }}
             className="inline-flex items-center gap-1 text-[10px] font-semibold hover:underline"
-            style={{ color: "#2D6BE4" }}
+            style={{ color: "#f4522d" }}
           >
             Open in Inbox <ArrowRight className="w-3 h-3" />
           </Link>
         )}
       </div>
 
-      {loading && <p className="text-xs" style={{ color: "#444" }}>Loading…</p>}
+      {loading && <p className="text-xs" style={{ color: "#666" }}>Loading…</p>}
 
       {!loading && !latest && !clinicPhone && (
-        <p className="text-xs" style={{ color: "#444" }}>No phone on file.</p>
+        <p className="text-xs" style={{ color: "#666" }}>No phone on file.</p>
       )}
 
       {!loading && !latest && clinicPhone && (
@@ -96,7 +96,7 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
           to="/inbox"
           search={{ phone: clinicPhone }}
           className="flex items-center gap-2 text-xs hover:underline"
-          style={{ color: "#888" }}
+          style={{ color: "#999" }}
         >
           <MessageSquare className="w-3.5 h-3.5" />
           Send first SMS to {clinicPhone}
@@ -105,10 +105,10 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
 
       {!loading && latest && (
         <div className="space-y-1">
-          <div className="text-[10px] uppercase tracking-wider" style={{ color: "#555" }}>
+          <div className="text-[10px] uppercase tracking-wider" style={{ color: "#666" }}>
             {latest.direction === "outbound" ? "You" : "Them"} · {fmtTime(latest.createdAt)}
           </div>
-          <p className="text-xs line-clamp-2" style={{ color: "#ccc" }}>
+          <p className="text-xs line-clamp-2" style={{ color: "#999" }}>
             {latest.body || "(media)"}
           </p>
         </div>

@@ -150,26 +150,26 @@ export function CallReviewPopup({
   return (
     <div
       className="fixed bottom-4 right-4 z-[60] w-[420px] rounded-lg shadow-2xl"
-      style={{ background: "#0f0f12", border: "1px solid #2a2a30" }}
+      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
     >
       <div
         className="flex items-center justify-between px-4 py-3"
-        style={{ borderBottom: "1px solid #1f1f24" }}
+        style={{ borderBottom: "1px solid #ebebeb" }}
       >
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4" style={{ color: "#60a5fa" }} />
           <div>
-            <div className="text-xs font-semibold text-white">
+            <div className="text-xs font-semibold text-[#111111]">
               {editing ? "Edit AI Summary" : "AI Call Summary"}
             </div>
-            <div className="text-[11px]" style={{ color: "#777" }}>
+            <div className="text-[11px]" style={{ color: "#666" }}>
               {clinicName}
             </div>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-white/5"
+          className="p-1 rounded hover:bg-[#ffffff]/5"
           aria-label="Close"
         >
           <X className="w-4 h-4" style={{ color: "#666" }} />
@@ -184,7 +184,7 @@ export function CallReviewPopup({
                 value={outcome}
                 onChange={(e) => setOutcome(e.target.value)}
                 className="w-full rounded px-2 py-1.5 text-xs border-0"
-                style={{ background: "#1a1a1e", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#fff" }}
               >
                 {OUTCOME_OPTIONS.map((o) => (
                   <option key={o} value={o}>{o}</option>
@@ -197,7 +197,7 @@ export function CallReviewPopup({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full rounded px-2 py-1.5 text-xs border-0 resize-none"
-                style={{ background: "#1a1a1e", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#fff" }}
               />
             </EditField>
             <EditField label="Next Action">
@@ -206,7 +206,7 @@ export function CallReviewPopup({
                 onChange={(e) => setNextAction(e.target.value)}
                 rows={2}
                 className="w-full rounded px-2 py-1.5 text-xs border-0 resize-none"
-                style={{ background: "#1a1a1e", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#fff" }}
               />
             </EditField>
             <div className="grid grid-cols-2 gap-2">
@@ -216,7 +216,7 @@ export function CallReviewPopup({
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
                   className="w-full rounded px-2 py-1.5 text-xs border-0"
-                  style={{ background: "#1a1a1e", color: "#fff" }}
+                  style={{ background: "#f9f9f9", color: "#fff" }}
                 />
               </EditField>
               <EditField label="Follow-up Time">
@@ -226,7 +226,7 @@ export function CallReviewPopup({
                   onChange={(e) => setFollowUpTime(e.target.value)}
                   placeholder="e.g. 9am or 9–12"
                   className="w-full rounded px-2 py-1.5 text-xs border-0"
-                  style={{ background: "#1a1a1e", color: "#fff" }}
+                  style={{ background: "#f9f9f9", color: "#fff" }}
                 />
               </EditField>
             </div>
@@ -236,7 +236,7 @@ export function CallReviewPopup({
                 value={contactName}
                 onChange={(e) => setContactName(e.target.value)}
                 className="w-full rounded px-2 py-1.5 text-xs border-0"
-                style={{ background: "#1a1a1e", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#fff" }}
               />
             </EditField>
           </>
@@ -260,7 +260,7 @@ export function CallReviewPopup({
 
       <div
         className="flex gap-2 px-4 py-3"
-        style={{ borderTop: "1px solid #1f1f24" }}
+        style={{ borderTop: "1px solid #ebebeb" }}
       >
         <Button
           size="sm"
@@ -282,7 +282,7 @@ export function CallReviewPopup({
           size="sm"
           variant="outline"
           className="flex-1"
-          style={{ borderColor: "#2a2a30", color: "#ccc", background: "transparent" }}
+          style={{ borderColor: "#ebebeb", color: "#999", background: "transparent" }}
           onClick={() => setEditing((v) => !v)}
           disabled={saving}
         >
@@ -321,7 +321,7 @@ function Field({
         {label}
       </div>
       <div
-        className={multiline ? "text-white leading-relaxed" : "text-white"}
+        className={multiline ? "text-[#111111] leading-relaxed" : "text-[#111111]"}
         style={{ wordBreak: "break-word" }}
       >
         {value}
@@ -335,7 +335,7 @@ function EditField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <div
         className="text-[10px] uppercase tracking-wide mb-1"
-        style={{ color: "#888" }}
+        style={{ color: "#999" }}
       >
         {label}
       </div>

@@ -101,21 +101,21 @@ export function IncomingCallDialog() {
     >
       <div
         className="w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl"
-        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       >
         <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-400">
           Incoming call
         </div>
-        <div className="mb-1 text-2xl font-bold text-white">
+        <div className="mb-1 text-2xl font-bold text-[#111111]">
           {incomingFrom || "Unknown caller"}
         </div>
-        <div className="mb-8 text-sm text-zinc-400">Ringing…</div>
+        <div className="mb-8 text-sm text-[#999]">Ringing…</div>
 
         <div className="flex items-center justify-center gap-8">
           <button
             type="button"
             onClick={reject}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition hover:bg-red-500 active:scale-95"
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-[#111111] shadow-lg transition hover:bg-red-500 active:scale-95"
             aria-label="Reject call"
           >
             <PhoneOff className="h-7 w-7" />
@@ -123,14 +123,14 @@ export function IncomingCallDialog() {
           <button
             type="button"
             onClick={answer}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:bg-emerald-500 active:scale-95 animate-pulse"
+            className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-[#111111] shadow-lg transition hover:bg-emerald-500 active:scale-95 animate-pulse"
             aria-label="Answer call"
           >
             <Phone className="h-7 w-7" />
           </button>
         </div>
 
-        <div className="mt-6 flex justify-center gap-12 text-xs text-zinc-500">
+        <div className="mt-6 flex justify-center gap-12 text-xs text-[#999]">
           <span>Decline</span>
           <span>Answer</span>
         </div>

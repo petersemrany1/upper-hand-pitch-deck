@@ -175,7 +175,7 @@ function DashboardHome() {
     // Contracts (no clinic_id stored on contract_logs, so non-clickable)
     for (const c of stats.recent_contracts ?? []) {
       activityItems.push({
-        color: "#2D6BE4",
+        color: "#f4522d",
         text: `Contract sent to ${c.clinic_name}`,
         time: relativeTime(c.created_at),
         sortDate: c.created_at,
@@ -257,15 +257,15 @@ function DashboardHome() {
       label: "TOTAL CONTACTS",
       value: totalContacts,
       icon: Users,
-      gradient: "linear-gradient(135deg, #0f1629 0%, #0d0d0d 100%)",
-      borderColor: "#2D6BE4",
-      iconColor: "#2D6BE4",
+      gradient: "linear-gradient(135deg, #0f1629 0%, #ffffff 100%)",
+      borderColor: "#f4522d",
+      iconColor: "#f4522d",
     },
     {
       label: "CALLS THIS WEEK",
       value: callsThisWeek,
       icon: Phone,
-      gradient: "linear-gradient(135deg, #0a1f0f 0%, #0d0d0d 100%)",
+      gradient: "linear-gradient(135deg, #0a1f0f 0%, #ffffff 100%)",
       borderColor: "#22c55e",
       iconColor: "#22c55e",
     },
@@ -273,7 +273,7 @@ function DashboardHome() {
       label: "CONTRACTS SENT",
       value: contractsSent,
       icon: FileText,
-      gradient: "linear-gradient(135deg, #1a0f29 0%, #0d0d0d 100%)",
+      gradient: "linear-gradient(135deg, #1a0f29 0%, #ffffff 100%)",
       borderColor: "#a855f7",
       iconColor: "#a855f7",
     },
@@ -285,7 +285,7 @@ function DashboardHome() {
     >
       <div
         className="md:col-span-4 rounded-lg flex items-center justify-between px-4 py-3 md:py-0"
-        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       >
         <div>
           <div style={{ fontSize: 18, color: "#fff", fontWeight: 600 }}>{getGreeting()}, Peter</div>
@@ -331,7 +331,7 @@ function DashboardHome() {
 
         <div className="sm:col-span-3 rounded-lg flex flex-col overflow-hidden min-h-[240px] md:min-h-0" style={{ background: "transparent" }}>
           <div className="px-4 pt-3 pb-2 flex items-center gap-4">
-            <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
+            <span style={{ fontSize: 10, color: "#f4522d", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
             <span
               style={{
                 fontSize: 10,
@@ -347,14 +347,14 @@ function DashboardHome() {
           <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
             <FollowUpsDue followUps={followUps} />
             {activity.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
+              <div style={{ fontSize: 12, color: "#666", padding: "16px 0" }}>No recent activity</div>
             ) : (
               activity.map((item, i) => {
                 const row = (
                   <>
                     <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
                     <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
-                    <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
+                    <span className="shrink-0" style={{ fontSize: 11, color: "#666" }}>{item.time}</span>
                   </>
                 );
                 return item.clinicId ? (
@@ -362,7 +362,7 @@ function DashboardHome() {
                     key={i}
                     to="/clinics"
                     search={{ clinic: item.clinicId }}
-                    className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+                    className="flex items-center gap-3 hover:bg-[#ffffff]/5 rounded -mx-1 px-1"
                     style={{ height: 36 }}
                   >
                     {row}
@@ -381,16 +381,16 @@ function DashboardHome() {
       <div
         className="md:row-span-2 rounded-lg flex flex-col overflow-hidden"
         style={{
-          background: "#0f0f12",
-          border: "1px solid #1f1f23",
-          borderLeft: "3px solid #2D6BE4",
+          background: "#ffffff",
+          border: "1px solid #ebebeb",
+          borderLeft: "3px solid #f4522d",
         }}
       >
         <div className="px-4 pt-4 pb-3">
           <div
             style={{
               fontSize: 10,
-              color: "#2D6BE4",
+              color: "#f4522d",
               letterSpacing: "0.2em",
               fontWeight: 600,
               marginBottom: 4,
@@ -398,7 +398,7 @@ function DashboardHome() {
           >
             QUICK DIAL
           </div>
-          <p style={{ fontSize: 11, color: "#555", marginBottom: 12 }}>Call a clinic directly</p>
+          <p style={{ fontSize: 11, color: "#666", marginBottom: 12 }}>Call a clinic directly</p>
 
           <div
             className="mb-3 rounded px-3 py-2 flex items-center justify-between gap-3"
@@ -412,7 +412,7 @@ function DashboardHome() {
                 <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
                 {dialerStateLabel}
               </div>
-              <div style={{ fontSize: 10, color: dialerStatus === "failed" ? "#fca5a5" : "#777", marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: dialerStatus === "failed" ? "#fca5a5" : "#666", marginTop: 4 }}>
                 {dialerStatus === "failed"
                   ? "Connection failed — click to retry"
                   : dialerStatus === "ready"
@@ -427,7 +427,7 @@ function DashboardHome() {
                   setCallMessage(null);
                   retry();
                 }}
-                className="border-0 text-white text-xs px-3"
+                className="border-0 text-[#111111] text-xs px-3"
                 style={{ background: "#ef4444", height: 32 }}
               >
                 Retry
@@ -440,13 +440,13 @@ function DashboardHome() {
             value={dialNumber}
             onChange={(e) => setDialNumber(e.target.value)}
             className="mb-2 border-0 text-sm"
-            style={{ background: "#1a1a1a", color: "#fff", height: 38 }}
+            style={{ background: "#f9f9f9", color: "#fff", height: 38 }}
           />
 
           <Button
             onClick={handleQuickDial}
             disabled={!dialNumber || calling || (dialerStatus === "connecting" && !isCallActive)}
-            className="w-full border-0 text-white font-semibold text-sm"
+            className="w-full border-0 text-[#111111] font-semibold text-sm"
             style={{ background: isCallActive ? "#ef4444" : "#22c55e", height: 48 }}
           >
             {calling ? (
@@ -470,7 +470,7 @@ function DashboardHome() {
               style={{
                 fontSize: 11,
                 color: dialerStatus === "failed" ? "#fca5a5" : "#999",
-                background: "#1a1a1a",
+                background: "#f9f9f9",
               }}
             >
               {callMessage}
@@ -486,7 +486,7 @@ function DashboardHome() {
           <div
             style={{
               fontSize: 10,
-              color: "#555",
+              color: "#666",
               letterSpacing: "0.15em",
               marginBottom: 8,
               fontWeight: 500,
@@ -495,13 +495,13 @@ function DashboardHome() {
             RECENT CALLS
           </div>
           {recentCalls.length === 0 ? (
-            <div style={{ fontSize: 11, color: "#333" }}>No recent calls</div>
+            <div style={{ fontSize: 11, color: "#666" }}>No recent calls</div>
           ) : (
             <div className="space-y-2">
               {recentCalls.map((c, i) => (
                 <div key={i} className="flex items-center justify-between" style={{ fontSize: 11 }}>
                   <span style={{ color: "#999" }}>{c.name}</span>
-                  <span style={{ color: "#333" }}>{c.duration} · {c.time}</span>
+                  <span style={{ color: "#666" }}>{c.duration} · {c.time}</span>
                 </div>
               ))}
             </div>
@@ -518,13 +518,13 @@ function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
   if (followUps.length === 0) return null;
 
   return (
-    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
+    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
       {followUps.map((f) => (
         <Link
           key={f.id}
           to="/clinics"
           search={{ clinic: f.id }}
-          className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+          className="flex items-center gap-3 hover:bg-[#ffffff]/5 rounded -mx-1 px-1"
           style={{ height: 32 }}
         >
           <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />

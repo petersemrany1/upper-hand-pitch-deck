@@ -41,25 +41,25 @@ function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "#09090b" }}>
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "#f7f7f5" }}>
       <div
         className="w-full max-w-sm rounded-2xl p-8 shadow-2xl"
-        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       >
         <div className="mb-6 flex flex-col items-center text-center">
           <div
             className="mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-            style={{ background: "#1a1a1e", color: "#2D6BE4" }}
+            style={{ background: "#f9f9f9", color: "#f4522d" }}
           >
             <Lock className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold text-white">Upper Hand Portal</h1>
-          <p className="mt-1 text-sm text-zinc-400">Sign in to continue</p>
+          <h1 className="text-xl font-bold text-[#111111]">Upper Hand Portal</h1>
+          <p className="mt-1 text-sm text-[#999]">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
               Email
             </label>
             <input
@@ -68,12 +68,12 @@ function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+              className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
               Password
             </label>
             <input
@@ -82,15 +82,15 @@ function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+              className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+              style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
             />
           </div>
 
           {error && (
             <div
               className="rounded-md px-3 py-2 text-sm text-red-300"
-              style={{ background: "#3f1a1a", border: "1px solid #5a1f1f" }}
+              style={{ background: "#fef2f2", border: "1px solid #fef2f2" }}
             >
               {error}
             </div>
@@ -99,8 +99,8 @@ function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
-            style={{ background: "#2D6BE4" }}
+            className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-[#111111] transition active:scale-[0.99] disabled:opacity-50"
+            style={{ background: "#f4522d" }}
           >
             {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
             Sign in
@@ -108,11 +108,11 @@ function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-xs">
-          <a href="/reset-password" className="text-zinc-400 hover:text-zinc-200">
+          <a href="/reset-password" className="text-[#999] hover:text-[#666]">
             Forgot password?
           </a>
         </p>
-        <p className="mt-4 text-center text-xs text-zinc-600">
+        <p className="mt-4 text-center text-xs text-[#666]">
           Access is invite-only. Contact your administrator if you need an account.
         </p>
       </div>

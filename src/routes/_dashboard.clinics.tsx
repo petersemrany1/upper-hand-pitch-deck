@@ -83,19 +83,19 @@ const PIPELINE_STAGES = [
 const NOT_APPLICABLE_STAGES = new Set(["Not Applicable"]);
 
 const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
-  "TEST": { bg: "#1e3a5f", text: "#60a5fa" },
-  "Not Started": { bg: "#27272a", text: "#a1a1aa" },
-  "Contacted — No Answer": { bg: "#1e293b", text: "#94a3b8" },
-  "Contacted — Left Voicemail": { bg: "#1e293b", text: "#94a3b8" },
-  "Contacted — Gatekeeper": { bg: "#431407", text: "#fb923c" },
-  "Contacted — Call Me Back": { bg: "#451a03", text: "#fbbf24" },
-  "Call Back — Specific Time": { bg: "#451a03", text: "#fbbf24" },
-  "Contacted — Not Interested": { bg: "#450a0a", text: "#f87171" },
-  "Zoom Set": { bg: "#2e1065", text: "#c084fc" },
-  "Zoom Completed": { bg: "#1e3a5f", text: "#60a5fa" },
+  "TEST": { bg: "#eff6ff", text: "#60a5fa" },
+  "Not Started": { bg: "#ebebeb", text: "#999999" },
+  "Contacted — No Answer": { bg: "#ebebeb", text: "#666666" },
+  "Contacted — Left Voicemail": { bg: "#ebebeb", text: "#666666" },
+  "Contacted — Gatekeeper": { bg: "#fff1ee", text: "#fb923c" },
+  "Contacted — Call Me Back": { bg: "#fffbeb", text: "#fbbf24" },
+  "Call Back — Specific Time": { bg: "#fffbeb", text: "#fbbf24" },
+  "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
+  "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
+  "Zoom Completed": { bg: "#eff6ff", text: "#60a5fa" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
-  "Lost": { bg: "#3b0a0a", text: "#dc2626" },
-  "Not Applicable": { bg: "#1a1a1a", text: "#555" },
+  "Lost": { bg: "#fef2f2", text: "#dc2626" },
+  "Not Applicable": { bg: "#f9f9f9", text: "#666" },
 };
 
 // Outcome options by contact type
@@ -825,16 +825,16 @@ function ClinicsPage() {
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#555" }} />
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#666" }} />
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ background: "#09090b" }}>
+    <div className="h-full flex flex-col overflow-hidden" style={{ background: "#f7f7f5" }}>
       {/* Today's Actions Panel */}
       {todayActions.length > 0 && (
-        <div style={{ borderBottom: "1px solid #1a1a1a" }}>
+        <div style={{ borderBottom: "1px solid #f9f9f9" }}>
           <button
             onClick={() => setTodayExpanded(!todayExpanded)}
             className="w-full flex items-center gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors"
@@ -849,11 +849,11 @@ function ClinicsPage() {
               {todayActions.map((c) => {
                 const action = getNextActionText(c, lastContacts[c.id] || null);
                 return (
-                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-3 rounded" style={{ background: "#1a1a1a" }}>
+                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-3 rounded" style={{ background: "#f9f9f9" }}>
                     <button onClick={() => openDetail(c)} className="text-xs font-semibold hover:underline truncate" style={{ color: "#fff", minWidth: 120 }}>{c.clinic_name}</button>
                     <span className="text-[11px] flex-1 truncate" style={{ color: "#f59e0b" }}>{action.text}</span>
                     {c.phone && (
-                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call now">
+                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#ffffff]/5" title="Call now">
                         <PhoneCall className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />
                       </button>
                     )}
@@ -866,20 +866,20 @@ function ClinicsPage() {
       )}
 
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
+      <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#555" }} />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#666" }} />
           <Input
             placeholder="Search clinics..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 border-0 text-sm"
-            style={{ background: "#1a1a1a", color: "#fff", height: 36 }}
+            style={{ background: "#f9f9f9", color: "#fff", height: 36 }}
           />
         </div>
         <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
         <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
-        <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>
+        <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#fff" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
         <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
@@ -896,7 +896,7 @@ function ClinicsPage() {
           {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
         </Button>
         <CallReviewInbox />
-        <span className="text-xs ml-auto" style={{ color: "#555" }}>
+        <span className="text-xs ml-auto" style={{ color: "#666" }}>
           {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
         </span>
       </div>
@@ -912,11 +912,11 @@ function ClinicsPage() {
               <button
                 onClick={() => toggleState(state)}
                 className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/[0.02] transition-colors"
-                style={{ borderBottom: "1px solid #1a1a1a" }}
+                style={{ borderBottom: "1px solid #f9f9f9" }}
               >
-                {isCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#555" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#555" }} />}
-                <span className="text-xs font-semibold" style={{ color: "#2D6BE4", letterSpacing: "0.1em" }}>{abbr}</span>
-                <span className="text-[10px]" style={{ color: "#555" }}>({stateClinics.length})</span>
+                {isCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#666" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#666" }} />}
+                <span className="text-xs font-semibold" style={{ color: "#f4522d", letterSpacing: "0.1em" }}>{abbr}</span>
+                <span className="text-[10px]" style={{ color: "#666" }}>({stateClinics.length})</span>
               </button>
               {!isCollapsed && (
                 <div>
@@ -956,7 +956,7 @@ function ClinicsPage() {
                                 onClick={() => handleCall(c)}
                                 disabled={phoneInvalid}
                                 className="flex items-center gap-1 text-[11px] hover:brightness-125 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                                style={{ color: phoneInvalid ? "#888" : "#22c55e" }}
+                                style={{ color: phoneInvalid ? "#999" : "#22c55e" }}
                                 title={phoneInvalid ? "Invalid Australian phone number — cannot dial" : "Call"}
                               >
                                 {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
@@ -965,7 +965,7 @@ function ClinicsPage() {
                               {phoneInvalid && (
                                 <span
                                   className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1 py-0.5 rounded uppercase"
-                                  style={{ background: "#450a0a", color: "#f87171" }}
+                                  style={{ background: "#fef2f2", color: "#f87171" }}
                                   title="Phone number cannot be dialled"
                                 >
                                   <AlertCircle className="w-2.5 h-2.5" />
@@ -973,10 +973,10 @@ function ClinicsPage() {
                                 </span>
                               )}
                             </div>
-                          ) : <span style={{ color: "#222" }} className="text-[11px]">—</span>}
+                          ) : <span style={{ color: "#999" }} className="text-[11px]">—</span>}
                         </div>
                         {/* Latest Note */}
-                        <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: notePreview ? "#9ca3af" : "#222" }}>
+                        <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: notePreview ? "#666666" : "#999" }}>
                           {notePreview || "—"}
                         </div>
                         {/* Stage */}
@@ -986,22 +986,22 @@ function ClinicsPage() {
                           </span>
                         </div>
                         {/* Next Action */}
-                        <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: nextAction.overdue ? "#ef4444" : "#888" }}>
+                        <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: nextAction.overdue ? "#ef4444" : "#999" }}>
                           {nextAction.text}
                         </div>
                         {/* Actions */}
                         <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
                           {c.phone && !phoneInvalid && (
-                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-white/5" title="Call">
+                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#ffffff]/5" title="Call">
                               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
                             </button>
                           )}
                           {c.email && (
-                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-white/5" title="Email">
+                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-[#ffffff]/5" title="Email">
                               <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
                             </a>
                           )}
-                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-white/5" title="Log">
+                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-[#ffffff]/5" title="Log">
                             <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
                           </button>
                         </div>
@@ -1020,11 +1020,11 @@ function ClinicsPage() {
             <button
               onClick={() => setNaCollapsed(!naCollapsed)}
               className="w-full flex items-center gap-2 px-4 py-2 hover:bg-white/[0.02] transition-colors"
-              style={{ borderBottom: "1px solid #1a1a1a" }}
+              style={{ borderBottom: "1px solid #f9f9f9" }}
             >
-              {naCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#555" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#555" }} />}
-              <span className="text-xs font-semibold" style={{ color: "#555", letterSpacing: "0.1em" }}>NOT APPLICABLE</span>
-              <span className="text-[10px]" style={{ color: "#555" }}>({notApplicableFiltered.length})</span>
+              {naCollapsed ? <ChevronRight className="w-3 h-3" style={{ color: "#666" }} /> : <ChevronDown className="w-3 h-3" style={{ color: "#666" }} />}
+              <span className="text-xs font-semibold" style={{ color: "#666", letterSpacing: "0.1em" }}>NOT APPLICABLE</span>
+              <span className="text-[10px]" style={{ color: "#666" }}>({notApplicableFiltered.length})</span>
             </button>
             {!naCollapsed && (
               <div>
@@ -1039,15 +1039,15 @@ function ClinicsPage() {
                       style={{ height: 44, borderBottom: "1px solid #111" }}
                     >
                       <div className="w-[180px] shrink-0 px-3 truncate">
-                        <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#aaa" }}>{c.clinic_name}</button>
+                        <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#999" }}>{c.clinic_name}</button>
                       </div>
-                      <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#555" }}>{c.city || "—"}</div>
-                      <div className="w-[140px] shrink-0 px-2 text-[11px]" style={{ color: "#555" }}>{c.phone || "—"}</div>
-                      <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: "#555" }}>{notePreview || "—"}</div>
+                      <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#666" }}>{c.city || "—"}</div>
+                      <div className="w-[140px] shrink-0 px-2 text-[11px]" style={{ color: "#666" }}>{c.phone || "—"}</div>
+                      <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: "#666" }}>{notePreview || "—"}</div>
                       <div className="w-[130px] shrink-0 px-2">
                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
                       </div>
-                      <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#555" }}>—</div>
+                      <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#666" }}>—</div>
                       <div className="w-[70px] shrink-0 px-2" />
                     </div>
                   );
@@ -1058,7 +1058,7 @@ function ClinicsPage() {
         )}
 
         {filtered.length === 0 && (
-          <div className="text-center py-12" style={{ color: "#333", fontSize: 13 }}>No clinics found.</div>
+          <div className="text-center py-12" style={{ color: "#666", fontSize: 13 }}>No clinics found.</div>
         )}
       </div>
 
@@ -1068,27 +1068,27 @@ function ClinicsPage() {
           <div className="absolute inset-0 bg-black/60" />
           <div
             className="relative w-full max-w-md h-full overflow-y-auto"
-            style={{ background: "#09090b", borderLeft: "1px solid #1f1f23" }}
+            style={{ background: "#f7f7f5", borderLeft: "1px solid #ebebeb" }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-5 space-y-4">
               {/* Close button */}
               <div className="flex justify-end">
-                <button onClick={closeDetail} className="p-1 rounded hover:bg-white/5">
+                <button onClick={closeDetail} className="p-1 rounded hover:bg-[#ffffff]/5">
                   <X className="w-4 h-4" style={{ color: "#666" }} />
                 </button>
               </div>
 
               {/* ===== SECTION 1: CLINIC INFO ===== */}
-              <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
-                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>CLINIC INFO</div>
+              <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
+                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>CLINIC INFO</div>
 
                 <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>{selectedClinic.clinic_name}</h2>
                 <p className="text-xs mb-1" style={{ color: "#666" }}>
                   {selectedClinic.city && `${selectedClinic.city}, `}{selectedClinic.state}
                 </p>
                 {selectedClinic.website && (
-                  <a href={selectedClinic.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mb-3 text-xs hover:underline" style={{ color: "#2D6BE4" }}>
+                  <a href={selectedClinic.website} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 mb-3 text-xs hover:underline" style={{ color: "#f4522d" }}>
                     <ExternalLink className="w-3 h-3" /> Website
                   </a>
                 )}
@@ -1098,7 +1098,7 @@ function ClinicsPage() {
                   const action = getNextActionText(selectedClinic, contacts[0] || null);
                   if (action.text === "—") return null;
                   return (
-                    <div className="rounded-lg p-3 mb-3 flex items-center gap-2" style={{ background: action.overdue ? "#451a03" : "#172554", border: `1px solid ${action.overdue ? "#92400e" : "#1e40af"}` }}>
+                    <div className="rounded-lg p-3 mb-3 flex items-center gap-2" style={{ background: action.overdue ? "#fffbeb" : "#eff6ff", border: `1px solid ${action.overdue ? "#92400e" : "#3b82f6"}` }}>
                       <Clock className="w-4 h-4 shrink-0" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa" }} />
                       <div>
                         <div className="text-[10px] uppercase font-bold" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa", letterSpacing: "0.1em" }}>NEXT ACTION</div>
@@ -1110,44 +1110,44 @@ function ClinicsPage() {
 
                 <div className="space-y-3">
                   <FieldRow label="Owner">
-                    <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                   </FieldRow>
                   <FieldRow label="Phone">
-                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                   </FieldRow>
                   <FieldRow label="Email">
-                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                   </FieldRow>
                   <FieldRow label="Stage">
-                    <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
+                    <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#f9f9f9", color: "#fff" }}>
                       {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </FieldRow>
                   <FieldRow label="Follow Up">
-                    <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                   </FieldRow>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <div className="text-[10px] uppercase font-semibold" style={{ color: "#555", letterSpacing: "0.12em" }}>Notes</div>
+                      <div className="text-[10px] uppercase font-semibold" style={{ color: "#666", letterSpacing: "0.12em" }}>Notes</div>
                       <div className="text-[10px] font-medium" style={{ color: notesSaveState === "saved" ? "#10b981" : notesSaveState === "saving" ? "#f59e0b" : "transparent", transition: "color 200ms" }}>
                         {notesSaveState === "saving" ? "Saving…" : notesSaveState === "saved" ? "Saved" : "—"}
                       </div>
                     </div>
-                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} onBlur={() => { void flushPendingNotes(); }} rows={3} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} placeholder="Add notes..." />
+                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} onBlur={() => { void flushPendingNotes(); }} rows={3} className="border-0 text-xs resize-none" style={{ background: "#f9f9f9", color: "#fff" }} placeholder="Add notes..." />
                   </div>
                 </div>
               </div>
 
               {/* ===== SECTION 2: LOG ACTIVITY ===== */}
-              <div className="rounded-lg p-4" style={{ background: "#0f1117", border: "1px solid #1e293b" }}>
-                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>LOG ACTIVITY</div>
-                <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#2D6BE4", color: "#fff" }}>
+              <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
+                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>LOG ACTIVITY</div>
+                <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#f4522d", color: "#fff" }}>
                   <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log Activity
                 </Button>
                 <Button
                   onClick={openBoldModal}
                   className="w-full border-0 text-xs font-semibold mt-2"
-                  style={{ background: "#2020E8", color: "#fff" }}
+                  style={{ background: "#f4522d", color: "#fff" }}
                 >
                   <Send className="w-3.5 h-3.5 mr-1.5" /> Send Bold Contract
                 </Button>
@@ -1157,13 +1157,13 @@ function ClinicsPage() {
               <ClinicSmsPreview clinicId={selectedClinic.id} clinicPhone={selectedClinic.phone} />
 
               {/* ===== SECTION 3: ACTIVITY TIMELINE ===== */}
-              <div className="rounded-lg p-4" style={{ background: "#111114", border: "1px solid #1f1f23" }}>
-                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#2D6BE4", letterSpacing: "0.15em" }}>ACTIVITY TIMELINE</div>
+              <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
+                <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>ACTIVITY TIMELINE</div>
                 {contacts.length === 0 ? (
-                  <p className="text-xs" style={{ color: "#333" }}>No activity logged yet.</p>
+                  <p className="text-xs" style={{ color: "#666" }}>No activity logged yet.</p>
                 ) : (
                   <div className="relative pl-4">
-                    <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ background: "#222" }} />
+                    <div className="absolute left-[7px] top-2 bottom-2 w-px" style={{ background: "#999" }} />
                     <div className="space-y-4">
                       {contacts.map((ct) => {
                         const emoji = TYPE_EMOJI[ct.contact_type] || "📝";
@@ -1228,35 +1228,35 @@ function ClinicsPage() {
       {showLogModal && selectedClinic && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowLogModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#0f0f12", border: "1px solid #1f1f23" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold mb-4" style={{ color: "#fff" }}>Log Activity — {selectedClinic.clinic_name}</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Contact Type</label>
-                <select value={logType} onChange={(e) => handleTypeChange(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Contact Type</label>
+                <select value={logType} onChange={(e) => handleTypeChange(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#fff" }}>
                   {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Outcome</label>
-                <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#1a1a1a", color: "#fff" }}>
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Outcome</label>
+                <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#fff" }}>
                   {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Notes</label>
-                <Textarea value={logNotes} onChange={(e) => setLogNotes(e.target.value)} rows={2} className="border-0 text-xs resize-none" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Notes</label>
+                <Textarea value={logNotes} onChange={(e) => setLogNotes(e.target.value)} rows={2} className="border-0 text-xs resize-none" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               {needsDateTimePicker && (
                 <>
                   <div>
-                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>
                       {logOutcome === "Spoke — Zoom Set" ? "Zoom Date" : "Call Back Date"}
                     </label>
-                    <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                    <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>
                       {isSpecificTimeRange ? "Time Window (e.g. 9am–12pm)" : "Time"}
                     </label>
                     {isSpecificTimeRange ? (
@@ -1266,20 +1266,20 @@ function ClinicsPage() {
                         onChange={(e) => setLogNextTime(e.target.value)}
                         placeholder="9am–12pm"
                         className="border-0 text-xs h-8"
-                        style={{ background: "#1a1a1a", color: "#fff" }}
+                        style={{ background: "#f9f9f9", color: "#fff" }}
                       />
                     ) : (
-                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                     )}
                   </div>
                 </>
               )}
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Owner Name</label>
-                <Input value={logOwnerName} onChange={(e) => setLogOwnerName(e.target.value)} placeholder="Clinic owner name" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Owner Name</label>
+                <Input value={logOwnerName} onChange={(e) => setLogOwnerName(e.target.value)} placeholder="Clinic owner name" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleLogActivity} className="flex-1 border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>Save</Button>
+                <Button onClick={handleLogActivity} className="flex-1 border-0 text-xs" style={{ background: "#f4522d", color: "#fff" }}>Save</Button>
                 <Button onClick={() => setShowLogModal(false)} variant="ghost" className="text-xs" style={{ color: "#666" }}>Cancel</Button>
               </div>
             </div>
@@ -1291,63 +1291,63 @@ function ClinicsPage() {
       {showBoldModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !boldSending && setShowBoldModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "#0f0f12", border: "1px solid #1f1f23" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
               <span className="text-base font-extrabold tracking-tight" style={{ color: "#fff" }}>BOLD</span>
-              <span className="text-base font-extrabold tracking-tight" style={{ color: "#2020E8" }}>PATIENTS</span>
-              <span className="ml-auto text-[10px] uppercase" style={{ color: "#555", letterSpacing: "0.1em" }}>Send Contract</span>
+              <span className="text-base font-extrabold tracking-tight" style={{ color: "#f4522d" }}>PATIENTS</span>
+              <span className="ml-auto text-[10px] uppercase" style={{ color: "#666", letterSpacing: "0.1em" }}>Send Contract</span>
             </div>
 
             <div className="space-y-3">
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Clinic Name</label>
-                <Input value={boldClinicName} onChange={(e) => setBoldClinicName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Clinic Name</label>
+                <Input value={boldClinicName} onChange={(e) => setBoldClinicName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Clinic Address</label>
-                <Input value={boldClinicAddress} onChange={(e) => setBoldClinicAddress(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Clinic Address</label>
+                <Input value={boldClinicAddress} onChange={(e) => setBoldClinicAddress(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Date</label>
-                <Input type="date" value={boldDate} onChange={(e) => setBoldDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Date</label>
+                <Input type="date" value={boldDate} onChange={(e) => setBoldDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Pack Name</label>
-                <Input value={boldPackName} onChange={(e) => setBoldPackName(e.target.value)} placeholder="e.g. Custom 5 Pack" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Pack Name</label>
+                <Input value={boldPackName} onChange={(e) => setBoldPackName(e.target.value)} placeholder="e.g. Custom 5 Pack" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Number of Shows</label>
-                  <Input type="number" min="0" value={boldShows} onChange={(e) => setBoldShows(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Number of Shows</label>
+                  <Input type="number" min="0" value={boldShows} onChange={(e) => setBoldShows(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                 </div>
                 <div>
-                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Per Show Fee ($)</label>
-                  <Input type="number" min="0" value={boldPerShowFee} onChange={(e) => setBoldPerShowFee(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                  <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Per Show Fee ($)</label>
+                  <Input type="number" min="0" value={boldPerShowFee} onChange={(e) => setBoldPerShowFee(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
                 </div>
               </div>
 
-              <div className="rounded-md p-3 space-y-1.5" style={{ background: "#0a0a0d", border: "1px solid #1f1f23" }}>
+              <div className="rounded-md p-3 space-y-1.5" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: "#888" }}>Total exc GST</span>
+                  <span style={{ color: "#999" }}>Total exc GST</span>
                   <span className="font-semibold" style={{ color: "#fff" }}>${boldTotalExGst.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span style={{ color: "#888" }}>GST (10%)</span>
+                  <span style={{ color: "#999" }}>GST (10%)</span>
                   <span className="font-semibold" style={{ color: "#fff" }}>${boldGstAmount.toLocaleString()}</span>
                 </div>
-                <div className="flex justify-between text-sm pt-1.5" style={{ borderTop: "1px solid #1f1f23" }}>
+                <div className="flex justify-between text-sm pt-1.5" style={{ borderTop: "1px solid #ebebeb" }}>
                   <span className="font-bold" style={{ color: "#fff" }}>Total inc GST</span>
-                  <span className="font-extrabold" style={{ color: "#2020E8" }}>${boldTotalIncGst.toLocaleString()}</span>
+                  <span className="font-extrabold" style={{ color: "#f4522d" }}>${boldTotalIncGst.toLocaleString()}</span>
                 </div>
               </div>
 
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Client Name</label>
-                <Input value={boldClientName} onChange={(e) => setBoldClientName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Client Name</label>
+                <Input value={boldClientName} onChange={(e) => setBoldClientName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
               <div>
-                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#555", letterSpacing: "0.1em" }}>Client Email</label>
-                <Input type="email" value={boldClientEmail} onChange={(e) => setBoldClientEmail(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+                <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Client Email</label>
+                <Input type="email" value={boldClientEmail} onChange={(e) => setBoldClientEmail(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               </div>
 
               {boldStatus && (
@@ -1368,7 +1368,7 @@ function ClinicsPage() {
                   onClick={handleSendBoldContract}
                   disabled={!boldValid || boldSending}
                   className="flex-1 border-0 text-xs font-semibold"
-                  style={{ background: "#2020E8", color: "#fff", opacity: !boldValid || boldSending ? 0.5 : 1 }}
+                  style={{ background: "#f4522d", color: "#fff", opacity: !boldValid || boldSending ? 0.5 : 1 }}
                 >
                   {boldSending ? (
                     <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Sending…</>
@@ -1387,17 +1387,17 @@ function ClinicsPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowAddModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#0f0f12", border: "1px solid #1f1f23" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold mb-4" style={{ color: "#fff" }}>Add Clinic</h3>
             <div className="space-y-3">
-              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clinic name *" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-              <Input value={newState} onChange={(e) => setNewState(e.target.value)} placeholder="State" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-              <Input value={newCity} onChange={(e) => setNewCity(e.target.value)} placeholder="City" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-              <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Phone" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
-              <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} placeholder="Website" className="border-0 text-xs h-8" style={{ background: "#1a1a1a", color: "#fff" }} />
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clinic name *" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+              <Input value={newState} onChange={(e) => setNewState(e.target.value)} placeholder="State" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+              <Input value={newCity} onChange={(e) => setNewCity(e.target.value)} placeholder="City" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+              <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Phone" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+              <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} placeholder="Website" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddClinic} className="flex-1 border-0 text-xs" style={{ background: "#2D6BE4", color: "#fff" }}>Add</Button>
+                <Button onClick={handleAddClinic} className="flex-1 border-0 text-xs" style={{ background: "#f4522d", color: "#fff" }}>Add</Button>
                 <Button onClick={() => setShowAddModal(false)} variant="ghost" className="text-xs" style={{ color: "#666" }}>Cancel</Button>
               </div>
             </div>
@@ -1423,14 +1423,14 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
 
   return (
     <div className="relative group">
-      <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#2D6BE4" }} />
-      <div className="rounded-lg p-3" style={{ background: "#1a1a1a" }}>
+      <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#f4522d" }} />
+      <div className="rounded-lg p-3" style={{ background: "#f9f9f9" }}>
         <div className="flex items-center justify-between mb-1">
           <span className="text-[11px] font-semibold" style={{ color: "#fff" }}>
             {emoji} {contact.contact_type}
           </span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px]" style={{ color: "#555" }}>{formatDateTime(contact.created_at)}</span>
+            <span className="text-[10px]" style={{ color: "#666" }}>{formatDateTime(contact.created_at)}</span>
             {!confirmDelete && (
               <button
                 onClick={() => setConfirmDelete(true)}
@@ -1443,18 +1443,18 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
           </div>
         </div>
         {confirmDelete && (
-          <div className="flex items-center gap-2 mb-1 p-1.5 rounded" style={{ background: "#1c1c1c" }}>
+          <div className="flex items-center gap-2 mb-1 p-1.5 rounded" style={{ background: "#ffffff" }}>
             <span className="text-[10px]" style={{ color: "#f87171" }}>Delete this entry?</span>
             <button onClick={handleDelete} disabled={deleting} className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "#dc2626", color: "#fff" }}>
               {deleting ? "..." : "Yes"}
             </button>
-            <button onClick={() => setConfirmDelete(false)} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#333", color: "#999" }}>No</button>
+            <button onClick={() => setConfirmDelete(false)} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#666", color: "#999" }}>No</button>
           </div>
         )}
         {contact.outcome && <div className="text-[11px] mb-1" style={{ color: "#999" }}>{contact.outcome}</div>}
-        {contact.notes && <div className="text-xs" style={{ color: "#888" }}>{contact.notes}</div>}
+        {contact.notes && <div className="text-xs" style={{ color: "#999" }}>{contact.notes}</div>}
         {waitingOn && (
-          <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#172554", color: "#60a5fa" }}>
+          <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#eff6ff", color: "#60a5fa" }}>
             {waitingOn}
           </div>
         )}
@@ -1466,7 +1466,7 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: "#555", letterSpacing: "0.12em" }}>{label}</div>
+      <div className="text-[10px] uppercase font-semibold mb-1" style={{ color: "#666", letterSpacing: "0.12em" }}>{label}</div>
       {children}
     </div>
   );
@@ -1478,7 +1478,7 @@ function FilterDropdown({ label, options, value, onChange }: { label: string; op
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className="rounded px-2 py-1.5 text-xs border-0"
-      style={{ background: "#1a1a1a", color: value ? "#fff" : "#666", minWidth: 90 }}
+      style={{ background: "#f9f9f9", color: value ? "#fff" : "#666", minWidth: 90 }}
     >
       <option value="">{label}</option>
       {options.map((o) => <option key={o} value={o}>{o}</option>)}

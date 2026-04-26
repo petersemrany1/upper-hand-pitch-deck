@@ -48,8 +48,8 @@ const STEPS = [
 type StepKey = typeof STEPS[number]["key"];
 
 const COLORS = {
-  bg: "#09090b", card: "#0f0f12", line: "#1f1f23", text: "#e4e4e7", muted: "#71717a",
-  blue: "#2D6BE4", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
+  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#666666",
+  blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
 };
 
 function statusColor(s: string | null) {
@@ -139,7 +139,7 @@ function SalesCallPortal() {
   return (
     <div className="h-full flex" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav */}
-      <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#0a0a0c", borderRight: `1px solid ${COLORS.line}` }}>
+      <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `1px solid ${COLORS.line}` }}>
         <div className="px-4 py-4 border-b" style={{ borderColor: COLORS.line }}>
           <div className="text-[10px] uppercase tracking-widest" style={{ color: COLORS.muted }}>Sales Call</div>
           <div className="text-sm font-bold mt-0.5">Framework</div>
@@ -155,7 +155,7 @@ function SalesCallPortal() {
                 onClick={() => setStep(s.key)}
                 className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
                 style={{
-                  background: isActive ? "#15151a" : "transparent",
+                  background: isActive ? "#f9f9f9" : "transparent",
                   borderLeft: isActive ? `3px solid ${special ? COLORS.gold : COLORS.green}` : "3px solid transparent",
                 }}
               >
@@ -163,7 +163,7 @@ function SalesCallPortal() {
                   className="inline-flex items-center justify-center rounded-full"
                   style={{
                     width: 18, height: 18,
-                    background: isActive ? (special ? COLORS.gold : COLORS.green) : isDone ? "transparent" : "#27272a",
+                    background: isActive ? (special ? COLORS.gold : COLORS.green) : isDone ? "transparent" : "#ebebeb",
                     boxShadow: isActive ? `0 0 0 4px ${special ? "rgba(251,191,36,0.15)" : "rgba(16,185,129,0.15)"}` : "none",
                     animation: isActive ? "pulse 2s ease-in-out infinite" : "none",
                   }}
@@ -171,7 +171,7 @@ function SalesCallPortal() {
                   {isDone && !isActive && <Check className="h-3 w-3" style={{ color: COLORS.muted }} />}
                 </span>
                 <span className="text-[11px] font-bold tracking-wider" style={{
-                  color: isActive ? (special ? COLORS.gold : "#fff") : isDone ? COLORS.muted : "#a1a1aa",
+                  color: isActive ? (special ? COLORS.gold : "#fff") : isDone ? COLORS.muted : "#999999",
                 }}>
                   {s.label}{special ? " ⭐" : ""}
                 </span>
@@ -198,7 +198,7 @@ function SalesCallPortal() {
       </main>
 
       {/* RIGHT */}
-      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 320, background: "#0a0a0c", borderLeft: `1px solid ${COLORS.line}` }}>
+      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 320, background: "#ffffff", borderLeft: `1px solid ${COLORS.line}` }}>
         <RightPanel
           active={active}
           leads={filtered}
@@ -261,7 +261,7 @@ function StepContent({
           <button
             onClick={() => onAdvance("mindset")}
             className="mt-8 px-8 py-3 rounded-md font-bold text-sm tracking-wide transition-transform hover:scale-105"
-            style={{ background: COLORS.green, color: "#062018" }}
+            style={{ background: COLORS.green, color: "#ecfdf5" }}
           >
             I'M READY →
           </button>
@@ -329,7 +329,7 @@ function StepContent({
           <textarea
             placeholder="Write down everything they tell you. Word for word. You will use their exact words in AMPLIFICATION and AUDIOBOOK."
             className="w-full text-sm rounded-md p-3 outline-none"
-            style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 140 }}
+            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 140 }}
           />
         </Section>
 
@@ -361,7 +361,7 @@ function StepContent({
           <textarea
             placeholder="Write your amplification sentence here before you say it out loud."
             className="w-full text-sm rounded-md p-3 outline-none"
-            style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }}
+            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }}
           />
         </Section>
         <NextBtn onClick={() => onAdvance("amplification")} />
@@ -479,7 +479,7 @@ function NextBtn({ onClick, gold }: { onClick: () => void; gold?: boolean }) {
   return (
     <div className="mt-6 flex justify-end">
       <button onClick={onClick} className="px-5 py-2 rounded-md font-bold text-xs tracking-wider"
-        style={{ background: gold ? COLORS.gold : COLORS.green, color: gold ? "#3a2e0d" : "#062018" }}>
+        style={{ background: gold ? COLORS.gold : COLORS.green, color: gold ? "#fffbeb" : "#ecfdf5" }}>
         MARK COMPLETE → NEXT STEP
       </button>
     </div>
@@ -522,7 +522,7 @@ function DiscoveryChecklist() {
             </div>
           </label>
         ) : (
-          <label key={i} className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer hover:bg-zinc-900">
+          <label key={i} className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer hover:bg-[#ffffff]">
             <input type="checkbox" checked={checked.has(i)} onChange={() => toggle(i)} />
             <span className="text-sm">{it}</span>
           </label>
@@ -593,7 +593,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
 
       <Section title="UNDERSTANDING">
         <textarea className="w-full text-sm rounded-md p-3 outline-none"
-          style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }} />
+          style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }} />
       </Section>
 
       <NextBtn onClick={onNext} />
@@ -649,7 +649,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
         <div className="flex gap-2">
           <input value={suburb} onChange={(e) => setSuburb(e.target.value)} placeholder="e.g. Brunswick VIC"
             className="flex-1 px-3 py-2 rounded-md text-sm outline-none"
-            style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
           <button onClick={() => void search()} disabled={loading}
             className="px-4 py-2 rounded-md text-xs font-bold" style={{ background: COLORS.blue, color: "#fff" }}>
             {loading ? "Searching…" : "Find Closest"}
@@ -661,7 +661,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
               <button key={c.id} onClick={() => setSelectedClinicId(c.id)}
                 className="w-full text-left px-3 py-2 rounded-md flex items-center justify-between"
                 style={{
-                  background: selectedClinicId === c.id ? "rgba(45,107,228,0.15)" : "#15151a",
+                  background: selectedClinicId === c.id ? "rgba(45,107,228,0.15)" : "#f9f9f9",
                   border: `1px solid ${selectedClinicId === c.id ? COLORS.blue : COLORS.line}`,
                 }}>
                 <div>
@@ -737,7 +737,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <button key={v} onClick={() => set(k, v)}
           className="px-4 py-1.5 rounded-md text-xs font-bold capitalize"
           style={{
-            background: form[k] === v ? COLORS.blue : "#15151a",
+            background: form[k] === v ? COLORS.blue : "#f9f9f9",
             color: form[k] === v ? "#fff" : COLORS.muted,
             border: `1px solid ${form[k] === v ? COLORS.blue : COLORS.line}`,
           }}>{v}</button>
@@ -758,11 +758,11 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
       <Card className="px-5 py-5 mt-4 space-y-4">
         <FormRow label="Full Name">
           <input value={form.name} onChange={(e) => set("name", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Date of Birth">
           <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Treatment Price">
           <div className="flex gap-2">
@@ -770,7 +770,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
               <button key={v} onClick={() => set("price", v)}
                 className="px-3 py-1.5 rounded-md text-xs font-bold"
                 style={{
-                  background: form.price === v ? COLORS.blue : "#15151a",
+                  background: form.price === v ? COLORS.blue : "#f9f9f9",
                   color: form.price === v ? "#fff" : COLORS.muted,
                   border: `1px solid ${form.price === v ? COLORS.blue : COLORS.line}`,
                 }}>{v}</button>
@@ -784,7 +784,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <FormRow label="Are you a home owner?"><YN k="homeowner" /></FormRow>
 
         <button onClick={() => void check()}
-          className="w-full py-2 rounded-md text-xs font-bold" style={{ background: COLORS.green, color: "#062018" }}>
+          className="w-full py-2 rounded-md text-xs font-bold" style={{ background: COLORS.green, color: "#ecfdf5" }}>
           CHECK ELIGIBILITY
         </button>
       </Card>
@@ -841,7 +841,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
       <Card className="px-5 py-5 space-y-4">
         <FormRow label="Clinic">
           <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
             <option value="">Select clinic…</option>
             {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
           </select>
@@ -849,21 +849,21 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
         {clinic?.doctor_name && <div className="text-xs" style={{ color: COLORS.muted }}>Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span></div>}
         <FormRow label="Gender">
           <select value={form.gender} onChange={(e) => set("gender", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
             <option value="">—</option><option>Male</option><option>Female</option><option>Other</option>
           </select>
         </FormRow>
         <FormRow label="Date of Birth">
           <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Health fund">
           <input value={form.healthFund} onChange={(e) => set("healthFund", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Address / Suburb">
           <input value={form.address} onChange={(e) => set("address", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Funding type">
           <div className="flex gap-2">
@@ -871,7 +871,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
               <button key={v} onClick={() => set("funding", v)}
                 className="px-4 py-1.5 rounded-md text-xs font-bold"
                 style={{
-                  background: form.funding === v ? COLORS.blue : "#15151a",
+                  background: form.funding === v ? COLORS.blue : "#f9f9f9",
                   color: form.funding === v ? "#fff" : COLORS.muted,
                   border: `1px solid ${form.funding === v ? COLORS.blue : COLORS.line}`,
                 }}>{v}</button>
@@ -880,7 +880,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
         </FormRow>
         <FormRow label="Date">
           <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Time slot">
           <div className="flex gap-2 flex-wrap">
@@ -888,8 +888,8 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
               <button key={s} onClick={() => set("time", s)}
                 className="px-3 py-1.5 rounded-md text-xs font-bold"
                 style={{
-                  background: form.time === s ? COLORS.green : "#15151a",
-                  color: form.time === s ? "#062018" : COLORS.muted,
+                  background: form.time === s ? COLORS.green : "#f9f9f9",
+                  color: form.time === s ? "#ecfdf5" : COLORS.muted,
                   border: `1px solid ${form.time === s ? COLORS.green : COLORS.line}`,
                 }}>{s} {clinic?.doctor_name ? `· ${clinic.doctor_name.split(" ").slice(-1)[0]}` : ""}</button>
             ))}
@@ -898,7 +898,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
 
         <button onClick={() => void book()}
           className="w-full py-3 rounded-md font-bold tracking-wider"
-          style={{ background: COLORS.green, color: "#062018" }}>
+          style={{ background: COLORS.green, color: "#ecfdf5" }}>
           BOOK APPOINTMENT
         </button>
       </Card>
@@ -1039,7 +1039,7 @@ function RightPanel({
             <Search className="absolute left-2.5 top-2 h-3.5 w-3.5" style={{ color: COLORS.muted }} />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search…"
               className="w-full pl-8 pr-2 py-1.5 text-xs rounded-md outline-none"
-              style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+              style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
           </div>
           <div className="flex gap-1 mt-2">
             {(["all", "due", "booked", "dropped"] as const).map((f) => (
@@ -1055,8 +1055,8 @@ function RightPanel({
         <div className="overflow-y-auto" style={{ maxHeight: 200 }}>
           {leads.map((l) => (
             <button key={l.id} onClick={() => setActiveId(l.id)}
-              className="w-full text-left px-3 py-2 border-t flex items-center gap-2 hover:bg-zinc-900"
-              style={{ borderColor: COLORS.line, background: active?.id === l.id ? "#15151a" : "transparent" }}>
+              className="w-full text-left px-3 py-2 border-t flex items-center gap-2 hover:bg-[#ffffff]"
+              style={{ borderColor: COLORS.line, background: active?.id === l.id ? "#f9f9f9" : "transparent" }}>
               <span className="h-2 w-2 rounded-full" style={{ background: statusColor(l.status) }} />
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold truncate">{[l.first_name, l.last_name].filter(Boolean).join(" ") || l.phone}</div>
@@ -1106,7 +1106,7 @@ function RightPanel({
           <div className="p-3">
             <textarea value={notes} onChange={(e) => onNotesChange(e.target.value)} placeholder="Type call notes — auto-saves…"
               className="w-full text-xs rounded-md p-2 outline-none"
-              style={{ background: "#15151a", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }} />
+              style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }} />
             {savedAt && <div className="text-[10px] mt-1 flex items-center gap-1" style={{ color: COLORS.green }}>
               <Save className="h-3 w-3" /> Saved {savedAt}
             </div>}

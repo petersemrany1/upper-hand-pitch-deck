@@ -11,8 +11,8 @@ export const Route = createFileRoute("/_dashboard/leaderboard")({
 });
 
 const C = {
-  bg: "#09090b", card: "#0f0f12", line: "#1f1f23", text: "#e4e4e7", muted: "#71717a",
-  blue: "#2D6BE4", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
+  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#666666",
+  blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
 };
 
 type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
@@ -132,7 +132,7 @@ function LeaderboardPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#0a0a0c" }}>
+                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
                   <Th>Rank</Th><Th>Rep</Th><Th>Live</Th><Th>Bookings</Th><Th>Bonus $</Th>
                   <Th>Calls</Th><Th>Work min</Th><Th>Short calls</Th>
                   <Th>Convos %</Th><Th>Conv %</Th><Th>Earnings</Th>
@@ -143,7 +143,7 @@ function LeaderboardPage() {
                   <tr key={r.id} className="border-t" style={{ borderColor: C.line, background: i === 0 ? "rgba(251,191,36,0.05)" : "transparent" }}>
                     <Td><div className="flex items-center gap-1.5">
                       {i === 0 ? <Crown className="h-4 w-4" style={{ color: C.gold }} /> : <span style={{ color: C.muted }}>#{i + 1}</span>}
-                      {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#3a2e0d" }}>Leader</span>}
+                      {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#fffbeb" }}>Leader</span>}
                     </div></Td>
                     <Td><span className="font-semibold">{r.name}</span></Td>
                     <Td><span className="h-2 w-2 inline-block rounded-full" style={{ background: C.muted }} /></Td>
@@ -193,11 +193,11 @@ function LeaderboardPage() {
             </div>
             <div className="space-y-3">
               <input value={newRep.name} onChange={(e) => setNewRep({ ...newRep, name: e.target.value })} placeholder="Name"
-                className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${C.line}`, color: C.text }} />
+                className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
               <input value={newRep.email} onChange={(e) => setNewRep({ ...newRep, email: e.target.value })} placeholder="Email"
-                className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#15151a", border: `1px solid ${C.line}`, color: C.text }} />
+                className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
               <button onClick={() => void onAddRep()} className="w-full py-2 rounded-md text-xs font-bold"
-                style={{ background: C.green, color: "#062018" }}>Save</button>
+                style={{ background: C.green, color: "#ecfdf5" }}>Save</button>
             </div>
           </div>
         </div>

@@ -413,7 +413,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Full Name</label>
+                    <label className="text-xs text-[#999999] block mb-1.5 font-medium">Full Name</label>
                     <input
                       type="text"
                       value={fullName}
@@ -423,7 +423,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Clinic Name</label>
+                    <label className="text-xs text-[#999999] block mb-1.5 font-medium">Clinic Name</label>
                     <input
                       type="text"
                       value={clinicName}
@@ -433,7 +433,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Clinic Address</label>
+                    <label className="text-xs text-[#999999] block mb-1.5 font-medium">Clinic Address</label>
                     <input
                       type="text"
                       value={clinicAddress}
@@ -443,7 +443,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Email Address</label>
+                    <label className="text-xs text-[#999999] block mb-1.5 font-medium">Email Address</label>
                     <input
                       type="email"
                       value={email}
@@ -453,7 +453,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">Phone Number</label>
+                    <label className="text-xs text-[#999999] block mb-1.5 font-medium">Phone Number</label>
                     <input
                       type="tel"
                       value={phone}
@@ -500,11 +500,11 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       className={"rounded-xl border-2 p-4 text-left transition-all " +
                         (selectedPack === pack.id
                           ? "border-primary bg-primary/10"
-                          : "border-border bg-card hover:border-[#555]")
+                          : "border-border bg-card hover:border-[#666]")
                       }
                     >
                       <p className="text-sm font-extrabold text-foreground">{pack.name}</p>
-                      <p className="text-xs text-[#CCCCCC] mt-1">{pack.shows} patients</p>
+                      <p className="text-xs text-[#999999] mt-1">{pack.shows} patients</p>
                       <p className="text-sm font-bold text-primary mt-2">{fmt(pack.totalExc)}</p>
                       <p className="text-[10px] text-[#999]">exc GST</p>
                       <p className="text-[10px] text-[#999]">{fmt(Math.round(pack.totalExc * 1.1))} inc GST</p>
@@ -518,7 +518,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                   className={"w-full rounded-xl border-2 p-4 text-left transition-all mb-3 " +
                     (selectedPack === "custom"
                       ? "border-primary bg-primary/10"
-                      : "border-border bg-card hover:border-[#555]")
+                      : "border-border bg-card hover:border-[#666]")
                   }
                 >
                   <p className="text-sm font-extrabold text-foreground">Custom Amount</p>
@@ -527,7 +527,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 {selectedPack === "custom" && (
                   <div className="mb-3 grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
+                      <label className="text-xs text-[#999999] block mb-1.5 font-medium">
                         Number of shows
                       </label>
                       <input
@@ -540,7 +540,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-[#CCCCCC] block mb-1.5 font-medium">
+                      <label className="text-xs text-[#999999] block mb-1.5 font-medium">
                         Per show fee (exc GST)
                       </label>
                       <input
@@ -642,7 +642,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       <p className="text-sm font-bold text-foreground">
                         {contractSent ? "Contract Sent ✓" : (sending ? "Sending..." : "Send Contract")}
                       </p>
-                      <p className="text-xs text-[#CCCCCC] mt-0.5">
+                      <p className="text-xs text-[#999999] mt-0.5">
                         {contractSent
                           ? "Sent to " + email
                           : "Email the agreement to " + email}
@@ -673,7 +673,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       <p className="text-sm font-bold text-foreground">
                         {paymentSent ? "Payment Link Sent ✓" : "Send Payment Link"}
                       </p>
-                      <p className="text-xs text-[#CCCCCC] mt-0.5">
+                      <p className="text-xs text-[#999999] mt-0.5">
                         {paymentSent
                           ? "Sent via " + (paymentMethod === "email" ? "email to " + email : "SMS to " + phone)
                           : "Stripe checkout for " + fmt(totalIncGst) + " inc GST"}
@@ -686,7 +686,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     can also send via the other channel using the same Stripe URL. */}
                 {paymentSent && paymentMethod && lastStripeUrl && (
                   <div className="mt-4 rounded-xl border border-border bg-input/40 p-4">
-                    <p className="text-xs text-[#CCCCCC] mb-2">
+                    <p className="text-xs text-[#999999] mb-2">
                       Also send the payment link via {paymentMethod === "email" ? "SMS" : "email"}?
                     </p>
                     <button
@@ -753,7 +753,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       ✉️
                     </p>
                     <p className="text-sm font-bold text-foreground mt-2">Via Email</p>
-                    <p className="text-[10px] text-[#CCCCCC] mt-1">Send to {email}</p>
+                    <p className="text-[10px] text-[#999999] mt-1">Send to {email}</p>
                   </button>
                   <button
                     onClick={handleSendSMS}
@@ -764,7 +764,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       💬
                     </p>
                     <p className="text-sm font-bold text-foreground mt-2">Via SMS</p>
-                    <p className="text-[10px] text-[#CCCCCC] mt-1">Send to {phone}</p>
+                    <p className="text-[10px] text-[#999999] mt-1">Send to {phone}</p>
                   </button>
                 </div>
 
@@ -815,7 +815,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                     </button>
                     <button
                       onClick={resetAndClose}
-                      className="flex-1 bg-red-600 text-white font-bold py-2.5 rounded-lg hover:bg-red-700 transition-colors"
+                      className="flex-1 bg-red-600 text-[#111111] font-bold py-2.5 rounded-lg hover:bg-red-700 transition-colors"
                     >
                       Exit
                     </button>

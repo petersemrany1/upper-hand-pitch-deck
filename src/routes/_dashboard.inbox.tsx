@@ -193,10 +193,10 @@ function InboxPage() {
   }
 
   return (
-    <div className="h-full w-full flex" style={{ background: "#09090b", color: "#fff" }}>
+    <div className="h-full w-full flex" style={{ background: "#f7f7f5", color: "#fff" }}>
       {/* Thread list */}
-      <aside className="w-[320px] flex flex-col" style={{ borderRight: "1px solid #1f1f23", background: "#0f0f12" }}>
-        <div className="p-4" style={{ borderBottom: "1px solid #1f1f23" }}>
+      <aside className="w-[320px] flex flex-col" style={{ borderRight: "1px solid #ebebeb", background: "#ffffff" }}>
+        <div className="p-4" style={{ borderBottom: "1px solid #ebebeb" }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-base font-semibold tracking-tight">Inbox</h2>
             <div className="flex items-center gap-1">
@@ -207,7 +207,7 @@ function InboxPage() {
                   if (activeId) await loadMessages(activeId);
                   setRefreshing(false);
                 }}
-                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-white/5 disabled:opacity-50"
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#ffffff]/5 disabled:opacity-50"
                 title="Refresh"
                 disabled={refreshing}
               >
@@ -215,7 +215,7 @@ function InboxPage() {
               </button>
               <button
                 onClick={() => { setShowNewThread(true); setActiveId(null); setNewPhone(""); }}
-                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-white/5"
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#ffffff]/5"
                 title="New message"
               >
                 <MessageSquarePlus className="h-4 w-4" />
@@ -223,19 +223,19 @@ function InboxPage() {
             </div>
           </div>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Search conversations…"
               className="w-full h-9 pl-8 pr-3 rounded text-sm outline-none"
-              style={{ background: "#1a1a1e", color: "#fff", border: "1px solid #1f1f23" }}
+              style={{ background: "#f9f9f9", color: "#fff", border: "1px solid #ebebeb" }}
             />
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
-            <div className="p-6 text-center text-xs text-zinc-500">No conversations yet.</div>
+            <div className="p-6 text-center text-xs text-[#999]">No conversations yet.</div>
           )}
           {filtered.map((t) => {
             const name = t.display_name || t.clinic?.clinic_name || "Unknown";
@@ -246,9 +246,9 @@ function InboxPage() {
                 onClick={() => { setShowNewThread(false); setActiveId(t.id); }}
                 className="w-full text-left px-4 py-3 transition-colors"
                 style={{
-                  background: isActive ? "#1a1a1e" : "transparent",
-                  borderLeft: isActive ? "3px solid #2D6BE4" : "3px solid transparent",
-                  borderBottom: "1px solid #18181b",
+                  background: isActive ? "#f9f9f9" : "transparent",
+                  borderLeft: isActive ? "3px solid #f4522d" : "3px solid transparent",
+                  borderBottom: "1px solid #ffffff",
                 }}
               >
                 <div className="flex items-center justify-between gap-2">
@@ -256,20 +256,20 @@ function InboxPage() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-semibold truncate">{name}</span>
                       {t.clinic_id && (
-                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "#0c2541", color: "#60a5fa" }}>
+                        <span className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: "#eff6ff", color: "#60a5fa" }}>
                           Clinic
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-zinc-500 truncate">{t.phone}</div>
-                    <div className="text-xs text-zinc-400 truncate mt-1">
+                    <div className="text-[11px] text-[#999] truncate">{t.phone}</div>
+                    <div className="text-xs text-[#999] truncate mt-1">
                       {t.last_direction === "outbound" ? "You: " : ""}{t.last_message_preview || "—"}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] text-zinc-500">{fmtTime(t.last_message_at)}</span>
+                    <span className="text-[10px] text-[#999]">{fmtTime(t.last_message_at)}</span>
                     {t.unread_count > 0 && (
-                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold">
+                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-[#111111] text-[9px] font-bold">
                         {t.unread_count}
                       </span>
                     )}
@@ -284,40 +284,40 @@ function InboxPage() {
       {/* Conversation pane */}
       <section className="flex-1 flex flex-col">
         {!active && !showNewThread && (
-          <div className="flex-1 flex items-center justify-center text-sm text-zinc-500">
+          <div className="flex-1 flex items-center justify-center text-sm text-[#999]">
             Select a conversation or start a new one.
           </div>
         )}
 
         {(active || showNewThread) && (
           <>
-            <header className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #1f1f23", background: "#0f0f12" }}>
+            <header className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #ebebeb", background: "#ffffff" }}>
               <div className="flex-1 min-w-0">
                 {active ? (
                   <>
                     <div className="text-sm font-semibold">
                       {active.display_name || active.clinic?.clinic_name || "Unknown"}
                     </div>
-                    <div className="text-xs text-zinc-500">{active.phone}</div>
+                    <div className="text-xs text-[#999]">{active.phone}</div>
                   </>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-zinc-400">To:</span>
+                    <span className="text-xs text-[#999]">To:</span>
                     <input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
                       placeholder="+61..."
                       className="h-8 px-2 rounded text-sm outline-none"
-                      style={{ background: "#1a1a1e", color: "#fff", border: "1px solid #1f1f23" }}
+                      style={{ background: "#f9f9f9", color: "#fff", border: "1px solid #ebebeb" }}
                     />
                   </div>
                 )}
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ background: "#09090b" }}>
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ background: "#f7f7f5" }}>
               {active && messages.length === 0 && (
-                <div className="text-center text-xs text-zinc-500 py-8">No messages in this conversation yet.</div>
+                <div className="text-center text-xs text-[#999] py-8">No messages in this conversation yet.</div>
               )}
               {messages.map((m) => {
                 const out = m.direction === "outbound";
@@ -326,8 +326,8 @@ function InboxPage() {
                     <div
                       className="max-w-[70%] rounded-2xl px-4 py-2"
                       style={{
-                        background: out ? "#2D6BE4" : "#1a1a1e",
-                        color: out ? "#fff" : "#e4e4e7",
+                        background: out ? "#f4522d" : "#f9f9f9",
+                        color: out ? "#fff" : "#ebebeb",
                         borderBottomRightRadius: out ? 4 : 16,
                         borderBottomLeftRadius: out ? 16 : 4,
                       }}
@@ -351,12 +351,12 @@ function InboxPage() {
             </div>
 
             {/* Composer */}
-            <div className="px-6 py-3" style={{ borderTop: "1px solid #1f1f23", background: "#0f0f12" }}>
+            <div className="px-6 py-3" style={{ borderTop: "1px solid #ebebeb", background: "#ffffff" }}>
               {error && <div className="text-xs text-red-400 mb-2">{error}</div>}
               {composeFiles.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
                   {composeFiles.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded" style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}>
+                    <div key={i} className="flex items-center gap-2 text-xs px-2 py-1 rounded" style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}>
                       <ImageIcon className="h-3 w-3" />
                       <span className="max-w-[140px] truncate">{f.name}</span>
                       <button onClick={() => setComposeFiles((arr) => arr.filter((_, idx) => idx !== i))}>
@@ -367,8 +367,8 @@ function InboxPage() {
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-white/5" title="Attach image">
-                  <ImageIcon className="h-4 w-4 text-zinc-400" />
+                <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-[#ffffff]/5" title="Attach image">
+                  <ImageIcon className="h-4 w-4 text-[#999]" />
                   <input
                     type="file"
                     accept="image/*"
@@ -393,19 +393,19 @@ function InboxPage() {
                   placeholder="Type a message…"
                   rows={1}
                   className="flex-1 resize-none rounded px-3 py-2 text-sm outline-none"
-                  style={{ background: "#1a1a1e", color: "#fff", border: "1px solid #1f1f23", maxHeight: 120 }}
+                  style={{ background: "#f9f9f9", color: "#fff", border: "1px solid #ebebeb", maxHeight: 120 }}
                 />
                 <button
                   onClick={() => void handleSend()}
                   disabled={sending || (!composeBody.trim() && composeFiles.length === 0)}
                   className="h-9 px-4 rounded inline-flex items-center gap-2 text-sm font-medium disabled:opacity-50"
-                  style={{ background: "#2D6BE4", color: "#fff" }}
+                  style={{ background: "#f4522d", color: "#fff" }}
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send
                 </button>
               </div>
-              <div className="text-[10px] text-zinc-600 mt-2">
+              <div className="text-[10px] text-[#666] mt-2">
                 Press Enter to send · Shift+Enter for new line · Sent from +61 468 031 075
               </div>
             </div>

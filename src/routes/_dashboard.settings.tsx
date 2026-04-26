@@ -57,7 +57,7 @@ export function loadDeckSettings(): DeckSettings {
 
 function SettingsPage() {
   return (
-    <div className="min-h-screen bg-black px-6 py-10 md:px-10 md:py-12">
+    <div className="min-h-screen bg-[#111111] px-6 py-10 md:px-10 md:py-12">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -82,7 +82,7 @@ function SettingsPage() {
             <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
             <div>
               <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
-              <p className="text-[#CCCCCC] leading-relaxed">
+              <p className="text-[#999999] leading-relaxed">
                 When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
                 Session is created for the exact amount of the selected pack — including
                 custom prices. You no longer need to paste Stripe URLs here, and pricing

@@ -238,7 +238,7 @@ export function CallReviewInbox() {
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
-          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-white/5 transition-colors"
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-[#ffffff]/5 transition-colors"
           style={{ color: "#666" }}
           aria-label="Call review inbox"
           title="Call reviews"
@@ -246,7 +246,7 @@ export function CallReviewInbox() {
           <Bell className="w-3.5 h-3.5" />
           {badgeCount > 0 && (
             <span
-              className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-white"
+              className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-[#111111]"
               style={{ background: "#dc2626" }}
             >
               {badgeCount}
@@ -255,7 +255,7 @@ export function CallReviewInbox() {
           {badgeCount === 0 && processingItems.length > 0 && (
             <span
               className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-3.5 w-3.5 rounded-full"
-              style={{ background: "#1e3a5f" }}
+              style={{ background: "#eff6ff" }}
             >
               <Loader2 className="w-2 h-2 animate-spin text-blue-400" />
             </span>
@@ -266,18 +266,18 @@ export function CallReviewInbox() {
           <div
             ref={panelRef}
             className="absolute top-12 right-0 w-[380px] max-h-[70vh] overflow-y-auto rounded-lg shadow-2xl z-[70]"
-            style={{ background: "#0f0f12", border: "1px solid #2a2a30", isolation: "isolate" }}
+            style={{ background: "#ffffff", border: "1px solid #ebebeb", isolation: "isolate" }}
           >
             <div
               className="flex items-center justify-between px-4 py-3 sticky top-0"
-              style={{ background: "#0f0f12", borderBottom: "1px solid #1f1f24" }}
+              style={{ background: "#ffffff", borderBottom: "1px solid #ebebeb" }}
             >
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4" style={{ color: "#60a5fa" }} />
-                <div className="text-sm font-semibold text-white">Call Reviews</div>
+                <div className="text-sm font-semibold text-[#111111]">Call Reviews</div>
                 {badgeCount > 0 && (
                   <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded text-[#111111]"
                     style={{ background: "#dc2626" }}
                   >
                     {badgeCount}
@@ -286,7 +286,7 @@ export function CallReviewInbox() {
               </div>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1 rounded hover:bg-white/5"
+                className="p-1 rounded hover:bg-[#ffffff]/5"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" style={{ color: "#666" }} />
@@ -301,7 +301,7 @@ export function CallReviewInbox() {
               </div>
             )}
 
-            <ul className="divide-y" style={{ borderColor: "#1f1f24" }}>
+            <ul className="divide-y" style={{ borderColor: "#ebebeb" }}>
               {/* Processing items first so Peter sees them at the top while waiting */}
               {processingItems.map((item) => {
                 const isFailed = item.analysisStage === "failed";
@@ -322,12 +322,12 @@ export function CallReviewInbox() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold text-white truncate">
+                          <div className="text-xs font-semibold text-[#111111] truncate">
                             {item.clinicName}
                             {isFailed && (
                               <span
                                 className="ml-2 inline-block text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide"
-                                style={{ background: "#450a0a", color: "#f87171" }}
+                                style={{ background: "#fef2f2", color: "#f87171" }}
                               >
                                 Failed
                               </span>
@@ -347,11 +347,11 @@ export function CallReviewInbox() {
                       {/* Universal dismiss — always visible on every item */}
                       <button
                         onClick={() => void handleDeleteAny(item)}
-                        className="p-1 rounded hover:bg-white/10 -mr-1"
+                        className="p-1 rounded hover:bg-[#ffffff]/10 -mr-1"
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
-                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#888" }} />
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#999" }} />
                       </button>
                     </div>
                   </li>
@@ -374,7 +374,7 @@ export function CallReviewInbox() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold text-white truncate">
+                          <div className="text-xs font-semibold text-[#111111] truncate">
                             {item.clinicName}
                           </div>
                           <div className="text-[10px]" style={{ color: "#666" }}>
@@ -384,14 +384,14 @@ export function CallReviewInbox() {
                         {a.outcome && (
                           <div
                             className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1"
-                            style={{ background: "#1e293b", color: "#94a3b8" }}
+                            style={{ background: "#ebebeb", color: "#666666" }}
                           >
                             {a.outcome}
                           </div>
                         )}
                         <div
                           className="text-[11px] mt-1 line-clamp-2"
-                          style={{ color: "#aaa" }}
+                          style={{ color: "#999" }}
                         >
                           {summary}
                         </div>
@@ -402,7 +402,7 @@ export function CallReviewInbox() {
                               setOpen(false);
                             }}
                             className="text-[11px] font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1"
-                            style={{ background: "#2D6BE4", color: "#fff" }}
+                            style={{ background: "#f4522d", color: "#fff" }}
                           >
                             <Check className="w-3 h-3" />
                             Review
@@ -412,8 +412,8 @@ export function CallReviewInbox() {
                             className="text-[11px] px-2.5 py-1 rounded"
                             style={{
                               background: "transparent",
-                              color: "#888",
-                              border: "1px solid #2a2a30",
+                              color: "#999",
+                              border: "1px solid #ebebeb",
                             }}
                           >
                             Dismiss
@@ -423,11 +423,11 @@ export function CallReviewInbox() {
                       {/* Universal dismiss — always visible on every item */}
                       <button
                         onClick={() => void handleDeleteAny(item)}
-                        className="p-1 rounded hover:bg-white/10 -mr-1"
+                        className="p-1 rounded hover:bg-[#ffffff]/10 -mr-1"
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
-                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#888" }} />
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#999" }} />
                       </button>
                     </div>
                   </li>

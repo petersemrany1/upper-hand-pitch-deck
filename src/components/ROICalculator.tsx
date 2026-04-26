@@ -86,17 +86,17 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
                     : "bg-card border-border hover:border-primary/40"
                 }`}
               >
-                <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
+                <p className="text-sm text-[#999999] mb-3 font-medium uppercase tracking-wide">
                   {getConvertLabel(col.label)}
                 </p>
                 <p className={`font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1rem, 4vw, 4.5rem)', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                   {fmt(col.revenue)}
                 </p>
-                <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>
+                <p className="text-sm text-[#999999] mt-3">Monthly Revenue</p>
                 <div className="mt-5 pt-4 border-t border-border/60">
-                  <p className="text-[10px] text-[#888] uppercase tracking-wider mb-1">Your Investment</p>
+                  <p className="text-[10px] text-[#999] uppercase tracking-wider mb-1">Your Investment</p>
                   <p className="text-base font-bold text-foreground">${investment.toLocaleString()}</p>
-                  <p className="text-[11px] text-[#888] mt-0.5">+ GST</p>
+                  <p className="text-[11px] text-[#999] mt-0.5">+ GST</p>
                 </div>
               </button>
             );
@@ -104,7 +104,7 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
         </div>
 
         {/* Included list */}
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-[#CCCCCC]">
+        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-[#999999]">
           {["20 Showed Appointments", "Ad Creative", "Lead Handling", "After Consult Follow-Up"].map((item) => (
             <span key={item} className="flex items-center gap-1.5">
               <span className="text-primary">✓</span> {item}
