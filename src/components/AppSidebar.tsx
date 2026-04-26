@@ -67,10 +67,31 @@ export function AppSidebar() {
     <Sidebar
       collapsible="icon"
       className="!border-r-0"
-      style={{ background: "#0f0f12" }}
+      style={{ background: "#ffffff" }}
     >
-      <SidebarContent style={{ background: "#0f0f12" }}>
-        <SidebarGroup className="pt-4">
+      <SidebarContent style={{ background: "#ffffff", borderRight: "0.5px solid #ebebeb" }}>
+        {/* Brand */}
+        <div
+          className="px-5 pt-5 pb-4 group-data-[collapsible=icon]:px-3 group-data-[collapsible=icon]:pt-4"
+          style={{ borderBottom: "0.5px solid #f5f5f5" }}
+        >
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-flex items-center justify-center rounded-md flex-shrink-0"
+              style={{ width: 26, height: 26, background: "#fff1ee", color: "#f4522d", fontSize: 12, fontWeight: 600 }}
+            >
+              U
+            </span>
+            <span
+              className="group-data-[collapsible=icon]:hidden"
+              style={{ fontSize: 13, fontWeight: 500, color: "#111", letterSpacing: "-0.01em" }}
+            >
+              Upper Hand
+            </span>
+          </div>
+        </div>
+
+        <SidebarGroup className="pt-2">
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -82,34 +103,48 @@ export function AppSidebar() {
                       isActive={active}
                       className="!rounded-none"
                       style={{
-                        borderLeft: active ? "3px solid #2D6BE4" : "3px solid transparent",
-                        background: active ? "#1a1a1e" : "transparent",
-                        color: active ? "#fff" : "#888",
+                        borderLeft: active ? "2px solid #f4522d" : "2px solid transparent",
+                        background: active ? "#fff1ee" : "transparent",
+                        color: active ? "#f4522d" : "#999",
                         fontSize: 13,
+                        fontWeight: active ? 500 : 400,
                         transition: "all 0.15s ease",
+                        height: 36,
                       }}
                     >
                       <Link
                         to={item.url}
-                        className="hover:!text-white relative"
+                        className="relative"
                         onClick={() => { if (isMobile) setOpenMobile(false); }}
                       >
-                        <item.icon className="h-4 w-4" style={{ color: active ? "#2D6BE4" : "#888" }} />
+                        <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#999" }} />
                         <span className="flex-1">{item.title}</span>
                         {item.title === "Logs" && unresolvedCount > 0 && (
                           <>
-                            <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold group-data-[collapsible=icon]:hidden">
+                            <span
+                              className="ml-auto inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-[10px] font-medium group-data-[collapsible=icon]:hidden"
+                              style={{ background: "#fef2f2", color: "#dc2626" }}
+                            >
                               {unresolvedCount}
                             </span>
-                            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 md:group-data-[collapsible=icon]:block hidden" style={{ boxShadow: "0 0 0 2px #0f0f12" }} />
+                            <span
+                              className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full md:group-data-[collapsible=icon]:block hidden"
+                              style={{ background: "#dc2626", boxShadow: "0 0 0 2px #ffffff" }}
+                            />
                           </>
                         )}
                         {item.title === "Inbox" && unreadSms > 0 && (
                           <>
-                            <span className="ml-auto inline-flex items-center justify-center h-5 min-w-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-bold group-data-[collapsible=icon]:hidden">
+                            <span
+                              className="ml-auto inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-[10px] font-medium group-data-[collapsible=icon]:hidden"
+                              style={{ background: "#ecfdf5", color: "#10b981" }}
+                            >
                               {unreadSms}
                             </span>
-                            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-emerald-500 md:group-data-[collapsible=icon]:block hidden" style={{ boxShadow: "0 0 0 2px #0f0f12" }} />
+                            <span
+                              className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full md:group-data-[collapsible=icon]:block hidden"
+                              style={{ background: "#10b981", boxShadow: "0 0 0 2px #ffffff" }}
+                            />
                           </>
                         )}
                       </Link>
@@ -122,11 +157,14 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Sign out + avatar at bottom */}
-        <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-3">
+        <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-3" style={{ borderTop: "0.5px solid #f5f5f5", paddingTop: 12 }}>
           <button
             type="button"
             onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-zinc-400 hover:text-white hover:bg-white/5 w-full justify-center group-data-[collapsible=icon]:justify-center"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs w-full justify-center group-data-[collapsible=icon]:justify-center"
+            style={{ color: "#999" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#111"; e.currentTarget.style.background = "#f9f9f9"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#999"; e.currentTarget.style.background = "transparent"; }}
             aria-label="Sign out"
             title="Sign out"
           >
@@ -136,12 +174,12 @@ export function AppSidebar() {
           <div
             className="flex items-center justify-center rounded-full"
             style={{
-              width: 32,
-              height: 32,
-              background: "#1f1f23",
-              color: "#2D6BE4",
+              width: 30,
+              height: 30,
+              background: "#fff1ee",
+              color: "#f4522d",
               fontSize: 11,
-              fontWeight: 700,
+              fontWeight: 600,
               letterSpacing: "0.05em",
             }}
           >
