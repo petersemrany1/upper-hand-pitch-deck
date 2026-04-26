@@ -1183,7 +1183,16 @@ function RightPanel({
   const [callRunning, setCallRunning] = useState(false);
   const [notes, setNotes] = useState(active?.call_notes ?? "");
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState<null | "objections" | "questions">(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close drawer on Esc
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawer(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawer]);
 
   useEffect(() => { setNotes(active?.call_notes ?? ""); setSavedAt(null); }, [active?.id, active?.call_notes]);
 
