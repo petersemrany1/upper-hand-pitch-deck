@@ -109,7 +109,7 @@ export function IncomingCallDialog() {
         <div className="mb-1 text-2xl font-bold text-[#111111]">
           {incomingFrom || "Unknown caller"}
         </div>
-        <div className="mb-8 text-sm text-[#999]">Ringing…</div>
+        <div className="mb-8 text-sm text-[#111111]">Ringing…</div>
 
         <div className="flex items-center justify-center gap-8">
           <button
@@ -130,7 +130,7 @@ export function IncomingCallDialog() {
           </button>
         </div>
 
-        <div className="mt-6 flex justify-center gap-12 text-xs text-[#999]">
+        <div className="mt-6 flex justify-center gap-12 text-xs text-[#111111]">
           <span>Decline</span>
           <span>Answer</span>
         </div>

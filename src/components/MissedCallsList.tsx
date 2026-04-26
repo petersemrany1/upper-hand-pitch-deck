@@ -114,17 +114,17 @@ export function MissedCallsList() {
             MISSED CALLS
           </span>
         </div>
-        <span className="text-[10px]" style={{ color: "#666" }}>
+        <span className="text-[10px]" style={{ color: "#111111" }}>
           Inbound to your Twilio number
         </span>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-6">
-          <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#666" }} />
+          <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#111111" }} />
         </div>
       ) : rows.length === 0 ? (
-        <div className="text-center py-6 text-xs" style={{ color: "#666" }}>
+        <div className="text-center py-6 text-xs" style={{ color: "#111111" }}>
           No inbound calls yet.
         </div>
       ) : (
@@ -152,7 +152,7 @@ export function MissedCallsList() {
                   <div className="text-[11px] font-medium text-[#111111] truncate leading-tight">
                     {label}
                   </div>
-                  <div className="text-[9px] leading-tight" style={{ color: "#666" }}>
+                  <div className="text-[9px] leading-tight" style={{ color: "#111111" }}>
                     {relativeTime(row.called_at)}
                     {missed ? " · Missed" : ""}
                   </div>

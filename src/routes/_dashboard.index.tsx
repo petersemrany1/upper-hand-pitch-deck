@@ -292,7 +292,7 @@ function DashboardHome() {
       >
         <div>
           <div style={{ fontSize: 22, color: "#111111", fontWeight: 500, letterSpacing: "-0.01em" }}>{getGreeting()}, Peter</div>
-          <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{formatDate()}</div>
+          <div style={{ fontSize: 12, color: "#111111", marginTop: 2 }}>{formatDate()}</div>
         </div>
       </div>
 
@@ -316,7 +316,7 @@ function DashboardHome() {
                   <div
                     style={{
                       fontSize: 11,
-                      color: "#999",
+                      color: "#111111",
                       letterSpacing: "0.05em",
                       marginTop: 8,
                       fontWeight: 500,
@@ -352,14 +352,14 @@ function DashboardHome() {
           <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
             <FollowUpsDue followUps={followUps} />
             {activity.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#666", padding: "16px 0" }}>No recent activity</div>
+              <div style={{ fontSize: 12, color: "#111111", padding: "16px 0" }}>No recent activity</div>
             ) : (
               activity.map((item, i) => {
                 const row = (
                   <>
                     <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
                     <span className="flex-1 truncate" style={{ fontSize: 13, color: "#111111" }}>{item.text}</span>
-                    <span className="shrink-0" style={{ fontSize: 11, color: "#666" }}>{item.time}</span>
+                    <span className="shrink-0" style={{ fontSize: 11, color: "#111111" }}>{item.time}</span>
                   </>
                 );
                 return item.clinicId ? (
@@ -403,7 +403,7 @@ function DashboardHome() {
           >
             QUICK DIAL
           </div>
-          <p style={{ fontSize: 11, color: "#666", marginBottom: 12 }}>Call a clinic directly</p>
+          <p style={{ fontSize: 11, color: "#111111", marginBottom: 12 }}>Call a clinic directly</p>
 
           <div
             className="mb-3 rounded-md px-3 py-2 flex items-center justify-between gap-3"
@@ -417,7 +417,7 @@ function DashboardHome() {
                 <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
                 {dialerStateLabel}
               </div>
-              <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: "#111111", marginTop: 4 }}>
                 {dialerStatus === "failed"
                   ? "Connection failed — click to retry"
                   : dialerStatus === "ready"
@@ -474,7 +474,7 @@ function DashboardHome() {
               className="mt-2 rounded px-3 py-2"
               style={{
                 fontSize: 11,
-                color: dialerStatus === "failed" ? "#fca5a5" : "#999",
+                color: dialerStatus === "failed" ? "#fca5a5" : "#111111",
                 background: "#f9f9f9",
               }}
             >
@@ -491,7 +491,7 @@ function DashboardHome() {
           <div
             style={{
               fontSize: 10,
-              color: "#666",
+              color: "#111111",
               letterSpacing: "0.15em",
               marginBottom: 8,
               fontWeight: 500,
@@ -500,13 +500,13 @@ function DashboardHome() {
             RECENT CALLS
           </div>
           {recentCalls.length === 0 ? (
-            <div style={{ fontSize: 11, color: "#666" }}>No recent calls</div>
+            <div style={{ fontSize: 11, color: "#111111" }}>No recent calls</div>
           ) : (
             <div className="space-y-2">
               {recentCalls.map((c, i) => (
                 <div key={i} className="flex items-center justify-between" style={{ fontSize: 11 }}>
-                  <span style={{ color: "#999" }}>{c.name}</span>
-                  <span style={{ color: "#666" }}>{c.duration} · {c.time}</span>
+                  <span style={{ color: "#111111" }}>{c.name}</span>
+                  <span style={{ color: "#111111" }}>{c.duration} · {c.time}</span>
                 </div>
               ))}
             </div>

@@ -54,12 +54,12 @@ function LoginPage() {
             <Lock className="h-5 w-5" />
           </div>
           <h1 className="text-xl font-bold text-[#111111]">Upper Hand Portal</h1>
-          <p className="mt-1 text-sm text-[#999]">Sign in to continue</p>
+          <p className="mt-1 text-sm text-[#111111]">Sign in to continue</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
               Email
             </label>
             <input
@@ -73,7 +73,7 @@ function LoginPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
               Password
             </label>
             <input
@@ -108,11 +108,11 @@ function LoginPage() {
         </form>
 
         <p className="mt-4 text-center text-xs">
-          <a href="/reset-password" className="text-[#999] hover:text-[#666]">
+          <a href="/reset-password" className="text-[#111111] hover:text-[#111111]">
             Forgot password?
           </a>
         </p>
-        <p className="mt-4 text-center text-xs text-[#666]">
+        <p className="mt-4 text-center text-xs text-[#111111]">
           Access is invite-only. Contact your administrator if you need an account.
         </p>
       </div>

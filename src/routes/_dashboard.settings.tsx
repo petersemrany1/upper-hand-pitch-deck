@@ -70,7 +70,7 @@ function SettingsPage() {
             >
               Settings
             </h1>
-            <p className="text-sm text-[#999] mt-0.5">
+            <p className="text-sm text-[#111111] mt-0.5">
               Payment links are now generated dynamically.
             </p>
           </div>
@@ -82,7 +82,7 @@ function SettingsPage() {
             <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
             <div>
               <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
-              <p className="text-[#999999] leading-relaxed">
+              <p className="text-[#111111] leading-relaxed">
                 When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
                 Session is created for the exact amount of the selected pack — including
                 custom prices. You no longer need to paste Stripe URLs here, and pricing

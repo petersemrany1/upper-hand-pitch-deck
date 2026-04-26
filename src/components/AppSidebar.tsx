@@ -105,7 +105,7 @@ export function AppSidebar() {
                       style={{
                         borderLeft: active ? "2px solid #f4522d" : "2px solid transparent",
                         background: active ? "#fff1ee" : "transparent",
-                        color: active ? "#f4522d" : "#999",
+                        color: active ? "#f4522d" : "#111111",
                         fontSize: 13,
                         fontWeight: active ? 500 : 400,
                         transition: "all 0.15s ease",
@@ -117,7 +117,7 @@ export function AppSidebar() {
                         className="relative"
                         onClick={() => { if (isMobile) setOpenMobile(false); }}
                       >
-                        <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#999" }} />
+                        <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
                         <span className="flex-1">{item.title}</span>
                         {item.title === "Logs" && unresolvedCount > 0 && (
                           <>
@@ -162,9 +162,9 @@ export function AppSidebar() {
             type="button"
             onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
             className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs w-full justify-center group-data-[collapsible=icon]:justify-center"
-            style={{ color: "#999" }}
+            style={{ color: "#111111" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#111"; e.currentTarget.style.background = "#f9f9f9"; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = "#999"; e.currentTarget.style.background = "transparent"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#111111"; e.currentTarget.style.background = "transparent"; }}
             aria-label="Sign out"
             title="Sign out"
           >

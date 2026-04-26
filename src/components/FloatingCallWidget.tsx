@@ -221,7 +221,7 @@ export function FloatingCallWidget() {
         <div className="flex flex-col items-start min-w-0">
           <span className="text-sm font-semibold text-[#111111] truncate max-w-[180px]">{primaryLabel}</span>
           {secondaryLabel && (
-            <span className="text-[10px] truncate max-w-[180px]" style={{ color: "#999" }}>{secondaryLabel}</span>
+            <span className="text-[10px] truncate max-w-[180px]" style={{ color: "#111111" }}>{secondaryLabel}</span>
           )}
         </div>
         <span className="font-mono text-xs text-emerald-400">{formatDuration(seconds)}</span>
@@ -251,7 +251,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#f9f9f9]"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] hover:text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Minimise call"
         >
           <Minus className="h-4 w-4" />
@@ -262,11 +262,11 @@ export function FloatingCallWidget() {
       <div className="px-4 pb-3 text-center">
         <div className="text-lg font-bold text-[#111111] truncate">{primaryLabel}</div>
         {secondaryLabel && (
-          <div className="text-xs truncate" style={{ color: "#999" }}>{secondaryLabel}</div>
+          <div className="text-xs truncate" style={{ color: "#111111" }}>{secondaryLabel}</div>
         )}
         <div className="font-mono text-2xl text-emerald-400 mt-1">{formatDuration(seconds)}</div>
         {dtmfTrail && (
-          <div className="mt-1 font-mono text-xs text-[#999] tracking-widest">{dtmfTrail}</div>
+          <div className="mt-1 font-mono text-xs text-[#111111] tracking-widest">{dtmfTrail}</div>
         )}
       </div>
 
@@ -283,7 +283,7 @@ export function FloatingCallWidget() {
               aria-label={`Send digit ${k.d}`}
             >
               <span className="text-xl font-semibold leading-none">{k.d}</span>
-              {k.sub && <span className="text-[9px] text-[#999] mt-0.5 tracking-widest">{k.sub}</span>}
+              {k.sub && <span className="text-[9px] text-[#111111] mt-0.5 tracking-widest">{k.sub}</span>}
             </button>
           ))}
         </div>
@@ -398,7 +398,7 @@ function CallOutcomePrompt({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#f9f9f9]"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] hover:text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Skip logging"
         >
           <X className="h-4 w-4" />
@@ -406,7 +406,7 @@ function CallOutcomePrompt({
       </div>
 
       <div className="text-sm text-[#111111] truncate">{from || "Call ended"}</div>
-      <div className="font-mono text-xs text-[#999] mb-3">Duration {formatDuration(durationSec)}</div>
+      <div className="font-mono text-xs text-[#111111] mb-3">Duration {formatDuration(durationSec)}</div>
 
       <textarea
         value={notes}
