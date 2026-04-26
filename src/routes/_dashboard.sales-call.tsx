@@ -232,6 +232,7 @@ function SalesCallPortal() {
 
       <style>{`
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
+        input::placeholder, textarea::placeholder { color: #bbbbbb; opacity: 1; }
       `}</style>
     </div>
   );
