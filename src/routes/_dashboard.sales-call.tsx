@@ -751,21 +751,35 @@ function DiscoveryChecklist() {
     <Section title="Discovery checklist">
       <div className="space-y-2">
         {items.map((it, i) => it === null ? (
-          <label key="why-now" className="flex items-start gap-3 p-3 rounded-md cursor-pointer"
-            style={{ background: "rgba(245,158,11,0.1)", border: `1px solid ${COLORS.amber}` }}>
+          <label
+            key="why-now"
+            className="flex items-start gap-3 cursor-pointer"
+            style={{
+              background: COLORS.amberBg,
+              borderLeft: `2px solid ${COLORS.amber}`,
+              borderRadius: 0,
+              padding: "12px 14px",
+            }}
+          >
             <input type="checkbox" checked={whyNow} onChange={() => setWhyNow((v) => !v)} className="mt-1" />
             <div>
-              <div className="font-bold text-base" style={{ color: COLORS.amber }}>⚠️ WHY NOW?</div>
-              <p className="text-xs mt-1" style={{ color: "#fde68a" }}>
-                CRITICAL. There is always a reason they enquired TODAY. A wedding. An event. A birthday. A photo that upset them.
-                Something changed. Find it. This is your anchor for the entire call — you will use it in AUDIOBOOK.
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amberDark, fontWeight: 500 }}>
+                Why now?
+              </div>
+              <p style={{ fontSize: 13, marginTop: 6, color: COLORS.amberDark, lineHeight: 1.6 }}>
+                Critical. There is always a reason they enquired today. A wedding. An event. A birthday. A photo that upset them.
+                Something changed. Find it. This is your anchor for the entire call — you will use it in audiobook.
               </p>
             </div>
           </label>
         ) : (
-          <label key={i} className="flex items-center gap-3 px-3 py-2 rounded-md cursor-pointer hover:bg-[#ffffff]">
+          <label
+            key={i}
+            className="flex items-center gap-3 cursor-pointer rounded-[6px]"
+            style={{ padding: "10px 12px", background: "transparent" }}
+          >
             <input type="checkbox" checked={checked.has(i)} onChange={() => toggle(i)} />
-            <span className="text-sm">{it}</span>
+            <span style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.6 }}>{it}</span>
           </label>
         ))}
       </div>
