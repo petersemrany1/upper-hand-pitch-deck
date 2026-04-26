@@ -154,10 +154,10 @@ function SalesCallPortal() {
   return (
     <div className="h-full flex" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav */}
-      <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `1px solid ${COLORS.line}` }}>
-        <div className="px-4 py-4 border-b" style={{ borderColor: COLORS.line }}>
-          <div className="text-[10px] uppercase tracking-widest" style={{ color: COLORS.muted }}>Sales Call</div>
-          <div className="text-sm font-bold mt-0.5">Framework</div>
+      <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>
+        <div className="px-5 py-5 border-b" style={{ borderColor: COLORS.line }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.hint, fontWeight: 500 }}>Sales Call</div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: COLORS.text, marginTop: 4 }}>Framework</div>
         </div>
         <nav className="flex-1 overflow-y-auto py-2">
           {STEPS.map((s) => {
@@ -168,25 +168,27 @@ function SalesCallPortal() {
               <button
                 key={s.key}
                 onClick={() => setStep(s.key)}
-                className="w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors"
+                className="w-full text-left flex items-center gap-3 transition-colors"
                 style={{
+                  padding: "10px 18px",
                   background: isActive ? "#f9f9f9" : "transparent",
-                  borderLeft: isActive ? `3px solid ${special ? COLORS.gold : COLORS.green}` : "3px solid transparent",
+                  borderLeft: isActive ? `3px solid ${special ? COLORS.gold : COLORS.coral}` : "3px solid transparent",
                 }}
               >
                 <span
                   className="inline-flex items-center justify-center rounded-full"
                   style={{
-                    width: 18, height: 18,
-                    background: isActive ? (special ? COLORS.gold : COLORS.green) : isDone ? "transparent" : "#ebebeb",
-                    boxShadow: isActive ? `0 0 0 4px ${special ? "rgba(251,191,36,0.15)" : "rgba(16,185,129,0.15)"}` : "none",
-                    animation: isActive ? "pulse 2s ease-in-out infinite" : "none",
+                    width: 16, height: 16,
+                    background: isActive ? (special ? COLORS.gold : COLORS.coral) : isDone ? "transparent" : "#ebebeb",
                   }}
                 >
                   {isDone && !isActive && <Check className="h-3 w-3" style={{ color: COLORS.muted }} />}
                 </span>
-                <span className="text-[11px] font-bold tracking-wider" style={{
-                  color: isActive ? (special ? COLORS.gold : "#fff") : isDone ? COLORS.muted : "#999999",
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isActive ? 500 : 400,
+                  letterSpacing: "0.04em",
+                  color: isActive ? COLORS.text : isDone ? COLORS.muted : COLORS.hint,
                 }}>
                   {s.label}{special ? " ⭐" : ""}
                 </span>
@@ -194,8 +196,8 @@ function SalesCallPortal() {
             );
           })}
         </nav>
-        <div className="px-4 py-3 border-t text-[10px]" style={{ borderColor: COLORS.line, color: COLORS.muted }}>
-          {repName ? <>Rep: <span style={{ color: COLORS.text }}>{repName}</span></> : "Loading rep…"}
+        <div className="px-5 py-4 border-t" style={{ borderColor: COLORS.line, fontSize: 13, color: COLORS.muted }}>
+          {repName ? <>Rep: <span style={{ color: COLORS.text, fontWeight: 500 }}>{repName}</span></> : "Loading rep…"}
         </div>
       </aside>
 
