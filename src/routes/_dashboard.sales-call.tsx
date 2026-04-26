@@ -1624,8 +1624,8 @@ function ReferenceDrawer({ kind, onClose }: { kind: "objections" | "questions"; 
                 </button>
                 {isOpen && (
                   <div style={{ padding: "0 20px 18px" }}>
-                    <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>{it.a}</div>
-                    {"note" in it && it.note && (
+                    <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>{String(it.a)}</div>
+                    {(it as { note?: string }).note && (
                       <div
                         className="rounded-[6px]"
                         style={{
@@ -1639,7 +1639,7 @@ function ReferenceDrawer({ kind, onClose }: { kind: "objections" | "questions"; 
                           fontStyle: "italic",
                         }}
                       >
-                        {it.note}
+                        {(it as { note?: string }).note}
                       </div>
                     )}
                   </div>
