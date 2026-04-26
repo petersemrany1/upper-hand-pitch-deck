@@ -1,3 +1,4 @@
+// PROTECTED — DO NOT MODIFY THIS FILE UNDER ANY CIRCUMSTANCES
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";

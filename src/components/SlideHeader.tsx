@@ -1,3 +1,4 @@
+// PROTECTED — DO NOT MODIFY THIS FILE UNDER ANY CIRCUMSTANCES
 import boldLogo from "@/assets/bold-logo.png";
 
 export default function SlideHeader() {

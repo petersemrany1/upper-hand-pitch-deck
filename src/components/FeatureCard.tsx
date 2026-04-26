@@ -1,3 +1,4 @@
+// PROTECTED — DO NOT MODIFY THIS FILE UNDER ANY CIRCUMSTANCES
 interface FeatureCardProps {
   title: string;
   description: string;
@@ -15,7 +16,7 @@ export default function FeatureCard({ title, description, variant = "dark" }: Fe
       }`}
     >
       <h3 className="text-sm font-bold text-foreground leading-snug">{title}</h3>
-      <p className="text-xs text-[#999999] mt-1 leading-relaxed">{description}</p>
+      <p className="text-xs text-[#CCCCCC] mt-1 leading-relaxed">{description}</p>
     </div>
   );
 }
