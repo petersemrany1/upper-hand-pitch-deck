@@ -16,9 +16,11 @@ import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
+import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
+import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
@@ -59,6 +61,11 @@ const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
   path: '/sent-links',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
+  id: '/sales-call',
+  path: '/sales-call',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   id: '/pitch-deck',
   path: '/pitch-deck',
@@ -72,6 +79,11 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
 const DashboardLeadsRoute = DashboardLeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardLeaderboardRoute = DashboardLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardInboxRoute = DashboardInboxRouteImport.update({
@@ -108,9 +120,11 @@ export interface FileRoutesByFullPath {
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
+  '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
@@ -123,9 +137,11 @@ export interface FileRoutesByTo {
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
+  '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
   '/logs': typeof DashboardLogsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
@@ -141,9 +157,11 @@ export interface FileRoutesById {
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
+  '/_dashboard/leaderboard': typeof DashboardLeaderboardRoute
   '/_dashboard/leads': typeof DashboardLeadsRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
+  '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
@@ -160,9 +178,11 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clinics'
     | '/inbox'
+    | '/leaderboard'
     | '/leads'
     | '/logs'
     | '/pitch-deck'
+    | '/sales-call'
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
@@ -175,9 +195,11 @@ export interface FileRouteTypes {
     | '/clients'
     | '/clinics'
     | '/inbox'
+    | '/leaderboard'
     | '/leads'
     | '/logs'
     | '/pitch-deck'
+    | '/sales-call'
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
@@ -192,9 +214,11 @@ export interface FileRouteTypes {
     | '/_dashboard/clients'
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
+    | '/_dashboard/leaderboard'
     | '/_dashboard/leads'
     | '/_dashboard/logs'
     | '/_dashboard/pitch-deck'
+    | '/_dashboard/sales-call'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/api/coach-stream'
@@ -261,6 +285,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardSentLinksRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/sales-call': {
+      id: '/_dashboard/sales-call'
+      path: '/sales-call'
+      fullPath: '/sales-call'
+      preLoaderRoute: typeof DashboardSalesCallRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/pitch-deck': {
       id: '/_dashboard/pitch-deck'
       path: '/pitch-deck'
@@ -280,6 +311,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof DashboardLeadsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/leaderboard': {
+      id: '/_dashboard/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof DashboardLeaderboardRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/inbox': {
@@ -325,9 +363,11 @@ interface DashboardRouteChildren {
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
+  DashboardLeaderboardRoute: typeof DashboardLeaderboardRoute
   DashboardLeadsRoute: typeof DashboardLeadsRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
+  DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -338,9 +378,11 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
+  DashboardLeaderboardRoute: DashboardLeaderboardRoute,
   DashboardLeadsRoute: DashboardLeadsRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
+  DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardIndexRoute: DashboardIndexRoute,
