@@ -254,8 +254,8 @@ function StepContent({
     return (
       <div className="h-full flex items-center justify-center text-center" style={{ color: COLORS.muted }}>
         <div>
-          <div className="text-lg font-semibold mb-2" style={{ color: COLORS.text }}>No active lead</div>
-          <div className="text-sm">Pick a lead from the right panel to begin.</div>
+          <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.text, marginBottom: 8 }}>No active lead</div>
+          <div style={{ fontSize: 14, color: COLORS.muted, lineHeight: 1.6 }}>Pick a lead from the right panel to begin.</div>
         </div>
       </div>
     );
