@@ -1351,77 +1351,94 @@ function RightPanel({
         )}
       </div>
 
-      {/* Leads list */}
-      <div className="border-b" style={{ borderColor: COLORS.line }}>
-        <div style={{ padding: 14 }}>
-          <div className="relative">
-            <Search className="absolute left-3 top-2.5 h-3.5 w-3.5" style={{ color: COLORS.muted }} />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded-[6px] outline-none"
-              style={{
-                paddingLeft: 32,
-                paddingRight: 10,
-                paddingTop: 8,
-                paddingBottom: 8,
-                fontSize: 13,
-                background: "#f9f9f9",
-                border: `0.5px solid ${COLORS.line}`,
-                color: COLORS.text,
-              }}
-            />
-          </div>
-          <div className="flex gap-1.5 mt-3">
-            {(["all", "due", "booked", "dropped"] as const).map((f) => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className="flex-1 rounded-[20px]"
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  padding: "6px 8px",
-                  background: filter === f ? COLORS.coral : "transparent",
-                  color: filter === f ? "#ffffff" : COLORS.hint,
-                  border: `0.5px solid ${filter === f ? COLORS.coral : COLORS.line}`,
-                }}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
-          {leads.map((l) => (
-            <button
-              key={l.id}
-              onClick={() => setActiveId(l.id)}
-              className="w-full text-left border-t flex items-center gap-3"
-              style={{
-                borderColor: COLORS.line,
-                background: active?.id === l.id ? "#f9f9f9" : "transparent",
-                padding: "10px 14px",
-              }}
-            >
-              <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: statusColor(l.status) }} />
-              <div className="flex-1 min-w-0">
-                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {[l.first_name, l.last_name].filter(Boolean).join(" ") || l.phone}
-                </div>
-                <div style={{ fontSize: 13, color: COLORS.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {l.funding_preference || ""}
-                </div>
+      {/* Leads list (collapsible) */}
+      <div className="border-b flex-shrink-0" style={{ borderColor: COLORS.line }}>
+        <button
+          onClick={() => setLeadsOpen((v) => !v)}
+          className="w-full flex items-center justify-between"
+          style={{ padding: "12px 16px", background: "transparent" }}
+        >
+          <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111111" }}>
+            Switch lead · {leads.length}
+          </span>
+          <ChevronRight
+            className="h-4 w-4"
+            style={{ color: "#111111", transform: leadsOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
+          />
+        </button>
+        {leadsOpen && (
+          <>
+            <div style={{ padding: "0 14px 12px" }}>
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5" style={{ color: COLORS.muted }} />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full rounded-[6px] outline-none"
+                  style={{
+                    paddingLeft: 32,
+                    paddingRight: 10,
+                    paddingTop: 8,
+                    paddingBottom: 8,
+                    fontSize: 13,
+                    background: "#f9f9f9",
+                    border: `0.5px solid ${COLORS.line}`,
+                    color: COLORS.text,
+                  }}
+                />
               </div>
-            </button>
-          ))}
-          {leads.length === 0 && (
-            <div style={{ padding: "14px 16px", fontSize: 13, color: COLORS.muted }}>No leads.</div>
-          )}
-        </div>
+              <div className="flex gap-1.5 mt-3">
+                {(["all", "due", "booked", "dropped"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className="flex-1 rounded-[20px]"
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 500,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      padding: "6px 8px",
+                      background: filter === f ? COLORS.coral : "transparent",
+                      color: filter === f ? "#ffffff" : COLORS.hint,
+                      border: `0.5px solid ${filter === f ? COLORS.coral : COLORS.line}`,
+                    }}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-y-auto" style={{ maxHeight: 260 }}>
+              {leads.map((l) => (
+                <button
+                  key={l.id}
+                  onClick={() => { setActiveId(l.id); setLeadsOpen(false); }}
+                  className="w-full text-left border-t flex items-center gap-3"
+                  style={{
+                    borderColor: COLORS.line,
+                    background: active?.id === l.id ? "#f9f9f9" : "transparent",
+                    padding: "10px 14px",
+                  }}
+                >
+                  <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: statusColor(l.status) }} />
+                  <div className="flex-1 min-w-0">
+                    <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {[l.first_name, l.last_name].filter(Boolean).join(" ") || l.phone}
+                    </div>
+                    <div style={{ fontSize: 13, color: COLORS.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {l.funding_preference || ""}
+                    </div>
+                  </div>
+                </button>
+              ))}
+              {leads.length === 0 && (
+                <div style={{ padding: "14px 16px", fontSize: 13, color: COLORS.muted }}>No leads.</div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       {/* Quick reference launchers + MMS + Notes (scrollable) */}
