@@ -1423,11 +1423,25 @@ function Accordion({ title, defaultOpen, children }: { title: string; defaultOpe
   const [open, setOpen] = useState(!!defaultOpen);
   return (
     <div className="border-t" style={{ borderColor: COLORS.line }}>
-      <button onClick={() => setOpen((v) => !v)} className="w-full px-3 py-2 text-left flex items-center justify-between">
-        <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: COLORS.text }}>{title}</span>
-        <span className="text-xs" style={{ color: COLORS.muted }}>{open ? "−" : "+"}</span>
+      <button onClick={() => setOpen((v) => !v)} className="w-full text-left flex items-center justify-between" style={{ padding: "12px 16px" }}>
+        <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.text }}>{title}</span>
+        <span style={{ fontSize: 14, color: COLORS.muted }}>{open ? "−" : "+"}</span>
       </button>
       {open && <div>{children}</div>}
+    </div>
+  );
+}
+
+// Right-column row: 11px uppercase #999 label, 14px #111 value
+function RightRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.hint, fontWeight: 500, flexShrink: 0 }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 14, color: COLORS.text, textAlign: "right", lineHeight: 1.5 }}>
+        {value}
+      </span>
     </div>
   );
 }
