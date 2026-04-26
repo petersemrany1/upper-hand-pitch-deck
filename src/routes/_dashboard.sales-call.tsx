@@ -4,6 +4,7 @@ import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
   Phone, Check, AlertTriangle, Send, Save, Search, X,
+  Shield, HelpCircle, ChevronRight,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -1182,7 +1183,16 @@ function RightPanel({
   const [callRunning, setCallRunning] = useState(false);
   const [notes, setNotes] = useState(active?.call_notes ?? "");
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState<null | "objections" | "questions">(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Close drawer on Esc
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawer(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [drawer]);
 
   useEffect(() => { setNotes(active?.call_notes ?? ""); setSavedAt(null); }, [active?.id, active?.call_notes]);
 
@@ -1413,29 +1423,52 @@ function RightPanel({
         </div>
       </div>
 
-      {/* Accordions + MMS + Notes (scrollable) */}
+      {/* Quick reference launchers + MMS + Notes (scrollable) */}
       <div className="flex-1 overflow-y-auto">
-        <Accordion title="Objections (NEPQ)">
-          {OBJECTIONS.map((o) => (
-            <div key={o.q} className="border-t" style={{ borderColor: COLORS.line, padding: "12px 16px" }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>"{o.q}"</div>
-              <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 6, lineHeight: 1.6 }}>{o.a}</div>
-              {o.note && (
-                <div style={{ fontSize: 13, fontStyle: "italic", color: COLORS.muted, marginTop: 6, lineHeight: 1.6 }}>
-                  {o.note}
-                </div>
-              )}
-            </div>
-          ))}
-        </Accordion>
-        <Accordion title="Common Questions">
-          {QUESTIONS.map((q) => (
-            <div key={q.q} className="border-t" style={{ borderColor: COLORS.line, padding: "12px 16px" }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>{q.q}</div>
-              <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 6, lineHeight: 1.6 }}>{q.a}</div>
-            </div>
-          ))}
-        </Accordion>
+        <div style={{ padding: "14px 16px 8px" }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.text, marginBottom: 10 }}>
+            Quick Reference
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setDrawer("objections")}
+              className="flex flex-col items-start justify-between rounded-[10px]"
+              style={{
+                background: "#fff7ed",
+                border: `0.5px solid #fed7aa`,
+                color: "#9a3412",
+                padding: "14px 14px",
+                minHeight: 88,
+                textAlign: "left",
+              }}
+            >
+              <Shield className="h-5 w-5" />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111111", lineHeight: 1.3 }}>Objections</div>
+                <div style={{ fontSize: 11, color: "#111111", opacity: 0.7, marginTop: 2 }}>{OBJECTIONS.length} responses</div>
+              </div>
+            </button>
+            <button
+              onClick={() => setDrawer("questions")}
+              className="flex flex-col items-start justify-between rounded-[10px]"
+              style={{
+                background: "#eff6ff",
+                border: `0.5px solid #bfdbfe`,
+                color: "#1e40af",
+                padding: "14px 14px",
+                minHeight: 88,
+                textAlign: "left",
+              }}
+            >
+              <HelpCircle className="h-5 w-5" />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111111", lineHeight: 1.3 }}>Questions</div>
+                <div style={{ fontSize: 11, color: "#111111", opacity: 0.7, marginTop: 2 }}>{QUESTIONS.length} answers</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <Accordion title="Send Before & Afters" defaultOpen>
           <div style={{ padding: 14 }} className="space-y-2">
             {mmsImages.length === 0 ? (
@@ -1479,7 +1512,144 @@ function RightPanel({
           </div>
         </Accordion>
       </div>
+
+      {/* Slide-out drawer for Objections / Questions */}
+      {drawer && (
+        <ReferenceDrawer kind={drawer} onClose={() => setDrawer(null)} />
+      )}
     </div>
+  );
+}
+
+function ReferenceDrawer({ kind, onClose }: { kind: "objections" | "questions"; onClose: () => void }) {
+  const [query, setQuery] = useState("");
+  const [openIdx, setOpenIdx] = useState<number | null>(0);
+  const items = kind === "objections" ? OBJECTIONS : QUESTIONS;
+  const title = kind === "objections" ? "Objections" : "Common Questions";
+  const accent = kind === "objections" ? "#9a3412" : "#1e40af";
+  const accentBg = kind === "objections" ? "#fff7ed" : "#eff6ff";
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items.map((it, i) => ({ it, i }));
+    return items
+      .map((it, i) => ({ it, i }))
+      .filter(({ it }) => it.q.toLowerCase().includes(q) || it.a.toLowerCase().includes(q));
+  }, [items, query]);
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        className="fixed inset-0 z-40"
+        style={{ background: "rgba(17,17,17,0.35)" }}
+      />
+      {/* Panel */}
+      <div
+        className="fixed right-0 top-0 h-full z-50 flex flex-col"
+        style={{
+          width: "min(460px, 92vw)",
+          background: "#ffffff",
+          borderLeft: `0.5px solid ${COLORS.line}`,
+        }}
+      >
+        {/* Header */}
+        <div
+          className="flex items-center justify-between flex-shrink-0"
+          style={{ padding: "18px 20px", borderBottom: `0.5px solid ${COLORS.line}`, background: accentBg }}
+        >
+          <div className="flex items-center gap-2">
+            {kind === "objections" ? <Shield className="h-5 w-5" style={{ color: accent }} /> : <HelpCircle className="h-5 w-5" style={{ color: accent }} />}
+            <div style={{ fontSize: 16, fontWeight: 500, color: COLORS.text }}>{title}</div>
+            <span style={{ fontSize: 12, color: COLORS.text, opacity: 0.6 }}>· {items.length}</span>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-[6px] flex items-center justify-center"
+            style={{ width: 32, height: 32, background: "#ffffff", border: `0.5px solid ${COLORS.line}`, color: COLORS.text }}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="flex-shrink-0" style={{ padding: "12px 16px", borderBottom: `0.5px solid ${COLORS.line}` }}>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: COLORS.text, opacity: 0.5 }} />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); setOpenIdx(null); }}
+              placeholder={`Search ${title.toLowerCase()}…`}
+              className="w-full rounded-[6px] outline-none"
+              style={{
+                background: "#f9f9f9",
+                border: `0.5px solid ${COLORS.line}`,
+                color: COLORS.text,
+                fontSize: 14,
+                padding: "10px 12px 10px 36px",
+              }}
+            />
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {filtered.length === 0 && (
+            <div style={{ padding: 24, fontSize: 13, color: COLORS.text, opacity: 0.7 }}>
+              No matches.
+            </div>
+          )}
+          {filtered.map(({ it, i }) => {
+            const isOpen = openIdx === i;
+            return (
+              <div key={it.q} className="border-b" style={{ borderColor: COLORS.line }}>
+                <button
+                  onClick={() => setOpenIdx(isOpen ? null : i)}
+                  className="w-full text-left flex items-center justify-between gap-3"
+                  style={{
+                    padding: "16px 20px",
+                    background: isOpen ? "#f9f9f9" : "#ffffff",
+                    minHeight: 56,
+                  }}
+                >
+                  <span style={{ fontSize: 15, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
+                    {kind === "objections" ? `"${it.q}"` : it.q}
+                  </span>
+                  <ChevronRight
+                    className="h-4 w-4 flex-shrink-0 transition-transform"
+                    style={{ color: COLORS.text, opacity: 0.5, transform: isOpen ? "rotate(90deg)" : "none" }}
+                  />
+                </button>
+                {isOpen && (
+                  <div style={{ padding: "0 20px 18px" }}>
+                    <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>{String(it.a)}</div>
+                    {(it as { note?: string }).note && (
+                      <div
+                        className="rounded-[6px]"
+                        style={{
+                          marginTop: 12,
+                          padding: "10px 12px",
+                          background: "#fffbeb",
+                          borderLeft: `2px solid ${COLORS.amber}`,
+                          fontSize: 13,
+                          color: COLORS.amberDark,
+                          lineHeight: 1.6,
+                          fontStyle: "italic",
+                        }}
+                      >
+                        {(it as { note?: string }).note}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
   );
 }
 
