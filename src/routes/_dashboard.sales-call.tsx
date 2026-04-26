@@ -467,46 +467,140 @@ function StepContent({
 /* ─────────── Helpers ─────────── */
 
 function Card({ className = "", children }: { className?: string; children: React.ReactNode }) {
-  return <div className={`rounded-lg ${className}`} style={{ background: COLORS.card, border: `1px solid ${COLORS.line}` }}>{children}</div>;
+  return (
+    <div
+      className={`rounded-[10px] ${className}`}
+      style={{ background: COLORS.card, border: `0.5px solid ${COLORS.line}` }}
+    >
+      {children}
+    </div>
+  );
 }
+
 function Eyebrow({ children, gold }: { children: React.ReactNode; gold?: boolean }) {
-  return <div className="text-[10px] font-bold tracking-widest mb-2" style={{ color: gold ? COLORS.gold : COLORS.blue }}>{children}</div>;
+  return (
+    <div
+      className="mb-2"
+      style={{
+        fontSize: 12,
+        fontWeight: 500,
+        textTransform: "uppercase",
+        letterSpacing: "0.05em",
+        color: gold ? COLORS.gold : COLORS.coral,
+      }}
+    >
+      {children}
+    </div>
+  );
 }
+
 function Label({ children }: { children: React.ReactNode }) {
-  return <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: COLORS.muted }}>{children}</div>;
+  return (
+    <div
+      style={{
+        fontSize: 11,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
+        fontWeight: 500,
+        color: COLORS.hint,
+      }}
+    >
+      {children}
+    </div>
+  );
 }
-function Pill({ children, gold }: { children: React.ReactNode; gold?: boolean }) {
-  return <span className="px-1.5 py-0.5 rounded text-sm font-semibold"
-    style={{ background: gold ? "rgba(251,191,36,0.15)" : "rgba(45,107,228,0.15)", color: gold ? COLORS.gold : COLORS.blue }}>{children}</span>;
+
+// Pill: plain text by default. Only the lead's name (`name` prop) is weight 500.
+// No coloured background highlights — keep script body clean and readable.
+function Pill({ children, name }: { children: React.ReactNode; name?: boolean; gold?: boolean }) {
+  return (
+    <span style={{ color: COLORS.text, fontWeight: name ? 500 : 400 }}>
+      {children}
+    </span>
+  );
 }
+
 function Coach({ children }: { children: React.ReactNode }) {
-  return <p className="mt-3 text-xs leading-relaxed italic" style={{ color: COLORS.muted }}>{children}</p>;
+  return (
+    <p
+      className="mt-3"
+      style={{
+        fontSize: 13,
+        lineHeight: 1.6,
+        fontStyle: "italic",
+        color: COLORS.muted,
+      }}
+    >
+      {children}
+    </p>
+  );
 }
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-5">
+    <div className="mt-6">
       <Label>{title}</Label>
       <div className="mt-2">{children}</div>
     </div>
   );
 }
+
 function NextBtn({ onClick, gold }: { onClick: () => void; gold?: boolean }) {
   return (
-    <div className="mt-6 flex justify-end">
-      <button onClick={onClick} className="px-5 py-2 rounded-md font-bold text-xs tracking-wider"
-        style={{ background: gold ? COLORS.gold : COLORS.green, color: gold ? "#fffbeb" : "#ecfdf5" }}>
-        MARK COMPLETE → NEXT STEP
+    <div className="mt-7 flex justify-end">
+      <button
+        onClick={onClick}
+        className="rounded-[6px]"
+        style={{
+          background: gold ? COLORS.gold : COLORS.green,
+          color: "#ffffff",
+          fontSize: 13,
+          fontWeight: 500,
+          padding: "10px 20px",
+        }}
+      >
+        Mark complete
       </button>
     </div>
   );
 }
+
 function RuleBad({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm px-3 py-2 rounded-md flex items-start gap-2" style={{ background: "rgba(239,68,68,0.08)", border: `1px solid ${COLORS.red}`, color: "#fecaca" }}>
-    <X className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: COLORS.red }} /><span>{children}</span></div>;
+  return (
+    <div
+      className="rounded-[6px] flex items-start gap-2"
+      style={{
+        background: "#fef2f2",
+        border: `0.5px solid ${COLORS.line}`,
+        color: COLORS.text,
+        fontSize: 14,
+        lineHeight: 1.6,
+        padding: "10px 12px",
+      }}
+    >
+      <X className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: COLORS.red }} />
+      <span>{children}</span>
+    </div>
+  );
 }
+
 function RuleGood({ children }: { children: React.ReactNode }) {
-  return <div className="text-sm px-3 py-2 rounded-md flex items-start gap-2" style={{ background: "rgba(16,185,129,0.08)", border: `1px solid ${COLORS.green}`, color: "#bbf7d0" }}>
-    <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: COLORS.green }} /><span>{children}</span></div>;
+  return (
+    <div
+      className="rounded-[6px] flex items-start gap-2"
+      style={{
+        background: "#ecfdf5",
+        border: `0.5px solid ${COLORS.line}`,
+        color: COLORS.text,
+        fontSize: 14,
+        lineHeight: 1.6,
+        padding: "10px 12px",
+      }}
+    >
+      <Check className="h-4 w-4 flex-shrink-0 mt-0.5" style={{ color: COLORS.green }} />
+      <span>{children}</span>
+    </div>
+  );
 }
 
 function DiscoveryChecklist() {
