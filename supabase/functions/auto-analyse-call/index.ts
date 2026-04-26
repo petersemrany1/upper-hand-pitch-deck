@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
 // Auto CRM call logger.
 // Triggered by twilio-status after a recording is saved. Uses the SERVICE
@@ -63,7 +63,7 @@ serve(async (req) => {
   }
 
   let callRecordId: string | undefined;
-  let supabaseForCatch: ReturnType<typeof createClient> | null = null;
+  let supabaseForCatch: ReturnType<typeof createClient<any>> | null = null;
 
   try {
     const body = await req.json().catch(() => ({}));

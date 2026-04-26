@@ -1,9 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 serve(async (req) => {
   try {
     const formData = await req.formData();
+
+    // Reject unsigned requests. Without this an attacker could POST a fake
+    // RecordingUrl and we'd hand it to the AI analysis pipeline.
+    if (!(await validateTwilioSignature(req, formData))) {
+      return new Response("Forbidden", { status: 403 });
+    }
+
     const callSid = formData.get("CallSid")?.toString() || "";
     const callStatus = formData.get("CallStatus")?.toString() || "";
     const callDuration =
