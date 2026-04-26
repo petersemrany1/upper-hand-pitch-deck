@@ -796,24 +796,24 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 5 — Education</Eyebrow>
-      <h1 className="text-2xl font-bold mb-6">Educate & Show</h1>
+      <h1 className="text-2xl font-medium mb-6">Educate & Show</h1>
 
       <Card className="px-5 py-5">
         <Label>Card 1 — Knowledge Check</Label>
-        <p className="text-lg font-bold mt-2">What do you know about hair transplants?</p>
+        <p className="text-lg font-medium mt-2">What do you know about hair transplants?</p>
         <Coach>Start with what they already know. Fill in the gaps only. Don't lecture. Let them feel smart.</Coach>
       </Card>
 
       <Card className="px-5 py-5 mt-3">
         <Label>Card 2 — The Product (no price yet)</Label>
         <div className="mt-3 space-y-4 text-sm leading-relaxed">
-          <div><div className="font-bold mb-1">What is a graft?</div>
+          <div><div className="font-medium mb-1">What is a graft?</div>
             <p>Think of it like planting a garden. A graft is one tiny root that contains between 1 and 4 hairs. We take those roots from the back of your head — where the hair is genetically programmed to never fall out. We plant them in the areas where you're losing hair. Because they come from that resistant zone, they stay. Permanently. They grow, you cut them, you wash them — they're yours for life.</p></div>
-          <div><div className="font-bold mb-1">Why medication doesn't fix it</div>
+          <div><div className="font-medium mb-1">Why medication doesn't fix it</div>
             <p>Things like Rogaine and Finasteride can slow the loss and keep existing hair stronger. But here's the thing — they cannot grow hair back in areas that are already gone. If the follicle is dead, it's dead. No pill or spray brings it back. Only transplanting a living root from elsewhere does that. That's the only way.</p></div>
-          <div><div className="font-bold mb-1">Why going overseas is a risk</div>
+          <div><div className="font-medium mb-1">Why going overseas is a risk</div>
             <p>Turkey looks cheap on paper — but here's what's hidden in that price. The doctor usually designs the hairline and then leaves. Technicians — not surgeons — do the actual procedure. You're in a foreign country. If something goes wrong when you get home, you're on your own. No local follow-up. No one to call. No recourse. Australian clinics are AHPRA regulated, doctor-led, and if anything needs attention — it's a 10-minute drive, not a $3,000 flight.</p></div>
-          <div><div className="font-bold mb-1">Why Nitai specifically</div>
+          <div><div className="font-medium mb-1">Why Nitai specifically</div>
             <p>Most clinics quote you one price and charge more on the day. Nitai has never done that — not once. The quote you get is the quote. Dr. Shabna Singh is in the room all day — not just for the design, the whole treatment. Full aftercare is included. And they treat cases most clinics turn away.</p></div>
         </div>
       </Card>
@@ -823,10 +823,10 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         <p className="text-sm mt-2">Show don't tell. Send the before/after right now while you're talking.</p>
         <div className="flex gap-2 mt-3 flex-wrap">
           {mmsImages.length === 0 ? (
-            <div className="text-xs" style={{ color: COLORS.muted }}>Upload images to the <code>mms-images</code> bucket to enable sending.</div>
+            <div className="text-[13px]" style={{ color: COLORS.muted }}>Upload images to the <code>mms-images</code> bucket to enable sending.</div>
           ) : mmsImages.slice(0, 4).map((img) => (
             <button key={img.name} onClick={() => void send(img.url)}
-              className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2"
+              className="px-3 py-2 rounded-md text-[13px] font-medium flex items-center gap-2"
               style={{ background: COLORS.coral, color: "#ffffff" }}>
               <Send className="h-3.5 w-3.5" /> Send {img.name.replace(/\.[^.]+$/, "")}
             </button>
@@ -888,7 +888,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 8 — Price & Sell</Eyebrow>
-      <h1 className="text-2xl font-bold mb-6">Present Price</h1>
+      <h1 className="text-2xl font-medium mb-6">Present Price</h1>
 
       <Card className="px-5 py-5">
         <Label>Section A — Personalise to the Specialist</Label>
@@ -906,7 +906,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
             className="flex-1 px-3 py-2 rounded-md text-sm outline-none"
             style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
           <button onClick={() => void search()} disabled={loading}
-            className="px-4 py-2 rounded-md text-xs font-bold" style={{ background: COLORS.coral, color: "#ffffff" }}>
+            className="px-4 py-2 rounded-md text-[13px] font-medium" style={{ background: COLORS.coral, color: "#ffffff" }}>
             {loading ? "Searching…" : "Find Closest"}
           </button>
         </div>
@@ -921,9 +921,9 @@ function PriceStep({ onNext }: { onNext: () => void }) {
                 }}>
                 <div>
                   <div className="text-sm font-semibold">{c.clinic_name}</div>
-                  <div className="text-[11px]" style={{ color: COLORS.muted }}>{c.address}</div>
+                  <div className="text-[13px]" style={{ color: COLORS.muted }}>{c.address}</div>
                 </div>
-                <div className="text-xs font-bold" style={{ color: COLORS.green }}>{c.drive_text ?? "—"}</div>
+                <div className="text-[13px] font-medium" style={{ color: COLORS.green }}>{c.drive_text ?? "—"}</div>
               </button>
             ))}
           </div>
@@ -935,14 +935,14 @@ function PriceStep({ onNext }: { onNext: () => void }) {
           <div className="flex items-start justify-between">
             <div>
               <Label>Selected Clinic</Label>
-              <div className="text-base font-bold mt-1">{selected.clinic_name}</div>
+              <div className="text-base font-medium mt-1">{selected.clinic_name}</div>
               <div className="text-sm" style={{ color: COLORS.muted }}>{selected.address}</div>
               <div className="text-sm mt-1">{selected.doctor_name}</div>
             </div>
           </div>
           {isNitai && (
             <>
-              <p className="mt-3 text-xs" style={{ color: COLORS.muted }}>
+              <p className="mt-3 text-[13px]" style={{ color: COLORS.muted }}>
                 Free parking on site · Near Lincoln Park · 5 mins from DFO · 10 mins Melbourne Airport · Off Tullamarine Freeway
               </p>
               <ul className="mt-4 text-sm space-y-1.5 list-disc pl-5">
@@ -990,7 +990,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
     <div className="flex gap-2">
       {["yes", "no"].map((v) => (
         <button key={v} onClick={() => set(k, v)}
-          className="px-4 py-1.5 rounded-md text-xs font-bold capitalize"
+          className="px-4 py-1.5 rounded-md text-[13px] font-medium capitalize"
           style={{
             background: form[k] === v ? COLORS.coral : "#f9f9f9",
             color: form[k] === v ? "#fff" : COLORS.muted,
@@ -1003,7 +1003,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 9 — Finance Check</Eyebrow>
-      <h1 className="text-2xl font-bold mb-6">Treatment Funding</h1>
+      <h1 className="text-2xl font-medium mb-6">Treatment Funding</h1>
       <Card className="px-5 py-5">
         <p className="text-sm leading-relaxed">
           I just need to ask you 6 quick questions — it's not a commitment, it won't affect your credit rating, and it just helps us see if finance could work for you.
@@ -1023,7 +1023,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
           <div className="flex gap-2">
             {["Below 18,000", "18,000", "18,000+"].map((v) => (
               <button key={v} onClick={() => set("price", v)}
-                className="px-3 py-1.5 rounded-md text-xs font-bold"
+                className="px-3 py-1.5 rounded-md text-[13px] font-medium"
                 style={{
                   background: form.price === v ? COLORS.coral : "#f9f9f9",
                   color: form.price === v ? "#fff" : COLORS.muted,
@@ -1039,7 +1039,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <FormRow label="Are you a home owner?"><YN k="homeowner" /></FormRow>
 
         <button onClick={() => void check()}
-          className="w-full py-2 rounded-md text-xs font-bold" style={{ background: COLORS.green, color: "#ecfdf5" }}>
+          className="w-full py-2 rounded-md text-[13px] font-medium" style={{ background: COLORS.green, color: "#ecfdf5" }}>
           CHECK ELIGIBILITY
         </button>
       </Card>
@@ -1048,8 +1048,8 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <div className="mt-4 p-4 rounded-md flex items-center gap-3"
           style={{ background: result.eligible ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${result.eligible ? COLORS.green : COLORS.red}` }}>
           {result.eligible
-            ? <><Check className="h-6 w-6" style={{ color: COLORS.green }} /><span className="font-bold">Great news — finance options are available.</span></>
-            : <><AlertTriangle className="h-6 w-6" style={{ color: COLORS.red }} /><span className="font-bold">Finance may not be available — explore savings or superannuation options with the patient.</span></>}
+            ? <><Check className="h-6 w-6" style={{ color: COLORS.green }} /><span className="font-medium">Great news — finance options are available.</span></>
+            : <><AlertTriangle className="h-6 w-6" style={{ color: COLORS.red }} /><span className="font-medium">Finance may not be available — explore savings or superannuation options with the patient.</span></>}
         </div>
       )}
     </div>
@@ -1100,7 +1100,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
             {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
           </select>
         </FormRow>
-        {clinic?.doctor_name && <div className="text-xs" style={{ color: COLORS.muted }}>Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span></div>}
+        {clinic?.doctor_name && <div className="text-[13px]" style={{ color: COLORS.muted }}>Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span></div>}
         <FormRow label="Gender">
           <select value={form.gender} onChange={(e) => set("gender", e.target.value)}
             className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
@@ -1123,7 +1123,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
           <div className="flex gap-2">
             {["Savings", "Super", "Finance"].map((v) => (
               <button key={v} onClick={() => set("funding", v)}
-                className="px-4 py-1.5 rounded-md text-xs font-bold"
+                className="px-4 py-1.5 rounded-md text-[13px] font-medium"
                 style={{
                   background: form.funding === v ? COLORS.coral : "#f9f9f9",
                   color: form.funding === v ? "#fff" : COLORS.muted,
@@ -1140,7 +1140,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
           <div className="flex gap-2 flex-wrap">
             {slots.map((s) => (
               <button key={s} onClick={() => set("time", s)}
-                className="px-3 py-1.5 rounded-md text-xs font-bold"
+                className="px-3 py-1.5 rounded-md text-[13px] font-medium"
                 style={{
                   background: form.time === s ? COLORS.green : "#f9f9f9",
                   color: form.time === s ? "#ecfdf5" : COLORS.muted,
@@ -1151,7 +1151,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
         </FormRow>
 
         <button onClick={() => void book()}
-          className="w-full py-3 rounded-md font-bold tracking-wider"
+          className="w-full py-3 rounded-md font-medium tracking-wider"
           style={{ background: COLORS.green, color: "#ecfdf5" }}>
           BOOK APPOINTMENT
         </button>
