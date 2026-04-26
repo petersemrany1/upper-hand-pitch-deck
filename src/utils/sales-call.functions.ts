@@ -190,7 +190,9 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (!data.leadId) return { success: false as const, error: "leadId required" };
     const { error } = await supabaseAdmin.from("meta_leads").update({
-      finance_eligible: data.eligible, finance_form_answers: data.answers, updated_at: new Date().toISOString(),
+      finance_eligible: data.eligible,
+      finance_form_answers: data.answers as never,
+      updated_at: new Date().toISOString(),
     }).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
     return { success: true as const };
