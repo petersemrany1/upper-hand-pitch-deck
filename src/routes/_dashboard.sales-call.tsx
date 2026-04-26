@@ -1085,13 +1085,12 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 10 — Deposit & Book</Eyebrow>
-      <h1 className="text-2xl font-bold mb-2">Lock It In</h1>
-      <div className="p-3 rounded-md mb-4" style={{ background: "rgba(245,158,11,0.1)", border: `1px solid ${COLORS.amber}` }}>
-        <p className="text-xs" style={{ color: "#fde68a" }}>
-          Get the booking before they hang up. If you can't lock in a date today — get the follow-up call scheduled before they go.
-          Never let them leave without a next step.
-        </p>
-      </div>
+      <StepHeading>Lock It In</StepHeading>
+      <CalloutAmber title="Get it before they hang up">
+        If you can't lock in a date today — get the follow-up call scheduled before they go.
+        Never let them leave without a next step.
+      </CalloutAmber>
+      <div style={{ marginTop: 16 }} />
 
       <Card className="px-5 py-5 space-y-4">
         <FormRow label="Clinic">
