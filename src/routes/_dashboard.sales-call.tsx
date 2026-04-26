@@ -605,6 +605,104 @@ function RuleGood({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Step heading: large 22px heading, weight 500, generous bottom margin
+function StepHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h1
+      style={{
+        fontSize: 22,
+        fontWeight: 500,
+        color: COLORS.text,
+        marginBottom: 20,
+        lineHeight: 1.3,
+      }}
+    >
+      {children}
+    </h1>
+  );
+}
+
+// Script body: clean, plain, 14px, no inline highlights
+function ScriptBody({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="rounded-[6px]"
+      style={{
+        background: "#f9f9f9",
+        padding: "16px 18px",
+        fontSize: 14,
+        lineHeight: 1.7,
+        fontWeight: 400,
+        color: COLORS.text,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+// Amber "Call me back" / handler callout
+function CalloutAmber({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: COLORS.amberBg,
+        borderLeft: `2px solid ${COLORS.amber}`,
+        borderRadius: 0,
+        padding: "14px 16px",
+        marginTop: 16,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          color: COLORS.amberDark,
+          fontWeight: 500,
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: 14, color: COLORS.amberDark, lineHeight: 1.7 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Green callout for success-style sections (e.g. "When they say yes")
+function CalloutGreen({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: "#ecfdf5",
+        borderLeft: `2px solid ${COLORS.green}`,
+        borderRadius: 0,
+        padding: "14px 16px",
+        marginTop: 16,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          textTransform: "uppercase",
+          letterSpacing: "0.05em",
+          color: "#047857",
+          fontWeight: 500,
+          marginBottom: 8,
+        }}
+      >
+        {title}
+      </div>
+      <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function DiscoveryChecklist() {
   const items = [
     "Where on the head is the loss happening?",
