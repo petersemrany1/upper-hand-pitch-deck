@@ -406,18 +406,18 @@ function DashboardHome() {
           <p style={{ fontSize: 11, color: "#666", marginBottom: 12 }}>Call a clinic directly</p>
 
           <div
-            className="mb-3 rounded px-3 py-2 flex items-center justify-between gap-3"
+            className="mb-3 rounded-md px-3 py-2 flex items-center justify-between gap-3"
             style={{
-              background: "#151518",
-              border: `1px solid ${dialerStateColor}33`,
+              background: dialerStatus === "ready" ? "#ecfdf5" : dialerStatus === "failed" ? "#fef2f2" : "#fffbeb",
+              border: `0.5px solid ${dialerStatus === "ready" ? "#6ee7b7" : dialerStatus === "failed" ? "#fca5a5" : "#fde68a"}`,
             }}
           >
             <div>
-              <div className="flex items-center gap-2" style={{ fontSize: 11, color: "#111111", fontWeight: 600 }}>
+              <div className="flex items-center gap-2" style={{ fontSize: 11, color: dialerStatus === "ready" ? "#10b981" : dialerStatus === "failed" ? "#dc2626" : "#92400e", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
                 {dialerStateLabel}
               </div>
-              <div style={{ fontSize: 10, color: dialerStatus === "failed" ? "#fca5a5" : "#666", marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
                 {dialerStatus === "failed"
                   ? "Connection failed — click to retry"
                   : dialerStatus === "ready"
@@ -432,8 +432,8 @@ function DashboardHome() {
                   setCallMessage(null);
                   retry();
                 }}
-                className="border-0 text-[#111111] text-xs px-3"
-                style={{ background: "#ef4444", height: 32 }}
+                className="border-0 text-white text-xs px-3"
+                style={{ background: "#dc2626", height: 32, borderRadius: 6 }}
               >
                 Retry
               </Button>
@@ -444,15 +444,15 @@ function DashboardHome() {
             placeholder="Phone number"
             value={dialNumber}
             onChange={(e) => setDialNumber(e.target.value)}
-            className="mb-2 border-0 text-sm"
-            style={{ background: "#f9f9f9", color: "#111111", height: 38 }}
+            className="mb-2 text-sm"
+            style={{ background: "#ffffff", color: "#111111", height: 38, border: "0.5px solid #ebebeb", borderRadius: 6 }}
           />
 
           <Button
             onClick={handleQuickDial}
             disabled={!dialNumber || calling || (dialerStatus === "connecting" && !isCallActive)}
-            className="w-full border-0 text-[#111111] font-semibold text-sm"
-            style={{ background: isCallActive ? "#ef4444" : "#22c55e", height: 48 }}
+            className="w-full border-0 text-white font-medium text-sm"
+            style={{ background: isCallActive ? "#dc2626" : "#f4522d", height: 44, borderRadius: 6 }}
           >
             {calling ? (
               <Loader2 className="h-4 w-4 animate-spin" />
