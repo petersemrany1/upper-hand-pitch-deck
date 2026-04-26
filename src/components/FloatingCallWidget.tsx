@@ -211,7 +211,7 @@ export function FloatingCallWidget() {
         type="button"
         onClick={() => setExpanded(true)}
         className="fixed bottom-4 right-4 z-[90] flex items-center gap-3 rounded-full px-4 py-2.5 shadow-2xl transition active:scale-95"
-        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
         aria-label="Expand active call"
       >
         <span className="relative flex h-2.5 w-2.5">
@@ -219,9 +219,9 @@ export function FloatingCallWidget() {
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
         </span>
         <div className="flex flex-col items-start min-w-0">
-          <span className="text-sm font-semibold text-white truncate max-w-[180px]">{primaryLabel}</span>
+          <span className="text-sm font-semibold text-[#111111] truncate max-w-[180px]">{primaryLabel}</span>
           {secondaryLabel && (
-            <span className="text-[10px] truncate max-w-[180px]" style={{ color: "#888" }}>{secondaryLabel}</span>
+            <span className="text-[10px] truncate max-w-[180px]" style={{ color: "#999" }}>{secondaryLabel}</span>
           )}
         </div>
         <span className="font-mono text-xs text-emerald-400">{formatDuration(seconds)}</span>
@@ -233,7 +233,7 @@ export function FloatingCallWidget() {
   return (
     <div
       className="fixed z-[95] bottom-4 right-4 left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in"
-      style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       role="dialog"
       aria-label="Active call"
     >
@@ -251,7 +251,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-white/5"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Minimise call"
         >
           <Minus className="h-4 w-4" />
@@ -260,13 +260,13 @@ export function FloatingCallWidget() {
 
       {/* Caller info */}
       <div className="px-4 pb-3 text-center">
-        <div className="text-lg font-bold text-white truncate">{primaryLabel}</div>
+        <div className="text-lg font-bold text-[#111111] truncate">{primaryLabel}</div>
         {secondaryLabel && (
-          <div className="text-xs truncate" style={{ color: "#aaa" }}>{secondaryLabel}</div>
+          <div className="text-xs truncate" style={{ color: "#999" }}>{secondaryLabel}</div>
         )}
         <div className="font-mono text-2xl text-emerald-400 mt-1">{formatDuration(seconds)}</div>
         {dtmfTrail && (
-          <div className="mt-1 font-mono text-xs text-zinc-500 tracking-widest">{dtmfTrail}</div>
+          <div className="mt-1 font-mono text-xs text-[#999] tracking-widest">{dtmfTrail}</div>
         )}
       </div>
 
@@ -278,12 +278,12 @@ export function FloatingCallWidget() {
               key={k.d}
               type="button"
               onClick={() => handleDigit(k.d)}
-              className="flex flex-col items-center justify-center h-14 rounded-lg text-white active:scale-95 transition"
-              style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+              className="flex flex-col items-center justify-center h-14 rounded-lg text-[#111111] active:scale-95 transition"
+              style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               aria-label={`Send digit ${k.d}`}
             >
               <span className="text-xl font-semibold leading-none">{k.d}</span>
-              {k.sub && <span className="text-[9px] text-zinc-500 mt-0.5 tracking-widest">{k.sub}</span>}
+              {k.sub && <span className="text-[9px] text-[#999] mt-0.5 tracking-widest">{k.sub}</span>}
             </button>
           ))}
         </div>
@@ -312,7 +312,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={handleHangup}
-          className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg bg-red-600 text-white shadow-lg hover:bg-red-500 active:scale-95 transition"
+          className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg bg-red-600 text-[#111111] shadow-lg hover:bg-red-500 active:scale-95 transition"
           aria-label="Hang up"
         >
           <PhoneOff className="h-5 w-5" />
@@ -330,10 +330,10 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg text-white active:scale-95 transition"
+      className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg text-[#111111] active:scale-95 transition"
       style={{
-        background: active ? "#2D6BE4" : "#1a1a1e",
-        border: `1px solid ${active ? "#2D6BE4" : "#1f1f23"}`,
+        background: active ? "#f4522d" : "#f9f9f9",
+        border: `1px solid ${active ? "#f4522d" : "#ebebeb"}`,
       }}
       aria-pressed={active}
       aria-label={label}
@@ -384,7 +384,7 @@ function CallOutcomePrompt({
   return (
     <div
       className="fixed z-[95] bottom-4 right-4 left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in p-4"
-      style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       role="dialog"
       aria-label="Log call outcome"
     >
@@ -398,23 +398,23 @@ function CallOutcomePrompt({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-zinc-400 hover:text-white hover:bg-white/5"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Skip logging"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="text-sm text-white truncate">{from || "Call ended"}</div>
-      <div className="font-mono text-xs text-zinc-500 mb-3">Duration {formatDuration(durationSec)}</div>
+      <div className="text-sm text-[#111111] truncate">{from || "Call ended"}</div>
+      <div className="font-mono text-xs text-[#999] mb-3">Duration {formatDuration(durationSec)}</div>
 
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
         placeholder="Quick notes (optional)…"
         rows={2}
-        className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-500 mb-3 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+        className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#999] mb-3 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+        style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
       />
 
       <div className="grid grid-cols-2 gap-2">
@@ -426,8 +426,8 @@ function CallOutcomePrompt({
           type="button"
           onClick={() => save("not_interested")}
           disabled={saving}
-          className="col-span-2 h-10 rounded-md text-sm font-semibold text-white active:scale-95 transition disabled:opacity-50"
-          style={{ background: "#3f1a1a", border: "1px solid #5a1f1f" }}
+          className="col-span-2 h-10 rounded-md text-sm font-semibold text-[#111111] active:scale-95 transition disabled:opacity-50"
+          style={{ background: "#fef2f2", border: "1px solid #fef2f2" }}
         >
           Not interested
         </button>
@@ -439,14 +439,14 @@ function CallOutcomePrompt({
 function OutcomeButton({
   onClick, disabled, label, tone,
 }: { onClick: () => void; disabled: boolean; label: string; tone: "emerald" | "blue" | "zinc" }) {
-  const bg = tone === "emerald" ? "#0f3a25" : tone === "blue" ? "#142a4d" : "#1a1a1e";
-  const border = tone === "emerald" ? "#1c5a3a" : tone === "blue" ? "#2D6BE4" : "#1f1f23";
+  const bg = tone === "emerald" ? "#0f3a25" : tone === "blue" ? "#142a4d" : "#f9f9f9";
+  const border = tone === "emerald" ? "#1c5a3a" : tone === "blue" ? "#f4522d" : "#ebebeb";
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="h-10 rounded-md text-sm font-semibold text-white active:scale-95 transition disabled:opacity-50"
+      className="h-10 rounded-md text-sm font-semibold text-[#111111] active:scale-95 transition disabled:opacity-50"
       style={{ background: bg, border: `1px solid ${border}` }}
     >
       {label}

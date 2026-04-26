@@ -66,22 +66,22 @@ function ResetPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "#09090b" }}>
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "#f7f7f5" }}>
       <div
         className="w-full max-w-sm rounded-2xl p-8 shadow-2xl"
-        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       >
         <div className="mb-6 flex flex-col items-center text-center">
           <div
             className="mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-            style={{ background: "#1a1a1e", color: "#2D6BE4" }}
+            style={{ background: "#f9f9f9", color: "#f4522d" }}
           >
             <KeyRound className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold text-white">
+          <h1 className="text-xl font-bold text-[#111111]">
             {mode === "request" ? "Reset password" : "Set new password"}
           </h1>
-          <p className="mt-1 text-sm text-zinc-400">
+          <p className="mt-1 text-sm text-[#999]">
             {mode === "request"
               ? "Enter your email and we'll send a recovery link."
               : "Enter a new password for your account."}
@@ -91,7 +91,7 @@ function ResetPasswordPage() {
         {mode === "request" ? (
           <form onSubmit={handleRequest} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
                 Email
               </label>
               <input
@@ -100,18 +100,18 @@ function ResetPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+                className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               />
             </div>
 
             {error && (
-              <div className="rounded-md px-3 py-2 text-sm text-red-300" style={{ background: "#3f1a1a", border: "1px solid #5a1f1f" }}>
+              <div className="rounded-md px-3 py-2 text-sm text-red-300" style={{ background: "#fef2f2", border: "1px solid #fef2f2" }}>
                 {error}
               </div>
             )}
             {info && (
-              <div className="rounded-md px-3 py-2 text-sm text-emerald-300" style={{ background: "#0f2a1f", border: "1px solid #1f4a36" }}>
+              <div className="rounded-md px-3 py-2 text-sm text-emerald-300" style={{ background: "#ecfdf5", border: "1px solid #ecfdf5" }}>
                 {info}
               </div>
             )}
@@ -119,8 +119,8 @@ function ResetPasswordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
-              style={{ background: "#2D6BE4" }}
+              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-[#111111] transition active:scale-[0.99] disabled:opacity-50"
+              style={{ background: "#f4522d" }}
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Send recovery link
@@ -129,7 +129,7 @@ function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleUpdate} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
                 New password
               </label>
               <input
@@ -138,12 +138,12 @@ function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+                className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
                 Confirm password
               </label>
               <input
@@ -152,18 +152,18 @@ function ResetPasswordPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
-                className="w-full rounded-md px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                style={{ background: "#1a1a1e", border: "1px solid #1f1f23" }}
+                className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               />
             </div>
 
             {error && (
-              <div className="rounded-md px-3 py-2 text-sm text-red-300" style={{ background: "#3f1a1a", border: "1px solid #5a1f1f" }}>
+              <div className="rounded-md px-3 py-2 text-sm text-red-300" style={{ background: "#fef2f2", border: "1px solid #fef2f2" }}>
                 {error}
               </div>
             )}
             {info && (
-              <div className="rounded-md px-3 py-2 text-sm text-emerald-300" style={{ background: "#0f2a1f", border: "1px solid #1f4a36" }}>
+              <div className="rounded-md px-3 py-2 text-sm text-emerald-300" style={{ background: "#ecfdf5", border: "1px solid #ecfdf5" }}>
                 {info}
               </div>
             )}
@@ -171,8 +171,8 @@ function ResetPasswordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-white transition active:scale-[0.99] disabled:opacity-50"
-              style={{ background: "#2D6BE4" }}
+              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-[#111111] transition active:scale-[0.99] disabled:opacity-50"
+              style={{ background: "#f4522d" }}
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
               Update password
@@ -180,8 +180,8 @@ function ResetPasswordPage() {
           </form>
         )}
 
-        <p className="mt-6 text-center text-xs text-zinc-600">
-          <a href="/login" className="hover:text-zinc-400">Back to sign in</a>
+        <p className="mt-6 text-center text-xs text-[#666]">
+          <a href="/login" className="hover:text-[#999]">Back to sign in</a>
         </p>
       </div>
     </div>

@@ -98,7 +98,7 @@ export function MissedCallsList() {
   return (
     <div
       className="rounded-lg p-4"
-      style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -108,7 +108,7 @@ export function MissedCallsList() {
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.15em",
-              color: "#fff",
+              color: "#111111",
             }}
           >
             MISSED CALLS
@@ -124,7 +124,7 @@ export function MissedCallsList() {
           <Loader2 className="h-4 w-4 animate-spin" style={{ color: "#666" }} />
         </div>
       ) : rows.length === 0 ? (
-        <div className="text-center py-6 text-xs" style={{ color: "#555" }}>
+        <div className="text-center py-6 text-xs" style={{ color: "#666" }}>
           No inbound calls yet.
         </div>
       ) : (
@@ -136,7 +136,7 @@ export function MissedCallsList() {
               <li
                 key={row.id}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5"
-                style={{ background: "#141418", border: "1px solid #1f1f23" }}
+                style={{ background: "#141418", border: "1px solid #ebebeb" }}
               >
                 <span
                   className="flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
@@ -149,10 +149,10 @@ export function MissedCallsList() {
                   <PhoneIncoming className="h-3 w-3" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-medium text-white truncate leading-tight">
+                  <div className="text-[11px] font-medium text-[#111111] truncate leading-tight">
                     {label}
                   </div>
-                  <div className="text-[9px] leading-tight" style={{ color: "#777" }}>
+                  <div className="text-[9px] leading-tight" style={{ color: "#666" }}>
                     {relativeTime(row.called_at)}
                     {missed ? " · Missed" : ""}
                   </div>
@@ -161,8 +161,8 @@ export function MissedCallsList() {
                   type="button"
                   onClick={() => void handleCallback(row)}
                   disabled={!row.phone || dialerStatus !== "ready"}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-white transition active:scale-95 disabled:opacity-40 flex-shrink-0"
-                  style={{ background: "#2D6BE4", border: "1px solid #2D6BE4" }}
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] transition active:scale-95 disabled:opacity-40 flex-shrink-0"
+                  style={{ background: "#f4522d", border: "1px solid #f4522d" }}
                   aria-label={`Call back ${label}`}
                   title={`Call back ${label}`}
                 >

@@ -175,7 +175,7 @@ function DashboardHome() {
     // Contracts (no clinic_id stored on contract_logs, so non-clickable)
     for (const c of stats.recent_contracts ?? []) {
       activityItems.push({
-        color: "#2D6BE4",
+        color: "#f4522d",
         text: `Contract sent to ${c.clinic_name}`,
         time: relativeTime(c.created_at),
         sortDate: c.created_at,
@@ -257,25 +257,28 @@ function DashboardHome() {
       label: "TOTAL CONTACTS",
       value: totalContacts,
       icon: Users,
-      gradient: "linear-gradient(135deg, #0f1629 0%, #0d0d0d 100%)",
-      borderColor: "#2D6BE4",
-      iconColor: "#2D6BE4",
+      gradient: "#ffffff",
+      borderColor: "#f4522d",
+      iconColor: "#f4522d",
+      iconBg: "#fff1ee",
     },
     {
       label: "CALLS THIS WEEK",
       value: callsThisWeek,
       icon: Phone,
-      gradient: "linear-gradient(135deg, #0a1f0f 0%, #0d0d0d 100%)",
-      borderColor: "#22c55e",
-      iconColor: "#22c55e",
+      gradient: "#ffffff",
+      borderColor: "#3b82f6",
+      iconColor: "#3b82f6",
+      iconBg: "#eff6ff",
     },
     {
       label: "CONTRACTS SENT",
       value: contractsSent,
       icon: FileText,
-      gradient: "linear-gradient(135deg, #1a0f29 0%, #0d0d0d 100%)",
-      borderColor: "#a855f7",
-      iconColor: "#a855f7",
+      gradient: "#ffffff",
+      borderColor: "#8b5cf6",
+      iconColor: "#8b5cf6",
+      iconBg: "#f5f3ff",
     },
   ];
 
@@ -284,12 +287,12 @@ function DashboardHome() {
       className="dashboard-grid flex flex-col md:grid h-auto md:h-full overflow-visible md:overflow-hidden p-4 gap-3"
     >
       <div
-        className="md:col-span-4 rounded-lg flex items-center justify-between px-4 py-3 md:py-0"
-        style={{ background: "#0f0f12", border: "1px solid #1f1f23" }}
+        className="md:col-span-4 rounded-lg flex items-center justify-between px-5 py-4 md:py-3"
+        style={{ background: "#ffffff", border: "0.5px solid #ebebeb" }}
       >
         <div>
-          <div style={{ fontSize: 18, color: "#fff", fontWeight: 600 }}>{getGreeting()}, Peter</div>
-          <div style={{ fontSize: 11, color: "#666" }}>{formatDate()}</div>
+          <div style={{ fontSize: 22, color: "#111111", fontWeight: 500, letterSpacing: "-0.01em" }}>{getGreeting()}, Peter</div>
+          <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{formatDate()}</div>
         </div>
       </div>
 
@@ -299,31 +302,33 @@ function DashboardHome() {
           return (
             <div
               key={s.label}
-              className="rounded-lg p-4"
+              className="rounded-lg p-5"
               style={{
-                background: s.gradient,
-                border: `1px solid ${s.borderColor}33`,
-                borderLeft: `3px solid ${s.borderColor}`,
+                background: "#ffffff",
+                border: "0.5px solid #ebebeb",
               }}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div style={{ fontSize: 28, color: "#fff", fontWeight: 700, lineHeight: 1.1 }}>
+                  <div style={{ fontSize: 28, color: "#111111", fontWeight: 500, lineHeight: 1.1 }}>
                     {s.value === null ? "—" : s.value}
                   </div>
                   <div
                     style={{
                       fontSize: 11,
-                      color: "#666",
-                      letterSpacing: "0.15em",
-                      marginTop: 6,
+                      color: "#999",
+                      letterSpacing: "0.05em",
+                      marginTop: 8,
                       fontWeight: 500,
+                      textTransform: "uppercase",
                     }}
                   >
                     {s.label}
                   </div>
                 </div>
-                <Icon className="h-5 w-5" style={{ color: s.iconColor }} />
+                <div className="flex items-center justify-center rounded-md" style={{ width: 32, height: 32, background: s.iconBg }}>
+                  <Icon className="h-4 w-4" style={{ color: s.iconColor }} />
+                </div>
               </div>
             </div>
           );
@@ -331,7 +336,7 @@ function DashboardHome() {
 
         <div className="sm:col-span-3 rounded-lg flex flex-col overflow-hidden min-h-[240px] md:min-h-0" style={{ background: "transparent" }}>
           <div className="px-4 pt-3 pb-2 flex items-center gap-4">
-            <span style={{ fontSize: 10, color: "#2D6BE4", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
+            <span style={{ fontSize: 10, color: "#f4522d", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
             <span
               style={{
                 fontSize: 10,
@@ -347,14 +352,14 @@ function DashboardHome() {
           <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
             <FollowUpsDue followUps={followUps} />
             {activity.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#333", padding: "16px 0" }}>No recent activity</div>
+              <div style={{ fontSize: 12, color: "#666", padding: "16px 0" }}>No recent activity</div>
             ) : (
               activity.map((item, i) => {
                 const row = (
                   <>
                     <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
-                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
-                    <span className="shrink-0" style={{ fontSize: 11, color: "#555" }}>{item.time}</span>
+                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#111111" }}>{item.text}</span>
+                    <span className="shrink-0" style={{ fontSize: 11, color: "#666" }}>{item.time}</span>
                   </>
                 );
                 return item.clinicId ? (
@@ -362,7 +367,7 @@ function DashboardHome() {
                     key={i}
                     to="/clinics"
                     search={{ clinic: item.clinicId }}
-                    className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+                    className="flex items-center gap-3 hover:bg-[#f9f9f9] rounded -mx-1 px-1"
                     style={{ height: 36 }}
                   >
                     {row}
@@ -381,16 +386,16 @@ function DashboardHome() {
       <div
         className="md:row-span-2 rounded-lg flex flex-col overflow-hidden"
         style={{
-          background: "#0f0f12",
-          border: "1px solid #1f1f23",
-          borderLeft: "3px solid #2D6BE4",
+          background: "#ffffff",
+          border: "1px solid #ebebeb",
+          borderLeft: "3px solid #f4522d",
         }}
       >
         <div className="px-4 pt-4 pb-3">
           <div
             style={{
               fontSize: 10,
-              color: "#2D6BE4",
+              color: "#f4522d",
               letterSpacing: "0.2em",
               fontWeight: 600,
               marginBottom: 4,
@@ -398,21 +403,21 @@ function DashboardHome() {
           >
             QUICK DIAL
           </div>
-          <p style={{ fontSize: 11, color: "#555", marginBottom: 12 }}>Call a clinic directly</p>
+          <p style={{ fontSize: 11, color: "#666", marginBottom: 12 }}>Call a clinic directly</p>
 
           <div
-            className="mb-3 rounded px-3 py-2 flex items-center justify-between gap-3"
+            className="mb-3 rounded-md px-3 py-2 flex items-center justify-between gap-3"
             style={{
-              background: "#151518",
-              border: `1px solid ${dialerStateColor}33`,
+              background: dialerStatus === "ready" ? "#ecfdf5" : dialerStatus === "failed" ? "#fef2f2" : "#fffbeb",
+              border: `0.5px solid ${dialerStatus === "ready" ? "#6ee7b7" : dialerStatus === "failed" ? "#fca5a5" : "#fde68a"}`,
             }}
           >
             <div>
-              <div className="flex items-center gap-2" style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
+              <div className="flex items-center gap-2" style={{ fontSize: 11, color: dialerStatus === "ready" ? "#10b981" : dialerStatus === "failed" ? "#dc2626" : "#92400e", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
                 <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
                 {dialerStateLabel}
               </div>
-              <div style={{ fontSize: 10, color: dialerStatus === "failed" ? "#fca5a5" : "#777", marginTop: 4 }}>
+              <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
                 {dialerStatus === "failed"
                   ? "Connection failed — click to retry"
                   : dialerStatus === "ready"
@@ -428,7 +433,7 @@ function DashboardHome() {
                   retry();
                 }}
                 className="border-0 text-white text-xs px-3"
-                style={{ background: "#ef4444", height: 32 }}
+                style={{ background: "#dc2626", height: 32, borderRadius: 6 }}
               >
                 Retry
               </Button>
@@ -439,15 +444,15 @@ function DashboardHome() {
             placeholder="Phone number"
             value={dialNumber}
             onChange={(e) => setDialNumber(e.target.value)}
-            className="mb-2 border-0 text-sm"
-            style={{ background: "#1a1a1a", color: "#fff", height: 38 }}
+            className="mb-2 text-sm"
+            style={{ background: "#ffffff", color: "#111111", height: 38, border: "0.5px solid #ebebeb", borderRadius: 6 }}
           />
 
           <Button
             onClick={handleQuickDial}
             disabled={!dialNumber || calling || (dialerStatus === "connecting" && !isCallActive)}
-            className="w-full border-0 text-white font-semibold text-sm"
-            style={{ background: isCallActive ? "#ef4444" : "#22c55e", height: 48 }}
+            className="w-full border-0 text-white font-medium text-sm"
+            style={{ background: isCallActive ? "#dc2626" : "#f4522d", height: 44, borderRadius: 6 }}
           >
             {calling ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -470,7 +475,7 @@ function DashboardHome() {
               style={{
                 fontSize: 11,
                 color: dialerStatus === "failed" ? "#fca5a5" : "#999",
-                background: "#1a1a1a",
+                background: "#f9f9f9",
               }}
             >
               {callMessage}
@@ -486,7 +491,7 @@ function DashboardHome() {
           <div
             style={{
               fontSize: 10,
-              color: "#555",
+              color: "#666",
               letterSpacing: "0.15em",
               marginBottom: 8,
               fontWeight: 500,
@@ -495,13 +500,13 @@ function DashboardHome() {
             RECENT CALLS
           </div>
           {recentCalls.length === 0 ? (
-            <div style={{ fontSize: 11, color: "#333" }}>No recent calls</div>
+            <div style={{ fontSize: 11, color: "#666" }}>No recent calls</div>
           ) : (
             <div className="space-y-2">
               {recentCalls.map((c, i) => (
                 <div key={i} className="flex items-center justify-between" style={{ fontSize: 11 }}>
                   <span style={{ color: "#999" }}>{c.name}</span>
-                  <span style={{ color: "#333" }}>{c.duration} · {c.time}</span>
+                  <span style={{ color: "#666" }}>{c.duration} · {c.time}</span>
                 </div>
               ))}
             </div>
@@ -518,18 +523,18 @@ function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
   if (followUps.length === 0) return null;
 
   return (
-    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #1a1a1a" }}>
+    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
       {followUps.map((f) => (
         <Link
           key={f.id}
           to="/clinics"
           search={{ clinic: f.id }}
-          className="flex items-center gap-3 hover:bg-white/5 rounded -mx-1 px-1"
+          className="flex items-center gap-3 hover:bg-[#f9f9f9] rounded -mx-1 px-1"
           style={{ height: 32 }}
         >
           <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
-          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
-          <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
+          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#111111" }}>{f.clinic_name}</span>
+          <span style={{ fontSize: 10, color: "#f4522d", background: "#fff1ee", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>{f.next_follow_up}</span>
           <Calendar className="w-3 h-3 shrink-0" style={{ color: "#f59e0b" }} />
         </Link>
       ))}

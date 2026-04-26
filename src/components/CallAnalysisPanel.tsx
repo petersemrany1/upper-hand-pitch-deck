@@ -77,20 +77,20 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
       />
       <div
         className="relative w-full max-w-md h-full overflow-y-auto border-l shadow-2xl"
-        style={{ background: "#0a0a0b", borderColor: "#1a1a1a" }}
+        style={{ background: "#ffffff", borderColor: "#f9f9f9" }}
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b" style={{ background: "#0a0a0b", borderColor: "#1a1a1a" }}>
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b" style={{ background: "#ffffff", borderColor: "#f9f9f9" }}>
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4" style={{ color: "#a78bfa" }} />
             <h2 className="text-sm font-bold tracking-wide" style={{ color: "#fafafa" }}>CALL ANALYSIS</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-white/5 transition"
+            className="p-1.5 rounded-md hover:bg-[#f9f9f9] transition"
             aria-label="Close"
           >
-            <X className="w-4 h-4" style={{ color: "#a1a1aa" }} />
+            <X className="w-4 h-4" style={{ color: "#999999" }} />
           </button>
         </div>
 
@@ -99,19 +99,19 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
           {loading && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#a78bfa" }} />
-              <p className="text-sm" style={{ color: "#a1a1aa" }}>Analysing call…</p>
-              <p className="text-xs" style={{ color: "#71717a" }}>Transcribing audio and reviewing with AI. Takes 20–60 seconds.</p>
+              <p className="text-sm" style={{ color: "#999999" }}>Analysing call…</p>
+              <p className="text-xs" style={{ color: "#666666" }}>Transcribing audio and reviewing with AI. Takes 20–60 seconds.</p>
             </div>
           )}
 
           {error && !loading && (
-            <div className="rounded-lg p-4 space-y-3" style={{ background: "#450a0a", border: "1px solid #7f1d1d" }}>
+            <div className="rounded-lg p-4 space-y-3" style={{ background: "#fef2f2", border: "1px solid #7f1d1d" }}>
               <p className="text-sm font-medium" style={{ color: "#fca5a5" }}>Analysis failed</p>
               <p className="text-xs break-words" style={{ color: "#fecaca" }}>{error}</p>
               <button
                 onClick={runAnalysis}
                 className="text-xs px-3 py-1.5 rounded-md font-medium"
-                style={{ background: "#dc2626", color: "#fff" }}
+                style={{ background: "#dc2626", color: "#111111" }}
               >
                 Try again
               </button>
@@ -136,7 +136,7 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
                   >
                     {analysis.call_verdict}
                   </span>
-                  <p className="text-xs leading-relaxed" style={{ color: "#d4d4d8" }}>{analysis.summary}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: "#ebebeb" }}>{analysis.summary}</p>
                 </div>
               </div>
 
@@ -186,8 +186,8 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
 
               <button
                 onClick={runAnalysis}
-                className="w-full text-xs py-2 rounded-md hover:bg-white/5 transition"
-                style={{ color: "#a1a1aa", border: "1px solid #27272a" }}
+                className="w-full text-xs py-2 rounded-md hover:bg-[#f9f9f9] transition"
+                style={{ color: "#999999", border: "1px solid #ebebeb" }}
               >
                 Re-analyse call
               </button>
@@ -209,7 +209,7 @@ function Section({ title, icon, color, items }: { title: string; icon: React.Rea
       </div>
       <ul className="space-y-1.5 pl-1">
         {items.map((item, i) => (
-          <li key={i} className="text-xs leading-relaxed flex gap-2" style={{ color: "#d4d4d8" }}>
+          <li key={i} className="text-xs leading-relaxed flex gap-2" style={{ color: "#ebebeb" }}>
             <span style={{ color }}>•</span>
             <span className="flex-1">{item}</span>
           </li>

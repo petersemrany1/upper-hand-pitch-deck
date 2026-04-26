@@ -390,11 +390,11 @@ function ClientsPage() {
                 }`}
               >
                 {deviceStatus === "loading" || calling ? (
-                  <Loader2 className="w-7 h-7 text-white animate-spin" />
+                  <Loader2 className="w-7 h-7 text-[#111111] animate-spin" />
                 ) : deviceStatus === "in-call" ? (
-                  <PhoneOff className="w-7 h-7 text-white" />
+                  <PhoneOff className="w-7 h-7 text-[#111111]" />
                 ) : (
-                  <PhoneCall className="w-7 h-7 text-white" />
+                  <PhoneCall className="w-7 h-7 text-[#111111]" />
                 )}
               </button>
               <div className="flex-1 flex justify-start">

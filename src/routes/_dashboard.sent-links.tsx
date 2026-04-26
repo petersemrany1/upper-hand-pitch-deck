@@ -442,7 +442,7 @@ function SentLinksPage() {
                         <button
                           onClick={() => handleDelete(r.id)}
                           disabled={busy}
-                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 transition-colors"
+                          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg bg-red-500 text-[#111111] hover:bg-red-600 disabled:opacity-40 transition-colors"
                         >
                           <Check className="w-3.5 h-3.5" /> {busy ? "…" : "Confirm"}
                         </button>

@@ -4,11 +4,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-2xl: 20px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -25,47 +25,187 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-heading: "Inter", "Helvetica Neue", "Arial", sans-serif;
-  --font-body: "Inter", "Helvetica Neue", "Arial", sans-serif;
+  --font-heading: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(0.05 0 0);
-  --foreground: oklch(1 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(1 0 0);
-  --primary: oklch(0.48 0.22 264);
+  --radius: 10px;
+
+  /* Surfaces */
+  --background: oklch(0.975 0.002 95);   /* #f7f7f5 page bg */
+  --foreground: oklch(0.18 0 0);          /* #111111 primary text */
+  --card: oklch(1 0 0);                   /* #ffffff card */
+  --card-foreground: oklch(0.18 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0 0);
+
+  /* Primary = coral */
+  --primary: oklch(0.66 0.20 35);         /* ~#f4522d */
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.12 0 0);
-  --secondary-foreground: oklch(1 0 0);
-  --muted: oklch(0.12 0 0);
-  --muted-foreground: oklch(0.55 0 0);
-  --accent: oklch(0.48 0.22 264);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.15 0 0);
-  --ring: oklch(0.48 0.22 264);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(1 0 0);
+
+  /* Secondary surfaces */
+  --secondary: oklch(0.975 0 0);          /* #f7f7f5 */
+  --secondary-foreground: oklch(0.18 0 0);
+
+  /* Muted */
+  --muted: oklch(0.97 0 0);               /* #f5f5f5 */
+  --muted-foreground: oklch(0.55 0 0);    /* #999 */
+
+  /* Accent */
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.18 0 0);
+
+  --destructive: oklch(0.55 0.22 27);     /* #dc2626 */
+  --destructive-foreground: oklch(1 0 0);
+
+  --border: oklch(0.92 0 0);              /* #ebebeb */
+  --input: oklch(0.92 0 0);
+  --ring: oklch(0.66 0.20 35);            /* coral focus */
+
+  /* ---- Color pop tokens ---- */
+  --pop-coral: #f4522d;
+  --pop-coral-fill: #fff1ee;
+  --pop-blue: #3b82f6;
+  --pop-blue-fill: #eff6ff;
+  --pop-green: #10b981;
+  --pop-green-fill: #ecfdf5;
+  --pop-amber: #f59e0b;
+  --pop-amber-fill: #fffbeb;
+  --pop-purple: #8b5cf6;
+  --pop-purple-fill: #f5f3ff;
+
+  /* Surface aliases used across the app */
+  --surface-page: #f7f7f5;
+  --surface-card: #ffffff;
+  --surface-soft: #f9f9f9;
+  --line: #ebebeb;
+  --line-soft: #f5f5f5;
+  --text-primary: #111111;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+
+  /* Sidebar tokens (shadcn sidebar consumes these) */
+  --sidebar: #ffffff;
+  --sidebar-foreground: #111111;
+  --sidebar-primary: #f4522d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fff1ee;
+  --sidebar-accent-foreground: #f4522d;
+  --sidebar-border: #ebebeb;
+  --sidebar-ring: #f4522d;
+
+  --chart-1: #f4522d;
+  --chart-2: #3b82f6;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #8b5cf6;
 }
 
 @layer base {
   * {
     border-color: var(--color-border);
+    border-width: 0;
   }
 
-  body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+  html, body {
+    background-color: var(--surface-page);
+    color: var(--text-primary);
     font-family: var(--font-body);
+    font-size: 14px;
+    line-height: 1.6;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 500;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+
+  /* Hairline borders everywhere */
+  .border, .border-t, .border-b, .border-l, .border-r,
+  .border-x, .border-y {
+    border-style: solid;
+  }
+
+  /* Inputs */
+  input, textarea, select {
+    background-color: #ffffff;
+    color: var(--text-primary);
+    border: 0.5px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    transition: border-color 0.15s ease;
+  }
+  input::placeholder, textarea::placeholder {
+    color: #bbbbbb;
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--pop-coral);
+  }
+
+  /* No drop shadows anywhere — neutralise Tailwind shadow utilities */
+  .shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl, .shadow-inner {
+    box-shadow: none !important;
+  }
 }
 
-/* Slide fills viewport */
+/* ---- Reusable utility classes ---- */
+.uh-card {
+  background: #ffffff;
+  border: 0.5px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.uh-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.uh-btn-primary {
+  background: var(--pop-coral);
+  color: #ffffff;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border: none;
+  transition: filter 0.15s ease;
+}
+.uh-btn-primary:hover { filter: brightness(0.95); }
+
+.uh-btn-secondary {
+  background: #ffffff;
+  border: 0.5px solid var(--line);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.uh-btn-secondary:hover { background: var(--surface-page); }
+
+/* Badges */
+.uh-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Slide fills viewport — pitch deck only, leave alone */
 .deck-slide {
   min-height: 100vh;
   height: 100vh;
@@ -73,8 +213,6 @@
   position: relative;
   overflow: hidden;
 }
-
-/* Fullscreen fill */
 :fullscreen {
   width: 100vw !important;
   height: 100vh !important;
@@ -87,12 +225,8 @@
   height: 100vh !important;
   min-height: 100vh;
 }
-:-webkit-full-screen .deck-slide {
-  min-height: 100vh;
-}
-:-moz-full-screen .deck-slide {
-  min-height: 100vh;
-}
+:-webkit-full-screen .deck-slide { min-height: 100vh; }
+:-moz-full-screen .deck-slide { min-height: 100vh; }
 
 /* Dashboard grid — desktop only. Mobile uses flex-col stacking. */
 @media (min-width: 768px) {
@@ -101,3 +235,24 @@
     grid-template-rows: 48px 1fr 1fr;
   }
 }
+
+/* Sidebar active item — coral left border + tinted bg */
+[data-sidebar="menu-button"][data-active="true"] {
+  background: var(--pop-coral-fill) !important;
+  color: var(--pop-coral) !important;
+  border-left: 2px solid var(--pop-coral) !important;
+  border-radius: 0 !important;
+}
+[data-sidebar="menu-button"][data-active="true"] svg {
+  color: var(--pop-coral) !important;
+}
+
+/* Scrollbars: subtle */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #ddd transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+*::-webkit-scrollbar-thumb:hover { background: #bbb; }
