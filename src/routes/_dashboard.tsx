@@ -47,17 +47,17 @@ function DashboardLayout() {
   if (!ready) {
     return (
       <SidebarProvider defaultOpen={false}>
-        <div className="h-screen flex w-full overflow-hidden" style={{ background: "#09090b" }}>
+        <div className="h-screen flex w-full overflow-hidden" style={{ background: "#f7f7f5" }}>
           <AppSidebar />
-          <div className="flex-1 flex flex-col overflow-hidden" style={{ borderLeft: "1px solid #1f1f23" }}>
+          <div className="flex-1 flex flex-col overflow-hidden">
             <main className="flex-1 overflow-y-auto p-4 space-y-3">
-              <Skeleton className="h-12 w-full" style={{ background: "#1a1a1e" }} />
+              <Skeleton className="h-12 w-full" style={{ background: "#ececec" }} />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Skeleton className="h-24 w-full" style={{ background: "#1a1a1e" }} />
-                <Skeleton className="h-24 w-full" style={{ background: "#1a1a1e" }} />
-                <Skeleton className="h-24 w-full" style={{ background: "#1a1a1e" }} />
+                <Skeleton className="h-24 w-full" style={{ background: "#ececec" }} />
+                <Skeleton className="h-24 w-full" style={{ background: "#ececec" }} />
+                <Skeleton className="h-24 w-full" style={{ background: "#ececec" }} />
               </div>
-              <Skeleton className="h-64 w-full" style={{ background: "#1a1a1e" }} />
+              <Skeleton className="h-64 w-full" style={{ background: "#ececec" }} />
             </main>
           </div>
         </div>
@@ -68,7 +68,7 @@ function DashboardLayout() {
   // Auth resolved but no session — redirect effect will fire; render empty
   // shell to avoid a flash of protected content.
   if (!session) {
-    return <div className="min-h-screen" style={{ background: "#09090b" }} />;
+    return <div className="min-h-screen" style={{ background: "#f7f7f5" }} />;
   }
 
   if (isFullscreen) {
@@ -86,12 +86,12 @@ function DashboardLayout() {
   return (
     <SidebarProvider defaultOpen={false}>
       <DeviceBootstrap />
-      <div className="h-screen flex w-full overflow-hidden" style={{ background: "#09090b" }}>
+      <div className="h-screen flex w-full overflow-hidden" style={{ background: "#f7f7f5" }}>
         <AppSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden" style={{ borderLeft: "1px solid #1f1f23" }}>
+        <div className="flex-1 flex flex-col overflow-hidden">
           <SidebarTrigger
-            className="md:hidden fixed top-3 left-3 z-50 h-9 w-9 rounded-md border text-white"
-            style={{ background: "#0f0f12", borderColor: "#1f1f23" }}
+            className="md:hidden fixed top-3 left-3 z-50 h-9 w-9 rounded-md"
+            style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
             aria-label="Open navigation"
           />
           <main className="flex-1 overflow-y-auto md:overflow-hidden pt-14 md:pt-0">
