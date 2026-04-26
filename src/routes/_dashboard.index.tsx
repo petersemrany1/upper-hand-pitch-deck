@@ -287,12 +287,12 @@ function DashboardHome() {
       className="dashboard-grid flex flex-col md:grid h-auto md:h-full overflow-visible md:overflow-hidden p-4 gap-3"
     >
       <div
-        className="md:col-span-4 rounded-lg flex items-center justify-between px-4 py-3 md:py-0"
-        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+        className="md:col-span-4 rounded-lg flex items-center justify-between px-5 py-4 md:py-3"
+        style={{ background: "#ffffff", border: "0.5px solid #ebebeb" }}
       >
         <div>
-          <div style={{ fontSize: 18, color: "#111111", fontWeight: 600 }}>{getGreeting()}, Peter</div>
-          <div style={{ fontSize: 11, color: "#666" }}>{formatDate()}</div>
+          <div style={{ fontSize: 22, color: "#111111", fontWeight: 500, letterSpacing: "-0.01em" }}>{getGreeting()}, Peter</div>
+          <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{formatDate()}</div>
         </div>
       </div>
 
@@ -302,31 +302,33 @@ function DashboardHome() {
           return (
             <div
               key={s.label}
-              className="rounded-lg p-4"
+              className="rounded-lg p-5"
               style={{
-                background: s.gradient,
-                border: `1px solid ${s.borderColor}33`,
-                borderLeft: `3px solid ${s.borderColor}`,
+                background: "#ffffff",
+                border: "0.5px solid #ebebeb",
               }}
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div style={{ fontSize: 28, color: "#111111", fontWeight: 700, lineHeight: 1.1 }}>
+                  <div style={{ fontSize: 28, color: "#111111", fontWeight: 500, lineHeight: 1.1 }}>
                     {s.value === null ? "—" : s.value}
                   </div>
                   <div
                     style={{
                       fontSize: 11,
-                      color: "#666",
-                      letterSpacing: "0.15em",
-                      marginTop: 6,
+                      color: "#999",
+                      letterSpacing: "0.05em",
+                      marginTop: 8,
                       fontWeight: 500,
+                      textTransform: "uppercase",
                     }}
                   >
                     {s.label}
                   </div>
                 </div>
-                <Icon className="h-5 w-5" style={{ color: s.iconColor }} />
+                <div className="flex items-center justify-center rounded-md" style={{ width: 32, height: 32, background: s.iconBg }}>
+                  <Icon className="h-4 w-4" style={{ color: s.iconColor }} />
+                </div>
               </div>
             </div>
           );
