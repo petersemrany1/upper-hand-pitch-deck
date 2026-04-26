@@ -1423,29 +1423,52 @@ function RightPanel({
         </div>
       </div>
 
-      {/* Accordions + MMS + Notes (scrollable) */}
+      {/* Quick reference launchers + MMS + Notes (scrollable) */}
       <div className="flex-1 overflow-y-auto">
-        <Accordion title="Objections (NEPQ)">
-          {OBJECTIONS.map((o) => (
-            <div key={o.q} className="border-t" style={{ borderColor: COLORS.line, padding: "12px 16px" }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>"{o.q}"</div>
-              <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 6, lineHeight: 1.6 }}>{o.a}</div>
-              {o.note && (
-                <div style={{ fontSize: 13, fontStyle: "italic", color: COLORS.muted, marginTop: 6, lineHeight: 1.6 }}>
-                  {o.note}
-                </div>
-              )}
-            </div>
-          ))}
-        </Accordion>
-        <Accordion title="Common Questions">
-          {QUESTIONS.map((q) => (
-            <div key={q.q} className="border-t" style={{ borderColor: COLORS.line, padding: "12px 16px" }}>
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>{q.q}</div>
-              <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 6, lineHeight: 1.6 }}>{q.a}</div>
-            </div>
-          ))}
-        </Accordion>
+        <div style={{ padding: "14px 16px 8px" }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.text, marginBottom: 10 }}>
+            Quick Reference
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setDrawer("objections")}
+              className="flex flex-col items-start justify-between rounded-[10px]"
+              style={{
+                background: "#fff7ed",
+                border: `0.5px solid #fed7aa`,
+                color: "#9a3412",
+                padding: "14px 14px",
+                minHeight: 88,
+                textAlign: "left",
+              }}
+            >
+              <Shield className="h-5 w-5" />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111111", lineHeight: 1.3 }}>Objections</div>
+                <div style={{ fontSize: 11, color: "#111111", opacity: 0.7, marginTop: 2 }}>{OBJECTIONS.length} responses</div>
+              </div>
+            </button>
+            <button
+              onClick={() => setDrawer("questions")}
+              className="flex flex-col items-start justify-between rounded-[10px]"
+              style={{
+                background: "#eff6ff",
+                border: `0.5px solid #bfdbfe`,
+                color: "#1e40af",
+                padding: "14px 14px",
+                minHeight: 88,
+                textAlign: "left",
+              }}
+            >
+              <HelpCircle className="h-5 w-5" />
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500, color: "#111111", lineHeight: 1.3 }}>Questions</div>
+                <div style={{ fontSize: 11, color: "#111111", opacity: 0.7, marginTop: 2 }}>{QUESTIONS.length} answers</div>
+              </div>
+            </button>
+          </div>
+        </div>
+
         <Accordion title="Send Before & Afters" defaultOpen>
           <div style={{ padding: 14 }} className="space-y-2">
             {mmsImages.length === 0 ? (
