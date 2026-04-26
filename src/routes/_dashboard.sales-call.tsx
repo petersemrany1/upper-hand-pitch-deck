@@ -323,29 +323,38 @@ function StepContent({
     return (
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 3 — Discovery</Eyebrow>
-        <h1 className="text-2xl font-bold mb-6">Understand Their Pain (5–7 mins)</h1>
+        <StepHeading>Understand Their Pain (5–7 mins)</StepHeading>
 
-        <Card className="px-5 py-5">
-          <p className="text-xl font-bold">So what's going on with your hair situation?</p>
-        </Card>
-        <Card className="px-5 py-4 mt-3">
-          <p className="text-sm">Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.</p>
-        </Card>
-
-        <div className="mt-4 p-4 rounded-md border-2" style={{ borderColor: COLORS.amber }}>
-          <div className="text-xs font-bold tracking-wider mb-2" style={{ color: COLORS.amber }}>ECHOING TECHNIQUE</div>
-          <p className="text-sm leading-relaxed">
-            When they say something — echo it back. They say "I lose a lot in the shower." You say "You lose a lot in the shower?"
-            with genuine curiosity. This proves you heard them. Do it throughout the call.
+        <Card className="px-6 py-6">
+          <p style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, lineHeight: 1.6 }}>
+            So what's going on with your hair situation?
           </p>
-        </div>
+        </Card>
+        <Card className="px-6 py-5 mt-4">
+          <p style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>
+            Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.
+          </p>
+        </Card>
+
+        <CalloutAmber title="Echoing technique">
+          When they say something — echo it back. They say "I lose a lot in the shower." You say "You lose a lot in the shower?"
+          with genuine curiosity. This proves you heard them. Do it throughout the call.
+        </CalloutAmber>
 
         <DiscoveryChecklist />
-        <Section title="HISTORY">
+        <Section title="History">
           <textarea
-            placeholder="Write down everything they tell you. Word for word. You will use their exact words in AMPLIFICATION and AUDIOBOOK."
-            className="w-full text-sm rounded-md p-3 outline-none"
-            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 140 }}
+            placeholder="Write down everything they tell you. Word for word. You will use their exact words in amplification and audiobook."
+            className="w-full rounded-[6px] outline-none"
+            style={{
+              background: "#f9f9f9",
+              border: `0.5px solid ${COLORS.line}`,
+              color: COLORS.text,
+              fontSize: 14,
+              lineHeight: 1.6,
+              padding: 12,
+              minHeight: 140,
+            }}
           />
         </Section>
 
@@ -358,16 +367,18 @@ function StepContent({
     return (
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 4 — Amplification</Eyebrow>
-        <h1 className="text-2xl font-bold mb-6">Summarise Back</h1>
-        <p className="text-sm mb-4" style={{ color: COLORS.muted }}>
+        <StepHeading>Summarise Back</StepHeading>
+        <p style={{ fontSize: 14, color: COLORS.muted, lineHeight: 1.6, marginBottom: 16 }}>
           Reflect their exact pain back in one sentence. This is the insurance sales framework.
         </p>
-        <Card className="px-5 py-5">
+        <Card className="px-6 py-6">
           <Label>Template</Label>
-          <p className="text-base leading-relaxed mt-2">
-            So let me make sure I understand... You've been dealing with <Pill>[pain point]</Pill> for <Pill>[timeframe]</Pill>,
-            it's affecting <Pill>[specific impacts they told you]</Pill>, and you're tired of <Pill>[consequences]</Pill>.... Is that right?
-          </p>
+          <div className="mt-3">
+            <ScriptBody>
+              So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
+              it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+            </ScriptBody>
+          </div>
           <Coach>
             Get them to say yes. That yes means they feel completely heard. That yes is your bridge to education.
             Don't rush it. Don't move on until you have it.
@@ -376,8 +387,16 @@ function StepContent({
         <Section title="Your amplification sentence">
           <textarea
             placeholder="Write your amplification sentence here before you say it out loud."
-            className="w-full text-sm rounded-md p-3 outline-none"
-            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }}
+            className="w-full rounded-[6px] outline-none"
+            style={{
+              background: "#f9f9f9",
+              border: `0.5px solid ${COLORS.line}`,
+              color: COLORS.text,
+              fontSize: 14,
+              lineHeight: 1.6,
+              padding: 12,
+              minHeight: 100,
+            }}
           />
         </Section>
         <NextBtn onClick={() => onAdvance("amplification")} />
@@ -395,24 +414,39 @@ function StepContent({
     return (
       <div className="max-w-2xl mx-auto">
         <Eyebrow gold>Step 6 — Audiobook ⭐</Eyebrow>
-        <div className="rounded-lg p-6 border-2 relative overflow-hidden"
-          style={{ borderColor: COLORS.gold, background: "linear-gradient(180deg, rgba(251,191,36,0.08), rgba(251,191,36,0.02))" }}>
-          <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: "inset 0 0 60px rgba(251,191,36,0.12)" }} />
-          <h1 className="text-2xl font-bold relative" style={{ color: COLORS.gold }}>
-            ⭐ This is where the sale happens. Not at the deposit. Right here.
+        <div
+          className="rounded-[10px]"
+          style={{
+            background: "#fffbeb",
+            border: `0.5px solid ${COLORS.gold}`,
+            borderLeft: `2px solid ${COLORS.gold}`,
+            padding: 28,
+          }}
+        >
+          <h1 style={{ fontSize: 22, fontWeight: 500, color: COLORS.text, lineHeight: 1.3 }}>
+            <span style={{ color: COLORS.gold, marginRight: 8 }}>⭐</span>
+            This is where the sale happens. Not at the deposit. Right here.
           </h1>
-          <p className="mt-4 text-lg relative">
-            <Pill gold>{lead.first_name || "[name]"}</Pill>, I want you to picture something for me...
+          <p style={{ marginTop: 16, fontSize: 16, color: COLORS.text, lineHeight: 1.7 }}>
+            <Pill name>{lead.first_name || "[name]"}</Pill>, I want you to picture something for me...
           </p>
-          <ul className="mt-5 space-y-2.5 text-sm relative">
-            <li>👉 Use <strong>THEIR</strong> words — not generic phrases. Whatever they told you in discovery, feed it back into the picture you paint.</li>
-            <li>👉 Reference at least <strong>2 specific things</strong> they actually said — their hairline, their confidence, their why now moment, how long they've dealt with it, what they've tried.</li>
+          <ul style={{ marginTop: 20, fontSize: 14, color: COLORS.text, lineHeight: 1.7 }} className="space-y-3">
+            <li>👉 Use their words — not generic phrases. Whatever they told you in discovery, feed it back into the picture you paint.</li>
+            <li>👉 Reference at least 2 specific things they actually said — their hairline, their confidence, their why now moment, how long they've dealt with it, what they've tried.</li>
             <li>👉 Frame it as waking up tomorrow without the problem — "Imagine waking up and looking in the mirror and just seeing your hairline back. You're getting ready for [their event/milestone]. You're not thinking about it anymore. You're just... you again."</li>
-            <li>👉 Make it personal and specific. Generic pictures don't land. <strong>Their</strong> picture lands.</li>
+            <li>👉 Make it personal and specific. Generic pictures don't land. Their picture lands.</li>
             <li>👉 Keep it to 2–3 sentences. Then stop. Silence is doing the work.</li>
           </ul>
-          <div className="mt-5 p-4 rounded-md relative" style={{ background: "rgba(251,191,36,0.12)", border: `1px solid ${COLORS.gold}` }}>
-            <p className="font-bold text-sm" style={{ color: COLORS.gold }}>
+          <div
+            style={{
+              marginTop: 20,
+              padding: "14px 16px",
+              borderRadius: 6,
+              background: "#fef3c7",
+              borderLeft: `2px solid ${COLORS.gold}`,
+            }}
+          >
+            <p style={{ fontSize: 14, color: COLORS.amberDark, fontWeight: 500, lineHeight: 1.6 }}>
               Say the picture. Then stop. Do not speak. The silence is working for you. Wait for them to respond.
             </p>
           </div>
@@ -426,25 +460,24 @@ function StepContent({
     return (
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 7 — Commitment</Eyebrow>
-        <h1 className="text-2xl font-bold mb-6">Ask For Commitment</h1>
-        <Card className="px-5 py-5">
-          <p className="text-xl font-bold">Based on all of that — is it something you wanna get sorted now? Where are you at with all of this?</p>
+        <StepHeading>Ask For Commitment</StepHeading>
+        <Card className="px-6 py-6">
+          <p style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, lineHeight: 1.6 }}>
+            Based on all of that — is it something you wanna get sorted now? Where are you at with all of this?
+          </p>
           <Coach>Wait for their answer. Let them tell you where they're at. Do not fill the silence.</Coach>
         </Card>
-        <div className="mt-4 grid gap-2">
-          <RuleBad>NEVER say "would you like to book" — binary yes/no exit door</RuleBad>
-          <RuleBad>NEVER say "do you want to think about it" — you just lost them</RuleBad>
-          <RuleBad>NEVER say "no pressure" or "no rush" — you're handing them the off-ramp</RuleBad>
+        <div className="mt-5 grid gap-2">
+          <RuleBad>Never say "would you like to book" — binary yes/no exit door.</RuleBad>
+          <RuleBad>Never say "do you want to think about it" — you just lost them.</RuleBad>
+          <RuleBad>Never say "no pressure" or "no rush" — you're handing them the off-ramp.</RuleBad>
           <RuleGood>Ask it open. Wait. Let them land.</RuleGood>
         </div>
-        <div className="mt-4 p-4 rounded-md" style={{ background: "rgba(16,185,129,0.1)", border: `1px solid ${COLORS.green}` }}>
-          <div className="text-xs font-bold tracking-wider mb-2" style={{ color: COLORS.green }}>WHEN THEY SAY YES</div>
-          <p className="text-sm leading-relaxed">
-            Fantastic. I want to get you in with <Pill>Dr. [doctor_name]</Pill> at <Pill>[clinic_name]</Pill>. Based on everything you've told me
-            — <Pill>[their specific situation from discovery]</Pill> — she's exactly the right person for you. Let me see what her availability looks like.
-          </p>
+        <CalloutGreen title="When they say yes">
+          Fantastic. I want to get you in with <Pill name>Dr. [doctor_name]</Pill> at <Pill name>[clinic_name]</Pill>. Based on everything you've told me
+          — [their specific situation from discovery] — she's exactly the right person for you. Let me see what her availability looks like.
           <Coach>Presume the booking. You are a naive optimist. It is all paperwork from here.</Coach>
-        </div>
+        </CalloutGreen>
         <NextBtn onClick={() => onAdvance("commitment")} />
       </div>
     );
