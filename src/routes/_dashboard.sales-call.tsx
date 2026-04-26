@@ -1227,63 +1227,111 @@ function RightPanel({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Active lead card */}
-      <div className="p-4 border-b flex-shrink-0" style={{ borderColor: COLORS.line }}>
+      <div className="border-b flex-shrink-0" style={{ borderColor: COLORS.line, padding: "18px 18px" }}>
         {active ? (
           <>
             <div className="flex items-start justify-between">
               <div>
-                <div className="text-base font-bold leading-tight">
+                <div style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, lineHeight: 1.3 }}>
                   {[active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed"}
                 </div>
-                <div className="text-[11px] mt-0.5" style={{ color: COLORS.muted }}>{active.phone || "no phone"}</div>
+                <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 4 }}>{active.phone || "no phone"}</div>
               </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider"
-                style={{ background: `${statusColor(active.status)}22`, color: statusColor(active.status) }}>
+              <span
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 20,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  background: `${statusColor(active.status)}1a`,
+                  color: statusColor(active.status),
+                }}
+              >
                 {active.status || "new"}
               </span>
             </div>
-            <div className="text-[11px] mt-2 space-y-0.5" style={{ color: COLORS.muted }}>
-              <div>Funding: <span style={{ color: COLORS.text }}>{active.funding_preference || "—"}</span></div>
-              <div>Campaign: <span style={{ color: COLORS.text }}>{active.campaign_name || "—"}</span></div>
-              <div>Created: <span style={{ color: COLORS.text }}>{fmtTime(active.created_at)}</span></div>
-              <div>Day {active.day_number ?? 1} · Attempt 1 of {(active.day_number ?? 1) <= 7 ? 3 : 1} today</div>
+            <div style={{ marginTop: 14 }} className="space-y-2">
+              <RightRow label="Funding" value={active.funding_preference || "—"} />
+              <RightRow label="Campaign" value={active.campaign_name || "—"} />
+              <RightRow label="Created" value={fmtTime(active.created_at)} />
+              <RightRow
+                label="Day"
+                value={`Day ${active.day_number ?? 1} · Attempt 1 of ${(active.day_number ?? 1) <= 7 ? 3 : 1} today`}
+              />
             </div>
 
-            <div className="text-[10px] mt-2 px-2 py-1 rounded"
-              style={{ background: "rgba(239,68,68,0.1)", color: COLORS.red, border: `1px solid ${COLORS.red}` }}>
-              🚫 Do not leave a voicemail
+            <div
+              style={{
+                marginTop: 14,
+                padding: "8px 10px",
+                background: "#fef2f2",
+                borderLeft: `2px solid ${COLORS.red}`,
+                borderRadius: 0,
+                fontSize: 13,
+                color: COLORS.red,
+                fontWeight: 500,
+              }}
+            >
+              Do not leave a voicemail
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 mt-3">
-              <button onClick={callNow}
-                className="col-span-2 px-3 py-2 rounded text-xs font-bold flex items-center justify-center gap-2"
-                style={{ background: COLORS.coral, color: "#ffffff" }}>
-                <Phone className="h-3.5 w-3.5" /> Call Now
+            <div className="grid grid-cols-2 gap-2 mt-4">
+              <button
+                onClick={callNow}
+                className="col-span-2 rounded-[6px] flex items-center justify-center gap-2"
+                style={{ background: COLORS.coral, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 16px" }}
+              >
+                <Phone className="h-3.5 w-3.5" /> Call now
               </button>
               {callRunning && (
-                <div className="col-span-2 text-center text-xs font-mono py-1" style={{ color: COLORS.green }}>
+                <div
+                  className="col-span-2 text-center font-mono py-1"
+                  style={{ color: COLORS.green, fontSize: 13 }}
+                >
                   ⏱ {Math.floor(callTimer / 60).toString().padStart(2, "0")}:{(callTimer % 60).toString().padStart(2, "0")}
                 </div>
               )}
-              <button onClick={() => void logAttempt("connected")} className="px-2 py-1.5 rounded text-[11px] font-bold"
-                style={{ background: "rgba(16,185,129,0.15)", color: COLORS.green, border: `1px solid ${COLORS.green}` }}>
-                ✅ Connected
+              <button
+                onClick={() => void logAttempt("connected")}
+                className="rounded-[6px]"
+                style={{
+                  background: "#ecfdf5", color: COLORS.green, border: `0.5px solid ${COLORS.line}`,
+                  fontSize: 13, fontWeight: 500, padding: "8px 10px",
+                }}
+              >
+                Connected
               </button>
-              <button onClick={() => void logAttempt("no_answer")} className="px-2 py-1.5 rounded text-[11px] font-bold"
-                style={{ background: "rgba(239,68,68,0.15)", color: COLORS.red, border: `1px solid ${COLORS.red}` }}>
-                ❌ No Answer
+              <button
+                onClick={() => void logAttempt("no_answer")}
+                className="rounded-[6px]"
+                style={{
+                  background: "#fef2f2", color: COLORS.red, border: `0.5px solid ${COLORS.line}`,
+                  fontSize: 13, fontWeight: 500, padding: "8px 10px",
+                }}
+              >
+                No answer
               </button>
-              <button onClick={async () => {
-                if (!active) return;
-                await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
-                toast.success("Lead dropped");
-              }} className="col-span-2 px-2 py-1.5 rounded text-[11px] font-bold"
-                style={{ background: "transparent", color: COLORS.muted, border: `1px solid ${COLORS.line}` }}>
-                Mark Dropped
+              <button
+                onClick={async () => {
+                  if (!active) return;
+                  await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
+                  toast.success("Lead dropped");
+                }}
+                className="col-span-2 rounded-[6px]"
+                style={{
+                  background: "transparent", color: COLORS.muted, border: `0.5px solid ${COLORS.line}`,
+                  fontSize: 13, fontWeight: 500, padding: "8px 10px",
+                }}
+              >
+                Mark dropped
               </button>
             </div>
           </>
-        ) : <div className="text-xs" style={{ color: COLORS.muted }}>No lead selected.</div>}
+        ) : (
+          <div style={{ fontSize: 13, color: COLORS.muted }}>No lead selected.</div>
+        )}
       </div>
 
       {/* Leads list */}
