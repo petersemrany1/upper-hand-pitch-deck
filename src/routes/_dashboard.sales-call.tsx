@@ -1038,9 +1038,12 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <FormRow label="Centrelink only source of income?"><YN k="centrelink" /></FormRow>
         <FormRow label="Are you a home owner?"><YN k="homeowner" /></FormRow>
 
-        <button onClick={() => void check()}
-          className="w-full py-2 rounded-md text-[13px] font-medium" style={{ background: COLORS.green, color: "#ecfdf5" }}>
-          CHECK ELIGIBILITY
+        <button
+          onClick={() => void check()}
+          className="w-full rounded-[6px]"
+          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 20px" }}
+        >
+          Check eligibility
         </button>
       </Card>
 
