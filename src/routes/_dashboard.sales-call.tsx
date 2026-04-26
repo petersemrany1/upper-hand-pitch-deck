@@ -827,7 +827,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
           ) : mmsImages.slice(0, 4).map((img) => (
             <button key={img.name} onClick={() => void send(img.url)}
               className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: COLORS.blue, color: "#111111" }}>
+              style={{ background: COLORS.coral, color: "#ffffff" }}>
               <Send className="h-3.5 w-3.5" /> Send {img.name.replace(/\.[^.]+$/, "")}
             </button>
           ))}
@@ -906,7 +906,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
             className="flex-1 px-3 py-2 rounded-md text-sm outline-none"
             style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
           <button onClick={() => void search()} disabled={loading}
-            className="px-4 py-2 rounded-md text-xs font-bold" style={{ background: COLORS.blue, color: "#111111" }}>
+            className="px-4 py-2 rounded-md text-xs font-bold" style={{ background: COLORS.coral, color: "#ffffff" }}>
             {loading ? "Searching…" : "Find Closest"}
           </button>
         </div>
@@ -917,7 +917,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
                 className="w-full text-left px-3 py-2 rounded-md flex items-center justify-between"
                 style={{
                   background: selectedClinicId === c.id ? "rgba(45,107,228,0.15)" : "#f9f9f9",
-                  border: `1px solid ${selectedClinicId === c.id ? COLORS.blue : COLORS.line}`,
+                  border: `1px solid ${selectedClinicId === c.id ? COLORS.coral : COLORS.line}`,
                 }}>
                 <div>
                   <div className="text-sm font-semibold">{c.clinic_name}</div>
@@ -992,9 +992,9 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <button key={v} onClick={() => set(k, v)}
           className="px-4 py-1.5 rounded-md text-xs font-bold capitalize"
           style={{
-            background: form[k] === v ? COLORS.blue : "#f9f9f9",
+            background: form[k] === v ? COLORS.coral : "#f9f9f9",
             color: form[k] === v ? "#fff" : COLORS.muted,
-            border: `1px solid ${form[k] === v ? COLORS.blue : COLORS.line}`,
+            border: `1px solid ${form[k] === v ? COLORS.coral : COLORS.line}`,
           }}>{v}</button>
       ))}
     </div>
@@ -1025,9 +1025,9 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
               <button key={v} onClick={() => set("price", v)}
                 className="px-3 py-1.5 rounded-md text-xs font-bold"
                 style={{
-                  background: form.price === v ? COLORS.blue : "#f9f9f9",
+                  background: form.price === v ? COLORS.coral : "#f9f9f9",
                   color: form.price === v ? "#fff" : COLORS.muted,
-                  border: `1px solid ${form.price === v ? COLORS.blue : COLORS.line}`,
+                  border: `1px solid ${form.price === v ? COLORS.coral : COLORS.line}`,
                 }}>{v}</button>
             ))}
           </div>
@@ -1125,9 +1125,9 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
               <button key={v} onClick={() => set("funding", v)}
                 className="px-4 py-1.5 rounded-md text-xs font-bold"
                 style={{
-                  background: form.funding === v ? COLORS.blue : "#f9f9f9",
+                  background: form.funding === v ? COLORS.coral : "#f9f9f9",
                   color: form.funding === v ? "#fff" : COLORS.muted,
-                  border: `1px solid ${form.funding === v ? COLORS.blue : COLORS.line}`,
+                  border: `1px solid ${form.funding === v ? COLORS.coral : COLORS.line}`,
                 }}>{v}</button>
             ))}
           </div>
@@ -1257,7 +1257,7 @@ function RightPanel({
             <div className="grid grid-cols-2 gap-1.5 mt-3">
               <button onClick={callNow}
                 className="col-span-2 px-3 py-2 rounded text-xs font-bold flex items-center justify-center gap-2"
-                style={{ background: COLORS.blue, color: "#111111" }}>
+                style={{ background: COLORS.coral, color: "#ffffff" }}>
                 <Phone className="h-3.5 w-3.5" /> Call Now
               </button>
               {callRunning && (
@@ -1300,7 +1300,7 @@ function RightPanel({
               <button key={f} onClick={() => setFilter(f)}
                 className="flex-1 px-1 py-1 text-[10px] font-bold uppercase rounded"
                 style={{
-                  background: filter === f ? COLORS.blue : "transparent",
+                  background: filter === f ? COLORS.coral : "transparent",
                   color: filter === f ? "#fff" : COLORS.muted,
                 }}>{f}</button>
             ))}
@@ -1350,7 +1350,7 @@ function RightPanel({
             ) : mmsImages.slice(0, 4).map((img, i) => (
               <button key={img.name} onClick={() => void sendImage(img.url)}
                 className="w-full px-3 py-2 rounded text-[11px] font-bold flex items-center gap-2"
-                style={{ background: COLORS.blue, color: "#111111" }}>
+                style={{ background: COLORS.coral, color: "#ffffff" }}>
                 <Send className="h-3 w-3" /> Send Before & After {i + 1}
               </button>
             ))}
