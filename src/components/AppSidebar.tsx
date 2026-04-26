@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Inbox, LogOut, Settings as SettingsIcon, Send, Users } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Inbox, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -17,6 +17,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
+  { title: "Sales Call", url: "/sales-call", icon: Headphones },
+  { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
   { title: "Clinics", url: "/clinics", icon: Building2 },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },

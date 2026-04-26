@@ -17,55 +17,79 @@ export type Database = {
       call_records: {
         Row: {
           analysis_stage: string | null
+          attempt_number: number | null
           call_analysis: Json | null
           called_at: string
           client_id: string | null
           clinic_id: string | null
           created_at: string
+          day_number: number | null
+          dial_number: number | null
           direction: string
           duration: number | null
+          duration_seconds: number | null
           id: string
+          lead_id: string | null
           needs_review: boolean
+          outcome: string | null
           phone: string | null
           recording_sid: string | null
           recording_url: string | null
+          rep_id: string | null
           status: string | null
+          time_slot: string | null
           twilio_call_sid: string | null
           updated_at: string
         }
         Insert: {
           analysis_stage?: string | null
+          attempt_number?: number | null
           call_analysis?: Json | null
           called_at?: string
           client_id?: string | null
           clinic_id?: string | null
           created_at?: string
+          day_number?: number | null
+          dial_number?: number | null
           direction?: string
           duration?: number | null
+          duration_seconds?: number | null
           id?: string
+          lead_id?: string | null
           needs_review?: boolean
+          outcome?: string | null
           phone?: string | null
           recording_sid?: string | null
           recording_url?: string | null
+          rep_id?: string | null
           status?: string | null
+          time_slot?: string | null
           twilio_call_sid?: string | null
           updated_at?: string
         }
         Update: {
           analysis_stage?: string | null
+          attempt_number?: number | null
           call_analysis?: Json | null
           called_at?: string
           client_id?: string | null
           clinic_id?: string | null
           created_at?: string
+          day_number?: number | null
+          dial_number?: number | null
           direction?: string
           duration?: number | null
+          duration_seconds?: number | null
           id?: string
+          lead_id?: string | null
           needs_review?: boolean
+          outcome?: string | null
           phone?: string | null
           recording_sid?: string | null
           recording_url?: string | null
+          rep_id?: string | null
           status?: string | null
+          time_slot?: string | null
           twilio_call_sid?: string | null
           updated_at?: string
         }
@@ -162,9 +186,11 @@ export type Database = {
       }
       clinics: {
         Row: {
+          address: string | null
           city: string | null
           clinic_name: string
           created_at: string
+          doctor_name: string | null
           email: string | null
           id: string
           next_follow_up: string | null
@@ -179,9 +205,11 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          address?: string | null
           city?: string | null
           clinic_name: string
           created_at?: string
+          doctor_name?: string | null
           email?: string | null
           id?: string
           next_follow_up?: string | null
@@ -196,9 +224,11 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          address?: string | null
           city?: string | null
           clinic_name?: string
           created_at?: string
+          doctor_name?: string | null
           email?: string | null
           id?: string
           next_follow_up?: string | null
@@ -278,47 +308,98 @@ export type Database = {
         Row: {
           ad_name: string | null
           ad_set_name: string | null
+          booking_date: string | null
+          booking_time: string | null
+          call_notes: string | null
+          callback_scheduled_at: string | null
           campaign_name: string | null
+          clinic_id: string | null
           created_at: string
           creative_time: string | null
+          day_number: number
           email: string | null
+          finance_eligible: boolean | null
+          finance_form_answers: Json | null
           first_name: string | null
           funding_preference: string | null
           id: string
           last_name: string | null
           phone: string | null
           raw_payload: Json | null
+          rep_id: string | null
+          status: string
           updated_at: string
         }
         Insert: {
           ad_name?: string | null
           ad_set_name?: string | null
+          booking_date?: string | null
+          booking_time?: string | null
+          call_notes?: string | null
+          callback_scheduled_at?: string | null
           campaign_name?: string | null
+          clinic_id?: string | null
           created_at?: string
           creative_time?: string | null
+          day_number?: number
           email?: string | null
+          finance_eligible?: boolean | null
+          finance_form_answers?: Json | null
           first_name?: string | null
           funding_preference?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
           raw_payload?: Json | null
+          rep_id?: string | null
+          status?: string
           updated_at?: string
         }
         Update: {
           ad_name?: string | null
           ad_set_name?: string | null
+          booking_date?: string | null
+          booking_time?: string | null
+          call_notes?: string | null
+          callback_scheduled_at?: string | null
           campaign_name?: string | null
+          clinic_id?: string | null
           created_at?: string
           creative_time?: string | null
+          day_number?: number
           email?: string | null
+          finance_eligible?: boolean | null
+          finance_form_answers?: Json | null
           first_name?: string | null
           funding_preference?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
           raw_payload?: Json | null
+          rep_id?: string | null
+          status?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      sales_reps: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
