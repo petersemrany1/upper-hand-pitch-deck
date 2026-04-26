@@ -1184,6 +1184,7 @@ function RightPanel({
   const [notes, setNotes] = useState(active?.call_notes ?? "");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<null | "objections" | "questions">(null);
+  const [leadsOpen, setLeadsOpen] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Close drawer on Esc
