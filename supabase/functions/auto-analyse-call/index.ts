@@ -63,7 +63,7 @@ serve(async (req) => {
   }
 
   let callRecordId: string | undefined;
-  let supabaseForCatch: ReturnType<typeof createClient> | null = null;
+  let supabaseForCatch: ReturnType<typeof createClient<any>> | null = null;
 
   try {
     const body = await req.json().catch(() => ({}));
