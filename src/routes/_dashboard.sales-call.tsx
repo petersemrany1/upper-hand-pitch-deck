@@ -796,7 +796,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 5 — Education</Eyebrow>
-      <h1 className="text-2xl font-medium mb-6">Educate & Show</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Educate & Show</h1>
 
       <Card className="px-5 py-5">
         <Label>Card 1 — Knowledge Check</Label>
@@ -888,7 +888,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 8 — Price & Sell</Eyebrow>
-      <h1 className="text-2xl font-medium mb-6">Present Price</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Present Price</h1>
 
       <Card className="px-5 py-5">
         <Label>Section A — Personalise to the Specialist</Label>
@@ -1003,7 +1003,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 9 — Finance Check</Eyebrow>
-      <h1 className="text-2xl font-medium mb-6">Treatment Funding</h1>
+      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Treatment Funding</h1>
       <Card className="px-5 py-5">
         <p className="text-sm leading-relaxed">
           I just need to ask you 6 quick questions — it's not a commitment, it won't affect your credit rating, and it just helps us see if finance could work for you.
