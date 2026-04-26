@@ -268,19 +268,19 @@ function StepContent({
     return (
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 1 — Mindset</Eyebrow>
-        <h1 className="text-2xl font-bold mb-6">Changing Lives</h1>
-        <Card className="px-6 py-8 text-center">
-          <p className="text-lg leading-relaxed font-medium" style={{ color: COLORS.text }}>
-            I'm not here to simply book appointments — I'm here to transform <span style={{ color: COLORS.green }}>{fname}'s</span> life.
+        <StepHeading>Changing Lives</StepHeading>
+        <Card className="px-7 py-9 text-center">
+          <p style={{ fontSize: 16, lineHeight: 1.7, color: COLORS.text, fontWeight: 400 }}>
+            I'm not here to simply book appointments — I'm here to transform <span style={{ fontWeight: 500 }}>{fname}'s</span> life.
             If I don't help overcome the fears and objections, they won't get the treatment they desperately need.
             They'll continue living in fear, watching their situation deteriorate — when they could be reclaiming their confidence and quality of life.
           </p>
           <button
             onClick={() => onAdvance("mindset")}
-            className="mt-8 px-8 py-3 rounded-md font-bold text-sm tracking-wide transition-transform hover:scale-105"
-            style={{ background: COLORS.green, color: "#ecfdf5" }}
+            className="mt-8 rounded-[6px]"
+            style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 20px" }}
           >
-            I'M READY →
+            I'm ready
           </button>
         </Card>
       </div>
@@ -291,29 +291,28 @@ function StepContent({
     return (
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 2 — Opening</Eyebrow>
-        <h1 className="text-2xl font-bold mb-6">Set the Stage</h1>
-        <Card className="px-5 py-5">
+        <StepHeading>Set the Stage</StepHeading>
+        <Card className="px-6 py-6">
           <Label>Primary Script</Label>
-          <p className="text-base leading-relaxed mt-2">
-            Hi <Pill>{fname}</Pill>, it's <Pill>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
-            I saw you made a Facebook enquiry about <Pill>{funding}</Pill> and I wanted to make sure I called you straight away
-            — if I don't call you now I won't be able to call you back later, it's just so busy today.
-            So — what's happening with your hair situation, <Pill>{fname}</Pill>?
-          </p>
+          <div className="mt-3">
+            <ScriptBody>
+              Hi <Pill name>{fname}</Pill>, it's <Pill name>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
+              I saw you made a Facebook enquiry about {funding} and I wanted to make sure I called you straight away
+              — if I don't call you now I won't be able to call you back later, it's just so busy today.
+              So — what's happening with your hair situation, <Pill name>{fname}</Pill>?
+            </ScriptBody>
+          </div>
           <Coach>
             Name first → proves you're not spam. Who you are → reference their enquiry → pre-empt the callback objection immediately
             → open question hands control to them. The "how are you" gets an automatic "good" — that breath is yours.
           </Coach>
         </Card>
 
-        <div className="mt-4 p-4 rounded-md border" style={{ borderColor: COLORS.amber, background: "rgba(245,158,11,0.08)" }}>
-          <div className="text-xs font-bold tracking-wider mb-2" style={{ color: COLORS.amber }}>"CALL ME BACK" HANDLER</div>
-          <p className="text-sm leading-relaxed">
-            That's not a problem at all — I know you won't expect my call. Do you have just one minute now, just to see if it even
-            makes sense for me to call you back later?
-          </p>
+        <CalloutAmber title='"Call me back" handler'>
+          That's not a problem at all — I know you won't expect my call. Do you have just one minute now, just to see if it even
+          makes sense for me to call you back later?
           <Coach>One minute calls become ten-minute calls. Just get them talking.</Coach>
-        </div>
+        </CalloutAmber>
 
         <NextBtn onClick={() => onAdvance("opening")} />
       </div>
