@@ -81,7 +81,7 @@ function ResetPasswordPage() {
           <h1 className="text-xl font-bold text-[#111111]">
             {mode === "request" ? "Reset password" : "Set new password"}
           </h1>
-          <p className="mt-1 text-sm text-[#999]">
+          <p className="mt-1 text-sm text-[#111111]">
             {mode === "request"
               ? "Enter your email and we'll send a recovery link."
               : "Enter a new password for your account."}
@@ -91,7 +91,7 @@ function ResetPasswordPage() {
         {mode === "request" ? (
           <form onSubmit={handleRequest} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
                 Email
               </label>
               <input
@@ -129,7 +129,7 @@ function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleUpdate} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
                 New password
               </label>
               <input
@@ -143,7 +143,7 @@ function ResetPasswordPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#999]">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
                 Confirm password
               </label>
               <input
@@ -180,8 +180,8 @@ function ResetPasswordPage() {
           </form>
         )}
 
-        <p className="mt-6 text-center text-xs text-[#666]">
-          <a href="/login" className="hover:text-[#999]">Back to sign in</a>
+        <p className="mt-6 text-center text-xs text-[#111111]">
+          <a href="/login" className="hover:text-[#111111]">Back to sign in</a>
         </p>
       </div>
     </div>

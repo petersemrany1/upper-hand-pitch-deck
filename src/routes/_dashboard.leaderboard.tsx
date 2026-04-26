@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_dashboard/leaderboard")({
 });
 
 const C = {
-  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#666666",
+  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#111111",
   blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
 };
 

@@ -90,7 +90,7 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
             className="p-1.5 rounded-md hover:bg-[#f9f9f9] transition"
             aria-label="Close"
           >
-            <X className="w-4 h-4" style={{ color: "#999999" }} />
+            <X className="w-4 h-4" style={{ color: "#111111" }} />
           </button>
         </div>
 
@@ -99,8 +99,8 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
           {loading && (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#a78bfa" }} />
-              <p className="text-sm" style={{ color: "#999999" }}>Analysing call…</p>
-              <p className="text-xs" style={{ color: "#666666" }}>Transcribing audio and reviewing with AI. Takes 20–60 seconds.</p>
+              <p className="text-sm" style={{ color: "#111111" }}>Analysing call…</p>
+              <p className="text-xs" style={{ color: "#111111" }}>Transcribing audio and reviewing with AI. Takes 20–60 seconds.</p>
             </div>
           )}
 
@@ -187,7 +187,7 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
               <button
                 onClick={runAnalysis}
                 className="w-full text-xs py-2 rounded-md hover:bg-[#f9f9f9] transition"
-                style={{ color: "#999999", border: "1px solid #ebebeb" }}
+                style={{ color: "#111111", border: "1px solid #ebebeb" }}
               >
                 Re-analyse call
               </button>

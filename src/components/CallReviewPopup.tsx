@@ -162,7 +162,7 @@ export function CallReviewPopup({
             <div className="text-xs font-semibold text-[#111111]">
               {editing ? "Edit AI Summary" : "AI Call Summary"}
             </div>
-            <div className="text-[11px]" style={{ color: "#666" }}>
+            <div className="text-[11px]" style={{ color: "#111111" }}>
               {clinicName}
             </div>
           </div>
@@ -172,7 +172,7 @@ export function CallReviewPopup({
           className="p-1 rounded hover:bg-[#f9f9f9]"
           aria-label="Close"
         >
-          <X className="w-4 h-4" style={{ color: "#666" }} />
+          <X className="w-4 h-4" style={{ color: "#111111" }} />
         </button>
       </div>
 
@@ -282,7 +282,7 @@ export function CallReviewPopup({
           size="sm"
           variant="outline"
           className="flex-1"
-          style={{ borderColor: "#ebebeb", color: "#999", background: "transparent" }}
+          style={{ borderColor: "#ebebeb", color: "#111111", background: "transparent" }}
           onClick={() => setEditing((v) => !v)}
           disabled={saving}
         >
@@ -292,7 +292,7 @@ export function CallReviewPopup({
         <Button
           size="sm"
           variant="ghost"
-          style={{ color: "#666" }}
+          style={{ color: "#111111" }}
           onClick={handleDismiss}
           disabled={saving}
         >
@@ -316,7 +316,7 @@ function Field({
     <div>
       <div
         className="text-[10px] uppercase tracking-wide mb-0.5"
-        style={{ color: "#666" }}
+        style={{ color: "#111111" }}
       >
         {label}
       </div>
@@ -335,7 +335,7 @@ function EditField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <div
         className="text-[10px] uppercase tracking-wide mb-1"
-        style={{ color: "#999" }}
+        style={{ color: "#111111" }}
       >
         {label}
       </div>

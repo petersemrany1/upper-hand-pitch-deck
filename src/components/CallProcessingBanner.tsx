@@ -68,12 +68,12 @@ export function CallProcessingBanner({ stage, startedAt, onDismiss }: Props) {
           <span className="text-xs text-amber-300">Processing taking longer than usual…</span>
         )}
         {!slow && !isDone && !isFail && elapsed > 0 && (
-          <span className="text-xs text-[#999]">{elapsed}s elapsed</span>
+          <span className="text-xs text-[#111111]">{elapsed}s elapsed</span>
         )}
       </div>
       <button
         onClick={onDismiss}
-        className="ml-2 rounded-full p-1 text-[#999] hover:bg-[#f9f9f9] hover:text-[#111111]"
+        className="ml-2 rounded-full p-1 text-[#111111] hover:bg-[#f9f9f9] hover:text-[#111111]"
         aria-label="Dismiss"
       >
         <X size={14} />

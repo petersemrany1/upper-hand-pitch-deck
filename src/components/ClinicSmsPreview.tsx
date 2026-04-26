@@ -85,10 +85,10 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
         )}
       </div>
 
-      {loading && <p className="text-xs" style={{ color: "#666" }}>Loading…</p>}
+      {loading && <p className="text-xs" style={{ color: "#111111" }}>Loading…</p>}
 
       {!loading && !latest && !clinicPhone && (
-        <p className="text-xs" style={{ color: "#666" }}>No phone on file.</p>
+        <p className="text-xs" style={{ color: "#111111" }}>No phone on file.</p>
       )}
 
       {!loading && !latest && clinicPhone && (
@@ -96,7 +96,7 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
           to="/inbox"
           search={{ phone: clinicPhone }}
           className="flex items-center gap-2 text-xs hover:underline"
-          style={{ color: "#999" }}
+          style={{ color: "#111111" }}
         >
           <MessageSquare className="w-3.5 h-3.5" />
           Send first SMS to {clinicPhone}
@@ -105,10 +105,10 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
 
       {!loading && latest && (
         <div className="space-y-1">
-          <div className="text-[10px] uppercase tracking-wider" style={{ color: "#666" }}>
+          <div className="text-[10px] uppercase tracking-wider" style={{ color: "#111111" }}>
             {latest.direction === "outbound" ? "You" : "Them"} · {fmtTime(latest.createdAt)}
           </div>
-          <p className="text-xs line-clamp-2" style={{ color: "#999" }}>
+          <p className="text-xs line-clamp-2" style={{ color: "#111111" }}>
             {latest.body || "(media)"}
           </p>
         </div>

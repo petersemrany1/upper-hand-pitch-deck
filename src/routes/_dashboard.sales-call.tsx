@@ -52,9 +52,9 @@ const COLORS = {
   card: "#ffffff",
   line: "#ebebeb",
   text: "#111111",
-  muted: "#666666",
-  hint: "#999999",
-  placeholder: "#bbbbbb",
+  muted: "#111111",
+  hint: "#111111",
+  placeholder: "#111111",
   coral: "#f4522d",
   blue: "#3b82f6",
   green: "#10b981",
@@ -232,7 +232,7 @@ function SalesCallPortal() {
 
       <style>{`
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
-        input::placeholder, textarea::placeholder { color: #bbbbbb; opacity: 1; }
+        input::placeholder, textarea::placeholder { color: #111111; opacity: 1; }
       `}</style>
     </div>
   );
@@ -1496,7 +1496,7 @@ function Accordion({ title, defaultOpen, children }: { title: string; defaultOpe
   );
 }
 
-// Right-column row: 11px uppercase #999 label, 14px #111 value
+// Right-column row: 11px uppercase #111111 label, 14px #111 value
 function RightRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">

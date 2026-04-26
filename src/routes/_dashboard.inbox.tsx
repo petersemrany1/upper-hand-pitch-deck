@@ -223,7 +223,7 @@ function InboxPage() {
             </div>
           </div>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#111111]" />
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -235,7 +235,7 @@ function InboxPage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
-            <div className="p-6 text-center text-xs text-[#999]">No conversations yet.</div>
+            <div className="p-6 text-center text-xs text-[#111111]">No conversations yet.</div>
           )}
           {filtered.map((t) => {
             const name = t.display_name || t.clinic?.clinic_name || "Unknown";
@@ -261,13 +261,13 @@ function InboxPage() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-[#999] truncate">{t.phone}</div>
-                    <div className="text-xs text-[#999] truncate mt-1">
+                    <div className="text-[11px] text-[#111111] truncate">{t.phone}</div>
+                    <div className="text-xs text-[#111111] truncate mt-1">
                       {t.last_direction === "outbound" ? "You: " : ""}{t.last_message_preview || "—"}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] text-[#999]">{fmtTime(t.last_message_at)}</span>
+                    <span className="text-[10px] text-[#111111]">{fmtTime(t.last_message_at)}</span>
                     {t.unread_count > 0 && (
                       <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-[#111111] text-[9px] font-bold">
                         {t.unread_count}
@@ -284,7 +284,7 @@ function InboxPage() {
       {/* Conversation pane */}
       <section className="flex-1 flex flex-col">
         {!active && !showNewThread && (
-          <div className="flex-1 flex items-center justify-center text-sm text-[#999]">
+          <div className="flex-1 flex items-center justify-center text-sm text-[#111111]">
             Select a conversation or start a new one.
           </div>
         )}
@@ -298,11 +298,11 @@ function InboxPage() {
                     <div className="text-sm font-semibold">
                       {active.display_name || active.clinic?.clinic_name || "Unknown"}
                     </div>
-                    <div className="text-xs text-[#999]">{active.phone}</div>
+                    <div className="text-xs text-[#111111]">{active.phone}</div>
                   </>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#999]">To:</span>
+                    <span className="text-xs text-[#111111]">To:</span>
                     <input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
@@ -317,7 +317,7 @@ function InboxPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ background: "#f7f7f5" }}>
               {active && messages.length === 0 && (
-                <div className="text-center text-xs text-[#999] py-8">No messages in this conversation yet.</div>
+                <div className="text-center text-xs text-[#111111] py-8">No messages in this conversation yet.</div>
               )}
               {messages.map((m) => {
                 const out = m.direction === "outbound";
@@ -368,7 +368,7 @@ function InboxPage() {
               )}
               <div className="flex items-end gap-2">
                 <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-[#f9f9f9]" title="Attach image">
-                  <ImageIcon className="h-4 w-4 text-[#999]" />
+                  <ImageIcon className="h-4 w-4 text-[#111111]" />
                   <input
                     type="file"
                     accept="image/*"
@@ -405,7 +405,7 @@ function InboxPage() {
                   Send
                 </button>
               </div>
-              <div className="text-[10px] text-[#666] mt-2">
+              <div className="text-[10px] text-[#111111] mt-2">
                 Press Enter to send · Shift+Enter for new line · Sent from +61 468 031 075
               </div>
             </div>

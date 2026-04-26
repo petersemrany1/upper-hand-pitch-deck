@@ -239,7 +239,7 @@ export function CallReviewInbox() {
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
           className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-[#f9f9f9] transition-colors"
-          style={{ color: "#666" }}
+          style={{ color: "#111111" }}
           aria-label="Call review inbox"
           title="Call reviews"
         >
@@ -289,12 +289,12 @@ export function CallReviewInbox() {
                 className="p-1 rounded hover:bg-[#f9f9f9]"
                 aria-label="Close"
               >
-                <X className="w-4 h-4" style={{ color: "#666" }} />
+                <X className="w-4 h-4" style={{ color: "#111111" }} />
               </button>
             </div>
 
             {items.length === 0 && (
-              <div className="px-4 py-10 text-center text-xs" style={{ color: "#666" }}>
+              <div className="px-4 py-10 text-center text-xs" style={{ color: "#111111" }}>
                 No calls awaiting review.
                 <br />
                 Make a call and the AI summary will appear here.
@@ -333,7 +333,7 @@ export function CallReviewInbox() {
                               </span>
                             )}
                           </div>
-                          <div className="text-[10px]" style={{ color: "#666" }}>
+                          <div className="text-[10px]" style={{ color: "#111111" }}>
                             {relativeTime(item.calledAt)}
                           </div>
                         </div>
@@ -351,7 +351,7 @@ export function CallReviewInbox() {
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
-                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#999" }} />
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#111111" }} />
                       </button>
                     </div>
                   </li>
@@ -377,21 +377,21 @@ export function CallReviewInbox() {
                           <div className="text-xs font-semibold text-[#111111] truncate">
                             {item.clinicName}
                           </div>
-                          <div className="text-[10px]" style={{ color: "#666" }}>
+                          <div className="text-[10px]" style={{ color: "#111111" }}>
                             {relativeTime(item.calledAt)}
                           </div>
                         </div>
                         {a.outcome && (
                           <div
                             className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded mt-1"
-                            style={{ background: "#ebebeb", color: "#666666" }}
+                            style={{ background: "#ebebeb", color: "#111111" }}
                           >
                             {a.outcome}
                           </div>
                         )}
                         <div
                           className="text-[11px] mt-1 line-clamp-2"
-                          style={{ color: "#999" }}
+                          style={{ color: "#111111" }}
                         >
                           {summary}
                         </div>
@@ -412,7 +412,7 @@ export function CallReviewInbox() {
                             className="text-[11px] px-2.5 py-1 rounded"
                             style={{
                               background: "transparent",
-                              color: "#999",
+                              color: "#111111",
                               border: "1px solid #ebebeb",
                             }}
                           >
@@ -427,7 +427,7 @@ export function CallReviewInbox() {
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
-                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#999" }} />
+                        <Trash2 className="w-3.5 h-3.5" style={{ color: "#111111" }} />
                       </button>
                     </div>
                   </li>
