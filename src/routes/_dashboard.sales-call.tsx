@@ -48,8 +48,23 @@ const STEPS = [
 type StepKey = typeof STEPS[number]["key"];
 
 const COLORS = {
-  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#666666",
-  blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
+  bg: "#f7f7f5",
+  card: "#ffffff",
+  line: "#ebebeb",
+  text: "#111111",
+  muted: "#666666",
+  hint: "#999999",
+  placeholder: "#bbbbbb",
+  coral: "#f4522d",
+  blue: "#3b82f6",
+  green: "#10b981",
+  amber: "#f59e0b",
+  amberDark: "#92400e",
+  amberBg: "#fffbeb",
+  red: "#ef4444",
+  gold: "#d97706",
+  // legacy alias kept so existing references keep working
+  // (was previously used as the "primary action" color)
 };
 
 function statusColor(s: string | null) {
