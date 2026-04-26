@@ -572,7 +572,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
           ) : mmsImages.slice(0, 4).map((img) => (
             <button key={img.name} onClick={() => void send(img.url)}
               className="px-3 py-2 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: COLORS.blue, color: "#fff" }}>
+              style={{ background: COLORS.blue, color: "#111111" }}>
               <Send className="h-3.5 w-3.5" /> Send {img.name.replace(/\.[^.]+$/, "")}
             </button>
           ))}
@@ -651,7 +651,7 @@ function PriceStep({ onNext }: { onNext: () => void }) {
             className="flex-1 px-3 py-2 rounded-md text-sm outline-none"
             style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
           <button onClick={() => void search()} disabled={loading}
-            className="px-4 py-2 rounded-md text-xs font-bold" style={{ background: COLORS.blue, color: "#fff" }}>
+            className="px-4 py-2 rounded-md text-xs font-bold" style={{ background: COLORS.blue, color: "#111111" }}>
             {loading ? "Searching…" : "Find Closest"}
           </button>
         </div>
@@ -1003,7 +1003,7 @@ function RightPanel({
             <div className="grid grid-cols-2 gap-1.5 mt-3">
               <button onClick={callNow}
                 className="col-span-2 px-3 py-2 rounded text-xs font-bold flex items-center justify-center gap-2"
-                style={{ background: COLORS.blue, color: "#fff" }}>
+                style={{ background: COLORS.blue, color: "#111111" }}>
                 <Phone className="h-3.5 w-3.5" /> Call Now
               </button>
               {callRunning && (
@@ -1096,7 +1096,7 @@ function RightPanel({
             ) : mmsImages.slice(0, 4).map((img, i) => (
               <button key={img.name} onClick={() => void sendImage(img.url)}
                 className="w-full px-3 py-2 rounded text-[11px] font-bold flex items-center gap-2"
-                style={{ background: COLORS.blue, color: "#fff" }}>
+                style={{ background: COLORS.blue, color: "#111111" }}>
                 <Send className="h-3 w-3" /> Send Before & After {i + 1}
               </button>
             ))}

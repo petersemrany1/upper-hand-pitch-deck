@@ -73,7 +73,7 @@ export function CallProcessingBanner({ stage, startedAt, onDismiss }: Props) {
       </div>
       <button
         onClick={onDismiss}
-        className="ml-2 rounded-full p-1 text-[#999] hover:bg-[#ffffff]/10 hover:text-[#111111]"
+        className="ml-2 rounded-full p-1 text-[#999] hover:bg-[#f9f9f9] hover:text-[#111111]"
         aria-label="Dismiss"
       >
         <X size={14} />

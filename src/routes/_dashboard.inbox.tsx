@@ -193,7 +193,7 @@ function InboxPage() {
   }
 
   return (
-    <div className="h-full w-full flex" style={{ background: "#f7f7f5", color: "#fff" }}>
+    <div className="h-full w-full flex" style={{ background: "#f7f7f5", color: "#111111" }}>
       {/* Thread list */}
       <aside className="w-[320px] flex flex-col" style={{ borderRight: "1px solid #ebebeb", background: "#ffffff" }}>
         <div className="p-4" style={{ borderBottom: "1px solid #ebebeb" }}>
@@ -207,7 +207,7 @@ function InboxPage() {
                   if (activeId) await loadMessages(activeId);
                   setRefreshing(false);
                 }}
-                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#ffffff]/5 disabled:opacity-50"
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#f9f9f9] disabled:opacity-50"
                 title="Refresh"
                 disabled={refreshing}
               >
@@ -215,7 +215,7 @@ function InboxPage() {
               </button>
               <button
                 onClick={() => { setShowNewThread(true); setActiveId(null); setNewPhone(""); }}
-                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#ffffff]/5"
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#f9f9f9]"
                 title="New message"
               >
                 <MessageSquarePlus className="h-4 w-4" />
@@ -229,7 +229,7 @@ function InboxPage() {
               onChange={(e) => setFilter(e.target.value)}
               placeholder="Search conversations…"
               className="w-full h-9 pl-8 pr-3 rounded text-sm outline-none"
-              style={{ background: "#f9f9f9", color: "#fff", border: "1px solid #ebebeb" }}
+              style={{ background: "#f9f9f9", color: "#111111", border: "1px solid #ebebeb" }}
             />
           </div>
         </div>
@@ -308,7 +308,7 @@ function InboxPage() {
                       onChange={(e) => setNewPhone(e.target.value)}
                       placeholder="+61..."
                       className="h-8 px-2 rounded text-sm outline-none"
-                      style={{ background: "#f9f9f9", color: "#fff", border: "1px solid #ebebeb" }}
+                      style={{ background: "#f9f9f9", color: "#111111", border: "1px solid #ebebeb" }}
                     />
                   </div>
                 )}
@@ -367,7 +367,7 @@ function InboxPage() {
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-[#ffffff]/5" title="Attach image">
+                <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-[#f9f9f9]" title="Attach image">
                   <ImageIcon className="h-4 w-4 text-[#999]" />
                   <input
                     type="file"
@@ -393,13 +393,13 @@ function InboxPage() {
                   placeholder="Type a message…"
                   rows={1}
                   className="flex-1 resize-none rounded px-3 py-2 text-sm outline-none"
-                  style={{ background: "#f9f9f9", color: "#fff", border: "1px solid #ebebeb", maxHeight: 120 }}
+                  style={{ background: "#f9f9f9", color: "#111111", border: "1px solid #ebebeb", maxHeight: 120 }}
                 />
                 <button
                   onClick={() => void handleSend()}
                   disabled={sending || (!composeBody.trim() && composeFiles.length === 0)}
                   className="h-9 px-4 rounded inline-flex items-center gap-2 text-sm font-medium disabled:opacity-50"
-                  style={{ background: "#f4522d", color: "#fff" }}
+                  style={{ background: "#f4522d", color: "#111111" }}
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send

@@ -168,7 +168,7 @@ function LeadsPage() {
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="px-2 py-1 rounded text-xs bg-[#ffffff]/5 text-[#999] hover:bg-[#ffffff]/10"
+                                className="px-2 py-1 rounded text-xs bg-[#f9f9f9] text-[#999] hover:bg-[#f9f9f9]"
                               >
                                 Cancel
                               </button>

@@ -110,7 +110,7 @@ function LeaderboardPage() {
             </button>
             <button onClick={() => setShowAdd(true)}
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: C.blue, color: "#fff" }}>
+              style={{ background: C.blue, color: "#111111" }}>
               <Plus className="h-3.5 w-3.5" /> Add Rep
             </button>
           </div>

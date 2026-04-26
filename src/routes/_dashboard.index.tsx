@@ -288,7 +288,7 @@ function DashboardHome() {
         style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
       >
         <div>
-          <div style={{ fontSize: 18, color: "#fff", fontWeight: 600 }}>{getGreeting()}, Peter</div>
+          <div style={{ fontSize: 18, color: "#111111", fontWeight: 600 }}>{getGreeting()}, Peter</div>
           <div style={{ fontSize: 11, color: "#666" }}>{formatDate()}</div>
         </div>
       </div>
@@ -308,7 +308,7 @@ function DashboardHome() {
             >
               <div className="flex items-start justify-between">
                 <div>
-                  <div style={{ fontSize: 28, color: "#fff", fontWeight: 700, lineHeight: 1.1 }}>
+                  <div style={{ fontSize: 28, color: "#111111", fontWeight: 700, lineHeight: 1.1 }}>
                     {s.value === null ? "—" : s.value}
                   </div>
                   <div
@@ -353,7 +353,7 @@ function DashboardHome() {
                 const row = (
                   <>
                     <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
-                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#fff" }}>{item.text}</span>
+                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#111111" }}>{item.text}</span>
                     <span className="shrink-0" style={{ fontSize: 11, color: "#666" }}>{item.time}</span>
                   </>
                 );
@@ -362,7 +362,7 @@ function DashboardHome() {
                     key={i}
                     to="/clinics"
                     search={{ clinic: item.clinicId }}
-                    className="flex items-center gap-3 hover:bg-[#ffffff]/5 rounded -mx-1 px-1"
+                    className="flex items-center gap-3 hover:bg-[#f9f9f9] rounded -mx-1 px-1"
                     style={{ height: 36 }}
                   >
                     {row}
@@ -408,7 +408,7 @@ function DashboardHome() {
             }}
           >
             <div>
-              <div className="flex items-center gap-2" style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>
+              <div className="flex items-center gap-2" style={{ fontSize: 11, color: "#111111", fontWeight: 600 }}>
                 <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
                 {dialerStateLabel}
               </div>
@@ -440,7 +440,7 @@ function DashboardHome() {
             value={dialNumber}
             onChange={(e) => setDialNumber(e.target.value)}
             className="mb-2 border-0 text-sm"
-            style={{ background: "#f9f9f9", color: "#fff", height: 38 }}
+            style={{ background: "#f9f9f9", color: "#111111", height: 38 }}
           />
 
           <Button
@@ -524,11 +524,11 @@ function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
           key={f.id}
           to="/clinics"
           search={{ clinic: f.id }}
-          className="flex items-center gap-3 hover:bg-[#ffffff]/5 rounded -mx-1 px-1"
+          className="flex items-center gap-3 hover:bg-[#f9f9f9] rounded -mx-1 px-1"
           style={{ height: 32 }}
         >
           <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
-          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#fff" }}>{f.clinic_name}</span>
+          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#111111" }}>{f.clinic_name}</span>
           <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
           <Calendar className="w-3 h-3 shrink-0" style={{ color: "#f59e0b" }} />
         </Link>

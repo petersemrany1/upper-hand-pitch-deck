@@ -169,7 +169,7 @@ export function CallReviewPopup({
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-[#ffffff]/5"
+          className="p-1 rounded hover:bg-[#f9f9f9]"
           aria-label="Close"
         >
           <X className="w-4 h-4" style={{ color: "#666" }} />
@@ -184,7 +184,7 @@ export function CallReviewPopup({
                 value={outcome}
                 onChange={(e) => setOutcome(e.target.value)}
                 className="w-full rounded px-2 py-1.5 text-xs border-0"
-                style={{ background: "#f9f9f9", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#111111" }}
               >
                 {OUTCOME_OPTIONS.map((o) => (
                   <option key={o} value={o}>{o}</option>
@@ -197,7 +197,7 @@ export function CallReviewPopup({
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
                 className="w-full rounded px-2 py-1.5 text-xs border-0 resize-none"
-                style={{ background: "#f9f9f9", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#111111" }}
               />
             </EditField>
             <EditField label="Next Action">
@@ -206,7 +206,7 @@ export function CallReviewPopup({
                 onChange={(e) => setNextAction(e.target.value)}
                 rows={2}
                 className="w-full rounded px-2 py-1.5 text-xs border-0 resize-none"
-                style={{ background: "#f9f9f9", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#111111" }}
               />
             </EditField>
             <div className="grid grid-cols-2 gap-2">
@@ -216,7 +216,7 @@ export function CallReviewPopup({
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
                   className="w-full rounded px-2 py-1.5 text-xs border-0"
-                  style={{ background: "#f9f9f9", color: "#fff" }}
+                  style={{ background: "#f9f9f9", color: "#111111" }}
                 />
               </EditField>
               <EditField label="Follow-up Time">
@@ -226,7 +226,7 @@ export function CallReviewPopup({
                   onChange={(e) => setFollowUpTime(e.target.value)}
                   placeholder="e.g. 9am or 9–12"
                   className="w-full rounded px-2 py-1.5 text-xs border-0"
-                  style={{ background: "#f9f9f9", color: "#fff" }}
+                  style={{ background: "#f9f9f9", color: "#111111" }}
                 />
               </EditField>
             </div>
@@ -236,7 +236,7 @@ export function CallReviewPopup({
                 value={contactName}
                 onChange={(e) => setContactName(e.target.value)}
                 className="w-full rounded px-2 py-1.5 text-xs border-0"
-                style={{ background: "#f9f9f9", color: "#fff" }}
+                style={{ background: "#f9f9f9", color: "#111111" }}
               />
             </EditField>
           </>

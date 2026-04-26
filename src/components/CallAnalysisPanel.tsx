@@ -87,7 +87,7 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-[#ffffff]/5 transition"
+            className="p-1.5 rounded-md hover:bg-[#f9f9f9] transition"
             aria-label="Close"
           >
             <X className="w-4 h-4" style={{ color: "#999999" }} />
@@ -111,7 +111,7 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
               <button
                 onClick={runAnalysis}
                 className="text-xs px-3 py-1.5 rounded-md font-medium"
-                style={{ background: "#dc2626", color: "#fff" }}
+                style={{ background: "#dc2626", color: "#111111" }}
               >
                 Try again
               </button>
@@ -186,7 +186,7 @@ export function CallAnalysisPanel({ recordId, recordingUrl, existingAnalysis, on
 
               <button
                 onClick={runAnalysis}
-                className="w-full text-xs py-2 rounded-md hover:bg-[#ffffff]/5 transition"
+                className="w-full text-xs py-2 rounded-md hover:bg-[#f9f9f9] transition"
                 style={{ color: "#999999", border: "1px solid #ebebeb" }}
               >
                 Re-analyse call

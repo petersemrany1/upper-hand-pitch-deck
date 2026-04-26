@@ -251,7 +251,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#ffffff]/5"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Minimise call"
         >
           <Minus className="h-4 w-4" />
@@ -398,7 +398,7 @@ function CallOutcomePrompt({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#ffffff]/5"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#999] hover:text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Skip logging"
         >
           <X className="h-4 w-4" />

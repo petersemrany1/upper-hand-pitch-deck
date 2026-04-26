@@ -842,7 +842,7 @@ function ClinicsPage() {
             {todayExpanded ? <ChevronDown className="w-3 h-3" style={{ color: "#f59e0b" }} /> : <ChevronRight className="w-3 h-3" style={{ color: "#f59e0b" }} />}
             <AlertCircle className="w-3.5 h-3.5" style={{ color: "#f59e0b" }} />
             <span className="text-xs font-bold" style={{ color: "#f59e0b" }}>TODAY'S ACTIONS</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "#dc2626", color: "#fff" }}>{todayActions.length}</span>
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "#dc2626", color: "#111111" }}>{todayActions.length}</span>
           </button>
           {todayExpanded && (
             <div className="px-5 pb-3 space-y-1">
@@ -850,10 +850,10 @@ function ClinicsPage() {
                 const action = getNextActionText(c, lastContacts[c.id] || null);
                 return (
                   <div key={c.id} className="flex items-center gap-3 py-1.5 px-3 rounded" style={{ background: "#f9f9f9" }}>
-                    <button onClick={() => openDetail(c)} className="text-xs font-semibold hover:underline truncate" style={{ color: "#fff", minWidth: 120 }}>{c.clinic_name}</button>
+                    <button onClick={() => openDetail(c)} className="text-xs font-semibold hover:underline truncate" style={{ color: "#111111", minWidth: 120 }}>{c.clinic_name}</button>
                     <span className="text-[11px] flex-1 truncate" style={{ color: "#f59e0b" }}>{action.text}</span>
                     {c.phone && (
-                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#ffffff]/5" title="Call now">
+                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#f9f9f9]" title="Call now">
                         <PhoneCall className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />
                       </button>
                     )}
@@ -874,12 +874,12 @@ function ClinicsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9 border-0 text-sm"
-            style={{ background: "#f9f9f9", color: "#fff", height: 36 }}
+            style={{ background: "#f9f9f9", color: "#111111", height: 36 }}
           />
         </div>
         <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
         <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
-        <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#fff" }}>
+        <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
           <Plus className="w-3 h-3 mr-1" /> Add Clinic
         </Button>
         <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
@@ -944,7 +944,7 @@ function ClinicsPage() {
                         )}
                         {/* Clinic Name */}
                         <div className="w-[180px] shrink-0 px-3 truncate">
-                          <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#fff" }}>{c.clinic_name}</button>
+                          <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
                         </div>
                         {/* City */}
                         <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#666" }}>{c.city || "—"}</div>
@@ -992,16 +992,16 @@ function ClinicsPage() {
                         {/* Actions */}
                         <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
                           {c.phone && !phoneInvalid && (
-                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#ffffff]/5" title="Call">
+                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#f9f9f9]" title="Call">
                               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
                             </button>
                           )}
                           {c.email && (
-                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-[#ffffff]/5" title="Email">
+                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-[#f9f9f9]" title="Email">
                               <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
                             </a>
                           )}
-                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-[#ffffff]/5" title="Log">
+                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-[#f9f9f9]" title="Log">
                             <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
                           </button>
                         </div>
@@ -1074,7 +1074,7 @@ function ClinicsPage() {
             <div className="p-5 space-y-4">
               {/* Close button */}
               <div className="flex justify-end">
-                <button onClick={closeDetail} className="p-1 rounded hover:bg-[#ffffff]/5">
+                <button onClick={closeDetail} className="p-1 rounded hover:bg-[#f9f9f9]">
                   <X className="w-4 h-4" style={{ color: "#666" }} />
                 </button>
               </div>
@@ -1083,7 +1083,7 @@ function ClinicsPage() {
               <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
                 <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>CLINIC INFO</div>
 
-                <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>{selectedClinic.clinic_name}</h2>
+                <h2 className="text-lg font-bold mb-1" style={{ color: "#111111" }}>{selectedClinic.clinic_name}</h2>
                 <p className="text-xs mb-1" style={{ color: "#666" }}>
                   {selectedClinic.city && `${selectedClinic.city}, `}{selectedClinic.state}
                 </p>
@@ -1102,7 +1102,7 @@ function ClinicsPage() {
                       <Clock className="w-4 h-4 shrink-0" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa" }} />
                       <div>
                         <div className="text-[10px] uppercase font-bold" style={{ color: action.overdue ? "#f59e0b" : "#60a5fa", letterSpacing: "0.1em" }}>NEXT ACTION</div>
-                        <div className="text-xs font-medium" style={{ color: "#fff" }}>{action.text}</div>
+                        <div className="text-xs font-medium" style={{ color: "#111111" }}>{action.text}</div>
                       </div>
                     </div>
                   );
@@ -1110,21 +1110,21 @@ function ClinicsPage() {
 
                 <div className="space-y-3">
                   <FieldRow label="Owner">
-                    <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                    <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
                   <FieldRow label="Phone">
-                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
                   <FieldRow label="Email">
-                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                    <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
                   <FieldRow label="Stage">
-                    <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#f9f9f9", color: "#fff" }}>
+                    <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#f9f9f9", color: "#111111" }}>
                       {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{s}</option>)}
                     </select>
                   </FieldRow>
                   <FieldRow label="Follow Up">
-                    <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                    <Input type="date" value={editFollowUp} onChange={(e) => { setEditFollowUp(e.target.value); updateClinicField("next_follow_up", e.target.value); }} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -1133,7 +1133,7 @@ function ClinicsPage() {
                         {notesSaveState === "saving" ? "Saving…" : notesSaveState === "saved" ? "Saved" : "—"}
                       </div>
                     </div>
-                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} onBlur={() => { void flushPendingNotes(); }} rows={3} className="border-0 text-xs resize-none" style={{ background: "#f9f9f9", color: "#fff" }} placeholder="Add notes..." />
+                    <Textarea value={editNotes} onChange={(e) => handleNotesChange(e.target.value)} onBlur={() => { void flushPendingNotes(); }} rows={3} className="border-0 text-xs resize-none" style={{ background: "#f9f9f9", color: "#111111" }} placeholder="Add notes..." />
                   </div>
                 </div>
               </div>
@@ -1141,13 +1141,13 @@ function ClinicsPage() {
               {/* ===== SECTION 2: LOG ACTIVITY ===== */}
               <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
                 <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>LOG ACTIVITY</div>
-                <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#f4522d", color: "#fff" }}>
+                <Button onClick={openLogModal} className="w-full border-0 text-xs font-semibold" style={{ background: "#f4522d", color: "#111111" }}>
                   <MessageSquare className="w-3.5 h-3.5 mr-1.5" /> Log Activity
                 </Button>
                 <Button
                   onClick={openBoldModal}
                   className="w-full border-0 text-xs font-semibold mt-2"
-                  style={{ background: "#f4522d", color: "#fff" }}
+                  style={{ background: "#f4522d", color: "#111111" }}
                 >
                   <Send className="w-3.5 h-3.5 mr-1.5" /> Send Bold Contract
                 </Button>
@@ -1229,23 +1229,23 @@ function ClinicsPage() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowLogModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
           <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-4" style={{ color: "#fff" }}>Log Activity — {selectedClinic.clinic_name}</h3>
+            <h3 className="text-sm font-bold mb-4" style={{ color: "#111111" }}>Log Activity — {selectedClinic.clinic_name}</h3>
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Contact Type</label>
-                <select value={logType} onChange={(e) => handleTypeChange(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#fff" }}>
+                <select value={logType} onChange={(e) => handleTypeChange(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#111111" }}>
                   {CONTACT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Outcome</label>
-                <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#fff" }}>
+                <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#111111" }}>
                   {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Notes</label>
-                <Textarea value={logNotes} onChange={(e) => setLogNotes(e.target.value)} rows={2} className="border-0 text-xs resize-none" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Textarea value={logNotes} onChange={(e) => setLogNotes(e.target.value)} rows={2} className="border-0 text-xs resize-none" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               {needsDateTimePicker && (
                 <>
@@ -1253,7 +1253,7 @@ function ClinicsPage() {
                     <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>
                       {logOutcome === "Spoke — Zoom Set" ? "Zoom Date" : "Call Back Date"}
                     </label>
-                    <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                    <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </div>
                   <div>
                     <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>
@@ -1266,20 +1266,20 @@ function ClinicsPage() {
                         onChange={(e) => setLogNextTime(e.target.value)}
                         placeholder="9am–12pm"
                         className="border-0 text-xs h-8"
-                        style={{ background: "#f9f9f9", color: "#fff" }}
+                        style={{ background: "#f9f9f9", color: "#111111" }}
                       />
                     ) : (
-                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                     )}
                   </div>
                 </>
               )}
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Owner Name</label>
-                <Input value={logOwnerName} onChange={(e) => setLogOwnerName(e.target.value)} placeholder="Clinic owner name" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input value={logOwnerName} onChange={(e) => setLogOwnerName(e.target.value)} placeholder="Clinic owner name" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleLogActivity} className="flex-1 border-0 text-xs" style={{ background: "#f4522d", color: "#fff" }}>Save</Button>
+                <Button onClick={handleLogActivity} className="flex-1 border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>Save</Button>
                 <Button onClick={() => setShowLogModal(false)} variant="ghost" className="text-xs" style={{ color: "#666" }}>Cancel</Button>
               </div>
             </div>
@@ -1293,7 +1293,7 @@ function ClinicsPage() {
           <div className="absolute inset-0 bg-black/70" />
           <div className="relative rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
-              <span className="text-base font-extrabold tracking-tight" style={{ color: "#fff" }}>BOLD</span>
+              <span className="text-base font-extrabold tracking-tight" style={{ color: "#111111" }}>BOLD</span>
               <span className="text-base font-extrabold tracking-tight" style={{ color: "#f4522d" }}>PATIENTS</span>
               <span className="ml-auto text-[10px] uppercase" style={{ color: "#666", letterSpacing: "0.1em" }}>Send Contract</span>
             </div>
@@ -1301,53 +1301,53 @@ function ClinicsPage() {
             <div className="space-y-3">
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Clinic Name</label>
-                <Input value={boldClinicName} onChange={(e) => setBoldClinicName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input value={boldClinicName} onChange={(e) => setBoldClinicName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Clinic Address</label>
-                <Input value={boldClinicAddress} onChange={(e) => setBoldClinicAddress(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input value={boldClinicAddress} onChange={(e) => setBoldClinicAddress(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Date</label>
-                <Input type="date" value={boldDate} onChange={(e) => setBoldDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input type="date" value={boldDate} onChange={(e) => setBoldDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Pack Name</label>
-                <Input value={boldPackName} onChange={(e) => setBoldPackName(e.target.value)} placeholder="e.g. Custom 5 Pack" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input value={boldPackName} onChange={(e) => setBoldPackName(e.target.value)} placeholder="e.g. Custom 5 Pack" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Number of Shows</label>
-                  <Input type="number" min="0" value={boldShows} onChange={(e) => setBoldShows(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                  <Input type="number" min="0" value={boldShows} onChange={(e) => setBoldShows(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                 </div>
                 <div>
                   <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Per Show Fee ($)</label>
-                  <Input type="number" min="0" value={boldPerShowFee} onChange={(e) => setBoldPerShowFee(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                  <Input type="number" min="0" value={boldPerShowFee} onChange={(e) => setBoldPerShowFee(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                 </div>
               </div>
 
               <div className="rounded-md p-3 space-y-1.5" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
                 <div className="flex justify-between text-xs">
                   <span style={{ color: "#999" }}>Total exc GST</span>
-                  <span className="font-semibold" style={{ color: "#fff" }}>${boldTotalExGst.toLocaleString()}</span>
+                  <span className="font-semibold" style={{ color: "#111111" }}>${boldTotalExGst.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-xs">
                   <span style={{ color: "#999" }}>GST (10%)</span>
-                  <span className="font-semibold" style={{ color: "#fff" }}>${boldGstAmount.toLocaleString()}</span>
+                  <span className="font-semibold" style={{ color: "#111111" }}>${boldGstAmount.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between text-sm pt-1.5" style={{ borderTop: "1px solid #ebebeb" }}>
-                  <span className="font-bold" style={{ color: "#fff" }}>Total inc GST</span>
+                  <span className="font-bold" style={{ color: "#111111" }}>Total inc GST</span>
                   <span className="font-extrabold" style={{ color: "#f4522d" }}>${boldTotalIncGst.toLocaleString()}</span>
                 </div>
               </div>
 
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Client Name</label>
-                <Input value={boldClientName} onChange={(e) => setBoldClientName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input value={boldClientName} onChange={(e) => setBoldClientName(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#666", letterSpacing: "0.1em" }}>Client Email</label>
-                <Input type="email" value={boldClientEmail} onChange={(e) => setBoldClientEmail(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+                <Input type="email" value={boldClientEmail} onChange={(e) => setBoldClientEmail(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               </div>
 
               {boldStatus && (
@@ -1368,7 +1368,7 @@ function ClinicsPage() {
                   onClick={handleSendBoldContract}
                   disabled={!boldValid || boldSending}
                   className="flex-1 border-0 text-xs font-semibold"
-                  style={{ background: "#f4522d", color: "#fff", opacity: !boldValid || boldSending ? 0.5 : 1 }}
+                  style={{ background: "#f4522d", color: "#111111", opacity: !boldValid || boldSending ? 0.5 : 1 }}
                 >
                   {boldSending ? (
                     <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" /> Sending…</>
@@ -1388,16 +1388,16 @@ function ClinicsPage() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowAddModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
           <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-bold mb-4" style={{ color: "#fff" }}>Add Clinic</h3>
+            <h3 className="text-sm font-bold mb-4" style={{ color: "#111111" }}>Add Clinic</h3>
             <div className="space-y-3">
-              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clinic name *" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
-              <Input value={newState} onChange={(e) => setNewState(e.target.value)} placeholder="State" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
-              <Input value={newCity} onChange={(e) => setNewCity(e.target.value)} placeholder="City" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
-              <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Phone" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
-              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
-              <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} placeholder="Website" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#fff" }} />
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clinic name *" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+              <Input value={newState} onChange={(e) => setNewState(e.target.value)} placeholder="State" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+              <Input value={newCity} onChange={(e) => setNewCity(e.target.value)} placeholder="City" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+              <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} placeholder="Phone" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+              <Input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="Email" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+              <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)} placeholder="Website" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
               <div className="flex gap-2 pt-2">
-                <Button onClick={handleAddClinic} className="flex-1 border-0 text-xs" style={{ background: "#f4522d", color: "#fff" }}>Add</Button>
+                <Button onClick={handleAddClinic} className="flex-1 border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>Add</Button>
                 <Button onClick={() => setShowAddModal(false)} variant="ghost" className="text-xs" style={{ color: "#666" }}>Cancel</Button>
               </div>
             </div>
@@ -1426,7 +1426,7 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
       <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#f4522d" }} />
       <div className="rounded-lg p-3" style={{ background: "#f9f9f9" }}>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-semibold" style={{ color: "#fff" }}>
+          <span className="text-[11px] font-semibold" style={{ color: "#111111" }}>
             {emoji} {contact.contact_type}
           </span>
           <div className="flex items-center gap-1.5">
@@ -1445,7 +1445,7 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
         {confirmDelete && (
           <div className="flex items-center gap-2 mb-1 p-1.5 rounded" style={{ background: "#ffffff" }}>
             <span className="text-[10px]" style={{ color: "#f87171" }}>Delete this entry?</span>
-            <button onClick={handleDelete} disabled={deleting} className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "#dc2626", color: "#fff" }}>
+            <button onClick={handleDelete} disabled={deleting} className="text-[10px] font-semibold px-2 py-0.5 rounded" style={{ background: "#dc2626", color: "#111111" }}>
               {deleting ? "..." : "Yes"}
             </button>
             <button onClick={() => setConfirmDelete(false)} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "#666", color: "#999" }}>No</button>

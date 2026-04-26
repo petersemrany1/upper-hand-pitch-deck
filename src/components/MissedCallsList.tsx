@@ -108,7 +108,7 @@ export function MissedCallsList() {
               fontSize: 11,
               fontWeight: 700,
               letterSpacing: "0.15em",
-              color: "#fff",
+              color: "#111111",
             }}
           >
             MISSED CALLS

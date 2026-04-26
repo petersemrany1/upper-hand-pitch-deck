@@ -238,7 +238,7 @@ export function CallReviewInbox() {
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
-          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-[#ffffff]/5 transition-colors"
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-[#f9f9f9] transition-colors"
           style={{ color: "#666" }}
           aria-label="Call review inbox"
           title="Call reviews"
@@ -286,7 +286,7 @@ export function CallReviewInbox() {
               </div>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1 rounded hover:bg-[#ffffff]/5"
+                className="p-1 rounded hover:bg-[#f9f9f9]"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" style={{ color: "#666" }} />
@@ -347,7 +347,7 @@ export function CallReviewInbox() {
                       {/* Universal dismiss — always visible on every item */}
                       <button
                         onClick={() => void handleDeleteAny(item)}
-                        className="p-1 rounded hover:bg-[#ffffff]/10 -mr-1"
+                        className="p-1 rounded hover:bg-[#f9f9f9] -mr-1"
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
@@ -402,7 +402,7 @@ export function CallReviewInbox() {
                               setOpen(false);
                             }}
                             className="text-[11px] font-semibold px-2.5 py-1 rounded inline-flex items-center gap-1"
-                            style={{ background: "#f4522d", color: "#fff" }}
+                            style={{ background: "#f4522d", color: "#111111" }}
                           >
                             <Check className="w-3 h-3" />
                             Review
@@ -423,7 +423,7 @@ export function CallReviewInbox() {
                       {/* Universal dismiss — always visible on every item */}
                       <button
                         onClick={() => void handleDeleteAny(item)}
-                        className="p-1 rounded hover:bg-[#ffffff]/10 -mr-1"
+                        className="p-1 rounded hover:bg-[#f9f9f9] -mr-1"
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
