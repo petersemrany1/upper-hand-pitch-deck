@@ -534,7 +534,7 @@ function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
         >
           <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
           <span className="flex-1 truncate" style={{ fontSize: 12, color: "#111111" }}>{f.clinic_name}</span>
-          <span style={{ fontSize: 10, color: "#ef4444" }}>{f.next_follow_up}</span>
+          <span style={{ fontSize: 10, color: "#f4522d", background: "#fff1ee", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>{f.next_follow_up}</span>
           <Calendar className="w-3 h-3 shrink-0" style={{ color: "#f59e0b" }} />
         </Link>
       ))}
