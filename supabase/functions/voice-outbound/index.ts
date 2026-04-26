@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 // TwiML returned to Twilio when the browser SDK initiates an outbound call.
 // Twilio POSTs here (per the TwiML App's Voice Request URL). We read the
@@ -62,6 +63,13 @@ serve(async (req) => {
   if (req.method === "POST") {
     try {
       const form = await req.formData();
+
+      // Reject unsigned requests so attackers can't probe TwiML generation
+      // or trigger arbitrary outbound dials.
+      if (!(await validateTwilioSignature(req, form))) {
+        return new Response("Forbidden", { status: 403 });
+      }
+
       phone = phone || (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "");
       callSid = callSid || (form.get("CallSid")?.toString() ?? "");
       clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");

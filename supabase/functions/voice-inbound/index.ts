@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 // Returns TwiML to forward all inbound calls to the browser identity
 // "peter_browser". Also logs the inbound call to call_records (with
@@ -25,12 +26,19 @@ serve(async (req) => {
   // Try formData first; fall back to raw text parsing.
   let from = "";
   let callSid = "";
+  let form: FormData | null = null;
   try {
-    const form = await req.formData();
+    form = await req.formData();
     from = form.get("From")?.toString() ?? "";
     callSid = form.get("CallSid")?.toString() ?? "";
   } catch {
     // ignore — TwiML body still works without a logged caller
+  }
+
+  // Verify the request actually came from Twilio. Without this check anyone
+  // can POST fake inbound calls.
+  if (!form || !(await validateTwilioSignature(req, form))) {
+    return new Response("Forbidden", { status: 403, headers: corsHeaders });
   }
 
   console.log("voice-inbound: incoming", { from, callSid });

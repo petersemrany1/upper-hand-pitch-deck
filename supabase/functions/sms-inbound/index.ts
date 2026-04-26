@@ -9,6 +9,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -77,6 +78,13 @@ serve(async (req) => {
 
   try {
     const form = await req.formData();
+
+    // Reject any request that wasn't actually signed by Twilio. Otherwise an
+    // attacker could inject fake SMS messages into our threads.
+    if (!(await validateTwilioSignature(req, form))) {
+      return new Response("Forbidden", { status: 403, headers: corsHeaders });
+    }
+
     const from = form.get("From")?.toString() ?? "";
     const to = form.get("To")?.toString() ?? "";
     const body = form.get("Body")?.toString() ?? "";
