@@ -13,6 +13,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
+import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
@@ -42,6 +43,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardRoute,
+} as any)
+const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
+  id: '/api/coach-stream',
+  path: '/api/coach-stream',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
+  '/api/coach-stream': typeof ApiCoachStreamRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
 export interface FileRoutesByTo {
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
+  '/api/coach-stream': typeof ApiCoachStreamRoute
   '/': typeof DashboardIndexRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
+  '/api/coach-stream': typeof ApiCoachStreamRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/pitch-deck'
     | '/sent-links'
     | '/settings'
+    | '/api/coach-stream'
     | '/api/public/meta-leads'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -170,6 +180,7 @@ export interface FileRouteTypes {
     | '/pitch-deck'
     | '/sent-links'
     | '/settings'
+    | '/api/coach-stream'
     | '/'
     | '/api/public/meta-leads'
   id:
@@ -186,6 +197,7 @@ export interface FileRouteTypes {
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
+    | '/api/coach-stream'
     | '/_dashboard/'
     | '/api/public/meta-leads'
   fileRoutesById: FileRoutesById
@@ -194,6 +206,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
 }
 
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/api/coach-stream': {
+      id: '/api/coach-stream'
+      path: '/api/coach-stream'
+      fullPath: '/api/coach-stream'
+      preLoaderRoute: typeof ApiCoachStreamRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_dashboard/settings': {
       id: '/_dashboard/settings'
@@ -334,6 +354,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApiCoachStreamRoute: ApiCoachStreamRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
 }
 export const routeTree = rootRouteImport
