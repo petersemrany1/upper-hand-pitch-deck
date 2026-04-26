@@ -1153,10 +1153,12 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
           </div>
         </FormRow>
 
-        <button onClick={() => void book()}
-          className="w-full py-3 rounded-md font-medium tracking-wider"
-          style={{ background: COLORS.green, color: "#ecfdf5" }}>
-          BOOK APPOINTMENT
+        <button
+          onClick={() => void book()}
+          className="w-full rounded-[6px]"
+          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "12px 20px" }}
+        >
+          Book appointment
         </button>
       </Card>
     </div>
