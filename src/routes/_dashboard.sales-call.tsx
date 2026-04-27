@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
-  Check, AlertTriangle, Send, Search, X,
+  Check, AlertTriangle, Send, Search, X, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -927,70 +927,201 @@ function DiscoveryStep({
 
 
 function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImages: { name: string; url: string }[]; onNext: () => void; repId: string | null }) {
-  void repId;
-  const send = async (url: string) => {
+  void repId; void onNext;
+  const [openRow, setOpenRow] = useState<number | null>(null);
+  const [sendingIdx, setSendingIdx] = useState<number | null>(null);
+
+  const send = async (idx: number, url: string | undefined) => {
+    if (!url) {
+      toast.error("No image found in mms-images bucket");
+      return;
+    }
+    setSendingIdx(idx);
     const r = await sendLeadMms({ data: { leadId: lead.id, mediaUrl: url, body: "" } });
+    setSendingIdx(null);
     if (r.success) toast.success("Image sent"); else toast.error(r.error);
   };
+
+  const img1 = mmsImages[0];
+  const img2 = mmsImages[1];
+
+  const objections: { q: string; bullets: string[] }[] = [
+    {
+      q: "Why can't I just use medication?",
+      bullets: [
+        "Medication slows the loss — it cannot grow back hair that's already gone",
+        "If the follicle is dead, no pill or spray revives it",
+        "Only transplanting a living root from elsewhere does that",
+      ],
+    },
+    {
+      q: "Why not go to Turkey or overseas?",
+      bullets: [
+        "Looks cheaper — but add flights, hotel, time off work and the gap closes fast",
+        "The doctor designs the hairline then leaves — unlicensed technicians do the procedure",
+        "Something goes wrong at home — no one to call, no local follow up, no recourse",
+        "Australia is AHPRA regulated — doctor in the room all day",
+      ],
+    },
+    {
+      q: "Why Nitai?",
+      bullets: [
+        "The quote you get is the quote — never charged more on the day, not once",
+        "Dr. Shabna Singh is in the room all day — not just for the design",
+        "Full aftercare included — PRP, stem cell, medication management",
+        "They treat cases most clinics turn away",
+      ],
+    },
+  ];
+
+  const toggle = (i: number) => setOpenRow((o) => (o === i ? null : i));
+
+  const ImgBtn = ({ idx, label }: { idx: number; label: string }) => {
+    const url = idx === 0 ? img1?.url : img2?.url;
+    const sending = sendingIdx === idx;
+    return (
+      <button
+        onClick={() => void send(idx, url)}
+        disabled={sending || !url}
+        className="rounded-[8px] flex items-center justify-center gap-2"
+        style={{
+          flex: 1,
+          background: "#eff6ff",
+          color: "#2563eb",
+          border: "0.5px solid #bfdbfe",
+          padding: 14,
+          fontSize: 15,
+          fontWeight: 500,
+          cursor: sending || !url ? "not-allowed" : "pointer",
+          opacity: !url ? 0.5 : sending ? 0.7 : 1,
+        }}
+      >
+        <Send className="h-4 w-4" />
+        {sending ? "Sending…" : label}
+      </button>
+    );
+  };
+
   return (
     <div className="max-w-2xl mx-auto">
-      <Eyebrow>Step 5 — Education</Eyebrow>
-      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Educate & Show</h1>
+      {/* Header */}
+      <Eyebrow>Education</Eyebrow>
+      <StepHeading>Educate &amp; Show</StepHeading>
 
-      <Card className="px-5 py-5">
-        <Label>Card 1 — Knowledge Check</Label>
-        <p className="text-lg font-medium mt-2">What do you know about hair transplants?</p>
-        <Coach>Start with what they already know. Fill in the gaps only. Don't lecture. Let them feel smart.</Coach>
-      </Card>
+      {/* Section 1 — The Script */}
+      <p style={{
+        padding: "16px 0 8px",
+        fontSize: 20,
+        lineHeight: 1.8,
+        color: COLORS.text,
+        textAlign: "center",
+      }}>
+        Think of it like planting a garden. We take tiny roots from the back of your head — where the hair is genetically programmed to never fall out. We plant them where you're losing it. Because they come from that permanent zone, they stay forever. You wash them, cut them, they grow. For life.
+      </p>
+      <p style={{
+        marginTop: 12,
+        fontSize: 14,
+        fontStyle: "italic",
+        color: "#666",
+        textAlign: "center",
+        lineHeight: 1.6,
+      }}>
+        Say this. Then stop. Let it land.
+      </p>
 
-      <Card className="px-5 py-5 mt-3">
-        <Label>Card 2 — The Product (no price yet)</Label>
-        <div className="mt-3 space-y-4 text-sm leading-relaxed">
-          <div><div className="font-medium mb-1">What is a graft?</div>
-            <p>Think of it like planting a garden. A graft is one tiny root that contains between 1 and 4 hairs. We take those roots from the back of your head — where the hair is genetically programmed to never fall out. We plant them in the areas where you're losing hair. Because they come from that resistant zone, they stay. Permanently. They grow, you cut them, you wash them — they're yours for life.</p></div>
-          <div><div className="font-medium mb-1">Why medication doesn't fix it</div>
-            <p>Things like Rogaine and Finasteride can slow the loss and keep existing hair stronger. But here's the thing — they cannot grow hair back in areas that are already gone. If the follicle is dead, it's dead. No pill or spray brings it back. Only transplanting a living root from elsewhere does that. That's the only way.</p></div>
-          <div><div className="font-medium mb-1">Why going overseas is a risk</div>
-            <p>Turkey looks cheap on paper — but here's what's hidden in that price. The doctor usually designs the hairline and then leaves. Technicians — not surgeons — do the actual procedure. You're in a foreign country. If something goes wrong when you get home, you're on your own. No local follow-up. No one to call. No recourse. Australian clinics are AHPRA regulated, doctor-led, and if anything needs attention — it's a 10-minute drive, not a $3,000 flight.</p></div>
-          <div><div className="font-medium mb-1">Why Nitai specifically</div>
-            <p>Most clinics quote you one price and charge more on the day. Nitai has never done that — not once. The quote you get is the quote. Dr. Shabna Singh is in the room all day — not just for the design, the whole treatment. Full aftercare is included. And they treat cases most clinics turn away.</p></div>
+      {/* Section 2 — Send Images */}
+      <hr style={{ marginTop: 40, border: 0, borderTop: `0.5px solid ${COLORS.line}` }} />
+      <div style={{ marginTop: 24 }}>
+        <div style={{
+          fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
+          color: COLORS.text, fontWeight: 500, marginBottom: 12,
+        }}>
+          Send while you're talking
         </div>
-      </Card>
-
-      <Card className="px-5 py-5 mt-3">
-        <Label>Card 3 — Send Images</Label>
-        <p className="text-sm mt-2">Show don't tell. Send the before/after right now while you're talking.</p>
-        <div className="flex gap-2 mt-3 flex-wrap">
-          {mmsImages.length === 0 ? (
-            <div className="text-[13px]" style={{ color: COLORS.muted }}>Upload images to the <code>mms-images</code> bucket to enable sending.</div>
-          ) : mmsImages.slice(0, 4).map((img) => (
-            <button key={img.name} onClick={() => void send(img.url)}
-              className="px-3 py-2 rounded-md text-[13px] font-medium flex items-center gap-2"
-              style={{ background: COLORS.coral, color: "#ffffff" }}>
-              <Send className="h-3.5 w-3.5" /> Send {img.name.replace(/\.[^.]+$/, "")}
-            </button>
-          ))}
+        <div className="flex" style={{ gap: 12 }}>
+          <ImgBtn idx={0} label="Before & After 1" />
+          <ImgBtn idx={1} label="Before & After 2" />
         </div>
-        <p className="text-sm mt-3 italic" style={{ color: COLORS.muted }}>"Have a look at your phone — I've just sent you something."</p>
-      </Card>
+        {(!img1 || !img2) && (
+          <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>
+            Upload at least 2 images to the <code>mms-images</code> bucket.
+          </div>
+        )}
+        <p style={{
+          marginTop: 12,
+          fontSize: 14,
+          fontStyle: "italic",
+          color: "#666",
+          textAlign: "center",
+          lineHeight: 1.6,
+        }}>
+          "Have a look at your phone — I've just sent you something."
+        </p>
+      </div>
 
-      <Card className="px-5 py-5 mt-3">
-        <Label>Card 4 — Connect to Their Situation</Label>
-        <p className="text-sm mt-2">Now bring it back to them specifically. Use their exact words from discovery.</p>
-        <ul className="mt-3 text-sm space-y-1.5 list-disc pl-5">
-          <li>Name what they told you (hereditary, crown loss, front recession, etc.)</li>
-          <li>Reference how long they've been dealing with it</li>
-          <li>Reference their WHY NOW if they gave one</li>
-          <li>"I'm not saying your situation is like this, but based on what you've told me..."</li>
-        </ul>
-      </Card>
-
-      <Section title="UNDERSTANDING">
-        <textarea className="w-full text-sm rounded-md p-3 outline-none"
-          style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text, minHeight: 100 }} />
-      </Section>
-
-      <NextBtn onClick={onNext} />
+      {/* Section 3 — Quick Objection Busters */}
+      <hr style={{ marginTop: 40, border: 0, borderTop: `0.5px solid ${COLORS.line}` }} />
+      <div style={{ marginTop: 24 }}>
+        <div style={{
+          fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
+          color: COLORS.text, fontWeight: 500, marginBottom: 12,
+        }}>
+          If they ask…
+        </div>
+        <div className="flex flex-col" style={{ gap: 8 }}>
+          {objections.map((row, i) => {
+            const isOpen = openRow === i;
+            return (
+              <div
+                key={i}
+                style={{
+                  background: "#ffffff",
+                  border: `0.5px solid ${COLORS.line}`,
+                  borderRadius: 8,
+                }}
+              >
+                <button
+                  onClick={() => toggle(i)}
+                  className="w-full flex items-center justify-between text-left"
+                  style={{
+                    padding: "12px 16px",
+                    fontSize: 14,
+                    color: COLORS.text,
+                    fontWeight: 500,
+                    background: "transparent",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>{row.q}</span>
+                  <ChevronDown
+                    className="h-4 w-4 flex-shrink-0"
+                    style={{
+                      transition: "transform 200ms ease",
+                      transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
+                      color: COLORS.muted,
+                    }}
+                  />
+                </button>
+                {isOpen && (
+                  <div style={{ padding: "0 16px 14px 16px" }}>
+                    <ul className="flex flex-col" style={{ gap: 8 }}>
+                      {row.bullets.map((b, bi) => (
+                        <li key={bi} className="flex items-start" style={{ gap: 10 }}>
+                          <span
+                            className="inline-block rounded-full"
+                            style={{ width: 5, height: 5, background: COLORS.coral, marginTop: 8, flexShrink: 0 }}
+                          />
+                          <span style={{ fontSize: 13, lineHeight: 1.7, color: COLORS.text }}>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
