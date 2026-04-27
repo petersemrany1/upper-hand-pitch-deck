@@ -289,6 +289,89 @@ export const addRep = createServerFn({ method: "POST" })
     return { success: true as const, rep: created };
   });
 
+/* Invite a new rep: sends Supabase auth invite email + creates sales_reps row */
+export const inviteRep = createServerFn({ method: "POST" })
+  .inputValidator((data: { firstName: string; lastName: string; email: string }) => ({
+    firstName: String(data.firstName ?? "").trim(),
+    lastName: String(data.lastName ?? "").trim(),
+    email: String(data.email ?? "").toLowerCase().trim(),
+  }))
+  .handler(async ({ data }) => {
+    if (!data.firstName) return { success: false as const, error: "First name required" };
+    if (!data.lastName) return { success: false as const, error: "Last name required" };
+    if (!data.email || !data.email.includes("@")) return { success: false as const, error: "Valid email required" };
+
+    const fullName = `${data.firstName} ${data.lastName}`.trim();
+
+    // Check if rep already exists
+    const { data: existing } = await supabaseAdmin.from("sales_reps")
+      .select("*").eq("email", data.email).maybeSingle();
+    if (existing) return { success: false as const, error: "A rep with that email already exists" };
+
+    // Send Supabase auth invite (creates auth.users row + emails magic link)
+    const siteUrl = process.env.SITE_URL || "https://upperhanddashboard.lovable.app";
+    const { data: invite, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
+      data.email,
+      {
+        redirectTo: `${siteUrl}/reset-password`,
+        data: { first_name: data.firstName, last_name: data.lastName, full_name: fullName },
+      },
+    );
+    if (inviteErr) {
+      await logError("inviteRep", inviteErr.message, { email: data.email });
+      return { success: false as const, error: inviteErr.message };
+    }
+
+    // Create the sales_reps row
+    const { data: created, error: insertErr } = await supabaseAdmin.from("sales_reps")
+      .insert({
+        name: fullName,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        email: data.email,
+      } as never).select("*").single();
+    if (insertErr) {
+      return { success: false as const, error: insertErr.message };
+    }
+    return { success: true as const, rep: created, userId: invite.user?.id ?? null };
+  });
+
+/* List reps for the team management screen */
+export const listReps = createServerFn({ method: "POST" })
+  .handler(async () => {
+    const { data, error } = await supabaseAdmin.from("sales_reps")
+      .select("*").order("created_at", { ascending: true });
+    if (error) return { success: false as const, error: error.message, reps: [] };
+    return { success: true as const, reps: data ?? [] };
+  });
+
+/* Update an existing rep's name fields */
+export const updateRep = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string; firstName: string; lastName: string }) => ({
+    id: String(data.id ?? ""),
+    firstName: String(data.firstName ?? "").trim(),
+    lastName: String(data.lastName ?? "").trim(),
+  }))
+  .handler(async ({ data }) => {
+    if (!data.id) return { success: false as const, error: "id required" };
+    const fullName = `${data.firstName} ${data.lastName}`.trim();
+    const { data: updated, error } = await supabaseAdmin.from("sales_reps")
+      .update({ first_name: data.firstName, last_name: data.lastName, name: fullName } as never)
+      .eq("id", data.id).select("*").single();
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const, rep: updated };
+  });
+
+/* Remove a rep */
+export const deleteRep = createServerFn({ method: "POST" })
+  .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "") }))
+  .handler(async ({ data }) => {
+    if (!data.id) return { success: false as const, error: "id required" };
+    const { error } = await supabaseAdmin.from("sales_reps").delete().eq("id", data.id);
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const };
+  });
+
 /* ───────────────────────── Leaderboard ───────────────────────── */
 
 export const getLeaderboard = createServerFn({ method: "POST" })

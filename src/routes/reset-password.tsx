@@ -21,11 +21,11 @@ function ResetPasswordPage() {
   // hash contains type=recovery. Switch into "set new password" mode.
   useEffect(() => {
     const hash = typeof window !== "undefined" ? window.location.hash : "";
-    if (hash.includes("type=recovery")) {
+    if (hash.includes("type=recovery") || hash.includes("type=invite") || hash.includes("type=signup")) {
       setMode("update");
     }
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") setMode("update");
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") setMode("update");
     });
     return () => sub.subscription.unsubscribe();
   }, []);
