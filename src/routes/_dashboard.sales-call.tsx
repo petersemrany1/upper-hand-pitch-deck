@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
-  Phone, Check, AlertTriangle, Send, Search, X,
+  Check, AlertTriangle, Send, Search, X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
