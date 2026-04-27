@@ -1127,35 +1127,177 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   );
 }
 
-/* ─────────────── RIGHT PANEL ─────────────── */
+/* ─────────────── LEAD CHOOSER (entry point) ─────────────── */
+
+const ATTEMPTS_PER_DAY = (day: number) => (day <= 7 ? 3 : 1);
+
+type LeadUrgency = "overdue" | "due" | "upcoming";
+
+function leadUrgency(l: Lead): LeadUrgency {
+  if (!l.callback_scheduled_at) return "upcoming";
+  const t = new Date(l.callback_scheduled_at).getTime();
+  const now = Date.now();
+  if (Number.isNaN(t)) return "upcoming";
+  if (t < now) return "overdue";
+  // due now if within next 30 min
+  if (t - now < 30 * 60 * 1000) return "due";
+  return "upcoming";
+}
+
+function LeadChooser({ leads, onPick }: { leads: Lead[]; onPick: (id: string) => void }) {
+  const [q, setQ] = useState("");
+
+  const sorted = useMemo(() => {
+    const score = (l: Lead) => {
+      const u = leadUrgency(l);
+      if (u === "overdue") return 0;
+      if (u === "due") return 1;
+      return 2;
+    };
+    const list = leads.filter((l) => {
+      if (!q.trim()) return true;
+      const needle = q.toLowerCase();
+      return (
+        (l.first_name ?? "").toLowerCase().includes(needle) ||
+        (l.last_name ?? "").toLowerCase().includes(needle) ||
+        (l.phone ?? "").toLowerCase().includes(needle)
+      );
+    });
+    return [...list].sort((a, b) => {
+      const sa = score(a);
+      const sb = score(b);
+      if (sa !== sb) return sa - sb;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [leads, q]);
+
+  return (
+    <div className="h-full overflow-y-auto" style={{ background: "#ffffff", color: COLORS.text }}>
+      <div className="max-w-3xl mx-auto px-6 py-10">
+        <h1 style={{ fontSize: 28, fontWeight: 500, color: "#111", lineHeight: 1.2 }}>
+          Who are you calling?
+        </h1>
+        <p style={{ marginTop: 8, fontSize: 14, color: "#111" }}>Select a lead to begin</p>
+
+        <div className="relative" style={{ marginTop: 24 }}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#111", opacity: 0.5 }} />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name or phone…"
+            className="w-full rounded-[8px] outline-none"
+            style={{
+              background: "#ffffff",
+              border: `0.5px solid ${COLORS.line}`,
+              color: "#111",
+              fontSize: 14,
+              padding: "12px 14px 12px 38px",
+            }}
+          />
+        </div>
+
+        <div className="mt-6 space-y-2">
+          {sorted.length === 0 && (
+            <div style={{ padding: "24px 0", fontSize: 14, color: "#111", opacity: 0.7 }}>No leads to call.</div>
+          )}
+          {sorted.map((l) => {
+            const u = leadUrgency(l);
+            const accent =
+              u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
+            const day = l.day_number ?? 1;
+            const attempts = ATTEMPTS_PER_DAY(day);
+            const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
+            return (
+              <div
+                key={l.id}
+                className="flex items-center gap-4 rounded-[10px]"
+                style={{
+                  background: "#ffffff",
+                  border: `0.5px solid ${COLORS.line}`,
+                  borderLeft: u === "upcoming" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
+                  padding: "16px 18px",
+                }}
+              >
+                <div className="flex-1 min-w-0">
+                  <div style={{ fontSize: 15, fontWeight: 500, color: "#111" }}>{name}</div>
+                  <div style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
+                    {l.phone || "no phone"}
+                    {l.funding_preference ? <> · <span style={{ color: "#111" }}>{l.funding_preference}</span></> : null}
+                  </div>
+                  <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
+                    <span
+                      style={{
+                        padding: "2px 8px",
+                        borderRadius: 20,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        background: `${statusColor(l.status)}1a`,
+                        color: statusColor(l.status),
+                      }}
+                    >
+                      {l.status || "new"}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
+                      Day {day} · Attempt 1 of {attempts}
+                    </span>
+                    {u === "overdue" && (
+                      <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue callback</span>
+                    )}
+                    {u === "due" && (
+                      <span style={{ fontSize: 12, color: COLORS.amber, fontWeight: 500 }}>· Due now</span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onPick(l.id)}
+                  className="rounded-[8px] flex-shrink-0"
+                  style={{
+                    background: COLORS.coral,
+                    color: "#ffffff",
+                    fontSize: 14,
+                    fontWeight: 500,
+                    padding: "10px 18px",
+                  }}
+                >
+                  Start Call →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────── RIGHT PANEL (in-call) ─────────────── */
+
+// Pill-bar objections — short labels mapped to the full NEPQ responses
+const OBJECTION_PILLS: { label: string; key: string }[] = [
+  { label: "Call me back", key: "Call me back" },
+  { label: "Email me", key: "Email me" },
+  { label: "Not interested", key: "I am not interested" },
+  { label: "Already sorted", key: "I already took care of it" },
+  { label: "Too far", key: "The clinic is too far away" },
+  { label: "Think about it", key: "I need to think about it" },
+  { label: "No time", key: "I don't have time" },
+  { label: "Just the price", key: "I just want the price" },
+  { label: "Not feeling good", key: "I'm not feeling good" },
+];
 
 function RightPanel({
-  active, leads, repId, mmsImages, step, search, setSearch, filter, setFilter, setActiveId,
+  active, repId, mmsImages, onChangeLead,
 }: {
-  active: Lead | null; leads: Lead[]; repId: string | null;
-  mmsImages: { name: string; url: string }[]; step: StepKey;
-  search: string; setSearch: (v: string) => void;
-  filter: "all" | "due" | "booked" | "dropped"; setFilter: (v: "all" | "due" | "booked" | "dropped") => void;
-  setActiveId: (id: string) => void;
+  active: Lead;
+  repId: string | null;
+  mmsImages: { name: string; url: string }[];
+  onChangeLead: () => void;
 }) {
-  void step;
   const [callTimer, setCallTimer] = useState(0);
   const [callRunning, setCallRunning] = useState(false);
-  const [notes, setNotes] = useState(active?.call_notes ?? "");
-  const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [drawer, setDrawer] = useState<null | "objections" | "questions">(null);
-  const [leadsOpen, setLeadsOpen] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Close drawer on Esc
-  useEffect(() => {
-    if (!drawer) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDrawer(null); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [drawer]);
-
-  useEffect(() => { setNotes(active?.call_notes ?? ""); setSavedAt(null); }, [active?.id, active?.call_notes]);
+  const [openObjection, setOpenObjection] = useState<string | null>(null);
 
   useEffect(() => {
     if (!callRunning) return;
@@ -1163,30 +1305,21 @@ function RightPanel({
     return () => clearInterval(i);
   }, [callRunning]);
 
-  const onNotesChange = (v: string) => {
-    setNotes(v);
-    if (!active) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(async () => {
-      const r = await saveCallNotes({ data: { leadId: active.id, notes: v } });
-      if (r.success) setSavedAt(new Date().toLocaleTimeString());
-    }, 1000);
-  };
+  // Reset open objection when switching leads
+  useEffect(() => { setOpenObjection(null); setCallTimer(0); setCallRunning(false); }, [active.id]);
 
   const callNow = () => {
-    if (!active?.phone) { toast.error("No phone number"); return; }
+    if (!active.phone) { toast.error("No phone number"); return; }
     window.location.href = `tel:${active.phone}`;
     setCallRunning(true);
   };
 
   const sendImage = async (url: string) => {
-    if (!active) return;
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
     if (r.success) toast.success("Sent"); else toast.error(r.error);
   };
 
   const logAttempt = async (outcome: "no_answer" | "connected") => {
-    if (!active) return;
     setCallRunning(false);
     const slot = (() => {
       const h = new Date().getHours();
@@ -1201,450 +1334,261 @@ function RightPanel({
     toast.success(outcome === "connected" ? "Marked connected" : "Logged no-answer");
   };
 
+  const day = active.day_number ?? 1;
+  const attempts = ATTEMPTS_PER_DAY(day);
+  const fullName = [active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed";
+  const objectionResp = openObjection
+    ? OBJECTIONS.find((o) => o.q === openObjection) ?? null
+    : null;
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Active lead card */}
-      <div className="border-b flex-shrink-0" style={{ borderColor: COLORS.line, padding: "18px 18px" }}>
-        {active ? (
-          <>
-            <div className="flex items-start justify-between">
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, lineHeight: 1.3 }}>
-                  {[active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed"}
-                </div>
-                <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 4 }}>{active.phone || "no phone"}</div>
-              </div>
-              <span
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 20,
-                  fontSize: 11,
-                  fontWeight: 500,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  background: `${statusColor(active.status)}1a`,
-                  color: statusColor(active.status),
-                }}
-              >
-                {active.status || "new"}
-              </span>
-            </div>
-            <div style={{ marginTop: 14 }} className="space-y-2">
-              <RightRow label="Funding" value={active.funding_preference || "—"} />
-              <RightRow label="Campaign" value={active.campaign_name || "—"} />
-              <RightRow label="Created" value={fmtTime(active.created_at)} />
-              <RightRow
-                label="Day"
-                value={`Day ${active.day_number ?? 1} · Attempt 1 of ${(active.day_number ?? 1) <= 7 ? 3 : 1} today`}
-              />
-            </div>
-
-            <div
-              style={{
-                marginTop: 14,
-                padding: "8px 10px",
-                background: "#fef2f2",
-                borderLeft: `2px solid ${COLORS.red}`,
-                borderRadius: 0,
-                fontSize: 13,
-                color: COLORS.red,
-                fontWeight: 500,
-              }}
-            >
-              Do not leave a voicemail
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              <button
-                onClick={callNow}
-                className="col-span-2 rounded-[6px] flex items-center justify-center gap-2"
-                style={{ background: COLORS.coral, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 16px" }}
-              >
-                <Phone className="h-3.5 w-3.5" /> Call now
-              </button>
-              {callRunning && (
-                <div
-                  className="col-span-2 text-center font-mono py-1"
-                  style={{ color: COLORS.green, fontSize: 13 }}
-                >
-                  ⏱ {Math.floor(callTimer / 60).toString().padStart(2, "0")}:{(callTimer % 60).toString().padStart(2, "0")}
-                </div>
-              )}
-              <button
-                onClick={() => void logAttempt("connected")}
-                className="rounded-[6px]"
-                style={{
-                  background: "#ecfdf5", color: COLORS.green, border: `0.5px solid ${COLORS.line}`,
-                  fontSize: 13, fontWeight: 500, padding: "8px 10px",
-                }}
-              >
-                Connected
-              </button>
-              <button
-                onClick={() => void logAttempt("no_answer")}
-                className="rounded-[6px]"
-                style={{
-                  background: "#fef2f2", color: COLORS.red, border: `0.5px solid ${COLORS.line}`,
-                  fontSize: 13, fontWeight: 500, padding: "8px 10px",
-                }}
-              >
-                No answer
-              </button>
-              <button
-                onClick={async () => {
-                  if (!active) return;
-                  await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
-                  toast.success("Lead dropped");
-                }}
-                className="col-span-2 rounded-[6px]"
-                style={{
-                  background: "transparent", color: COLORS.muted, border: `0.5px solid ${COLORS.line}`,
-                  fontSize: 13, fontWeight: 500, padding: "8px 10px",
-                }}
-              >
-                Mark dropped
-              </button>
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: 13, color: COLORS.muted }}>No lead selected.</div>
-        )}
-      </div>
-
-      {/* Leads list (collapsible) */}
-      <div className="border-b flex-shrink-0" style={{ borderColor: COLORS.line }}>
+    <div className="flex flex-col h-full overflow-y-auto">
+      {/* Change lead link — top of right column, small + muted */}
+      <div style={{ padding: "12px 18px 0" }}>
         <button
-          onClick={() => setLeadsOpen((v) => !v)}
-          className="w-full flex items-center justify-between"
-          style={{ padding: "12px 16px", background: "transparent" }}
+          onClick={onChangeLead}
+          style={{
+            fontSize: 12,
+            color: "#111",
+            opacity: 0.55,
+            background: "transparent",
+          }}
         >
-          <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111111" }}>
-            Switch lead · {leads.length}
-          </span>
-          <ChevronRight
-            className="h-4 w-4"
-            style={{ color: "#111111", transform: leadsOpen ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}
-          />
+          ← Change Lead
         </button>
-        {leadsOpen && (
-          <>
-            <div style={{ padding: "0 14px 12px" }}>
-              <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5" style={{ color: COLORS.muted }} />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search…"
-                  className="w-full rounded-[6px] outline-none"
-                  style={{
-                    paddingLeft: 32,
-                    paddingRight: 10,
-                    paddingTop: 8,
-                    paddingBottom: 8,
-                    fontSize: 13,
-                    background: "#f9f9f9",
-                    border: `0.5px solid ${COLORS.line}`,
-                    color: COLORS.text,
-                  }}
-                />
-              </div>
-              <div className="flex gap-1.5 mt-3">
-                {(["all", "due", "booked", "dropped"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setFilter(f)}
-                    className="flex-1 rounded-[20px]"
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 500,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                      padding: "6px 8px",
-                      background: filter === f ? COLORS.coral : "transparent",
-                      color: filter === f ? "#ffffff" : COLORS.hint,
-                      border: `0.5px solid ${filter === f ? COLORS.coral : COLORS.line}`,
-                    }}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="overflow-y-auto" style={{ maxHeight: 260 }}>
-              {leads.map((l) => (
-                <button
-                  key={l.id}
-                  onClick={() => { setActiveId(l.id); setLeadsOpen(false); }}
-                  className="w-full text-left border-t flex items-center gap-3"
-                  style={{
-                    borderColor: COLORS.line,
-                    background: active?.id === l.id ? "#f9f9f9" : "transparent",
-                    padding: "10px 14px",
-                  }}
-                >
-                  <span className="h-2 w-2 rounded-full flex-shrink-0" style={{ background: statusColor(l.status) }} />
-                  <div className="flex-1 min-w-0">
-                    <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {[l.first_name, l.last_name].filter(Boolean).join(" ") || l.phone}
-                    </div>
-                    <div style={{ fontSize: 13, color: COLORS.muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {l.funding_preference || ""}
-                    </div>
-                  </div>
-                </button>
-              ))}
-              {leads.length === 0 && (
-                <div style={{ padding: "14px 16px", fontSize: 13, color: COLORS.muted }}>No leads.</div>
-              )}
-            </div>
-          </>
-        )}
       </div>
 
-      {/* Quick reference launchers + MMS + Notes (scrollable) */}
-      <div className="flex-1 overflow-y-auto">
-        <div style={{ padding: "14px 16px 8px" }}>
-          <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.text, marginBottom: 10 }}>
-            Quick Reference
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={() => setDrawer("objections")}
-              className="flex flex-col items-start justify-between rounded-[10px]"
+      {/* Section 1 — Lead card */}
+      <div style={{ padding: "12px 18px 18px" }}>
+        <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
+          {fullName}
+        </div>
+        {active.phone && (
+          <div style={{ fontSize: 14, color: COLORS.coral, marginTop: 4 }}>{active.phone}</div>
+        )}
+        <div style={{ marginTop: 10 }}>
+          {active.funding_preference ? (
+            <span
               style={{
-                background: "#fff7ed",
-                border: `0.5px solid #fed7aa`,
-                color: "#9a3412",
-                padding: "14px 14px",
-                minHeight: 88,
-                textAlign: "left",
+                display: "inline-block",
+                padding: "3px 10px",
+                borderRadius: 20,
+                fontSize: 12,
+                fontWeight: 500,
+                background: COLORS.amberBg,
+                color: COLORS.amberDark,
+                border: `0.5px solid ${COLORS.amber}`,
               }}
             >
-              <Shield className="h-5 w-5" />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111111", lineHeight: 1.3 }}>Objections</div>
-                <div style={{ fontSize: 11, color: "#111111", opacity: 0.7, marginTop: 2 }}>{OBJECTIONS.length} responses</div>
-              </div>
-            </button>
-            <button
-              onClick={() => setDrawer("questions")}
-              className="flex flex-col items-start justify-between rounded-[10px]"
-              style={{
-                background: "#eff6ff",
-                border: `0.5px solid #bfdbfe`,
-                color: "#1e40af",
-                padding: "14px 14px",
-                minHeight: 88,
-                textAlign: "left",
-              }}
-            >
-              <HelpCircle className="h-5 w-5" />
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 500, color: "#111111", lineHeight: 1.3 }}>Questions</div>
-                <div style={{ fontSize: 11, color: "#111111", opacity: 0.7, marginTop: 2 }}>{QUESTIONS.length} answers</div>
-              </div>
-            </button>
+              {active.funding_preference}
+            </span>
+          ) : (
+            <span style={{ fontSize: 12, color: "#111", opacity: 0.5 }}>Funding unknown</span>
+          )}
+          <span
+            style={{
+              marginLeft: 8,
+              padding: "3px 10px",
+              borderRadius: 20,
+              fontSize: 11,
+              fontWeight: 500,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              background: `${statusColor(active.status)}1a`,
+              color: statusColor(active.status),
+            }}
+          >
+            {active.status || "new"}
+          </span>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: "#111" }}>
+          Created {fmtTime(active.created_at)}
+        </div>
+        <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
+          Day {day} · Attempt 1 of {attempts} today
+        </div>
+      </div>
+
+      {/* Section 2 — Action buttons */}
+      <div style={{ padding: "0 18px 16px" }}>
+        <button
+          onClick={callNow}
+          className="w-full rounded-[8px] flex items-center justify-center gap-2"
+          style={{
+            background: COLORS.coral,
+            color: "#ffffff",
+            fontSize: 15,
+            fontWeight: 500,
+            padding: "14px 16px",
+          }}
+        >
+          📞 Call Now
+        </button>
+        {callRunning && (
+          <div className="text-center font-mono mt-2" style={{ color: COLORS.green, fontSize: 13 }}>
+            ⏱ {Math.floor(callTimer / 60).toString().padStart(2, "0")}:{(callTimer % 60).toString().padStart(2, "0")}
           </div>
+        )}
+        <div className="grid grid-cols-2 gap-2 mt-2">
+          <button
+            onClick={() => void logAttempt("connected")}
+            className="rounded-[8px]"
+            style={{
+              background: "#ffffff",
+              color: COLORS.green,
+              border: `1px solid ${COLORS.green}`,
+              fontSize: 13,
+              fontWeight: 500,
+              padding: "10px 12px",
+            }}
+          >
+            ✅ Connected
+          </button>
+          <button
+            onClick={() => void logAttempt("no_answer")}
+            className="rounded-[8px]"
+            style={{
+              background: "#ffffff",
+              color: COLORS.red,
+              border: `1px solid ${COLORS.red}`,
+              fontSize: 13,
+              fontWeight: 500,
+              padding: "10px 12px",
+            }}
+          >
+            ❌ No Answer
+          </button>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: COLORS.amberDark, fontWeight: 500 }}>
+          🚫 Do not leave a voicemail
+        </div>
+        <button
+          onClick={async () => {
+            await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
+            toast.success("Lead dropped");
+          }}
+          style={{
+            marginTop: 8,
+            background: "transparent",
+            color: "#111",
+            opacity: 0.55,
+            fontSize: 12,
+            textDecoration: "underline",
+          }}
+        >
+          Mark as dropped
+        </button>
+      </div>
+
+      {/* Section 3 — Clinic info */}
+      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+        <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
+          Clinic
+        </div>
+        <div style={{ marginTop: 6, fontSize: 14, fontWeight: 500, color: "#111" }}>
+          Nitai Medical & Cosmetic Centre
+        </div>
+        <div style={{ fontSize: 13, color: "#111" }}>Dr. Shabna Singh</div>
+        <div style={{ fontSize: 13, color: "#111" }}>64 Lincoln Rd Essendon VIC 3040</div>
+        <ul style={{ marginTop: 8, fontSize: 12, color: "#111", lineHeight: 1.7 }}>
+          <li>· Free parking</li>
+          <li>· Near Lincoln Park</li>
+          <li>· 5 mins DFO</li>
+          <li>· 10 mins Airport</li>
+        </ul>
+      </div>
+
+      {/* Section 4 — Objections (pill bar) */}
+      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+        <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
+          Objections
         </div>
 
-        <Accordion title="Send Before & Afters" defaultOpen>
-          <div style={{ padding: 14 }} className="space-y-2">
-            {mmsImages.length === 0 ? (
-              <div style={{ fontSize: 13, color: COLORS.muted, lineHeight: 1.6 }}>
-                Upload images named <code>image_1.jpg</code> and <code>image_2.jpg</code> to the <code>mms-images</code> bucket.
-              </div>
-            ) : mmsImages.slice(0, 4).map((img, i) => (
-              <button
-                key={img.name}
-                onClick={() => void sendImage(img.url)}
-                className="w-full rounded-[6px] flex items-center justify-center gap-2"
-                style={{ background: COLORS.coral, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 12px" }}
-              >
-                <Send className="h-3.5 w-3.5" /> Send Before & After {i + 1}
-              </button>
-            ))}
-          </div>
-        </Accordion>
-        <Accordion title="Call Notes" defaultOpen>
-          <div style={{ padding: 14 }}>
-            <textarea
-              value={notes}
-              onChange={(e) => onNotesChange(e.target.value)}
-              placeholder="Type call notes — auto-saves…"
-              className="w-full rounded-[6px] outline-none"
-              style={{
-                background: "#f9f9f9",
-                border: `0.5px solid ${COLORS.line}`,
-                color: COLORS.text,
-                fontSize: 13,
-                lineHeight: 1.6,
-                padding: 10,
-                minHeight: 110,
-              }}
-            />
-            {savedAt && (
-              <div style={{ fontSize: 13, color: COLORS.green, marginTop: 6 }} className="flex items-center gap-1">
-                <Save className="h-3.5 w-3.5" /> Saved {savedAt}
+        {objectionResp && (
+          <div
+            className="rounded-[8px]"
+            style={{
+              marginTop: 10,
+              background: "#ffffff",
+              border: `0.5px solid ${COLORS.line}`,
+              borderLeft: `2px solid ${COLORS.amber}`,
+              padding: "12px 14px",
+              fontSize: 13,
+              lineHeight: 1.7,
+              color: "#111",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 500, color: COLORS.amberDark, marginBottom: 6 }}>
+              "{objectionResp.q}"
+            </div>
+            {objectionResp.a}
+            {(objectionResp as { note?: string }).note && (
+              <div style={{ marginTop: 8, fontSize: 12, color: COLORS.amberDark, fontStyle: "italic" }}>
+                {(objectionResp as { note?: string }).note}
               </div>
             )}
           </div>
-        </Accordion>
-      </div>
+        )}
 
-      {/* Slide-out drawer for Objections / Questions */}
-      {drawer && (
-        <ReferenceDrawer kind={drawer} onClose={() => setDrawer(null)} />
-      )}
-    </div>
-  );
-}
-
-function ReferenceDrawer({ kind, onClose }: { kind: "objections" | "questions"; onClose: () => void }) {
-  const [query, setQuery] = useState("");
-  const [openIdx, setOpenIdx] = useState<number | null>(0);
-  const items = kind === "objections" ? OBJECTIONS : QUESTIONS;
-  const title = kind === "objections" ? "Objections" : "Common Questions";
-  const accent = kind === "objections" ? "#9a3412" : "#1e40af";
-  const accentBg = kind === "objections" ? "#fff7ed" : "#eff6ff";
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return items.map((it, i) => ({ it, i }));
-    return items
-      .map((it, i) => ({ it, i }))
-      .filter(({ it }) => it.q.toLowerCase().includes(q) || it.a.toLowerCase().includes(q));
-  }, [items, query]);
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        className="fixed inset-0 z-40"
-        style={{ background: "rgba(17,17,17,0.35)" }}
-      />
-      {/* Panel */}
-      <div
-        className="fixed right-0 top-0 h-full z-50 flex flex-col"
-        style={{
-          width: "min(460px, 92vw)",
-          background: "#ffffff",
-          borderLeft: `0.5px solid ${COLORS.line}`,
-        }}
-      >
-        {/* Header */}
-        <div
-          className="flex items-center justify-between flex-shrink-0"
-          style={{ padding: "18px 20px", borderBottom: `0.5px solid ${COLORS.line}`, background: accentBg }}
-        >
-          <div className="flex items-center gap-2">
-            {kind === "objections" ? <Shield className="h-5 w-5" style={{ color: accent }} /> : <HelpCircle className="h-5 w-5" style={{ color: accent }} />}
-            <div style={{ fontSize: 16, fontWeight: 500, color: COLORS.text }}>{title}</div>
-            <span style={{ fontSize: 12, color: COLORS.text, opacity: 0.6 }}>· {items.length}</span>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-[6px] flex items-center justify-center"
-            style={{ width: 32, height: 32, background: "#ffffff", border: `0.5px solid ${COLORS.line}`, color: COLORS.text }}
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Search */}
-        <div className="flex-shrink-0" style={{ padding: "12px 16px", borderBottom: `0.5px solid ${COLORS.line}` }}>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: COLORS.text, opacity: 0.5 }} />
-            <input
-              autoFocus
-              value={query}
-              onChange={(e) => { setQuery(e.target.value); setOpenIdx(null); }}
-              placeholder={`Search ${title.toLowerCase()}…`}
-              className="w-full rounded-[6px] outline-none"
-              style={{
-                background: "#f9f9f9",
-                border: `0.5px solid ${COLORS.line}`,
-                color: COLORS.text,
-                fontSize: 14,
-                padding: "10px 12px 10px 36px",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* List */}
-        <div className="flex-1 overflow-y-auto">
-          {filtered.length === 0 && (
-            <div style={{ padding: 24, fontSize: 13, color: COLORS.text, opacity: 0.7 }}>
-              No matches.
-            </div>
-          )}
-          {filtered.map(({ it, i }) => {
-            const isOpen = openIdx === i;
+        <div className="flex flex-wrap gap-1.5" style={{ marginTop: 10 }}>
+          {OBJECTION_PILLS.map((p) => {
+            const isOpen = openObjection === p.key;
             return (
-              <div key={it.q} className="border-b" style={{ borderColor: COLORS.line }}>
-                <button
-                  onClick={() => setOpenIdx(isOpen ? null : i)}
-                  className="w-full text-left flex items-center justify-between gap-3"
-                  style={{
-                    padding: "16px 20px",
-                    background: isOpen ? "#f9f9f9" : "#ffffff",
-                    minHeight: 56,
-                  }}
-                >
-                  <span style={{ fontSize: 15, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
-                    {kind === "objections" ? `"${it.q}"` : it.q}
-                  </span>
-                  <ChevronRight
-                    className="h-4 w-4 flex-shrink-0 transition-transform"
-                    style={{ color: COLORS.text, opacity: 0.5, transform: isOpen ? "rotate(90deg)" : "none" }}
-                  />
-                </button>
-                {isOpen && (
-                  <div style={{ padding: "0 20px 18px" }}>
-                    <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>{String(it.a)}</div>
-                    {(it as { note?: string }).note && (
-                      <div
-                        className="rounded-[6px]"
-                        style={{
-                          marginTop: 12,
-                          padding: "10px 12px",
-                          background: "#fffbeb",
-                          borderLeft: `2px solid ${COLORS.amber}`,
-                          fontSize: 13,
-                          color: COLORS.amberDark,
-                          lineHeight: 1.6,
-                          fontStyle: "italic",
-                        }}
-                      >
-                        {(it as { note?: string }).note}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+              <button
+                key={p.key}
+                onClick={() => setOpenObjection(isOpen ? null : p.key)}
+                style={{
+                  background: isOpen ? "#fffbeb" : "#ffffff",
+                  border: `0.5px solid ${isOpen ? COLORS.amber : "#e5e5e5"}`,
+                  borderRadius: 20,
+                  fontSize: 12,
+                  color: "#111",
+                  padding: "4px 10px",
+                }}
+              >
+                {p.label}
+              </button>
             );
           })}
         </div>
       </div>
-    </>
-  );
-}
 
-function Accordion({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(!!defaultOpen);
-  return (
-    <div className="border-t" style={{ borderColor: COLORS.line }}>
-      <button onClick={() => setOpen((v) => !v)} className="w-full text-left flex items-center justify-between" style={{ padding: "12px 16px" }}>
-        <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.text }}>{title}</span>
-        <span style={{ fontSize: 14, color: COLORS.muted }}>{open ? "−" : "+"}</span>
-      </button>
-      {open && <div>{children}</div>}
+      {/* Section 5 — Send before & afters */}
+      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+        <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
+          Send Before & Afters
+        </div>
+        {mmsImages.length === 0 ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: "#111", opacity: 0.55 }}>
+            No images available.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2" style={{ marginTop: 10 }}>
+            {mmsImages.slice(0, 2).map((img, i) => (
+              <button
+                key={img.name}
+                onClick={() => void sendImage(img.url)}
+                className="rounded-[8px]"
+                style={{
+                  background: "#eff6ff",
+                  color: "#2563eb",
+                  border: `0.5px solid #bfdbfe`,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  padding: "10px 8px",
+                }}
+              >
+                Before & After {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// Right-column row: 11px uppercase #111111 label, 14px #111 value
+// Right-column row helper (legacy — kept for any future use)
 function RightRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
