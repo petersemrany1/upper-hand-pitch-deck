@@ -108,11 +108,23 @@ Deno.serve(async (req: Request) => {
   const formName = asString(payload.form_name ?? payload.formName);
 
   const row = {
-    first_name: asString(payload.first_name ?? payload.firstName) ?? first,
-    last_name: asString(payload.last_name ?? payload.lastName) ?? last,
+    first_name: cleanName(payload.first_name ?? payload.firstName) ?? cleanName(first),
+    last_name: cleanName(payload.last_name ?? payload.lastName) ?? cleanName(last),
     email: asString(payload.email),
     phone: asString(payload.phone ?? payload.phone_number),
-    ad_name: asString(payload.ad_name ?? payload.adName),
+    funding_preference: asString(
+      payload.funding_preference ??
+        payload.fundingPreference ??
+        payload.funding,
+    ),
+    ad_name: asString(payload.ad_name ?? payload.adName ?? payload.ad),
+    ad_set_name: asString(
+      payload.ad_set_name ?? payload.adSetName ?? payload.adset,
+    ),
+    campaign_name: asString(
+      payload.campaign_name ?? payload.campaignName ?? payload.campaign,
+    ),
+    creative_time: asTimestamp(payload.creative_time ?? payload.creativeTime),
     clinic_id: clinicId,
     raw_payload: { ...payload, form_name: formName },
   };
