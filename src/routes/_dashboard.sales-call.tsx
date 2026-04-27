@@ -959,26 +959,26 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
     {
       q: "Why can't I just use medication?",
       bullets: [
-        "Medication slows the loss — it cannot grow back hair that's already gone",
-        "If the follicle is dead, no pill or spray revives it",
+        "Medication slows the loss — it cannot regrow hair where it's already gone",
+        "Dead follicles cannot be revived by any pill or spray",
         "Only transplanting a living root from elsewhere does that",
       ],
     },
     {
       q: "Why not go to Turkey or overseas?",
       bullets: [
-        "Looks cheaper — but add flights, hotel, time off work and the gap closes fast",
+        "Looks cheaper — add flights, hotel, time off work and the gap closes fast",
         "The doctor designs the hairline then leaves — unlicensed technicians do the procedure",
         "Something goes wrong at home — no one to call, no local follow up, no recourse",
-        "Australia is AHPRA regulated — doctor in the room all day",
+        "Australia is AHPRA regulated — doctor in the room the entire day",
       ],
     },
     {
       q: "Why Nitai?",
       bullets: [
         "The quote you get is the quote — never charged more on the day, not once",
-        "Dr. Shabna Singh is in the room all day — not just for the design",
-        "Full aftercare included — PRP, stem cell, medication management",
+        "Dr. Shabna Singh is in the room all day — not just for the design, the whole procedure",
+        "Full aftercare included — they don't disappear after surgery",
         "They treat cases most clinics turn away",
       ],
     },
