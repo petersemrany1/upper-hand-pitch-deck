@@ -1423,7 +1423,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   }, []);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
   const clinic = clinics.find((c) => c.id === form.clinicId);
-  const slots = ["09:00", "10:30", "12:00", "14:00", "15:30"];
+  
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
