@@ -755,7 +755,7 @@ function DiscoveryChecklist() {
       </div>
       <div className="flex flex-col" style={{ gap: 4 }}>
         {items.map((it) => {
-          if (it.key === "why-now") {
+          if (it.whyNow) {
             const isOn = checked.has("why-now");
             return (
               <label key="why-now" className="flex items-center gap-3 cursor-pointer" style={{ padding: "6px 0" }}>
