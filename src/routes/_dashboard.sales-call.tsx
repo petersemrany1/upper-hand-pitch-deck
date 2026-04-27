@@ -265,15 +265,7 @@ function StepContent({
           If I don't help overcome the fears and objections, they won't get the treatment they desperately need.
           They'll continue living in fear, watching their situation deteriorate — when they could be reclaiming their confidence and quality of life.
         </ScriptBody>
-        <div className="mt-7 flex justify-end">
-          <button
-            onClick={() => onAdvance("mindset")}
-            className="rounded-[6px]"
-            style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 20px" }}
-          >
-            I'm ready
-          </button>
-        </div>
+        <NextBtn onClick={() => onAdvance("mindset")} label="I'm ready" />
       </div>
     );
   }
