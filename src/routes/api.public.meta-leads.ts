@@ -43,6 +43,17 @@ function asString(v: unknown): string | null {
   return s.length > 0 ? s.slice(0, 500) : null;
 }
 
+function cleanName(v: unknown): string | null {
+  const s = asString(v);
+  if (!s) return null;
+  const cleaned = s
+    .replace(/[\s,]+$/g, "")
+    .replace(/^[\s,]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 function asTimestamp(v: unknown): string | null {
   if (!v) return null;
   const d = new Date(String(v));
@@ -79,8 +90,8 @@ export const Route = createFileRoute("/api/public/meta-leads")({
         }
 
         const row = {
-          first_name: asString(payload.first_name ?? payload.firstName),
-          last_name: asString(payload.last_name ?? payload.lastName),
+          first_name: cleanName(payload.first_name ?? payload.firstName),
+          last_name: cleanName(payload.last_name ?? payload.lastName),
           email: asString(payload.email),
           phone: asString(payload.phone ?? payload.phone_number),
           funding_preference: asString(

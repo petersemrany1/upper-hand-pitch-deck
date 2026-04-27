@@ -41,6 +41,21 @@ function asString(v: unknown): string | null {
   return s.length > 0 ? s.slice(0, 500) : null;
 }
 
+// Clean person names: strip trailing commas/whitespace and collapse internal whitespace.
+// Make.com sometimes appends ", " to first_name (e.g. "Sam, ").
+function cleanName(v: unknown): string | null {
+  const s = asString(v);
+  if (!s) return null;
+  const cleaned = s.replace(/[\s,]+$/g, "").replace(/^[\s,]+/g, "").replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function asTimestamp(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const d = new Date(String(v));
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function isUuid(v: unknown): v is string {
   if (typeof v !== "string") return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
@@ -93,11 +108,23 @@ Deno.serve(async (req: Request) => {
   const formName = asString(payload.form_name ?? payload.formName);
 
   const row = {
-    first_name: asString(payload.first_name ?? payload.firstName) ?? first,
-    last_name: asString(payload.last_name ?? payload.lastName) ?? last,
+    first_name: cleanName(payload.first_name ?? payload.firstName) ?? cleanName(first),
+    last_name: cleanName(payload.last_name ?? payload.lastName) ?? cleanName(last),
     email: asString(payload.email),
     phone: asString(payload.phone ?? payload.phone_number),
-    ad_name: asString(payload.ad_name ?? payload.adName),
+    funding_preference: asString(
+      payload.funding_preference ??
+        payload.fundingPreference ??
+        payload.funding,
+    ),
+    ad_name: asString(payload.ad_name ?? payload.adName ?? payload.ad),
+    ad_set_name: asString(
+      payload.ad_set_name ?? payload.adSetName ?? payload.adset,
+    ),
+    campaign_name: asString(
+      payload.campaign_name ?? payload.campaignName ?? payload.campaign,
+    ),
+    creative_time: asTimestamp(payload.creative_time ?? payload.creativeTime),
     clinic_id: clinicId,
     raw_payload: { ...payload, form_name: formName },
   };
