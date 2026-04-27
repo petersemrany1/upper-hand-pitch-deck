@@ -484,13 +484,14 @@ function Card({ className = "", children }: { className?: string; children: Reac
 function Eyebrow({ children, gold }: { children: React.ReactNode; gold?: boolean }) {
   return (
     <div
-      className="mb-2"
       style={{
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: 500,
         textTransform: "uppercase",
-        letterSpacing: "0.05em",
+        letterSpacing: "0.08em",
         color: gold ? COLORS.gold : COLORS.coral,
+        marginBottom: 12,
+        textAlign: "center",
       }}
     >
       {children}
