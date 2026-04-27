@@ -147,10 +147,28 @@ function LeadsPage() {
                 <tbody>
                   {filtered.map((r) => {
                     const fullName = [r.first_name, r.last_name].filter(Boolean).join(" ") || "—";
+                    const dup = isDuplicate(r);
                     return (
-                      <tr key={r.id} className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors">
+                      <tr
+                        key={r.id}
+                        className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
+                        style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
+                      >
                         <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                        <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">{fullName}</td>
+                        <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span>{fullName}</span>
+                            {dup && (
+                              <span
+                                className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                style={{ background: "#f59e0b", color: "#fff" }}
+                                title="Same phone or email already exists in another lead"
+                              >
+                                Duplicate
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
                             {r.email && (
