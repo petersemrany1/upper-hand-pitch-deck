@@ -703,3 +703,103 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
 
     return result;
   });
+
+import { createStripeCheckoutSession } from "./stripe.functions";
+
+export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      leadId: string;
+      firstName: string;
+      phone: string;
+      clinicName: string;
+      doctorName: string | null;
+      bookingDate: string;
+      bookingTime: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const TWILIO_FROM = "+61468031075";
+
+    if (!accountSid || !authToken) {
+      return { success: false as const, error: "Twilio credentials not configured" };
+    }
+
+    const stripeResult = await createStripeCheckoutSession({
+      data: {
+        clinicName: data.clinicName,
+        contactName: data.firstName,
+        email: "",
+        packageName: "Consultation Deposit",
+        totalIncGst: 75,
+      },
+    });
+
+    if (!stripeResult.success) {
+      return { success: false as const, error: `Stripe failed: ${stripeResult.error}` };
+    }
+
+    const stripeUrl = stripeResult.url;
+
+    const bookingDisplay = (() => {
+      try {
+        const d = new Date(`${data.bookingDate}T${data.bookingTime}`);
+        return d.toLocaleString("en-AU", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      } catch {
+        return `${data.bookingDate} at ${data.bookingTime}`;
+      }
+    })();
+
+    const doctorDisplay = data.doctorName ?? "your specialist";
+
+    const message = `Hi ${data.firstName}, your consultation with ${doctorDisplay} is confirmed for ${bookingDisplay}. To secure your spot, please pay the $75 refundable deposit here: ${stripeUrl} — it's fully refunded when you arrive. See you soon!`;
+
+    const raw = data.phone.replace(/[\s\-()]/g, "");
+    const formatted = raw.startsWith("+")
+      ? raw
+      : raw.startsWith("0")
+      ? "+61" + raw.slice(1)
+      : "+61" + raw;
+
+    try {
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            To: formatted,
+            From: TWILIO_FROM,
+            Body: message,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        await logError("sendDepositSmsToPatient", result.message || "Twilio SMS failed", {
+          leadId: data.leadId,
+          phone: formatted,
+        });
+        return { success: false as const, error: result.message || "SMS failed" };
+      }
+
+      return { success: true as const, sid: result.sid as string, stripeUrl };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error";
+      await logError("sendDepositSmsToPatient", msg, { leadId: data.leadId });
+      return { success: false as const, error: msg };
+    }
+  });
