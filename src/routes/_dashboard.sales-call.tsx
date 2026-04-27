@@ -942,7 +942,6 @@ function DiscoveryStep({
 
 function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImages: { name: string; url: string }[]; onNext: () => void; repId: string | null }) {
   void repId; void onNext;
-  const [openRow, setOpenRow] = useState<number | null>(null);
   const [sendingIdx, setSendingIdx] = useState<number | null>(null);
 
   const send = async (idx: number, url: string | undefined) => {
@@ -959,44 +958,13 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
   const img1 = mmsImages[0];
   const img2 = mmsImages[1];
 
-  const objections: { q: string; bullets: string[] }[] = [
-    {
-      q: "Why can't I just use medication?",
-      bullets: [
-        "Medication slows the loss — it cannot regrow hair where it's already gone",
-        "Dead follicles cannot be revived by any pill or spray",
-        "Only transplanting a living root from elsewhere does that",
-      ],
-    },
-    {
-      q: "Why not go to Turkey or overseas?",
-      bullets: [
-        "Looks cheaper — add flights, hotel, time off work and the gap closes fast",
-        "The doctor designs the hairline then leaves — unlicensed technicians do the procedure",
-        "Something goes wrong at home — no one to call, no local follow up, no recourse",
-        "Australia is AHPRA regulated — doctor in the room the entire day",
-      ],
-    },
-    {
-      q: "Why Nitai?",
-      bullets: [
-        "The quote you get is the quote — never charged more on the day, not once",
-        "Dr. Shabna Singh is in the room all day — not just for the design, the whole procedure",
-        "Full aftercare included — they don't disappear after surgery",
-        "They treat cases most clinics turn away",
-      ],
-    },
-  ];
-
-  const toggle = (i: number) => setOpenRow((o) => (o === i ? null : i));
-
   const ImgBtn = ({ idx, label }: { idx: number; label: string }) => {
     const url = idx === 0 ? img1?.url : img2?.url;
     const sending = sendingIdx === idx;
     return (
       <button
         onClick={() => void send(idx, url)}
-        disabled={sending || !url}
+        disabled={sending}
         className="rounded-[8px] flex items-center justify-center gap-2"
         style={{
           flex: 1,
@@ -1006,8 +974,8 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
           padding: 14,
           fontSize: 15,
           fontWeight: 500,
-          cursor: sending || !url ? "not-allowed" : "pointer",
-          opacity: !url ? 0.5 : sending ? 0.7 : 1,
+          cursor: sending ? "not-allowed" : "pointer",
+          opacity: sending ? 0.7 : 1,
         }}
       >
         <Send className="h-4 w-4" />
@@ -1016,111 +984,106 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
     );
   };
 
-  const productChain = [
-    "Your own hair",
-    "taken from the permanent zone at the back of your head",
-    "that hair never falls out",
-    "we plant it exactly where you're losing it",
-    "it grows like completely normal hair",
-    "cut it, wash it, style it",
-    "nobody knows you had it done",
-    "looks 100% natural",
-    "yours for life",
-  ];
-
-  const urgencyChain = [
-    "The longer you wait",
-    "the more you lose",
-    "less donor hair available",
-    "smaller result possible",
-    "higher the cost",
-    "harder to treat",
-  ];
-
-  const Divider = () => (
-    <hr style={{ marginTop: 28, marginBottom: 24, border: 0, borderTop: `0.5px solid ${COLORS.line}` }} />
-  );
-
-  const SectionLabel = ({ children, color = "#111" }: { children: React.ReactNode; color?: string }) => (
+  const StepLabel = ({ children }: { children: React.ReactNode }) => (
     <div style={{
       fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
-      color, fontWeight: 600, marginBottom: 14,
+      color: COLORS.text, fontWeight: 600, marginBottom: 10,
     }}>
       {children}
     </div>
   );
 
-  const ArrowChain = ({ items }: { items: string[] }) => (
-    <div className="flex flex-col" style={{ gap: 4 }}>
-      {items.map((item, i) => (
-        <div key={i} style={{ fontSize: 15, color: COLORS.text, lineHeight: 1.5, display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <span>{item}</span>
-          {i < items.length - 1 && <span style={{ color: COLORS.coral, fontWeight: 500 }}>→</span>}
-        </div>
-      ))}
+  type CardProps = { color?: string; children: React.ReactNode };
+  const SayThisCard = ({ color = COLORS.coral, children }: CardProps) => (
+    <div style={{
+      background: "#ffffff",
+      borderLeft: `2px solid ${color}`,
+      borderRadius: "0 8px 8px 0",
+      padding: "16px 20px",
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em",
+        color, marginBottom: 8,
+      }}>
+        Say this
+      </div>
+      {children}
     </div>
   );
 
   return (
     <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <Eyebrow>Education</Eyebrow>
-      <StepHeading>Educate &amp; Show</StepHeading>
+      {/* Header — no eyebrow */}
+      <h1 style={{
+        fontSize: 32, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
+        textAlign: "center", letterSpacing: "-0.01em", marginBottom: 28,
+      }}>
+        Educate &amp; Show
+      </h1>
 
       {/* 1 — Knowledge Check */}
-      <div style={{ marginTop: 24 }}>
-        <p style={{ fontSize: 22, fontWeight: 500, color: COLORS.text, textAlign: "center", lineHeight: 1.4 }}>
+      <StepLabel>1. Knowledge Check</StepLabel>
+      <SayThisCard>
+        <div style={{ fontSize: 18, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
           What do you know about hair transplants?
-        </p>
-        <p style={{ marginTop: 10, fontSize: 14, fontStyle: "italic", color: "#666", textAlign: "center", lineHeight: 1.6 }}>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, fontStyle: "italic", color: COLORS.text, lineHeight: 1.5 }}>
           Start with what they know. Fill the gaps only. Don't lecture.
-        </p>
-      </div>
+        </div>
+      </SayThisCard>
 
-      <Divider />
+      <div style={{ height: 24 }} />
 
-      {/* 2 — Product */}
-      <SectionLabel>The Product</SectionLabel>
-      <ArrowChain items={productChain} />
-      <p style={{ marginTop: 14, fontSize: 14, fontStyle: "italic", color: "#666", lineHeight: 1.6 }}>
-        No general anaesthetic. Just local numbing. Same day. Home that night.
-      </p>
+      {/* 2 — The Product */}
+      <StepLabel>2. The Product</StepLabel>
+      <SayThisCard>
+        <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.9 }}>
+          So basically — we take tiny grafts from the back of your head. That's the permanent zone — that hair is genetically programmed to never fall out. We plant those grafts exactly where you're losing it. Because they come from that permanent zone they keep that same DNA. They stay. They grow. You cut them, wash them, style them — they're your real hair. For life.
+        </div>
+        <div style={{ marginTop: 12, fontSize: 13, fontStyle: "italic", color: COLORS.text, lineHeight: 1.5 }}>
+          No general anaesthetic. Just local numbing. Same day. Home that night.
+        </div>
+      </SayThisCard>
 
-      <Divider />
+      <div style={{ height: 24 }} />
 
       {/* 3 — Send Photos */}
-      <SectionLabel>Send now while you're talking</SectionLabel>
-      <div className="flex" style={{ gap: 12 }}>
+      <StepLabel>3. Send Photos</StepLabel>
+      <p style={{ fontSize: 14, color: COLORS.text, marginBottom: 12 }}>
+        Show don't tell — send while you're talking.
+      </p>
+      <div className="flex" style={{ gap: 12, marginBottom: 14 }}>
         <ImgBtn idx={0} label="Before & After 1" />
         <ImgBtn idx={1} label="Before & After 2" />
       </div>
-      {(!img1 || !img2) && (
-        <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>
-          Upload at least 2 images to the <code>mms-images</code> bucket.
+      <SayThisCard>
+        <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.6 }}>
+          "Have a look at your phone — I've just sent you something."
         </div>
-      )}
-      <p style={{ marginTop: 14, fontSize: 14, fontStyle: "italic", color: "#666", textAlign: "center", lineHeight: 1.6 }}>
-        "Have a look at your phone — I've just sent you something."
-      </p>
+      </SayThisCard>
 
-      <Divider />
+      <div style={{ height: 24 }} />
 
-      {/* 4 — Urgency */}
-      <SectionLabel color="#f59e0b">Why timing matters</SectionLabel>
-      <ArrowChain items={urgencyChain} />
-      <p style={{ marginTop: 14, fontSize: 14, fontStyle: "italic", color: "#f59e0b", lineHeight: 1.6 }}>
-        ⚠️ Disclaimer first — "I'm not saying this is where you're at, but this is why people who act sooner always get a better result..."
-      </p>
+      {/* 4 — The Difference */}
+      <StepLabel>4. The Difference</StepLabel>
+      <SayThisCard color="#f59e0b">
+        <div style={{ fontSize: 13, fontStyle: "italic", color: "#f59e0b", lineHeight: 1.5, marginBottom: 12 }}>
+          I'm not saying this is the case for you — but it's worth knowing...
+        </div>
+        <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.9 }}>
+          A lot of clinics just plant the grafts straight up. Quick and easy for them. But the result looks like a doll's head — stiff, unnatural, you can tell from a mile away. The difference is in the angle. Dr. Singh places every single graft at the exact angle your natural hair grows. She studies the direction, the flow, the whole pattern. That's the difference between a result that looks fake — and one where nobody can ever tell.
+        </div>
+      </SayThisCard>
 
-      <Divider />
+      <div style={{ height: 24 }} />
 
-      {/* 5 — Connect To Them */}
-      <SectionLabel>Bring it back to them</SectionLabel>
+      {/* 5 — Bring it back to them */}
+      <StepLabel>5. Bring it back to them</StepLabel>
       <ul className="flex flex-col" style={{ gap: 8 }}>
         {[
           "Use their exact words from discovery",
           "Name their specific area — hairline, crown, temples",
-          "\"Based on what you've told me about [their situation]...\"",
+          "\"Based on what you've told me about [their situation] — you're actually in a good position right now.\"",
         ].map((b, i) => (
           <li key={i} className="flex items-start" style={{ gap: 10 }}>
             <span className="inline-block rounded-full" style={{ width: 5, height: 5, background: COLORS.coral, marginTop: 8, flexShrink: 0 }} />
@@ -1128,64 +1091,6 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
           </li>
         ))}
       </ul>
-
-      <Divider />
-
-      {/* IF THEY ASK — Objections */}
-      <SectionLabel>If they ask…</SectionLabel>
-      <div className="flex flex-col" style={{ gap: 8 }}>
-        {objections.map((row, i) => {
-          const isOpen = openRow === i;
-          return (
-            <div
-              key={i}
-              style={{
-                background: "#ffffff",
-                border: `0.5px solid ${COLORS.line}`,
-                borderRadius: 8,
-              }}
-            >
-              <button
-                onClick={() => toggle(i)}
-                className="w-full flex items-center justify-between text-left"
-                style={{
-                  padding: "12px 16px",
-                  fontSize: 14,
-                  color: COLORS.text,
-                  fontWeight: 500,
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <span>{row.q}</span>
-                <ChevronDown
-                  className="h-4 w-4 flex-shrink-0"
-                  style={{
-                    transition: "transform 200ms ease",
-                    transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
-                    color: COLORS.muted,
-                  }}
-                />
-              </button>
-              {isOpen && (
-                <div style={{ padding: "0 16px 14px 16px" }}>
-                  <ul className="flex flex-col" style={{ gap: 8 }}>
-                    {row.bullets.map((b, bi) => (
-                      <li key={bi} className="flex items-start" style={{ gap: 10 }}>
-                        <span
-                          className="inline-block rounded-full"
-                          style={{ width: 5, height: 5, background: COLORS.coral, marginTop: 8, flexShrink: 0 }}
-                        />
-                        <span style={{ fontSize: 13, lineHeight: 1.7, color: COLORS.text }}>{b}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
     </div>
   );
 }
