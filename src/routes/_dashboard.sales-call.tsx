@@ -1183,35 +1183,49 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
   );
 }
 
-function PriceStep({ onNext }: { onNext: () => void }) {
-  const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
+type ClinicConsult = Clinic & {
+  consult_includes?: string | null;
+  consult_price_original?: number | null;
+  consult_price_deposit?: number | null;
+  consult_price_free?: boolean | null;
+  consult_persuasion_lines?: string[] | null;
+};
 
-  // Auto-load clinics and pre-select Nitai (the only clinic for now)
+const DEFAULT_CONSULT_INCLUDES =
+  "Hair & scalp assessment + donor area analysis + hairline design + photo documentation → all one appointment → no obligation";
+const DEFAULT_PERSUASION_LINES = [
+  "Limited consult spots available",
+  "We'll show you exactly what's possible before you commit to anything",
+  "Most people leave with a full treatment plan same day",
+];
+
+function PriceStep({ onNext }: { onNext: () => void }) {
+  const [clinic, setClinic] = useState<ClinicConsult | null>(null);
+
+  // Auto-load the clinic (Nitai if present, otherwise the first one)
   useEffect(() => {
     void supabase
       .from("clinics")
-      .select("id, clinic_name, address, doctor_name, city, state")
+      .select(
+        "id, clinic_name, address, doctor_name, city, state, consult_includes, consult_price_original, consult_price_deposit, consult_price_free, consult_persuasion_lines"
+      )
       .then(({ data }) => {
-        const list = (data ?? []) as Clinic[];
-        setClinics(list);
-        const nitai = list.find((c) => c.clinic_name?.toLowerCase().includes("nitai")) ?? list[0];
-        if (nitai) setSelectedClinicId(nitai.id);
+        const list = (data ?? []) as ClinicConsult[];
+        const nitai = list.find((c) => c.clinic_name?.toLowerCase().includes("nitai")) ?? list[0] ?? null;
+        setClinic(nitai);
       });
   }, []);
 
-  const selected = clinics.find((c) => c.id === selectedClinicId) ?? null;
-  const isNitai = selected?.clinic_name?.toLowerCase().includes("nitai") ?? false;
-
-  // Fallback Nitai card if the clinics table is empty
-  const nitaiFallback = {
-    clinic_name: "Nitai Medical & Cosmetic Centre",
-    doctor_name: "Dr. Shabna Singh",
-    address: "64 Lincoln Rd, Essendon VIC 3040",
-  };
-
-  const display = selected ?? (clinics.length === 0 ? nitaiFallback : null);
-  const showNitaiBlock = isNitai || (!selected && clinics.length === 0);
+  const consultIncludes = clinic?.consult_includes?.trim() || DEFAULT_CONSULT_INCLUDES;
+  const persuasionLines =
+    Array.isArray(clinic?.consult_persuasion_lines) && clinic!.consult_persuasion_lines!.length > 0
+      ? (clinic!.consult_persuasion_lines as string[])
+      : DEFAULT_PERSUASION_LINES;
+  const isFree =
+    clinic?.consult_price_free === true ||
+    (clinic?.consult_price_original == null && clinic?.consult_price_deposit == null);
+  const priceOriginal = clinic?.consult_price_original ?? 250;
+  const priceDeposit = clinic?.consult_price_deposit ?? 0;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -1219,9 +1233,11 @@ function PriceStep({ onNext }: { onNext: () => void }) {
       <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 12, lineHeight: 1.3 }}>Present Price</h1>
 
       <ScriptBody>
-        That would be with <span style={{ fontWeight: 500 }}>Dr. Shabna Singh</span> at <span style={{ fontWeight: 500 }}>Nitai Medical & Cosmetic Centre</span> in Essendon.
-        She's one of our senior specialists — 6 years in hair transplants, world-class trainer.
-        Based on what you've told me, she's exactly the right person for you.
+        That would be with{" "}
+        <span style={{ fontWeight: 500 }}>{clinic?.doctor_name ?? "Dr. [NAME]"}</span> at{" "}
+        <span style={{ fontWeight: 500 }}>{clinic?.clinic_name ?? "[Clinic]"}</span>
+        {clinic?.city ? <> in {clinic.city}</> : null}.
+        One of our senior hair transplant specialists. Based on what you've told me, they're exactly the right person for you.
       </ScriptBody>
       <Coach>
         Personalise to the specialist. Name the doctor and the clinic. Give a reason tied to exactly what they told you in discovery.
@@ -1243,76 +1259,39 @@ function PriceStep({ onNext }: { onNext: () => void }) {
           The consult includes
         </div>
         <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.6 }}>
-          CBCT + facial scan + smile design + colour matching + OPG + smile preview → all one appointment → no obligation
+          {consultIncludes}
         </div>
 
         <div style={{ height: 16 }} />
 
-        <div style={{ fontSize: 20, lineHeight: 1.4, color: "#111" }}>
-          <span style={{ fontWeight: 700 }}>$395</span>
-          <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
-          <span style={{ fontWeight: 700 }}>FREE</span>
-          <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
-          <span style={{ fontWeight: 700 }}>$75</span>
-          <span style={{ color: COLORS.muted, marginLeft: 10, fontSize: 13, fontWeight: 400 }}>(this exact order)</span>
-        </div>
+        {isFree ? (
+          <>
+            <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.2, color: "#111" }}>
+              FREE Consultation
+            </div>
+            <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 4 }}>
+              No deposit. No obligation. Just answers.
+            </div>
+          </>
+        ) : (
+          <div style={{ fontSize: 20, lineHeight: 1.4, color: "#111" }}>
+            <span style={{ fontWeight: 700 }}>${priceOriginal}</span>
+            <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
+            <span style={{ fontWeight: 700 }}>FREE</span>
+            <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
+            <span style={{ fontWeight: 700 }}>${priceDeposit}</span>
+            <span style={{ color: COLORS.muted, marginLeft: 10, fontSize: 13, fontWeight: 400 }}>(this exact order)</span>
+          </div>
+        )}
 
         <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>$395 → free spots</div>
-          <div style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>$75 refundable → refunded when you arrive</div>
-          <div style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>turning away others</div>
+          {persuasionLines.map((line, i) => (
+            <div key={i} style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>
+              {line}
+            </div>
+          ))}
         </div>
       </div>
-
-      <div style={{ height: 1, background: COLORS.line, margin: "8px 0 18px" }} />
-
-      {clinics.length > 1 && (
-        <Section title="Choose clinic">
-          <div className="space-y-2">
-            {clinics.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelectedClinicId(c.id)}
-                className="w-full text-left px-3 py-2 rounded-md flex items-center justify-between"
-                style={{
-                  background: selectedClinicId === c.id ? "rgba(45,107,228,0.15)" : "#f9f9f9",
-                  border: `1px solid ${selectedClinicId === c.id ? COLORS.coral : COLORS.line}`,
-                }}
-              >
-                <div>
-                  <div className="text-sm font-semibold">{c.clinic_name}</div>
-                  <div className="text-[13px]" style={{ color: COLORS.muted }}>{c.address}</div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {display && (
-        <Card className="px-5 py-4 mt-2">
-          <Label>Selected Clinic</Label>
-          <div className="text-base font-medium mt-1">{display.clinic_name}</div>
-          {display.doctor_name && <div className="text-sm mt-0.5">{display.doctor_name}</div>}
-          {display.address && <div className="text-sm" style={{ color: COLORS.muted }}>{display.address}</div>}
-          {showNitaiBlock && (
-            <>
-              <p className="mt-2 text-[13px]" style={{ color: COLORS.text }}>
-                Free parking on site · Near Lincoln Park · 5 mins from DFO · 10 mins Melbourne Airport · Off Tullamarine Freeway
-              </p>
-              <ul className="mt-3 text-sm space-y-1 list-disc pl-5">
-                <li>Transparent pricing — the quote you get is the quote, never charged a patient more on the day</li>
-                <li>Elite hair design — natural look, personalised to your face shape and hair loss pattern</li>
-                <li>Full aftercare included — PRP, stem cell treatments, ongoing medication management</li>
-                <li>Dr. Shabna Singh — 6 years hair transplants, world-class cosmetic injectable trainer, Derma Sutic global ambassador</li>
-                <li>Treats advanced cases and afro hair most clinics won't touch</li>
-                <li>Can treat patients with very limited donor hair using body hair, PRP and stem cell combination</li>
-                <li>Doctor-led and in the room all day — not just for the design</li>
-              </ul>
-            </>
-          )}
-        </Card>
-      )}
 
       <NextBtn onClick={onNext} />
     </div>
