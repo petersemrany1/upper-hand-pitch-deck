@@ -91,16 +91,18 @@ export async function validateTwilioSignature(
     entries.push([k, typeof v === "string" ? v : ""]);
   }
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  let signingString = url;
-  for (const [k, v] of entries) signingString += k + v;
+  let suffix = "";
+  for (const [k, v] of entries) suffix += k + v;
 
-  const expected = await hmacSha1Base64(authToken, signingString);
-  const ok = timingSafeEqual(expected, headerSig);
-  if (!ok) {
-    console.warn("twilio-signature: signature mismatch", {
-      url,
-      gotPrefix: headerSig.slice(0, 8),
-    });
+  const tried: { url: string; sig: string }[] = [];
+  for (const candidate of candidates) {
+    const expected = await hmacSha1Base64(authToken, candidate + suffix);
+    if (timingSafeEqual(expected, headerSig)) return true;
+    tried.push({ url: candidate, sig: expected.slice(0, 8) });
   }
-  return ok;
+  console.warn("twilio-signature: signature mismatch", {
+    gotPrefix: headerSig.slice(0, 8),
+    tried,
+  });
+  return false;
 }
