@@ -122,22 +122,6 @@ function SalesCallPortal() {
 
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return leads.filter((l) => {
-      if (filter === "booked" && l.status !== "booked") return false;
-      if (filter === "dropped" && l.status !== "dropped") return false;
-      if (filter === "due" && !l.callback_scheduled_at) return false;
-      if (!q) return true;
-      return (
-        (l.first_name ?? "").toLowerCase().includes(q) ||
-        (l.last_name ?? "").toLowerCase().includes(q) ||
-        (l.phone ?? "").toLowerCase().includes(q) ||
-        (l.email ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [leads, search, filter]);
-
   const markStepComplete = (k: StepKey) => {
     setCompleted((prev) => { const n = new Set(prev); n.add(k); return n; });
   };
