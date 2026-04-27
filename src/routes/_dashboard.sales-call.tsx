@@ -532,9 +532,8 @@ function StepContent({
           <RuleGood>Ask it open. Wait. Let them land.</RuleGood>
         </div>
         <CalloutGreen title="When they say yes">
-          Fantastic. I want to get you in with <Pill name>Dr. [doctor_name]</Pill> at <Pill name>[clinic_name]</Pill>. Based on everything you've told me
-          — [their specific situation from discovery] — she's exactly the right person for you. Let me see what her availability looks like.
-          <Coach>Presume the booking. You are a naive optimist. It is all paperwork from here.</Coach>
+          Fantastic. Fantastic. I want to get you in with <Pill name>Dr. [NAME]</Pill> — honestly based on everything you've told me, <Pill name>Dr. [NAME]</Pill> is exactly who you want for this. [reference what they said on the call]. Let me just pull up the availability now."
+          <Coach>Presume the booking.</Coach>
         </CalloutGreen>
         <NextBtn onClick={() => onAdvance("commitment")} />
       </div>
