@@ -1587,20 +1587,6 @@ function RightPanel({
   );
 }
 
-// Right-column row helper (legacy — kept for any future use)
-function RightRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.hint, fontWeight: 500, flexShrink: 0 }}>
-        {label}
-      </span>
-      <span style={{ fontSize: 14, color: COLORS.text, textAlign: "right", lineHeight: 1.5 }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
 const OBJECTIONS = [
   { q: "Call me back", a: "Yeah of course — and I will. I'm just curious though, when you filled in the form, what was going on that made you want to find out more about it?", note: "Gets them talking about their own motivation. One minute becomes ten." },
   { q: "Email me", a: "Yeah absolutely. I just want to make sure I send you the right thing — what was the main thing you were hoping to get answered when you looked into this?" },
@@ -1611,15 +1597,4 @@ const OBJECTIONS = [
   { q: "I need to think about it", a: "Of course, that makes complete sense. I'm just curious — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might be able to help right now." },
   { q: "I don't have time", a: "Totally get it. Can I ask — is it literally the time right now, or is it more that you're not sure this is the right move for you?", note: "If time → 'When's a two-minute window today — I'll call you exactly then.'" },
   { q: "I just want the price", a: "Absolutely — and I'll get you that. I just need to ask you a couple of quick things first so I can make sure I'm giving you the right number for your specific situation. It'll take two minutes. What's going on with your hair at the moment?" },
-];
-
-const QUESTIONS = [
-  { q: "Car Parking", a: "Free on-site parking at the clinic." },
-  { q: "Pricing", a: "The consult is complimentary — there's a $75 refundable deposit to hold the spot, fully refunded when you arrive." },
-  { q: "Who does the procedure?", a: "Dr. Shabna Singh oversees everything from start to finish — the design, the anaesthetic, she's in and out all day. Experienced medical technicians assist with the procedure itself." },
-  { q: "How long does it take?", a: "Treatment day is typically 8–12 hours. You'll need someone to drop you off and pick you up at the end." },
-  { q: "Does it hurt?", a: "Local anaesthetic throughout. The team won't push on if there's any discomfort — they're very careful about that." },
-  { q: "What happens after?", a: "Full aftercare pack, hair sprays included, the team checks in on you. Follow-up visit at 2 weeks then monthly. The first 48 hours are the most important." },
-  { q: "Can I get it done if I'm completely bald?", a: "Yes — Dr. Singh can often treat the front section using a combination of body hair, PRP and stem cell technology to maximise density. It comes down to the assessment." },
-  { q: "What about Turkey — isn't it cheaper?", a: "It is cheaper upfront. But the doctor usually designs the hairline and leaves — technicians do the procedure. If something goes wrong when you get home, you're on your own. No local follow-up, no recourse. With Nitai, Dr. Singh is in the room all day and you've got full local aftercare. Most people find when they add up flights, accommodation and time off work — the gap closes significantly." },
 ];
