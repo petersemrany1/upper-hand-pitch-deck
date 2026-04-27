@@ -727,30 +727,30 @@ function DiscoveryChecklist() {
   });
 
   return (
-    <div style={{ marginTop: 32 }}>
+    <div style={{ marginTop: 14 }}>
       <div style={{
         fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
-        color: COLORS.text, fontWeight: 500, marginBottom: 12,
+        color: COLORS.text, fontWeight: 500, marginBottom: 6,
       }}>
         Checklist
       </div>
-      <div className="flex flex-col" style={{ gap: 4 }}>
+      <div className="flex flex-col" style={{ gap: 0 }}>
         {items.map((it) => {
           if (it.whyNow) {
             const isOn = checked.has("why-now");
             return (
-              <label key="why-now" className="flex items-center gap-3 cursor-pointer" style={{ padding: "6px 0" }}>
+              <label key="why-now" className="flex items-center gap-2 cursor-pointer" style={{ padding: "2px 0" }}>
                 <input type="checkbox" checked={isOn} onChange={() => toggle("why-now")} />
                 <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: COLORS.amber, flexShrink: 0 }} />
                 <span style={{
-                  fontSize: 15, lineHeight: 1.5, color: COLORS.amberDark, fontWeight: 600,
+                  fontSize: 14, lineHeight: 1.4, color: COLORS.amberDark, fontWeight: 600,
                   opacity: isOn ? 0.5 : 1,
                   textDecoration: isOn ? "line-through" : "none",
                 }}>
                   ⚠️ WHY NOW?
                 </span>
                 <span style={{
-                  fontSize: 14, color: COLORS.amberDark, fontStyle: "italic",
+                  fontSize: 13, color: COLORS.amberDark, fontStyle: "italic",
                   opacity: isOn ? 0.5 : 1,
                   textDecoration: isOn ? "line-through" : "none",
                 }}>
@@ -761,10 +761,10 @@ function DiscoveryChecklist() {
           }
           const isOn = checked.has(it.key);
           return (
-            <label key={it.key} className="flex items-center gap-3 cursor-pointer" style={{ padding: "6px 0" }}>
+            <label key={it.key} className="flex items-center gap-2 cursor-pointer" style={{ padding: "2px 0" }}>
               <input type="checkbox" checked={isOn} onChange={() => toggle(it.key)} />
               <span style={{
-                fontSize: 15, lineHeight: 1.5, color: COLORS.text,
+                fontSize: 14, lineHeight: 1.4, color: COLORS.text,
                 opacity: isOn ? 0.5 : 1,
                 textDecoration: isOn ? "line-through" : "none",
               }}>
@@ -804,7 +804,7 @@ function DiscoveryStep({
 
   const handleAi = async () => {
     if (!notes.trim()) {
-      toast.error("Add some discovery notes first");
+      toast.error("Write your discovery notes first");
       return;
     }
     setAiLoading(true); setAiDone(false);
@@ -825,42 +825,47 @@ function DiscoveryStep({
       {/* Header */}
       <div style={{
         fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em",
-        color: COLORS.coral, marginBottom: 12, textAlign: "center",
+        color: COLORS.coral, marginBottom: 6, textAlign: "center",
       }}>
         Discovery
       </div>
       <h1 style={{
-        fontSize: 36, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
-        textAlign: "center", letterSpacing: "-0.01em", marginBottom: 8,
+        fontSize: 28, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
+        textAlign: "center", letterSpacing: "-0.01em", marginBottom: 18,
       }}>
-        Understand Their Pain
+        Understand Their Pain <span style={{ fontSize: 16, fontWeight: 400, color: COLORS.text }}>(5–7 mins)</span>
       </h1>
-      <div style={{ fontSize: 16, color: COLORS.text, textAlign: "center", marginBottom: 40 }}>
-        5 – 7 mins
-      </div>
 
       {/* Opening question — most prominent */}
       <div style={{
-        fontSize: 22, fontWeight: 500, color: COLORS.text,
-        lineHeight: 1.4, textAlign: "center",
+        fontSize: 26, fontWeight: 500, color: COLORS.text,
+        lineHeight: 1.3, textAlign: "center",
       }}>
         So what's going on with your hair situation?
       </div>
       <div style={{
-        marginTop: 16, fontSize: 14, fontStyle: "italic", color: "#666",
-        textAlign: "center", lineHeight: 1.6,
+        marginTop: 8, fontSize: 13, fontStyle: "italic", color: "#666",
+        textAlign: "center", lineHeight: 1.5,
       }}>
-        Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.
+        Ask it. Then stop. Don't interrupt. Let them lead.
       </div>
 
       {/* Checklist */}
       <DiscoveryChecklist />
 
+      {/* Echoing tip — quiet line above HISTORY */}
+      <p style={{
+        marginTop: 14, marginBottom: 6, fontSize: 13, fontStyle: "italic",
+        color: COLORS.text, lineHeight: 1.5,
+      }}>
+        Echoing tip: when they say something — repeat it back as a question with genuine curiosity.
+      </p>
+
       {/* History */}
-      <div style={{ marginTop: 40 }}>
+      <div>
         <div style={{
           fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
-          color: COLORS.text, fontWeight: 500, marginBottom: 12,
+          color: COLORS.text, fontWeight: 500, marginBottom: 6,
         }}>
           History
         </div>
@@ -873,53 +878,58 @@ function DiscoveryStep({
             background: "#f9f9f9",
             border: `0.5px solid ${COLORS.line}`,
             color: COLORS.text,
-            fontSize: 15,
-            lineHeight: 1.6,
-            padding: 14,
-            minHeight: 180,
+            fontSize: 14,
+            lineHeight: 1.5,
+            padding: 10,
+            minHeight: 80,
+            resize: "vertical",
           }}
         />
-        <div style={{ marginTop: 6, height: 16, fontSize: 12, color: "#888" }}>
+        <div style={{ marginTop: 4, height: 14, fontSize: 12, color: "#888" }}>
           {savedAt ? "Saved" : ""}
         </div>
 
         {/* AI pre-fill button */}
-        <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
           <button
             onClick={() => void handleAi()}
             disabled={aiLoading}
-            className="rounded-[8px]"
+            className="rounded-[8px] inline-flex items-center gap-2"
             style={{
               background: COLORS.coral,
               color: "#fff",
               fontSize: 14,
               fontWeight: 500,
-              padding: "12px 22px",
+              padding: "10px 18px",
               cursor: aiLoading ? "wait" : "pointer",
               opacity: aiLoading ? 0.7 : 1,
             }}
           >
+            {aiLoading && (
+              <span
+                style={{
+                  width: 14, height: 14, borderRadius: "50%",
+                  border: "2px solid rgba(255,255,255,0.4)",
+                  borderTopColor: "#fff",
+                  display: "inline-block",
+                  animation: "discoverySpin 0.8s linear infinite",
+                }}
+              />
+            )}
             {aiLoading ? "Generating…" : "Use in next steps →"}
           </button>
           {aiDone && !aiLoading && (
             <div style={{ fontSize: 13, color: COLORS.green }}>
-              Done — next steps updated
+              ✓ Next steps updated
             </div>
           )}
         </div>
       </div>
 
-      {/* Echoing tip — quiet reminder at very bottom */}
-      <p style={{
-        marginTop: 48, fontSize: 13, fontStyle: "italic",
-        color: COLORS.text, textAlign: "center", lineHeight: 1.6,
-      }}>
-        Echoing tip: when they say something — repeat it back as a question with genuine curiosity.
-      </p>
-
       {/* Override the global #111 placeholder for this textarea so it reads light. */}
       <style>{`
         textarea.discovery-history::placeholder { color: #bbbbbb !important; opacity: 1; }
+        @keyframes discoverySpin { to { transform: rotate(360deg); } }
       `}</style>
     </div>
   );
