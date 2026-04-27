@@ -1709,6 +1709,11 @@ function RightPanel({
     }
   };
 
+  const sendImage = async (url: string) => {
+    const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
+    if (r.success) toast.success("Sent"); else toast.error(r.error);
+  };
+
   const day = active.day_number ?? 1;
   const attempts = ATTEMPTS_PER_DAY(day);
   const fullName = [active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed";
