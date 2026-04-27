@@ -90,8 +90,8 @@ export const Route = createFileRoute("/api/public/meta-leads")({
         }
 
         const row = {
-          first_name: asString(payload.first_name ?? payload.firstName),
-          last_name: asString(payload.last_name ?? payload.lastName),
+          first_name: cleanName(payload.first_name ?? payload.firstName),
+          last_name: cleanName(payload.last_name ?? payload.lastName),
           email: asString(payload.email),
           phone: asString(payload.phone ?? payload.phone_number),
           funding_preference: asString(
