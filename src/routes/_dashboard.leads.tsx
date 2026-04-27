@@ -56,6 +56,26 @@ function LeadsPage() {
     return () => { void supabase.removeChannel(ch); };
   }, []);
 
+  // Detect duplicates: same normalized phone, or same email when phone is missing.
+  // A row is a duplicate if its key appears more than once across all leads.
+  const normPhone = (p: string | null) => (p ?? "").replace(/\D/g, "");
+  const normEmail = (e: string | null) => (e ?? "").trim().toLowerCase();
+  const dupKeys = new Set<string>();
+  {
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const key = normPhone(r.phone) || normEmail(r.email);
+      if (!key) continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    for (const [k, n] of counts) if (n > 1) dupKeys.add(k);
+  }
+  const isDuplicate = (r: Lead) => {
+    const key = normPhone(r.phone) || normEmail(r.email);
+    return key !== "" && dupKeys.has(key);
+  };
+  const duplicateCount = rows.filter(isDuplicate).length;
+
   const filtered = rows.filter((r) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
@@ -67,9 +87,11 @@ function LeadsPage() {
       (r.campaign_name ?? "").toLowerCase().includes(q) ||
       (r.ad_name ?? "").toLowerCase().includes(q) ||
       (r.ad_set_name ?? "").toLowerCase().includes(q) ||
-      (r.funding_preference ?? "").toLowerCase().includes(q)
+      (r.funding_preference ?? "").toLowerCase().includes(q) ||
+      (q === "duplicate" && isDuplicate(r))
     );
   });
+
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
@@ -85,7 +107,9 @@ function LeadsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-[#111111]">Meta Leads</h1>
           <p className="text-sm text-[#111111] mt-1">
-            {loading ? "Loading…" : `${filtered.length} of ${rows.length} leads`}
+            {loading
+              ? "Loading…"
+              : `${filtered.length} of ${rows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
           </p>
         </div>
 
@@ -123,10 +147,28 @@ function LeadsPage() {
                 <tbody>
                   {filtered.map((r) => {
                     const fullName = [r.first_name, r.last_name].filter(Boolean).join(" ") || "—";
+                    const dup = isDuplicate(r);
                     return (
-                      <tr key={r.id} className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors">
+                      <tr
+                        key={r.id}
+                        className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
+                        style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
+                      >
                         <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                        <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">{fullName}</td>
+                        <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span>{fullName}</span>
+                            {dup && (
+                              <span
+                                className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                style={{ background: "#f59e0b", color: "#fff" }}
+                                title="Same phone or email already exists in another lead"
+                              >
+                                Duplicate
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
                             {r.email && (
