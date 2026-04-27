@@ -528,12 +528,13 @@ function Pill({ children, name }: { children: React.ReactNode; name?: boolean; g
 function Coach({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mt-3"
       style={{
-        fontSize: 13,
-        lineHeight: 1.6,
+        marginTop: 24,
+        fontSize: 14,
+        lineHeight: 1.7,
         fontStyle: "italic",
-        color: COLORS.muted,
+        color: "#666666",
+        textAlign: "center",
       }}
     >
       {children}
