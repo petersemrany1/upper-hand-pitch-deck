@@ -731,12 +731,13 @@ function CalloutGreen({ title, children }: { title: string; children: React.Reac
 
 function DiscoveryChecklist() {
   // Compact, tight checklist. Items strikethrough + fade when checked.
-  const items: Array<{ key: string; text: string } | { key: "why-now" }> = [
+  type Item = { key: string; text: string; whyNow?: false } | { key: "why-now"; whyNow: true };
+  const items: Item[] = [
     { key: "where", text: "Where on the head is the loss happening?" },
     { key: "how-long", text: "How long has it been happening?" },
     { key: "hereditary", text: "Is it hereditary?" },
     { key: "tried", text: "What have they already tried?" },
-    { key: "why-now" },
+    { key: "why-now", whyNow: true },
     { key: "feel", text: "How does it make you feel?" },
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
