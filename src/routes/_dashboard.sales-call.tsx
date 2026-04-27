@@ -3,15 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
-  Phone, Check, AlertTriangle, Send, Save, Search, X,
-  Shield, HelpCircle, ChevronRight,
+  Phone, Check, AlertTriangle, Send, Search, X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  matchClinicsBySuburb, sendLeadMms, listMmsImages, saveFinanceCheck,
-  saveBooking, updateLeadStatus, saveCallNotes, logCallAttempt, ensureRepForEmail,
+  sendLeadMms, listMmsImages, saveFinanceCheck,
+  saveBooking, updateLeadStatus, logCallAttempt, ensureRepForEmail,
 } from "@/utils/sales-call.functions";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
