@@ -90,8 +90,6 @@ function SalesCallPortal() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [step, setStep] = useState<StepKey>("mindset");
   const [completed, setCompleted] = useState<Set<StepKey>>(new Set());
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "due" | "booked" | "dropped">("all");
   const [repId, setRepId] = useState<string | null>(null);
   const [repName, setRepName] = useState<string>("");
   const [mmsImages, setMmsImages] = useState<{ name: string; url: string }[]>([]);
