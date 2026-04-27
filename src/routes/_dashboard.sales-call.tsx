@@ -261,9 +261,10 @@ function StepContent({
         <Eyebrow>Step 1 — Mindset</Eyebrow>
         <StepHeading>Changing Lives</StepHeading>
         <ScriptBody>
-          I'm not here to simply book appointments — I'm here to transform <span style={{ fontWeight: 500 }}>{fname}'s</span> life.
-          If I don't help overcome the fears and objections, they won't get the treatment they desperately need.
-          They'll continue living in fear, watching their situation deteriorate — when they could be reclaiming their confidence and quality of life.
+          <p>This person enquired because something shifted. Maybe they looked in the mirror. Maybe someone said something. Maybe a photo came up on their phone. They didn't fill in that form by accident.</p>
+          <p style={{ marginTop: 24 }}>My job isn't to sell them. My job is to care enough to have an honest conversation — find out what's really going on, and help them see that there's a way through it.</p>
+          <p style={{ marginTop: 24 }}>If I do my job right, they leave this call with a plan. If I don't, they go back to doing nothing — and six months from now they're still in the same place.</p>
+          <p style={{ marginTop: 24 }}>Pick up the phone. Be curious. Be present. This call matters.</p>
         </ScriptBody>
         <NextBtn onClick={() => onAdvance("mindset")} label="I'm ready" />
       </div>
