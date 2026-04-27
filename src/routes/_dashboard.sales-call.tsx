@@ -1320,8 +1320,9 @@ function PriceStep({ onNext }: { onNext: () => void }) {
 }
 
 function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void }) {
+  const autoName = [lead.first_name, lead.last_name].filter(Boolean).join(" ");
   const [form, setForm] = useState({
-    name: "", dob: "", price: "", citizen: "", earning: "", bankrupt: "", centrelink: "", homeowner: "",
+    name: autoName, dob: "", price: "", citizen: "", earning: "", bankrupt: "", centrelink: "", homeowner: "",
   });
   const [result, setResult] = useState<null | { eligible: boolean }>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
@@ -1339,7 +1340,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
     <div className="flex gap-2">
       {["yes", "no"].map((v) => (
         <button key={v} onClick={() => set(k, v)}
-          className="px-4 py-1.5 rounded-md text-[13px] font-medium capitalize"
+          className="px-3 py-1 rounded-md text-[12px] font-medium capitalize"
           style={{
             background: form[k] === v ? COLORS.coral : "#f9f9f9",
             color: form[k] === v ? "#fff" : COLORS.muted,
@@ -1352,58 +1353,54 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 9 — Finance Check</Eyebrow>
-      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Treatment Funding</h1>
-      <Card className="px-5 py-5">
-        <p className="text-sm leading-relaxed">
-          I just need to ask you 6 quick questions — it's not a commitment, it won't affect your credit rating, and it just helps us see if finance could work for you.
+      <h1 style={{ fontSize: 18, fontWeight: 500, color: "#111", marginBottom: 10, lineHeight: 1.3 }}>Treatment Funding</h1>
+      <Card className="px-4 py-3">
+        <p className="text-[13px] leading-snug">
+          6 quick questions — not a commitment, won't affect credit rating, just checks if finance could work.
         </p>
       </Card>
 
-      <Card className="px-5 py-5 mt-4 space-y-4">
-        <FormRow label="Full Name">
-          <input value={form.name} onChange={(e) => set("name", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-        </FormRow>
-        <FormRow label="Date of Birth">
-          <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-        </FormRow>
-        <FormRow label="Treatment Price">
-          <div className="flex gap-2">
-            {["Below 18,000", "18,000", "18,000+"].map((v) => (
-              <button key={v} onClick={() => set("price", v)}
-                className="px-3 py-1.5 rounded-md text-[13px] font-medium"
-                style={{
-                  background: form.price === v ? COLORS.coral : "#f9f9f9",
-                  color: form.price === v ? "#fff" : COLORS.muted,
-                  border: `1px solid ${form.price === v ? COLORS.coral : COLORS.line}`,
-                }}>{v}</button>
-            ))}
+      <Card className="px-4 py-3 mt-3 space-y-2.5">
+        <div>
+          <Label>Full Name</Label>
+          <div className="mt-1">
+            <input value={form.name} onChange={(e) => set("name", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px]" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
           </div>
-        </FormRow>
-        <FormRow label="Australian citizen or PR?"><YN k="citizen" /></FormRow>
-        <FormRow label="Employed and earning $50,000+ per year?"><YN k="earning" /></FormRow>
-        <FormRow label="Bankrupt or in a debt agreement?"><YN k="bankrupt" /></FormRow>
-        <FormRow label="Centrelink only source of income?"><YN k="centrelink" /></FormRow>
-        <FormRow label="Are you a home owner?"><YN k="homeowner" /></FormRow>
+        </div>
+
+        <CompactRow label="Australian citizen or PR?"><YN k="citizen" /></CompactRow>
+        <CompactRow label="Employed and earning $50,000+ per year?"><YN k="earning" /></CompactRow>
+        <CompactRow label="Bankrupt or in a debt agreement?"><YN k="bankrupt" /></CompactRow>
+        <CompactRow label="Centrelink only source of income?"><YN k="centrelink" /></CompactRow>
+        <CompactRow label="Are you a home owner?"><YN k="homeowner" /></CompactRow>
 
         <button
           onClick={() => void check()}
           className="w-full rounded-[6px]"
-          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 20px" }}
+          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "8px 16px", marginTop: 4 }}
         >
           Check eligibility
         </button>
       </Card>
 
       {result && (
-        <div className="mt-4 p-4 rounded-md flex items-center gap-3"
+        <div className="mt-3 p-3 rounded-md flex items-center gap-3"
           style={{ background: result.eligible ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)", border: `1px solid ${result.eligible ? COLORS.green : COLORS.red}` }}>
           {result.eligible
-            ? <><Check className="h-6 w-6" style={{ color: COLORS.green }} /><span className="font-medium">Great news — finance options are available.</span></>
-            : <><AlertTriangle className="h-6 w-6" style={{ color: COLORS.red }} /><span className="font-medium">Finance may not be available — explore savings or superannuation options with the patient.</span></>}
+            ? <><Check className="h-5 w-5" style={{ color: COLORS.green }} /><span className="text-[13px] font-medium">Great news — finance options are available.</span></>
+            : <><AlertTriangle className="h-5 w-5" style={{ color: COLORS.red }} /><span className="text-[13px] font-medium">Finance may not be available — explore savings or superannuation options.</span></>}
         </div>
       )}
+    </div>
+  );
+}
+
+function CompactRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1">
+      <Label>{label}</Label>
+      <div>{children}</div>
     </div>
   );
 }
