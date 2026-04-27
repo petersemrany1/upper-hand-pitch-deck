@@ -837,24 +837,31 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
 }
 
 function PriceStep({ onNext }: { onNext: () => void }) {
-  const [suburb, setSuburb] = useState("");
-  const [results, setResults] = useState<Awaited<ReturnType<typeof matchClinicsBySuburb>>["clinics"]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [selectedClinicId, setSelectedClinicId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  const search = async () => {
-    if (!suburb.trim()) return;
-    setLoading(true);
-    const r = await matchClinicsBySuburb({ data: { suburb } });
-    setLoading(false);
-    if (r.success) {
-      setResults(r.clinics);
-      if (r.clinics[0]) setSelectedClinicId(r.clinics[0].id);
-    } else toast.error(r.error);
+  // Auto-load clinics and pre-select Nitai (the only clinic for now)
+  useEffect(() => {
+    void supabase
+      .from("clinics")
+      .select("id, clinic_name, address, doctor_name, city, state")
+      .then(({ data }) => {
+        const list = (data ?? []) as Clinic[];
+        setClinics(list);
+        const nitai = list.find((c) => c.clinic_name?.toLowerCase().includes("nitai")) ?? list[0];
+        if (nitai) setSelectedClinicId(nitai.id);
+      });
+  }, []);
+
+  const selected = clinics.find((c) => c.id === selectedClinicId) ?? null;
+  const isNitai = selected?.clinic_name?.toLowerCase().includes("nitai") ?? false;
+
+  // Fallback Nitai card if the clinics table is empty
+  const nitaiFallback = {
+    clinic_name: "Nitai Medical & Cosmetic Centre",
+    doctor_name: "Dr. Shabna Singh",
+    address: "64 Lincoln Rd, Essendon VIC 3040",
   };
-
-  const selected = results.find((c) => c.id === selectedClinicId) ?? null;
-  const isNitai = selected?.clinic_name?.toLowerCase().includes("nitai");
 
   const journey = [
     "The consult includes a full medical assessment, hair design, imaging — all in one appointment, no obligation.",
@@ -865,64 +872,55 @@ function PriceStep({ onNext }: { onNext: () => void }) {
     "...we do this because we do turn people away for these slots. Does that sound fair?",
   ];
 
+  const display = selected ?? (clinics.length === 0 ? nitaiFallback : null);
+  const showNitaiBlock = isNitai || (!selected && clinics.length === 0);
+
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 8 — Price & Sell</Eyebrow>
       <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Present Price</h1>
 
-      <Card className="px-5 py-5">
-        <Label>Section A — Personalise to the Specialist</Label>
-        <ul className="mt-3 text-sm space-y-1.5 list-disc pl-5">
-          <li>Where do they live → pick the closest clinic → "Dr. Singh sees a lot of patients like you"</li>
-          <li>Name the doctor: "That would be with Dr. Shabna Singh"</li>
-          <li>Give her title: "She's one of our senior specialists — 6 years in hair transplants, world-class trainer"</li>
-          <li>Give a reason tied to exactly what they told you in discovery — make it specific to their situation</li>
-        </ul>
-      </Card>
+      <ScriptBody>
+        That would be with <span style={{ fontWeight: 500 }}>Dr. Shabna Singh</span> at <span style={{ fontWeight: 500 }}>Nitai Medical & Cosmetic Centre</span> in Essendon.
+        She's one of our senior specialists — 6 years in hair transplants, world-class trainer.
+        Based on what you've told me, she's exactly the right person for you.
+      </ScriptBody>
+      <Coach>
+        Personalise to the specialist. Name the doctor and the clinic. Give a reason tied to exactly what they told you in discovery.
+      </Coach>
 
-      <Section title="Patient suburb → nearest clinic">
-        <div className="flex gap-2">
-          <input value={suburb} onChange={(e) => setSuburb(e.target.value)} placeholder="e.g. Brunswick VIC"
-            className="flex-1 px-3 py-2 rounded-md text-sm outline-none"
-            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-          <button onClick={() => void search()} disabled={loading}
-            className="px-4 py-2 rounded-md text-[13px] font-medium" style={{ background: COLORS.coral, color: "#ffffff" }}>
-            {loading ? "Searching…" : "Find Closest"}
-          </button>
-        </div>
-        {results.length > 0 && (
-          <div className="mt-3 space-y-2">
-            {results.map((c) => (
-              <button key={c.id} onClick={() => setSelectedClinicId(c.id)}
+      {clinics.length > 1 && (
+        <Section title="Choose clinic">
+          <div className="space-y-2">
+            {clinics.map((c) => (
+              <button
+                key={c.id}
+                onClick={() => setSelectedClinicId(c.id)}
                 className="w-full text-left px-3 py-2 rounded-md flex items-center justify-between"
                 style={{
                   background: selectedClinicId === c.id ? "rgba(45,107,228,0.15)" : "#f9f9f9",
                   border: `1px solid ${selectedClinicId === c.id ? COLORS.coral : COLORS.line}`,
-                }}>
+                }}
+              >
                 <div>
                   <div className="text-sm font-semibold">{c.clinic_name}</div>
                   <div className="text-[13px]" style={{ color: COLORS.muted }}>{c.address}</div>
                 </div>
-                <div className="text-[13px] font-medium" style={{ color: COLORS.green }}>{c.drive_text ?? "—"}</div>
               </button>
             ))}
           </div>
-        )}
-      </Section>
+        </Section>
+      )}
 
-      {selected && (
+      {display && (
         <Card className="px-5 py-5 mt-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <Label>Selected Clinic</Label>
-              <div className="text-base font-medium mt-1">{selected.clinic_name}</div>
-              <div className="text-sm" style={{ color: COLORS.muted }}>{selected.address}</div>
-              <div className="text-sm mt-1">{selected.doctor_name}</div>
-            </div>
-          </div>
-          {isNitai && (
+          <Label>Selected Clinic</Label>
+          <div className="text-base font-medium mt-1">{display.clinic_name}</div>
+          {display.doctor_name && <div className="text-sm mt-1">{display.doctor_name}</div>}
+          {display.address && <div className="text-sm" style={{ color: COLORS.muted }}>{display.address}</div>}
+          {showNitaiBlock && (
             <>
-              <p className="mt-3 text-[13px]" style={{ color: COLORS.muted }}>
+              <p className="mt-3 text-[13px]" style={{ color: COLORS.text }}>
                 Free parking on site · Near Lincoln Park · 5 mins from DFO · 10 mins Melbourne Airport · Off Tullamarine Freeway
               </p>
               <ul className="mt-4 text-sm space-y-1.5 list-disc pl-5">
