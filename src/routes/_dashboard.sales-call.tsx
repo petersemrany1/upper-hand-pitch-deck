@@ -142,8 +142,8 @@ function SalesCallPortal() {
   }
 
   return (
-    <div className="h-full flex" style={{ background: COLORS.bg, color: COLORS.text }}>
-      {/* LEFT — vertical step nav */}
+    <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
+      {/* LEFT — vertical step nav (desktop only) */}
       <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>
         <div className="px-5 py-5 border-b" style={{ borderColor: COLORS.line }}>
           <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: COLORS.hint, fontWeight: 500 }}>Sales Call</div>
@@ -189,7 +189,7 @@ function SalesCallPortal() {
       </aside>
 
       {/* CENTER */}
-      <main className="flex-1 overflow-y-auto px-6 py-6">
+      <main className="flex-1 overflow-y-auto px-4 md:px-6 py-6 min-h-0">
         <StepContent
           step={step}
           lead={active}
@@ -201,8 +201,15 @@ function SalesCallPortal() {
         />
       </main>
 
-      {/* RIGHT */}
-      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 320, background: "#ffffff", borderLeft: `0.5px solid ${COLORS.line}` }}>
+      {/* RIGHT — sidebar on desktop, stacked below on mobile */}
+      <aside
+        className="flex flex-col flex-shrink-0 w-full lg:w-[320px]"
+        style={{
+          background: "#ffffff",
+          borderLeft: `0.5px solid ${COLORS.line}`,
+          borderTop: `0.5px solid ${COLORS.line}`,
+        }}
+      >
         <RightPanel
           active={active}
           repId={repId}
