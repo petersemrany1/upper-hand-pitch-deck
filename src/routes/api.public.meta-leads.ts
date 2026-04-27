@@ -43,6 +43,17 @@ function asString(v: unknown): string | null {
   return s.length > 0 ? s.slice(0, 500) : null;
 }
 
+function cleanName(v: unknown): string | null {
+  const s = asString(v);
+  if (!s) return null;
+  const cleaned = s
+    .replace(/[\s,]+$/g, "")
+    .replace(/^[\s,]+/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 function asTimestamp(v: unknown): string | null {
   if (!v) return null;
   const d = new Date(String(v));
