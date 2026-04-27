@@ -98,7 +98,13 @@ function SalesCallPortal() {
     if (!user?.email) return;
     void ensureRepForEmail({ data: { email: user.email, name: user.user_metadata?.name ?? "" } })
       .then((r) => {
-        if (r.success && r.rep) { setRepId(r.rep.id); setRepName(r.rep.name); }
+        if (r.success && r.rep) {
+          setRepId(r.rep.id);
+          // Always prefer first_name from sales_reps; fall back to "there" so the script reads naturally.
+          const repAny = r.rep as { first_name?: string | null; name?: string | null };
+          const firstOnly = (repAny.first_name?.trim()) || (repAny.name?.split(" ")[0]?.trim()) || "there";
+          setRepName(firstOnly);
+        }
       });
   }, [user?.email, user?.user_metadata?.name]);
 
@@ -277,15 +283,11 @@ function StepContent({
         <Eyebrow>Step 2 — Opening</Eyebrow>
         <StepHeading>Set the Stage</StepHeading>
         <ScriptBody>
-          Hi <Pill name>{fname}</Pill> it's <Pill name>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
-          I saw you made a Facebook enquiry about {funding} and I wanted to make sure I called you straight away
+          Hi <Pill name>{fname}</Pill>, it's <Pill name>{repName || "there"}</Pill> from Hair Transplant Group, how are you?
+          I saw you made a Facebook enquiry about a hair transplant and I wanted to make sure I called you straight away
           — if I don't call you now I won't be able to call you back later, it's just so busy today.
-          So — what's happening with your hair situation <Pill name>{fname}</Pill>?
+          So — what's happening with your hair situation, <Pill name>{fname}</Pill>?
         </ScriptBody>
-        <Coach>
-          Name first → proves you're not spam. Who you are → reference their enquiry → pre-empt the callback objection immediately
-          → open question hands control to them. The "how are you" gets an automatic "good" — that breath is yours.
-        </Coach>
 
         <CalloutAmber title='"Call me back" handler'>
           That's not a problem at all — I know you won't expect my call. Do you have just one minute now, just to see if it even
@@ -293,7 +295,7 @@ function StepContent({
           <Coach>One minute calls become ten-minute calls. Just get them talking.</Coach>
         </CalloutAmber>
 
-        <NextBtn onClick={() => onAdvance("opening")} />
+        <Coach>Name → who you are → their enquiry → pre-empt callback → open question</Coach>
       </div>
     );
   }
