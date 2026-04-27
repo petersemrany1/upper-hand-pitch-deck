@@ -1410,9 +1410,37 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
     if (r.success) {
-      toast.success("Appointment booked — sending clinic handover...");
+      toast.success("Appointment booked!");
       onBooked();
+
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      const clinicName = selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre";
+      const doctorName = selectedClinic?.doctor_name ?? "Dr. Shabna Singh";
+
+      // 1. Send deposit SMS to patient
+      if (lead.phone) {
+        void sendDepositSmsToPatient({
+          data: {
+            leadId: lead.id,
+            firstName: lead.first_name ?? "there",
+            phone: lead.phone,
+            clinicName,
+            doctorName,
+            bookingDate: form.date,
+            bookingTime: form.time,
+          },
+        }).then((smsResult) => {
+          if (smsResult.success) {
+            toast.success("Deposit link sent to patient ✓");
+          } else {
+            toast.error(`Deposit SMS failed: ${smsResult.error}`);
+          }
+        });
+      } else {
+        toast.error("No phone number — deposit SMS not sent");
+      }
+
+      // 2. Send clinic handover email
       void sendClinicHandoverEmail({
         data: {
           leadId: lead.id,
@@ -1425,9 +1453,9 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
           financeEligible: lead.finance_eligible ?? null,
           bookingDate: form.date,
           bookingTime: form.time,
-          clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
+          clinicName,
           clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
-          doctorName: selectedClinic?.doctor_name ?? "Dr. Shabna Singh",
+          doctorName,
           depositPaid: false,
         },
       }).then((emailResult) => {
