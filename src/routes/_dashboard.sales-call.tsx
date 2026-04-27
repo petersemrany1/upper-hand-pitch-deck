@@ -7,10 +7,11 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
-  saveBooking, updateLeadStatus, logCallAttempt, ensureRepForEmail,
+  saveBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
 
@@ -1669,43 +1670,48 @@ function RightPanel({
   mmsImages: { name: string; url: string }[];
   onChangeLead: () => void;
 }) {
-  const [callTimer, setCallTimer] = useState(0);
-  const [callRunning, setCallRunning] = useState(false);
-  const [openObjection, setOpenObjection] = useState<string | null>(null);
+  void repId;
+  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
+  const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
+  const [callTimer, setCallTimer] = useState(0);
+  const [openObjection, setOpenObjection] = useState<string | null>(null);
+  const [keypadOpen, setKeypadOpen] = useState(false);
+
+  // Run the timer only when actually connected
   useEffect(() => {
-    if (!callRunning) return;
+    if (deviceStatus !== "in-call") return;
     const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
     return () => clearInterval(i);
-  }, [callRunning]);
+  }, [deviceStatus]);
+
+  // Reset timer when the call ends
+  useEffect(() => {
+    if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
+      setCallTimer(0);
+      setKeypadOpen(false);
+    }
+  }, [deviceStatus]);
 
   // Reset open objection when switching leads
-  useEffect(() => { setOpenObjection(null); setCallTimer(0); setCallRunning(false); }, [active.id]);
+  useEffect(() => { setOpenObjection(null); }, [active.id]);
 
-  const callNow = () => {
+  const callNow = async () => {
     if (!active.phone) { toast.error("No phone number"); return; }
-    window.location.href = `tel:${active.phone}`;
-    setCallRunning(true);
+    if (deviceStatus === "loading" || deviceStatus === "idle") {
+      toast.message("Dialler still warming up — try again in a moment.");
+      return;
+    }
+    try {
+      await placeCall(active.phone, { leadId: active.id });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to start call");
+    }
   };
 
   const sendImage = async (url: string) => {
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
     if (r.success) toast.success("Sent"); else toast.error(r.error);
-  };
-
-  const logAttempt = async (outcome: "no_answer" | "connected") => {
-    setCallRunning(false);
-    const slot = (() => {
-      const h = new Date().getHours();
-      if (h < 11) return "morning"; if (h < 14) return "lunch"; return "arvo";
-    })();
-    await logCallAttempt({ data: {
-      leadId: active.id, repId, outcome,
-      attemptNumber: 1, dialNumber: 1, dayNumber: active.day_number ?? 1, timeSlot: slot,
-      durationSeconds: callTimer,
-    }});
-    setCallTimer(0);
-    toast.success(outcome === "connected" ? "Marked connected" : "Logged no-answer");
   };
 
   const day = active.day_number ?? 1;
@@ -1714,6 +1720,9 @@ function RightPanel({
   const objectionResp = openObjection
     ? OBJECTIONS.find((o) => o.q === openObjection) ?? null
     : null;
+
+  const fmtTimer = `${Math.floor(callTimer / 60).toString().padStart(2, "0")}:${(callTimer % 60).toString().padStart(2, "0")}`;
+  const KEYPAD_KEYS = ["1","2","3","4","5","6","7","8","9","*","0","#"];
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -1783,56 +1792,95 @@ function RightPanel({
         </div>
       </div>
 
-      {/* Section 2 — Action buttons */}
+      {/* Section 2 — Call control */}
       <div style={{ padding: "0 18px 16px" }}>
-        <button
-          onClick={callNow}
-          className="w-full rounded-[8px] flex items-center justify-center gap-2"
-          style={{
-            background: COLORS.coral,
-            color: "#ffffff",
-            fontSize: 15,
-            fontWeight: 500,
-            padding: "14px 16px",
-          }}
-        >
-          📞 Call Now
-        </button>
-        {callRunning && (
-          <div className="text-center font-mono mt-2" style={{ color: COLORS.green, fontSize: 13 }}>
-            ⏱ {Math.floor(callTimer / 60).toString().padStart(2, "0")}:{(callTimer % 60).toString().padStart(2, "0")}
-          </div>
+        {!inCall ? (
+          <button
+            onClick={() => void callNow()}
+            disabled={deviceStatus === "loading" || deviceStatus === "idle"}
+            className="w-full rounded-[8px] flex items-center justify-center gap-2"
+            style={{
+              background: COLORS.coral,
+              color: "#ffffff",
+              fontSize: 15,
+              fontWeight: 500,
+              padding: "14px 16px",
+              opacity: deviceStatus === "loading" || deviceStatus === "idle" ? 0.6 : 1,
+            }}
+          >
+            📞 Call Now
+          </button>
+        ) : (
+          <>
+            <div
+              className="w-full rounded-[8px] flex items-center justify-center font-mono"
+              style={{
+                background: "#f0fdf4",
+                color: COLORS.green,
+                border: `1px solid ${COLORS.green}`,
+                fontSize: 18,
+                fontWeight: 600,
+                padding: "12px 16px",
+                letterSpacing: "0.05em",
+              }}
+            >
+              {deviceStatus === "connecting" ? "Connecting…" : `⏱ ${fmtTimer}`}
+            </div>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                onClick={() => hangup()}
+                className="rounded-[8px]"
+                style={{
+                  background: COLORS.red,
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "10px 12px",
+                }}
+              >
+                🔴 Hang Up
+              </button>
+              <button
+                onClick={() => setKeypadOpen((v) => !v)}
+                className="rounded-[8px]"
+                style={{
+                  background: keypadOpen ? "#111" : "#ffffff",
+                  color: keypadOpen ? "#ffffff" : "#111",
+                  border: `1px solid #111`,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: "10px 12px",
+                }}
+              >
+                ⌨️ Keypad
+              </button>
+            </div>
+            {keypadOpen && (
+              <div
+                className="mt-2 grid grid-cols-3 gap-2 p-3 rounded-[8px]"
+                style={{ background: "#fafaf9", border: `1px solid ${COLORS.line}` }}
+              >
+                {KEYPAD_KEYS.map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => sendDtmf(k)}
+                    className="rounded-[6px]"
+                    style={{
+                      background: "#ffffff",
+                      border: `1px solid ${COLORS.line}`,
+                      fontSize: 18,
+                      fontWeight: 500,
+                      padding: "10px 0",
+                      color: "#111",
+                    }}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
         )}
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <button
-            onClick={() => void logAttempt("connected")}
-            className="rounded-[8px]"
-            style={{
-              background: "#ffffff",
-              color: COLORS.green,
-              border: `1px solid ${COLORS.green}`,
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "10px 12px",
-            }}
-          >
-            ✅ Connected
-          </button>
-          <button
-            onClick={() => void logAttempt("no_answer")}
-            className="rounded-[8px]"
-            style={{
-              background: "#ffffff",
-              color: COLORS.red,
-              border: `1px solid ${COLORS.red}`,
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "10px 12px",
-            }}
-          >
-            ❌ No Answer
-          </button>
-        </div>
         <div style={{ marginTop: 10, fontSize: 12, color: COLORS.amberDark, fontWeight: 500 }}>
           🚫 Do not leave a voicemail
         </div>
