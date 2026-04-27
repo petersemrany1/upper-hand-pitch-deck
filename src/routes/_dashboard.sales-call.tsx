@@ -319,16 +319,10 @@ function StepContent({
         <Eyebrow>Step 3 — Discovery</Eyebrow>
         <StepHeading>Understand Their Pain (5–7 mins)</StepHeading>
 
-        <Card className="px-6 py-6">
-          <p style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, lineHeight: 1.6 }}>
-            So what's going on with your hair situation?
-          </p>
-        </Card>
-        <Card className="px-6 py-5 mt-4">
-          <p style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>
-            Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.
-          </p>
-        </Card>
+        <ScriptBody>
+          So what's going on with your hair situation?
+        </ScriptBody>
+        <Coach>Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.</Coach>
 
         <CalloutAmber title="Echoing technique">
           When they say something — echo it back. They say "I lose a lot in the shower." You say "You lose a lot in the shower?"
@@ -362,22 +356,14 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 4 — Amplification</Eyebrow>
         <StepHeading>Summarise Back</StepHeading>
-        <p style={{ fontSize: 14, color: COLORS.muted, lineHeight: 1.6, marginBottom: 16 }}>
-          Reflect their exact pain back in one sentence. This is the insurance sales framework.
-        </p>
-        <Card className="px-6 py-6">
-          <Label>Template</Label>
-          <div className="mt-3">
-            <ScriptBody>
-              So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
-              it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
-            </ScriptBody>
-          </div>
-          <Coach>
-            Get them to say yes. That yes means they feel completely heard. That yes is your bridge to education.
-            Don't rush it. Don't move on until you have it.
-          </Coach>
-        </Card>
+        <ScriptBody>
+          So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
+          it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+        </ScriptBody>
+        <Coach>
+          Reflect their exact pain back in one sentence. Get them to say yes — that yes means they feel completely heard
+          and is your bridge to education. Don't rush it. Don't move on until you have it.
+        </Coach>
         <Section title="Your amplification sentence">
           <textarea
             placeholder="Write your amplification sentence here before you say it out loud."
@@ -455,12 +441,10 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 7 — Commitment</Eyebrow>
         <StepHeading>Ask For Commitment</StepHeading>
-        <Card className="px-6 py-6">
-          <p style={{ fontSize: 16, fontWeight: 500, color: COLORS.text, lineHeight: 1.6 }}>
-            Based on all of that — is it something you wanna get sorted now? Where are you at with all of this?
-          </p>
-          <Coach>Wait for their answer. Let them tell you where they're at. Do not fill the silence.</Coach>
-        </Card>
+        <ScriptBody>
+          Based on all of that — is it something you wanna get sorted now? Where are you at with all of this?
+        </ScriptBody>
+        <Coach>Wait for their answer. Let them tell you where they're at. Do not fill the silence.</Coach>
         <div className="mt-5 grid gap-2">
           <RuleBad>Never say "would you like to book" — binary yes/no exit door.</RuleBad>
           <RuleBad>Never say "do you want to think about it" — you just lost them.</RuleBad>
