@@ -260,6 +260,7 @@ function SalesCallPortal() {
 
 function StepContent({
   step, lead, repName, repId, mmsImages, onAdvance, onMarkComplete,
+  discoveryNotes, setDiscoveryNotes, ampPrefill, setAmpPrefill, audioPrefill, setAudioPrefill,
 }: {
   step: StepKey;
   lead: Lead | null;
@@ -268,6 +269,12 @@ function StepContent({
   mmsImages: { name: string; url: string }[];
   onAdvance: (k: StepKey) => void;
   onMarkComplete: (k: StepKey) => void;
+  discoveryNotes: string;
+  setDiscoveryNotes: (v: string) => void;
+  ampPrefill: string;
+  setAmpPrefill: (v: string) => void;
+  audioPrefill: string;
+  setAudioPrefill: (v: string) => void;
 }) {
   if (!lead) {
     return (
