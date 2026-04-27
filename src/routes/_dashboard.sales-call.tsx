@@ -197,9 +197,6 @@ function SalesCallPortal() {
             );
           })}
         </nav>
-        <div className="px-5 py-4 border-t" style={{ borderColor: COLORS.line, fontSize: 13, color: COLORS.muted }}>
-          {repName ? <>Rep: <span style={{ color: COLORS.text, fontWeight: 500 }}>{repName}</span></> : "Loading rep…"}
-        </div>
       </aside>
 
       {/* CENTER */}
@@ -298,10 +295,10 @@ function StepContent({
           <Label>Primary Script</Label>
           <div className="mt-3">
             <ScriptBody>
-              Hi <Pill name>{fname}</Pill>, it's <Pill name>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
+              Hi <Pill name>{fname}</Pill> it's <Pill name>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
               I saw you made a Facebook enquiry about {funding} and I wanted to make sure I called you straight away
               — if I don't call you now I won't be able to call you back later, it's just so busy today.
-              So — what's happening with your hair situation, <Pill name>{fname}</Pill>?
+              So — what's happening with your hair situation <Pill name>{fname}</Pill>?
             </ScriptBody>
           </div>
           <Coach>
@@ -430,7 +427,7 @@ function StepContent({
             This is where the sale happens. Not at the deposit. Right here.
           </h1>
           <p style={{ marginTop: 16, fontSize: 16, color: COLORS.text, lineHeight: 1.7 }}>
-            <Pill name>{lead.first_name || "[name]"}</Pill>, I want you to picture something for me...
+            <Pill name>{lead.first_name || "[name]"}</Pill> I want you to picture something for me...
           </p>
           <ul style={{ marginTop: 20, fontSize: 14, color: COLORS.text, lineHeight: 1.7 }} className="space-y-3">
             <li>👉 Use their words — not generic phrases. Whatever they told you in discovery, feed it back into the picture you paint.</li>
