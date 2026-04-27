@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Trophy, Crown, Plus, Bot, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { addRep, getLeaderboard, ensureRepForEmail } from "@/utils/sales-call.functions";
+import { inviteRep, getLeaderboard, ensureRepForEmail } from "@/utils/sales-call.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_dashboard/leaderboard")({
@@ -23,7 +23,8 @@ function LeaderboardPage() {
   const [range, setRange] = useState<Range>("today");
   const [rows, setRows] = useState<Row[]>([]);
   const [showAdd, setShowAdd] = useState(false);
-  const [newRep, setNewRep] = useState({ name: "", email: "" });
+  const [newRep, setNewRep] = useState({ firstName: "", lastName: "", email: "" });
+  const [inviting, setInviting] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachText, setCoachText] = useState("");
   const [coachLoading, setCoachLoading] = useState(false);
@@ -46,10 +47,17 @@ function LeaderboardPage() {
   }, [range]);
 
   const onAddRep = async () => {
-    if (!newRep.name.trim()) { toast.error("Name required"); return; }
-    const r = await addRep({ data: newRep });
-    if (r.success) { toast.success("Rep added"); setNewRep({ name: "", email: "" }); setShowAdd(false); void load(); }
-    else toast.error(r.error);
+    if (!newRep.firstName.trim() || !newRep.lastName.trim() || !newRep.email.trim()) {
+      toast.error("First name, last name and email required"); return;
+    }
+    setInviting(true);
+    const r = await inviteRep({ data: newRep });
+    setInviting(false);
+    if (r.success) {
+      toast.success(`Invite sent to ${newRep.email}`);
+      setNewRep({ firstName: "", lastName: "", email: "" });
+      setShowAdd(false); void load();
+    } else toast.error(r.error);
   };
 
   const analyseLast = async () => {
@@ -191,13 +199,20 @@ function LeaderboardPage() {
               <div className="text-sm font-bold">Add Rep</div>
               <button onClick={() => setShowAdd(false)} style={{ color: C.muted }}><X className="h-4 w-4" /></button>
             </div>
+            <p className="text-xs mb-3" style={{ color: C.muted }}>
+              We'll send an email invite. They click the link, set their own password, then they're on the team.
+            </p>
             <div className="space-y-3">
-              <input value={newRep.name} onChange={(e) => setNewRep({ ...newRep, name: e.target.value })} placeholder="Name"
+              <div className="grid grid-cols-2 gap-2">
+                <input value={newRep.firstName} onChange={(e) => setNewRep({ ...newRep, firstName: e.target.value })} placeholder="First name"
+                  className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
+                <input value={newRep.lastName} onChange={(e) => setNewRep({ ...newRep, lastName: e.target.value })} placeholder="Last name"
+                  className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
+              </div>
+              <input value={newRep.email} onChange={(e) => setNewRep({ ...newRep, email: e.target.value })} placeholder="Email" type="email"
                 className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
-              <input value={newRep.email} onChange={(e) => setNewRep({ ...newRep, email: e.target.value })} placeholder="Email"
-                className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
-              <button onClick={() => void onAddRep()} className="w-full py-2 rounded-md text-xs font-bold"
-                style={{ background: C.green, color: "#ecfdf5" }}>Save</button>
+              <button onClick={() => void onAddRep()} disabled={inviting} className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-60"
+                style={{ background: C.blue, color: "#fff" }}>{inviting ? "Sending…" : "Send Invite"}</button>
             </div>
           </div>
         </div>
