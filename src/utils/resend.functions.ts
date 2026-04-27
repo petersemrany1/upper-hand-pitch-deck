@@ -705,8 +705,6 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     return result;
   });
 
-import { createStripeCheckoutSession } from "./stripe.functions";
-
 export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
