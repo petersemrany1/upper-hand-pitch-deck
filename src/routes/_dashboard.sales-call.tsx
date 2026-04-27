@@ -221,6 +221,12 @@ function SalesCallPortal() {
             mmsImages={mmsImages}
             onAdvance={advance}
             onMarkComplete={markStepComplete}
+            discoveryNotes={discoveryNotes}
+            setDiscoveryNotes={setDiscoveryNotes}
+            ampPrefill={ampPrefill}
+            setAmpPrefill={setAmpPrefill}
+            audioPrefill={audioPrefill}
+            setAudioPrefill={setAudioPrefill}
           />
         </div>
       </main>
