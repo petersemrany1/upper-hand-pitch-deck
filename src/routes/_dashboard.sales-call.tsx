@@ -268,20 +268,20 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 1 — Mindset</Eyebrow>
         <StepHeading>Changing Lives</StepHeading>
-        <Card className="px-7 py-9 text-center">
-          <p style={{ fontSize: 16, lineHeight: 1.7, color: COLORS.text, fontWeight: 400 }}>
-            I'm not here to simply book appointments — I'm here to transform <span style={{ fontWeight: 500 }}>{fname}'s</span> life.
-            If I don't help overcome the fears and objections, they won't get the treatment they desperately need.
-            They'll continue living in fear, watching their situation deteriorate — when they could be reclaiming their confidence and quality of life.
-          </p>
+        <ScriptBody>
+          I'm not here to simply book appointments — I'm here to transform <span style={{ fontWeight: 500 }}>{fname}'s</span> life.
+          If I don't help overcome the fears and objections, they won't get the treatment they desperately need.
+          They'll continue living in fear, watching their situation deteriorate — when they could be reclaiming their confidence and quality of life.
+        </ScriptBody>
+        <div className="mt-7 flex justify-end">
           <button
             onClick={() => onAdvance("mindset")}
-            className="mt-8 rounded-[6px]"
+            className="rounded-[6px]"
             style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 20px" }}
           >
             I'm ready
           </button>
-        </Card>
+        </div>
       </div>
     );
   }
