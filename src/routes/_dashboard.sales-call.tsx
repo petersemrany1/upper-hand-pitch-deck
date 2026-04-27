@@ -1434,68 +1434,86 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 10 — Deposit & Book</Eyebrow>
-      <StepHeading>Lock It In</StepHeading>
-      <CalloutAmber title="Get it before they hang up">
-        If you can't lock in a date today — get the follow-up call scheduled before they go.
-        Never let them leave without a next step.
-      </CalloutAmber>
-      <div style={{ marginTop: 16 }} />
+      <h1 style={{ fontSize: 18, fontWeight: 500, color: "#111", marginBottom: 8, lineHeight: 1.3 }}>Lock It In</h1>
+      <div
+        style={{
+          background: "#fffbeb",
+          border: "1px solid #fcd34d",
+          borderRadius: 8,
+          padding: "8px 12px",
+          fontSize: 12,
+          color: "#92400e",
+          marginBottom: 10,
+          lineHeight: 1.4,
+        }}
+      >
+        Get it before they hang up — if you can't lock in a date, schedule the follow-up call before they go.
+      </div>
 
-      <Card className="px-5 py-5 space-y-4">
-        <FormRow label="Clinic">
-          <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
-            <option value="">Select clinic…</option>
-            {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
-          </select>
-        </FormRow>
-        {clinic?.doctor_name && <div className="text-[13px]" style={{ color: COLORS.muted }}>Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span></div>}
-        <FormRow label="Gender">
-          <select value={form.gender} onChange={(e) => set("gender", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
-            <option value="">—</option><option>Male</option><option>Female</option><option>Other</option>
-          </select>
-        </FormRow>
-        <FormRow label="Date of Birth">
-          <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-        </FormRow>
-        <FormRow label="Funding type">
-          <div className="flex gap-2">
-            {["Savings", "Super", "Finance"].map((v) => (
-              <button key={v} onClick={() => set("funding", v)}
-                className="px-4 py-1.5 rounded-md text-[13px] font-medium"
-                style={{
-                  background: form.funding === v ? COLORS.coral : "#f9f9f9",
-                  color: form.funding === v ? "#fff" : COLORS.muted,
-                  border: `1px solid ${form.funding === v ? COLORS.coral : COLORS.line}`,
-                }}>{v}</button>
-            ))}
+      <Card className="px-4 py-3 space-y-2.5">
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <Label>Clinic</Label>
+            <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
+              <option value="">Select clinic…</option>
+              {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
+            </select>
           </div>
-        </FormRow>
-        <FormRow label="Booking date">
-          <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-        </FormRow>
-        <FormRow label="Time slot">
-          <input
-            type="time"
-            value={form.time}
-            onChange={(e) => set("time", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm"
-            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}
-          />
-          {clinic?.doctor_name && (
-            <div className="text-[12px] mt-1" style={{ color: COLORS.muted }}>
-              with {clinic.doctor_name}
+          <div>
+            <Label>Gender</Label>
+            <select value={form.gender} onChange={(e) => set("gender", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
+              <option value="">—</option><option>Male</option><option>Female</option><option>Other</option>
+            </select>
+          </div>
+        </div>
+
+        {clinic?.doctor_name && (
+          <div className="text-[12px]" style={{ color: COLORS.muted }}>
+            Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <Label>Date of Birth</Label>
+            <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+          </div>
+          <div>
+            <Label>Funding type</Label>
+            <div className="flex gap-1.5 mt-1">
+              {["Savings", "Super", "Finance"].map((v) => (
+                <button key={v} onClick={() => set("funding", v)}
+                  className="flex-1 px-2 py-1.5 rounded-md text-[12px] font-medium"
+                  style={{
+                    background: form.funding === v ? COLORS.coral : "#f9f9f9",
+                    color: form.funding === v ? "#fff" : COLORS.muted,
+                    border: `1px solid ${form.funding === v ? COLORS.coral : COLORS.line}`,
+                  }}>{v}</button>
+              ))}
             </div>
-          )}
-        </FormRow>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5">
+          <div>
+            <Label>Booking date</Label>
+            <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+          </div>
+          <div>
+            <Label>Time slot</Label>
+            <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+          </div>
+        </div>
 
         <button
           onClick={() => void book()}
           className="w-full rounded-[6px]"
-          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "12px 20px" }}
+          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4 }}
         >
           Book appointment
         </button>
