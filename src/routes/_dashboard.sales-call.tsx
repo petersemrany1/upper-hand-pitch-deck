@@ -189,16 +189,18 @@ function SalesCallPortal() {
       </aside>
 
       {/* CENTER */}
-      <main className="flex-1 overflow-y-auto px-4 md:px-6 py-6 min-h-0">
-        <StepContent
-          step={step}
-          lead={active}
-          repName={repName}
-          repId={repId}
-          mmsImages={mmsImages}
-          onAdvance={advance}
-          onMarkComplete={markStepComplete}
-        />
+      <main className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center justify-center px-6 py-[60px]">
+        <div className="w-full" style={{ maxWidth: 640 }}>
+          <StepContent
+            step={step}
+            lead={active}
+            repName={repName}
+            repId={repId}
+            mmsImages={mmsImages}
+            onAdvance={advance}
+            onMarkComplete={markStepComplete}
+          />
+        </div>
       </main>
 
       {/* RIGHT — sidebar on desktop, stacked below on mobile */}
