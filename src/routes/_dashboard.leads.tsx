@@ -156,11 +156,15 @@ function LeadsPage() {
     if (!editLead || !editForm) return;
     setSaving(true);
     setSaveError(null);
-    const payload: Record<string, string | null> = {};
-    for (const k of EDITABLE_KEYS) {
-      const v = editForm[k].trim();
-      payload[k] = v === "" ? null : v;
-    }
+    const payload = {
+      first_name: editForm.first_name.trim() || null,
+      last_name: editForm.last_name.trim() || null,
+      email: editForm.email.trim() || null,
+      phone: editForm.phone.trim() || null,
+      funding_preference: editForm.funding_preference.trim() || null,
+      status: editForm.status.trim() || "new",
+      call_notes: editForm.call_notes.trim() || null,
+    };
     const { data, error } = await supabase
       .from("meta_leads")
       .update(payload)
