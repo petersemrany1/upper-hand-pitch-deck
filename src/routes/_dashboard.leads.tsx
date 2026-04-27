@@ -107,7 +107,9 @@ function LeadsPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-[#111111]">Meta Leads</h1>
           <p className="text-sm text-[#111111] mt-1">
-            {loading ? "Loading…" : `${filtered.length} of ${rows.length} leads`}
+            {loading
+              ? "Loading…"
+              : `${filtered.length} of ${rows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
           </p>
         </div>
 
