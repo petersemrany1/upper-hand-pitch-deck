@@ -142,12 +142,23 @@ function SalesCallPortal() {
     if (idx >= 0 && idx < STEPS.length - 1) setStep(STEPS[idx + 1].key);
   };
 
+  // Hydrate discovery notes from the active lead's saved call_notes
+  useEffect(() => {
+    if (active) {
+      setDiscoveryNotes(active.call_notes ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
   // Show full-screen lead chooser before entering the framework
   if (!active) {
     return (
       <LeadChooser
         leads={leads}
-        onPick={(id) => { setActiveId(id); setStep("mindset"); setCompleted(new Set()); }}
+        onPick={(id) => {
+          setActiveId(id); setStep("mindset"); setCompleted(new Set());
+          setAmpPrefill(""); setAudioPrefill("");
+        }}
       />
     );
   }
