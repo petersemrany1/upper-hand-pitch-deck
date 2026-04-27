@@ -296,8 +296,6 @@ function StepContent({
         </CalloutAmber>
 
         <Coach>Name → who you are → their enquiry → pre-empt callback → open question</Coach>
-
-        <NextBtn onClick={() => onAdvance("opening")} label="Next" />
       </div>
     );
   }
