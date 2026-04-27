@@ -150,6 +150,16 @@ function SalesCallPortal() {
     if (idx >= 0 && idx < STEPS.length - 1) setStep(STEPS[idx + 1].key);
   };
 
+  // Show full-screen lead chooser before entering the framework
+  if (!active) {
+    return (
+      <LeadChooser
+        leads={leads}
+        onPick={(id) => { setActiveId(id); setStep("mindset"); setCompleted(new Set()); }}
+      />
+    );
+  }
+
   return (
     <div className="h-full flex" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav */}
@@ -211,18 +221,12 @@ function SalesCallPortal() {
       </main>
 
       {/* RIGHT */}
-      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 320, background: "#ffffff", borderLeft: `1px solid ${COLORS.line}` }}>
+      <aside className="hidden lg:flex flex-col flex-shrink-0" style={{ width: 320, background: "#ffffff", borderLeft: `0.5px solid ${COLORS.line}` }}>
         <RightPanel
           active={active}
-          leads={filtered}
           repId={repId}
           mmsImages={mmsImages}
-          step={step}
-          search={search}
-          setSearch={setSearch}
-          filter={filter}
-          setFilter={setFilter}
-          setActiveId={setActiveId}
+          onChangeLead={() => setActiveId(null)}
         />
       </aside>
 
