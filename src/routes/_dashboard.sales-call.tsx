@@ -93,6 +93,10 @@ function SalesCallPortal() {
   const [repId, setRepId] = useState<string | null>(null);
   const [repName, setRepName] = useState<string>("");
   const [mmsImages, setMmsImages] = useState<{ name: string; url: string }[]>([]);
+  // Discovery notes + AI pre-fill, lifted so they persist across steps and feed amplification/audiobook
+  const [discoveryNotes, setDiscoveryNotes] = useState<string>("");
+  const [ampPrefill, setAmpPrefill] = useState<string>("");
+  const [audioPrefill, setAudioPrefill] = useState<string>("");
 
   // Resolve rep from auth email
   useEffect(() => {
