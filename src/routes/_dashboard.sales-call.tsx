@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
-  Check, AlertTriangle, Send, Search, X,
+  Check, AlertTriangle, Send, Search, X, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
