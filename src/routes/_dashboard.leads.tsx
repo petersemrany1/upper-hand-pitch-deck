@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Search, Mail, Phone as PhoneIcon, Trash2 } from "lucide-react";
+import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/leads")({
@@ -19,6 +19,8 @@ type Lead = {
   campaign_name: string | null;
   creative_time: string | null;
   created_at: string;
+  status?: string | null;
+  call_notes?: string | null;
 };
 
 const fmtDate = (s: string | null) => {
@@ -28,12 +30,47 @@ const fmtDate = (s: string | null) => {
   });
 };
 
+type EditableFields = {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  funding_preference: string;
+  status: string;
+  call_notes: string;
+};
+
+const EDITABLE_KEYS: (keyof EditableFields)[] = [
+  "first_name",
+  "last_name",
+  "email",
+  "phone",
+  "funding_preference",
+  "status",
+  "call_notes",
+];
+
+const toForm = (r: Lead): EditableFields => ({
+  first_name: r.first_name ?? "",
+  last_name: r.last_name ?? "",
+  email: r.email ?? "",
+  phone: r.phone ?? "",
+  funding_preference: r.funding_preference ?? "",
+  status: r.status ?? "",
+  call_notes: r.call_notes ?? "",
+});
+
 function LeadsPage() {
   const [rows, setRows] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const [editLead, setEditLead] = useState<Lead | null>(null);
+  const [editForm, setEditForm] = useState<EditableFields | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -57,7 +94,6 @@ function LeadsPage() {
   }, []);
 
   // Detect duplicates: same normalized phone, or same email when phone is missing.
-  // A row is a duplicate if its key appears more than once across all leads.
   const normPhone = (p: string | null) => (p ?? "").replace(/\D/g, "");
   const normEmail = (e: string | null) => (e ?? "").trim().toLowerCase();
   const dupKeys = new Set<string>();
@@ -92,13 +128,60 @@ function LeadsPage() {
     );
   });
 
-
   const handleDelete = async (id: string) => {
     setBusyId(id);
-    await supabase.from("meta_leads").delete().eq("id", id);
+    const { error } = await supabase.from("meta_leads").delete().eq("id", id);
+    if (!error) {
+      // Optimistically remove from UI immediately
+      setRows((prev) => prev.filter((r) => r.id !== id));
+    }
     setConfirmDeleteId(null);
     setBusyId(null);
-    await load();
+  };
+
+  const openEdit = (r: Lead) => {
+    setSaveError(null);
+    setEditLead(r);
+    setEditForm(toForm(r));
+  };
+
+  const closeEdit = () => {
+    if (saving) return;
+    setEditLead(null);
+    setEditForm(null);
+    setSaveError(null);
+  };
+
+  const saveEdit = async () => {
+    if (!editLead || !editForm) return;
+    setSaving(true);
+    setSaveError(null);
+    const payload = {
+      first_name: editForm.first_name.trim() || null,
+      last_name: editForm.last_name.trim() || null,
+      email: editForm.email.trim() || null,
+      phone: editForm.phone.trim() || null,
+      funding_preference: editForm.funding_preference.trim() || null,
+      status: editForm.status.trim() || "new",
+      call_notes: editForm.call_notes.trim() || null,
+    };
+    const { data, error } = await supabase
+      .from("meta_leads")
+      .update(payload)
+      .eq("id", editLead.id)
+      .select()
+      .single();
+    if (error) {
+      setSaveError(error.message);
+      setSaving(false);
+      return;
+    }
+    if (data) {
+      setRows((prev) => prev.map((r) => (r.id === editLead.id ? { ...r, ...(data as Lead) } : r)));
+    }
+    setSaving(false);
+    setEditLead(null);
+    setEditForm(null);
   };
 
   return (
@@ -216,13 +299,22 @@ function LeadsPage() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => setConfirmDeleteId(r.id)}
-                              className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-red-400 hover:bg-red-500/10"
-                              title="Delete lead"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                onClick={() => openEdit(r)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-[#f4522d] hover:bg-[#f4522d]/10"
+                                title="Edit lead"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setConfirmDeleteId(r.id)}
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-red-400 hover:bg-red-500/10"
+                                title="Delete lead"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -234,6 +326,97 @@ function LeadsPage() {
           )}
         </div>
       </div>
+
+      {editLead && editForm && (
+        <div className="fixed inset-0 z-50 flex">
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={closeEdit}
+            aria-hidden
+          />
+          <div
+            className="relative ml-auto h-full w-full sm:max-w-md bg-white shadow-xl flex flex-col"
+            style={{ background: "#ffffff" }}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebebeb]">
+              <div>
+                <h2 className="text-lg font-semibold text-[#111111]">Edit lead</h2>
+                <p className="text-xs text-[#666] mt-0.5">
+                  {[editLead.first_name, editLead.last_name].filter(Boolean).join(" ") || "Untitled lead"}
+                </p>
+              </div>
+              <button
+                onClick={closeEdit}
+                disabled={saving}
+                className="p-1.5 rounded hover:bg-[#f3f3f3] text-[#111111] disabled:opacity-50"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+              {(
+                [
+                  ["first_name", "First name"],
+                  ["last_name", "Last name"],
+                  ["email", "Email"],
+                  ["phone", "Phone"],
+                  ["funding_preference", "Funding preference"],
+                  ["status", "Status"],
+                ] as [keyof EditableFields, string][]
+              ).map(([key, label]) => (
+                <div key={key} className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium uppercase tracking-wider text-[#666]">{label}</label>
+                  <input
+                    type="text"
+                    value={editForm[key]}
+                    onChange={(e) =>
+                      setEditForm((prev) => (prev ? { ...prev, [key]: e.target.value } : prev))
+                    }
+                    className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                  />
+                </div>
+              ))}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Call notes</label>
+                <textarea
+                  rows={5}
+                  value={editForm.call_notes}
+                  onChange={(e) =>
+                    setEditForm((prev) => (prev ? { ...prev, call_notes: e.target.value } : prev))
+                  }
+                  className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d] resize-y"
+                />
+              </div>
+
+              {saveError && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+                  {saveError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#ebebeb] bg-white">
+              <button
+                onClick={closeEdit}
+                disabled={saving}
+                className="px-3 py-2 rounded-md text-sm text-[#111111] bg-[#f3f3f3] hover:bg-[#e9e9e9] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveEdit}
+                disabled={saving}
+                className="px-3 py-2 rounded-md text-sm text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
