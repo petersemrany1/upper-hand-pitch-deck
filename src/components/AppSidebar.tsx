@@ -120,20 +120,14 @@ export function AppSidebar() {
                         onMouseEnter={(e) => {
                           if (!active) {
                             e.currentTarget.style.background = "#f5f5f5";
-                            e.currentTarget.style.borderLeftColor = "#e5e5e5";
                           }
                         }}
                         onMouseLeave={(e) => {
                           if (!active) {
                             e.currentTarget.style.background = "transparent";
-                            e.currentTarget.style.borderLeftColor = "transparent";
                           }
                         }}
-                        style={{
-                          borderLeft: active ? "2px solid #f4522d" : "2px solid transparent",
-                          transition: "all 0.15s ease",
-                          cursor: "pointer",
-                        }}
+                        style={{ cursor: "pointer", transition: "background 0.15s ease" }}
                       >
                         <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
                         <span className="flex-1">{item.title}</span>
