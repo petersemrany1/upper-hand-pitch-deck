@@ -551,21 +551,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function NextBtn({ onClick, gold }: { onClick: () => void; gold?: boolean }) {
+function NextBtn({ onClick, gold, label = "I'm ready" }: { onClick: () => void; gold?: boolean; label?: string }) {
   return (
-    <div className="mt-7 flex justify-end">
+    <div className="flex justify-center" style={{ marginTop: 40 }}>
       <button
         onClick={onClick}
-        className="rounded-[6px]"
+        className="rounded-[8px]"
         style={{
-          background: gold ? COLORS.gold : COLORS.green,
+          background: gold ? COLORS.gold : COLORS.coral,
           color: "#ffffff",
-          fontSize: 13,
+          fontSize: 15,
           fontWeight: 500,
-          padding: "10px 20px",
+          padding: "14px 32px",
+          minWidth: 200,
+          cursor: "pointer",
         }}
       >
-        Mark complete
+        {label}
       </button>
     </div>
   );
