@@ -75,7 +75,10 @@ function DashboardLayout() {
     return (
       <>
         <DeviceBootstrap />
-        <Outlet />
+        {/* PROTECTED — pitch-deck-root scope restores original dark theme tokens */}
+        <div className="pitch-deck-root">
+          <Outlet />
+        </div>
         <IncomingCallDialog />
         <FloatingCallWidget />
         <SmsNotifier />
