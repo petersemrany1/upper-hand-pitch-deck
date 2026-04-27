@@ -653,14 +653,16 @@ function StepHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Script body: clean, plain, 14px, no inline highlights
+// Script body: prominent "Say this" card — white, 2px coral left border, 14px #111
 function ScriptBody({ children }: { children: React.ReactNode }) {
   return (
     <div
       className="rounded-[6px]"
       style={{
-        background: "#f9f9f9",
-        padding: "16px 18px",
+        background: "#ffffff",
+        border: `0.5px solid ${COLORS.line}`,
+        borderLeft: `2px solid ${COLORS.coral}`,
+        padding: "18px 20px",
         fontSize: 14,
         lineHeight: 1.7,
         fontWeight: 400,
