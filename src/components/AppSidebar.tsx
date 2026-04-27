@@ -110,12 +110,24 @@ export function AppSidebar() {
                         fontWeight: active ? 500 : 400,
                         transition: "all 0.15s ease",
                         height: 36,
+                        cursor: "pointer",
                       }}
                     >
                       <Link
                         to={item.url}
                         className="relative"
                         onClick={() => { if (isMobile) setOpenMobile(false); }}
+                        onMouseEnter={(e) => {
+                          if (!active) {
+                            e.currentTarget.style.background = "#f5f5f5";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!active) {
+                            e.currentTarget.style.background = "transparent";
+                          }
+                        }}
+                        style={{ cursor: "pointer", transition: "background 0.15s ease" }}
                       >
                         <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
                         <span className="flex-1">{item.title}</span>
