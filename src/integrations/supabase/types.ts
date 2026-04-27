@@ -189,6 +189,11 @@ export type Database = {
           address: string | null
           city: string | null
           clinic_name: string
+          consult_includes: string | null
+          consult_persuasion_lines: Json
+          consult_price_deposit: number | null
+          consult_price_free: boolean
+          consult_price_original: number | null
           created_at: string
           doctor_name: string | null
           email: string | null
@@ -208,6 +213,11 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name: string
+          consult_includes?: string | null
+          consult_persuasion_lines?: Json
+          consult_price_deposit?: number | null
+          consult_price_free?: boolean
+          consult_price_original?: number | null
           created_at?: string
           doctor_name?: string | null
           email?: string | null
@@ -227,6 +237,11 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string
+          consult_includes?: string | null
+          consult_persuasion_lines?: Json
+          consult_price_deposit?: number | null
+          consult_price_free?: boolean
+          consult_price_original?: number | null
           created_at?: string
           doctor_name?: string | null
           email?: string | null
