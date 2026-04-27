@@ -535,7 +535,7 @@ function StepContent({
           Fantastic. Fantastic. I want to get you in with <Pill name>Dr. [NAME]</Pill> — honestly based on everything you've told me, <Pill name>Dr. [NAME]</Pill> is exactly who you want for this. [reference what they said on the call]. Let me just pull up the availability now."
           <Coach>Presume the booking.</Coach>
         </CalloutGreen>
-        <NextBtn onClick={() => onAdvance("commitment")} />
+        
       </div>
     );
   }
