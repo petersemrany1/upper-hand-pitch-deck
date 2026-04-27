@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
   saveBooking, updateLeadStatus, logCallAttempt, ensureRepForEmail,
+  saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
@@ -92,6 +93,10 @@ function SalesCallPortal() {
   const [repId, setRepId] = useState<string | null>(null);
   const [repName, setRepName] = useState<string>("");
   const [mmsImages, setMmsImages] = useState<{ name: string; url: string }[]>([]);
+  // Discovery notes + AI pre-fill, lifted so they persist across steps and feed amplification/audiobook
+  const [discoveryNotes, setDiscoveryNotes] = useState<string>("");
+  const [ampPrefill, setAmpPrefill] = useState<string>("");
+  const [audioPrefill, setAudioPrefill] = useState<string>("");
 
   // Resolve rep from auth email
   useEffect(() => {
@@ -137,12 +142,23 @@ function SalesCallPortal() {
     if (idx >= 0 && idx < STEPS.length - 1) setStep(STEPS[idx + 1].key);
   };
 
+  // Hydrate discovery notes from the active lead's saved call_notes
+  useEffect(() => {
+    if (active) {
+      setDiscoveryNotes(active.call_notes ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
   // Show full-screen lead chooser before entering the framework
   if (!active) {
     return (
       <LeadChooser
         leads={leads}
-        onPick={(id) => { setActiveId(id); setStep("mindset"); setCompleted(new Set()); }}
+        onPick={(id) => {
+          setActiveId(id); setStep("mindset"); setCompleted(new Set());
+          setAmpPrefill(""); setAudioPrefill("");
+        }}
       />
     );
   }
@@ -205,6 +221,12 @@ function SalesCallPortal() {
             mmsImages={mmsImages}
             onAdvance={advance}
             onMarkComplete={markStepComplete}
+            discoveryNotes={discoveryNotes}
+            setDiscoveryNotes={setDiscoveryNotes}
+            ampPrefill={ampPrefill}
+            setAmpPrefill={setAmpPrefill}
+            audioPrefill={audioPrefill}
+            setAudioPrefill={setAudioPrefill}
           />
         </div>
       </main>
@@ -238,6 +260,7 @@ function SalesCallPortal() {
 
 function StepContent({
   step, lead, repName, repId, mmsImages, onAdvance, onMarkComplete,
+  discoveryNotes, setDiscoveryNotes, ampPrefill, setAmpPrefill, audioPrefill, setAudioPrefill,
 }: {
   step: StepKey;
   lead: Lead | null;
@@ -246,6 +269,12 @@ function StepContent({
   mmsImages: { name: string; url: string }[];
   onAdvance: (k: StepKey) => void;
   onMarkComplete: (k: StepKey) => void;
+  discoveryNotes: string;
+  setDiscoveryNotes: (v: string) => void;
+  ampPrefill: string;
+  setAmpPrefill: (v: string) => void;
+  audioPrefill: string;
+  setAudioPrefill: (v: string) => void;
 }) {
   if (!lead) {
     return (
@@ -302,39 +331,13 @@ function StepContent({
 
   if (step === "discovery") {
     return (
-      <div className="max-w-2xl mx-auto">
-        <Eyebrow>Step 3 — Discovery</Eyebrow>
-        <StepHeading>Understand Their Pain (5–7 mins)</StepHeading>
-
-        <ScriptBody>
-          So what's going on with your hair situation?
-        </ScriptBody>
-        <Coach>Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.</Coach>
-
-        <CalloutAmber title="Echoing technique">
-          When they say something — echo it back. They say "I lose a lot in the shower." You say "You lose a lot in the shower?"
-          with genuine curiosity. This proves you heard them. Do it throughout the call.
-        </CalloutAmber>
-
-        <DiscoveryChecklist />
-        <Section title="History">
-          <textarea
-            placeholder="Write down everything they tell you. Word for word. You will use their exact words in amplification and audiobook."
-            className="w-full rounded-[6px] outline-none"
-            style={{
-              background: "#f9f9f9",
-              border: `0.5px solid ${COLORS.line}`,
-              color: COLORS.text,
-              fontSize: 14,
-              lineHeight: 1.6,
-              padding: 12,
-              minHeight: 140,
-            }}
-          />
-        </Section>
-
-        <NextBtn onClick={() => onAdvance("discovery")} />
-      </div>
+      <DiscoveryStep
+        lead={lead}
+        notes={discoveryNotes}
+        setNotes={setDiscoveryNotes}
+        setAmpPrefill={setAmpPrefill}
+        setAudioPrefill={setAudioPrefill}
+      />
     );
   }
 
@@ -343,16 +346,22 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 4 — Amplification</Eyebrow>
         <StepHeading>Summarise Back</StepHeading>
-        <ScriptBody>
-          So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
-          it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
-        </ScriptBody>
+        {ampPrefill ? (
+          <ScriptBody>{ampPrefill}</ScriptBody>
+        ) : (
+          <ScriptBody>
+            So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
+            it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+          </ScriptBody>
+        )}
         <Coach>
           Reflect their exact pain back in one sentence. Get them to say yes — that yes means they feel completely heard
           and is your bridge to education. Don't rush it. Don't move on until you have it.
         </Coach>
         <Section title="Your amplification sentence">
           <textarea
+            value={ampPrefill}
+            onChange={(e) => setAmpPrefill(e.target.value)}
             placeholder="Write your amplification sentence here before you say it out loud."
             className="w-full rounded-[6px] outline-none"
             style={{
@@ -397,6 +406,20 @@ function StepContent({
           <p style={{ marginTop: 16, fontSize: 16, color: COLORS.text, lineHeight: 1.7 }}>
             <Pill name>{lead.first_name || "[name]"}</Pill> I want you to picture something for me...
           </p>
+          {audioPrefill && (
+            <div style={{
+              marginTop: 16,
+              padding: "14px 16px",
+              borderRadius: 6,
+              background: "#ffffff",
+              border: `0.5px solid ${COLORS.gold}`,
+            }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.gold, fontWeight: 500, marginBottom: 6 }}>
+                AI-suggested picture (from discovery)
+              </div>
+              <p style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.7 }}>{audioPrefill}</p>
+            </div>
+          )}
           <ul style={{ marginTop: 20, fontSize: 14, color: COLORS.text, lineHeight: 1.7 }} className="space-y-3">
             <li>👉 Use their words — not generic phrases. Whatever they told you in discovery, feed it back into the picture you paint.</li>
             <li>👉 Reference at least 2 specific things they actually said — their hairline, their confidence, their why now moment, how long they've dealt with it, what they've tried.</li>
@@ -707,56 +730,220 @@ function CalloutGreen({ title, children }: { title: string; children: React.Reac
 }
 
 function DiscoveryChecklist() {
-  const items = [
-    "Where on the head is the loss happening?",
-    "How long has it been happening?",
-    "Is it hereditary? Does it run in the family?",
-    "What have they already tried? (medication, concealers, etc.)",
-    null, // why now special
-    "How does it make you feel? (use carefully — position as an advisor)",
+  // Compact, tight checklist. Items strikethrough + fade when checked.
+  type Item = { key: string; text: string; whyNow?: false } | { key: "why-now"; whyNow: true };
+  const items: Item[] = [
+    { key: "where", text: "Where on the head is the loss happening?" },
+    { key: "how-long", text: "How long has it been happening?" },
+    { key: "hereditary", text: "Is it hereditary?" },
+    { key: "tried", text: "What have they already tried?" },
+    { key: "why-now", whyNow: true },
+    { key: "feel", text: "How does it make you feel?" },
   ];
-  const [checked, setChecked] = useState<Set<number>>(new Set());
-  const [whyNow, setWhyNow] = useState(false);
-  const toggle = (i: number) => setChecked((s) => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n; });
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const toggle = (k: string) => setChecked((s) => {
+    const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
+  });
+
   return (
-    <Section title="Discovery checklist">
-      <div className="space-y-2">
-        {items.map((it, i) => it === null ? (
-          <label
-            key="why-now"
-            className="flex items-start gap-3 cursor-pointer"
-            style={{
-              background: COLORS.amberBg,
-              borderLeft: `2px solid ${COLORS.amber}`,
-              borderRadius: 0,
-              padding: "12px 14px",
-            }}
-          >
-            <input type="checkbox" checked={whyNow} onChange={() => setWhyNow((v) => !v)} className="mt-1" />
-            <div>
-              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amberDark, fontWeight: 500 }}>
-                Why now?
-              </div>
-              <p style={{ fontSize: 13, marginTop: 6, color: COLORS.amberDark, lineHeight: 1.6 }}>
-                Critical. There is always a reason they enquired today. A wedding. An event. A birthday. A photo that upset them.
-                Something changed. Find it. This is your anchor for the entire call — you will use it in audiobook.
-              </p>
-            </div>
-          </label>
-        ) : (
-          <label
-            key={i}
-            className="flex items-center gap-3 cursor-pointer rounded-[6px]"
-            style={{ padding: "10px 12px", background: "transparent" }}
-          >
-            <input type="checkbox" checked={checked.has(i)} onChange={() => toggle(i)} />
-            <span style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.6 }}>{it}</span>
-          </label>
-        ))}
+    <div style={{ marginTop: 32 }}>
+      <div style={{
+        fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
+        color: COLORS.text, fontWeight: 500, marginBottom: 12,
+      }}>
+        Checklist
       </div>
-    </Section>
+      <div className="flex flex-col" style={{ gap: 4 }}>
+        {items.map((it) => {
+          if (it.whyNow) {
+            const isOn = checked.has("why-now");
+            return (
+              <label key="why-now" className="flex items-center gap-3 cursor-pointer" style={{ padding: "6px 0" }}>
+                <input type="checkbox" checked={isOn} onChange={() => toggle("why-now")} />
+                <span className="inline-block rounded-full" style={{ width: 6, height: 6, background: COLORS.amber, flexShrink: 0 }} />
+                <span style={{
+                  fontSize: 15, lineHeight: 1.5, color: COLORS.amberDark, fontWeight: 600,
+                  opacity: isOn ? 0.5 : 1,
+                  textDecoration: isOn ? "line-through" : "none",
+                }}>
+                  ⚠️ WHY NOW?
+                </span>
+                <span style={{
+                  fontSize: 14, color: COLORS.amberDark, fontStyle: "italic",
+                  opacity: isOn ? 0.5 : 1,
+                  textDecoration: isOn ? "line-through" : "none",
+                }}>
+                  Always a reason. Find it.
+                </span>
+              </label>
+            );
+          }
+          const isOn = checked.has(it.key);
+          return (
+            <label key={it.key} className="flex items-center gap-3 cursor-pointer" style={{ padding: "6px 0" }}>
+              <input type="checkbox" checked={isOn} onChange={() => toggle(it.key)} />
+              <span style={{
+                fontSize: 15, lineHeight: 1.5, color: COLORS.text,
+                opacity: isOn ? 0.5 : 1,
+                textDecoration: isOn ? "line-through" : "none",
+              }}>
+                {it.text}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
   );
 }
+
+function DiscoveryStep({
+  lead, notes, setNotes, setAmpPrefill, setAudioPrefill,
+}: {
+  lead: Lead;
+  notes: string;
+  setNotes: (v: string) => void;
+  setAmpPrefill: (v: string) => void;
+  setAudioPrefill: (v: string) => void;
+}) {
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDone, setAiDone] = useState(false);
+
+  // Debounced auto-save to meta_leads.call_notes (1s)
+  useEffect(() => {
+    if (!lead?.id) return;
+    const handle = setTimeout(() => {
+      void saveCallNotes({ data: { leadId: lead.id, notes } }).then((r) => {
+        if (r.success) setSavedAt(Date.now());
+      });
+    }, 1000);
+    return () => clearTimeout(handle);
+  }, [notes, lead?.id]);
+
+  const handleAi = async () => {
+    if (!notes.trim()) {
+      toast.error("Add some discovery notes first");
+      return;
+    }
+    setAiLoading(true); setAiDone(false);
+    const r = await discoveryToAmpAudio({ data: { notes } });
+    setAiLoading(false);
+    if (r.success) {
+      setAmpPrefill(r.amplification);
+      setAudioPrefill(r.audiobook);
+      setAiDone(true);
+      toast.success("Next steps updated");
+    } else {
+      toast.error(r.error);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div style={{
+        fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em",
+        color: COLORS.coral, marginBottom: 12, textAlign: "center",
+      }}>
+        Discovery
+      </div>
+      <h1 style={{
+        fontSize: 36, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
+        textAlign: "center", letterSpacing: "-0.01em", marginBottom: 8,
+      }}>
+        Understand Their Pain
+      </h1>
+      <div style={{ fontSize: 16, color: COLORS.text, textAlign: "center", marginBottom: 40 }}>
+        5 – 7 mins
+      </div>
+
+      {/* Opening question — most prominent */}
+      <div style={{
+        fontSize: 22, fontWeight: 500, color: COLORS.text,
+        lineHeight: 1.4, textAlign: "center",
+      }}>
+        So what's going on with your hair situation?
+      </div>
+      <div style={{
+        marginTop: 16, fontSize: 14, fontStyle: "italic", color: "#666",
+        textAlign: "center", lineHeight: 1.6,
+      }}>
+        Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.
+      </div>
+
+      {/* Checklist */}
+      <DiscoveryChecklist />
+
+      {/* History */}
+      <div style={{ marginTop: 40 }}>
+        <div style={{
+          fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
+          color: COLORS.text, fontWeight: 500, marginBottom: 12,
+        }}>
+          History
+        </div>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Write what they tell you..."
+          className="w-full rounded-[6px] outline-none discovery-history"
+          style={{
+            background: "#f9f9f9",
+            border: `0.5px solid ${COLORS.line}`,
+            color: COLORS.text,
+            fontSize: 15,
+            lineHeight: 1.6,
+            padding: 14,
+            minHeight: 180,
+          }}
+        />
+        <div style={{ marginTop: 6, height: 16, fontSize: 12, color: "#888" }}>
+          {savedAt ? "Saved" : ""}
+        </div>
+
+        {/* AI pre-fill button */}
+        <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 8 }}>
+          <button
+            onClick={() => void handleAi()}
+            disabled={aiLoading}
+            className="rounded-[8px]"
+            style={{
+              background: COLORS.coral,
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 500,
+              padding: "12px 22px",
+              cursor: aiLoading ? "wait" : "pointer",
+              opacity: aiLoading ? 0.7 : 1,
+            }}
+          >
+            {aiLoading ? "Generating…" : "Use in next steps →"}
+          </button>
+          {aiDone && !aiLoading && (
+            <div style={{ fontSize: 13, color: COLORS.green }}>
+              Done — next steps updated
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Echoing tip — quiet reminder at very bottom */}
+      <p style={{
+        marginTop: 48, fontSize: 13, fontStyle: "italic",
+        color: COLORS.text, textAlign: "center", lineHeight: 1.6,
+      }}>
+        Echoing tip: when they say something — repeat it back as a question with genuine curiosity.
+      </p>
+
+      {/* Override the global #111 placeholder for this textarea so it reads light. */}
+      <style>{`
+        textarea.discovery-history::placeholder { color: #bbbbbb !important; opacity: 1; }
+      `}</style>
+    </div>
+  );
+}
+
 
 function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImages: { name: string; url: string }[]; onNext: () => void; repId: string | null }) {
   void repId;
