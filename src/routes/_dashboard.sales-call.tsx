@@ -477,8 +477,8 @@ function StepContent({
           {examples.map((ex, i) => (
             <div key={i}>
               <div style={{
-                fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
-                color: COLORS.text, fontWeight: 600, marginBottom: 6,
+                fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em",
+                color: COLORS.text, fontWeight: 600, marginBottom: 8,
               }}>
                 {ex.label}
               </div>
@@ -486,8 +486,8 @@ function StepContent({
                 background: "#ffffff",
                 border: `0.5px solid ${COLORS.line}`,
                 borderRadius: 8,
-                padding: 16,
-                fontSize: 15,
+                padding: 20,
+                fontSize: 17,
                 fontStyle: "italic",
                 color: COLORS.text,
                 lineHeight: 1.8,
