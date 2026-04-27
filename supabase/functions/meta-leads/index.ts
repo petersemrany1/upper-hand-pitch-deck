@@ -41,6 +41,21 @@ function asString(v: unknown): string | null {
   return s.length > 0 ? s.slice(0, 500) : null;
 }
 
+// Clean person names: strip trailing commas/whitespace and collapse internal whitespace.
+// Make.com sometimes appends ", " to first_name (e.g. "Sam, ").
+function cleanName(v: unknown): string | null {
+  const s = asString(v);
+  if (!s) return null;
+  const cleaned = s.replace(/[\s,]+$/g, "").replace(/^[\s,]+/g, "").replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function asTimestamp(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const d = new Date(String(v));
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
 function isUuid(v: unknown): v is string {
   if (typeof v !== "string") return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
