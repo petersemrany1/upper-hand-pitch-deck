@@ -1423,7 +1423,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   }, []);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
   const clinic = clinics.find((c) => c.id === form.clinicId);
-  const slots = ["09:00", "10:30", "12:00", "14:00", "15:30"];
+  
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
@@ -1460,14 +1460,6 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
           <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
             className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
-        <FormRow label="Health fund">
-          <input value={form.healthFund} onChange={(e) => set("healthFund", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-        </FormRow>
-        <FormRow label="Address / Suburb">
-          <input value={form.address} onChange={(e) => set("address", e.target.value)}
-            className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-        </FormRow>
         <FormRow label="Funding type">
           <div className="flex gap-2">
             {["Savings", "Super", "Finance"].map((v) => (
@@ -1481,22 +1473,23 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
             ))}
           </div>
         </FormRow>
-        <FormRow label="Date">
+        <FormRow label="Booking date">
           <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
             className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
         </FormRow>
         <FormRow label="Time slot">
-          <div className="flex gap-2 flex-wrap">
-            {slots.map((s) => (
-              <button key={s} onClick={() => set("time", s)}
-                className="px-3 py-1.5 rounded-md text-[13px] font-medium"
-                style={{
-                  background: form.time === s ? COLORS.green : "#f9f9f9",
-                  color: form.time === s ? "#ecfdf5" : COLORS.muted,
-                  border: `1px solid ${form.time === s ? COLORS.green : COLORS.line}`,
-                }}>{s} {clinic?.doctor_name ? `· ${clinic.doctor_name.split(" ").slice(-1)[0]}` : ""}</button>
-            ))}
-          </div>
+          <input
+            type="time"
+            value={form.time}
+            onChange={(e) => set("time", e.target.value)}
+            className="w-full px-3 py-2 rounded-md text-sm"
+            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}
+          />
+          {clinic?.doctor_name && (
+            <div className="text-[12px] mt-1" style={{ color: COLORS.muted }}>
+              with {clinic.doctor_name}
+            </div>
+          )}
         </FormRow>
 
         <button
