@@ -357,15 +357,6 @@ function StepContent({
           So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
           it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
         </p>
-        <p style={{
-          fontSize: 14,
-          fontStyle: "italic",
-          color: "#666",
-          textAlign: "center",
-          lineHeight: 1.6,
-        }}>
-          Get them to say yes. That yes is your bridge to education.
-        </p>
       </div>
     );
   }
