@@ -836,18 +836,28 @@ function DiscoveryStep({
         Understand Their Pain <span style={{ fontSize: 16, fontWeight: 400, color: COLORS.text }}>(5–7 mins)</span>
       </h1>
 
-      {/* Opening question — most prominent */}
+      {/* Opening question — script card */}
       <div style={{
-        fontSize: 26, fontWeight: 500, color: COLORS.text,
-        lineHeight: 1.3, textAlign: "center",
+        marginTop: 16,
+        background: "#ffffff",
+        borderLeft: `2px solid ${COLORS.coral}`,
+        borderRadius: "0 8px 8px 0",
+        padding: "16px 20px",
       }}>
-        So what's going on with your hair situation?
-      </div>
-      <div style={{
-        marginTop: 8, fontSize: 13, fontStyle: "italic", color: "#666",
-        textAlign: "center", lineHeight: 1.5,
-      }}>
-        Ask it. Then stop. Don't interrupt. Let them lead.
+        <div style={{
+          fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em",
+          color: COLORS.coral, marginBottom: 8,
+        }}>
+          Say this
+        </div>
+        <div style={{ fontSize: 20, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
+          So what's going on with your hair situation?
+        </div>
+        <div style={{
+          marginTop: 10, fontSize: 13, fontStyle: "italic", color: COLORS.text, lineHeight: 1.5,
+        }}>
+          Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.
+        </div>
       </div>
 
       {/* Checklist */}
