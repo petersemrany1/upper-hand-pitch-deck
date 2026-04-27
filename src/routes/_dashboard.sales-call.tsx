@@ -346,36 +346,26 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 4 — Amplification</Eyebrow>
         <StepHeading>Summarise Back</StepHeading>
-        {ampPrefill ? (
-          <ScriptBody>{ampPrefill}</ScriptBody>
-        ) : (
-          <ScriptBody>
-            So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
-            it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
-          </ScriptBody>
-        )}
-        <Coach>
-          Reflect their exact pain back in one sentence. Get them to say yes — that yes means they feel completely heard
-          and is your bridge to education. Don't rush it. Don't move on until you have it.
-        </Coach>
-        <Section title="Your amplification sentence">
-          <textarea
-            value={ampPrefill}
-            onChange={(e) => setAmpPrefill(e.target.value)}
-            placeholder="Write your amplification sentence here before you say it out loud."
-            className="w-full rounded-[6px] outline-none"
-            style={{
-              background: "#f9f9f9",
-              border: `0.5px solid ${COLORS.line}`,
-              color: COLORS.text,
-              fontSize: 14,
-              lineHeight: 1.6,
-              padding: 12,
-              minHeight: 100,
-            }}
-          />
-        </Section>
-        <NextBtn onClick={() => onAdvance("amplification")} />
+        <p style={{
+          padding: "40px 0",
+          fontSize: 20,
+          lineHeight: 1.8,
+          fontWeight: 400,
+          color: COLORS.text,
+          textAlign: "center",
+        }}>
+          So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
+          it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+        </p>
+        <p style={{
+          fontSize: 14,
+          fontStyle: "italic",
+          color: "#666",
+          textAlign: "center",
+          lineHeight: 1.6,
+        }}>
+          Get them to say yes. That yes is your bridge to education.
+        </p>
       </div>
     );
   }
