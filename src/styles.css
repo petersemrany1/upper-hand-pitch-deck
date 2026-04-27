@@ -256,3 +256,77 @@
 *::-webkit-scrollbar-track { background: transparent; }
 *::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 *::-webkit-scrollbar-thumb:hover { background: #111111; }
+
+/* =====================================================================
+   PROTECTED — Pitch deck dark theme scope.
+   Restores the ORIGINAL dark design tokens used before the bulk recolor.
+   Applies ONLY to descendants of .pitch-deck-root so the rest of the
+   portal keeps its light theme. Do NOT remove or override.
+   ===================================================================== */
+.pitch-deck-root {
+  --background: oklch(0.05 0 0);
+  --foreground: oklch(1 0 0);
+  --card: oklch(0.12 0 0);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.12 0 0);
+  --popover-foreground: oklch(1 0 0);
+  --primary: oklch(0.48 0.22 264);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.12 0 0);
+  --secondary-foreground: oklch(1 0 0);
+  --muted: oklch(0.12 0 0);
+  --muted-foreground: oklch(0.55 0 0);
+  --accent: oklch(0.48 0.22 264);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.2 0 0);
+  --input: oklch(0.15 0 0);
+  --ring: oklch(0.48 0.22 264);
+
+  --font-heading: "Inter", "Helvetica Neue", "Arial", sans-serif;
+  --font-body: "Inter", "Helvetica Neue", "Arial", sans-serif;
+
+  background-color: oklch(0.05 0 0);
+  color: oklch(1 0 0);
+  font-family: var(--font-body);
+  width: 100%;
+  height: 100%;
+}
+
+/* Re-enable shadows inside the deck (the global rule kills them) */
+.pitch-deck-root .shadow,
+.pitch-deck-root .shadow-sm,
+.pitch-deck-root .shadow-md,
+.pitch-deck-root .shadow-lg,
+.pitch-deck-root .shadow-xl,
+.pitch-deck-root .shadow-2xl,
+.pitch-deck-root [class*="shadow-["] {
+  box-shadow: revert !important;
+}
+
+/* Inputs inside the deck use the dark theme, not the global light input style */
+.pitch-deck-root input,
+.pitch-deck-root textarea,
+.pitch-deck-root select {
+  background-color: oklch(0.15 0 0);
+  color: oklch(1 0 0);
+  border: 1px solid oklch(0.2 0 0);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+}
+.pitch-deck-root input::placeholder,
+.pitch-deck-root textarea::placeholder {
+  color: oklch(0.55 0 0);
+}
+.pitch-deck-root input:focus,
+.pitch-deck-root textarea:focus,
+.pitch-deck-root select:focus {
+  outline: none;
+  border-color: oklch(0.48 0.22 264);
+}
+
+/* Reset hairline border-width override from global @layer base * { border-width: 0 } */
+.pitch-deck-root * {
+  border-color: var(--border);
+}
