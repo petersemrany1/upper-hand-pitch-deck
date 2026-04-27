@@ -844,14 +844,8 @@ function DiscoveryStep({
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
       }}>
-        <div style={{
-          fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em",
-          color: COLORS.coral, marginBottom: 8,
-        }}>
-          Say this
-        </div>
         <div style={{ fontSize: 20, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
-          So what's going on with your hair situation?
+          "So what's going on with your hair situation?"
         </div>
         <div style={{
           marginTop: 10, fontSize: 13, fontStyle: "italic", color: COLORS.text, lineHeight: 1.5,
