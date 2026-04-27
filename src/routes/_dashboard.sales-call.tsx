@@ -611,16 +611,18 @@ function RuleGood({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Step heading: large 22px heading, weight 500, generous bottom margin
+// Step heading: large 36px Apple-reveal heading
 function StepHeading({ children }: { children: React.ReactNode }) {
   return (
     <h1
       style={{
-        fontSize: 22,
+        fontSize: 36,
         fontWeight: 500,
         color: COLORS.text,
-        marginBottom: 20,
-        lineHeight: 1.3,
+        marginBottom: 32,
+        lineHeight: 1.2,
+        textAlign: "center",
+        letterSpacing: "-0.01em",
       }}
     >
       {children}
@@ -628,20 +630,18 @@ function StepHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Script body: prominent "Say this" card — white, 2px coral left border, 14px #111
+// Script body: large, plain, centred. No card, no border, no background.
+// Just the text breathing on white.
 function ScriptBody({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="rounded-[6px]"
       style={{
-        background: "#ffffff",
-        border: `0.5px solid ${COLORS.line}`,
-        borderLeft: `2px solid ${COLORS.coral}`,
-        padding: "18px 20px",
-        fontSize: 14,
-        lineHeight: 1.7,
+        padding: "40px 0",
+        fontSize: 18,
+        lineHeight: 1.8,
         fontWeight: 400,
         color: COLORS.text,
+        textAlign: "center",
       }}
     >
       {children}
