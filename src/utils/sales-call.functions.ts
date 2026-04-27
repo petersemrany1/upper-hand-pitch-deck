@@ -318,7 +318,7 @@ export const inviteRep = createServerFn({ method: "POST" })
       },
     );
     if (inviteErr) {
-      await logError({ data: { error_message: inviteErr.message, function_name: "inviteRep", context: { email: data.email } } });
+      await logError("inviteRep", inviteErr.message, { email: data.email });
       return { success: false as const, error: inviteErr.message };
     }
 
