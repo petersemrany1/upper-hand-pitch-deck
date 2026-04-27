@@ -80,7 +80,7 @@ function LeadsPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "#ffffff" }}>
+    <div className="h-full md:h-screen overflow-y-auto" style={{ background: "#ffffff" }}>
       <div className="px-6 py-8 max-w-[1600px] mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-[#111111]">Meta Leads</h1>
