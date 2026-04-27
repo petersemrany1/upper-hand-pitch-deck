@@ -291,21 +291,16 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 2 — Opening</Eyebrow>
         <StepHeading>Set the Stage</StepHeading>
-        <Card className="px-6 py-6">
-          <Label>Primary Script</Label>
-          <div className="mt-3">
-            <ScriptBody>
-              Hi <Pill name>{fname}</Pill> it's <Pill name>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
-              I saw you made a Facebook enquiry about {funding} and I wanted to make sure I called you straight away
-              — if I don't call you now I won't be able to call you back later, it's just so busy today.
-              So — what's happening with your hair situation <Pill name>{fname}</Pill>?
-            </ScriptBody>
-          </div>
-          <Coach>
-            Name first → proves you're not spam. Who you are → reference their enquiry → pre-empt the callback objection immediately
-            → open question hands control to them. The "how are you" gets an automatic "good" — that breath is yours.
-          </Coach>
-        </Card>
+        <ScriptBody>
+          Hi <Pill name>{fname}</Pill> it's <Pill name>{repName || "[your name]"}</Pill> from Hair Transplant Group, how are you?
+          I saw you made a Facebook enquiry about {funding} and I wanted to make sure I called you straight away
+          — if I don't call you now I won't be able to call you back later, it's just so busy today.
+          So — what's happening with your hair situation <Pill name>{fname}</Pill>?
+        </ScriptBody>
+        <Coach>
+          Name first → proves you're not spam. Who you are → reference their enquiry → pre-empt the callback objection immediately
+          → open question hands control to them. The "how are you" gets an automatic "good" — that breath is yours.
+        </Coach>
 
         <CalloutAmber title='"Call me back" handler'>
           That's not a problem at all — I know you won't expect my call. Do you have just one minute now, just to see if it even
