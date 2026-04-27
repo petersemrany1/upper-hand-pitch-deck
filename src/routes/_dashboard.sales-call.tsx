@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
-  saveBooking, updateLeadStatus, logCallAttempt, ensureRepForEmail,
+  saveBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
 
