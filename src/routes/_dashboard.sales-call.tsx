@@ -41,7 +41,7 @@ const STEPS = [
   { key: "education", label: "EDUCATION", Icon: GraduationCap },
   { key: "audiobook", label: "AUDIOBOOK", Icon: Sparkles, special: true },
   { key: "commitment", label: "COMMITMENT", Icon: HandshakeIcon },
-  { key: "price", label: "PRICE & SELL", Icon: DollarSign },
+  { key: "price", label: "PRICE & SELL THE SPECIALIST", Icon: DollarSign },
   { key: "finance", label: "FINANCE CHECK", Icon: ShieldCheck },
   { key: "booking", label: "DEPOSIT & BOOK", Icon: CalendarIcon },
 ] as const;
@@ -1210,22 +1210,13 @@ function PriceStep({ onNext }: { onNext: () => void }) {
     address: "64 Lincoln Rd, Essendon VIC 3040",
   };
 
-  const journey = [
-    "The consult includes a full medical assessment, hair design, imaging — all in one appointment, no obligation.",
-    "Normally this consult is $395...",
-    "...we do have some complimentary spots available...",
-    "...there is just a $75 deposit to secure your spot...",
-    "...which is fully refunded when you arrive...",
-    "...we do this because we do turn people away for these slots. Does that sound fair?",
-  ];
-
   const display = selected ?? (clinics.length === 0 ? nitaiFallback : null);
   const showNitaiBlock = isNitai || (!selected && clinics.length === 0);
 
   return (
     <div className="max-w-2xl mx-auto">
-      <Eyebrow>Step 8 — Price & Sell</Eyebrow>
-      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 20, lineHeight: 1.3 }}>Present Price</h1>
+      <Eyebrow>Step 8 — Price & Sell The Specialist</Eyebrow>
+      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 12, lineHeight: 1.3 }}>Present Price</h1>
 
       <ScriptBody>
         That would be with <span style={{ fontWeight: 500 }}>Dr. Shabna Singh</span> at <span style={{ fontWeight: 500 }}>Nitai Medical & Cosmetic Centre</span> in Essendon.
@@ -1235,6 +1226,45 @@ function PriceStep({ onNext }: { onNext: () => void }) {
       <Coach>
         Personalise to the specialist. Name the doctor and the clinic. Give a reason tied to exactly what they told you in discovery.
       </Coach>
+
+      {/* Pricing Breakdown Block */}
+      <div
+        style={{
+          background: "#fafaf9",
+          border: `1px solid ${COLORS.line}`,
+          borderRadius: 10,
+          padding: "18px 20px",
+          marginTop: 14,
+          marginBottom: 18,
+          textAlign: "left",
+        }}
+      >
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#111", marginBottom: 8 }}>
+          The consult includes
+        </div>
+        <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.6 }}>
+          CBCT + facial scan + smile design + colour matching + OPG + smile preview → all one appointment → no obligation
+        </div>
+
+        <div style={{ height: 16 }} />
+
+        <div style={{ fontSize: 20, lineHeight: 1.4, color: "#111" }}>
+          <span style={{ fontWeight: 700 }}>$395</span>
+          <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
+          <span style={{ fontWeight: 700 }}>FREE</span>
+          <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
+          <span style={{ fontWeight: 700 }}>$75</span>
+          <span style={{ color: COLORS.muted, marginLeft: 10, fontSize: 13, fontWeight: 400 }}>(this exact order)</span>
+        </div>
+
+        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>$395 → free spots</div>
+          <div style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>$75 refundable → refunded when you arrive</div>
+          <div style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>turning away others</div>
+        </div>
+      </div>
+
+      <div style={{ height: 1, background: COLORS.line, margin: "8px 0 18px" }} />
 
       {clinics.length > 1 && (
         <Section title="Choose clinic">
@@ -1260,17 +1290,17 @@ function PriceStep({ onNext }: { onNext: () => void }) {
       )}
 
       {display && (
-        <Card className="px-5 py-5 mt-4">
+        <Card className="px-5 py-4 mt-2">
           <Label>Selected Clinic</Label>
           <div className="text-base font-medium mt-1">{display.clinic_name}</div>
-          {display.doctor_name && <div className="text-sm mt-1">{display.doctor_name}</div>}
+          {display.doctor_name && <div className="text-sm mt-0.5">{display.doctor_name}</div>}
           {display.address && <div className="text-sm" style={{ color: COLORS.muted }}>{display.address}</div>}
           {showNitaiBlock && (
             <>
-              <p className="mt-3 text-[13px]" style={{ color: COLORS.text }}>
+              <p className="mt-2 text-[13px]" style={{ color: COLORS.text }}>
                 Free parking on site · Near Lincoln Park · 5 mins from DFO · 10 mins Melbourne Airport · Off Tullamarine Freeway
               </p>
-              <ul className="mt-4 text-sm space-y-1.5 list-disc pl-5">
+              <ul className="mt-3 text-sm space-y-1 list-disc pl-5">
                 <li>Transparent pricing — the quote you get is the quote, never charged a patient more on the day</li>
                 <li>Elite hair design — natural look, personalised to your face shape and hair loss pattern</li>
                 <li>Full aftercare included — PRP, stem cell treatments, ongoing medication management</li>
@@ -1283,12 +1313,6 @@ function PriceStep({ onNext }: { onNext: () => void }) {
           )}
         </Card>
       )}
-
-      <Section title="Section B — The Price Journey (read in order)">
-        <ol className="space-y-2 list-decimal pl-5">
-          {journey.map((line) => <li key={line} className="text-sm leading-relaxed">{line}</li>)}
-        </ol>
-      </Section>
 
       <NextBtn onClick={onNext} />
     </div>
