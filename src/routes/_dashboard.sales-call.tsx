@@ -406,6 +406,20 @@ function StepContent({
           <p style={{ marginTop: 16, fontSize: 16, color: COLORS.text, lineHeight: 1.7 }}>
             <Pill name>{lead.first_name || "[name]"}</Pill> I want you to picture something for me...
           </p>
+          {audioPrefill && (
+            <div style={{
+              marginTop: 16,
+              padding: "14px 16px",
+              borderRadius: 6,
+              background: "#ffffff",
+              border: `0.5px solid ${COLORS.gold}`,
+            }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.gold, fontWeight: 500, marginBottom: 6 }}>
+                AI-suggested picture (from discovery)
+              </div>
+              <p style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.7 }}>{audioPrefill}</p>
+            </div>
+          )}
           <ul style={{ marginTop: 20, fontSize: 14, color: COLORS.text, lineHeight: 1.7 }} className="space-y-3">
             <li>👉 Use their words — not generic phrases. Whatever they told you in discovery, feed it back into the picture you paint.</li>
             <li>👉 Reference at least 2 specific things they actually said — their hairline, their confidence, their why now moment, how long they've dealt with it, what they've tried.</li>
