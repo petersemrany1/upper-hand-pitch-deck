@@ -189,16 +189,18 @@ function SalesCallPortal() {
       </aside>
 
       {/* CENTER */}
-      <main className="flex-1 overflow-y-auto px-4 md:px-6 py-6 min-h-0">
-        <StepContent
-          step={step}
-          lead={active}
-          repName={repName}
-          repId={repId}
-          mmsImages={mmsImages}
-          onAdvance={advance}
-          onMarkComplete={markStepComplete}
-        />
+      <main className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center justify-center px-6 py-[60px]">
+        <div className="w-full" style={{ maxWidth: 640 }}>
+          <StepContent
+            step={step}
+            lead={active}
+            repName={repName}
+            repId={repId}
+            mmsImages={mmsImages}
+            onAdvance={advance}
+            onMarkComplete={markStepComplete}
+          />
+        </div>
       </main>
 
       {/* RIGHT — sidebar on desktop, stacked below on mobile */}
@@ -263,15 +265,7 @@ function StepContent({
           If I don't help overcome the fears and objections, they won't get the treatment they desperately need.
           They'll continue living in fear, watching their situation deteriorate — when they could be reclaiming their confidence and quality of life.
         </ScriptBody>
-        <div className="mt-7 flex justify-end">
-          <button
-            onClick={() => onAdvance("mindset")}
-            className="rounded-[6px]"
-            style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "10px 20px" }}
-          >
-            I'm ready
-          </button>
-        </div>
+        <NextBtn onClick={() => onAdvance("mindset")} label="I'm ready" />
       </div>
     );
   }
@@ -482,13 +476,14 @@ function Card({ className = "", children }: { className?: string; children: Reac
 function Eyebrow({ children, gold }: { children: React.ReactNode; gold?: boolean }) {
   return (
     <div
-      className="mb-2"
       style={{
-        fontSize: 12,
+        fontSize: 11,
         fontWeight: 500,
         textTransform: "uppercase",
-        letterSpacing: "0.05em",
+        letterSpacing: "0.08em",
         color: gold ? COLORS.gold : COLORS.coral,
+        marginBottom: 12,
+        textAlign: "center",
       }}
     >
       {children}
@@ -525,12 +520,13 @@ function Pill({ children, name }: { children: React.ReactNode; name?: boolean; g
 function Coach({ children }: { children: React.ReactNode }) {
   return (
     <p
-      className="mt-3"
       style={{
-        fontSize: 13,
-        lineHeight: 1.6,
+        marginTop: 24,
+        fontSize: 14,
+        lineHeight: 1.7,
         fontStyle: "italic",
-        color: COLORS.muted,
+        color: "#666666",
+        textAlign: "center",
       }}
     >
       {children}
@@ -547,21 +543,23 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function NextBtn({ onClick, gold }: { onClick: () => void; gold?: boolean }) {
+function NextBtn({ onClick, gold, label = "I'm ready" }: { onClick: () => void; gold?: boolean; label?: string }) {
   return (
-    <div className="mt-7 flex justify-end">
+    <div className="flex justify-center" style={{ marginTop: 40 }}>
       <button
         onClick={onClick}
-        className="rounded-[6px]"
+        className="rounded-[8px]"
         style={{
-          background: gold ? COLORS.gold : COLORS.green,
+          background: gold ? COLORS.gold : COLORS.coral,
           color: "#ffffff",
-          fontSize: 13,
+          fontSize: 15,
           fontWeight: 500,
-          padding: "10px 20px",
+          padding: "14px 32px",
+          minWidth: 200,
+          cursor: "pointer",
         }}
       >
-        Mark complete
+        {label}
       </button>
     </div>
   );
@@ -605,16 +603,18 @@ function RuleGood({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Step heading: large 22px heading, weight 500, generous bottom margin
+// Step heading: large 36px Apple-reveal heading
 function StepHeading({ children }: { children: React.ReactNode }) {
   return (
     <h1
       style={{
-        fontSize: 22,
+        fontSize: 36,
         fontWeight: 500,
         color: COLORS.text,
-        marginBottom: 20,
-        lineHeight: 1.3,
+        marginBottom: 32,
+        lineHeight: 1.2,
+        textAlign: "center",
+        letterSpacing: "-0.01em",
       }}
     >
       {children}
@@ -622,20 +622,18 @@ function StepHeading({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Script body: prominent "Say this" card — white, 2px coral left border, 14px #111
+// Script body: large, plain, centred. No card, no border, no background.
+// Just the text breathing on white.
 function ScriptBody({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="rounded-[6px]"
       style={{
-        background: "#ffffff",
-        border: `0.5px solid ${COLORS.line}`,
-        borderLeft: `2px solid ${COLORS.coral}`,
-        padding: "18px 20px",
-        fontSize: 14,
-        lineHeight: 1.7,
+        padding: "40px 0",
+        fontSize: 18,
+        lineHeight: 1.8,
         fontWeight: 400,
         color: COLORS.text,
+        textAlign: "center",
       }}
     >
       {children}
