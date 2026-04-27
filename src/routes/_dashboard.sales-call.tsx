@@ -1409,7 +1409,37 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
-    if (r.success) { toast.success("Appointment booked"); onBooked(); } else toast.error(r.error);
+    if (r.success) {
+      toast.success("Appointment booked — sending clinic handover...");
+      onBooked();
+      const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      void sendClinicHandoverEmail({
+        data: {
+          leadId: lead.id,
+          firstName: lead.first_name ?? "",
+          lastName: lead.last_name ?? "",
+          email: lead.email ?? null,
+          phone: lead.phone ?? null,
+          callNotes: lead.call_notes ?? "",
+          fundingPreference: lead.funding_preference ?? form.funding,
+          financeEligible: lead.finance_eligible ?? null,
+          bookingDate: form.date,
+          bookingTime: form.time,
+          clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
+          clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
+          doctorName: selectedClinic?.doctor_name ?? "Dr. Shabna Singh",
+          depositPaid: false,
+        },
+      }).then((emailResult) => {
+        if (emailResult.success) {
+          toast.success("Clinic handover email sent ✓");
+        } else {
+          toast.error("Booking saved but handover email failed — check logs");
+        }
+      });
+    } else {
+      toast.error(r.error);
+    }
   };
 
   return (
