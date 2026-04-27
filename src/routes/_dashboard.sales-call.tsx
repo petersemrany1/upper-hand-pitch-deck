@@ -110,13 +110,11 @@ function SalesCallPortal() {
     const load = async () => {
       const { data } = await supabase.from("meta_leads").select("*").order("created_at", { ascending: false }).limit(500);
       setLeads((data ?? []) as Lead[]);
-      if (!activeId && data && data.length > 0) setActiveId(data[0].id);
     };
     void load();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, load).subscribe();
     return () => { void supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load MMS images
