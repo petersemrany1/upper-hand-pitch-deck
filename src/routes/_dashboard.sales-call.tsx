@@ -331,39 +331,13 @@ function StepContent({
 
   if (step === "discovery") {
     return (
-      <div className="max-w-2xl mx-auto">
-        <Eyebrow>Step 3 — Discovery</Eyebrow>
-        <StepHeading>Understand Their Pain (5–7 mins)</StepHeading>
-
-        <ScriptBody>
-          So what's going on with your hair situation?
-        </ScriptBody>
-        <Coach>Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.</Coach>
-
-        <CalloutAmber title="Echoing technique">
-          When they say something — echo it back. They say "I lose a lot in the shower." You say "You lose a lot in the shower?"
-          with genuine curiosity. This proves you heard them. Do it throughout the call.
-        </CalloutAmber>
-
-        <DiscoveryChecklist />
-        <Section title="History">
-          <textarea
-            placeholder="Write down everything they tell you. Word for word. You will use their exact words in amplification and audiobook."
-            className="w-full rounded-[6px] outline-none"
-            style={{
-              background: "#f9f9f9",
-              border: `0.5px solid ${COLORS.line}`,
-              color: COLORS.text,
-              fontSize: 14,
-              lineHeight: 1.6,
-              padding: 12,
-              minHeight: 140,
-            }}
-          />
-        </Section>
-
-        <NextBtn onClick={() => onAdvance("discovery")} />
-      </div>
+      <DiscoveryStep
+        lead={lead}
+        notes={discoveryNotes}
+        setNotes={setDiscoveryNotes}
+        setAmpPrefill={setAmpPrefill}
+        setAudioPrefill={setAudioPrefill}
+      />
     );
   }
 
