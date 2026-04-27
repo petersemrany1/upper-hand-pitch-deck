@@ -52,14 +52,38 @@ export async function validateTwilioSignature(
     return false;
   }
 
-  // Twilio signs the URL it called. Honor the standard proxy headers so the
-  // signature still validates when Supabase Edge sits behind a proxy.
+  // Twilio signs the exact URL it called. Inside the Supabase Edge runtime,
+  // req.url reports the internal "https://edge-runtime.supabase.com/<name>"
+  // URL — not the public "https://<ref>.functions.supabase.co/<name>" or
+  // "https://<ref>.supabase.co/functions/v1/<name>" that Twilio actually
+  // signed. Rebuild candidate URLs from forwarded headers + SUPABASE_URL and
+  // accept the request if any of them produces a matching signature.
   const original = new URL(req.url);
   const xfProto = req.headers.get("x-forwarded-proto");
   const xfHost = req.headers.get("x-forwarded-host") || req.headers.get("host");
   if (xfProto) original.protocol = `${xfProto}:`;
   if (xfHost) original.host = xfHost;
-  const url = original.toString();
+
+  const fnName = original.pathname.replace(/^\/+/, "").split("/")[0];
+  const search = original.search || "";
+
+  const candidates = new Set<string>();
+  candidates.add(original.toString());
+
+  const supaUrl = Deno.env.get("SUPABASE_URL");
+  if (supaUrl && fnName) {
+    try {
+      const ref = new URL(supaUrl).host.split(".")[0];
+      candidates.add(`https://${ref}.functions.supabase.co/${fnName}${search}`);
+      candidates.add(`https://${ref}.supabase.co/functions/v1/${fnName}${search}`);
+    } catch {
+      // ignore malformed SUPABASE_URL
+    }
+  }
+  if (xfHost) {
+    candidates.add(`https://${xfHost}/functions/v1/${fnName}${search}`);
+    candidates.add(`https://${xfHost}/${fnName}${search}`);
+  }
 
   // Build the signing string: URL + sorted (key + value) for every form field.
   const entries: [string, string][] = [];
@@ -67,16 +91,18 @@ export async function validateTwilioSignature(
     entries.push([k, typeof v === "string" ? v : ""]);
   }
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  let signingString = url;
-  for (const [k, v] of entries) signingString += k + v;
+  let suffix = "";
+  for (const [k, v] of entries) suffix += k + v;
 
-  const expected = await hmacSha1Base64(authToken, signingString);
-  const ok = timingSafeEqual(expected, headerSig);
-  if (!ok) {
-    console.warn("twilio-signature: signature mismatch", {
-      url,
-      gotPrefix: headerSig.slice(0, 8),
-    });
+  const tried: { url: string; sig: string }[] = [];
+  for (const candidate of candidates) {
+    const expected = await hmacSha1Base64(authToken, candidate + suffix);
+    if (timingSafeEqual(expected, headerSig)) return true;
+    tried.push({ url: candidate, sig: expected.slice(0, 8) });
   }
-  return ok;
+  console.warn("twilio-signature: signature mismatch", {
+    gotPrefix: headerSig.slice(0, 8),
+    tried,
+  });
+  return false;
 }
