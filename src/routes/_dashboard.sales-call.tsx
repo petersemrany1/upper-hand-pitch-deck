@@ -202,7 +202,7 @@ function SalesCallPortal() {
                   letterSpacing: "0.04em",
                   color: isActive ? COLORS.text : isDone ? COLORS.muted : COLORS.hint,
                 }}>
-                  {s.label}{special ? " ⭐" : ""}
+                  {s.label}
                 </span>
               </button>
             );
