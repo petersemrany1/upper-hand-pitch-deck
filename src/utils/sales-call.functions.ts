@@ -181,6 +181,47 @@ export const analyseCallNotes = createServerFn({ method: "POST" })
     }
   });
 
+/* Generate amplification + audiobook pre-fill from discovery notes */
+export const discoveryToAmpAudio = createServerFn({ method: "POST" })
+  .inputValidator((data: { notes: string }) => ({ notes: String(data.notes ?? "") }))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return { success: false as const, error: "ANTHROPIC_API_KEY not configured" };
+    if (!data.notes.trim()) return { success: false as const, error: "Discovery notes are empty" };
+
+    const system = "You are a sales coach. Based on these discovery notes from a hair transplant sales call, generate two things: 1) An amplification sentence that reflects the lead's pain back to them in one sentence using this format: 'So let me make sure I understand... You've been dealing with [pain] for [timeframe], it's affecting [impacts], and you're tired of [consequences]... is that right?' 2) An audiobook picture moment: one sentence that paints a picture of their life after a successful hair transplant, using specific details from the notes, framed as waking up tomorrow without the problem. Return ONLY valid JSON with no surrounding prose: {\"amplification\": \"...\", \"audiobook\": \"...\"}";
+
+    try {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": apiKey, "anthropic-version": "2023-06-01", "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 800,
+          system,
+          messages: [{ role: "user", content: `Discovery notes:\n\n${data.notes}` }],
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) return { success: false as const, error: json?.error?.message ?? `Claude error ${res.status}` };
+      const text: string = json?.content?.[0]?.text ?? "";
+      // Try to parse JSON; tolerate code fences or stray text by grabbing the first {...} block.
+      let parsed: { amplification?: string; audiobook?: string } | null = null;
+      try { parsed = JSON.parse(text); } catch {
+        const m = text.match(/\{[\s\S]*\}/);
+        if (m) { try { parsed = JSON.parse(m[0]); } catch { /* ignore */ } }
+      }
+      if (!parsed?.amplification || !parsed?.audiobook) {
+        return { success: false as const, error: "Could not parse AI response" };
+      }
+      return { success: true as const, amplification: parsed.amplification, audiobook: parsed.audiobook };
+    } catch (err) {
+      return { success: false as const, error: err instanceof Error ? err.message : "Network error" };
+    }
+  });
+
 /* ───────────────────────── Finance check + booking persist ───────────────────────── */
 
 export const saveFinanceCheck = createServerFn({ method: "POST" })
