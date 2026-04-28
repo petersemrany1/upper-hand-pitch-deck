@@ -611,9 +611,12 @@ export type Database = {
           error_code: string | null
           from_number: string | null
           id: string
+          lead_id: string | null
           media_urls: Json
+          phone: string | null
+          sent_at: string | null
           status: string | null
-          thread_id: string
+          thread_id: string | null
           to_number: string | null
           twilio_message_sid: string | null
         }
@@ -624,9 +627,12 @@ export type Database = {
           error_code?: string | null
           from_number?: string | null
           id?: string
+          lead_id?: string | null
           media_urls?: Json
+          phone?: string | null
+          sent_at?: string | null
           status?: string | null
-          thread_id: string
+          thread_id?: string | null
           to_number?: string | null
           twilio_message_sid?: string | null
         }
@@ -637,9 +643,12 @@ export type Database = {
           error_code?: string | null
           from_number?: string | null
           id?: string
+          lead_id?: string | null
           media_urls?: Json
+          phone?: string | null
+          sent_at?: string | null
           status?: string | null
-          thread_id?: string
+          thread_id?: string | null
           to_number?: string | null
           twilio_message_sid?: string | null
         }
