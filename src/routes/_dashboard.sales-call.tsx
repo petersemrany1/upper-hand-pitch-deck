@@ -1779,10 +1779,22 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               <div className="flex items-center gap-2" style={{ padding: "0 4px" }}>
                 {intelStatus === "waiting" && (
                   <>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#eab308", flexShrink: 0 }} />
-                    <div style={{ fontSize: 12, color: COLORS.muted }}>
-                      Analysing call recording... don't send yet
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      border: `2px solid ${COLORS.amber}`,
+                      borderTopColor: "transparent",
+                      animation: "discoverySpin 0.8s linear infinite",
+                      flexShrink: 0,
+                    }} />
+                    <div style={{ fontSize: 13, color: COLORS.amberDark, fontWeight: 500 }}>
+                      Analysing call recording... ({pollAttempt}/18)
                     </div>
+                    <button
+                      onClick={() => setIntelStatus("timeout")}
+                      style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: 8 }}
+                    >
+                      Skip
+                    </button>
                   </>
                 )}
                 {intelStatus === "ready" && (
