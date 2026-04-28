@@ -2809,10 +2809,82 @@ function RightPanel({
             opacity: 0.55,
             fontSize: 12,
             textDecoration: "underline",
+            display: "block",
           }}
         >
           Mark as dropped
         </button>
+        <button
+          onClick={() => setShowCallbackPicker(!showCallbackPicker)}
+          style={{ fontSize: 12, color: COLORS.coral, textDecoration: "underline", background: "transparent", display: "block", marginTop: 4 }}
+        >
+          Schedule callback
+        </button>
+        {showCallbackPicker && (
+          <div style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8, padding: "12px 14px", marginTop: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+              Schedule callback
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {(["30 min", "1 hour", "2 hours"] as const).map((label) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    const d = new Date();
+                    d.setMinutes(d.getMinutes() + (label === "30 min" ? 30 : label === "1 hour" ? 60 : 120));
+                    setCallbackDate(d.toISOString().split("T")[0]);
+                    setCallbackTime(d.toTimeString().slice(0, 5));
+                  }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {(["9:00", "12:00", "15:00"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    const d = new Date();
+                    const [h] = t.split(":").map(Number);
+                    if (d.getHours() >= h) d.setDate(d.getDate() + 1);
+                    setCallbackDate(d.toISOString().split("T")[0]);
+                    setCallbackTime(t);
+                  }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                >
+                  {t === "9:00" ? "9am" : t === "12:00" ? "12pm" : "3pm"}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
+              <input type="time" value={callbackTime} onChange={(e) => setCallbackTime(e.target.value)}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
+            </div>
+            <button
+              onClick={async () => {
+                if (!callbackDate || !callbackTime) return;
+                setSavingCallback(true);
+                const dt = new Date(`${callbackDate}T${callbackTime}`);
+                await supabase.from("meta_leads").update({
+                  callback_scheduled_at: dt.toISOString(),
+                  status: "Callback Scheduled",
+                  updated_at: new Date().toISOString(),
+                }).eq("id", active.id);
+                setSavingCallback(false);
+                setShowCallbackPicker(false);
+                toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+              }}
+              disabled={savingCallback || !callbackDate || !callbackTime}
+              style={{ width: "100%", background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 6, cursor: "pointer", opacity: savingCallback ? 0.6 : 1, border: "none" }}
+            >
+              {savingCallback ? "Saving..." : "Confirm callback →"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Section 3 — Clinic info */}
