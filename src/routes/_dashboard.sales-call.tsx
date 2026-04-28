@@ -1631,10 +1631,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       if (attempts >= MAX_ATTEMPTS) {
         if (!stopped) {
           setIntelStatus("timeout");
-          toast("No call recording found — you can still send the handover manually", {
-            duration: 6000,
-            icon: "⚠️",
-          });
+          setShowManualNotes(true);
         }
         return;
       }
