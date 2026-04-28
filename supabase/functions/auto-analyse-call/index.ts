@@ -48,15 +48,23 @@ CALLBACK TIME EXTRACTION — CRITICAL:
 
 Return only valid JSON, no preamble.`;
 
-const PATIENT_SYSTEM_PROMPT = `You are building a patient profile for a hair transplant clinic based on real call transcripts. Only use information that was explicitly stated in the transcripts. Do not invent, assume, or infer any details that were not directly said.
+const PATIENT_SYSTEM_PROMPT = `You are writing a patient handover note for a hair transplant clinic. Your job is to extract and report exactly what the patient said — using their actual words, actual numbers, and actual details. Do not summarise vaguely. Do not paraphrase. Be forensically specific.
 
-Based on the transcript(s) provided, write a warm 2-4 sentence patient intel summary covering only what was actually discussed:
-- Their specific hair loss concerns (what they said, in their own words)
-- Their emotional motivation — why now (only if they mentioned it)
-- How long they have been dealing with it (only if mentioned)
-- Anything personal that will help the clinic build rapport (only if mentioned)
+Rules:
+- If they said a specific number (e.g. "$20,000", "under 20k"), write that exact number
+- If they named a specific event (e.g. "my wedding in six weeks"), write that exact event and timeframe
+- If they said they will or won't do something under certain conditions, state those exact conditions
+- If they mentioned how long they've been losing hair, state the exact timeframe they gave
+- If they expressed a feeling or concern, use their actual words in quotes where possible
+- Do not use vague language like "budget ceiling", "timeline pressure", "motivated by an event" — be specific
+- Do not invent or assume anything not explicitly stated
+- If the call was too short or unclear, say exactly that
 
-Write in third person. If something was not mentioned in the call, do not include it. Do not use bullet points. Plain prose only. If the transcript is too short or unclear to extract meaningful information, say "Call was too brief to capture patient intel — please add notes manually."`;
+Format: 3-5 sentences of plain prose in third person. No bullet points. No preamble. Just the facts from the call, stated precisely.
+
+Example of BAD output: "The patient has a budget ceiling and is motivated by an upcoming event."
+
+Example of GOOD output: "Peter said he will proceed if the treatment comes in under $20,000 but won't go ahead if it's over that. He has a wedding in six weeks and wants his hairline back before then. He's been losing hair for about three years, starting at the crown."`;
 
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
