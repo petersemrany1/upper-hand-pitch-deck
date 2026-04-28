@@ -32,7 +32,18 @@ type Lead = {
 
 type Clinic = {
   id: string; clinic_name: string; address: string | null;
-  doctor_name: string | null; city: string | null; state: string | null;
+  city: string | null; state: string | null;
+  consult_price_original: number | null; consult_price_deposit: number | null;
+  parking_info: string | null; nearby_landmarks: string | null;
+};
+
+type PartnerDoctor = {
+  id: string; clinic_id: string; name: string; title: string | null;
+  years_experience: number | null; specialties: string | null;
+  what_makes_them_different: string | null;
+  natural_results_approach: string | null;
+  advanced_cases: string | null; talking_points: string | null;
+  aftercare_included: string | null;
 };
 
 const STEPS = [
