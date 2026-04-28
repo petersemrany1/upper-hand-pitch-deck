@@ -99,6 +99,22 @@ function LeaderboardPage() {
     } finally { setCoachLoading(false); }
   };
 
+  const analysePatterns = async () => {
+    setPatternOpen(true); setPatternText(""); setPatternLoading(true);
+    try {
+      const r = await analyseCallPatterns({ data: { range } });
+      if (r.success) {
+        setPatternText(r.text);
+      } else {
+        setPatternText(`Analysis failed — ${r.error}`);
+      }
+    } catch {
+      setPatternText("Analysis failed — try again.");
+    } finally {
+      setPatternLoading(false);
+    }
+  };
+
   const ranges: { key: Range; label: string }[] = [
     { key: "today", label: "Today" }, { key: "yesterday", label: "Yesterday" },
     { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
@@ -119,6 +135,11 @@ function LeaderboardPage() {
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
               style={{ background: "rgba(45,107,228,0.15)", color: C.blue, border: `1px solid ${C.blue}` }}>
               <Bot className="h-3.5 w-3.5" /> Analyse My Last Call
+            </button>
+            <button onClick={() => void analysePatterns()} disabled={patternLoading}
+              className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-60"
+              style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6", border: "1px solid #8b5cf6" }}>
+              <Sparkles className="h-3.5 w-3.5" /> Call Patterns
             </button>
             <button onClick={() => setShowAdd(true)}
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
@@ -146,7 +167,7 @@ function LeaderboardPage() {
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
                   <Th>Rank</Th><Th>Rep</Th><Th>Live</Th><Th>Bookings</Th><Th>Bonus $</Th>
-                  <Th>Calls</Th><Th>Work min</Th><Th>Short calls</Th>
+                  <Th>Attempted</Th><Th>Connected</Th><Th>Work min</Th><Th>Short calls</Th>
                   <Th>Convos %</Th><Th>Conv %</Th><Th>Earnings</Th>
                 </tr>
               </thead>
@@ -161,7 +182,8 @@ function LeaderboardPage() {
                     <Td><span className="h-2 w-2 inline-block rounded-full" style={{ background: C.muted }} /></Td>
                     <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : C.muted }}>{r.bookings}</span></Td>
                     <Td><span style={{ color: r.bonus > 0 ? C.green : C.muted }}>${r.bonus}</span></Td>
-                    <Td>{r.calls}</Td>
+                    <Td>{r.attempted ?? r.calls}</Td>
+                    <Td><span style={{ color: r.connected > 0 ? C.green : C.muted }}>{r.connected}</span></Td>
                     <Td>{r.workMinutes}</Td>
                     <Td><span style={{ color: r.shortCalls > 5 ? C.amber : C.muted }}>{r.shortCalls}</span></Td>
                     <Td>{r.convosPct}%</Td>
@@ -174,12 +196,28 @@ function LeaderboardPage() {
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={11} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
+                  <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
                 )}
               </tbody>
             </table>
           </div>
         </div>
+
+        {patternOpen && (
+          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(139,92,246,0.06), transparent)", border: "1px solid #8b5cf6" }}>
+            <button onClick={() => setPatternOpen(false)} className="absolute top-3 right-3" style={{ color: C.muted }}>
+              <X className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="h-4 w-4" style={{ color: "#8b5cf6" }} />
+              <div className="text-sm font-bold" style={{ color: "#111" }}>Call Pattern Analysis</div>
+              {patternLoading && <span className="text-[10px]" style={{ color: "#888" }}>analysing…</span>}
+            </div>
+            <pre className="text-sm whitespace-pre-wrap leading-relaxed" style={{ fontFamily: "inherit", color: "#111" }}>
+              {patternText || (patternLoading ? "Thinking…" : "")}
+            </pre>
+          </div>
+        )}
 
         {coachOpen && (
           <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(45,107,228,0.06), transparent)", border: `1px solid ${C.blue}` }}>
