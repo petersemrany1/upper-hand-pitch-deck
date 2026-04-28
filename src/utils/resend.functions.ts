@@ -726,13 +726,13 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const stripeResult = await createStripeCheckoutSession({
+    const stripeResult = await createHtgDepositSession({
       data: {
-        clinicName: data.clinicName,
-        contactName: data.firstName,
+        firstName: data.firstName,
+        lastName: "",
         email: "",
-        packageName: "Consultation Deposit",
-        totalIncGst: 75,
+        amount: 75,
+        leadId: data.leadId,
       },
     });
 
