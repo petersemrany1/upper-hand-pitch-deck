@@ -1654,7 +1654,28 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setClinics((data ?? []) as Clinic[])
     );
   }, []);
-  const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
+  const set = (k: keyof typeof form, v: string) => {
+    const next = { ...form, [k]: v };
+    setForm(next);
+    try {
+      if (typeof window !== "undefined") window.localStorage.setItem(FORM_KEY, JSON.stringify(next));
+    } catch { /* ignore */ }
+  };
+
+  // Restore booked state if this lead already has a saved booking (rep navigated away and came back)
+  useEffect(() => {
+    if (lead.booking_date && lead.booking_time && !booked) {
+      const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      setBookedData({
+        date: lead.booking_date,
+        time: lead.booking_time,
+        clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
+        doctorName: selectedClinic?.doctor_name ?? "Dr. Shabna Singh",
+      });
+      setBooked(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead.booking_date, lead.booking_time, clinics]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
 
   const book = async () => {
