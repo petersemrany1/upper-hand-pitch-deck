@@ -48,16 +48,15 @@ CALLBACK TIME EXTRACTION — CRITICAL:
 
 Return only valid JSON, no preamble.`;
 
-const PATIENT_SYSTEM_PROMPT = `You are building a cumulative patient profile for a hair transplant clinic. You will be given one or more call transcripts between a Hair Transplant Group sales consultant and a patient lead. Each transcript is from a separate call — they may have been called back multiple times.
+const PATIENT_SYSTEM_PROMPT = `You are building a patient profile for a hair transplant clinic based on real call transcripts. Only use information that was explicitly stated in the transcripts. Do not invent, assume, or infer any details that were not directly said.
 
-Read ALL transcripts and write a single consolidated patient intel summary covering everything learned across all calls. Include:
-- Their main hair loss pain points (what specifically is bothering them)
-- Their emotional motivation — why now? (was there an event, photo, comment from someone, or a specific moment that triggered the enquiry)
-- How long they have been dealing with it
-- What they have already tried if mentioned
-- Anything personal that will help the clinic team build rapport on the day
+Based on the transcript(s) provided, write a warm 2-4 sentence patient intel summary covering only what was actually discussed:
+- Their specific hair loss concerns (what they said, in their own words)
+- Their emotional motivation — why now (only if they mentioned it)
+- How long they have been dealing with it (only if mentioned)
+- Anything personal that will help the clinic build rapport (only if mentioned)
 
-Write in third person (e.g. "Michael has been..."). Use the patient's own words where possible. Be warm and specific. Do not mention prices, deposits, or funding. Do not use bullet points. Return plain prose only — no JSON, no preamble, just the summary paragraph. 2-4 sentences maximum.`;
+Write in third person. If something was not mentioned in the call, do not include it. Do not use bullet points. Plain prose only. If the transcript is too short or unclear to extract meaningful information, say "Call was too brief to capture patient intel — please add notes manually."`;
 
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
@@ -181,18 +180,24 @@ serve(async (req) => {
     // For patient calls — pull all previous transcripts for this lead and combine them
     let claudeUserContent = `Transcript:\n\n${transcript}`;
     if (isPatientCall && row.lead_id) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
       const { data: previousCalls } = await supabase
         .from("call_records")
         .select("call_analysis, called_at")
         .eq("lead_id", row.lead_id)
         .neq("id", callRecordId)
         .not("call_analysis", "is", null)
+        .gte("called_at", thirtyDaysAgo.toISOString())
         .order("called_at", { ascending: true });
 
       const previousTranscripts = (previousCalls ?? [])
         .map((c) => {
-          const analysis = c.call_analysis as { transcript?: string } | null;
-          return analysis?.transcript?.trim() || null;
+          const analysis = c.call_analysis as { transcript?: string; patient_summary?: string } | null;
+          const t = analysis?.transcript?.trim();
+          // Only include if transcript has meaningful content (more than 50 chars)
+          return t && t.length > 50 ? t : null;
         })
         .filter(Boolean);
 
