@@ -1297,7 +1297,14 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
           I'm not saying this is the case for you — but it's worth knowing...
         </div>
         <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.9 }}>
-          A lot of clinics just plant the grafts straight up. Quick and easy for them. But the result looks like a doll's head — stiff, unnatural, you can tell from a mile away. The difference is in the angle. Dr. Singh places every single graft at the exact angle your natural hair grows. She studies the direction, the flow, the whole pattern. That's the difference between a result that looks fake — and one where nobody can ever tell.
+          {doctor?.what_makes_them_different || (
+            <>A lot of clinics just plant the grafts straight up. Quick and easy for them. But the result looks like a doll's head — stiff, unnatural, you can tell from a mile away. The difference is in the angle. Your specialist places every single graft at the exact angle your natural hair grows — studying the direction, the flow, the whole pattern. That's the difference between a result that looks fake and one where nobody can ever tell.</>
+          )}
+          {doctor?.natural_results_approach && (
+            <div style={{ marginTop: 12, fontSize: 15, color: COLORS.text, lineHeight: 1.8 }}>
+              {doctor.natural_results_approach}
+            </div>
+          )}
         </div>
       </SayThisCard>
 
