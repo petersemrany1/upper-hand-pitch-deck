@@ -111,6 +111,28 @@ function SalesCallPortal() {
   const [ampPrefill, setAmpPrefill] = useState<string>("");
   const [audioPrefill, setAudioPrefill] = useState<string>("");
   const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
+  const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
+  const [showCallbackAlert, setShowCallbackAlert] = useState(false);
+
+  useEffect(() => {
+    const check = async () => {
+      const now = new Date();
+      const fiveMinAgo = new Date(now.getTime() - 5 * 60000);
+      const { data } = await supabase
+        .from("meta_leads")
+        .select("*")
+        .eq("status", "Callback Scheduled")
+        .lte("callback_scheduled_at", now.toISOString())
+        .gte("callback_scheduled_at", fiveMinAgo.toISOString());
+      if (data && data.length > 0) {
+        setDueCallbacks(data as Lead[]);
+        setShowCallbackAlert(true);
+      }
+    };
+    void check();
+    const interval = setInterval(() => void check(), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -2988,6 +3010,84 @@ function RightPanel({
                 Before & After {i + 1}
               </button>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Section 6 — SMS */}
+      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+        <button
+          onClick={() => setShowSms((v) => !v)}
+          style={{
+            width: "100%", background: showSms ? "#111" : "#ffffff",
+            color: showSms ? "#fff" : "#111",
+            border: `1px solid #111`, borderRadius: 8,
+            fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
+          }}
+        >
+          {showSms ? "Hide SMS" : "💬 Send SMS"}
+        </button>
+        {showSms && (
+          <div style={{ marginTop: 10 }}>
+            {smsHistory.length > 0 && (
+              <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 10, padding: 8, background: "#fafaf9", borderRadius: 6, border: `0.5px solid ${COLORS.line}` }}>
+                {smsHistory.map((m, i) => (
+                  <div key={i} style={{
+                    fontSize: 12, padding: "6px 8px", marginBottom: 4, borderRadius: 6,
+                    background: m.direction === "outbound" ? "#eff6ff" : "#f3f3f3",
+                    color: "#111",
+                  }}>
+                    <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>
+                      {m.direction === "outbound" ? "→ Sent" : "← Received"} · {new Date(m.sent_at ?? m.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    </div>
+                    {m.body}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 8 }}>
+              {[
+                { label: "Following up", text: `Hi ${active.first_name ?? "there"}, it's Peter from Hair Transplant Group. Just following up on your enquiry — happy to answer any questions. Give me a call on 0414 999 999 or reply here.` },
+                { label: "Callback confirm", text: `Hi ${active.first_name ?? "there"}, confirming I'll give you a call shortly. Look forward to chatting!` },
+                { label: "Booking reminder", text: `Hi ${active.first_name ?? "there"}, just a reminder of your consultation tomorrow. Looking forward to seeing you — any questions just reply here.` },
+                { label: "Deposit reminder", text: `Hi ${active.first_name ?? "there"}, just a reminder to pay your $75 refundable deposit to secure your consultation spot. Reply if you have any questions!` },
+              ].map((t) => (
+                <button
+                  key={t.label}
+                  onClick={() => setSmsText(t.text)}
+                  style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, background: "#fff", border: `0.5px solid ${COLORS.line}`, color: "#111", cursor: "pointer" }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={smsText}
+              onChange={(e) => setSmsText(e.target.value)}
+              placeholder="Type your message…"
+              rows={4}
+              style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", resize: "vertical" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+              <span style={{ fontSize: 11, color: "#888" }}>{smsText.length} chars</span>
+              <button
+                onClick={async () => {
+                  if (!smsText.trim() || !active.phone) { toast.error("Need message + phone"); return; }
+                  setSendingSms(true);
+                  const r = await sendManualSms({ data: { leadId: active.id, phone: active.phone, body: smsText } });
+                  setSendingSms(false);
+                  if (r.success) {
+                    toast.success("SMS sent");
+                    setSmsHistory((prev) => [...prev, { body: smsText, sent_at: new Date().toISOString(), created_at: new Date().toISOString(), direction: "outbound" }]);
+                    setSmsText("");
+                  } else toast.error(r.error);
+                }}
+                disabled={sendingSms || !smsText.trim()}
+                style={{ background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer", opacity: sendingSms || !smsText.trim() ? 0.6 : 1 }}
+              >
+                {sendingSms ? "Sending…" : "Send →"}
+              </button>
+            </div>
           </div>
         )}
       </div>
