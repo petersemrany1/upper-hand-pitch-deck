@@ -1972,11 +1972,12 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, onChangeLead,
+  active, repId, mmsImages, attemptCounts, onChangeLead,
 }: {
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
+  attemptCounts: Record<string, number>;
   onChangeLead: () => void;
 }) {
   void repId;
