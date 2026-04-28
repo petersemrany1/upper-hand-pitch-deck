@@ -228,6 +228,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
           {
             twilio_call_sid: callSid,
             clinic_id: extraParams?.clinicId || null,
+            lead_id: extraParams?.leadId || null,
             phone,
             status: "initiated",
           },
