@@ -1703,7 +1703,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         <div className="flex flex-col gap-2.5">
           {/* Send handover to clinic */}
           <button
-            onClick={() => void handleSendHandover()}
+            onClick={() => openPreview()}
             disabled={sendingHandover || handoverSent}
             className="w-full rounded-[8px] flex items-center justify-between"
             style={{
