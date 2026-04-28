@@ -580,7 +580,23 @@ function StepContent({
           Fantastic. Fantastic. I want to get you in with <Pill name>Dr. [NAME]</Pill> — honestly based on everything you've told me, <Pill name>Dr. [NAME]</Pill> is exactly who you want for this. [reference what they said on the call]. Let me just pull up the availability now."
           <Coach>Presume the booking.</Coach>
         </CalloutGreen>
-        
+        <div style={{
+          background: COLORS.amberBg,
+          borderLeft: `2px solid ${COLORS.amber}`,
+          borderRadius: "0 8px 8px 0",
+          padding: "14px 16px",
+          marginTop: 12,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amberDark, marginBottom: 8 }}>
+            When they wobble
+          </div>
+          <div style={{ fontSize: 14, color: COLORS.amberDark, lineHeight: 1.7 }}>
+            "Yeah of course — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might actually be able to help you with that right now."
+          </div>
+          <div style={{ marginTop: 8, fontSize: 13, fontStyle: "italic", color: COLORS.amberDark, lineHeight: 1.5 }}>
+            Agree. Then open it up. Get them talking about the specific concern and you're back in discovery.
+          </div>
+        </div>
       </div>
     );
   }
