@@ -1565,9 +1565,11 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
     clinicId: lead.clinic_id ?? "",
+    doctorId: "",
     gender: "",
     dob: "",
     healthFund: "",
