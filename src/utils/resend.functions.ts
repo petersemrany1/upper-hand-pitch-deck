@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
-import { createStripeCheckoutSession } from "./stripe.functions";
+import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.functions";
 
 const RESEND_API_KEY = "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
 const DOCUSEAL_API_KEY = "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
