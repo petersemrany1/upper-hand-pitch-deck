@@ -123,6 +123,19 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       return { success: false as const, error: msg };
     }
 
+    const validPrefix =
+      stripeKey.startsWith("sk_live_") ||
+      stripeKey.startsWith("sk_test_") ||
+      stripeKey.startsWith("rk_live_");
+    if (!validPrefix) {
+      await logError(
+        "createHtgDepositSession",
+        `Invalid Stripe key format: starts with "${stripeKey.slice(0, 8)}"`,
+        { email: data.email, leadId: data.leadId },
+      );
+      return { success: false as const, error: "Stripe key is misconfigured — contact admin" };
+    }
+
     const amountCents = Math.round(Number(data.amount) * 100);
     if (!Number.isFinite(amountCents) || amountCents < 50) {
       return {
