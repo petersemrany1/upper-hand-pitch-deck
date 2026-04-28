@@ -270,6 +270,7 @@ function SalesCallPortal() {
           active={active}
           repId={repId}
           mmsImages={mmsImages}
+          attemptCounts={attemptCounts}
           onChangeLead={() => setActiveId(null)}
         />
       </aside>
