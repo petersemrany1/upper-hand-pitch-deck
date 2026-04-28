@@ -2495,6 +2495,32 @@ function RightPanel({
   const [callTimer, setCallTimer] = useState(0);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
+  const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
+  const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const { data: clinics } = await supabase
+        .from("partner_clinics")
+        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .eq("is_active", true);
+      const list = (clinics ?? []) as Clinic[];
+      const picked = (active.clinic_id ? list.find((c) => c.id === active.clinic_id) : null) ?? list[0] ?? null;
+      setPanelClinic(picked);
+      if (picked) {
+        const { data: docs } = await supabase
+          .from("partner_doctors")
+          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+          .eq("clinic_id", picked.id)
+          .eq("is_active", true)
+          .order("created_at")
+          .limit(1);
+        setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+      } else {
+        setPanelDoctor(null);
+      }
+    })();
+  }, [active.id, active.clinic_id]);
 
   // Run the timer only when actually connected
   useEffect(() => {
