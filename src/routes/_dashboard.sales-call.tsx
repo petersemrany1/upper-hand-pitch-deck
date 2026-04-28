@@ -341,6 +341,7 @@ function SalesCallPortal() {
         input::placeholder, textarea::placeholder { color: #111111; opacity: 1; }
       `}</style>
     </div>
+    </>
   );
 }
 
