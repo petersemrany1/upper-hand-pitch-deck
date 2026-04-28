@@ -899,12 +899,15 @@ function DiscoveryChecklist() {
   // Compact, tight checklist. Items strikethrough + fade when checked.
   type Item = { key: string; text: string; whyNow?: false } | { key: "why-now"; whyNow: true };
   const items: Item[] = [
-    { key: "where", text: "Where on the head is the loss happening?" },
+    { key: "where", text: "Where exactly — hairline, crown, temples, all over?" },
     { key: "how-long", text: "How long has it been happening?" },
-    { key: "hereditary", text: "Is it hereditary?" },
-    { key: "tried", text: "What have they already tried?" },
+    { key: "pace", text: "Is it getting worse or has it stabilised?" },
+    { key: "hereditary", text: "Is it hereditary? Who in the family?" },
+    { key: "tried", text: "What have they already tried — medication, products, overseas?" },
     { key: "why-now", whyNow: true },
-    { key: "feel", text: "How does it make you feel?" },
+    { key: "impact", text: "How is it affecting your daily life — photos, social situations, confidence?" },
+    { key: "feel", text: "How does it actually make you feel when you think about it?" },
+    { key: "outcome", text: "If we could fix this completely — what does that look like for you?" },
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggle = (k: string) => setChecked((s) => {
@@ -939,7 +942,7 @@ function DiscoveryChecklist() {
                   opacity: isOn ? 0.5 : 1,
                   textDecoration: isOn ? "line-through" : "none",
                 }}>
-                  Always a reason. Find it.
+                  Always a reason. A photo. An event. A comment someone made. A mirror moment. Find it and name it.
                 </span>
               </label>
             );
