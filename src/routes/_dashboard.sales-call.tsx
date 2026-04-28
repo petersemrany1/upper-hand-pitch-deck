@@ -1445,6 +1445,13 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
     address: "", funding: lead.funding_preference ?? "Savings",
     date: "", time: "",
   });
+  const [booked, setBooked] = useState(false);
+  const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
+  const [sendingHandover, setSendingHandover] = useState(false);
+  const [sendingDeposit, setSendingDeposit] = useState(false);
+  const [handoverSent, setHandoverSent] = useState(false);
+  const [depositSent, setDepositSent] = useState(false);
+
   useEffect(() => {
     void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
       setClinics((data ?? []) as Clinic[])
@@ -1452,71 +1459,179 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   }, []);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
   const clinic = clinics.find((c) => c.id === form.clinicId);
-  
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
     if (r.success) {
-      toast.success("Appointment booked!");
-      onBooked();
-
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const clinicName = selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre";
       const doctorName = selectedClinic?.doctor_name ?? "Dr. Shabna Singh";
-
-      // 1. Send deposit SMS to patient
-      if (lead.phone) {
-        void sendDepositSmsToPatient({
-          data: {
-            leadId: lead.id,
-            firstName: lead.first_name ?? "there",
-            phone: lead.phone,
-            clinicName,
-            doctorName,
-            bookingDate: form.date,
-            bookingTime: form.time,
-          },
-        }).then((smsResult) => {
-          if (smsResult.success) {
-            toast.success("Deposit link sent to patient ✓");
-          } else {
-            toast.error(`Deposit SMS failed: ${smsResult.error}`);
-          }
-        });
-      } else {
-        toast.error("No phone number — deposit SMS not sent");
-      }
-
-      // 2. Send clinic handover email
-      void sendClinicHandoverEmail({
-        data: {
-          leadId: lead.id,
-          firstName: lead.first_name ?? "",
-          lastName: lead.last_name ?? "",
-          email: lead.email ?? null,
-          phone: lead.phone ?? null,
-          callNotes: lead.call_notes ?? "",
-          fundingPreference: lead.funding_preference ?? form.funding,
-          financeEligible: lead.finance_eligible ?? null,
-          bookingDate: form.date,
-          bookingTime: form.time,
-          clinicName,
-          clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
-          doctorName,
-          depositPaid: false,
-        },
-      }).then((emailResult) => {
-        if (emailResult.success) {
-          toast.success("Clinic handover email sent ✓");
-        } else {
-          toast.error("Booking saved but handover email failed — check logs");
-        }
-      });
+      setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
+      setBooked(true);
+      onBooked();
+      toast.success("Appointment booked!");
     } else {
       toast.error(r.error);
     }
   };
+
+  const handleSendHandover = async () => {
+    if (!bookedData) return;
+    setSendingHandover(true);
+    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const r = await sendClinicHandoverEmail({
+      data: {
+        leadId: lead.id,
+        firstName: lead.first_name ?? "",
+        lastName: lead.last_name ?? "",
+        email: lead.email ?? null,
+        phone: lead.phone ?? null,
+        callNotes: lead.call_notes ?? "",
+        fundingPreference: lead.funding_preference ?? form.funding,
+        financeEligible: lead.finance_eligible ?? null,
+        bookingDate: bookedData.date,
+        bookingTime: bookedData.time,
+        clinicName: bookedData.clinicName,
+        clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
+        doctorName: bookedData.doctorName,
+        depositPaid: depositSent,
+      },
+    });
+    setSendingHandover(false);
+    if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+    else toast.error(`Handover failed: ${r.error}`);
+  };
+
+  const handleSendDeposit = async () => {
+    if (!bookedData || !lead.phone) { toast.error("No phone number on this lead"); return; }
+    setSendingDeposit(true);
+    const r = await sendDepositSmsToPatient({
+      data: {
+        leadId: lead.id,
+        firstName: lead.first_name ?? "there",
+        phone: lead.phone,
+        clinicName: bookedData.clinicName,
+        doctorName: bookedData.doctorName,
+        bookingDate: bookedData.date,
+        bookingTime: bookedData.time,
+      },
+    });
+    setSendingDeposit(false);
+    if (r.success) { setDepositSent(true); toast.success("Deposit link sent to patient ✓"); }
+    else toast.error(`Deposit SMS failed: ${r.error}`);
+  };
+
+  if (booked && bookedData) {
+    const bookingDisplay = (() => {
+      try {
+        const d = new Date(`${bookedData.date}T${bookedData.time}`);
+        return d.toLocaleString("en-AU", {
+          weekday: "long", day: "numeric", month: "long",
+          hour: "numeric", minute: "2-digit",
+        });
+      } catch { return `${bookedData.date} at ${bookedData.time}`; }
+    })();
+
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Eyebrow>Step 10 — Deposit & Book</Eyebrow>
+        <StepHeading>Booked!</StepHeading>
+
+        {/* Confirmation card */}
+        <div style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderRadius: 12,
+          padding: "28px 24px",
+          textAlign: "center",
+          marginBottom: 24,
+        }}>
+          <div style={{
+            width: 48, height: 48, borderRadius: "50%", background: COLORS.green,
+            color: "#fff", fontSize: 24, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            margin: "0 auto 16px",
+          }}>✓</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>
+            {[lead.first_name, lead.last_name].filter(Boolean).join(" ")}
+          </div>
+          <div style={{ fontSize: 15, color: COLORS.text, marginBottom: 4 }}>
+            {bookingDisplay}
+          </div>
+          <div style={{ fontSize: 13, color: COLORS.muted }}>
+            with {bookedData.doctorName} · {bookedData.clinicName}
+          </div>
+        </div>
+
+        {/* Two action buttons */}
+        <div style={{
+          fontSize: 11, fontWeight: 600, textTransform: "uppercase",
+          letterSpacing: "0.06em", color: "#999", marginBottom: 10,
+        }}>
+          Next steps
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {/* Send handover to clinic */}
+          <button
+            onClick={() => void handleSendHandover()}
+            disabled={sendingHandover || handoverSent}
+            className="w-full rounded-[8px] flex items-center justify-between"
+            style={{
+              background: handoverSent ? "#ecfdf5" : "#ffffff",
+              border: `0.5px solid ${handoverSent ? COLORS.green : COLORS.line}`,
+              padding: "16px 20px",
+              cursor: handoverSent ? "default" : sendingHandover ? "wait" : "pointer",
+              opacity: sendingHandover ? 0.7 : 1,
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: handoverSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
+                {handoverSent ? "✓ Handover sent to clinic" : "Send handover to clinic"}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>
+                Patient intel, funding, booking details → peter@gobold.com.au
+              </div>
+            </div>
+            {!handoverSent && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+                {sendingHandover ? "Sending…" : "Send →"}
+              </div>
+            )}
+          </button>
+
+          {/* Send deposit to patient */}
+          <button
+            onClick={() => void handleSendDeposit()}
+            disabled={sendingDeposit || depositSent}
+            className="w-full rounded-[8px] flex items-center justify-between"
+            style={{
+              background: depositSent ? "#ecfdf5" : "#ffffff",
+              border: `0.5px solid ${depositSent ? COLORS.green : COLORS.line}`,
+              padding: "16px 20px",
+              cursor: depositSent ? "default" : sendingDeposit ? "wait" : "pointer",
+              opacity: sendingDeposit ? 0.7 : 1,
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: depositSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
+                {depositSent ? "✓ Deposit link sent to patient" : "Send $75 deposit link to patient"}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>
+                Stripe payment link via SMS → {lead.phone ?? "no phone on file"}
+              </div>
+            </div>
+            {!depositSent && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+                {sendingDeposit ? "Sending…" : "Send →"}
+              </div>
+            )}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
