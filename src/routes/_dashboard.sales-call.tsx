@@ -180,6 +180,7 @@ function SalesCallPortal() {
     return (
       <LeadChooser
         leads={leads}
+        attemptCounts={attemptCounts}
         onPick={(id) => {
           setActiveId(id); setStep("mindset"); setCompleted(new Set());
           setAmpPrefill(""); setAudioPrefill("");
