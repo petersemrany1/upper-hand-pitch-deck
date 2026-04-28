@@ -1578,7 +1578,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
         phone: lead.phone ?? null,
-        callNotes: lead.call_notes ?? "",
+        callNotes: discoveryNotes || lead.call_notes || "",
         fundingPreference: lead.funding_preference ?? form.funding,
         financeEligible: lead.finance_eligible ?? null,
         bookingDate: bookedData.date,
