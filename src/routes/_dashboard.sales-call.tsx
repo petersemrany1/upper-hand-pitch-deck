@@ -1542,6 +1542,42 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [previewDeposit, setPreviewDeposit] = useState(false);
   const [previewPhone, setPreviewPhone] = useState("");
   const [previewEmail, setPreviewEmail] = useState("");
+  const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
+
+  useEffect(() => {
+    if (!booked) return;
+    if (lead.call_notes || discoveryNotes) {
+      setIntelStatus("ready");
+      return;
+    }
+
+    let attempts = 0;
+    const MAX_ATTEMPTS = 18; // 3 minutes at 10s intervals
+
+    const poll = async () => {
+      attempts += 1;
+      const { data } = await supabase
+        .from("meta_leads")
+        .select("call_notes")
+        .eq("id", lead.id)
+        .single();
+
+      if (data?.call_notes?.trim()) {
+        setIntelStatus("ready");
+        setPreviewIntel(data.call_notes);
+        return;
+      }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        setIntelStatus("timeout");
+        return;
+      }
+
+      setTimeout(poll, 10000);
+    };
+
+    setTimeout(poll, 10000);
+  }, [booked, lead.id]);
 
   useEffect(() => {
     void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
