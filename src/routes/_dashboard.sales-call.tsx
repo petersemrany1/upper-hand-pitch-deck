@@ -1747,8 +1747,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       const clinicName = selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre";
-      const doctorName = selectedClinic?.doctor_name ?? "Dr. Shabna Singh";
+      const doctorName = sd?.name ?? "Dr. Shabna Singh";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
       onBooked();
