@@ -1825,7 +1825,7 @@ function leadUrgency(l: Lead): LeadUrgency {
   return "upcoming";
 }
 
-function LeadChooser({ leads, onPick }: { leads: Lead[]; onPick: (id: string) => void }) {
+function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptCounts: Record<string, number>; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
 
   const sorted = useMemo(() => {
