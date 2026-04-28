@@ -14,7 +14,7 @@ import {
   saveBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
-import { sendClinicHandoverEmail, sendDepositSmsToPatient } from "@/utils/resend.functions";
+import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms } from "@/utils/resend.functions";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
@@ -1544,10 +1544,25 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [form, setForm] = useState({
-    clinicId: lead.clinic_id ?? "", gender: "", dob: "", healthFund: "",
-    address: "", funding: lead.funding_preference ?? "Savings",
-    date: "", time: "",
+  const FORM_KEY = `booking_form_${lead.id}`;
+  const defaultForm = {
+    clinicId: lead.clinic_id ?? "",
+    gender: "",
+    dob: "",
+    healthFund: "",
+    address: "",
+    funding: lead.funding_preference ?? "Savings",
+    date: "",
+    time: "",
+  };
+  const [form, setForm] = useState<typeof defaultForm>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = window.localStorage.getItem(FORM_KEY);
+        if (saved) return { ...defaultForm, ...JSON.parse(saved) };
+      }
+    } catch { /* ignore */ }
+    return defaultForm;
   });
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
@@ -1564,6 +1579,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [previewEmail, setPreviewEmail] = useState("");
   const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
   const [pollAttempt, setPollAttempt] = useState(0);
+  const [showManualNotes, setShowManualNotes] = useState(false);
+  const [manualNotes, setManualNotes] = useState("");
+  const [savingManualNotes, setSavingManualNotes] = useState(false);
 
   useEffect(() => {
     if (!booked) return;
@@ -1613,10 +1631,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       if (attempts >= MAX_ATTEMPTS) {
         if (!stopped) {
           setIntelStatus("timeout");
-          toast("No call recording found — you can still send the handover manually", {
-            duration: 6000,
-            icon: "⚠️",
-          });
+          setShowManualNotes(true);
         }
         return;
       }
@@ -1639,8 +1654,48 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setClinics((data ?? []) as Clinic[])
     );
   }, []);
-  const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
+  const set = (k: keyof typeof form, v: string) => {
+    const next = { ...form, [k]: v };
+    setForm(next);
+    try {
+      if (typeof window !== "undefined") window.localStorage.setItem(FORM_KEY, JSON.stringify(next));
+    } catch { /* ignore */ }
+  };
+
+  // Restore booked state if this lead already has a saved booking (rep navigated away and came back)
+  useEffect(() => {
+    if (lead.booking_date && lead.booking_time && !booked) {
+      const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      setBookedData({
+        date: lead.booking_date,
+        time: lead.booking_time,
+        clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
+        doctorName: selectedClinic?.doctor_name ?? "Dr. Shabna Singh",
+      });
+      setBooked(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead.booking_date, lead.booking_time, clinics]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
+
+  const saveManualNotes = async () => {
+    if (!manualNotes.trim()) return;
+    setSavingManualNotes(true);
+    try {
+      await supabase
+        .from("meta_leads")
+        .update({ call_notes: manualNotes.trim(), updated_at: new Date().toISOString() })
+        .eq("id", lead.id);
+      setPreviewIntel(manualNotes.trim());
+      setIntelStatus("ready");
+      setShowManualNotes(false);
+      toast.success("Notes saved ✓");
+    } catch {
+      toast.error("Failed to save notes");
+    } finally {
+      setSavingManualNotes(false);
+    }
+  };
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
@@ -1653,6 +1708,32 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setBooked(true);
       onBooked();
       toast.success("Appointment booked!");
+
+      // Clear persisted form draft now that booking is saved
+      try {
+        if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
+      } catch { /* ignore */ }
+
+      // Fire-and-forget confirmation SMS to the patient via server function (keeps Twilio creds server-side)
+      if (lead.phone) {
+        void sendBookingConfirmationSms({
+          data: {
+            leadId: lead.id,
+            firstName: lead.first_name ?? "there",
+            phone: lead.phone,
+            clinicName,
+            doctorName,
+            bookingDate: form.date,
+            bookingTime: form.time,
+            clinicAddress: selectedClinic?.address ?? null,
+          },
+        })
+          .then((res) => {
+            if (res.success) toast.success("Confirmation SMS sent to patient ✓");
+            else toast.error(`Confirmation SMS failed: ${res.error}`);
+          })
+          .catch(() => toast.error("Confirmation SMS failed — check Twilio"));
+      }
     } else {
       toast.error(r.error);
     }
@@ -1844,6 +1925,55 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {/* Manual notes fallback when no recording was detected */}
+            {showManualNotes && !handoverSent && (
+              <div style={{
+                background: "#fffbeb",
+                border: `0.5px solid ${COLORS.amber}`,
+                borderRadius: 10,
+                padding: "16px 20px",
+                marginTop: 12,
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amberDark, marginBottom: 8 }}>
+                  ⚠️ No recording detected — type your notes while they're fresh
+                </div>
+                <textarea
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  rows={4}
+                  placeholder="What did they tell you? Pain points, motivation, budget, timeline..."
+                  className="w-full rounded-[6px] outline-none"
+                  style={{
+                    background: "#ffffff",
+                    border: `0.5px solid ${COLORS.line}`,
+                    color: "#111",
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    padding: "10px 12px",
+                    resize: "vertical",
+                    marginBottom: 10,
+                  }}
+                />
+                <button
+                  onClick={() => void saveManualNotes()}
+                  disabled={savingManualNotes || !manualNotes.trim()}
+                  style={{
+                    background: COLORS.coral,
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    border: "none",
+                    opacity: savingManualNotes || !manualNotes.trim() ? 0.5 : 1,
+                    cursor: savingManualNotes || !manualNotes.trim() ? "default" : "pointer",
+                  }}
+                >
+                  {savingManualNotes ? "Saving..." : "Save notes →"}
+                </button>
               </div>
             )}
 
@@ -2177,7 +2307,7 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
             const day = l.day_number ?? 1;
             const attempts = ATTEMPTS_PER_DAY(day);
             const todayCount = attemptCounts[l.id] ?? 0;
-            const attemptDisplay = todayCount + 1;
+            const attemptDisplay = Math.max(1, todayCount);
             const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
             return (
               <div
@@ -2387,7 +2517,7 @@ function RightPanel({
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          Day {day} · Attempt {Math.min((attemptCounts[active.id] ?? 0) + 1, attempts)} of {attempts} today
+          Day {day} · Attempt {Math.min(Math.max(1, attemptCounts[active.id] ?? 1), attempts)} of {attempts} today
         </div>
       </div>
 

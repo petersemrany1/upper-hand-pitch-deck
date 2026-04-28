@@ -802,3 +802,87 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       return { success: false as const, error: msg };
     }
   });
+
+export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      leadId: string;
+      firstName: string;
+      phone: string;
+      clinicName: string;
+      doctorName: string | null;
+      bookingDate: string;
+      bookingTime: string;
+      clinicAddress?: string | null;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const TWILIO_FROM = "+61468031075";
+
+    if (!accountSid || !authToken) {
+      return { success: false as const, error: "Twilio credentials not configured" };
+    }
+
+    const bookingDisplay = (() => {
+      try {
+        const d = new Date(`${data.bookingDate}T${data.bookingTime}`);
+        return d.toLocaleString("en-AU", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          hour: "numeric",
+          minute: "2-digit",
+        });
+      } catch {
+        return `${data.bookingDate} at ${data.bookingTime}`;
+      }
+    })();
+
+    const doctorDisplay = data.doctorName ?? "your specialist";
+    const address = data.clinicAddress || "64 Lincoln Rd Essendon VIC 3040";
+
+    const message = `Hi ${data.firstName}, your hair transplant consultation is confirmed for ${bookingDisplay} with ${doctorDisplay} at ${data.clinicName}. Address: ${address}. Free parking on site. See you soon! — Hair Transplant Group`;
+
+    const raw = data.phone.replace(/[\s\-()]/g, "");
+    const formatted = raw.startsWith("+")
+      ? raw
+      : raw.startsWith("0")
+      ? "+61" + raw.slice(1)
+      : "+61" + raw;
+
+    try {
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            To: formatted,
+            From: TWILIO_FROM,
+            Body: message,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        await logError("sendBookingConfirmationSms", result.message || "Twilio SMS failed", {
+          leadId: data.leadId,
+          phone: formatted,
+        });
+        return { success: false as const, error: result.message || "SMS failed" };
+      }
+
+      return { success: true as const, sid: result.sid as string };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error";
+      await logError("sendBookingConfirmationSms", msg, { leadId: data.leadId });
+      return { success: false as const, error: msg };
+    }
+  });

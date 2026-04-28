@@ -231,6 +231,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
             lead_id: extraParams?.leadId || null,
             phone,
             status: "initiated",
+            called_at: new Date().toISOString(),
           },
           { onConflict: "twilio_call_sid" },
         );
