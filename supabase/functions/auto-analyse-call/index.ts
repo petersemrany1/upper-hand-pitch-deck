@@ -48,7 +48,16 @@ CALLBACK TIME EXTRACTION — CRITICAL:
 
 Return only valid JSON, no preamble.`;
 
-const PATIENT_SYSTEM_PROMPT = `You are analysing a sales call between a Hair Transplant Group consultant and a potential hair transplant patient. Based on the transcript, write a warm 2-3 sentence patient intel summary for the clinic team. Cover: the patient's main pain points about their hair loss, their emotional motivation (why now — was there an event, a photo, a comment someone made?), and anything personal that will help the clinic build rapport on the day. Write in third person (e.g. "Michael has been..."). Use the patient's own words where possible. Do not mention prices, deposits, or funding. Do not use bullet points. Return plain prose only — no JSON, no preamble, just the summary paragraph.`;
+const PATIENT_SYSTEM_PROMPT = `You are building a cumulative patient profile for a hair transplant clinic. You will be given one or more call transcripts between a Hair Transplant Group sales consultant and a patient lead. Each transcript is from a separate call — they may have been called back multiple times.
+
+Read ALL transcripts and write a single consolidated patient intel summary covering everything learned across all calls. Include:
+- Their main hair loss pain points (what specifically is bothering them)
+- Their emotional motivation — why now? (was there an event, photo, comment from someone, or a specific moment that triggered the enquiry)
+- How long they have been dealing with it
+- What they have already tried if mentioned
+- Anything personal that will help the clinic team build rapport on the day
+
+Write in third person (e.g. "Michael has been..."). Use the patient's own words where possible. Be warm and specific. Do not mention prices, deposits, or funding. Do not use bullet points. Return plain prose only — no JSON, no preamble, just the summary paragraph. 2-4 sentences maximum.`;
 
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
@@ -169,6 +178,33 @@ serve(async (req) => {
     await setStage("analysing");
 
     // 3. Claude
+    // For patient calls — pull all previous transcripts for this lead and combine them
+    let claudeUserContent = `Transcript:\n\n${transcript}`;
+    if (isPatientCall && row.lead_id) {
+      const { data: previousCalls } = await supabase
+        .from("call_records")
+        .select("call_analysis, called_at")
+        .eq("lead_id", row.lead_id)
+        .neq("id", callRecordId)
+        .not("call_analysis", "is", null)
+        .order("called_at", { ascending: true });
+
+      const previousTranscripts = (previousCalls ?? [])
+        .map((c) => {
+          const analysis = c.call_analysis as { transcript?: string } | null;
+          return analysis?.transcript?.trim() || null;
+        })
+        .filter(Boolean);
+
+      if (previousTranscripts.length > 0) {
+        claudeUserContent = previousTranscripts
+          .map((t, i) => `--- Call ${i + 1} ---\n${t}`)
+          .join("\n\n") + `\n\n--- Latest Call ---\n${transcript}`;
+      } else {
+        claudeUserContent = `--- Call 1 ---\n${transcript}`;
+      }
+    }
+
     const claudeResp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -178,9 +214,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: isPatientCall ? 400 : 1500,
+        max_tokens: isPatientCall ? 500 : 1500,
         system: isPatientCall ? PATIENT_SYSTEM_PROMPT : SYSTEM_PROMPT,
-        messages: [{ role: "user", content: `Transcript:\n\n${transcript}` }],
+        messages: [{ role: "user", content: claudeUserContent }],
       }),
     });
     if (!claudeResp.ok) {
