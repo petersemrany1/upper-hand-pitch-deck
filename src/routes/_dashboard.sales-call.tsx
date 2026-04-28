@@ -1300,39 +1300,39 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
   );
 }
 
-type ClinicConsult = Clinic & {
-  consult_includes?: string | null;
-  consult_price_original?: number | null;
-  consult_price_deposit?: number | null;
-  consult_price_free?: boolean | null;
-  consult_persuasion_lines?: string[] | null;
-};
-
-const DEFAULT_CONSULT_INCLUDES =
-  "Hair & scalp assessment + donor area analysis + hairline design + photo documentation → all one appointment → no obligation";
-const DEFAULT_PERSUASION_LINES = [
-  "Limited consult spots available",
-  "We'll show you exactly what's possible before you commit to anything",
-  "Most people leave with a full treatment plan same day",
-];
-
-function PriceStep({ onNext }: { onNext: () => void }) {
+function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
   void onNext;
-  const [clinic, setClinic] = useState<ClinicConsult | null>(null);
+  const [clinic, setClinic] = useState<Clinic | null>(null);
+  const [doctor, setDoctor] = useState<PartnerDoctor | null>(null);
 
   useEffect(() => {
-    void supabase
-      .from("clinics")
-      .select("id, clinic_name, address, doctor_name, city, state, consult_includes, consult_price_original, consult_price_deposit, consult_price_free, consult_persuasion_lines")
-      .then(({ data }) => {
-        const list = (data ?? []) as ClinicConsult[];
-        const nitai = list.find((c) => c.clinic_name?.toLowerCase().includes("nitai")) ?? list[0] ?? null;
-        setClinic(nitai);
-      });
-  }, []);
+    void (async () => {
+      // Pick the lead's selected partner clinic if set, otherwise the first active partner clinic.
+      const { data: clinics } = await supabase
+        .from("partner_clinics")
+        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .eq("is_active", true);
+      const list = (clinics ?? []) as Clinic[];
+      const picked = (lead.clinic_id ? list.find((c) => c.id === lead.clinic_id) : null) ?? list[0] ?? null;
+      setClinic(picked);
 
-  const doctorName = clinic?.doctor_name ?? "Dr. Shabna Singh";
+      if (picked) {
+        const { data: docs } = await supabase
+          .from("partner_doctors")
+          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+          .eq("clinic_id", picked.id)
+          .eq("is_active", true)
+          .order("created_at");
+        setDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+      }
+    })();
+  }, [lead.clinic_id]);
+
+  const doctorName = doctor?.name ?? "your specialist";
   const priceOriginal = clinic?.consult_price_original ?? 395;
+  const clinicLine = clinic
+    ? [clinic.clinic_name, [clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ")
+    : null;
 
   const Bullet = ({ children, amber }: { children: React.ReactNode; amber?: boolean }) => (
     <div className="flex items-start gap-3">
