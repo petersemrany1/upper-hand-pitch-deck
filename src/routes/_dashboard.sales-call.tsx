@@ -1400,6 +1400,16 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
         <Bullet>
           Where do they live → pick clinic → <strong>{doctorName}</strong>, senior, sees patients like you
         </Bullet>
+        {clinicLine && (
+          <Bullet>
+            <span style={{ color: "#555" }}>{clinicLine}</span>
+          </Bullet>
+        )}
+        {clinic?.nearby_landmarks && (
+          <Bullet>
+            <span style={{ color: "#555" }}>{clinic.nearby_landmarks}</span>
+          </Bullet>
+        )}
       </Block>
 
       {/* Block 2 — Name the specialist */}
