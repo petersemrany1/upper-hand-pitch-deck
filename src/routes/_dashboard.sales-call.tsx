@@ -1757,6 +1757,104 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
             )}
           </button>
         </div>
+
+        {showPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+            <div className="w-full max-w-lg rounded-[12px] flex flex-col" style={{ background: "#ffffff", maxHeight: "90vh", overflow: "hidden" }}>
+
+              {/* Header */}
+              <div style={{ padding: "20px 24px", borderBottom: `0.5px solid ${COLORS.line}` }}>
+                <div style={{ fontSize: 16, fontWeight: 500, color: "#111" }}>Review before sending</div>
+                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>Edit anything before it goes to the clinic</div>
+              </div>
+
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1" style={{ padding: "20px 24px" }}>
+
+                {/* Appointment */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Appointment</div>
+                  <div style={{ fontSize: 14, color: "#111", fontWeight: 500 }}>
+                    {bookedData ? (() => { try { return new Date(`${bookedData.date}T${bookedData.time}`).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }); } catch { return `${bookedData.date} at ${bookedData.time}`; } })() : ""}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>with {bookedData?.doctorName} · {bookedData?.clinicName}</div>
+                </div>
+
+                {/* Patient Intel */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Patient Intel <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <textarea
+                    value={previewIntel}
+                    onChange={(e) => setPreviewIntel(e.target.value)}
+                    rows={5}
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
+                    placeholder="Add call notes here..."
+                  />
+                </div>
+
+                {/* Funding */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Funding Method <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <input
+                    value={previewFunding}
+                    onChange={(e) => setPreviewFunding(e.target.value)}
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}
+                  />
+                </div>
+
+                {/* Key facts row */}
+                <div className="grid grid-cols-2 gap-3" style={{ marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Finance Eligible</div>
+                    <select value={previewFinance} onChange={(e) => setPreviewFinance(e.target.value)}
+                      className="w-full rounded-[6px] outline-none"
+                      style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}>
+                      <option>Not checked</option>
+                      <option>Yes</option>
+                      <option>No</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Deposit Paid</div>
+                    <select value={previewDeposit ? "Yes" : "No"} onChange={(e) => setPreviewDeposit(e.target.value === "Yes")}
+                      className="w-full rounded-[6px] outline-none"
+                      style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}>
+                      <option>No</option>
+                      <option>Yes</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Patient Contact <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <input value={previewPhone} onChange={(e) => setPreviewPhone(e.target.value)} placeholder="Phone"
+                    className="w-full rounded-[6px] outline-none mb-2"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
+                  <input value={previewEmail} onChange={(e) => setPreviewEmail(e.target.value)} placeholder="Email"
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
+                </div>
+              </div>
+
+              {/* Footer buttons */}
+              <div className="flex gap-3" style={{ padding: "16px 24px", borderTop: `0.5px solid ${COLORS.line}` }}>
+                <button onClick={() => setShowPreview(false)}
+                  className="flex-1 rounded-[8px]"
+                  style={{ background: "#f3f3f3", color: "#111", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
+                  Cancel
+                </button>
+                <button onClick={() => void confirmAndSend()}
+                  className="flex-1 rounded-[8px]"
+                  style={{ background: COLORS.coral, color: "#fff", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
+                  Confirm & Send →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
