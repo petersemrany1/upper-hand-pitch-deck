@@ -1543,58 +1543,76 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [previewPhone, setPreviewPhone] = useState("");
   const [previewEmail, setPreviewEmail] = useState("");
   const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
+  const [pollAttempt, setPollAttempt] = useState(0);
 
   useEffect(() => {
     if (!booked) return;
-    if (lead.call_notes || discoveryNotes) {
+    if (lead.call_notes?.trim() || discoveryNotes?.trim()) {
       setIntelStatus("ready");
-      setPreviewIntel(discoveryNotes || lead.call_notes || "");
       return;
     }
 
     let attempts = 0;
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
     const MAX_ATTEMPTS = 18; // 3 minutes at 10s intervals
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     const poll = async () => {
-      if (cancelled) return;
+      if (stopped) return;
       attempts += 1;
+      setPollAttempt(attempts);
+
       try {
         const { data, error } = await supabase
           .from("meta_leads")
           .select("call_notes")
           .eq("id", lead.id)
-          .maybeSingle();
+          .single();
 
-        if (cancelled) return;
+        if (stopped) return;
 
-        if (!error && data?.call_notes?.trim()) {
-          setIntelStatus("ready");
-          setPreviewIntel(data.call_notes);
+        if (error) {
+          setIntelStatus("timeout");
+          toast.error("Could not check call intel — you can still send manually");
           return;
         }
-      } catch (e) {
-        // swallow — fall through to retry / timeout so the chain never dies silently
-        console.warn("[intel poll] query failed, will retry", e);
-      }
 
-      if (cancelled) return;
-      if (attempts >= MAX_ATTEMPTS) {
+        if (data?.call_notes?.trim()) {
+          setIntelStatus("ready");
+          setPreviewIntel(data.call_notes);
+          toast.success("Patient intel ready ✓");
+          return;
+        }
+      } catch {
+        if (stopped) return;
         setIntelStatus("timeout");
+        toast.error("Error checking call intel — you can still send manually");
         return;
       }
+
+      if (attempts >= MAX_ATTEMPTS) {
+        if (!stopped) {
+          setIntelStatus("timeout");
+          toast("No call recording found — you can still send the handover manually", {
+            duration: 6000,
+            icon: "⚠️",
+          });
+        }
+        return;
+      }
+
       timer = setTimeout(poll, 10000);
     };
 
-    // poll immediately, then every 10s — no upfront 10s dead time
-    void poll();
+    // First poll after 15 seconds to give Twilio time to process
+    const initialTimer = setTimeout(poll, 15000);
 
     return () => {
-      cancelled = true;
+      stopped = true;
+      clearTimeout(initialTimer);
       if (timer) clearTimeout(timer);
     };
-  }, [booked, lead.id, lead.call_notes, discoveryNotes]);
+  }, [booked, lead.id]);
 
   useEffect(() => {
     void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
@@ -1761,10 +1779,22 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               <div className="flex items-center gap-2" style={{ padding: "0 4px" }}>
                 {intelStatus === "waiting" && (
                   <>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#eab308", flexShrink: 0 }} />
-                    <div style={{ fontSize: 12, color: COLORS.muted }}>
-                      Analysing call recording... don't send yet
+                    <div style={{
+                      width: 8, height: 8, borderRadius: "50%",
+                      border: `2px solid ${COLORS.amber}`,
+                      borderTopColor: "transparent",
+                      animation: "discoverySpin 0.8s linear infinite",
+                      flexShrink: 0,
+                    }} />
+                    <div style={{ fontSize: 13, color: COLORS.amberDark, fontWeight: 500 }}>
+                      Analysing call recording... ({pollAttempt}/18)
                     </div>
+                    <button
+                      onClick={() => setIntelStatus("timeout")}
+                      style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: 8 }}
+                    >
+                      Skip
+                    </button>
                   </>
                 )}
                 {intelStatus === "ready" && (
