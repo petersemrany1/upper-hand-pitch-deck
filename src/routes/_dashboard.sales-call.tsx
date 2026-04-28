@@ -99,6 +99,29 @@ function SalesCallPortal() {
   const [discoveryNotes, setDiscoveryNotes] = useState<string>("");
   const [ampPrefill, setAmpPrefill] = useState<string>("");
   const [audioPrefill, setAudioPrefill] = useState<string>("");
+  const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const load = async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from("call_records")
+        .select("lead_id")
+        .gte("called_at", today.toISOString());
+      const counts: Record<string, number> = {};
+      for (const row of data ?? []) {
+        if (!row.lead_id) continue;
+        counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
+      }
+      setAttemptCounts(counts);
+    };
+    void load();
+    const ch = supabase.channel("attempt-counts")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, []);
 
   // Resolve rep from auth email
   useEffect(() => {
