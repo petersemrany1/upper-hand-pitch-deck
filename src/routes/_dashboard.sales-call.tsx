@@ -1579,6 +1579,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [previewEmail, setPreviewEmail] = useState("");
   const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
   const [pollAttempt, setPollAttempt] = useState(0);
+  const [showManualNotes, setShowManualNotes] = useState(false);
+  const [manualNotes, setManualNotes] = useState("");
+  const [savingManualNotes, setSavingManualNotes] = useState(false);
 
   useEffect(() => {
     if (!booked) return;
