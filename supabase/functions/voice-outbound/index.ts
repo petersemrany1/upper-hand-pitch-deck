@@ -74,6 +74,7 @@ serve(async (req) => {
       phone = phone || (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "");
       callSid = callSid || (form.get("CallSid")?.toString() ?? "");
       clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");
+      leadId = leadId || (form.get("leadId")?.toString() ?? "");
     } catch {
       // ignore — fall through to validation
     }
