@@ -1684,13 +1684,24 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     else toast.error(`Deposit SMS failed: ${r.error}`);
   };
 
-  const openPreview = () => {
-    setPreviewIntel(discoveryNotes || lead.call_notes || "");
-    setPreviewFunding(form.funding || lead.funding_preference || "");
-    setPreviewFinance(lead.finance_eligible === true ? "Yes" : lead.finance_eligible === false ? "No" : "Not checked");
+  const openPreview = async () => {
+    const { data: freshLead } = await supabase
+      .from("meta_leads")
+      .select("call_notes, funding_preference, finance_eligible, phone, email")
+      .eq("id", lead.id)
+      .single();
+
+    setPreviewIntel(freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "");
+    setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
+    setPreviewFinance(
+      freshLead?.finance_eligible === true ? "Yes" :
+      freshLead?.finance_eligible === false ? "No" :
+      lead.finance_eligible === true ? "Yes" :
+      lead.finance_eligible === false ? "No" : "Not checked"
+    );
     setPreviewDeposit(depositSent);
-    setPreviewPhone(lead.phone ?? "");
-    setPreviewEmail(lead.email ?? "");
+    setPreviewPhone(freshLead?.phone || lead.phone || "");
+    setPreviewEmail(freshLead?.email || lead.email || "");
     setShowPreview(true);
   };
 
@@ -1818,7 +1829,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
             {/* Button */}
             <button
-              onClick={() => openPreview()}
+              onClick={() => void openPreview()}
               disabled={sendingHandover || handoverSent || intelStatus === "waiting"}
               className="w-full rounded-[8px] flex items-center justify-between"
               style={{
