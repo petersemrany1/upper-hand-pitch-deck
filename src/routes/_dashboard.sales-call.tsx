@@ -635,7 +635,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} onBooked={() => onMarkComplete("booking")} />;
+    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} />;
   }
 
   return null;
@@ -1522,7 +1522,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [form, setForm] = useState({
     clinicId: lead.clinic_id ?? "", gender: "", dob: "", healthFund: "",
@@ -1535,6 +1535,13 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   const [sendingDeposit, setSendingDeposit] = useState(false);
   const [handoverSent, setHandoverSent] = useState(false);
   const [depositSent, setDepositSent] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewIntel, setPreviewIntel] = useState("");
+  const [previewFunding, setPreviewFunding] = useState("");
+  const [previewFinance, setPreviewFinance] = useState("");
+  const [previewDeposit, setPreviewDeposit] = useState(false);
+  const [previewPhone, setPreviewPhone] = useState("");
+  const [previewEmail, setPreviewEmail] = useState("");
 
   useEffect(() => {
     void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
@@ -1571,7 +1578,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
         phone: lead.phone ?? null,
-        callNotes: lead.call_notes ?? "",
+        callNotes: discoveryNotes || lead.call_notes || "",
         fundingPreference: lead.funding_preference ?? form.funding,
         financeEligible: lead.finance_eligible ?? null,
         bookingDate: bookedData.date,
@@ -1604,6 +1611,43 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
     setSendingDeposit(false);
     if (r.success) { setDepositSent(true); toast.success("Deposit link sent to patient ✓"); }
     else toast.error(`Deposit SMS failed: ${r.error}`);
+  };
+
+  const openPreview = () => {
+    setPreviewIntel(discoveryNotes || lead.call_notes || "");
+    setPreviewFunding(form.funding || lead.funding_preference || "");
+    setPreviewFinance(lead.finance_eligible === true ? "Yes" : lead.finance_eligible === false ? "No" : "Not checked");
+    setPreviewDeposit(depositSent);
+    setPreviewPhone(lead.phone ?? "");
+    setPreviewEmail(lead.email ?? "");
+    setShowPreview(true);
+  };
+
+  const confirmAndSend = async () => {
+    setShowPreview(false);
+    setSendingHandover(true);
+    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const r = await sendClinicHandoverEmail({
+      data: {
+        leadId: lead.id,
+        firstName: lead.first_name ?? "",
+        lastName: lead.last_name ?? "",
+        email: previewEmail || null,
+        phone: previewPhone || null,
+        callNotes: previewIntel,
+        fundingPreference: previewFunding,
+        financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
+        bookingDate: bookedData?.date ?? "",
+        bookingTime: bookedData?.time ?? "",
+        clinicName: bookedData?.clinicName ?? "Nitai Medical & Cosmetic Centre",
+        clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
+        doctorName: bookedData?.doctorName ?? "Dr. Shabna Singh",
+        depositPaid: depositSent,
+      },
+    });
+    setSendingHandover(false);
+    if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+    else toast.error(`Handover failed: ${r.error}`);
   };
 
   if (booked && bookedData) {
@@ -1659,7 +1703,7 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
         <div className="flex flex-col gap-2.5">
           {/* Send handover to clinic */}
           <button
-            onClick={() => void handleSendHandover()}
+            onClick={() => openPreview()}
             disabled={sendingHandover || handoverSent}
             className="w-full rounded-[8px] flex items-center justify-between"
             style={{
@@ -1713,6 +1757,104 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
             )}
           </button>
         </div>
+
+        {showPreview && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+            <div className="w-full max-w-lg rounded-[12px] flex flex-col" style={{ background: "#ffffff", maxHeight: "90vh", overflow: "hidden" }}>
+
+              {/* Header */}
+              <div style={{ padding: "20px 24px", borderBottom: `0.5px solid ${COLORS.line}` }}>
+                <div style={{ fontSize: 16, fontWeight: 500, color: "#111" }}>Review before sending</div>
+                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>Edit anything before it goes to the clinic</div>
+              </div>
+
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1" style={{ padding: "20px 24px" }}>
+
+                {/* Appointment */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Appointment</div>
+                  <div style={{ fontSize: 14, color: "#111", fontWeight: 500 }}>
+                    {bookedData ? (() => { try { return new Date(`${bookedData.date}T${bookedData.time}`).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }); } catch { return `${bookedData.date} at ${bookedData.time}`; } })() : ""}
+                  </div>
+                  <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>with {bookedData?.doctorName} · {bookedData?.clinicName}</div>
+                </div>
+
+                {/* Patient Intel */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Patient Intel <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <textarea
+                    value={previewIntel}
+                    onChange={(e) => setPreviewIntel(e.target.value)}
+                    rows={5}
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
+                    placeholder="Add call notes here..."
+                  />
+                </div>
+
+                {/* Funding */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Funding Method <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <input
+                    value={previewFunding}
+                    onChange={(e) => setPreviewFunding(e.target.value)}
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}
+                  />
+                </div>
+
+                {/* Key facts row */}
+                <div className="grid grid-cols-2 gap-3" style={{ marginBottom: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Finance Eligible</div>
+                    <select value={previewFinance} onChange={(e) => setPreviewFinance(e.target.value)}
+                      className="w-full rounded-[6px] outline-none"
+                      style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}>
+                      <option>Not checked</option>
+                      <option>Yes</option>
+                      <option>No</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Deposit Paid</div>
+                    <select value={previewDeposit ? "Yes" : "No"} onChange={(e) => setPreviewDeposit(e.target.value === "Yes")}
+                      className="w-full rounded-[6px] outline-none"
+                      style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}>
+                      <option>No</option>
+                      <option>Yes</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Patient Contact <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <input value={previewPhone} onChange={(e) => setPreviewPhone(e.target.value)} placeholder="Phone"
+                    className="w-full rounded-[6px] outline-none mb-2"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
+                  <input value={previewEmail} onChange={(e) => setPreviewEmail(e.target.value)} placeholder="Email"
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
+                </div>
+              </div>
+
+              {/* Footer buttons */}
+              <div className="flex gap-3" style={{ padding: "16px 24px", borderTop: `0.5px solid ${COLORS.line}` }}>
+                <button onClick={() => setShowPreview(false)}
+                  className="flex-1 rounded-[8px]"
+                  style={{ background: "#f3f3f3", color: "#111", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
+                  Cancel
+                </button>
+                <button onClick={() => void confirmAndSend()}
+                  className="flex-1 rounded-[8px]"
+                  style={{ background: COLORS.coral, color: "#fff", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
+                  Confirm & Send →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
