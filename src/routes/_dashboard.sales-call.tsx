@@ -14,7 +14,7 @@ import {
   saveBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
-import { sendClinicHandoverEmail, sendDepositSmsToPatient } from "@/utils/resend.functions";
+import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms } from "@/utils/resend.functions";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
