@@ -1544,10 +1544,25 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [form, setForm] = useState({
-    clinicId: lead.clinic_id ?? "", gender: "", dob: "", healthFund: "",
-    address: "", funding: lead.funding_preference ?? "Savings",
-    date: "", time: "",
+  const FORM_KEY = `booking_form_${lead.id}`;
+  const defaultForm = {
+    clinicId: lead.clinic_id ?? "",
+    gender: "",
+    dob: "",
+    healthFund: "",
+    address: "",
+    funding: lead.funding_preference ?? "Savings",
+    date: "",
+    time: "",
+  };
+  const [form, setForm] = useState<typeof defaultForm>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const saved = window.localStorage.getItem(FORM_KEY);
+        if (saved) return { ...defaultForm, ...JSON.parse(saved) };
+      }
+    } catch { /* ignore */ }
+    return defaultForm;
   });
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
