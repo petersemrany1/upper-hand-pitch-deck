@@ -638,7 +638,7 @@ function StepContent({
   }
 
   if (step === "price") {
-    return <PriceStep onNext={() => onAdvance("price")} />;
+    return <PriceStep lead={lead} onNext={() => onAdvance("price")} />;
   }
 
   if (step === "finance") {
