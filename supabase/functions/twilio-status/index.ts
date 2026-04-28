@@ -63,7 +63,7 @@ serve(async (req) => {
         { twilio_call_sid: callSid, ...patch },
         { onConflict: "twilio_call_sid" },
       )
-      .select("id, clinic_id")
+      .select("id, clinic_id, lead_id")
       .maybeSingle();
 
     if (upErr) {
@@ -74,11 +74,14 @@ serve(async (req) => {
     // Duration is NOT a reliable signal — Twilio's recording status callback
     // often sends CallDuration: "0" even for real conversations. The presence
     // of a recording URL is the only gate we need.
-    if (hasRecording && upserted?.id && upserted?.clinic_id) {
+    const shouldAnalyse = hasRecording && upserted?.id && (upserted?.clinic_id || upserted?.lead_id);
+
+    if (shouldAnalyse) {
       const fnUrl = `${supabaseUrl}/functions/v1/auto-analyse-call`;
       console.log("twilio-status: dispatching auto-analyse-call", {
-        callRecordId: upserted.id,
-        clinicId: upserted.clinic_id,
+        callRecordId: upserted!.id,
+        clinicId: upserted!.clinic_id,
+        leadId: upserted!.lead_id,
         duration,
       });
       fetch(fnUrl, {
@@ -87,10 +90,10 @@ serve(async (req) => {
           "Content-Type": "application/json",
           Authorization: `Bearer ${supabaseKey}`,
         },
-        body: JSON.stringify({ callRecordId: upserted.id }),
+        body: JSON.stringify({ callRecordId: upserted!.id }),
       }).catch((e) => console.error("auto-analyse-call dispatch failed:", e));
-    } else if (hasRecording && !upserted?.clinic_id) {
-      console.log("twilio-status: skipping AI analysis — no clinic_id", {
+    } else if (hasRecording && upserted?.id && !upserted?.clinic_id && !upserted?.lead_id) {
+      console.log("twilio-status: skipping AI analysis — no clinic_id or lead_id", {
         callRecordId: upserted?.id,
       });
     } else if (!hasRecording) {
