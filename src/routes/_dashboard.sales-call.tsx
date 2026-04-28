@@ -2220,9 +2220,24 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
           </div>
         </div>
 
-        {clinic?.doctor_name && (
-          <div className="text-[12px]" style={{ color: COLORS.muted }}>
-            Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span>
+        {doctors.length > 0 && (
+          <div>
+            <Label>Doctor</Label>
+            <select
+              value={form.doctorId}
+              onChange={(e) => set("doctorId", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
+              style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}
+            >
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}{d.title ? ` — ${d.title}` : ""}</option>
+              ))}
+            </select>
+            {selectedDoctor?.what_makes_them_different && (
+              <div className="text-[12px]" style={{ color: COLORS.muted, marginTop: 6, lineHeight: 1.5 }}>
+                {selectedDoctor.what_makes_them_different}
+              </div>
+            )}
           </div>
         )}
 
