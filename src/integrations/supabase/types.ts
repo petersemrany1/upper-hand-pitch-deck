@@ -397,6 +397,125 @@ export type Database = {
         }
         Relationships: []
       }
+      partner_clinics: {
+        Row: {
+          address: string | null
+          city: string | null
+          clinic_name: string
+          consult_price_deposit: number | null
+          consult_price_original: number | null
+          created_at: string
+          email: string | null
+          id: string
+          is_active: boolean
+          nearby_landmarks: string | null
+          parking_info: string | null
+          phone: string | null
+          state: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          clinic_name: string
+          consult_price_deposit?: number | null
+          consult_price_original?: number | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          nearby_landmarks?: string | null
+          parking_info?: string | null
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          clinic_name?: string
+          consult_price_deposit?: number | null
+          consult_price_original?: number | null
+          created_at?: string
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          nearby_landmarks?: string | null
+          parking_info?: string | null
+          phone?: string | null
+          state?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
+      }
+      partner_doctors: {
+        Row: {
+          advanced_cases: string | null
+          aftercare_included: string | null
+          clinic_id: string | null
+          created_at: string
+          credentials: string | null
+          id: string
+          is_active: boolean
+          name: string
+          natural_results_approach: string | null
+          specialties: string | null
+          talking_points: string | null
+          title: string | null
+          training_background: string | null
+          updated_at: string
+          what_makes_them_different: string | null
+          years_experience: number | null
+        }
+        Insert: {
+          advanced_cases?: string | null
+          aftercare_included?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          credentials?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          natural_results_approach?: string | null
+          specialties?: string | null
+          talking_points?: string | null
+          title?: string | null
+          training_background?: string | null
+          updated_at?: string
+          what_makes_them_different?: string | null
+          years_experience?: number | null
+        }
+        Update: {
+          advanced_cases?: string | null
+          aftercare_included?: string | null
+          clinic_id?: string | null
+          created_at?: string
+          credentials?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          natural_results_approach?: string | null
+          specialties?: string | null
+          talking_points?: string | null
+          title?: string | null
+          training_background?: string | null
+          updated_at?: string
+          what_makes_them_different?: string | null
+          years_experience?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_doctors_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_reps: {
         Row: {
           created_at: string

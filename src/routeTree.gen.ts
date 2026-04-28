@@ -18,6 +18,7 @@ import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.setti
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
+import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
@@ -69,6 +70,11 @@ const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   id: '/pitch-deck',
   path: '/pitch-deck',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
+  id: '/partner-clinics',
+  path: '/partner-clinics',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardLogsRoute = DashboardLogsRouteImport.update({
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
   '/logs': typeof DashboardLogsRoute
+  '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
   '/logs': typeof DashboardLogsRoute
+  '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/_dashboard/leaderboard': typeof DashboardLeaderboardRoute
   '/_dashboard/leads': typeof DashboardLeadsRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
+  '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
@@ -181,6 +190,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/leads'
     | '/logs'
+    | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
     | '/sent-links'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/leaderboard'
     | '/leads'
     | '/logs'
+    | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
     | '/sent-links'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/_dashboard/leaderboard'
     | '/_dashboard/leads'
     | '/_dashboard/logs'
+    | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sales-call'
     | '/_dashboard/sent-links'
@@ -299,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardPitchDeckRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/partner-clinics': {
+      id: '/_dashboard/partner-clinics'
+      path: '/partner-clinics'
+      fullPath: '/partner-clinics'
+      preLoaderRoute: typeof DashboardPartnerClinicsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/logs': {
       id: '/_dashboard/logs'
       path: '/logs'
@@ -366,6 +385,7 @@ interface DashboardRouteChildren {
   DashboardLeaderboardRoute: typeof DashboardLeaderboardRoute
   DashboardLeadsRoute: typeof DashboardLeadsRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
+  DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
@@ -381,6 +401,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLeaderboardRoute: DashboardLeaderboardRoute,
   DashboardLeadsRoute: DashboardLeadsRoute,
   DashboardLogsRoute: DashboardLogsRoute,
+  DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,

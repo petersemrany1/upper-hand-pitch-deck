@@ -32,7 +32,18 @@ type Lead = {
 
 type Clinic = {
   id: string; clinic_name: string; address: string | null;
-  doctor_name: string | null; city: string | null; state: string | null;
+  city: string | null; state: string | null;
+  consult_price_original: number | null; consult_price_deposit: number | null;
+  parking_info: string | null; nearby_landmarks: string | null;
+};
+
+type PartnerDoctor = {
+  id: string; clinic_id: string; name: string; title: string | null;
+  years_experience: number | null; specialties: string | null;
+  what_makes_them_different: string | null;
+  natural_results_approach: string | null;
+  advanced_cases: string | null; talking_points: string | null;
+  aftercare_included: string | null;
 };
 
 const STEPS = [
@@ -627,7 +638,7 @@ function StepContent({
   }
 
   if (step === "price") {
-    return <PriceStep onNext={() => onAdvance("price")} />;
+    return <PriceStep lead={lead} onNext={() => onAdvance("price")} />;
   }
 
   if (step === "finance") {
@@ -1137,6 +1148,27 @@ function DiscoveryStep({
 function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImages: { name: string; url: string }[]; onNext: () => void; repId: string | null }) {
   void repId; void onNext;
   const [sendingIdx, setSendingIdx] = useState<number | null>(null);
+  const [doctor, setDoctor] = useState<PartnerDoctor | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      // Pick the lead's clinic if set, else the first active partner clinic
+      let clinicId = lead.clinic_id;
+      if (!clinicId) {
+        const { data: c } = await supabase.from("partner_clinics").select("id").eq("is_active", true).limit(1);
+        clinicId = c?.[0]?.id ?? null;
+      }
+      if (!clinicId) return;
+      const { data: docs } = await supabase
+        .from("partner_doctors")
+        .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+        .eq("clinic_id", clinicId)
+        .eq("is_active", true)
+        .order("created_at")
+        .limit(1);
+      setDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+    })();
+  }, [lead.clinic_id]);
 
   const send = async (idx: number, url: string | undefined) => {
     if (!url) {
@@ -1265,7 +1297,14 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
           I'm not saying this is the case for you — but it's worth knowing...
         </div>
         <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.9 }}>
-          A lot of clinics just plant the grafts straight up. Quick and easy for them. But the result looks like a doll's head — stiff, unnatural, you can tell from a mile away. The difference is in the angle. Dr. Singh places every single graft at the exact angle your natural hair grows. She studies the direction, the flow, the whole pattern. That's the difference between a result that looks fake — and one where nobody can ever tell.
+          {doctor?.what_makes_them_different || (
+            <>A lot of clinics just plant the grafts straight up. Quick and easy for them. But the result looks like a doll's head — stiff, unnatural, you can tell from a mile away. The difference is in the angle. Your specialist places every single graft at the exact angle your natural hair grows — studying the direction, the flow, the whole pattern. That's the difference between a result that looks fake and one where nobody can ever tell.</>
+          )}
+          {doctor?.natural_results_approach && (
+            <div style={{ marginTop: 12, fontSize: 15, color: COLORS.text, lineHeight: 1.8 }}>
+              {doctor.natural_results_approach}
+            </div>
+          )}
         </div>
       </SayThisCard>
 
@@ -1289,39 +1328,39 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
   );
 }
 
-type ClinicConsult = Clinic & {
-  consult_includes?: string | null;
-  consult_price_original?: number | null;
-  consult_price_deposit?: number | null;
-  consult_price_free?: boolean | null;
-  consult_persuasion_lines?: string[] | null;
-};
-
-const DEFAULT_CONSULT_INCLUDES =
-  "Hair & scalp assessment + donor area analysis + hairline design + photo documentation → all one appointment → no obligation";
-const DEFAULT_PERSUASION_LINES = [
-  "Limited consult spots available",
-  "We'll show you exactly what's possible before you commit to anything",
-  "Most people leave with a full treatment plan same day",
-];
-
-function PriceStep({ onNext }: { onNext: () => void }) {
+function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
   void onNext;
-  const [clinic, setClinic] = useState<ClinicConsult | null>(null);
+  const [clinic, setClinic] = useState<Clinic | null>(null);
+  const [doctor, setDoctor] = useState<PartnerDoctor | null>(null);
 
   useEffect(() => {
-    void supabase
-      .from("clinics")
-      .select("id, clinic_name, address, doctor_name, city, state, consult_includes, consult_price_original, consult_price_deposit, consult_price_free, consult_persuasion_lines")
-      .then(({ data }) => {
-        const list = (data ?? []) as ClinicConsult[];
-        const nitai = list.find((c) => c.clinic_name?.toLowerCase().includes("nitai")) ?? list[0] ?? null;
-        setClinic(nitai);
-      });
-  }, []);
+    void (async () => {
+      // Pick the lead's selected partner clinic if set, otherwise the first active partner clinic.
+      const { data: clinics } = await supabase
+        .from("partner_clinics")
+        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .eq("is_active", true);
+      const list = (clinics ?? []) as Clinic[];
+      const picked = (lead.clinic_id ? list.find((c) => c.id === lead.clinic_id) : null) ?? list[0] ?? null;
+      setClinic(picked);
 
-  const doctorName = clinic?.doctor_name ?? "Dr. Shabna Singh";
+      if (picked) {
+        const { data: docs } = await supabase
+          .from("partner_doctors")
+          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+          .eq("clinic_id", picked.id)
+          .eq("is_active", true)
+          .order("created_at");
+        setDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+      }
+    })();
+  }, [lead.clinic_id]);
+
+  const doctorName = doctor?.name ?? "your specialist";
   const priceOriginal = clinic?.consult_price_original ?? 395;
+  const clinicLine = clinic
+    ? [clinic.clinic_name, [clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ")
+    : null;
 
   const Bullet = ({ children, amber }: { children: React.ReactNode; amber?: boolean }) => (
     <div className="flex items-start gap-3">
@@ -1389,6 +1428,16 @@ function PriceStep({ onNext }: { onNext: () => void }) {
         <Bullet>
           Where do they live → pick clinic → <strong>{doctorName}</strong>, senior, sees patients like you
         </Bullet>
+        {clinicLine && (
+          <Bullet>
+            <span style={{ color: "#555" }}>{clinicLine}</span>
+          </Bullet>
+        )}
+        {clinic?.nearby_landmarks && (
+          <Bullet>
+            <span style={{ color: "#555" }}>{clinic.nearby_landmarks}</span>
+          </Bullet>
+        )}
       </Block>
 
       {/* Block 2 — Name the specialist */}
@@ -1544,9 +1593,11 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
     clinicId: lead.clinic_id ?? "",
+    doctorId: "",
     gender: "",
     dob: "",
     healthFund: "",
@@ -1650,10 +1701,30 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   }, [booked, lead.id]);
 
   useEffect(() => {
-    void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
-      setClinics((data ?? []) as Clinic[])
-    );
+    void supabase.from("partner_clinics")
+      .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+      .eq("is_active", true)
+      .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
+
+  // Load doctors for the selected clinic
+  useEffect(() => {
+    if (!form.clinicId) { setDoctors([]); return; }
+    void supabase.from("partner_doctors")
+      .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+      .eq("clinic_id", form.clinicId)
+      .eq("is_active", true)
+      .order("created_at")
+      .then(({ data }) => {
+        const list = (data ?? []) as PartnerDoctor[];
+        setDoctors(list);
+        // Auto-select first doctor if none chosen yet
+        if (!form.doctorId && list.length > 0) {
+          setForm((f) => ({ ...f, doctorId: list[0].id }));
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.clinicId]);
   const set = (k: keyof typeof form, v: string) => {
     const next = { ...form, [k]: v };
     setForm(next);
@@ -1666,17 +1737,19 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   useEffect(() => {
     if (lead.booking_date && lead.booking_time && !booked) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
         clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
-        doctorName: selectedClinic?.doctor_name ?? "Dr. Shabna Singh",
+        doctorName: selectedDoctor?.name ?? "Dr. Shabna Singh",
       });
       setBooked(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lead.booking_date, lead.booking_time, clinics]);
+  }, [lead.booking_date, lead.booking_time, clinics, doctors]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
+  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
 
   const saveManualNotes = async () => {
     if (!manualNotes.trim()) return;
@@ -1702,8 +1775,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       const clinicName = selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre";
-      const doctorName = selectedClinic?.doctor_name ?? "Dr. Shabna Singh";
+      const doctorName = sd?.name ?? "Dr. Shabna Singh";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
       onBooked();
@@ -2174,9 +2248,24 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
           </div>
         </div>
 
-        {clinic?.doctor_name && (
-          <div className="text-[12px]" style={{ color: COLORS.muted }}>
-            Doctor: <span style={{ color: COLORS.text }}>{clinic.doctor_name}</span>
+        {doctors.length > 0 && (
+          <div>
+            <Label>Doctor</Label>
+            <select
+              value={form.doctorId}
+              onChange={(e) => set("doctorId", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
+              style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}
+            >
+              {doctors.map((d) => (
+                <option key={d.id} value={d.id}>{d.name}{d.title ? ` — ${d.title}` : ""}</option>
+              ))}
+            </select>
+            {selectedDoctor?.what_makes_them_different && (
+              <div className="text-[12px]" style={{ color: COLORS.muted, marginTop: 6, lineHeight: 1.5 }}>
+                {selectedDoctor.what_makes_them_different}
+              </div>
+            )}
           </div>
         )}
 
@@ -2406,6 +2495,32 @@ function RightPanel({
   const [callTimer, setCallTimer] = useState(0);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
+  const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
+  const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      const { data: clinics } = await supabase
+        .from("partner_clinics")
+        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .eq("is_active", true);
+      const list = (clinics ?? []) as Clinic[];
+      const picked = (active.clinic_id ? list.find((c) => c.id === active.clinic_id) : null) ?? list[0] ?? null;
+      setPanelClinic(picked);
+      if (picked) {
+        const { data: docs } = await supabase
+          .from("partner_doctors")
+          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+          .eq("clinic_id", picked.id)
+          .eq("is_active", true)
+          .order("created_at")
+          .limit(1);
+        setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+      } else {
+        setPanelDoctor(null);
+      }
+    })();
+  }, [active.id, active.clinic_id]);
 
   // Run the timer only when actually connected
   useEffect(() => {
