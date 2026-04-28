@@ -59,6 +59,7 @@ serve(async (req) => {
   let phone = url.searchParams.get("phone") || url.searchParams.get("To") || "";
   let callSid = url.searchParams.get("CallSid") || "";
   let clinicId = url.searchParams.get("clinicId") || "";
+  let leadId = url.searchParams.get("leadId") || "";
 
   if (req.method === "POST") {
     try {
@@ -73,6 +74,7 @@ serve(async (req) => {
       phone = phone || (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "");
       callSid = callSid || (form.get("CallSid")?.toString() ?? "");
       clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");
+      leadId = leadId || (form.get("leadId")?.toString() ?? "");
     } catch {
       // ignore — fall through to validation
     }
@@ -112,6 +114,7 @@ serve(async (req) => {
           twilio_call_sid: callSid,
           status: "initiated",
           clinic_id: clinicId || null,
+          lead_id: leadId || null,
           phone: dialTo,
         },
         { onConflict: "twilio_call_sid" },

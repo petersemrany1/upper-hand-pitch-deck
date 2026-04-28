@@ -48,6 +48,8 @@ CALLBACK TIME EXTRACTION — CRITICAL:
 
 Return only valid JSON, no preamble.`;
 
+const PATIENT_SYSTEM_PROMPT = `You are analysing a sales call between a Hair Transplant Group consultant and a potential hair transplant patient. Based on the transcript, write a warm 2-3 sentence patient intel summary for the clinic team. Cover: the patient's main pain points about their hair loss, their emotional motivation (why now — was there an event, a photo, a comment someone made?), and anything personal that will help the clinic build rapport on the day. Write in third person (e.g. "Michael has been..."). Use the patient's own words where possible. Do not mention prices, deposits, or funding. Do not use bullet points. Return plain prose only — no JSON, no preamble, just the summary paragraph.`;
+
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
   const secret = Deno.env.get("TWILIO_API_KEY_SECRET") || "";
@@ -98,7 +100,7 @@ serve(async (req) => {
 
     const { data: row, error: rowErr } = await supabase
       .from("call_records")
-      .select("id, recording_url, clinic_id, duration")
+      .select("id, recording_url, clinic_id, lead_id, duration")
       .eq("id", callRecordId)
       .maybeSingle();
 
@@ -110,9 +112,11 @@ serve(async (req) => {
       await logErr("No recording_url on call record");
       throw new Error("No recording_url on call record");
     }
-    if (!row.clinic_id) {
-      console.log("auto-analyse-call: no clinic_id, skipping CRM auto-fill");
-      return new Response(JSON.stringify({ skipped: "no clinic_id" }), {
+    const isPatientCall = !row.clinic_id && !!row.lead_id;
+
+    if (!row.clinic_id && !row.lead_id) {
+      console.log("auto-analyse-call: no clinic_id or lead_id, skipping");
+      return new Response(JSON.stringify({ skipped: "no clinic_id or lead_id" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -174,8 +178,8 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
-        system: SYSTEM_PROMPT,
+        max_tokens: isPatientCall ? 400 : 1500,
+        system: isPatientCall ? PATIENT_SYSTEM_PROMPT : SYSTEM_PROMPT,
         messages: [{ role: "user", content: `Transcript:\n\n${transcript}` }],
       }),
     });
@@ -189,6 +193,45 @@ serve(async (req) => {
     if (raw.startsWith("```")) {
       raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
     }
+
+    if (isPatientCall) {
+      // For patient calls — raw is just a plain text summary paragraph, not JSON
+      const patientSummary = raw.trim();
+
+      // Save transcript + summary to call_records
+      const analysis = {
+        transcript,
+        patient_summary: patientSummary,
+        analysed_at: new Date().toISOString(),
+      };
+      await supabase
+        .from("call_records")
+        .update({ call_analysis: analysis, analysis_stage: "complete" })
+        .eq("id", callRecordId);
+
+      // Save summary to meta_leads.call_notes so it flows into the handover email
+      if (row.lead_id) {
+        const { error: leadErr } = await supabase
+          .from("meta_leads")
+          .update({
+            call_notes: patientSummary,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", row.lead_id);
+        if (leadErr) {
+          await logErr(`meta_leads update failed: ${leadErr.message}`);
+        } else {
+          console.log("auto-analyse-call: patient summary saved to meta_leads", row.lead_id);
+        }
+      }
+
+      return new Response(JSON.stringify({ ok: true, patient_summary: patientSummary }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Clinic call — original flow
     let crm: Record<string, unknown>;
     try {
       crm = JSON.parse(raw);
