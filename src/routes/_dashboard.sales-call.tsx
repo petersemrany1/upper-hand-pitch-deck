@@ -1613,6 +1613,43 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     else toast.error(`Deposit SMS failed: ${r.error}`);
   };
 
+  const openPreview = () => {
+    setPreviewIntel(discoveryNotes || lead.call_notes || "");
+    setPreviewFunding(form.funding || lead.funding_preference || "");
+    setPreviewFinance(lead.finance_eligible === true ? "Yes" : lead.finance_eligible === false ? "No" : "Not checked");
+    setPreviewDeposit(depositSent);
+    setPreviewPhone(lead.phone ?? "");
+    setPreviewEmail(lead.email ?? "");
+    setShowPreview(true);
+  };
+
+  const confirmAndSend = async () => {
+    setShowPreview(false);
+    setSendingHandover(true);
+    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const r = await sendClinicHandoverEmail({
+      data: {
+        leadId: lead.id,
+        firstName: lead.first_name ?? "",
+        lastName: lead.last_name ?? "",
+        email: previewEmail || null,
+        phone: previewPhone || null,
+        callNotes: previewIntel,
+        fundingPreference: previewFunding,
+        financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
+        bookingDate: bookedData?.date ?? "",
+        bookingTime: bookedData?.time ?? "",
+        clinicName: bookedData?.clinicName ?? "Nitai Medical & Cosmetic Centre",
+        clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
+        doctorName: bookedData?.doctorName ?? "Dr. Shabna Singh",
+        depositPaid: depositSent,
+      },
+    });
+    setSendingHandover(false);
+    if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+    else toast.error(`Handover failed: ${r.error}`);
+  };
+
   if (booked && bookedData) {
     const bookingDisplay = (() => {
       try {
