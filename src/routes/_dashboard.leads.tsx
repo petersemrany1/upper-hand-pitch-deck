@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X } from "lucide-react";
+import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/leads")({
@@ -23,6 +23,35 @@ type Lead = {
   call_notes?: string | null;
 };
 
+const DEFAULT_STATUSES = [
+  "New",
+  "No Answer",
+  "Callback Scheduled",
+  "Not Interested",
+  "Booked — No Deposit",
+  "Booked — Deposit Paid",
+  "Dropped",
+] as const;
+
+const STATUS_STORAGE_KEY = "custom_lead_statuses";
+
+const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
+  "New": { bg: "#ebebeb", fg: "#111111" },
+  "No Answer": { bg: "#fffbeb", fg: "#92400e" },
+  "Callback Scheduled": { bg: "#eff6ff", fg: "#3b82f6" },
+  "Not Interested": { bg: "#fef2f2", fg: "#dc2626" },
+  "Booked — No Deposit": { bg: "#f5f3ff", fg: "#7c3aed" },
+  "Booked — Deposit Paid": { bg: "#ecfdf5", fg: "#059669" },
+  "Dropped": { bg: "#f3f3f3", fg: "#666666" },
+};
+
+const CUSTOM_STATUS_COLOR = { bg: "#fff5f3", fg: "#f4522d" };
+
+function statusBadge(s: string | null | undefined) {
+  const value = (s ?? "").trim() || "New";
+  return STATUS_COLORS[value] ?? CUSTOM_STATUS_COLOR;
+}
+
 const fmtDate = (s: string | null) => {
   if (!s) return "—";
   return new Date(s).toLocaleString("en-AU", {
@@ -40,25 +69,32 @@ type EditableFields = {
   call_notes: string;
 };
 
-const EDITABLE_KEYS: (keyof EditableFields)[] = [
-  "first_name",
-  "last_name",
-  "email",
-  "phone",
-  "funding_preference",
-  "status",
-  "call_notes",
-];
-
 const toForm = (r: Lead): EditableFields => ({
   first_name: r.first_name ?? "",
   last_name: r.last_name ?? "",
   email: r.email ?? "",
   phone: r.phone ?? "",
   funding_preference: r.funding_preference ?? "",
-  status: r.status ?? "",
+  status: r.status ?? "New",
   call_notes: r.call_notes ?? "",
 });
+
+function loadCustomStatuses(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(STATUS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((s) => typeof s === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomStatuses(list: string[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STATUS_STORAGE_KEY, JSON.stringify(list));
+}
 
 function LeadsPage() {
   const [rows, setRows] = useState<Lead[]>([]);
@@ -71,6 +107,30 @@ function LeadsPage() {
   const [editForm, setEditForm] = useState<EditableFields | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [customStatuses, setCustomStatuses] = useState<string[]>([]);
+  const [addingStatus, setAddingStatus] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+
+  useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
+
+  const allStatuses = [...DEFAULT_STATUSES, ...customStatuses];
+
+  const addCustomStatus = () => {
+    const v = newStatus.trim();
+    if (!v) return;
+    if (allStatuses.includes(v)) {
+      setNewStatus("");
+      setAddingStatus(false);
+      return;
+    }
+    const next = [...customStatuses, v];
+    setCustomStatuses(next);
+    saveCustomStatuses(next);
+    setEditForm((prev) => (prev ? { ...prev, status: v } : prev));
+    setNewStatus("");
+    setAddingStatus(false);
+  };
 
   const load = async () => {
     setLoading(true);
@@ -124,6 +184,7 @@ function LeadsPage() {
       (r.ad_name ?? "").toLowerCase().includes(q) ||
       (r.ad_set_name ?? "").toLowerCase().includes(q) ||
       (r.funding_preference ?? "").toLowerCase().includes(q) ||
+      (r.status ?? "").toLowerCase().includes(q) ||
       (q === "duplicate" && isDuplicate(r))
     );
   });
@@ -132,7 +193,6 @@ function LeadsPage() {
     setBusyId(id);
     const { error } = await supabase.from("meta_leads").delete().eq("id", id);
     if (!error) {
-      // Optimistically remove from UI immediately
       setRows((prev) => prev.filter((r) => r.id !== id));
     }
     setConfirmDeleteId(null);
@@ -143,6 +203,8 @@ function LeadsPage() {
     setSaveError(null);
     setEditLead(r);
     setEditForm(toForm(r));
+    setAddingStatus(false);
+    setNewStatus("");
   };
 
   const closeEdit = () => {
@@ -162,7 +224,7 @@ function LeadsPage() {
       email: editForm.email.trim() || null,
       phone: editForm.phone.trim() || null,
       funding_preference: editForm.funding_preference.trim() || null,
-      status: editForm.status.trim() || "new",
+      status: editForm.status.trim() || "New",
       call_notes: editForm.call_notes.trim() || null,
     };
     const { data, error } = await supabase
@@ -202,7 +264,7 @@ function LeadsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, email, phone, campaign…"
+            placeholder="Search name, email, phone, status, campaign…"
             className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
           />
         </div>
@@ -221,6 +283,7 @@ function LeadsPage() {
                   <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
                     <th className="text-left px-4 py-3 font-medium">Received</th>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
+                    <th className="text-left px-4 py-3 font-medium">Status</th>
                     <th className="text-left px-4 py-3 font-medium">Contact</th>
                     <th className="text-left px-4 py-3 font-medium">Funding</th>
                     <th className="text-left px-4 py-3 font-medium">Campaign / Ad Set / Ad</th>
@@ -231,6 +294,7 @@ function LeadsPage() {
                   {filtered.map((r) => {
                     const fullName = [r.first_name, r.last_name].filter(Boolean).join(" ") || "—";
                     const dup = isDuplicate(r);
+                    const badge = statusBadge(r.status);
                     return (
                       <tr
                         key={r.id}
@@ -251,6 +315,14 @@ function LeadsPage() {
                               </span>
                             )}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                            style={{ background: badge.bg, color: badge.fg }}
+                          >
+                            {(r.status ?? "").trim() || "New"}
+                          </span>
                         </td>
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
@@ -363,7 +435,6 @@ function LeadsPage() {
                   ["email", "Email"],
                   ["phone", "Phone"],
                   ["funding_preference", "Funding preference"],
-                  ["status", "Status"],
                 ] as [keyof EditableFields, string][]
               ).map(([key, label]) => (
                 <div key={key} className="flex flex-col gap-1.5">
@@ -378,6 +449,60 @@ function LeadsPage() {
                   />
                 </div>
               ))}
+
+              {/* Status dropdown with + button */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Status</label>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={allStatuses.includes(editForm.status) ? editForm.status : "New"}
+                    onChange={(e) =>
+                      setEditForm((prev) => (prev ? { ...prev, status: e.target.value } : prev))
+                    }
+                    className="flex-1 px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                  >
+                    {allStatuses.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setAddingStatus((v) => !v)}
+                    className="p-2 rounded-md bg-[#f4522d]/10 text-[#f4522d] hover:bg-[#f4522d]/20"
+                    title="Add custom status"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span
+                    className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                    style={{ background: statusBadge(editForm.status).bg, color: statusBadge(editForm.status).fg }}
+                  >
+                    {editForm.status || "New"}
+                  </span>
+                </div>
+                {addingStatus && (
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="text"
+                      autoFocus
+                      value={newStatus}
+                      onChange={(e) => setNewStatus(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomStatus(); } }}
+                      placeholder="New status name"
+                      className="flex-1 px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                    />
+                    <button
+                      type="button"
+                      onClick={addCustomStatus}
+                      className="px-3 py-2 rounded-md text-xs font-semibold bg-[#f4522d] text-white"
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Call notes</label>

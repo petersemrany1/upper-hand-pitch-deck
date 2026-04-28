@@ -454,15 +454,16 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       .eq("status", "booked").gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
 
     const byRep = new Map<string, {
-      calls: number; connected: number; bookings: number;
+      calls: number; attempted: number; connected: number; bookings: number;
       shortCalls: number; convos: number; workSeconds: number;
     }>();
-    for (const r of reps ?? []) byRep.set(r.id, { calls: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 });
+    for (const r of reps ?? []) byRep.set(r.id, { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 });
 
     for (const c of calls ?? []) {
       if (!c.rep_id) continue;
-      const s = byRep.get(c.rep_id) ?? { calls: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 };
+      const s = byRep.get(c.rep_id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 };
       s.calls += 1;
+      s.attempted += 1;
       if (c.outcome === "connected") s.connected += 1;
       const dur = c.duration_seconds ?? 0;
       s.workSeconds += dur;
@@ -472,18 +473,18 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
     for (const b of bookings ?? []) {
       if (!b.rep_id) continue;
-      const s = byRep.get(b.rep_id) ?? { calls: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 };
+      const s = byRep.get(b.rep_id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 };
       s.bookings += 1;
       byRep.set(b.rep_id, s);
     }
 
     const rows = (reps ?? []).map((r) => {
-      const s = byRep.get(r.id) ?? { calls: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 };
+      const s = byRep.get(r.id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, workSeconds: 0 };
       const conversion = s.connected > 0 ? Math.round((s.bookings / s.connected) * 100) : 0;
       const convosPct = s.calls > 0 ? Math.round((s.convos / s.calls) * 100) : 0;
       return {
         id: r.id, name: r.name, email: r.email,
-        calls: s.calls, connected: s.connected, bookings: s.bookings,
+        calls: s.calls, attempted: s.attempted, connected: s.connected, bookings: s.bookings,
         bonus: s.bookings * 75, shortCalls: s.shortCalls,
         workMinutes: Math.round(s.workSeconds / 60),
         convosPct, conversion,

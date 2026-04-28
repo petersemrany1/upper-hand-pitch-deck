@@ -14,7 +14,7 @@ import {
   saveBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
-import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms } from "@/utils/resend.functions";
+import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms } from "@/utils/resend.functions";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
@@ -111,6 +111,28 @@ function SalesCallPortal() {
   const [ampPrefill, setAmpPrefill] = useState<string>("");
   const [audioPrefill, setAudioPrefill] = useState<string>("");
   const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
+  const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
+  const [showCallbackAlert, setShowCallbackAlert] = useState(false);
+
+  useEffect(() => {
+    const check = async () => {
+      const now = new Date();
+      const fiveMinAgo = new Date(now.getTime() - 5 * 60000);
+      const { data } = await supabase
+        .from("meta_leads")
+        .select("*")
+        .eq("status", "Callback Scheduled")
+        .lte("callback_scheduled_at", now.toISOString())
+        .gte("callback_scheduled_at", fiveMinAgo.toISOString());
+      if (data && data.length > 0) {
+        setDueCallbacks(data as Lead[]);
+        setShowCallbackAlert(true);
+      }
+    };
+    void check();
+    const interval = setInterval(() => void check(), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -186,22 +208,50 @@ function SalesCallPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
+  const callbackBanner = showCallbackAlert && dueCallbacks.length > 0 ? (
+    <div style={{
+      position: "fixed", top: 16, right: 16, zIndex: 100,
+      background: COLORS.coral, color: "#fff",
+      borderRadius: 10, padding: "14px 18px",
+      boxShadow: "0 4px 20px rgba(244,82,45,0.3)",
+      maxWidth: 320,
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>📞 Callback due now</div>
+      {dueCallbacks.map((l) => (
+        <div key={l.id} style={{ fontSize: 13, marginBottom: 2 }}>
+          {l.first_name} {l.last_name} — finish your current call first
+        </div>
+      ))}
+      <button
+        onClick={() => setShowCallbackAlert(false)}
+        style={{ marginTop: 8, fontSize: 11, textDecoration: "underline", background: "transparent", color: "#fff", border: "none", cursor: "pointer" }}
+      >
+        Dismiss
+      </button>
+    </div>
+  ) : null;
+
   // Show full-screen lead chooser before entering the framework
   if (!active) {
     return (
-      <LeadChooser
-        leads={leads}
-        attemptCounts={attemptCounts}
-        onPick={(id) => {
-          setActiveId(id); setStep("mindset"); setCompleted(new Set());
-          setAmpPrefill(""); setAudioPrefill("");
-        }}
-      />
+      <>
+        {callbackBanner}
+        <LeadChooser
+          leads={leads}
+          attemptCounts={attemptCounts}
+          onPick={(id) => {
+            setActiveId(id); setStep("mindset"); setCompleted(new Set());
+            setAmpPrefill(""); setAudioPrefill("");
+          }}
+        />
+      </>
     );
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
+    <>
+      {callbackBanner}
+      <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav (desktop only) */}
       <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>
         <div className="px-5 py-5 border-b" style={{ borderColor: COLORS.line }}>
@@ -291,6 +341,7 @@ function SalesCallPortal() {
         input::placeholder, textarea::placeholder { color: #111111; opacity: 1; }
       `}</style>
     </div>
+    </>
   );
 }
 
@@ -899,12 +950,15 @@ function DiscoveryChecklist() {
   // Compact, tight checklist. Items strikethrough + fade when checked.
   type Item = { key: string; text: string; whyNow?: false } | { key: "why-now"; whyNow: true };
   const items: Item[] = [
-    { key: "where", text: "Where on the head is the loss happening?" },
+    { key: "where", text: "Where exactly — hairline, crown, temples, all over?" },
     { key: "how-long", text: "How long has it been happening?" },
-    { key: "hereditary", text: "Is it hereditary?" },
-    { key: "tried", text: "What have they already tried?" },
+    { key: "pace", text: "Is it getting worse or has it stabilised?" },
+    { key: "hereditary", text: "Is it hereditary? Who in the family?" },
+    { key: "tried", text: "What have they already tried — medication, products, overseas?" },
     { key: "why-now", whyNow: true },
-    { key: "feel", text: "How does it make you feel?" },
+    { key: "impact", text: "How is it affecting your daily life — photos, social situations, confidence?" },
+    { key: "feel", text: "How does it actually make you feel when you think about it?" },
+    { key: "outcome", text: "If we could fix this completely — what does that look like for you?" },
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggle = (k: string) => setChecked((s) => {
@@ -939,7 +993,7 @@ function DiscoveryChecklist() {
                   opacity: isOn ? 0.5 : 1,
                   textDecoration: isOn ? "line-through" : "none",
                 }}>
-                  Always a reason. Find it.
+                  Always a reason. A photo. An event. A comment someone made. A mirror moment. Find it and name it.
                 </span>
               </label>
             );
@@ -2333,16 +2387,26 @@ function leadUrgency(l: Lead): LeadUrgency {
   return "upcoming";
 }
 
+function getTimeSlot(lead: Lead): "9am" | "12pm" | "3pm" {
+  if (lead.callback_scheduled_at) {
+    const h = new Date(lead.callback_scheduled_at).getHours();
+    if (h < 10) return "9am";
+    if (h < 13) return "12pm";
+    return "3pm";
+  }
+  const hour = new Date().getHours();
+  if (hour < 10) return "9am";
+  if (hour < 13) return "12pm";
+  return "3pm";
+}
+
+const fmtShort = (s: string) =>
+  new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+
 function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptCounts: Record<string, number>; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
 
-  const sorted = useMemo(() => {
-    const score = (l: Lead) => {
-      const u = leadUrgency(l);
-      if (u === "overdue") return 0;
-      if (u === "due") return 1;
-      return 2;
-    };
+  const filtered = useMemo(() => {
     const list = leads.filter((l) => {
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
@@ -2352,13 +2416,107 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
         (l.phone ?? "").toLowerCase().includes(needle)
       );
     });
-    return [...list].sort((a, b) => {
-      const sa = score(a);
-      const sb = score(b);
-      if (sa !== sb) return sa - sb;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    return [...list].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }, [leads, q]);
+
+  const renderLeadCard = (l: Lead) => {
+    const u = leadUrgency(l);
+    const accent = u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
+    const day = l.day_number ?? 1;
+    const attempts = ATTEMPTS_PER_DAY(day);
+    const todayCount = attemptCounts[l.id] ?? 0;
+    const attemptDisplay = Math.max(1, todayCount);
+    const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
+    return (
+      <div
+        key={l.id}
+        className="flex items-center gap-4 rounded-[10px]"
+        style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderLeft: u === "upcoming" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
+          padding: "16px 18px",
+          marginBottom: 8,
+        }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <div style={{ fontSize: 15, fontWeight: 500, color: "#111" }}>{name}</div>
+            <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
+            {l.phone || "no phone"}
+            {l.funding_preference ? <> · <span style={{ color: "#111" }}>{l.funding_preference}</span></> : null}
+          </div>
+          <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
+            <span
+              style={{
+                padding: "2px 8px",
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 500,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                background: `${statusColor(l.status)}1a`,
+                color: statusColor(l.status),
+              }}
+            >
+              {l.status || "new"}
+            </span>
+            <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
+              Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
+            </span>
+            {l.callback_scheduled_at && (
+              <span style={{ fontSize: 12, color: COLORS.blue, fontWeight: 500 }}>
+                · {new Date(l.callback_scheduled_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
+            {u === "overdue" && (
+              <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue</span>
+            )}
+            {u === "due" && (
+              <span style={{ fontSize: 12, color: COLORS.amber, fontWeight: 500 }}>· Due now</span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => onPick(l.id)}
+          className="rounded-[8px] flex-shrink-0"
+          style={{
+            background: COLORS.coral,
+            color: "#ffffff",
+            fontSize: 14,
+            fontWeight: 500,
+            padding: "10px 18px",
+          }}
+        >
+          Start Call →
+        </button>
+      </div>
+    );
+  };
+
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const overdue = filtered.filter((l) =>
+    l.callback_scheduled_at ? new Date(l.callback_scheduled_at) < startOfToday : false
+  );
+  const overdueIds = new Set(overdue.map((l) => l.id));
+  const remaining = filtered.filter((l) => !overdueIds.has(l.id));
+  const slot9 = remaining.filter((l) => getTimeSlot(l) === "9am");
+  const slot12 = remaining.filter((l) => getTimeSlot(l) === "12pm");
+  const slot3 = remaining.filter((l) => getTimeSlot(l) === "3pm");
+
+  const SlotSection = ({ title, slotLeads, color }: { title: string; slotLeads: Lead[]; color: string }) =>
+    slotLeads.length === 0 ? null : (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color, marginBottom: 8, paddingLeft: 4 }}>
+          {title} — {slotLeads.length} lead{slotLeads.length !== 1 ? "s" : ""}
+        </div>
+        {slotLeads.map((l) => renderLeadCard(l))}
+      </div>
+    );
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: "#ffffff", color: COLORS.text }}>
@@ -2385,78 +2543,14 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
           />
         </div>
 
-        <div className="mt-6 space-y-2">
-          {sorted.length === 0 && (
+        <div className="mt-6">
+          {filtered.length === 0 && (
             <div style={{ padding: "24px 0", fontSize: 14, color: "#111", opacity: 0.7 }}>No leads to call.</div>
           )}
-          {sorted.map((l) => {
-            const u = leadUrgency(l);
-            const accent =
-              u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
-            const day = l.day_number ?? 1;
-            const attempts = ATTEMPTS_PER_DAY(day);
-            const todayCount = attemptCounts[l.id] ?? 0;
-            const attemptDisplay = Math.max(1, todayCount);
-            const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
-            return (
-              <div
-                key={l.id}
-                className="flex items-center gap-4 rounded-[10px]"
-                style={{
-                  background: "#ffffff",
-                  border: `0.5px solid ${COLORS.line}`,
-                  borderLeft: u === "upcoming" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
-                  padding: "16px 18px",
-                }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 15, fontWeight: 500, color: "#111" }}>{name}</div>
-                  <div style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
-                    {l.phone || "no phone"}
-                    {l.funding_preference ? <> · <span style={{ color: "#111" }}>{l.funding_preference}</span></> : null}
-                  </div>
-                  <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-                    <span
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: 20,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        background: `${statusColor(l.status)}1a`,
-                        color: statusColor(l.status),
-                      }}
-                    >
-                      {l.status || "new"}
-                    </span>
-                    <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
-                      Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
-                    </span>
-                    {u === "overdue" && (
-                      <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue callback</span>
-                    )}
-                    {u === "due" && (
-                      <span style={{ fontSize: 12, color: COLORS.amber, fontWeight: 500 }}>· Due now</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => onPick(l.id)}
-                  className="rounded-[8px] flex-shrink-0"
-                  style={{
-                    background: COLORS.coral,
-                    color: "#ffffff",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    padding: "10px 18px",
-                  }}
-                >
-                  Start Call →
-                </button>
-              </div>
-            );
-          })}
+          {overdue.length > 0 && <SlotSection title="⚠️ Overdue callbacks" slotLeads={overdue} color={COLORS.coral} />}
+          <SlotSection title="9am session" slotLeads={slot9} color="#3b82f6" />
+          <SlotSection title="12pm session" slotLeads={slot12} color="#8b5cf6" />
+          <SlotSection title="3pm session" slotLeads={slot3} color="#10b981" />
         </div>
       </div>
     </div>
@@ -2497,6 +2591,32 @@ function RightPanel({
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
+
+  // Callback scheduling
+  const [showCallbackPicker, setShowCallbackPicker] = useState(false);
+  const [callbackDate, setCallbackDate] = useState("");
+  const [callbackTime, setCallbackTime] = useState("");
+  const [savingCallback, setSavingCallback] = useState(false);
+
+  // SMS panel
+  const [showSms, setShowSms] = useState(false);
+  const [smsText, setSmsText] = useState("");
+  const [sendingSms, setSendingSms] = useState(false);
+  const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
+
+  // Load SMS history for this lead
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from("sms_messages")
+        .select("body, sent_at, created_at, direction")
+        .eq("lead_id", active.id)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      setSmsHistory((data ?? []) as typeof smsHistory);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id]);
 
   useEffect(() => {
     void (async () => {
@@ -2740,10 +2860,82 @@ function RightPanel({
             opacity: 0.55,
             fontSize: 12,
             textDecoration: "underline",
+            display: "block",
           }}
         >
           Mark as dropped
         </button>
+        <button
+          onClick={() => setShowCallbackPicker(!showCallbackPicker)}
+          style={{ fontSize: 12, color: COLORS.coral, textDecoration: "underline", background: "transparent", display: "block", marginTop: 4 }}
+        >
+          Schedule callback
+        </button>
+        {showCallbackPicker && (
+          <div style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8, padding: "12px 14px", marginTop: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+              Schedule callback
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {(["30 min", "1 hour", "2 hours"] as const).map((label) => (
+                <button
+                  key={label}
+                  onClick={() => {
+                    const d = new Date();
+                    d.setMinutes(d.getMinutes() + (label === "30 min" ? 30 : label === "1 hour" ? 60 : 120));
+                    setCallbackDate(d.toISOString().split("T")[0]);
+                    setCallbackTime(d.toTimeString().slice(0, 5));
+                  }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+              {(["9:00", "12:00", "15:00"] as const).map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    const d = new Date();
+                    const [h] = t.split(":").map(Number);
+                    if (d.getHours() >= h) d.setDate(d.getDate() + 1);
+                    setCallbackDate(d.toISOString().split("T")[0]);
+                    setCallbackTime(t);
+                  }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                >
+                  {t === "9:00" ? "9am" : t === "12:00" ? "12pm" : "3pm"}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
+              <input type="time" value={callbackTime} onChange={(e) => setCallbackTime(e.target.value)}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
+            </div>
+            <button
+              onClick={async () => {
+                if (!callbackDate || !callbackTime) return;
+                setSavingCallback(true);
+                const dt = new Date(`${callbackDate}T${callbackTime}`);
+                await supabase.from("meta_leads").update({
+                  callback_scheduled_at: dt.toISOString(),
+                  status: "Callback Scheduled",
+                  updated_at: new Date().toISOString(),
+                }).eq("id", active.id);
+                setSavingCallback(false);
+                setShowCallbackPicker(false);
+                toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+              }}
+              disabled={savingCallback || !callbackDate || !callbackTime}
+              style={{ width: "100%", background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 6, cursor: "pointer", opacity: savingCallback ? 0.6 : 1, border: "none" }}
+            >
+              {savingCallback ? "Saving..." : "Confirm callback →"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Section 3 — Clinic info */}
@@ -2847,6 +3039,84 @@ function RightPanel({
                 Before & After {i + 1}
               </button>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Section 6 — SMS */}
+      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+        <button
+          onClick={() => setShowSms((v) => !v)}
+          style={{
+            width: "100%", background: showSms ? "#111" : "#ffffff",
+            color: showSms ? "#fff" : "#111",
+            border: `1px solid #111`, borderRadius: 8,
+            fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
+          }}
+        >
+          {showSms ? "Hide SMS" : "💬 Send SMS"}
+        </button>
+        {showSms && (
+          <div style={{ marginTop: 10 }}>
+            {smsHistory.length > 0 && (
+              <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 10, padding: 8, background: "#fafaf9", borderRadius: 6, border: `0.5px solid ${COLORS.line}` }}>
+                {smsHistory.map((m, i) => (
+                  <div key={i} style={{
+                    fontSize: 12, padding: "6px 8px", marginBottom: 4, borderRadius: 6,
+                    background: m.direction === "outbound" ? "#eff6ff" : "#f3f3f3",
+                    color: "#111",
+                  }}>
+                    <div style={{ fontSize: 10, color: "#888", marginBottom: 2 }}>
+                      {m.direction === "outbound" ? "→ Sent" : "← Received"} · {new Date(m.sent_at ?? m.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+                    </div>
+                    {m.body}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-1.5" style={{ marginBottom: 8 }}>
+              {[
+                { label: "Following up", text: `Hi ${active.first_name ?? "there"}, it's Peter from Hair Transplant Group. Just following up on your enquiry — happy to answer any questions. Give me a call on 0414 999 999 or reply here.` },
+                { label: "Callback confirm", text: `Hi ${active.first_name ?? "there"}, confirming I'll give you a call shortly. Look forward to chatting!` },
+                { label: "Booking reminder", text: `Hi ${active.first_name ?? "there"}, just a reminder of your consultation tomorrow. Looking forward to seeing you — any questions just reply here.` },
+                { label: "Deposit reminder", text: `Hi ${active.first_name ?? "there"}, just a reminder to pay your $75 refundable deposit to secure your consultation spot. Reply if you have any questions!` },
+              ].map((t) => (
+                <button
+                  key={t.label}
+                  onClick={() => setSmsText(t.text)}
+                  style={{ fontSize: 11, padding: "4px 10px", borderRadius: 20, background: "#fff", border: `0.5px solid ${COLORS.line}`, color: "#111", cursor: "pointer" }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={smsText}
+              onChange={(e) => setSmsText(e.target.value)}
+              placeholder="Type your message…"
+              rows={4}
+              style={{ width: "100%", fontSize: 13, padding: "8px 10px", borderRadius: 6, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", resize: "vertical" }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+              <span style={{ fontSize: 11, color: "#888" }}>{smsText.length} chars</span>
+              <button
+                onClick={async () => {
+                  if (!smsText.trim() || !active.phone) { toast.error("Need message + phone"); return; }
+                  setSendingSms(true);
+                  const r = await sendManualSms({ data: { leadId: active.id, phone: active.phone, body: smsText } });
+                  setSendingSms(false);
+                  if (r.success) {
+                    toast.success("SMS sent");
+                    setSmsHistory((prev) => [...prev, { body: smsText, sent_at: new Date().toISOString(), created_at: new Date().toISOString(), direction: "outbound" }]);
+                    setSmsText("");
+                  } else toast.error(r.error);
+                }}
+                disabled={sendingSms || !smsText.trim()}
+                style={{ background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "6px 14px", borderRadius: 6, border: "none", cursor: "pointer", opacity: sendingSms || !smsText.trim() ? 0.6 : 1 }}
+              >
+                {sendingSms ? "Sending…" : "Send →"}
+              </button>
+            </div>
           </div>
         )}
       </div>
