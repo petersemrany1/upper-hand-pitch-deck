@@ -886,3 +886,164 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       return { success: false as const, error: msg };
     }
   });
+
+/* ──────────────── Manual SMS from sales call portal ──────────────── */
+
+export const sendManualSms = createServerFn({ method: "POST" })
+  .inputValidator((data: { leadId: string; phone: string; body: string }) => data)
+  .handler(async ({ data }) => {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const TWILIO_FROM = "+61468031075";
+    if (!accountSid || !authToken) {
+      return { success: false as const, error: "Twilio not configured" };
+    }
+    if (!data.body.trim()) {
+      return { success: false as const, error: "Message is empty" };
+    }
+
+    const raw = data.phone.replace(/[\s\-()]/g, "");
+    const formatted = raw.startsWith("+")
+      ? raw
+      : raw.startsWith("0")
+      ? "+61" + raw.slice(1)
+      : "+61" + raw;
+
+    try {
+      const res = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({ To: formatted, From: TWILIO_FROM, Body: data.body }),
+        }
+      );
+
+      const result = await res.json();
+      if (!res.ok) {
+        await logError("sendManualSms", result.message || "Twilio SMS failed", {
+          leadId: data.leadId,
+          phone: formatted,
+        });
+        return { success: false as const, error: result.message || "SMS failed" };
+      }
+
+      // Log to sms_messages
+      try {
+        const admin = getAdminClient();
+        await admin.from("sms_messages").insert({
+          lead_id: data.leadId,
+          body: data.body,
+          direction: "outbound",
+          sent_at: new Date().toISOString(),
+          phone: formatted,
+          to_number: formatted,
+          from_number: TWILIO_FROM,
+          twilio_message_sid: result.sid,
+          status: "sent",
+        });
+      } catch (logErr) {
+        // Logging failure shouldn't block success response
+        console.error("Failed to log SMS:", logErr);
+      }
+
+      return { success: true as const, sid: result.sid as string };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error";
+      await logError("sendManualSms", msg, { leadId: data.leadId });
+      return { success: false as const, error: msg };
+    }
+  });
+
+/* ──────────────── Pattern analysis (Claude via Lovable AI Gateway) ──────────────── */
+
+export const analyseCallPatterns = createServerFn({ method: "POST" })
+  .inputValidator((data: { range: "today" | "yesterday" | "week" | "lastweek" | "30d" }) => data)
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) {
+      return { success: false as const, error: "AI gateway not configured" };
+    }
+
+    const now = new Date();
+    const from = new Date();
+    let to = new Date(now);
+    if (data.range === "today") {
+      from.setHours(0, 0, 0, 0);
+    } else if (data.range === "yesterday") {
+      from.setDate(from.getDate() - 1);
+      from.setHours(0, 0, 0, 0);
+      to = new Date();
+      to.setHours(0, 0, 0, 0);
+    } else if (data.range === "week") {
+      from.setDate(from.getDate() - 7);
+    } else if (data.range === "lastweek") {
+      from.setDate(from.getDate() - 14);
+      to = new Date();
+      to.setDate(to.getDate() - 7);
+    } else {
+      from.setDate(from.getDate() - 30);
+    }
+
+    const admin = getAdminClient();
+    const { data: leads } = await admin
+      .from("meta_leads")
+      .select("call_notes, status, first_name")
+      .gte("updated_at", from.toISOString())
+      .lte("updated_at", to.toISOString())
+      .not("call_notes", "is", null);
+
+    const notes = (leads ?? [])
+      .map((l: { call_notes: string | null; status: string | null; first_name: string | null }) =>
+        `[${l.status ?? "unknown"}] ${l.first_name ?? ""}: ${l.call_notes}`
+      )
+      .filter((n: string) => n.length > 20)
+      .join("\n\n---\n\n");
+
+    if (!notes.trim()) {
+      return { success: true as const, text: "No call notes found for this period.", count: 0 };
+    }
+
+    const systemPrompt = `You are a sales performance analyst for Hair Transplant Group, an Australian hair transplant lead generation business. Analyse the following call notes and patient summaries and provide insights in these exact sections:
+
+1. TOP OBJECTIONS — What are the most common reasons people are saying no or getting off the phone?
+2. MAIN PAIN POINTS — What hair loss concerns keep coming up?
+3. DREAM OUTCOMES — What are people most excited about? What do they want?
+4. WHAT'S KEEPING PEOPLE ON THE PHONE — What topics or approaches are generating the longest conversations?
+5. PATTERNS TO ACT ON — 2-3 specific things the rep should change or double down on based on this data.
+
+Be specific. Use numbers where possible (e.g. "6 out of 10 mentioned..."). Plain prose, no fluff.`;
+
+    try {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-pro",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Call notes from ${leads?.length ?? 0} leads:\n\n${notes}` },
+          ],
+          max_tokens: 1200,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        return { success: false as const, error: json?.error?.message || "AI request failed" };
+      }
+      const text = json?.choices?.[0]?.message?.content ?? "No analysis returned.";
+      return { success: true as const, text, count: leads?.length ?? 0 };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error";
+      return { success: false as const, error: msg };
+    }
+  });
+
