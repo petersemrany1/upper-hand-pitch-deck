@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
@@ -965,9 +965,24 @@ function DiscoveryStep({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDone, setAiDone] = useState(false);
 
-  // Debounced auto-save to meta_leads.call_notes (1s)
+  // Track whether the user has actually edited the textarea this session.
+  // Without this guard, the hydration effect on the parent would seed `notes`
+  // from meta_leads.call_notes, then the autosave below would immediately
+  // re-save those same notes — and worse, if the AI pipeline writes a fresh
+  // patient summary while the rep is still on the discovery step, this
+  // autosave would clobber it with the stale (or empty) textarea contents.
+  const userEditedRef = useRef(false);
+
+  // Debounced auto-save to meta_leads.call_notes (1s).
+  // Rules:
+  // - Only fire after the rep has actually typed (userEditedRef).
+  // - Never overwrite existing call_notes with an empty string — the AI
+  //   pipeline writes patient summaries here and an empty save would wipe
+  //   the handover note for the clinic.
   useEffect(() => {
     if (!lead?.id) return;
+    if (!userEditedRef.current) return;
+    if (!notes.trim()) return;
     const handle = setTimeout(() => {
       void saveCallNotes({ data: { leadId: lead.id, notes } }).then((r) => {
         if (r.success) setSavedAt(Date.now());
@@ -975,6 +990,11 @@ function DiscoveryStep({
     }, 1000);
     return () => clearTimeout(handle);
   }, [notes, lead?.id]);
+
+  const handleNotesChange = (v: string) => {
+    userEditedRef.current = true;
+    setNotes(v);
+  };
 
   const handleAi = async () => {
     if (!notes.trim()) {
@@ -1049,7 +1069,7 @@ function DiscoveryStep({
         </div>
         <textarea
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => handleNotesChange(e.target.value)}
           placeholder="Write what they tell you..."
           className="w-full rounded-[6px] outline-none discovery-history"
           style={{
