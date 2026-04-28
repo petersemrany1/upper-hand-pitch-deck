@@ -1928,6 +1928,55 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               </div>
             )}
 
+            {/* Manual notes fallback when no recording was detected */}
+            {showManualNotes && !handoverSent && (
+              <div style={{
+                background: "#fffbeb",
+                border: `0.5px solid ${COLORS.amber}`,
+                borderRadius: 10,
+                padding: "16px 20px",
+                marginTop: 12,
+              }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amberDark, marginBottom: 8 }}>
+                  ⚠️ No recording detected — type your notes while they're fresh
+                </div>
+                <textarea
+                  value={manualNotes}
+                  onChange={(e) => setManualNotes(e.target.value)}
+                  rows={4}
+                  placeholder="What did they tell you? Pain points, motivation, budget, timeline..."
+                  className="w-full rounded-[6px] outline-none"
+                  style={{
+                    background: "#ffffff",
+                    border: `0.5px solid ${COLORS.line}`,
+                    color: "#111",
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                    padding: "10px 12px",
+                    resize: "vertical",
+                    marginBottom: 10,
+                  }}
+                />
+                <button
+                  onClick={() => void saveManualNotes()}
+                  disabled={savingManualNotes || !manualNotes.trim()}
+                  style={{
+                    background: COLORS.coral,
+                    color: "#fff",
+                    fontSize: 13,
+                    fontWeight: 500,
+                    padding: "8px 20px",
+                    borderRadius: 6,
+                    border: "none",
+                    opacity: savingManualNotes || !manualNotes.trim() ? 0.5 : 1,
+                    cursor: savingManualNotes || !manualNotes.trim() ? "default" : "pointer",
+                  }}
+                >
+                  {savingManualNotes ? "Saving..." : "Save notes →"}
+                </button>
+              </div>
+            )}
+
             {/* Button */}
             <button
               onClick={() => void openPreview()}
