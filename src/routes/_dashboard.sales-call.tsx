@@ -1148,6 +1148,27 @@ function DiscoveryStep({
 function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImages: { name: string; url: string }[]; onNext: () => void; repId: string | null }) {
   void repId; void onNext;
   const [sendingIdx, setSendingIdx] = useState<number | null>(null);
+  const [doctor, setDoctor] = useState<PartnerDoctor | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      // Pick the lead's clinic if set, else the first active partner clinic
+      let clinicId = lead.clinic_id;
+      if (!clinicId) {
+        const { data: c } = await supabase.from("partner_clinics").select("id").eq("is_active", true).limit(1);
+        clinicId = c?.[0]?.id ?? null;
+      }
+      if (!clinicId) return;
+      const { data: docs } = await supabase
+        .from("partner_doctors")
+        .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+        .eq("clinic_id", clinicId)
+        .eq("is_active", true)
+        .order("created_at")
+        .limit(1);
+      setDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+    })();
+  }, [lead.clinic_id]);
 
   const send = async (idx: number, url: string | undefined) => {
     if (!url) {
