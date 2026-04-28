@@ -1709,17 +1709,19 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   useEffect(() => {
     if (lead.booking_date && lead.booking_time && !booked) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
         clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
-        doctorName: selectedClinic?.doctor_name ?? "Dr. Shabna Singh",
+        doctorName: selectedDoctor?.name ?? "Dr. Shabna Singh",
       });
       setBooked(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lead.booking_date, lead.booking_time, clinics]);
+  }, [lead.booking_date, lead.booking_time, clinics, doctors]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
+  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
 
   const saveManualNotes = async () => {
     if (!manualNotes.trim()) return;
