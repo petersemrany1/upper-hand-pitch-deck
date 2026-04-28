@@ -98,7 +98,7 @@ serve(async (req) => {
 
     const { data: row, error: rowErr } = await supabase
       .from("call_records")
-      .select("id, recording_url, clinic_id, duration")
+      .select("id, recording_url, clinic_id, lead_id, duration")
       .eq("id", callRecordId)
       .maybeSingle();
 
@@ -110,9 +110,11 @@ serve(async (req) => {
       await logErr("No recording_url on call record");
       throw new Error("No recording_url on call record");
     }
-    if (!row.clinic_id) {
-      console.log("auto-analyse-call: no clinic_id, skipping CRM auto-fill");
-      return new Response(JSON.stringify({ skipped: "no clinic_id" }), {
+    const isPatientCall = !row.clinic_id && !!row.lead_id;
+
+    if (!row.clinic_id && !row.lead_id) {
+      console.log("auto-analyse-call: no clinic_id or lead_id, skipping");
+      return new Response(JSON.stringify({ skipped: "no clinic_id or lead_id" }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
