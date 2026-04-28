@@ -2177,7 +2177,7 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
             const day = l.day_number ?? 1;
             const attempts = ATTEMPTS_PER_DAY(day);
             const todayCount = attemptCounts[l.id] ?? 0;
-            const attemptDisplay = todayCount + 1;
+            const attemptDisplay = Math.max(1, todayCount);
             const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
             return (
               <div
