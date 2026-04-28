@@ -1673,10 +1673,30 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   }, [booked, lead.id]);
 
   useEffect(() => {
-    void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
-      setClinics((data ?? []) as Clinic[])
-    );
+    void supabase.from("partner_clinics")
+      .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+      .eq("is_active", true)
+      .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
+
+  // Load doctors for the selected clinic
+  useEffect(() => {
+    if (!form.clinicId) { setDoctors([]); return; }
+    void supabase.from("partner_doctors")
+      .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+      .eq("clinic_id", form.clinicId)
+      .eq("is_active", true)
+      .order("created_at")
+      .then(({ data }) => {
+        const list = (data ?? []) as PartnerDoctor[];
+        setDoctors(list);
+        // Auto-select first doctor if none chosen yet
+        if (!form.doctorId && list.length > 0) {
+          setForm((f) => ({ ...f, doctorId: list[0].id }));
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.clinicId]);
   const set = (k: keyof typeof form, v: string) => {
     const next = { ...form, [k]: v };
     setForm(next);
