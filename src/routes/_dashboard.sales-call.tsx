@@ -1522,7 +1522,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [form, setForm] = useState({
     clinicId: lead.clinic_id ?? "", gender: "", dob: "", healthFund: "",
@@ -1535,6 +1535,13 @@ function BookingStep({ lead, onBooked }: { lead: Lead; onBooked: () => void }) {
   const [sendingDeposit, setSendingDeposit] = useState(false);
   const [handoverSent, setHandoverSent] = useState(false);
   const [depositSent, setDepositSent] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewIntel, setPreviewIntel] = useState("");
+  const [previewFunding, setPreviewFunding] = useState("");
+  const [previewFinance, setPreviewFinance] = useState("");
+  const [previewDeposit, setPreviewDeposit] = useState(false);
+  const [previewPhone, setPreviewPhone] = useState("");
+  const [previewEmail, setPreviewEmail] = useState("");
 
   useEffect(() => {
     void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
