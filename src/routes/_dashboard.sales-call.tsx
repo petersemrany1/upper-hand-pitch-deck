@@ -2541,6 +2541,32 @@ function RightPanel({
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
+  // Callback scheduling
+  const [showCallbackPicker, setShowCallbackPicker] = useState(false);
+  const [callbackDate, setCallbackDate] = useState("");
+  const [callbackTime, setCallbackTime] = useState("");
+  const [savingCallback, setSavingCallback] = useState(false);
+
+  // SMS panel
+  const [showSms, setShowSms] = useState(false);
+  const [smsText, setSmsText] = useState("");
+  const [sendingSms, setSendingSms] = useState(false);
+  const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
+
+  // Load SMS history for this lead
+  useEffect(() => {
+    void (async () => {
+      const { data } = await supabase
+        .from("sms_messages")
+        .select("body, sent_at, created_at, direction")
+        .eq("lead_id", active.id)
+        .order("created_at", { ascending: true })
+        .limit(50);
+      setSmsHistory((data ?? []) as typeof smsHistory);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id]);
+
   useEffect(() => {
     void (async () => {
       const { data: clinics } = await supabase
