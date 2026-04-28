@@ -1202,15 +1202,13 @@ const DEFAULT_PERSUASION_LINES = [
 ];
 
 function PriceStep({ onNext }: { onNext: () => void }) {
+  void onNext;
   const [clinic, setClinic] = useState<ClinicConsult | null>(null);
 
-  // Auto-load the clinic (Nitai if present, otherwise the first one)
   useEffect(() => {
     void supabase
       .from("clinics")
-      .select(
-        "id, clinic_name, address, doctor_name, city, state, consult_includes, consult_price_original, consult_price_deposit, consult_price_free, consult_persuasion_lines"
-      )
+      .select("id, clinic_name, address, doctor_name, city, state, consult_includes, consult_price_original, consult_price_deposit, consult_price_free, consult_persuasion_lines")
       .then(({ data }) => {
         const list = (data ?? []) as ClinicConsult[];
         const nitai = list.find((c) => c.clinic_name?.toLowerCase().includes("nitai")) ?? list[0] ?? null;
@@ -1218,84 +1216,134 @@ function PriceStep({ onNext }: { onNext: () => void }) {
       });
   }, []);
 
-  const consultIncludes = clinic?.consult_includes?.trim() || DEFAULT_CONSULT_INCLUDES;
-  const persuasionLines =
-    Array.isArray(clinic?.consult_persuasion_lines) && clinic!.consult_persuasion_lines!.length > 0
-      ? (clinic!.consult_persuasion_lines as string[])
-      : DEFAULT_PERSUASION_LINES;
-  const isFree =
-    clinic?.consult_price_free === true ||
-    (clinic?.consult_price_original == null && clinic?.consult_price_deposit == null);
-  const priceOriginal = clinic?.consult_price_original ?? 250;
-  const priceDeposit = clinic?.consult_price_deposit ?? 0;
+  const doctorName = clinic?.doctor_name ?? "Dr. Shabna Singh";
+  const priceOriginal = clinic?.consult_price_original ?? 395;
+
+  const Bullet = ({ children, amber }: { children: React.ReactNode; amber?: boolean }) => (
+    <div className="flex items-start gap-3">
+      <span style={{
+        display: "inline-block", width: 7, height: 7, borderRadius: "50%",
+        flexShrink: 0, marginTop: 8,
+        background: amber ? COLORS.amber : COLORS.coral,
+      }} />
+      <span style={{ fontSize: 15, color: COLORS.text, lineHeight: 1.8 }}>{children}</span>
+    </div>
+  );
+
+  const SayThis = ({ children }: { children: React.ReactNode }) => (
+    <div style={{
+      background: "#ffffff",
+      borderLeft: `2px solid ${COLORS.coral}`,
+      borderRadius: "0 8px 8px 0",
+      padding: "14px 18px",
+      marginBottom: 14,
+    }}>
+      <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.coral, marginBottom: 6 }}>
+        Say this
+      </div>
+      <div style={{ fontSize: 15, color: COLORS.text, lineHeight: 1.8 }}>{children}</div>
+    </div>
+  );
+
+  const Block = ({ number, title, children }: { number: string; title: string; children: React.ReactNode }) => (
+    <div style={{
+      background: "#ffffff",
+      border: `0.5px solid ${COLORS.line}`,
+      borderRadius: 10,
+      padding: "20px 24px",
+      marginBottom: 12,
+    }}>
+      <div style={{
+        fontSize: 11, fontWeight: 600, textTransform: "uppercase",
+        letterSpacing: "0.06em", color: "#999999", marginBottom: 14,
+      }}>
+        {number} — {title}
+      </div>
+      <div className="flex flex-col" style={{ gap: 10 }}>{children}</div>
+    </div>
+  );
+
+  const PriceRow = ({ num, children }: { num: number; children: React.ReactNode }) => (
+    <div className="flex items-start gap-3" style={{ padding: "10px 0", borderBottom: `0.5px solid #f3f3f3` }}>
+      <div style={{
+        width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
+        color: "#fff", fontSize: 10, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, marginTop: 2,
+      }}>{num}</div>
+      <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontStyle: "italic" }}>{children}</div>
+    </div>
+  );
 
   return (
     <div className="max-w-2xl mx-auto">
       <Eyebrow>Step 8 — Price & Sell The Specialist</Eyebrow>
-      <h1 style={{ fontSize: 22, fontWeight: 500, color: "#111", marginBottom: 12, lineHeight: 1.3 }}>Present Price</h1>
+      <StepHeading>Present Price</StepHeading>
 
-      <ScriptBody>
-        That would be with{" "}
-        <span style={{ fontWeight: 500 }}>{clinic?.doctor_name ?? "Dr. [NAME]"}</span> at{" "}
-        <span style={{ fontWeight: 500 }}>{clinic?.clinic_name ?? "[Clinic]"}</span>
-        {clinic?.city ? <> in {clinic.city}</> : null}.
-        One of our senior hair transplant specialists. Based on what you've told me, they're exactly the right person for you.
-      </ScriptBody>
-      <Coach>
-        Personalise to the specialist. Name the doctor and the clinic. Give a reason tied to exactly what they told you in discovery.
-      </Coach>
+      {/* Block 1 — Locate */}
+      <Block number="1" title="Locate them">
+        <Bullet>
+          Where do they live → pick clinic → <strong>{doctorName}</strong>, senior, sees patients like you
+        </Bullet>
+      </Block>
 
-      {/* Pricing Breakdown Block */}
-      <div
-        style={{
-          background: "#fafaf9",
-          border: `1px solid ${COLORS.line}`,
-          borderRadius: 10,
-          padding: "18px 20px",
-          marginTop: 14,
-          marginBottom: 18,
-          textAlign: "left",
-        }}
-      >
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#111", marginBottom: 8 }}>
-          The consult includes
+      {/* Block 2 — Name the specialist */}
+      <Block number="2" title="Name the specialist">
+        <SayThis>
+          "That would be with <strong>{doctorName}</strong> — she's one of our senior hair transplant specialists."
+        </SayThis>
+        <Bullet>Give their title — <em style={{ color: "#555" }}>"she's one of our seniors"</em></Bullet>
+        <Bullet amber>
+          Give a reason tied to what THEY said → <em style={{ color: "#555" }}>"based on what you told me, she's exactly the right person for you"</em>
+        </Bullet>
+      </Block>
+
+      {/* Block 3 — Price journey */}
+      <div style={{
+        background: "#ffffff",
+        border: `0.5px solid ${COLORS.line}`,
+        borderRadius: 10,
+        padding: "20px 24px",
+        marginBottom: 12,
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 600, textTransform: "uppercase",
+          letterSpacing: "0.06em", color: "#999999", marginBottom: 4,
+        }}>
+          3 — Walk the price journey
         </div>
-        <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.6 }}>
-          {consultIncludes}
+        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amber, marginBottom: 14 }}>
+          exact order — do not skip
         </div>
-
-        <div style={{ height: 16 }} />
-
-        {isFree ? (
-          <>
-            <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1.2, color: "#111" }}>
-              FREE Consultation
-            </div>
-            <div style={{ fontSize: 13, color: COLORS.muted, marginTop: 4 }}>
-              No deposit. No obligation. Just answers.
-            </div>
-          </>
-        ) : (
-          <div style={{ fontSize: 20, lineHeight: 1.4, color: "#111" }}>
-            <span style={{ fontWeight: 700 }}>${priceOriginal}</span>
-            <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
-            <span style={{ fontWeight: 700 }}>FREE</span>
-            <span style={{ color: COLORS.muted, margin: "0 10px", fontWeight: 400 }}>→</span>
-            <span style={{ fontWeight: 700 }}>${priceDeposit}</span>
-            <span style={{ color: COLORS.muted, marginLeft: 10, fontSize: 13, fontWeight: 400 }}>(this exact order)</span>
+        <PriceRow num={1}>"The consult includes a full medical assessment, hair design, imaging — all in one appointment."</PriceRow>
+        <PriceRow num={2}>"Normally this consult is <strong style={{ fontStyle: "normal" }}>${priceOriginal}</strong>..."</PriceRow>
+        <PriceRow num={3}>"...we do have some complimentary spots available..."</PriceRow>
+        <PriceRow num={4}>"...there is just a <strong style={{ fontStyle: "normal" }}>$75 deposit</strong> to secure your spot..."</PriceRow>
+        <PriceRow num={5}>"...which is <strong style={{ fontStyle: "normal" }}>fully refunded</strong> when you arrive..."</PriceRow>
+        <div className="flex items-start gap-3" style={{ padding: "10px 0" }}>
+          <div style={{
+            width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
+            color: "#fff", fontSize: 10, fontWeight: 700,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0, marginTop: 2,
+          }}>6</div>
+          <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontStyle: "italic" }}>
+            "...we do this because we turn people away for these slots. <strong style={{ fontStyle: "normal" }}>Does that sound fair?</strong>"
           </div>
-        )}
-
-        <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 4 }}>
-          {persuasionLines.map((line, i) => (
-            <div key={i} style={{ fontSize: 12.5, fontStyle: "italic", color: COLORS.muted }}>
-              {line}
-            </div>
-          ))}
         </div>
       </div>
 
-      <NextBtn onClick={onNext} />
+      {/* Amber warning */}
+      <div style={{
+        background: COLORS.amberBg,
+        borderLeft: `2px solid ${COLORS.amber}`,
+        borderRadius: "0 8px 8px 0",
+        padding: "14px 18px",
+      }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.amberDark, lineHeight: 1.6 }}>
+          After "does that sound fair?" — stop. Wait. Do not fill the silence. Their answer tells you exactly where to go next.
+        </div>
+      </div>
     </div>
   );
 }
