@@ -1923,7 +1923,7 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
                       {l.status || "new"}
                     </span>
                     <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
-                      Day {day} · Attempt 1 of {attempts}
+                      Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
                     </span>
                     {u === "overdue" && (
                       <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue callback</span>
