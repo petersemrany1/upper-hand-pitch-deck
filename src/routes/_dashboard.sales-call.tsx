@@ -348,16 +348,59 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 4 — Amplification</Eyebrow>
         <StepHeading>Summarise Back</StepHeading>
-        <p style={{
-          padding: "40px 0",
-          fontSize: 20,
-          lineHeight: 1.8,
-          fontWeight: 400,
-          color: COLORS.text,
-          textAlign: "center",
-        }}>
-          So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
-          it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+
+        {ampPrefill ? (
+          <>
+            <div style={{
+              background: "#ffffff",
+              borderLeft: `2px solid ${COLORS.coral}`,
+              borderRadius: "0 8px 8px 0",
+              padding: "20px 24px",
+              marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.coral, marginBottom: 10 }}>
+                Say this
+              </div>
+              <div style={{ fontSize: 20, color: COLORS.text, lineHeight: 1.8, fontWeight: 400 }}>
+                {ampPrefill}
+              </div>
+            </div>
+            {discoveryNotes && (
+              <div style={{
+                background: "#f9f9f9",
+                border: `0.5px solid ${COLORS.line}`,
+                borderRadius: 8,
+                padding: "14px 18px",
+                marginBottom: 16,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>
+                  Their words
+                </div>
+                <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>{discoveryNotes}</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p style={{ padding: "40px 0", fontSize: 20, lineHeight: 1.8, fontWeight: 400, color: COLORS.text, textAlign: "center" }}>
+              So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
+              it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+            </p>
+            <div style={{
+              background: COLORS.amberBg,
+              borderLeft: `2px solid ${COLORS.amber}`,
+              borderRadius: "0 8px 8px 0",
+              padding: "12px 16px",
+            }}>
+              <div style={{ fontSize: 13, color: COLORS.amberDark, lineHeight: 1.6 }}>
+                Go back to Discovery and click "Use in next steps →" to generate a personalised summary from your notes.
+              </div>
+            </div>
+          </>
+        )}
+
+        <p style={{ marginTop: 24, fontSize: 14, lineHeight: 1.7, fontStyle: "italic", color: "#666666", textAlign: "center" }}>
+          Get them to say yes. That yes is your bridge to education.
         </p>
       </div>
     );
