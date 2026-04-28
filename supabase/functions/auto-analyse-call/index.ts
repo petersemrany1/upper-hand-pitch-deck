@@ -48,6 +48,8 @@ CALLBACK TIME EXTRACTION — CRITICAL:
 
 Return only valid JSON, no preamble.`;
 
+const PATIENT_SYSTEM_PROMPT = `You are analysing a sales call between a Hair Transplant Group consultant and a potential hair transplant patient. Based on the transcript, write a warm 2-3 sentence patient intel summary for the clinic team. Cover: the patient's main pain points about their hair loss, their emotional motivation (why now — was there an event, a photo, a comment someone made?), and anything personal that will help the clinic build rapport on the day. Write in third person (e.g. "Michael has been..."). Use the patient's own words where possible. Do not mention prices, deposits, or funding. Do not use bullet points. Return plain prose only — no JSON, no preamble, just the summary paragraph.`;
+
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
   const secret = Deno.env.get("TWILIO_API_KEY_SECRET") || "";
