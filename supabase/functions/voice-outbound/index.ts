@@ -59,6 +59,7 @@ serve(async (req) => {
   let phone = url.searchParams.get("phone") || url.searchParams.get("To") || "";
   let callSid = url.searchParams.get("CallSid") || "";
   let clinicId = url.searchParams.get("clinicId") || "";
+  let leadId = url.searchParams.get("leadId") || "";
 
   if (req.method === "POST") {
     try {
