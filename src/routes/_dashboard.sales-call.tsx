@@ -99,6 +99,29 @@ function SalesCallPortal() {
   const [discoveryNotes, setDiscoveryNotes] = useState<string>("");
   const [ampPrefill, setAmpPrefill] = useState<string>("");
   const [audioPrefill, setAudioPrefill] = useState<string>("");
+  const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const load = async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from("call_records")
+        .select("lead_id")
+        .gte("called_at", today.toISOString());
+      const counts: Record<string, number> = {};
+      for (const row of data ?? []) {
+        if (!row.lead_id) continue;
+        counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
+      }
+      setAttemptCounts(counts);
+    };
+    void load();
+    const ch = supabase.channel("attempt-counts")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, []);
 
   // Resolve rep from auth email
   useEffect(() => {
@@ -157,6 +180,7 @@ function SalesCallPortal() {
     return (
       <LeadChooser
         leads={leads}
+        attemptCounts={attemptCounts}
         onPick={(id) => {
           setActiveId(id); setStep("mindset"); setCompleted(new Set());
           setAmpPrefill(""); setAudioPrefill("");
@@ -246,6 +270,7 @@ function SalesCallPortal() {
           active={active}
           repId={repId}
           mmsImages={mmsImages}
+          attemptCounts={attemptCounts}
           onChangeLead={() => setActiveId(null)}
         />
       </aside>
@@ -348,16 +373,59 @@ function StepContent({
       <div className="max-w-2xl mx-auto">
         <Eyebrow>Step 4 — Amplification</Eyebrow>
         <StepHeading>Summarise Back</StepHeading>
-        <p style={{
-          padding: "40px 0",
-          fontSize: 20,
-          lineHeight: 1.8,
-          fontWeight: 400,
-          color: COLORS.text,
-          textAlign: "center",
-        }}>
-          So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
-          it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+
+        {ampPrefill ? (
+          <>
+            <div style={{
+              background: "#ffffff",
+              borderLeft: `2px solid ${COLORS.coral}`,
+              borderRadius: "0 8px 8px 0",
+              padding: "20px 24px",
+              marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.coral, marginBottom: 10 }}>
+                Say this
+              </div>
+              <div style={{ fontSize: 20, color: COLORS.text, lineHeight: 1.8, fontWeight: 400 }}>
+                {ampPrefill}
+              </div>
+            </div>
+            {discoveryNotes && (
+              <div style={{
+                background: "#f9f9f9",
+                border: `0.5px solid ${COLORS.line}`,
+                borderRadius: 8,
+                padding: "14px 18px",
+                marginBottom: 16,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>
+                  Their words
+                </div>
+                <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7 }}>{discoveryNotes}</div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <p style={{ padding: "40px 0", fontSize: 20, lineHeight: 1.8, fontWeight: 400, color: COLORS.text, textAlign: "center" }}>
+              So let me make sure I understand... You've been dealing with [pain point] for [timeframe],
+              it's affecting [specific impacts they told you], and you're tired of [consequences].... Is that right?
+            </p>
+            <div style={{
+              background: COLORS.amberBg,
+              borderLeft: `2px solid ${COLORS.amber}`,
+              borderRadius: "0 8px 8px 0",
+              padding: "12px 16px",
+            }}>
+              <div style={{ fontSize: 13, color: COLORS.amberDark, lineHeight: 1.6 }}>
+                Go back to Discovery and click "Use in next steps →" to generate a personalised summary from your notes.
+              </div>
+            </div>
+          </>
+        )}
+
+        <p style={{ marginTop: 24, fontSize: 14, lineHeight: 1.7, fontStyle: "italic", color: "#666666", textAlign: "center" }}>
+          Get them to say yes. That yes is your bridge to education.
         </p>
       </div>
     );
@@ -537,7 +605,23 @@ function StepContent({
           Fantastic. Fantastic. I want to get you in with <Pill name>Dr. [NAME]</Pill> — honestly based on everything you've told me, <Pill name>Dr. [NAME]</Pill> is exactly who you want for this. [reference what they said on the call]. Let me just pull up the availability now."
           <Coach>Presume the booking.</Coach>
         </CalloutGreen>
-        
+        <div style={{
+          background: COLORS.amberBg,
+          borderLeft: `2px solid ${COLORS.amber}`,
+          borderRadius: "0 8px 8px 0",
+          padding: "14px 16px",
+          marginTop: 12,
+        }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amberDark, marginBottom: 8 }}>
+            When they wobble
+          </div>
+          <div style={{ fontSize: 14, color: COLORS.amberDark, lineHeight: 1.7 }}>
+            "Yeah of course — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might actually be able to help you with that right now."
+          </div>
+          <div style={{ marginTop: 8, fontSize: 13, fontStyle: "italic", color: COLORS.amberDark, lineHeight: 1.5 }}>
+            Agree. Then open it up. Get them talking about the specific concern and you're back in discovery.
+          </div>
+        </div>
       </div>
     );
   }
@@ -1741,7 +1825,7 @@ function leadUrgency(l: Lead): LeadUrgency {
   return "upcoming";
 }
 
-function LeadChooser({ leads, onPick }: { leads: Lead[]; onPick: (id: string) => void }) {
+function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptCounts: Record<string, number>; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
 
   const sorted = useMemo(() => {
@@ -1803,6 +1887,8 @@ function LeadChooser({ leads, onPick }: { leads: Lead[]; onPick: (id: string) =>
               u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
             const day = l.day_number ?? 1;
             const attempts = ATTEMPTS_PER_DAY(day);
+            const todayCount = attemptCounts[l.id] ?? 0;
+            const attemptDisplay = todayCount + 1;
             const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
             return (
               <div
@@ -1837,7 +1923,7 @@ function LeadChooser({ leads, onPick }: { leads: Lead[]; onPick: (id: string) =>
                       {l.status || "new"}
                     </span>
                     <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
-                      Day {day} · Attempt 1 of {attempts}
+                      Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
                     </span>
                     {u === "overdue" && (
                       <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue callback</span>
@@ -1886,11 +1972,12 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, onChangeLead,
+  active, repId, mmsImages, attemptCounts, onChangeLead,
 }: {
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
+  attemptCounts: Record<string, number>;
   onChangeLead: () => void;
 }) {
   void repId;
@@ -2011,7 +2098,7 @@ function RightPanel({
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          Day {day} · Attempt 1 of {attempts} today
+          Day {day} · Attempt {Math.min((attemptCounts[active.id] ?? 0) + 1, attempts)} of {attempts} today
         </div>
       </div>
 
