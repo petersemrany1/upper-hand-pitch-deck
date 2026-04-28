@@ -1738,32 +1738,65 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
         <div className="flex flex-col gap-2.5">
           {/* Send handover to clinic */}
-          <button
-            onClick={() => openPreview()}
-            disabled={sendingHandover || handoverSent}
-            className="w-full rounded-[8px] flex items-center justify-between"
-            style={{
-              background: handoverSent ? "#ecfdf5" : "#ffffff",
-              border: `0.5px solid ${handoverSent ? COLORS.green : COLORS.line}`,
-              padding: "16px 20px",
-              cursor: handoverSent ? "default" : sendingHandover ? "wait" : "pointer",
-              opacity: sendingHandover ? 0.7 : 1,
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: handoverSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
-                {handoverSent ? "✓ Handover sent to clinic" : "Send handover to clinic"}
-              </div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>
-                Patient intel, funding, booking details → peter@gobold.com.au
-              </div>
-            </div>
+          <div className="flex flex-col gap-1.5">
+            {/* Intel status indicator */}
             {!handoverSent && (
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-                {sendingHandover ? "Sending…" : "Send →"}
+              <div className="flex items-center gap-2" style={{ padding: "0 4px" }}>
+                {intelStatus === "waiting" && (
+                  <>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#eab308", flexShrink: 0 }} />
+                    <div style={{ fontSize: 12, color: COLORS.muted }}>
+                      Analysing call recording... don't send yet
+                    </div>
+                  </>
+                )}
+                {intelStatus === "ready" && (
+                  <>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green, flexShrink: 0 }} />
+                    <div style={{ fontSize: 12, color: COLORS.green, fontWeight: 500 }}>
+                      Patient intel ready ✓ — good to send
+                    </div>
+                  </>
+                )}
+                {intelStatus === "timeout" && (
+                  <>
+                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.muted, flexShrink: 0 }} />
+                    <div style={{ fontSize: 12, color: COLORS.muted }}>
+                      No recording detected — you can still send manually
+                    </div>
+                  </>
+                )}
               </div>
             )}
-          </button>
+
+            {/* Button */}
+            <button
+              onClick={() => openPreview()}
+              disabled={sendingHandover || handoverSent || intelStatus === "waiting"}
+              className="w-full rounded-[8px] flex items-center justify-between"
+              style={{
+                background: handoverSent ? "#ecfdf5" : intelStatus === "waiting" ? "#f3f3f3" : "#ffffff",
+                border: `0.5px solid ${handoverSent ? COLORS.green : COLORS.line}`,
+                padding: "16px 20px",
+                cursor: handoverSent || intelStatus === "waiting" ? "default" : sendingHandover ? "wait" : "pointer",
+                opacity: intelStatus === "waiting" ? 0.5 : sendingHandover ? 0.7 : 1,
+              }}
+            >
+              <div style={{ textAlign: "left" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: handoverSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
+                  {handoverSent ? "✓ Handover sent to clinic" : "Send handover to clinic"}
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.muted }}>
+                  Patient intel, funding, booking details → peter@gobold.com.au
+                </div>
+              </div>
+              {!handoverSent && intelStatus !== "waiting" && (
+                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+                  {sendingHandover ? "Sending…" : "Send →"}
+                </div>
+              )}
+            </button>
+          </div>
 
           {/* Send deposit to patient */}
           <button
