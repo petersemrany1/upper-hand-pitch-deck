@@ -1548,36 +1548,53 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     if (!booked) return;
     if (lead.call_notes || discoveryNotes) {
       setIntelStatus("ready");
+      setPreviewIntel(discoveryNotes || lead.call_notes || "");
       return;
     }
 
     let attempts = 0;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const MAX_ATTEMPTS = 18; // 3 minutes at 10s intervals
 
     const poll = async () => {
+      if (cancelled) return;
       attempts += 1;
-      const { data } = await supabase
-        .from("meta_leads")
-        .select("call_notes")
-        .eq("id", lead.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from("meta_leads")
+          .select("call_notes")
+          .eq("id", lead.id)
+          .maybeSingle();
 
-      if (data?.call_notes?.trim()) {
-        setIntelStatus("ready");
-        setPreviewIntel(data.call_notes);
-        return;
+        if (cancelled) return;
+
+        if (!error && data?.call_notes?.trim()) {
+          setIntelStatus("ready");
+          setPreviewIntel(data.call_notes);
+          return;
+        }
+      } catch (e) {
+        // swallow — fall through to retry / timeout so the chain never dies silently
+        console.warn("[intel poll] query failed, will retry", e);
       }
 
+      if (cancelled) return;
       if (attempts >= MAX_ATTEMPTS) {
         setIntelStatus("timeout");
         return;
       }
-
-      setTimeout(poll, 10000);
+      timer = setTimeout(poll, 10000);
     };
 
-    setTimeout(poll, 10000);
-  }, [booked, lead.id]);
+    // poll immediately, then every 10s — no upfront 10s dead time
+    void poll();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [booked, lead.id, lead.call_notes, discoveryNotes]);
 
   useEffect(() => {
     void supabase.from("clinics").select("id, clinic_name, address, doctor_name, city, state").then(({ data }) =>
