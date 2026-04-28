@@ -2336,16 +2336,26 @@ function leadUrgency(l: Lead): LeadUrgency {
   return "upcoming";
 }
 
+function getTimeSlot(lead: Lead): "9am" | "12pm" | "3pm" {
+  if (lead.callback_scheduled_at) {
+    const h = new Date(lead.callback_scheduled_at).getHours();
+    if (h < 10) return "9am";
+    if (h < 13) return "12pm";
+    return "3pm";
+  }
+  const hour = new Date().getHours();
+  if (hour < 10) return "9am";
+  if (hour < 13) return "12pm";
+  return "3pm";
+}
+
+const fmtShort = (s: string) =>
+  new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+
 function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptCounts: Record<string, number>; onPick: (id: string) => void }) {
   const [q, setQ] = useState("");
 
-  const sorted = useMemo(() => {
-    const score = (l: Lead) => {
-      const u = leadUrgency(l);
-      if (u === "overdue") return 0;
-      if (u === "due") return 1;
-      return 2;
-    };
+  const filtered = useMemo(() => {
     const list = leads.filter((l) => {
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
@@ -2355,13 +2365,107 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
         (l.phone ?? "").toLowerCase().includes(needle)
       );
     });
-    return [...list].sort((a, b) => {
-      const sa = score(a);
-      const sb = score(b);
-      if (sa !== sb) return sa - sb;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    return [...list].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }, [leads, q]);
+
+  const renderLeadCard = (l: Lead) => {
+    const u = leadUrgency(l);
+    const accent = u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
+    const day = l.day_number ?? 1;
+    const attempts = ATTEMPTS_PER_DAY(day);
+    const todayCount = attemptCounts[l.id] ?? 0;
+    const attemptDisplay = Math.max(1, todayCount);
+    const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
+    return (
+      <div
+        key={l.id}
+        className="flex items-center gap-4 rounded-[10px]"
+        style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderLeft: u === "upcoming" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
+          padding: "16px 18px",
+          marginBottom: 8,
+        }}
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <div style={{ fontSize: 15, fontWeight: 500, color: "#111" }}>{name}</div>
+            <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
+          </div>
+          <div style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
+            {l.phone || "no phone"}
+            {l.funding_preference ? <> · <span style={{ color: "#111" }}>{l.funding_preference}</span></> : null}
+          </div>
+          <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
+            <span
+              style={{
+                padding: "2px 8px",
+                borderRadius: 20,
+                fontSize: 11,
+                fontWeight: 500,
+                textTransform: "uppercase",
+                letterSpacing: "0.04em",
+                background: `${statusColor(l.status)}1a`,
+                color: statusColor(l.status),
+              }}
+            >
+              {l.status || "new"}
+            </span>
+            <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
+              Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
+            </span>
+            {l.callback_scheduled_at && (
+              <span style={{ fontSize: 12, color: COLORS.blue, fontWeight: 500 }}>
+                · {new Date(l.callback_scheduled_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}
+              </span>
+            )}
+            {u === "overdue" && (
+              <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue</span>
+            )}
+            {u === "due" && (
+              <span style={{ fontSize: 12, color: COLORS.amber, fontWeight: 500 }}>· Due now</span>
+            )}
+          </div>
+        </div>
+        <button
+          onClick={() => onPick(l.id)}
+          className="rounded-[8px] flex-shrink-0"
+          style={{
+            background: COLORS.coral,
+            color: "#ffffff",
+            fontSize: 14,
+            fontWeight: 500,
+            padding: "10px 18px",
+          }}
+        >
+          Start Call →
+        </button>
+      </div>
+    );
+  };
+
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const overdue = filtered.filter((l) =>
+    l.callback_scheduled_at ? new Date(l.callback_scheduled_at) < startOfToday : false
+  );
+  const overdueIds = new Set(overdue.map((l) => l.id));
+  const remaining = filtered.filter((l) => !overdueIds.has(l.id));
+  const slot9 = remaining.filter((l) => getTimeSlot(l) === "9am");
+  const slot12 = remaining.filter((l) => getTimeSlot(l) === "12pm");
+  const slot3 = remaining.filter((l) => getTimeSlot(l) === "3pm");
+
+  const SlotSection = ({ title, slotLeads, color }: { title: string; slotLeads: Lead[]; color: string }) =>
+    slotLeads.length === 0 ? null : (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color, marginBottom: 8, paddingLeft: 4 }}>
+          {title} — {slotLeads.length} lead{slotLeads.length !== 1 ? "s" : ""}
+        </div>
+        {slotLeads.map((l) => renderLeadCard(l))}
+      </div>
+    );
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: "#ffffff", color: COLORS.text }}>
@@ -2388,78 +2492,14 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
           />
         </div>
 
-        <div className="mt-6 space-y-2">
-          {sorted.length === 0 && (
+        <div className="mt-6">
+          {filtered.length === 0 && (
             <div style={{ padding: "24px 0", fontSize: 14, color: "#111", opacity: 0.7 }}>No leads to call.</div>
           )}
-          {sorted.map((l) => {
-            const u = leadUrgency(l);
-            const accent =
-              u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
-            const day = l.day_number ?? 1;
-            const attempts = ATTEMPTS_PER_DAY(day);
-            const todayCount = attemptCounts[l.id] ?? 0;
-            const attemptDisplay = Math.max(1, todayCount);
-            const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
-            return (
-              <div
-                key={l.id}
-                className="flex items-center gap-4 rounded-[10px]"
-                style={{
-                  background: "#ffffff",
-                  border: `0.5px solid ${COLORS.line}`,
-                  borderLeft: u === "upcoming" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
-                  padding: "16px 18px",
-                }}
-              >
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: 15, fontWeight: 500, color: "#111" }}>{name}</div>
-                  <div style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
-                    {l.phone || "no phone"}
-                    {l.funding_preference ? <> · <span style={{ color: "#111" }}>{l.funding_preference}</span></> : null}
-                  </div>
-                  <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-                    <span
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: 20,
-                        fontSize: 11,
-                        fontWeight: 500,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        background: `${statusColor(l.status)}1a`,
-                        color: statusColor(l.status),
-                      }}
-                    >
-                      {l.status || "new"}
-                    </span>
-                    <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
-                      Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
-                    </span>
-                    {u === "overdue" && (
-                      <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue callback</span>
-                    )}
-                    {u === "due" && (
-                      <span style={{ fontSize: 12, color: COLORS.amber, fontWeight: 500 }}>· Due now</span>
-                    )}
-                  </div>
-                </div>
-                <button
-                  onClick={() => onPick(l.id)}
-                  className="rounded-[8px] flex-shrink-0"
-                  style={{
-                    background: COLORS.coral,
-                    color: "#ffffff",
-                    fontSize: 14,
-                    fontWeight: 500,
-                    padding: "10px 18px",
-                  }}
-                >
-                  Start Call →
-                </button>
-              </div>
-            );
-          })}
+          {overdue.length > 0 && <SlotSection title="⚠️ Overdue callbacks" slotLeads={overdue} color={COLORS.coral} />}
+          <SlotSection title="9am session" slotLeads={slot9} color="#3b82f6" />
+          <SlotSection title="12pm session" slotLeads={slot12} color="#8b5cf6" />
+          <SlotSection title="3pm session" slotLeads={slot3} color="#10b981" />
         </div>
       </div>
     </div>
