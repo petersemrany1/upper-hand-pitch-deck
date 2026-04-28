@@ -321,7 +321,7 @@ function StepContent({
         </ScriptBody>
 
         <CalloutAmber title='"Call me back" handler'>
-          That's not a problem at all — I know you won't expect my call. Do you have just one minute now, just to see if it even
+          That's not a problem at all — I know you were not expecting my call. Do you have just one minute now, just to see if it even
           makes sense for me to call you back later?
           <Coach>One minute calls become ten-minute calls. Just get them talking.</Coach>
         </CalloutAmber>
@@ -1875,13 +1875,14 @@ function LeadChooser({ leads, onPick }: { leads: Lead[]; onPick: (id: string) =>
 const OBJECTION_PILLS: { label: string; key: string }[] = [
   { label: "Call me back", key: "Call me back" },
   { label: "Email me", key: "Email me" },
-  { label: "Not interested", key: "I am not interested" },
-  { label: "Already sorted", key: "I already took care of it" },
-  { label: "Too far", key: "The clinic is too far away" },
-  { label: "Think about it", key: "I need to think about it" },
-  { label: "No time", key: "I don't have time" },
-  { label: "Just the price", key: "I just want the price" },
-  { label: "Not feeling good", key: "I'm not feeling good" },
+  { label: "Not interested", key: "Not interested" },
+  { label: "Already sorted", key: "Already sorted" },
+  { label: "Not feeling good", key: "Not feeling good" },
+  { label: "Too far", key: "Too far" },
+  { label: "Think about it", key: "Think about it" },
+  { label: "No time", key: "No time" },
+  { label: "Consult price", key: "Consult price" },
+  { label: "Transplant price", key: "Transplant price" },
 ];
 
 function RightPanel({
@@ -2233,13 +2234,54 @@ function RightPanel({
 }
 
 const OBJECTIONS = [
-  { q: "Call me back", a: "Yeah of course — and I will. I'm just curious though, when you filled in the form, what was going on that made you want to find out more about it?", note: "Gets them talking about their own motivation. One minute becomes ten." },
-  { q: "Email me", a: "Yeah absolutely. I just want to make sure I send you the right thing — what was the main thing you were hoping to get answered when you looked into this?" },
-  { q: "I am not interested", a: "Yeah that's completely fair. I'm just curious — what made you look into it in the first place? Because most people that say that are usually just not sure if it's the right fit for them yet." },
-  { q: "I already took care of it", a: "Oh that's great — congratulations. Out of curiosity, what did you end up going with? I just want to make sure we're not across something you've already sorted." },
-  { q: "I'm not feeling good", a: "Sorry to hear that — hope you feel better soon. When would be a better time, later today or would tomorrow work better for you?" },
-  { q: "The clinic is too far away", a: "Yeah I hear you. Can I ask — if we could find something closer to you, is this something you'd genuinely want to move forward with?", note: "If yes → trigger suburb input + clinic selector immediately." },
-  { q: "I need to think about it", a: "Of course, that makes complete sense. I'm just curious — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might be able to help right now." },
-  { q: "I don't have time", a: "Totally get it. Can I ask — is it literally the time right now, or is it more that you're not sure this is the right move for you?", note: "If time → 'When's a two-minute window today — I'll call you exactly then.'" },
-  { q: "I just want the price", a: "Absolutely — and I'll get you that. I just need to ask you a couple of quick things first so I can make sure I'm giving you the right number for your specific situation. It'll take two minutes. What's going on with your hair at the moment?" },
+  {
+    q: "Call me back",
+    a: "That's not a problem at all — I know you were not expecting my call. Do you have just one minute now, just to see if it even makes sense for me to call you back later?",
+    note: "Gets them talking about their own motivation. One minute becomes ten.",
+  },
+  {
+    q: "Email me",
+    a: "Yeah absolutely — I know you were not expecting my call. Do you have just one minute now, just to see if it even makes sense for me to send you anything at all?",
+    note: "Same energy as call me back — agree, then get them on the phone for one minute.",
+  },
+  {
+    q: "Not interested",
+    a: "Yeah that's completely fair — and I'm not here to push anything. I'm just curious, what made you look into it in the first place? Because usually when someone fills in a form there's something going on.",
+    note: "They filled in the form for a reason. Get them back to that moment.",
+  },
+  {
+    q: "Already sorted",
+    a: "Oh amazing — good on you. Out of curiosity, what did you end up going with? I just want to make sure we're not doubling up on something you've already got sorted.",
+    note: "",
+  },
+  {
+    q: "Not feeling good",
+    a: "Sorry to hear that — hope you feel better soon. Look I'll be quick — when would be a better time, later today or would tomorrow morning work?",
+    note: "",
+  },
+  {
+    q: "Too far",
+    a: "Yeah I totally get that. Can I ask — if the location wasn't an issue, is this something you'd genuinely want to get sorted?",
+    note: "If yes → 'Let me see what we can do — whereabouts are you?'",
+  },
+  {
+    q: "Think about it",
+    a: "Yeah of course, absolutely — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might actually be able to help you with that right now.",
+    note: "",
+  },
+  {
+    q: "No time",
+    a: "Totally get it — is it that you're flat out right now, or is it more that you're not sure this is the right move for you? Because if it's timing I can call you at an exact time that works.",
+    note: "",
+  },
+  {
+    q: "Consult price",
+    a: "Normally it's $395 — but I want to get you in with Dr. Singh, she's got some complimentary spots available. The only caveat is the $75 deposit to hold the spot, which is fully refunded when you arrive. Does that sound fair?",
+    note: "Walk the price journey. Don't skip steps.",
+  },
+  {
+    q: "Transplant price",
+    a: "Absolutely — I'll definitely give you the price. Can you just tell me, how much hair do you have on the top at the moment?",
+    note: "Agree with their question, then start another conversation. Once they answer you're back in discovery.",
+  },
 ];
