@@ -2943,17 +2943,33 @@ function RightPanel({
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
-        <div style={{ marginTop: 6, fontSize: 14, fontWeight: 500, color: "#111" }}>
-          Nitai Medical & Cosmetic Centre
-        </div>
-        <div style={{ fontSize: 13, color: "#111" }}>Dr. Shabna Singh</div>
-        <div style={{ fontSize: 13, color: "#111" }}>64 Lincoln Rd Essendon VIC 3040</div>
-        <ul style={{ marginTop: 8, fontSize: 12, color: "#111", lineHeight: 1.7 }}>
-          <li>· Free parking</li>
-          <li>· Near Lincoln Park</li>
-          <li>· 5 mins DFO</li>
-          <li>· 10 mins Airport</li>
-        </ul>
+        {panelClinic ? (
+          <>
+            <div style={{ marginTop: 6, fontSize: 14, fontWeight: 500, color: "#111" }}>
+              {panelClinic.clinic_name}
+            </div>
+            {panelDoctor?.name && (
+              <div style={{ fontSize: 13, color: "#111" }}>{panelDoctor.name}</div>
+            )}
+            {(panelClinic.address || panelClinic.city || panelClinic.state) && (
+              <div style={{ fontSize: 13, color: "#111" }}>
+                {[panelClinic.address, panelClinic.city, panelClinic.state].filter(Boolean).join(" ")}
+              </div>
+            )}
+            {(panelClinic.parking_info || panelClinic.nearby_landmarks) && (
+              <ul style={{ marginTop: 8, fontSize: 12, color: "#111", lineHeight: 1.7, listStyle: "none", padding: 0 }}>
+                {panelClinic.parking_info && <li>· {panelClinic.parking_info}</li>}
+                {panelClinic.nearby_landmarks
+                  ?.split(/[,\n]/)
+                  .map((s) => s.trim())
+                  .filter(Boolean)
+                  .map((landmark, i) => <li key={i}>· {landmark}</li>)}
+              </ul>
+            )}
+          </>
+        ) : (
+          <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>No clinic assigned</div>
+        )}
       </div>
 
       {/* Section 4 — Objections (pill bar) */}
