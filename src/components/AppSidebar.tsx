@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Sales Call", url: "/sales-call", icon: Headphones },
+  { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
   { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
   { title: "Clinics", url: "/clinics", icon: Building2 },
   { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
