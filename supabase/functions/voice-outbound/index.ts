@@ -114,6 +114,7 @@ serve(async (req) => {
           twilio_call_sid: callSid,
           status: "initiated",
           clinic_id: clinicId || null,
+          lead_id: leadId || null,
           phone: dialTo,
         },
         { onConflict: "twilio_call_sid" },
