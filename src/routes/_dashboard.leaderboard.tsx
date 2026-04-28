@@ -4,6 +4,7 @@ import { Trophy, Crown, Plus, Bot, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { inviteRep, getLeaderboard, ensureRepForEmail } from "@/utils/sales-call.functions";
+import { analyseCallPatterns } from "@/utils/resend.functions";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_dashboard/leaderboard")({
@@ -28,6 +29,9 @@ function LeaderboardPage() {
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachText, setCoachText] = useState("");
   const [coachLoading, setCoachLoading] = useState(false);
+  const [patternOpen, setPatternOpen] = useState(false);
+  const [patternText, setPatternText] = useState("");
+  const [patternLoading, setPatternLoading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const load = async () => {
