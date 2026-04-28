@@ -208,22 +208,50 @@ function SalesCallPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
+  const callbackBanner = showCallbackAlert && dueCallbacks.length > 0 ? (
+    <div style={{
+      position: "fixed", top: 16, right: 16, zIndex: 100,
+      background: COLORS.coral, color: "#fff",
+      borderRadius: 10, padding: "14px 18px",
+      boxShadow: "0 4px 20px rgba(244,82,45,0.3)",
+      maxWidth: 320,
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>📞 Callback due now</div>
+      {dueCallbacks.map((l) => (
+        <div key={l.id} style={{ fontSize: 13, marginBottom: 2 }}>
+          {l.first_name} {l.last_name} — finish your current call first
+        </div>
+      ))}
+      <button
+        onClick={() => setShowCallbackAlert(false)}
+        style={{ marginTop: 8, fontSize: 11, textDecoration: "underline", background: "transparent", color: "#fff", border: "none", cursor: "pointer" }}
+      >
+        Dismiss
+      </button>
+    </div>
+  ) : null;
+
   // Show full-screen lead chooser before entering the framework
   if (!active) {
     return (
-      <LeadChooser
-        leads={leads}
-        attemptCounts={attemptCounts}
-        onPick={(id) => {
-          setActiveId(id); setStep("mindset"); setCompleted(new Set());
-          setAmpPrefill(""); setAudioPrefill("");
-        }}
-      />
+      <>
+        {callbackBanner}
+        <LeadChooser
+          leads={leads}
+          attemptCounts={attemptCounts}
+          onPick={(id) => {
+            setActiveId(id); setStep("mindset"); setCompleted(new Set());
+            setAmpPrefill(""); setAudioPrefill("");
+          }}
+        />
+      </>
     );
   }
 
   return (
-    <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
+    <>
+      {callbackBanner}
+      <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav (desktop only) */}
       <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>
         <div className="px-5 py-5 border-b" style={{ borderColor: COLORS.line }}>
