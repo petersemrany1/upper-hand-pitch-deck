@@ -3167,39 +3167,8 @@ function LeadChooser({
           if (e.button !== 0 || blocksCardDrag(e.target)) return;
           const col = columnFromSection(section);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          dragStateRef.current = { id: l.id, col, x: e.clientX, y: e.clientY, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+          dragStateRef.current = { id: l.id, col, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        }}
-        onPointerMove={(e) => {
-          const state = dragStateRef.current;
-          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
-          const dx = Math.abs(e.clientX - state.x);
-          const dy = Math.abs(e.clientY - state.y);
-          if (!state.dragging && dx + dy < 2) return;
-          e.preventDefault();
-          const card = e.currentTarget as HTMLElement;
-          const rect = card.getBoundingClientRect();
-          state.dragging = true;
-          setDragVisual({ id: l.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: rect.width, height: rect.height });
-          setDropPreview(dropTargetFromPoint(l.id, e.clientX, e.clientY));
-        }}
-        onPointerUp={(e) => {
-          const state = dragStateRef.current;
-          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
-          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-          dragStateRef.current = null;
-          const target = dropTargetFromPoint(l.id, e.clientX, e.clientY) ?? dropTargetRef.current;
-          setDropPreview(null);
-          setDragVisual(null);
-          if (state.dragging && target) void handleDrop(l.id, target.col, target);
-        }}
-        onPointerCancel={(e) => {
-          const state = dragStateRef.current;
-          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
-          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-          dragStateRef.current = null;
-          setDropPreview(null);
-          setDragVisual(null);
         }}
         className="rounded-[10px]"
         style={{
