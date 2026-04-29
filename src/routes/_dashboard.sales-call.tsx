@@ -2760,7 +2760,7 @@ function RightPanel({
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          Day {day} · Attempt {Math.min(Math.max(1, attemptCounts[active.id] ?? 1), attempts)} of {attempts} today
+          Day {day} · Attempt {Math.min(attemptCounts[active.id] ?? 0, attempts)} of {attempts} today
         </div>
       </div>
 
