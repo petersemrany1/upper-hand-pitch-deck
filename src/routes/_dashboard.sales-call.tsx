@@ -394,6 +394,7 @@ function SalesCallPortal() {
           repId={repId}
           mmsImages={mmsImages}
           attemptCounts={attemptCounts}
+          firstCallAt={firstCallByLead[active.id] ?? null}
           onChangeLead={() => setActiveId(null)}
         />
       </aside>
