@@ -3128,8 +3128,8 @@ function LeadChooser({
         data-lead-id={l.id}
         onPointerDown={(e) => {
           if (e.button !== 0 || blocksCardDrag(e.target)) return;
-          const origin = columnFromSection(section);
-          dragStateRef.current = { id: l.id, origin, x: e.clientX, y: e.clientY, pointerId: e.pointerId, dragging: false };
+          const col = columnFromSection(section);
+          dragStateRef.current = { id: l.id, col, x: e.clientX, y: e.clientY, pointerId: e.pointerId, dragging: false, lastCol: null, lastBeforeId: null };
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
         }}
         onPointerMove={(e) => {
