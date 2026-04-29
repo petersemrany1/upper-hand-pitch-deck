@@ -282,6 +282,7 @@ function SalesCallPortal() {
         <LeadChooser
           leads={leads}
           attemptCounts={attemptCounts}
+          attemptsByDay={attemptsByDay}
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
