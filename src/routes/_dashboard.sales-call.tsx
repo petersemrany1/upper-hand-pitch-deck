@@ -2807,6 +2807,12 @@ function LeadChooser({
   const todayKey = localDateKey(today);
   const yesterdayKey = localDateKey(yesterday);
 
+  const persistedColumnFor = (l: Lead): DayCol | null => {
+    const column = l.raw_payload?.pipeline_column;
+    if (column === "today" || column === "tomorrow" || column === "yesterday") return column;
+    return null;
+  };
+
   const filtered = useMemo(() => {
     const list = leads.filter((l) => {
       // Hide leads marked as not interested from the main pipeline.
@@ -2880,8 +2886,8 @@ function LeadChooser({
       // -1) Converted leads (deposit paid) live in their own popup, not the columns.
       if (isConverted(l)) { placed.add(l.id); continue; }
 
-      // 0) User-forced column wins (drag/drop or move buttons)
-      const forced = forcedCol[l.id];
+      // 0) User-forced/persisted column wins (drag/drop or move buttons)
+      const forced = forcedCol[l.id] ?? persistedColumnFor(l);
       if (forced === "tomorrow") { out.tomorrow.push(l); placed.add(l.id); continue; }
       if (forced === "yesterday") { out.today.push({ section: "remaining", lead: l }); placed.add(l.id); continue; }
       if (forced === "today") {
