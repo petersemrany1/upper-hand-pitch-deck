@@ -131,11 +131,6 @@ function LeaderboardPage() {
             <h1 className="text-2xl font-bold">Leaderboard</h1>
           </div>
           <div className="flex items-center gap-2">
-            <button onClick={() => void analyseLast()}
-              className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: "rgba(45,107,228,0.15)", color: C.blue, border: `1px solid ${C.blue}` }}>
-              <Bot className="h-3.5 w-3.5" /> Analyse My Last Call
-            </button>
             <button onClick={() => void analysePatterns()} disabled={patternLoading}
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-60"
               style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6", border: "1px solid #8b5cf6" }}>
