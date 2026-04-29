@@ -573,42 +573,35 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       return data.fundingPreference || "Not specified";
     })();
 
-    let aiSummary = "";
-    if (apiKey && data.callNotes?.trim()) {
-      try {
-        const res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-20250514",
-            max_tokens: 300,
-            system: `You are writing a warm internal handover note for a hair transplant clinic. Based on call notes from a sales consultant, write 2-3 sentences summarising: the patient's main pain points (what's bothering them about their hair loss), their emotional motivation (why now), and anything else that will help the clinic team build rapport on the day. Write in third person (e.g. "Michael has been..."). Be warm, specific, and use the patient's own words where possible. Do not mention prices, deposits, or funding — those are shown separately. Do not use bullet points. Plain prose only.`,
-            messages: [{ role: "user", content: `Patient name: ${fullName}\n\nCall notes:\n${data.callNotes}` }],
-          }),
-        });
-        const json = await res.json();
-        aiSummary = json?.content?.[0]?.text?.trim() ?? "";
-      } catch {
-        /* non-fatal */
-      }
-    }
-
     const CORAL = "#f4522d";
     const LIGHT_CORAL = "#fff5f3";
     const esc = (s: string) =>
       s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    const intelBody = aiSummary
-      ? `<p style="margin:0;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(aiSummary)}</p>`
-      : data.callNotes
-      ? `<p style="margin:0;font-size:14px;line-height:1.6;color:#444;white-space:pre-wrap;">${esc(
-          data.callNotes.slice(0, 400)
-        )}${data.callNotes.length > 400 ? "…" : ""}</p>`
-      : `<p style="margin:0;font-size:14px;color:#888;font-style:italic;">No call notes recorded.</p>`;
+    // Render the patient intel verbatim — it has already been reviewed and edited
+    // in the "Review before sending" step, so we must NOT truncate or rewrite it.
+    // If the notes are a dot-point list (lines starting with "- "), render as <ul>
+    // for nicer formatting; otherwise render as a pre-wrapped paragraph.
+    const rawNotes = (data.callNotes ?? "").trim();
+    const isBulletList =
+      rawNotes.length > 0 &&
+      rawNotes.split(/\r?\n/).filter((l) => l.trim().length > 0).every((l) => /^\s*[-•]\s+/.test(l));
+
+    let intelBody: string;
+    if (!rawNotes) {
+      intelBody = `<p style="margin:0;font-size:14px;color:#888;font-style:italic;">No call notes recorded.</p>`;
+    } else if (isBulletList) {
+      const items = rawNotes
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0)
+        .map((l) => l.replace(/^\s*[-•]\s+/, ""))
+        .map((l) => `<li style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(l)}</li>`)
+        .join("");
+      intelBody = `<ul style="margin:0;padding:0 0 0 20px;">${items}</ul>`;
+    } else {
+      intelBody = `<p style="margin:0;font-size:15px;line-height:1.6;color:#2a2a2a;white-space:pre-wrap;">${esc(rawNotes)}</p>`;
+    }
 
     const financeCell =
       data.financeEligible === true
