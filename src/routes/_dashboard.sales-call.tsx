@@ -2672,10 +2672,9 @@ function RightPanel({
       toast.error("Dialler errored — refresh the page to reconnect.");
       return;
     }
-    // Start ringback synchronously inside the click gesture so the browser
-    // allows the AudioContext to play. The Twilio SDK will not deliver
-    // carrier ringback over WebRTC, so we generate it locally.
-    startRingback();
+    // Prime the AudioContext inside the user gesture so ringback can play
+    // later when Twilio fires the "ringing" event (browser autoplay policy).
+    primeAudioContext();
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id });
