@@ -20,6 +20,18 @@ function getCtx(): AudioContext {
   return ctx;
 }
 
+// Call from a user gesture (e.g. click handler) to unlock the AudioContext
+// so a later startRingback() — fired from a non-gesture event such as Twilio's
+// "ringing" callback — is allowed to play under browser autoplay policies.
+export function primeAudioContext(): void {
+  try {
+    const ac = getCtx();
+    if (ac.state === "suspended") void ac.resume();
+  } catch (e) {
+    console.warn("ringback: prime failed", e);
+  }
+}
+
 export function startRingback(): void {
   if (playing) return;
   // Must be called from a user gesture (click handler) so the AudioContext
