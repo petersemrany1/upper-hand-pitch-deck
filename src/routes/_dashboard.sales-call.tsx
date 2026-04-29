@@ -3471,20 +3471,23 @@ function RightPanel({
                 </button>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-              {(["9:00", "12:00", "15:00"] as const).map((t) => (
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+              {([
+                { label: "Tomorrow 9am", time: "09:00" },
+                { label: "Tomorrow 12pm", time: "12:00" },
+                { label: "Tomorrow 3pm", time: "15:00" },
+              ] as const).map((opt) => (
                 <button
-                  key={t}
+                  key={opt.label}
                   onClick={() => {
                     const d = new Date();
-                    const [h] = t.split(":").map(Number);
-                    if (d.getHours() >= h) d.setDate(d.getDate() + 1);
+                    d.setDate(d.getDate() + 1);
                     setCallbackDate(d.toISOString().split("T")[0]);
-                    setCallbackTime(t);
+                    setCallbackTime(opt.time);
                   }}
                   style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
                 >
-                  {t === "9:00" ? "9am" : t === "12:00" ? "12pm" : "3pm"}
+                  {opt.label}
                 </button>
               ))}
             </div>
