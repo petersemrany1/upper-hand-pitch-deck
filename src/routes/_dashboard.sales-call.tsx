@@ -2987,14 +2987,10 @@ function LeadChooser({
   };
 
   const moveToTomorrow = async (leadId: string) => {
-    const cb = new Date(); cb.setDate(cb.getDate() + 1); cb.setHours(9, 0, 0, 0);
+    // Just move the card to tomorrow's column — do NOT auto-schedule a callback.
+    // The rep can explicitly schedule one via the "Schedule callback" UI.
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
-    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: cb.toISOString(), status: "callback_scheduled" });
-    await supabase
-      .from("meta_leads")
-      .update({ callback_scheduled_at: cb.toISOString(), status: "callback_scheduled", updated_at: new Date().toISOString() })
-      .eq("id", leadId);
-    toast.success("Moved to Tomorrow 9am");
+    toast.success("Moved to Tomorrow");
   };
 
   const moveToYesterday = async (leadId: string) => {
