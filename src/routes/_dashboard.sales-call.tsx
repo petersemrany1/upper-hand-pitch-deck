@@ -3019,7 +3019,7 @@ function LeadChooser({
   );
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => setOpenStatusFor(null)}>
+    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => { setOpenStatusFor(null); setStatusAnchor(null); }}>
       <div className="max-w-[1400px] mx-auto px-6 py-8">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <div>
