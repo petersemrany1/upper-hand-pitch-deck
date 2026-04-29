@@ -2197,6 +2197,27 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
           </button>
         </div>
 
+        {/* Reset booking — bottom of screen */}
+        <div style={{ display: "flex", justifyContent: "center", marginTop: 32, paddingTop: 20, borderTop: `0.5px dashed ${COLORS.line}` }}>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            disabled={resetting}
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              color: COLORS.muted,
+              background: "#fff",
+              border: `0.5px solid ${COLORS.line}`,
+              borderRadius: 8,
+              padding: "8px 16px",
+              cursor: resetting ? "wait" : "pointer",
+              opacity: resetting ? 0.6 : 1,
+            }}
+          >
+            ↺ Reset booking (permanently delete)
+          </button>
+        </div>
+
         {showPreview && (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
             <div className="w-full max-w-lg rounded-[12px] flex flex-col" style={{ background: "#ffffff", maxHeight: "90vh", overflow: "hidden" }}>
