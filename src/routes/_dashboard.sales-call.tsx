@@ -2303,16 +2303,16 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
             )}
           </button>
 
-          {/* Manually confirm deposit paid */}
+          {/* Manually confirm deposit paid — click again to undo */}
           <button
-            onClick={() => void handleConfirmDepositPaid()}
-            disabled={confirmingDeposit || depositPaid}
+            onClick={() => void (depositPaid ? handleUndoDepositPaid() : handleConfirmDepositPaid())}
+            disabled={confirmingDeposit}
             className="w-full rounded-[8px] flex items-center justify-between mt-3"
             style={{
               background: depositPaid ? "#dcfce7" : "#ffffff",
               border: `0.5px solid ${depositPaid ? COLORS.green : COLORS.line}`,
               padding: "16px 20px",
-              cursor: depositPaid ? "default" : confirmingDeposit ? "wait" : "pointer",
+              cursor: confirmingDeposit ? "wait" : "pointer",
               opacity: confirmingDeposit ? 0.7 : 1,
             }}
           >
@@ -2321,34 +2321,13 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 {depositPaid ? "✓ Deposit paid — lead converted" : "Confirm deposit paid"}
               </div>
               <div style={{ fontSize: 12, color: COLORS.muted }}>
-                {depositPaid ? "This lead has moved to Booked — Deposit Paid" : "Tap once the patient has paid the $75 deposit"}
+                {depositPaid ? "This lead has moved to Booked — Deposit Paid · tap to undo" : "Tap once the patient has paid the $75 deposit"}
               </div>
             </div>
-            {!depositPaid && (
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.green, flexShrink: 0, marginLeft: 12 }}>
-                {confirmingDeposit ? "Saving…" : "Confirm ✓"}
-              </div>
-            )}
+            <div style={{ fontSize: 13, fontWeight: 500, color: depositPaid ? COLORS.muted : COLORS.green, flexShrink: 0, marginLeft: 12 }}>
+              {confirmingDeposit ? (depositPaid ? "Undoing…" : "Saving…") : depositPaid ? "↶ Undo" : "Confirm ✓"}
+            </div>
           </button>
-
-          {depositPaid && (
-            <button
-              onClick={() => void handleUndoDepositPaid()}
-              disabled={confirmingDeposit}
-              className="w-full rounded-[8px] flex items-center justify-center mt-2"
-              style={{
-                background: "#ffffff",
-                border: `0.5px solid ${COLORS.line}`,
-                padding: "10px 20px",
-                cursor: confirmingDeposit ? "wait" : "pointer",
-                fontSize: 12,
-                fontWeight: 500,
-                color: COLORS.muted,
-              }}
-            >
-              {confirmingDeposit ? "Undoing…" : "↶ Undo deposit confirmation"}
-            </button>
-          )}
         </div>
 
         {/* Reset booking — bottom of screen */}
