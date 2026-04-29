@@ -3178,7 +3178,6 @@ function LeadChooser({
           border: `0.5px solid ${COLORS.line}`,
           borderLeft: accent === "transparent" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
           marginBottom: 8,
-          opacity: tone === "muted" ? 0.7 : 1,
           // Drop indicator above this card
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
