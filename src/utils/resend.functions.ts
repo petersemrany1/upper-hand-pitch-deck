@@ -1069,7 +1069,7 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
           system: systemPrompt,
           messages: [{
             role: "user",
-            content: `Call notes from ${leads.length} leads (range: ${data.range}):\n\n${taggedNotes}`,
+            content: `Call notes from ${filteredLeads.length} leads (today + yesterday):\n\n${taggedNotes}`,
           }],
         }),
       });
