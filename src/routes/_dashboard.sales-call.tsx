@@ -2558,6 +2558,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
   { label: "No time", key: "No time" },
   { label: "Consult price", key: "Consult price" },
   { label: "Transplant price", key: "Transplant price" },
+  { label: "Who are you", key: "Who are you" },
 ];
 
 function RightPanel({
