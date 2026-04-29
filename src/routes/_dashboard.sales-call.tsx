@@ -1996,8 +1996,20 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       },
     });
     setSendingDeposit(false);
-    if (r.success) { setDepositSent(true); toast.success("Deposit link sent to patient ✓"); }
-    else toast.error(`Deposit SMS failed: ${r.error}`);
+  };
+
+  const handleConfirmDepositPaid = async () => {
+    if (confirmingDeposit || depositPaid) return;
+    setConfirmingDeposit(true);
+    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_deposit_paid" } });
+    setConfirmingDeposit(false);
+    if (r.success) {
+      setDepositPaid(true);
+      (lead as { status: string | null }).status = "booked_deposit_paid";
+      toast.success("Deposit confirmed — lead marked as paid ✓");
+    } else {
+      toast.error(`Could not confirm deposit: ${r.error ?? "unknown error"}`);
+    }
   };
 
   const openPreview = async () => {
