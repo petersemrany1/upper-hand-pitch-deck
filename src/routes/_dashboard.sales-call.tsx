@@ -3191,8 +3191,8 @@ function LeadChooser({
             col="tomorrow"
             count={buckets.tomorrow.length}
           >
-            {buckets.tomorrow.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing queued. Drag a lead here to push it.</div>}
-            {buckets.tomorrow.map((l) => renderLeadCard(l, { tone: "muted", section: "tomorrow" }))}
+            {orderedTomorrow.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing queued. Drag a lead here to push it.</div>}
+            {orderedTomorrow.map((l) => renderLeadCard(l, { tone: "muted", section: "tomorrow" }))}
           </Column>
         </div>
       </div>
