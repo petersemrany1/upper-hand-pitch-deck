@@ -2803,7 +2803,6 @@ function LeadChooser({
       }
 
       // 2) Today column — overdue / callback / no-answer-yesterday / new / remaining
-      const u = leadUrgency(l);
       if (callbackIsOverdue(l)) {
         out.today.push({ section: "overdue", lead: l }); placed.add(l.id); continue;
       }
