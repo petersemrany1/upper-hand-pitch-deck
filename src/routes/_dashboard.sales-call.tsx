@@ -301,6 +301,9 @@ function SalesCallPortal() {
           attemptCounts={attemptCounts}
           attemptsByDay={attemptsByDay}
           firstCallByLead={firstCallByLead}
+          onLocalLeadUpdate={(id, patch) =>
+            setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
+          }
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
