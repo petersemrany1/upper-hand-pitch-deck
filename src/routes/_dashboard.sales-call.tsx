@@ -2711,7 +2711,7 @@ function LeadChooser({
     yesterday: [], today: [], tomorrow: [],
   });
   const [dropTarget, setDropTarget] = useState<{ col: DayCol; beforeId: string | null } | null>(null);
-  const dragStateRef = useRef<{ id: string; col: DayCol; x: number; y: number; pointerId: number; dragging: boolean; lastCol: DayCol | null; lastBeforeId: string | null } | null>(null);
+  const dragStateRef = useRef<DragState | null>(null);
   const dropTargetRef = useRef<{ col: DayCol; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
   // below). Used by drag/drop math.
