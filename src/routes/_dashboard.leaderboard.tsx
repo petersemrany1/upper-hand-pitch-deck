@@ -16,12 +16,12 @@ const C = {
   blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
 };
 
-type Range = "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d";
+type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
 type Row = Awaited<ReturnType<typeof getLeaderboard>>["rows"][number];
 
 function LeaderboardPage() {
   const { user } = useAuth();
-  const [range, setRange] = useState<Range>("today_yesterday");
+  const [range, setRange] = useState<Range>("today");
   const [rows, setRows] = useState<Row[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newRep, setNewRep] = useState({ firstName: "", lastName: "", email: "" });
