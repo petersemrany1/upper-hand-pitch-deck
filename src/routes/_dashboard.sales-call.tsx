@@ -2298,6 +2298,41 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
             </div>
           </div>
         )}
+
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+            <div className="w-full max-w-sm rounded-[12px]" style={{ background: "#fff", padding: "24px" }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, marginBottom: 8 }}>
+                Reset booking?
+              </div>
+              <div style={{ fontSize: 14, color: COLORS.muted, marginBottom: 20, lineHeight: 1.5 }}>
+                This will clear the booking confirmation and return Step 10 to a fresh slate. The booking will not be deleted from the clinic — only the on-screen state is reset.
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  style={{
+                    fontSize: 13, fontWeight: 500, color: COLORS.text,
+                    background: "#fff", border: `0.5px solid ${COLORS.line}`,
+                    borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetBooking}
+                  style={{
+                    fontSize: 13, fontWeight: 500, color: "#fff",
+                    background: COLORS.coral, border: "none",
+                    borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+                  }}
+                >
+                  Yes, reset
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
