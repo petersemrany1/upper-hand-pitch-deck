@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText,
+  Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText, ArrowRight,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { supabase } from "@/integrations/supabase/client";
+import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { toast } from "sonner";
 
 // Global floating call widget. Renders nothing unless a call is connecting or
@@ -78,6 +80,25 @@ function useCallContext(callSid: string | null) {
 export function FloatingCallWidget() {
   const { status, activeCallSid, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
   const { clinicName, contactName, phone } = useCallContext(activeCallSid);
+  const navigate = useNavigate();
+
+  // If this is an inbound call, try to match it to a meta_lead so we can offer
+  // a one-tap "Open in Sales Call" button (saves the rep ~15s of fumbling).
+  const [matchedLead, setMatchedLead] = useState<{
+    id: string; first_name: string | null; last_name: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!incomingFrom) { setMatchedLead(null); return; }
+    let cancelled = false;
+    void findLeadByPhone({ data: { phone: incomingFrom } }).then((r) => {
+      if (cancelled) return;
+      if (r.success && r.lead) {
+        setMatchedLead({ id: r.lead.id, first_name: r.lead.first_name, last_name: r.lead.last_name });
+      }
+    }).catch(() => { /* noop */ });
+    return () => { cancelled = true; };
+  }, [incomingFrom]);
 
   const [expanded, setExpanded] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
@@ -286,6 +307,22 @@ export function FloatingCallWidget() {
               {k.sub && <span className="text-[9px] text-[#111111] mt-0.5 tracking-widest">{k.sub}</span>}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Open in Sales Call (only for inbound matched leads) */}
+      {matchedLead && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              navigate({ to: "/sales-call", search: { leadId: matchedLead.id } as never });
+            }}
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
+          >
+            Open {[matchedLead.first_name, matchedLead.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call
+            <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       )}
 

@@ -507,3 +507,57 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     return { success: true as const, rows };
   });
+
+/* ───────────────────────── Find lead by inbound phone ───────────────────────── */
+
+// Strip everything except digits, then keep the last 9 (Australian mobile/landline
+// significant digits) so "+61412345678", "0412345678", "412345678" all match.
+function phoneTail9(raw: string | null | undefined): string {
+  if (!raw) return "";
+  const digits = String(raw).replace(/[^0-9]/g, "");
+  return digits.slice(-9);
+}
+
+export const findLeadByPhone = createServerFn({ method: "POST" })
+  .inputValidator((data: { phone: string }) => ({ phone: String(data.phone ?? "") }))
+  .handler(async ({ data }) => {
+    const tail = phoneTail9(data.phone);
+    if (!tail) return { success: false as const, error: "No phone provided", lead: null };
+
+    // Match the last 9 digits against meta_leads.phone using a normalised compare.
+    // We pull a small set and filter in JS (avoids needing a DB function/index).
+    const { data: candidates, error } = await supabaseAdmin
+      .from("meta_leads")
+      .select("id, first_name, last_name, phone, day_number, status, call_notes, callback_scheduled_at, booking_date, booking_time")
+      .not("phone", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(2000);
+
+    if (error) return { success: false as const, error: error.message, lead: null };
+
+    const match = (candidates ?? []).find((l) => phoneTail9(l.phone) === tail);
+    if (!match) return { success: true as const, lead: null };
+
+    // Count attempts for context
+    const { count } = await supabaseAdmin
+      .from("call_records")
+      .select("id", { count: "exact", head: true })
+      .eq("lead_id", match.id);
+
+    return {
+      success: true as const,
+      lead: {
+        id: match.id,
+        first_name: match.first_name,
+        last_name: match.last_name,
+        phone: match.phone,
+        day_number: match.day_number,
+        status: match.status,
+        call_notes: match.call_notes,
+        callback_scheduled_at: match.callback_scheduled_at,
+        booking_date: match.booking_date,
+        booking_time: match.booking_time,
+        attempt_count: count ?? 0,
+      },
+    };
+  });
