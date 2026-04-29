@@ -256,7 +256,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: isPatientCall ? 500 : 1500,
+        max_tokens: isPatientCall ? 1200 : 1500,
         system: isPatientCall ? PATIENT_SYSTEM_PROMPT : SYSTEM_PROMPT,
         messages: [{ role: "user", content: claudeUserContent }],
       }),
