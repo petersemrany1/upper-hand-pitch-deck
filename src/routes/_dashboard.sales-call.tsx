@@ -3784,6 +3784,30 @@ function RightPanel({
             >
               {savingCallback ? "Saving..." : "Confirm callback →"}
             </button>
+            {active.callback_scheduled_at && (
+              <button
+                disabled={savingCallback}
+                onClick={async () => {
+                  setSavingCallback(true);
+                  try {
+                    const { error } = await supabase.from("meta_leads").update({
+                      callback_scheduled_at: null,
+                      updated_at: new Date().toISOString(),
+                    }).eq("id", active.id);
+                    if (error) throw error;
+                    setShowCallbackPicker(false);
+                    toast.success("Callback removed");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Couldn't remove callback");
+                  } finally {
+                    setSavingCallback(false);
+                  }
+                }}
+                style={{ width: "100%", marginTop: 6, background: "transparent", color: COLORS.red, fontSize: 11, fontWeight: 600, padding: "6px 0", borderRadius: 6, cursor: "pointer", border: `0.5px solid ${COLORS.line}`, opacity: savingCallback ? 0.6 : 1 }}
+              >
+                ✕ Remove existing callback
+              </button>
+            )}
           </div>
           );
         })()}
