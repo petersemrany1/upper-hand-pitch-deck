@@ -19,6 +19,39 @@ export function SmsNotifier() {
   const locRef = useRef(location.pathname);
   useEffect(() => { locRef.current = location.pathname; }, [location.pathname]);
 
+  // Lazy-init shared AudioContext (browsers require user gesture before first use)
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const playMessageTone = () => {
+    try {
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      if (!audioCtxRef.current) audioCtxRef.current = new AC();
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") void ctx.resume();
+
+      // Two-note "ding" — pleasant iMessage-style chime
+      const now = ctx.currentTime;
+      const notes = [
+        { freq: 880, start: 0,    dur: 0.18 },  // A5
+        { freq: 1318.5, start: 0.09, dur: 0.28 }, // E6
+      ];
+      for (const n of notes) {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(n.freq, now + n.start);
+        gain.gain.setValueAtTime(0.0001, now + n.start);
+        gain.gain.exponentialRampToValueAtTime(0.18, now + n.start + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + n.start + n.dur);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now + n.start);
+        osc.stop(now + n.start + n.dur + 0.02);
+      }
+    } catch {
+      // ignore audio errors (e.g. autoplay blocked before first interaction)
+    }
+  };
+
   useEffect(() => {
     const ch = supabase
       .channel("global-sms-notifier")
@@ -28,7 +61,11 @@ export function SmsNotifier() {
         async (payload) => {
           const m = payload.new as InboundMessage;
           if (m.direction !== "inbound") return;
-          // Skip notification if already on this thread
+
+          // Always play the tone (even on the inbox page)
+          playMessageTone();
+
+          // Skip toast if already on the inbox page
           if (locRef.current === "/inbox") return;
 
           // Look up sender display
