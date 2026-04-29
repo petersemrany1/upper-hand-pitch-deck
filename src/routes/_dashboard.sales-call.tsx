@@ -2926,6 +2926,24 @@ function LeadChooser({
   const columnFromSection = (section: string): DayCol =>
     section === "yesterday" ? "yesterday" : section === "tomorrow" ? "tomorrow" : "today";
 
+  const blocksCardDrag = (target: EventTarget | null) =>
+    target instanceof HTMLElement && !!target.closest("button,a,input,textarea,select,[data-no-card-drag]");
+
+  const dropTargetFromPoint = (leadId: string, x: number, y: number) => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const column = el?.closest("[data-drop-col]") as HTMLElement | null;
+    const col = column?.dataset.dropCol as DayCol | undefined;
+    if (!col) return null;
+
+    const card = el?.closest("[data-lead-card]") as HTMLElement | null;
+    const overId = card?.dataset.leadId;
+    if (!card || !overId || overId === leadId || !column.contains(card)) return { col, beforeId: null };
+
+    const rect = card.getBoundingClientRect();
+    const isAbove = y < rect.top + rect.height / 2;
+    return { col, beforeId: isAbove ? overId : nextLeadIdInCol(col, overId) };
+  };
+
   // Close the status menu when the user presses Escape.
   useEffect(() => {
     if (!openStatusFor) return;
