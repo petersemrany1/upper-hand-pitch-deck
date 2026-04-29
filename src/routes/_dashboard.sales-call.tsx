@@ -2696,6 +2696,7 @@ type StatusKey =
   | "new"
   | "no_answer"
   | "callback_scheduled"
+  | "had_convo_chase_up"
   | "not_interested"
   | "booked_no_deposit"
   | "booked_deposit_paid"
@@ -2705,6 +2706,7 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
   { key: "new",                  label: "New",                  emoji: "🔵", color: "#1d4ed8", bg: "#dbeafe" },
   { key: "no_answer",            label: "No Answer",            emoji: "🟡", color: "#a16207", bg: "#fef9c3" },
   { key: "callback_scheduled",   label: "Callback Scheduled",   emoji: "🟠", color: "#c2410c", bg: "#ffedd5" },
+  { key: "had_convo_chase_up",   label: "Had Convo — Chase Up", emoji: "🟤", color: "#92400e", bg: "#fde68a" },
   { key: "not_interested",       label: "Not Interested",       emoji: "🔴", color: "#b91c1c", bg: "#fee2e2" },
   { key: "booked_no_deposit",    label: "Booked — No Deposit",  emoji: "🟣", color: "#7e22ce", bg: "#f3e8ff" },
   { key: "booked_deposit_paid",  label: "Booked — Deposit Paid",emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
@@ -2720,6 +2722,7 @@ function normaliseStatus(s: string | null | undefined, l?: Lead): StatusKey {
     return "booked_no_deposit";
   }
   if (raw.includes("callback")) return "callback_scheduled";
+  if (raw.includes("chase") || raw.includes("had_convo")) return "had_convo_chase_up";
   if (raw.includes("not_interested") || raw === "ineligible") return "not_interested";
   if (raw.includes("no_answer") || raw === "contacted") return "no_answer";
   if (raw === "dropped") return "dropped";
