@@ -2756,6 +2756,13 @@ function statusMeta(s: string | null | undefined, l?: Lead) {
 const localDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+type RawPayloadObject = { [key: string]: Json | undefined };
+
+const rawPayloadObject = (raw: Json | null): RawPayloadObject => {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as RawPayloadObject;
+  return {};
+};
+
 type DayCol = "yesterday" | "today" | "tomorrow";
 type DragState = { id: string; col: DayCol; pointerId: number; dragging: boolean; offsetX: number; offsetY: number; width: number; height: number };
 type DragVisual = { id: string; left: number; top: number; width: number; height: number };
