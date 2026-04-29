@@ -3014,7 +3014,7 @@ function RightPanel({
                 cursor: "pointer",
               }}
             >
-              {showSellingPoints ? "Hide selling points" : "Selling points →"}
+              {showSellingPoints ? "Hide Doctor Selling Points" : "Doctor Selling Points →"}
             </button>
           )}
         </div>
