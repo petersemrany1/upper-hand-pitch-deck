@@ -127,7 +127,7 @@ function SalesCallPortal() {
       const { data } = await supabase
         .from("meta_leads")
         .select("*")
-        .eq("status", "Callback Scheduled")
+        .in("status", ["Callback Scheduled", "callback_scheduled"])
         .lte("callback_scheduled_at", now.toISOString())
         .gte("callback_scheduled_at", fiveMinAgo.toISOString());
       if (data && data.length > 0) {
@@ -2994,7 +2994,7 @@ function LeadChooser({
 
   const clearCallback = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const wasCallbackStatus = (lead?.status ?? "").toLowerCase() === "callback_scheduled";
+    const wasCallbackStatus = normaliseStatus(lead?.status, lead) === "callback_scheduled";
     const newStatus = wasCallbackStatus ? "in_progress" : lead?.status;
     // Optimistic local update so the card refreshes immediately
     onLocalLeadUpdate?.(leadId, {
