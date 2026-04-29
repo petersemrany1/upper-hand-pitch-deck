@@ -2680,12 +2680,14 @@ function LeadChooser({
   attemptCounts,
   attemptsByDay,
   firstCallByLead,
+  onLocalLeadUpdate,
   onPick,
 }: {
   leads: Lead[];
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
   firstCallByLead: Record<string, string>;
+  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onPick: (id: string) => void;
 }) {
   const [q, setQ] = useState("");
