@@ -190,7 +190,7 @@ function SalesCallPortal() {
     };
     void load();
     const ch = supabase.channel("attempt-counts")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
