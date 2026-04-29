@@ -2959,8 +2959,64 @@ function RightPanel({
 
       {/* Section 3 — Clinic info */}
       <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
-        <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
-          Clinic
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
+            Clinic
+          </div>
+          {panelDoctor && (
+            <button
+              type="button"
+              onClick={async () => {
+                const next = !showSellingPoints;
+                setShowSellingPoints(next);
+                if (
+                  next &&
+                  panelDoctor &&
+                  (sellingPointsForDoctorId !== panelDoctor.id || !sellingPoints)
+                ) {
+                  setLoadingSellingPoints(true);
+                  try {
+                    const { data, error } = await supabase.functions.invoke(
+                      "summarize-doctor",
+                      {
+                        body: {
+                          doctor: {
+                            ...panelDoctor,
+                            clinic_name: panelClinic?.clinic_name ?? null,
+                          },
+                        },
+                      },
+                    );
+                    if (error) throw error;
+                    const points = (data as { points?: string[] })?.points ?? [];
+                    setSellingPoints(points);
+                    setSellingPointsForDoctorId(panelDoctor.id);
+                    if (points.length === 0) {
+                      toast.message("No selling points generated — doctor profile may be empty.");
+                    }
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : "Failed to generate selling points";
+                    toast.error(msg);
+                    setSellingPoints([]);
+                  } finally {
+                    setLoadingSellingPoints(false);
+                  }
+                }
+              }}
+              style={{
+                fontSize: 11,
+                fontWeight: 600,
+                color: COLORS.coral,
+                background: "transparent",
+                border: `0.5px solid ${COLORS.line}`,
+                padding: "3px 8px",
+                borderRadius: 6,
+                cursor: "pointer",
+              }}
+            >
+              {showSellingPoints ? "Hide selling points" : "Selling points →"}
+            </button>
+          )}
         </div>
         {panelClinic ? (
           <>
@@ -2984,6 +3040,32 @@ function RightPanel({
                   .filter(Boolean)
                   .map((landmark, i) => <li key={i}>· {landmark}</li>)}
               </ul>
+            )}
+            {showSellingPoints && (
+              <div
+                className="rounded-[8px]"
+                style={{
+                  marginTop: 12,
+                  background: "#fafafa",
+                  border: `0.5px solid ${COLORS.line}`,
+                  padding: "10px 12px",
+                }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#666", marginBottom: 6 }}>
+                  Selling points{panelDoctor?.name ? ` — ${panelDoctor.name}` : ""}
+                </div>
+                {loadingSellingPoints ? (
+                  <div style={{ fontSize: 13, color: "#666" }}>Generating…</div>
+                ) : sellingPoints && sellingPoints.length > 0 ? (
+                  <ul style={{ fontSize: 13, color: "#111", lineHeight: 1.55, listStyle: "none", padding: 0, margin: 0 }}>
+                    {sellingPoints.map((p, i) => (
+                      <li key={i} style={{ marginBottom: 6 }}>· {p}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div style={{ fontSize: 13, color: "#666" }}>No points available — fill in the doctor profile in Partner Clinics.</div>
+                )}
+              </div>
             )}
           </>
         ) : (
