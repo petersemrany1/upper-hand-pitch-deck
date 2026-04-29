@@ -3048,12 +3048,36 @@ function LeadChooser({
     return groups;
   }, [buckets.today]);
 
-  const SectionHeader = ({ title, count, color }: { title: string; count: number; color: string }) =>
-    count === 0 ? null : (
-      <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color, margin: "12px 4px 6px" }}>
-        {title} · {count}
-      </div>
+  // Collapsed today sections (each section can be folded so the rep can
+  // skip past New leads to get to Remaining etc.).
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleSection = (k: string) => setCollapsed((p) => ({ ...p, [k]: !p[k] }));
+
+  const SectionHeader = ({ title, count, color, sectionKey }: { title: string; count: number; color: string; sectionKey: string }) => {
+    if (count === 0) return null;
+    const isCollapsed = !!collapsed[sectionKey];
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSection(sectionKey)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
+          color, margin: "12px 0 6px", background: "transparent", border: "none",
+          cursor: "pointer", padding: "2px 4px", width: "100%", textAlign: "left",
+        }}
+      >
+        <ChevronDown
+          style={{
+            width: 12, height: 12, opacity: 0.7,
+            transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+            transition: "transform 120ms",
+          }}
+        />
+        <span>{title} · {count}</span>
+      </button>
     );
+  };
 
   // Helper for renderLeadCard's onDragOver: given a column and a lead id,
   // return the id of the lead that comes AFTER it in render order (or null
