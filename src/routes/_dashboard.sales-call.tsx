@@ -3167,23 +3167,15 @@ function LeadChooser({
         key={l.id}
         data-lead-card
         data-lead-id={l.id}
-        draggable={!opts.preview}
-        onDragStart={(e) => {
-          if (opts.preview || blocksCardDrag(e.target)) { e.preventDefault(); return; }
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", l.id);
-          const col = columnFromSection(section);
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          dragStateRef.current = { id: l.id, col, pointerId: -1, dragging: true, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
-          setDragVisual({ id: l.id, left: e.clientX - (e.clientX - rect.left), top: e.clientY - (e.clientY - rect.top), width: rect.width, height: rect.height });
-        }}
-        onDragEnd={(e) => finishDrag(e.clientX, e.clientY)}
+        draggable={false}
+        onDragStart={(e) => e.preventDefault()}
         onPointerDown={(e) => {
-          if (e.button !== 0 || blocksCardDrag(e.target)) return;
+          if (opts.preview || e.button !== 0 || blocksCardDrag(e.target)) return;
           const col = columnFromSection(section);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           dragStateRef.current = { id: l.id, col, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
-          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+          // Do NOT call setPointerCapture — it routes pointer events away from
+          // document-level listeners on some browsers, which breaks drop detection.
         }}
         className="rounded-[10px]"
         style={{
