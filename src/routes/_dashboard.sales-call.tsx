@@ -2646,12 +2646,19 @@ function LeadChooser({
 }) {
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
+  const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   // Local override so a card "moved back to today" via the button/drag
   // re-buckets immediately without waiting for the realtime round-trip.
   const [overrideToToday, setOverrideToToday] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
+  // Manual ordering per column (id list). When present, leads in that column
+  // render in this order; new leads append at the end.
+  const [manualOrder, setManualOrder] = useState<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+    yesterday: [], today: [], tomorrow: [],
+  });
+  const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
