@@ -511,26 +511,43 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
+    // Group calls by (rep, lead) so multiple dials to the same person count as
+    // ONE "call" / "convo" / "hold" / "connected". The longest dial's duration
+    // decides whether that lead was a convo/hold; all dial seconds still
+    // accumulate into hours (real talk time = real work).
+    type LeadAgg = { repId: string; maxDur: number; totalDur: number; anyConnected: boolean };
+    const byLead = new Map<string, LeadAgg>(); // key = `${repId}::${leadIdOrCallId}`
+
     for (const c of calls ?? []) {
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       // Skip in-flight calls (no real duration yet) so they don't pollute the count
       if (c.status === "ringing" || c.status === "initiated") continue;
       const repId = c.rep_id ?? fallbackRepId;
       if (!repId) continue;
-      const s = byRep.get(repId) ?? blank();
-      s.calls += 1;
-      s.attempted += 1;
-      // Real duration is the `duration` column (seconds). Fall back to legacy
-      // `duration_seconds` only if duration is missing.
       const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
-      // Connected = the call actually went through. status='completed' with
-      // any audible duration covers it; outcome is unreliable.
-      if (c.outcome === "connected" || (c.status === "completed" && dur > 0)) s.connected += 1;
-      s.workSeconds += dur;
-      if (dur > 0 && dur < 120) s.shortCalls += 1;
-      if (dur >= 180) s.convos += 1;
-      if (dur >= 300) s.holds += 1;
-      byRep.set(repId, s);
+      const connected = c.outcome === "connected" || (c.status === "completed" && dur > 0);
+      // If lead_id is missing, treat each row as its own "lead" so it still counts once.
+      const leadKey = `${repId}::${c.lead_id ?? `nolead-${(c as { id?: string }).id ?? Math.random()}`}`;
+      const prev = byLead.get(leadKey);
+      if (prev) {
+        prev.maxDur = Math.max(prev.maxDur, dur);
+        prev.totalDur += dur;
+        prev.anyConnected = prev.anyConnected || connected;
+      } else {
+        byLead.set(leadKey, { repId, maxDur: dur, totalDur: dur, anyConnected: connected });
+      }
+    }
+
+    for (const agg of byLead.values()) {
+      const s = byRep.get(agg.repId) ?? blank();
+      s.calls += 1;            // 1 lead contacted = 1 call
+      s.attempted += 1;
+      if (agg.anyConnected) s.connected += 1;
+      s.workSeconds += agg.totalDur; // hours = real talk time across all dials
+      if (agg.maxDur > 0 && agg.maxDur < 120) s.shortCalls += 1;
+      if (agg.maxDur >= 180) s.convos += 1;
+      if (agg.maxDur >= 300) s.holds += 1;
+      byRep.set(agg.repId, s);
     }
     for (const b of bookings ?? []) {
       if (excludedLeadIds.has(b.id as string)) continue; // skip Peter Test
