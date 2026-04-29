@@ -1752,6 +1752,8 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [depositSent, setDepositSent] = useState(false);
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [confirmingDeposit, setConfirmingDeposit] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
   const [refreshingIntel, setRefreshingIntel] = useState(false);
@@ -1878,6 +1880,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       });
       setBooked(true);
     }
+    if (lead.status && lead.status.toLowerCase().includes("deposit_paid")) {
+      setDepositPaid(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.booking_date, lead.booking_time, clinics, doctors]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
@@ -1991,8 +1996,20 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       },
     });
     setSendingDeposit(false);
-    if (r.success) { setDepositSent(true); toast.success("Deposit link sent to patient ✓"); }
-    else toast.error(`Deposit SMS failed: ${r.error}`);
+  };
+
+  const handleConfirmDepositPaid = async () => {
+    if (confirmingDeposit || depositPaid) return;
+    setConfirmingDeposit(true);
+    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_deposit_paid" } });
+    setConfirmingDeposit(false);
+    if (r.success) {
+      setDepositPaid(true);
+      (lead as { status: string | null }).status = "booked_deposit_paid";
+      toast.success("Deposit confirmed — lead marked as paid ✓");
+    } else {
+      toast.error(`Could not confirm deposit: ${r.error ?? "unknown error"}`);
+    }
   };
 
   const openPreview = async () => {
@@ -2070,6 +2087,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setBookedData(null);
       setHandoverSent(false);
       setDepositSent(false);
+      setDepositPaid(false);
       setSendingHandover(false);
       setSendingDeposit(false);
       setIntelStatus("waiting");
@@ -2265,6 +2283,34 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
             {!depositSent && (
               <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
                 {sendingDeposit ? "Sending…" : "Send →"}
+              </div>
+            )}
+          </button>
+
+          {/* Manually confirm deposit paid */}
+          <button
+            onClick={() => void handleConfirmDepositPaid()}
+            disabled={confirmingDeposit || depositPaid}
+            className="w-full rounded-[8px] flex items-center justify-between mt-3"
+            style={{
+              background: depositPaid ? "#dcfce7" : "#ffffff",
+              border: `0.5px solid ${depositPaid ? COLORS.green : COLORS.line}`,
+              padding: "16px 20px",
+              cursor: depositPaid ? "default" : confirmingDeposit ? "wait" : "pointer",
+              opacity: confirmingDeposit ? 0.7 : 1,
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: depositPaid ? COLORS.green : COLORS.text, marginBottom: 2 }}>
+                {depositPaid ? "✓ Deposit paid — lead converted" : "Confirm deposit paid"}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>
+                {depositPaid ? "This lead has moved to Booked — Deposit Paid" : "Tap once the patient has paid the $75 deposit"}
+              </div>
+            </div>
+            {!depositPaid && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.green, flexShrink: 0, marginLeft: 12 }}>
+                {confirmingDeposit ? "Saving…" : "Confirm ✓"}
               </div>
             )}
           </button>
