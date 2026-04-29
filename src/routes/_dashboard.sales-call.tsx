@@ -2951,6 +2951,36 @@ function LeadChooser({
     return { col, beforeId: isAbove ? overId : nextLeadIdInCol(col, overId) };
   };
 
+  const finishDrag = useCallback((clientX: number, clientY: number) => {
+    const state = dragStateRef.current;
+    if (!state) return;
+    dragStateRef.current = null;
+    const target = dropTargetFromPoint(state.id, clientX, clientY) ?? dropTargetRef.current;
+    setDropPreview(null);
+    setDragVisual(null);
+    if (state.dragging && target) void handleDrop(state.id, target.col, target);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state || state.pointerId !== e.pointerId) return;
+      e.preventDefault();
+      state.dragging = true;
+      setDragVisual({ id: state.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: state.width, height: state.height });
+      setDropPreview(dropTargetFromPoint(state.id, e.clientX, e.clientY));
+    };
+    const onUp = (e: PointerEvent) => finishDrag(e.clientX, e.clientY);
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [finishDrag]);
+
   // Close the status menu when the user presses Escape.
   useEffect(() => {
     if (!openStatusFor) return;
