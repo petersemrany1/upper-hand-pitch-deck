@@ -2951,8 +2951,9 @@ function LeadChooser({
     return { col, beforeId: isAbove ? overId : nextLeadIdInCol(col, overId) };
   };
 
-  const finishDrag = useCallback((clientX: number, clientY: number) => {
+  const finishDrag = useCallback((clientX: number, clientY: number, pointerId?: number) => {
     const state = dragStateRef.current;
+    if (pointerId !== undefined && state && state.pointerId !== pointerId) return;
     if (!state) return;
     dragStateRef.current = null;
     const target = dropTargetFromPoint(state.id, clientX, clientY) ?? dropTargetRef.current;
@@ -2970,14 +2971,15 @@ function LeadChooser({
       setDragVisual({ id: state.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: state.width, height: state.height });
       setDropPreview(dropTargetFromPoint(state.id, e.clientX, e.clientY));
     };
-    const onUp = (e: PointerEvent) => finishDrag(e.clientX, e.clientY);
-    window.addEventListener("pointermove", onMove, { passive: false });
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onUp);
+    const onUp = (e: PointerEvent) => finishDrag(e.clientX, e.clientY, e.pointerId);
+    document.addEventListener("pointermove", onMove, { passive: false });
+    document.addEventListener("pointerup", onUp, true);
+    document.addEventListener("pointercancel", onUp, true);
+    window.addEventListener("blur", () => finishDrag(0, 0));
     return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onUp);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp, true);
+      document.removeEventListener("pointercancel", onUp, true);
     };
   }, [finishDrag]);
 
