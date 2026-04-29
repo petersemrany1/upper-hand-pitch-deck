@@ -293,6 +293,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     outgoing.on("accept", (c: Call) => {
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
       stopRingback();
+      teardownStatus();
       const sid = c.parameters?.CallSid ?? null;
       if (sid) void insertCallRow(sid);
       setSnapshot({ activeCallSid: sid, status: "in-call" });
@@ -300,6 +301,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     outgoing.on("disconnect", () => {
       console.log("Voice SDK: call disconnected");
       stopRingback();
+      teardownStatus();
       const sid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
       // Mark the call as awaiting recording so the Clinics page can show progress.
       if (sid) {
@@ -316,17 +318,20 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     });
     outgoing.on("cancel", () => {
       stopRingback();
+      teardownStatus();
       activeCall = null;
       setSnapshot({ activeCallSid: null, status: "ready" });
     });
     outgoing.on("reject", () => {
       stopRingback();
+      teardownStatus();
       activeCall = null;
       setSnapshot({ activeCallSid: null, status: "ready" });
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
       console.error("Voice SDK call error:", e);
       stopRingback();
+      teardownStatus();
       activeCall = null;
       setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, status: "error" });
     });
