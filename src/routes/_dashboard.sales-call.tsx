@@ -2646,12 +2646,24 @@ function LeadChooser({
 }) {
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
+  const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   // Local override so a card "moved back to today" via the button/drag
   // re-buckets immediately without waiting for the realtime round-trip.
   const [overrideToToday, setOverrideToToday] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
+  // Manual ordering per column (id list). When present, leads in that column
+  // render in this order; new leads append at the end.
+  const [manualOrder, setManualOrder] = useState<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+    yesterday: [], today: [], tomorrow: [],
+  });
+  const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
+  // Snapshot of the currently rendered ids per column (kept in sync via useEffect
+  // below). Used by drag/drop math.
+  const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+    yesterday: [], today: [], tomorrow: [],
+  });
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
@@ -2770,6 +2782,48 @@ function LeadChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, attemptsByDay, overrideToToday, todayKey, yesterdayKey]);
 
+  // Apply manual reordering on top of the auto buckets. When the user has
+  // dragged any card within a column, that column renders as one flat list
+  // in the manual order (so they can slot a lead anywhere — not auto-bottom).
+  const orderedYesterday = useMemo(() => {
+    const ids = manualOrder.yesterday;
+    if (ids.length === 0) return buckets.yesterday;
+    const map = new Map(buckets.yesterday.map((l) => [l.id, l] as const));
+    const ordered: Lead[] = [];
+    for (const id of ids) { const l = map.get(id); if (l) { ordered.push(l); map.delete(id); } }
+    for (const l of buckets.yesterday) if (map.has(l.id)) { ordered.push(l); map.delete(l.id); }
+    return ordered;
+  }, [buckets.yesterday, manualOrder.yesterday]);
+
+  const orderedTomorrow = useMemo(() => {
+    const ids = manualOrder.tomorrow;
+    if (ids.length === 0) return buckets.tomorrow;
+    const map = new Map(buckets.tomorrow.map((l) => [l.id, l] as const));
+    const ordered: Lead[] = [];
+    for (const id of ids) { const l = map.get(id); if (l) { ordered.push(l); map.delete(id); } }
+    for (const l of buckets.tomorrow) if (map.has(l.id)) { ordered.push(l); map.delete(l.id); }
+    return ordered;
+  }, [buckets.tomorrow, manualOrder.tomorrow]);
+
+  const todayManualFlat = useMemo(() => {
+    const ids = manualOrder.today;
+    if (ids.length === 0) return null;
+    const map = new Map(buckets.today.map((it) => [it.lead.id, it] as const));
+    const ordered: { section: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining"; lead: Lead }[] = [];
+    for (const id of ids) { const it = map.get(id); if (it) { ordered.push(it); map.delete(id); } }
+    for (const it of buckets.today) if (map.has(it.lead.id)) { ordered.push(it); map.delete(it.lead.id); }
+    return ordered;
+  }, [buckets.today, manualOrder.today]);
+
+  // Keep a ref of what's currently rendered in each column so drop math works.
+  useEffect(() => {
+    colOrderRef.current = {
+      yesterday: orderedYesterday.map((l) => l.id),
+      today: (todayManualFlat ?? buckets.today).map((it) => it.lead.id),
+      tomorrow: orderedTomorrow.map((l) => l.id),
+    };
+  }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
+
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
     setSavingStatus(leadId);
@@ -2781,6 +2835,7 @@ function LeadChooser({
     } finally {
       setSavingStatus(null);
       setOpenStatusFor(null);
+      setStatusAnchor(null);
     }
   };
 
@@ -2819,58 +2874,37 @@ function LeadChooser({
     const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
     const cbLabel = cb ? cb.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : "";
     return (
-      <div style={{ position: "relative" }}>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); setOpenStatusFor(openStatusFor === l.id ? null : l.id); }}
-          disabled={savingStatus === l.id}
-          style={{
-            padding: "4px 10px",
-            borderRadius: 999,
-            fontSize: 12,
-            fontWeight: 600,
-            background: meta.bg,
-            color: meta.color,
-            border: `1px solid ${meta.color}33`,
-            cursor: "pointer",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-          }}
-        >
-          <span>{meta.emoji}</span>
-          <span>{meta.label}{showTime ? ` — ${cbLabel}` : ""}</span>
-          <ChevronDown style={{ width: 12, height: 12, opacity: 0.6 }} />
-        </button>
-        {openStatusFor === l.id && (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 30,
-              background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 10,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.08)", minWidth: 220, padding: 4,
-            }}
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.key}
-                type="button"
-                onClick={() => void changeStatus(l.id, opt.key)}
-                style={{
-                  width: "100%", textAlign: "left", padding: "8px 10px",
-                  borderRadius: 6, background: "transparent", color: "#111",
-                  fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f4")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-              >
-                <span>{opt.emoji}</span>
-                <span style={{ color: opt.color, fontWeight: 600 }}>{opt.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          if (openStatusFor === l.id) {
+            setOpenStatusFor(null);
+          } else {
+            setStatusAnchor({ top: rect.bottom + 4, left: rect.left });
+            setOpenStatusFor(l.id);
+          }
+        }}
+        disabled={savingStatus === l.id}
+        style={{
+          padding: "4px 10px",
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 600,
+          background: meta.bg,
+          color: meta.color,
+          border: `1px solid ${meta.color}33`,
+          cursor: "pointer",
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        <span>{meta.emoji}</span>
+        <span>{meta.label}{showTime ? ` — ${cbLabel}` : ""}</span>
+        <ChevronDown style={{ width: 12, height: 12, opacity: 0.6 }} />
+      </button>
     );
   };
 
@@ -2907,7 +2941,20 @@ function LeadChooser({
         key={l.id}
         draggable
         onDragStart={() => setDragId(l.id)}
-        onDragEnd={() => { setDragId(null); setDropCol(null); }}
+        onDragEnd={() => { setDragId(null); setDropCol(null); setDropTarget(null); }}
+        onDragOver={(e) => {
+          if (!dragId || dragId === l.id) return;
+          e.preventDefault();
+          e.stopPropagation();
+          // Determine which column this card belongs to via its section
+          const col: "yesterday" | "today" | "tomorrow" =
+            section === "yesterday" ? "yesterday" :
+            section === "tomorrow" ? "tomorrow" : "today";
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          const isAbove = e.clientY < rect.top + rect.height / 2;
+          setDropCol(col);
+          setDropTarget({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
+        }}
         className="rounded-[10px]"
         style={{
           background: "#ffffff",
@@ -2916,7 +2963,8 @@ function LeadChooser({
           marginBottom: 8,
           opacity: tone === "muted" ? 0.7 : 1,
           cursor: "grab",
-          overflow: "hidden",
+          // Drop indicator above this card
+          boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
         }}
       >
         {banner && (
@@ -2992,14 +3040,48 @@ function LeadChooser({
       </div>
     );
 
+  // Helper for renderLeadCard's onDragOver: given a column and a lead id,
+  // return the id of the lead that comes AFTER it in render order (or null
+  // if it's the last). Used so dropping in the bottom half of a card inserts
+  // the dragged lead immediately after it.
+  const nextLeadIdInCol = (col: "yesterday" | "today" | "tomorrow", afterId: string): string | null => {
+    const arr = colOrderRef.current[col];
+    const i = arr.indexOf(afterId);
+    if (i < 0 || i === arr.length - 1) return null;
+    return arr[i + 1];
+  };
+
   // Drop handlers
   const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
-    const id = dragId; setDragId(null); setDropCol(null);
+    const id = dragId;
+    const target = dropTarget;
+    setDragId(null); setDropCol(null); setDropTarget(null);
     if (!id) return;
-    if (col === "today") return moveToToday(id);
-    if (col === "tomorrow") return moveToTomorrow(id);
-    // yesterday: rare — just clear callback so it falls back to wherever the data places it
-    await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
+
+    // 1) Update column membership when crossing day boundaries
+    const wasInCol: "yesterday" | "today" | "tomorrow" =
+      colOrderRef.current.yesterday.includes(id) ? "yesterday" :
+      colOrderRef.current.tomorrow.includes(id) ? "tomorrow" : "today";
+    if (wasInCol !== col) {
+      if (col === "today") await moveToToday(id);
+      else if (col === "tomorrow") await moveToTomorrow(id);
+      else {
+        await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
+      }
+    }
+
+    // 2) Apply manual ordering inside the target column
+    setManualOrder((prev) => {
+      // Start from current rendered order so we preserve existing layout
+      const base = [...colOrderRef.current[col]].filter((x) => x !== id);
+      let insertAt = base.length;
+      if (target && target.col === col && target.beforeId) {
+        const idx = base.indexOf(target.beforeId);
+        if (idx >= 0) insertAt = idx;
+      }
+      base.splice(insertAt, 0, id);
+      return { ...prev, [col]: base };
+    });
   };
 
   const Column = ({
@@ -3033,7 +3115,7 @@ function LeadChooser({
   );
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => setOpenStatusFor(null)}>
+    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => { setOpenStatusFor(null); setStatusAnchor(null); }}>
       <div className="max-w-[1400px] mx-auto px-6 py-8">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <div>
@@ -3072,8 +3154,8 @@ function LeadChooser({
             col="yesterday"
             count={buckets.yesterday.length}
           >
-            {buckets.yesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
-            {buckets.yesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
+            {orderedYesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
+            {orderedYesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
           </Column>
 
           <Column
@@ -3084,16 +3166,22 @@ function LeadChooser({
             count={buckets.today.length}
           >
             {buckets.today.length === 0 && <div style={{ fontSize: 13, color: "#888" }}>You're all caught up.</div>}
-            <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} />
-            {todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
-            <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} />
-            {todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
-            <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} />
-            {todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
-            <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} />
-            {todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
-            <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" />
-            {todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
+            {todayManualFlat ? (
+              todayManualFlat.map((it) => renderLeadCard(it.lead, { section: it.section }))
+            ) : (
+              <>
+                <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} />
+                {todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
+                <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} />
+                {todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
+                <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} />
+                {todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
+                <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} />
+                {todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
+                <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" />
+                {todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
+              </>
+            )}
           </Column>
 
           <Column
@@ -3103,11 +3191,52 @@ function LeadChooser({
             col="tomorrow"
             count={buckets.tomorrow.length}
           >
-            {buckets.tomorrow.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing queued. Drag a lead here to push it.</div>}
-            {buckets.tomorrow.map((l) => renderLeadCard(l, { tone: "muted", section: "tomorrow" }))}
+            {orderedTomorrow.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing queued. Drag a lead here to push it.</div>}
+            {orderedTomorrow.map((l) => renderLeadCard(l, { tone: "muted", section: "tomorrow" }))}
           </Column>
         </div>
       </div>
+
+      {openStatusFor && statusAnchor && (() => {
+        const lead = leads.find((x) => x.id === openStatusFor);
+        if (!lead) return null;
+        return (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: statusAnchor.top,
+              left: statusAnchor.left,
+              zIndex: 1000,
+              background: "#fff",
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              minWidth: 220,
+              padding: 4,
+            }}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => void changeStatus(lead.id, opt.key)}
+                style={{
+                  width: "100%", textAlign: "left", padding: "8px 10px",
+                  borderRadius: 6, background: "transparent", color: "#111",
+                  fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                  border: "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f4")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <span>{opt.emoji}</span>
+                <span style={{ color: opt.color, fontWeight: 600 }}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -3450,7 +3579,27 @@ function RightPanel({
         >
           Schedule callback
         </button>
-        {showCallbackPicker && (
+        {showCallbackPicker && (() => {
+          const saveCallbackAt = async (dt: Date) => {
+            setSavingCallback(true);
+            try {
+              const { error } = await supabase.from("meta_leads").update({
+                callback_scheduled_at: dt.toISOString(),
+                status: "Callback Scheduled",
+                updated_at: new Date().toISOString(),
+              }).eq("id", active.id);
+              if (error) throw error;
+              setShowCallbackPicker(false);
+              setCallbackDate("");
+              setCallbackTime("");
+              toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Couldn't save callback");
+            } finally {
+              setSavingCallback(false);
+            }
+          };
+          return (
           <div style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8, padding: "12px 14px", marginTop: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
               Schedule callback
@@ -3459,13 +3608,13 @@ function RightPanel({
               {(["30 min", "1 hour", "2 hours"] as const).map((label) => (
                 <button
                   key={label}
+                  disabled={savingCallback}
                   onClick={() => {
                     const d = new Date();
                     d.setMinutes(d.getMinutes() + (label === "30 min" ? 30 : label === "1 hour" ? 60 : 120));
-                    setCallbackDate(d.toISOString().split("T")[0]);
-                    setCallbackTime(d.toTimeString().slice(0, 5));
+                    void saveCallbackAt(d);
                   }}
-                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer", opacity: savingCallback ? 0.6 : 1 }}
                 >
                   {label}
                 </button>
@@ -3479,17 +3628,22 @@ function RightPanel({
               ] as const).map((opt) => (
                 <button
                   key={opt.label}
+                  disabled={savingCallback}
                   onClick={() => {
                     const d = new Date();
                     d.setDate(d.getDate() + 1);
-                    setCallbackDate(d.toISOString().split("T")[0]);
-                    setCallbackTime(opt.time);
+                    const [hh, mm] = opt.time.split(":").map(Number);
+                    d.setHours(hh, mm, 0, 0);
+                    void saveCallbackAt(d);
                   }}
-                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer", opacity: savingCallback ? 0.6 : 1 }}
                 >
                   {opt.label}
                 </button>
               ))}
+            </div>
+            <div style={{ fontSize: 10, color: "#999", marginBottom: 8, fontStyle: "italic" }}>
+              Or pick a custom date & time:
             </div>
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
               <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
@@ -3498,26 +3652,18 @@ function RightPanel({
                 style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
             </div>
             <button
-              onClick={async () => {
+              onClick={() => {
                 if (!callbackDate || !callbackTime) return;
-                setSavingCallback(true);
-                const dt = new Date(`${callbackDate}T${callbackTime}`);
-                await supabase.from("meta_leads").update({
-                  callback_scheduled_at: dt.toISOString(),
-                  status: "Callback Scheduled",
-                  updated_at: new Date().toISOString(),
-                }).eq("id", active.id);
-                setSavingCallback(false);
-                setShowCallbackPicker(false);
-                toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+                void saveCallbackAt(new Date(`${callbackDate}T${callbackTime}`));
               }}
               disabled={savingCallback || !callbackDate || !callbackTime}
-              style={{ width: "100%", background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 6, cursor: "pointer", opacity: savingCallback ? 0.6 : 1, border: "none" }}
+              style={{ width: "100%", background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 6, cursor: "pointer", opacity: (savingCallback || !callbackDate || !callbackTime) ? 0.6 : 1, border: "none" }}
             >
               {savingCallback ? "Saving..." : "Confirm callback →"}
             </button>
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Section 3 — Clinic info */}
