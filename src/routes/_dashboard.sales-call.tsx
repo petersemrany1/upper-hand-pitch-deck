@@ -3740,6 +3740,7 @@ function RightPanel({
         </div>
         <button
           onClick={async () => {
+            onLocalLeadUpdate?.(active.id, { status: "dropped", callback_scheduled_at: null });
             await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
             toast.success("Lead dropped");
           }}
@@ -3764,10 +3765,16 @@ function RightPanel({
         {showCallbackPicker && (() => {
           const saveCallbackAt = async (dt: Date) => {
             setSavingCallback(true);
+              const previousCallback = active.callback_scheduled_at;
+              const previousStatus = active.status;
+              onLocalLeadUpdate?.(active.id, {
+                callback_scheduled_at: dt.toISOString(),
+                status: "callback_scheduled",
+              });
             try {
               const { error } = await supabase.from("meta_leads").update({
                 callback_scheduled_at: dt.toISOString(),
-                status: "Callback Scheduled",
+                  status: "callback_scheduled",
                 updated_at: new Date().toISOString(),
               }).eq("id", active.id);
               if (error) throw error;
@@ -3776,6 +3783,10 @@ function RightPanel({
               setCallbackTime("");
               toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
             } catch (e) {
+                onLocalLeadUpdate?.(active.id, {
+                  callback_scheduled_at: previousCallback,
+                  status: previousStatus,
+                });
               toast.error(e instanceof Error ? e.message : "Couldn't save callback");
             } finally {
               setSavingCallback(false);
@@ -3848,15 +3859,26 @@ function RightPanel({
                 disabled={savingCallback}
                 onClick={async () => {
                   setSavingCallback(true);
+                  const previousCallback = active.callback_scheduled_at;
+                  const previousStatus = active.status;
+                  onLocalLeadUpdate?.(active.id, {
+                    callback_scheduled_at: null,
+                    status: normaliseStatus(active.status, active) === "callback_scheduled" ? "in_progress" : active.status,
+                  });
                   try {
                     const { error } = await supabase.from("meta_leads").update({
                       callback_scheduled_at: null,
+                      status: normaliseStatus(active.status, active) === "callback_scheduled" ? "in_progress" : active.status,
                       updated_at: new Date().toISOString(),
                     }).eq("id", active.id);
                     if (error) throw error;
                     setShowCallbackPicker(false);
                     toast.success("Callback removed");
                   } catch (e) {
+                    onLocalLeadUpdate?.(active.id, {
+                      callback_scheduled_at: previousCallback,
+                      status: previousStatus,
+                    });
                     toast.error(e instanceof Error ? e.message : "Couldn't remove callback");
                   } finally {
                     setSavingCallback(false);
