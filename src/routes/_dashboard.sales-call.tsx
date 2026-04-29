@@ -2696,6 +2696,7 @@ function LeadChooser({
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
+  const [convertedOpen, setConvertedOpen] = useState(false);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   // Local override so drag/drop and "move" buttons re-bucket immediately
   // without waiting for the realtime round-trip. Maps lead id → forced column.
@@ -2771,6 +2772,12 @@ function LeadChooser({
     return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
   };
 
+  // A lead is "active today" if there's been any call attempt today, or if
+  // the lead has a callback scheduled for today/future, or the rep has
+  // explicitly set a status that implies they're still working it.
+  const hasActivityToday = (l: Lead) => (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) > 0;
+  const isConverted = (l: Lead) => normaliseStatus(l.status, l) === "booked_deposit_paid";
+
   // Build column buckets — every lead appears in EXACTLY one column.
   // Priority order: tomorrow (future callback / auto-bumped) > today > yesterday.
   const buckets = useMemo(() => {
@@ -2783,6 +2790,9 @@ function LeadChooser({
 
     for (const l of filtered) {
       if (placed.has(l.id)) continue;
+
+      // -1) Converted leads (deposit paid) live in their own popup, not the columns.
+      if (isConverted(l)) { placed.add(l.id); continue; }
 
       // 0) User-forced column wins (drag/drop or move buttons)
       const forced = forcedCol[l.id];
@@ -2819,9 +2829,9 @@ function LeadChooser({
         out.today.push({ section: "new", lead: l }); placed.add(l.id); continue;
       }
 
-      // 3) Yesterday column — only if NOT already placed and they had activity yesterday
-      //    (callback yesterday, or last contact was yesterday and we don't need them today)
-      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
+      // 3) Yesterday column — only if NOT already placed, they had activity yesterday,
+      //    AND they haven't been touched today (no calls today).
+      if (!hasActivityToday(l) && (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey])) {
         out.yesterday.push(l); placed.add(l.id); continue;
       }
 
@@ -2858,6 +2868,13 @@ function LeadChooser({
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
+
+  // Converted leads (Booked — Deposit Paid) — shown in a separate popup, not in the columns.
+  const convertedLeads = useMemo(
+    () => leads.filter((l) => normaliseStatus(l.status, l) === "booked_deposit_paid")
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [leads],
+  );
 
   // Apply manual reordering on top of the auto buckets. When the user has
   // dragged any card within a column, that column renders as one flat list
@@ -3399,6 +3416,83 @@ function LeadChooser({
           </Column>
         </div>
       </div>
+
+      {/* Floating Converted Leads pill (bottom-right) */}
+      <button
+        type="button"
+        onClick={() => setConvertedOpen((v) => !v)}
+        style={{
+          position: "fixed", bottom: 20, right: 20, zIndex: 998,
+          background: "#15803d", color: "#fff", border: "none",
+          borderRadius: 999, padding: "10px 16px",
+          fontSize: 13, fontWeight: 600, cursor: "pointer",
+          boxShadow: "0 6px 18px rgba(21,128,61,0.35)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}
+      >
+        🟢 Converted
+        <span style={{
+          background: "rgba(255,255,255,0.25)", borderRadius: 999,
+          padding: "1px 8px", fontSize: 12, fontWeight: 700,
+        }}>{convertedLeads.length}</span>
+      </button>
+
+      {convertedOpen && (
+        <>
+          <div
+            onClick={() => setConvertedOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 998, background: "transparent" }}
+          />
+          <div
+            style={{
+              position: "fixed", bottom: 70, right: 20, zIndex: 999,
+              width: 340, maxHeight: 420, overflowY: "auto",
+              background: "#fff", border: `1px solid ${COLORS.line}`,
+              borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
+              padding: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#15803d" }}>
+                🟢 Converted Leads
+              </div>
+              <div style={{ fontSize: 11, color: "#999" }}>
+                {convertedLeads.length} {convertedLeads.length === 1 ? "lead" : "leads"}
+              </div>
+            </div>
+            {convertedLeads.length === 0 && (
+              <div style={{ fontSize: 12, color: "#888", padding: "12px 4px" }}>
+                No converted leads yet. Mark a lead as "Booked — Deposit Paid" to add them here.
+              </div>
+            )}
+            {convertedLeads.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => { setConvertedOpen(false); onPick(l.id); }}
+                style={{
+                  width: "100%", textAlign: "left", display: "block",
+                  background: "#dcfce7", border: "1px solid #bbf7d0",
+                  borderRadius: 8, padding: "10px 12px", marginBottom: 6,
+                  cursor: "pointer", color: "#111",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#bbf7d0")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#dcfce7")}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                  {(l.first_name ?? "") + " " + (l.last_name ?? "")}
+                </div>
+                <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>
+                  {l.booking_date ? `📅 ${l.booking_date}${l.booking_time ? ` · ${l.booking_time}` : ""}` : "Deposit paid"}
+                </div>
+                {l.phone && (
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{l.phone}</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
 
       {openStatusFor && statusAnchor && (() => {
         const lead = leads.find((x) => x.id === openStatusFor);
