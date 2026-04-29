@@ -3439,13 +3439,14 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, attemptCounts, firstCallAt, onChangeLead,
+  active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead,
 }: {
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
   attemptCounts: Record<string, number>;
   firstCallAt: string | null;
+  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
 }) {
   void repId;
