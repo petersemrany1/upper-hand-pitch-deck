@@ -472,15 +472,20 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const excludedLeadIds = new Set((peterRows ?? []).map((p) => p.id as string));
 
     const { data: reps } = await supabaseAdmin.from("sales_reps").select("*");
+    // NOTE: real call duration lives in `duration` (seconds, populated by Twilio
+    // status callback). `duration_seconds` is a legacy column and is NULL for
+    // every recent call, which is why convos/holds/hours all read 0.
+    // `outcome` is also unused at the moment, so we infer "connected" from
+    // status = 'completed' AND a non-trivial duration.
     const { data: calls } = await supabaseAdmin.from("call_records")
-      .select("rep_id, lead_id, duration_seconds, outcome, called_at")
+      .select("rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
-    // Count bookings as any lead with a booking_date set in the period (covers
-    // booked_deposit_paid + callback_scheduled-with-date). updated_at is when
-    // the booking was confirmed.
+    // Bookings = leads with status = 'booked_deposit_paid' confirmed in the
+    // period. callback_scheduled / no_answer with a future booking_date are
+    // tentative and must NOT count as bookings.
     const { data: bookings } = await supabaseAdmin.from("meta_leads")
       .select("id, rep_id, status, booking_date, updated_at")
-      .not("booking_date", "is", null)
+      .eq("status", "booked_deposit_paid")
       .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
 
     // Dedupe reps by email (keeps the row with an email so calls attribute correctly).
@@ -508,13 +513,19 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     for (const c of calls ?? []) {
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
+      // Skip in-flight calls (no real duration yet) so they don't pollute the count
+      if (c.status === "ringing" || c.status === "initiated") continue;
       const repId = c.rep_id ?? fallbackRepId;
       if (!repId) continue;
       const s = byRep.get(repId) ?? blank();
       s.calls += 1;
       s.attempted += 1;
-      if (c.outcome === "connected") s.connected += 1;
-      const dur = c.duration_seconds ?? 0;
+      // Real duration is the `duration` column (seconds). Fall back to legacy
+      // `duration_seconds` only if duration is missing.
+      const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
+      // Connected = the call actually went through. status='completed' with
+      // any audible duration covers it; outcome is unreliable.
+      if (c.outcome === "connected" || (c.status === "completed" && dur > 0)) s.connected += 1;
       s.workSeconds += dur;
       if (dur > 0 && dur < 120) s.shortCalls += 1;
       if (dur >= 180) s.convos += 1;
