@@ -2788,6 +2788,7 @@ function LeadChooser({
     } finally {
       setSavingStatus(null);
       setOpenStatusFor(null);
+      setStatusAnchor(null);
     }
   };
 
