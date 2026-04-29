@@ -3094,6 +3094,47 @@ function LeadChooser({
           </Column>
         </div>
       </div>
+
+      {openStatusFor && statusAnchor && (() => {
+        const lead = leads.find((x) => x.id === openStatusFor);
+        if (!lead) return null;
+        return (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "fixed",
+              top: statusAnchor.top,
+              left: statusAnchor.left,
+              zIndex: 1000,
+              background: "#fff",
+              border: `1px solid ${COLORS.line}`,
+              borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              minWidth: 220,
+              padding: 4,
+            }}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => void changeStatus(lead.id, opt.key)}
+                style={{
+                  width: "100%", textAlign: "left", padding: "8px 10px",
+                  borderRadius: 6, background: "transparent", color: "#111",
+                  fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                  border: "none",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f4")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <span>{opt.emoji}</span>
+                <span style={{ color: opt.color, fontWeight: 600 }}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
