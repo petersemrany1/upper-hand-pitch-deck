@@ -3099,6 +3099,15 @@ function LeadChooser({
                 Push to Tomorrow →
               </button>
             )}
+            {l.callback_scheduled_at && (
+              <button
+                onClick={() => void clearCallback(l.id)}
+                title="Remove the scheduled callback for this lead"
+                style={{ fontSize: 11, color: COLORS.red, background: "transparent", textDecoration: "underline" }}
+              >
+                ✕ Clear callback
+              </button>
+            )}
           </div>
         </div>
       </div>
