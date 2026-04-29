@@ -3102,6 +3102,8 @@ function LeadChooser({
     return (
       <div
         key={l.id}
+        data-lead-card
+
         onDragOver={(e) => {
           const currentDragId = dragIdRef.current;
           if (!currentDragId || currentDragId === l.id) return;
