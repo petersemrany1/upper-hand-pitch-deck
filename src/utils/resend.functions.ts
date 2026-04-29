@@ -962,27 +962,15 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
       return { success: false as const, error: "ANTHROPIC_API_KEY not configured" };
     }
 
-    // Build date range
-    const now = new Date();
+    // Build date range — patterns always pulls today + yesterday
     const from = new Date();
-    let to = new Date(now);
-    if (data.range === "today") {
-      from.setHours(0, 0, 0, 0);
-    } else if (data.range === "yesterday") {
-      from.setDate(from.getDate() - 1); from.setHours(0, 0, 0, 0);
-      to = new Date(); to.setHours(0, 0, 0, 0);
-    } else if (data.range === "week") {
-      from.setDate(from.getDate() - 7);
-    } else if (data.range === "lastweek") {
-      from.setDate(from.getDate() - 14);
-      to = new Date(); to.setDate(to.getDate() - 7);
-    } else {
-      from.setDate(from.getDate() - 30);
-    }
+    from.setDate(from.getDate() - 1);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date();
 
     const admin = getAdminClient();
 
-    // Step 1 — fetch all leads with call notes in this date range
+    // Step 1 — fetch all leads with call notes in this date range (exclude Peter Test)
     const { data: leads } = await admin
       .from("meta_leads")
       .select("id, call_notes, status, first_name, last_name, booking_date")
@@ -990,8 +978,14 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
       .lte("updated_at", to.toISOString())
       .not("call_notes", "is", null);
 
-    if (!leads || leads.length === 0) {
-      return { success: true as const, text: "No call notes found for this period.", count: 0 };
+    const filteredLeads = (leads ?? []).filter((l) => {
+      const fn = (l.first_name ?? "").trim().toLowerCase();
+      const ln = (l.last_name ?? "").trim().toLowerCase();
+      return !(fn === "peter" && ln === "test");
+    });
+
+    if (filteredLeads.length === 0) {
+      return { success: true as const, text: "No call notes found for today or yesterday yet.", count: 0 };
     }
 
     // Step 2 — fetch call_records for all these leads to get duration data
