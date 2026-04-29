@@ -2427,7 +2427,7 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
     const day = l.day_number ?? 1;
     const attempts = ATTEMPTS_PER_DAY(day);
     const todayCount = attemptCounts[l.id] ?? 0;
-    const attemptDisplay = Math.max(1, todayCount);
+    const attemptDisplay = todayCount;
     const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
     return (
       <div
@@ -2760,7 +2760,7 @@ function RightPanel({
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          Day {day} · Attempt {Math.min(Math.max(1, attemptCounts[active.id] ?? 1), attempts)} of {attempts} today
+          Day {day} · Attempt {Math.min(attemptCounts[active.id] ?? 0, attempts)} of {attempts} today
         </div>
       </div>
 
