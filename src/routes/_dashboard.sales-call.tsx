@@ -2323,7 +2323,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 Reset booking?
               </div>
               <div style={{ fontSize: 14, color: COLORS.muted, marginBottom: 20, lineHeight: 1.5 }}>
-                This will clear the booking confirmation and return Step 10 to a fresh slate. The booking will not be deleted from the clinic — only the on-screen state is reset.
+                This will permanently delete the booking date and time for this lead and return Step 10 to a fresh slate. This cannot be undone.
               </div>
               <div className="flex justify-end gap-2">
                 <button
