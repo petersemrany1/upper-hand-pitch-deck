@@ -1686,6 +1686,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [depositSent, setDepositSent] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
+  const [refreshingIntel, setRefreshingIntel] = useState(false);
   const [previewFunding, setPreviewFunding] = useState("");
   const [previewFinance, setPreviewFinance] = useState("");
   const [previewDeposit, setPreviewDeposit] = useState(false);
@@ -2246,7 +2247,63 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
                 {/* Patient Intel */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Patient Intel <span style={{ color: COLORS.coral }}>— editable</span></div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999" }}>Patient Intel <span style={{ color: COLORS.coral }}>— editable</span></div>
+                    <button
+                      type="button"
+                      disabled={refreshingIntel}
+                      onClick={async () => {
+                        setRefreshingIntel(true);
+                        try {
+                          const { data: latest, error: latestErr } = await supabase
+                            .from("call_records")
+                            .select("id, recording_url")
+                            .eq("lead_id", lead.id)
+                            .not("recording_url", "is", null)
+                            .order("called_at", { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                          if (latestErr) throw latestErr;
+                          if (!latest?.id) {
+                            toast.error("No call recordings found for this lead");
+                            return;
+                          }
+                          const { error: invErr } = await supabase.functions.invoke("auto-analyse-call", {
+                            body: { callRecordId: latest.id },
+                          });
+                          if (invErr) throw invErr;
+                          const { data: fresh } = await supabase
+                            .from("meta_leads")
+                            .select("call_notes")
+                            .eq("id", lead.id)
+                            .single();
+                          if (fresh?.call_notes?.trim()) {
+                            setPreviewIntel(fresh.call_notes);
+                            toast.success("Patient intel refreshed ✓");
+                          } else {
+                            toast.message("Refresh complete — no new summary returned");
+                          }
+                        } catch (e) {
+                          const msg = e instanceof Error ? e.message : "Failed to refresh intel";
+                          toast.error(msg);
+                        } finally {
+                          setRefreshingIntel(false);
+                        }
+                      }}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 600,
+                        color: refreshingIntel ? "#999" : COLORS.coral,
+                        background: "transparent",
+                        border: `0.5px solid ${COLORS.line}`,
+                        borderRadius: 6,
+                        padding: "4px 10px",
+                        cursor: refreshingIntel ? "wait" : "pointer",
+                      }}
+                    >
+                      {refreshingIntel ? "Refreshing…" : "↻ Refresh from calls"}
+                    </button>
+                  </div>
                   <textarea
                     value={previewIntel}
                     onChange={(e) => setPreviewIntel(e.target.value)}
