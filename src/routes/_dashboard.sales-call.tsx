@@ -3360,12 +3360,13 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, attemptCounts, onChangeLead,
+  active, repId, mmsImages, attemptCounts, firstCallAt, onChangeLead,
 }: {
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
   attemptCounts: Record<string, number>;
+  firstCallAt: string | null;
   onChangeLead: () => void;
 }) {
   void repId;
