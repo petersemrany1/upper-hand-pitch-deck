@@ -256,6 +256,10 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         void insertCallRow(sid);
         setSnapshot({ activeCallSid: sid });
       }
+      // Only play ringback once Twilio confirms the destination is ringing.
+      // If a call goes straight to voicemail (phone off), this never fires —
+      // letting the rep hear silence as a signal the phone is off.
+      startRingback();
       setSnapshot({ status: "connecting" });
     });
     outgoing.on("accept", (c: Call) => {
