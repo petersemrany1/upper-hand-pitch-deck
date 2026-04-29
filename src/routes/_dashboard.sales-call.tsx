@@ -2675,6 +2675,8 @@ function statusMeta(s: string | null | undefined, l?: Lead) {
 const localDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+type DayCol = "yesterday" | "today" | "tomorrow";
+
 const sameLocalDate = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
