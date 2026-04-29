@@ -2797,7 +2797,7 @@ function LeadChooser({
       // 0) User-forced column wins (drag/drop or move buttons)
       const forced = forcedCol[l.id];
       if (forced === "tomorrow") { out.tomorrow.push(l); placed.add(l.id); continue; }
-      if (forced === "yesterday") { out.yesterday.push(l); placed.add(l.id); continue; }
+      if (forced === "yesterday") { out.today.push({ section: "remaining", lead: l }); placed.add(l.id); continue; }
       if (forced === "today") {
         // Pick the most appropriate today section for forced leads
         const u = leadUrgency(l);
@@ -2829,11 +2829,7 @@ function LeadChooser({
         out.today.push({ section: "new", lead: l }); placed.add(l.id); continue;
       }
 
-      // 3) Yesterday column — only if NOT already placed, they had activity yesterday,
-      //    AND they haven't been touched today (no calls today).
-      if (!hasActivityToday(l) && (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey])) {
-        out.yesterday.push(l); placed.add(l.id); continue;
-      }
+      // 3) Yesterday column removed — leftover yesterday-activity leads fall into today's "remaining".
 
       // 4) Everything else falls into today's "remaining"
       out.today.push({ section: "remaining", lead: l }); placed.add(l.id);
@@ -3366,17 +3362,7 @@ function LeadChooser({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "1fr 1.4fr 1fr" }}>
-          <Column
-            title="Yesterday"
-            subtitle={yesterday.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}
-            tone="muted"
-            col="yesterday"
-            count={buckets.yesterday.length}
-          >
-            {orderedYesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
-            {orderedYesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
-          </Column>
+        <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "1.6fr 1fr" }}>
 
           <Column
             title="Today"
