@@ -60,13 +60,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are a sales coach helping a phone rep sell a cosmetic-clinic doctor to a prospective patient mid-call.
-Turn the doctor's profile into 5–8 short, punchy, spoken-word bullet points the rep can read out loud.
-Rules:
-- Each point ≤ 18 words. Plain English. Confident, warm, no hype words like "world-class" or "best-in-class".
-- Lead with the most credibility-building facts (experience, specialties, what makes them different).
-- No greetings, no preamble, no closing line. Just the bullets.
-- Do NOT invent facts not present in the input.`;
+    const systemPrompt = `You are a sales coach generating CUE-CARD bullets for a phone rep selling a cosmetic-clinic doctor mid-call.
+Output 5–8 bullets. STRICT rules:
+- Each bullet MUST be ONE short line, max 8 words. No commas-into-clauses, no sub-points.
+- Sentence fragments only (no full sentences). Skip articles where possible.
+- Plain English, confident, no hype words ("world-class", "best-in-class", "premier", etc.).
+- Lead with hardest credibility facts (years, specialty, signature technique).
+- No greetings, preamble, headers, or closing. Just the bullets.
+- Do NOT invent facts not in the input.
+Examples of the right length: "15+ years in facial surgery", "Trained under Dr Smith in Paris", "Specialises in natural-looking rhinoplasty".`;
 
     const aiRes = await fetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
