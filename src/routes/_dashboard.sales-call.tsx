@@ -2593,6 +2593,12 @@ function RightPanel({
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
+  // Doctor selling-points (AI-summarised on demand, cached per doctor)
+  const [showSellingPoints, setShowSellingPoints] = useState(false);
+  const [sellingPoints, setSellingPoints] = useState<string[] | null>(null);
+  const [loadingSellingPoints, setLoadingSellingPoints] = useState(false);
+  const [sellingPointsForDoctorId, setSellingPointsForDoctorId] = useState<string | null>(null);
+
   // Callback scheduling
   const [showCallbackPicker, setShowCallbackPicker] = useState(false);
   const [callbackDate, setCallbackDate] = useState("");
