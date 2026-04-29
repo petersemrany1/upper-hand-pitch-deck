@@ -1589,7 +1589,13 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         <CompactRow label="Australian citizen or PR?"><YN k="citizen" /></CompactRow>
         <CompactRow label="Employed and earning $50,000+ per year?"><YN k="earning" /></CompactRow>
         <CompactRow label="Bankrupt or in a debt agreement?"><YN k="bankrupt" /></CompactRow>
-        <CompactRow label="Centrelink only source of income?"><YN k="centrelink" /></CompactRow>
+        <div>
+          <Label>Date of Birth</Label>
+          <div className="mt-1">
+            <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px]" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+          </div>
+        </div>
         <CompactRow label="Are you a home owner?"><YN k="homeowner" /></CompactRow>
 
         <button
