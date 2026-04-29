@@ -962,27 +962,15 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
       return { success: false as const, error: "ANTHROPIC_API_KEY not configured" };
     }
 
-    // Build date range
-    const now = new Date();
+    // Build date range — patterns always pulls today + yesterday
     const from = new Date();
-    let to = new Date(now);
-    if (data.range === "today") {
-      from.setHours(0, 0, 0, 0);
-    } else if (data.range === "yesterday") {
-      from.setDate(from.getDate() - 1); from.setHours(0, 0, 0, 0);
-      to = new Date(); to.setHours(0, 0, 0, 0);
-    } else if (data.range === "week") {
-      from.setDate(from.getDate() - 7);
-    } else if (data.range === "lastweek") {
-      from.setDate(from.getDate() - 14);
-      to = new Date(); to.setDate(to.getDate() - 7);
-    } else {
-      from.setDate(from.getDate() - 30);
-    }
+    from.setDate(from.getDate() - 1);
+    from.setHours(0, 0, 0, 0);
+    const to = new Date();
 
     const admin = getAdminClient();
 
-    // Step 1 — fetch all leads with call notes in this date range
+    // Step 1 — fetch all leads with call notes in this date range (exclude Peter Test)
     const { data: leads } = await admin
       .from("meta_leads")
       .select("id, call_notes, status, first_name, last_name, booking_date")
@@ -990,12 +978,18 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
       .lte("updated_at", to.toISOString())
       .not("call_notes", "is", null);
 
-    if (!leads || leads.length === 0) {
-      return { success: true as const, text: "No call notes found for this period.", count: 0 };
+    const filteredLeads = (leads ?? []).filter((l) => {
+      const fn = (l.first_name ?? "").trim().toLowerCase();
+      const ln = (l.last_name ?? "").trim().toLowerCase();
+      return !(fn === "peter" && ln === "test");
+    });
+
+    if (filteredLeads.length === 0) {
+      return { success: true as const, text: "No call notes found for today or yesterday yet.", count: 0 };
     }
 
     // Step 2 — fetch call_records for all these leads to get duration data
-    const leadIds = (leads as { id: string }[]).map((l) => l.id);
+    const leadIds = (filteredLeads as { id: string }[]).map((l) => l.id);
     const { data: callRecs } = await admin
       .from("call_records")
       .select("lead_id, duration_seconds")
@@ -1012,7 +1006,7 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
     }
 
     // Step 4 — tag each lead
-    const taggedNotes = (leads as {
+    const taggedNotes = (filteredLeads as {
       id: string;
       call_notes: string | null;
       status: string | null;
@@ -1070,12 +1064,12 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6",
           max_tokens: 1500,
           system: systemPrompt,
           messages: [{
             role: "user",
-            content: `Call notes from ${leads.length} leads (range: ${data.range}):\n\n${taggedNotes}`,
+            content: `Call notes from ${filteredLeads.length} leads (today + yesterday):\n\n${taggedNotes}`,
           }],
         }),
       });
@@ -1085,7 +1079,7 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
         return { success: false as const, error: json?.error?.message || "Claude API error" };
       }
       const text = json?.content?.[0]?.text ?? "No analysis returned.";
-      return { success: true as const, text, count: leads.length };
+      return { success: true as const, text, count: filteredLeads.length };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       return { success: false as const, error: msg };
