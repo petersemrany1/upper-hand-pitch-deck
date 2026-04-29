@@ -6,6 +6,7 @@ import {
   Check, AlertTriangle, Send, Search, X, ChevronDown,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import type { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { toast } from "sonner";
@@ -28,7 +29,7 @@ type Lead = {
   status: string | null; call_notes: string | null; created_at: string;
   callback_scheduled_at: string | null; day_number: number | null;
   finance_eligible: boolean | null; booking_date: string | null; booking_time: string | null;
-  clinic_id: string | null; rep_id: string | null;
+  clinic_id: string | null; rep_id: string | null; raw_payload: Json | null;
 };
 
 type Clinic = {
@@ -2755,6 +2756,13 @@ function statusMeta(s: string | null | undefined, l?: Lead) {
 const localDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+type RawPayloadObject = { [key: string]: Json | undefined };
+
+const rawPayloadObject = (raw: Json | null): RawPayloadObject => {
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) return raw as RawPayloadObject;
+  return {};
+};
+
 type DayCol = "yesterday" | "today" | "tomorrow";
 type DragState = { id: string; col: DayCol; pointerId: number; dragging: boolean; offsetX: number; offsetY: number; width: number; height: number };
 type DragVisual = { id: string; left: number; top: number; width: number; height: number };
@@ -2806,6 +2814,12 @@ function LeadChooser({
   const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
   const todayKey = localDateKey(today);
   const yesterdayKey = localDateKey(yesterday);
+
+  const persistedColumnFor = (l: Lead): DayCol | null => {
+    const column = rawPayloadObject(l.raw_payload).pipeline_column;
+    if (column === "today" || column === "tomorrow" || column === "yesterday") return column;
+    return null;
+  };
 
   const filtered = useMemo(() => {
     const list = leads.filter((l) => {
@@ -2880,8 +2894,8 @@ function LeadChooser({
       // -1) Converted leads (deposit paid) live in their own popup, not the columns.
       if (isConverted(l)) { placed.add(l.id); continue; }
 
-      // 0) User-forced column wins (drag/drop or move buttons)
-      const forced = forcedCol[l.id];
+      // 0) User-forced/persisted column wins (drag/drop or move buttons)
+      const forced = forcedCol[l.id] ?? persistedColumnFor(l);
       if (forced === "tomorrow") { out.tomorrow.push(l); placed.add(l.id); continue; }
       if (forced === "yesterday") { out.today.push({ section: "remaining", lead: l }); placed.add(l.id); continue; }
       if (forced === "today") {
@@ -3114,37 +3128,52 @@ function LeadChooser({
   const moveToToday = async (leadId: string) => {
     // Optimistic local override so the card jumps columns instantly
     setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
-    // If the lead has a callback set for tomorrow, clear it back to today's next slot
     const lead = leads.find((l) => l.id === leadId);
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "today" };
+    onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
+    // If the lead has a callback set for tomorrow, clear it back to today's next slot
     if (lead?.callback_scheduled_at) {
       const cb = new Date(lead.callback_scheduled_at);
       if (sameLocalDate(cb, tomorrow)) {
         const next = new Date();
         next.setMinutes(next.getMinutes() + 30);
-        onLocalLeadUpdate?.(leadId, { callback_scheduled_at: next.toISOString() });
+        onLocalLeadUpdate?.(leadId, { callback_scheduled_at: next.toISOString(), raw_payload: rawPayload });
         await supabase
           .from("meta_leads")
-          .update({ callback_scheduled_at: next.toISOString(), updated_at: new Date().toISOString() })
+          .update({ callback_scheduled_at: next.toISOString(), raw_payload: rawPayload, updated_at: new Date().toISOString() })
           .eq("id", leadId);
+        toast.success("Moved to Today");
+        return;
       }
     }
+    await supabase
+      .from("meta_leads")
+      .update({ raw_payload: rawPayload, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
     toast.success("Moved to Today");
   };
 
   const moveToTomorrow = async (leadId: string) => {
-    // Just move the card to tomorrow's column — do NOT auto-schedule a callback.
-    // The rep can explicitly schedule one via the "Schedule callback" UI.
+    const lead = leads.find((l) => l.id === leadId);
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "tomorrow" };
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
+    onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
+    await supabase
+      .from("meta_leads")
+      .update({ raw_payload: rawPayload, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
     toast.success("Moved to Tomorrow");
   };
 
   const moveToYesterday = async (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "yesterday" };
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
-    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null });
+    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null, raw_payload: rawPayload });
     await supabase
       .from("meta_leads")
-      .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
+      .update({ callback_scheduled_at: null, raw_payload: rawPayload, updated_at: new Date().toISOString() })
       .eq("id", leadId);
     toast.success("Moved to Yesterday");
   };
