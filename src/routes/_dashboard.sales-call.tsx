@@ -139,18 +139,37 @@ function SalesCallPortal() {
 
   useEffect(() => {
     const load = async () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      // Last 3 days of call attempts so we can show "no answer yesterday",
+      // count today's attempts (auto-bump after 3), etc.
+      const since = new Date();
+      since.setHours(0, 0, 0, 0);
+      since.setDate(since.getDate() - 2); // covers yesterday + today
       const { data } = await supabase
         .from("call_records")
-        .select("lead_id")
-        .gte("called_at", today.toISOString());
+        .select("lead_id, called_at, outcome, status")
+        .gte("called_at", since.toISOString())
+        .order("called_at", { ascending: true });
+
+      const today = new Date(); today.setHours(0, 0, 0, 0);
       const counts: Record<string, number> = {};
+      const byDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>> = {};
+
       for (const row of data ?? []) {
-        if (!row.lead_id) continue;
-        counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
+        if (!row.lead_id || !row.called_at) continue;
+        const d = new Date(row.called_at);
+        const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
+        if (dayStart.getTime() === today.getTime()) {
+          counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
+        }
+        byDay[row.lead_id] = byDay[row.lead_id] ?? {};
+        const slot = byDay[row.lead_id][dayKey] ?? { count: 0, lastOutcome: null };
+        slot.count += 1;
+        slot.lastOutcome = (row.outcome as string | null) ?? (row.status as string | null) ?? slot.lastOutcome;
+        byDay[row.lead_id][dayKey] = slot;
       }
       setAttemptCounts(counts);
+      setAttemptsByDay(byDay);
     };
     void load();
     const ch = supabase.channel("attempt-counts")
