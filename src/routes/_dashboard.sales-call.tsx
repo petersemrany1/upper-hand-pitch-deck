@@ -2740,7 +2740,7 @@ function LeadChooser({
   };
   const isNew = (l: Lead) => normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
   const failedThreeToday = (l: Lead) => {
-    if (overrideToToday.has(l.id)) return false;
+    if (forcedCol[l.id] === "today") return false;
     const slot = attemptsByDay[l.id]?.[todayKey];
     if (!slot) return false;
     if (slot.count < 3) return false;
