@@ -2797,7 +2797,7 @@ function LeadChooser({
       // 0) User-forced column wins (drag/drop or move buttons)
       const forced = forcedCol[l.id];
       if (forced === "tomorrow") { out.tomorrow.push(l); placed.add(l.id); continue; }
-      if (forced === "yesterday") { out.yesterday.push(l); placed.add(l.id); continue; }
+      if (forced === "yesterday") { out.today.push({ section: "remaining", lead: l }); placed.add(l.id); continue; }
       if (forced === "today") {
         // Pick the most appropriate today section for forced leads
         const u = leadUrgency(l);
