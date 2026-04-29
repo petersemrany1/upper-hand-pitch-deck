@@ -2068,7 +2068,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         clinicName: bookedData?.clinicName ?? "Nitai Medical & Cosmetic Centre",
         clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
         doctorName: bookedData?.doctorName ?? "Dr. Shabna Singh",
-        depositPaid: depositSent,
+        depositPaid: previewDeposit,
       },
     });
     setSendingHandover(false);
