@@ -1686,6 +1686,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [depositSent, setDepositSent] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
+  const [refreshingIntel, setRefreshingIntel] = useState(false);
   const [previewFunding, setPreviewFunding] = useState("");
   const [previewFinance, setPreviewFinance] = useState("");
   const [previewDeposit, setPreviewDeposit] = useState(false);
