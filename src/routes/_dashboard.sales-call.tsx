@@ -3462,6 +3462,28 @@ function LeadChooser({
         </div>
       </div>
 
+      {dragVisual && (() => {
+        const lead = leads.find((item) => item.id === dragVisual.id);
+        if (!lead) return null;
+        return (
+          <div
+            style={{
+              position: "fixed",
+              left: dragVisual.left,
+              top: dragVisual.top,
+              width: dragVisual.width,
+              height: dragVisual.height,
+              zIndex: 2000,
+              pointerEvents: "none",
+              transform: "rotate(1deg)",
+              boxShadow: "0 18px 40px rgba(0,0,0,0.18)",
+            }}
+          >
+            {renderLeadCard(lead, { tone: forcedCol[lead.id] === "tomorrow" ? "muted" : "today", section: forcedCol[lead.id] === "tomorrow" ? "tomorrow" : "remaining" })}
+          </div>
+        );
+      })()}
+
       {/* Floating Converted Leads pill (bottom-right) */}
       <button
         type="button"
