@@ -125,10 +125,14 @@ serve(async (req) => {
     }
   }
 
+  const childStatusCallbackUrl = escapeXml(
+    callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
+  );
+
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial callerId="${TWILIO_CALLER_ID}" record="record-from-answer-dual" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" answerOnBridge="true" timeout="30">
-    <Number>${dialTo}</Number>
+    <Number statusCallback="${childStatusCallbackUrl}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${dialTo}</Number>
   </Dial>
 </Response>`;
 
