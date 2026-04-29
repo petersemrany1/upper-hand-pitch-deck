@@ -2962,15 +2962,11 @@ function LeadChooser({
       ...(wasCallbackStatus ? { status: "in_progress" } : {}),
     });
     try {
-      const patch: Record<string, unknown> = {
-        callback_scheduled_at: null,
-        updated_at: new Date().toISOString(),
-      };
-      if (wasCallbackStatus) patch.status = newStatus ?? "in_progress";
-      const { error } = await supabase
-        .from("meta_leads")
-        .update(patch)
-        .eq("id", leadId);
+      const nowIso = new Date().toISOString();
+      const query = wasCallbackStatus
+        ? supabase.from("meta_leads").update({ callback_scheduled_at: null, status: newStatus ?? "in_progress", updated_at: nowIso }).eq("id", leadId)
+        : supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: nowIso }).eq("id", leadId);
+      const { error } = await query;
       if (error) throw error;
       toast.success("Callback removed");
     } catch (e) {
