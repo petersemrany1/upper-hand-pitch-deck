@@ -105,7 +105,7 @@ async function ensureDevice(): Promise<void> {
         logLevel: 1,
         codecPreferences: ["opus" as never, "pcmu" as never],
         edge: "sydney",
-        region: "au1",
+        maxAverageBitrate: 24000,
       } as ConstructorParameters<typeof Device>[1]);
       device = d;
 
