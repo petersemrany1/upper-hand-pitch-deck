@@ -2709,46 +2709,48 @@ function LeadChooser({
     return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
   };
 
-  // Build column buckets
+  // Build column buckets — every lead appears in EXACTLY one column.
+  // Priority order: tomorrow (future callback / auto-bumped) > today > yesterday.
   const buckets = useMemo(() => {
     const out = {
       yesterday: [] as Lead[],
       today: [] as { section: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining"; lead: Lead }[],
       tomorrow: [] as Lead[],
     };
-    const usedToday = new Set<string>();
+    const placed = new Set<string>();
+
     for (const l of filtered) {
-      // Yesterday column = callbacks scheduled yesterday OR called yesterday
-      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
-        // also mirror "no-answer yesterday" leads inside today; here we keep the yesterday column
-        out.yesterday.push(l);
+      if (placed.has(l.id)) continue;
+
+      // 1) Tomorrow column wins first (future-scheduled callback or auto-bumped)
+      if (callbackOn(l, tomorrow) || failedThreeToday(l)) {
+        out.tomorrow.push(l); placed.add(l.id); continue;
       }
-      // Tomorrow column = explicit callback tomorrow OR auto-bumped after 3 fails today
-      const cbTomorrow = callbackOn(l, tomorrow);
-      if (cbTomorrow || failedThreeToday(l)) {
-        out.tomorrow.push(l);
-        if (cbTomorrow) continue; // a future-callback lead never sits inside today
-        if (failedThreeToday(l)) continue;
-      }
-    }
-    // Build today's prioritised list separately
-    for (const l of filtered) {
-      if (callbackOn(l, tomorrow)) continue;
-      if (failedThreeToday(l)) continue;
+
+      // 2) Today column — overdue / callback / no-answer-yesterday / new / remaining
       const u = leadUrgency(l);
       if (callbackOn(l, today) && u === "overdue") {
-        out.today.push({ section: "overdue", lead: l }); usedToday.add(l.id); continue;
+        out.today.push({ section: "overdue", lead: l }); placed.add(l.id); continue;
       }
       if (callbackOn(l, today)) {
-        out.today.push({ section: "callback", lead: l }); usedToday.add(l.id); continue;
+        out.today.push({ section: "callback", lead: l }); placed.add(l.id); continue;
       }
       if (noAnswerYesterday(l)) {
-        out.today.push({ section: "no-answer-yesterday", lead: l }); usedToday.add(l.id); continue;
+        // shows in TODAY (so the rep retries them today), not duplicated in yesterday
+        out.today.push({ section: "no-answer-yesterday", lead: l }); placed.add(l.id); continue;
       }
       if (isNew(l)) {
-        out.today.push({ section: "new", lead: l }); usedToday.add(l.id); continue;
+        out.today.push({ section: "new", lead: l }); placed.add(l.id); continue;
       }
-      out.today.push({ section: "remaining", lead: l }); usedToday.add(l.id);
+
+      // 3) Yesterday column — only if NOT already placed and they had activity yesterday
+      //    (callback yesterday, or last contact was yesterday and we don't need them today)
+      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
+        out.yesterday.push(l); placed.add(l.id); continue;
+      }
+
+      // 4) Everything else falls into today's "remaining"
+      out.today.push({ section: "remaining", lead: l }); placed.add(l.id);
     }
 
     // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining
@@ -2765,7 +2767,6 @@ function LeadChooser({
       return new Date(b.lead.created_at).getTime() - new Date(a.lead.created_at).getTime();
     });
 
-    // Yesterday: callbacks first then by when last contacted
     out.yesterday.sort((a, b) => {
       const ya = callbackOn(a, yesterday) ? 0 : 1;
       const yb = callbackOn(b, yesterday) ? 0 : 1;
