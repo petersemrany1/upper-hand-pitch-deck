@@ -3216,7 +3216,19 @@ function LeadChooser({
   );
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => { setOpenStatusFor(null); setStatusAnchor(null); }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ background: "#f7f7f5", color: COLORS.text }}
+      onClick={(e) => {
+        // Only close the status popover when the click is on the bare
+        // background — clicks anywhere else (cards, popover, buttons) keep
+        // the popover open so options can be selected.
+        if (e.target === e.currentTarget) {
+          setOpenStatusFor(null);
+          setStatusAnchor(null);
+        }
+      }}
+    >
       <div className="max-w-[1400px] mx-auto px-6 py-8">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <div>
