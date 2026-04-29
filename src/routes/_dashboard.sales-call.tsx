@@ -114,6 +114,9 @@ function SalesCallPortal() {
   const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
   // attempts grouped per lead per local date "YYYY-MM-DD" with the most recent outcome
   const [attemptsByDay, setAttemptsByDay] = useState<Record<string, Record<string, { count: number; lastOutcome: string | null }>>>({});
+  // First-ever call timestamp per lead — used so "Day N" counts from the
+  // first time the rep actually called them (not from when the lead landed).
+  const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
 
