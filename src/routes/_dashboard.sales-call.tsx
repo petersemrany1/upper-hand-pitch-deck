@@ -3285,36 +3285,87 @@ function RightPanel({
         </div>
       </div>
 
-      {/* Section 5 — Send before & afters */}
+      {/* Section 5 — Send a photo */}
       <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
-        <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
-          Send Before & Afters
-        </div>
-        {mmsImages.length === 0 ? (
-          <div style={{ marginTop: 10, fontSize: 12, color: "#111", opacity: 0.55 }}>
-            No images available.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-2" style={{ marginTop: 10 }}>
-            {mmsImages.slice(0, 2).map((img, i) => (
-              <button
-                key={img.name}
-                onClick={() => void sendImage(img.url)}
-                className="rounded-[8px]"
-                style={{
-                  background: "#eff6ff",
-                  color: "#2563eb",
-                  border: `0.5px solid #bfdbfe`,
-                  fontSize: 12,
-                  fontWeight: 500,
-                  padding: "10px 8px",
-                }}
-              >
-                Before & After {i + 1}
-              </button>
-            ))}
-          </div>
-        )}
+        <button
+          onClick={() => { setShowPhoto((v) => !v); setSelectedPhoto(null); }}
+          style={{
+            width: "100%", background: showPhoto ? "#111" : "#ffffff",
+            color: showPhoto ? "#fff" : "#111",
+            border: `1px solid #111`, borderRadius: 8,
+            fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
+          }}
+        >
+          {showPhoto ? "Hide photo options" : "📷 Send a photo"}
+        </button>
+
+        {showPhoto && (() => {
+          const PHOTO_OPTIONS: { label: string; url: string }[] = [
+            { label: "Natural vs Un-natural", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/natural-vs-unnatural.jpg" },
+          ];
+          return (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              {PHOTO_OPTIONS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setSelectedPhoto(p)}
+                  className="rounded-[8px]"
+                  style={{
+                    background: selectedPhoto?.label === p.label ? "#111" : "#eff6ff",
+                    color: selectedPhoto?.label === p.label ? "#fff" : "#2563eb",
+                    border: selectedPhoto?.label === p.label ? "1px solid #111" : `0.5px solid #bfdbfe`,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    padding: "10px 8px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+
+              {selectedPhoto && (
+                <div style={{ marginTop: 4, padding: 10, background: "#fafaf9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, color: "#666", marginBottom: 6, fontWeight: 500 }}>Preview</div>
+                  <img
+                    src={selectedPhoto.url}
+                    alt={selectedPhoto.label}
+                    style={{ width: "100%", borderRadius: 6, display: "block", marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={async () => {
+                        setSendingPhoto(true);
+                        try { await sendImage(selectedPhoto.url); } finally { setSendingPhoto(false); }
+                      }}
+                      disabled={sendingPhoto}
+                      style={{
+                        flex: 1, background: "#111", color: "#fff",
+                        border: "1px solid #111", borderRadius: 6,
+                        fontSize: 12, fontWeight: 500, padding: "8px 10px",
+                        cursor: sendingPhoto ? "not-allowed" : "pointer",
+                        opacity: sendingPhoto ? 0.6 : 1,
+                      }}
+                    >
+                      {sendingPhoto ? "Sending…" : "Send MMS"}
+                    </button>
+                    <button
+                      onClick={() => setSelectedPhoto(null)}
+                      style={{
+                        background: "#fff", color: "#111",
+                        border: `0.5px solid ${COLORS.line}`, borderRadius: 6,
+                        fontSize: 12, padding: "8px 10px", cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Section 6 — SMS */}
