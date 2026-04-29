@@ -3198,7 +3198,13 @@ function LeadChooser({
           if (openStatusFor === l.id) {
             setOpenStatusFor(null);
           } else {
-            setStatusAnchor({ top: rect.bottom + 4, left: rect.left });
+            // Estimated menu height (8 status options ~36px + cancel + padding)
+            const estimatedMenuHeight = 360;
+            const spaceBelow = window.innerHeight - rect.bottom;
+            const top = spaceBelow < estimatedMenuHeight + 16
+              ? Math.max(8, rect.top - estimatedMenuHeight - 4)
+              : rect.bottom + 4;
+            setStatusAnchor({ top, left: rect.left });
             setOpenStatusFor(l.id);
           }
         }}
