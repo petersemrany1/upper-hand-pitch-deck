@@ -250,16 +250,44 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       setSnapshot({ activeCallSid: earlySid });
     }
 
+    // Subscribe to call_records realtime so we can start ringback only when
+    // Twilio's REST status reaches "ringing" — i.e. the destination carrier
+    // has confirmed the phone is alerting. The SDK's "ringing" event fires
+    // far earlier (as soon as Twilio places the call), so we ignore it here.
+    let statusChannel: ReturnType<typeof supabase.channel> | null = null;
+    const subscribeToStatus = (sid: string) => {
+      if (statusChannel) return;
+      statusChannel = supabase
+        .channel(`call-status-${sid}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "call_records", filter: `twilio_call_sid=eq.${sid}` },
+          (payload) => {
+            const newStatus = (payload.new as { status?: string } | null)?.status;
+            if (newStatus === "ringing") startRingback();
+            else if (newStatus && newStatus !== "ringing" && newStatus !== "initiated" && newStatus !== "queued") {
+              // in-progress, completed, busy, no-answer, failed, canceled
+              stopRingback();
+            }
+          },
+        )
+        .subscribe();
+    };
+    const teardownStatus = () => {
+      if (statusChannel) {
+        try { supabase.removeChannel(statusChannel); } catch { /* noop */ }
+        statusChannel = null;
+      }
+    };
+    if (earlySid) subscribeToStatus(earlySid);
+
     outgoing.on("ringing", () => {
       const sid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
       if (sid && sid !== currentCallSid) {
         void insertCallRow(sid);
         setSnapshot({ activeCallSid: sid });
+        subscribeToStatus(sid);
       }
-      // Only play ringback once Twilio confirms the destination is ringing.
-      // If a call goes straight to voicemail (phone off), this never fires —
-      // letting the rep hear silence as a signal the phone is off.
-      startRingback();
       setSnapshot({ status: "connecting" });
     });
     outgoing.on("accept", (c: Call) => {
