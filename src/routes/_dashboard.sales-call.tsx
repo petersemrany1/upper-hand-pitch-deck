@@ -1681,6 +1681,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [sendingHandover, setSendingHandover] = useState(false);
   const [sendingDeposit, setSendingDeposit] = useState(false);
   const [handoverSent, setHandoverSent] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [depositSent, setDepositSent] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
@@ -1979,8 +1980,38 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       } catch { return `${bookedData.date} at ${bookedData.time}`; }
     })();
 
+    const handleResetBooking = () => {
+      setBooked(false);
+      setBookedData(null);
+      setHandoverSent(false);
+      setDepositSent(false);
+      setSendingHandover(false);
+      setSendingDeposit(false);
+      setIntelStatus("waiting");
+      setPollAttempt(0);
+      setShowResetConfirm(false);
+      toast.success("Booking reset — fresh slate");
+    };
+
     return (
       <div className="max-w-2xl mx-auto">
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              color: COLORS.muted,
+              background: "#fff",
+              border: `0.5px solid ${COLORS.line}`,
+              borderRadius: 8,
+              padding: "6px 12px",
+              cursor: "pointer",
+            }}
+          >
+            ↺ Reset booking
+          </button>
+        </div>
         <Eyebrow>Step 10 — Deposit & Book</Eyebrow>
         <StepHeading>Booked!</StepHeading>
 
@@ -2262,6 +2293,41 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                   className="flex-1 rounded-[8px]"
                   style={{ background: COLORS.coral, color: "#fff", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
                   Confirm & Send →
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showResetConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
+            <div className="w-full max-w-sm rounded-[12px]" style={{ background: "#fff", padding: "24px" }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, marginBottom: 8 }}>
+                Reset booking?
+              </div>
+              <div style={{ fontSize: 14, color: COLORS.muted, marginBottom: 20, lineHeight: 1.5 }}>
+                This will clear the booking confirmation and return Step 10 to a fresh slate. The booking will not be deleted from the clinic — only the on-screen state is reset.
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  style={{
+                    fontSize: 13, fontWeight: 500, color: COLORS.text,
+                    background: "#fff", border: `0.5px solid ${COLORS.line}`,
+                    borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetBooking}
+                  style={{
+                    fontSize: 13, fontWeight: 500, color: "#fff",
+                    background: COLORS.coral, border: "none",
+                    borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+                  }}
+                >
+                  Yes, reset
                 </button>
               </div>
             </div>
