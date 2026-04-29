@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
@@ -127,7 +127,7 @@ function SalesCallPortal() {
       const { data } = await supabase
         .from("meta_leads")
         .select("*")
-        .eq("status", "Callback Scheduled")
+        .in("status", ["Callback Scheduled", "callback_scheduled"])
         .lte("callback_scheduled_at", now.toISOString())
         .gte("callback_scheduled_at", fiveMinAgo.toISOString());
       if (data && data.length > 0) {
@@ -190,7 +190,7 @@ function SalesCallPortal() {
     };
     void load();
     const ch = supabase.channel("attempt-counts")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
@@ -250,6 +250,10 @@ function SalesCallPortal() {
 
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
+  const updateLocalLead = useCallback((id: string, patch: Partial<Lead>) => {
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  }, []);
+
   const markStepComplete = (k: StepKey) => {
     setCompleted((prev) => { const n = new Set(prev); n.add(k); return n; });
   };
@@ -301,9 +305,7 @@ function SalesCallPortal() {
           attemptCounts={attemptCounts}
           attemptsByDay={attemptsByDay}
           firstCallByLead={firstCallByLead}
-          onLocalLeadUpdate={(id, patch) =>
-            setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
-          }
+          onLocalLeadUpdate={updateLocalLead}
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
@@ -398,6 +400,7 @@ function SalesCallPortal() {
           mmsImages={mmsImages}
           attemptCounts={attemptCounts}
           firstCallAt={firstCallByLead[active.id] ?? null}
+          onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => setActiveId(null)}
         />
       </aside>
@@ -2705,6 +2708,8 @@ function LeadChooser({
     yesterday: [], today: [], tomorrow: [],
   });
   const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+  const dropTargetRef = useRef<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
   // below). Used by drag/drop math.
   const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
@@ -2738,6 +2743,11 @@ function LeadChooser({
     const cb = new Date(l.callback_scheduled_at);
     return sameLocalDate(cb, when);
   };
+  const callbackIsOverdue = (l: Lead) => {
+    if (!l.callback_scheduled_at) return false;
+    const t = new Date(l.callback_scheduled_at).getTime();
+    return !Number.isNaN(t) && t <= Date.now();
+  };
   const noAnswerYesterday = (l: Lead) => {
     const slot = attemptsByDay[l.id]?.[yesterdayKey];
     if (!slot) return false;
@@ -2752,6 +2762,12 @@ function LeadChooser({
     if (slot.count < 3) return false;
     const outcome = (slot.lastOutcome ?? "").toLowerCase();
     // only auto-bump if the recent calls were no-answers (not connected/booked)
+    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+  };
+  const exhaustedYesterday = (l: Lead) => {
+    const slot = attemptsByDay[l.id]?.[yesterdayKey];
+    if (!slot || slot.count < 3) return false;
+    const outcome = (slot.lastOutcome ?? "").toLowerCase();
     return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
   };
 
@@ -2789,14 +2805,13 @@ function LeadChooser({
       }
 
       // 2) Today column — overdue / callback / no-answer-yesterday / new / remaining
-      const u = leadUrgency(l);
-      if (callbackOn(l, today) && u === "overdue") {
+      if (callbackIsOverdue(l)) {
         out.today.push({ section: "overdue", lead: l }); placed.add(l.id); continue;
       }
       if (callbackOn(l, today)) {
         out.today.push({ section: "callback", lead: l }); placed.add(l.id); continue;
       }
-      if (noAnswerYesterday(l)) {
+      if (noAnswerYesterday(l) || exhaustedYesterday(l)) {
         // shows in TODAY (so the rep retries them today), not duplicated in yesterday
         out.today.push({ section: "no-answer-yesterday", lead: l }); placed.add(l.id); continue;
       }
@@ -2886,6 +2901,14 @@ function LeadChooser({
     };
   }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
 
+  const setDropPreview = useCallback((next: { col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null) => {
+    const prev = dropTargetRef.current;
+    if (prev?.col === next?.col && prev?.beforeId === next?.beforeId) return;
+    dropTargetRef.current = next;
+    setDropCol(next?.col ?? null);
+    setDropTarget(next);
+  }, []);
+
   // Close the status menu when the user presses Escape.
   useEffect(() => {
     if (!openStatusFor) return;
@@ -2898,15 +2921,32 @@ function LeadChooser({
 
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
+    const lead = leads.find((l) => l.id === leadId);
+    const patch: Partial<Lead> = {
+      status: key,
+      ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
+    };
     // Optimistic local update so UI updates immediately, no refresh required.
-    onLocalLeadUpdate?.(leadId, { status: key });
+    onLocalLeadUpdate?.(leadId, patch);
     setOpenStatusFor(null);
     setStatusAnchor(null);
     setSavingStatus(leadId);
     try {
-      await updateLeadStatus({ data: { leadId, status: key } });
+      const nowIso = new Date().toISOString();
+      const dbPatch = key !== "callback_scheduled"
+        ? { status: key, callback_scheduled_at: null, updated_at: nowIso }
+        : { status: key, updated_at: nowIso };
+      const { error } = await supabase
+        .from("meta_leads")
+        .update(dbPatch)
+        .eq("id", leadId);
+      if (error) throw error;
       toast.success("Status updated");
     } catch {
+      onLocalLeadUpdate?.(leadId, {
+        status: lead?.status ?? null,
+        callback_scheduled_at: lead?.callback_scheduled_at ?? null,
+      });
       toast.error("Couldn't update status");
     } finally {
       setSavingStatus(null);
@@ -2923,6 +2963,7 @@ function LeadChooser({
       if (sameLocalDate(cb, tomorrow)) {
         const next = new Date();
         next.setMinutes(next.getMinutes() + 30);
+        onLocalLeadUpdate?.(leadId, { callback_scheduled_at: next.toISOString() });
         await supabase
           .from("meta_leads")
           .update({ callback_scheduled_at: next.toISOString(), updated_at: new Date().toISOString() })
@@ -2935,6 +2976,7 @@ function LeadChooser({
   const moveToTomorrow = async (leadId: string) => {
     const cb = new Date(); cb.setDate(cb.getDate() + 1); cb.setHours(9, 0, 0, 0);
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
+    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: cb.toISOString(), status: "callback_scheduled" });
     await supabase
       .from("meta_leads")
       .update({ callback_scheduled_at: cb.toISOString(), status: "callback_scheduled", updated_at: new Date().toISOString() })
@@ -2945,6 +2987,7 @@ function LeadChooser({
   const moveToYesterday = async (leadId: string) => {
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
+    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null });
     await supabase
       .from("meta_leads")
       .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
@@ -2954,7 +2997,7 @@ function LeadChooser({
 
   const clearCallback = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const wasCallbackStatus = (lead?.status ?? "").toLowerCase() === "callback_scheduled";
+    const wasCallbackStatus = normaliseStatus(lead?.status, lead) === "callback_scheduled";
     const newStatus = wasCallbackStatus ? "in_progress" : lead?.status;
     // Optimistic local update so the card refreshes immediately
     onLocalLeadUpdate?.(leadId, {
@@ -3051,10 +3094,16 @@ function LeadChooser({
       <div
         key={l.id}
         draggable
-        onDragStart={() => setDragId(l.id)}
-        onDragEnd={() => { setDragId(null); setDropCol(null); setDropTarget(null); }}
+        onDragStart={(e) => {
+          dragIdRef.current = l.id;
+          setDragId(l.id);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", l.id);
+        }}
+        onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
         onDragOver={(e) => {
-          if (!dragId || dragId === l.id) return;
+          const currentDragId = dragIdRef.current;
+          if (!currentDragId || currentDragId === l.id) return;
           e.preventDefault();
           e.stopPropagation();
           // Determine which column this card belongs to via its section
@@ -3063,8 +3112,7 @@ function LeadChooser({
             section === "tomorrow" ? "tomorrow" : "today";
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const isAbove = e.clientY < rect.top + rect.height / 2;
-          setDropCol(col);
-          setDropTarget({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
+          setDropPreview({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
         }}
         className="rounded-[10px]"
         style={{
@@ -3197,9 +3245,10 @@ function LeadChooser({
 
   // Drop handlers
   const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
-    const id = dragId;
-    const target = dropTarget;
-    setDragId(null); setDropCol(null); setDropTarget(null);
+    const id = dragIdRef.current;
+    const target = dropTargetRef.current;
+    dragIdRef.current = null;
+    setDragId(null); setDropPreview(null);
     if (!id) return;
 
     // 1) Update column membership when crossing day boundaries
@@ -3207,9 +3256,9 @@ function LeadChooser({
       colOrderRef.current.yesterday.includes(id) ? "yesterday" :
       colOrderRef.current.tomorrow.includes(id) ? "tomorrow" : "today";
     if (wasInCol !== col) {
-      if (col === "today") await moveToToday(id);
-      else if (col === "tomorrow") await moveToTomorrow(id);
-      else await moveToYesterday(id);
+      if (col === "today") void moveToToday(id);
+      else if (col === "tomorrow") void moveToTomorrow(id);
+      else void moveToYesterday(id);
     }
 
     // 2) Apply manual ordering inside the target column
@@ -3233,7 +3282,7 @@ function LeadChooser({
     col: "yesterday" | "today" | "tomorrow"; children: React.ReactNode; count: number;
   }) => (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDropCol(col); }}
+      onDragOver={(e) => { e.preventDefault(); if (dragIdRef.current) setDropPreview({ col, beforeId: null }); }}
       onDragLeave={() => setDropCol((c) => (c === col ? null : c))}
       onDrop={() => void handleDrop(col)}
       style={{
@@ -3436,13 +3485,14 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, attemptCounts, firstCallAt, onChangeLead,
+  active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead,
 }: {
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
   attemptCounts: Record<string, number>;
   firstCallAt: string | null;
+  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
 }) {
   void repId;
@@ -3736,6 +3786,7 @@ function RightPanel({
         </div>
         <button
           onClick={async () => {
+            onLocalLeadUpdate?.(active.id, { status: "dropped", callback_scheduled_at: null });
             await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
             toast.success("Lead dropped");
           }}
@@ -3760,10 +3811,16 @@ function RightPanel({
         {showCallbackPicker && (() => {
           const saveCallbackAt = async (dt: Date) => {
             setSavingCallback(true);
+              const previousCallback = active.callback_scheduled_at;
+              const previousStatus = active.status;
+              onLocalLeadUpdate?.(active.id, {
+                callback_scheduled_at: dt.toISOString(),
+                status: "callback_scheduled",
+              });
             try {
               const { error } = await supabase.from("meta_leads").update({
                 callback_scheduled_at: dt.toISOString(),
-                status: "Callback Scheduled",
+                  status: "callback_scheduled",
                 updated_at: new Date().toISOString(),
               }).eq("id", active.id);
               if (error) throw error;
@@ -3772,6 +3829,10 @@ function RightPanel({
               setCallbackTime("");
               toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
             } catch (e) {
+                onLocalLeadUpdate?.(active.id, {
+                  callback_scheduled_at: previousCallback,
+                  status: previousStatus,
+                });
               toast.error(e instanceof Error ? e.message : "Couldn't save callback");
             } finally {
               setSavingCallback(false);
@@ -3844,15 +3905,27 @@ function RightPanel({
                 disabled={savingCallback}
                 onClick={async () => {
                   setSavingCallback(true);
+                  const previousCallback = active.callback_scheduled_at;
+                  const previousStatus = active.status;
+                  const clearedCallbackStatus = normaliseStatus(active.status, active) === "callback_scheduled" ? "in_progress" : (active.status ?? "in_progress");
+                  onLocalLeadUpdate?.(active.id, {
+                    callback_scheduled_at: null,
+                    status: clearedCallbackStatus,
+                  });
                   try {
                     const { error } = await supabase.from("meta_leads").update({
                       callback_scheduled_at: null,
+                      status: clearedCallbackStatus,
                       updated_at: new Date().toISOString(),
                     }).eq("id", active.id);
                     if (error) throw error;
                     setShowCallbackPicker(false);
                     toast.success("Callback removed");
                   } catch (e) {
+                    onLocalLeadUpdate?.(active.id, {
+                      callback_scheduled_at: previousCallback,
+                      status: previousStatus,
+                    });
                     toast.error(e instanceof Error ? e.message : "Couldn't remove callback");
                   } finally {
                     setSavingCallback(false);
