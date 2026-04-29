@@ -1981,7 +1981,6 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       } catch { return `${bookedData.date} at ${bookedData.time}`; }
     })();
 
-    const [resetting, setResetting] = useState(false);
     const handleResetBooking = async () => {
       setResetting(true);
       const r = await clearBooking({ data: { leadId: lead.id } });
