@@ -106,7 +106,7 @@ function DashboardLayout() {
         </div>
       </div>
       <IncomingCallDialog />
-      <FloatingCallWidget />
+      {!hideFloatingCall && <FloatingCallWidget />}
       <SmsNotifier />
     </SidebarProvider>
   );
