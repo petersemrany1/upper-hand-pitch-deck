@@ -117,7 +117,6 @@ function LeaderboardPage() {
 
   const ranges: { key: Range; label: string }[] = [
     { key: "today", label: "Today" }, { key: "yesterday", label: "Yesterday" },
-    { key: "today_yesterday", label: "Today + Yesterday" },
     { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
     { key: "30d", label: "30 Days" },
   ];
