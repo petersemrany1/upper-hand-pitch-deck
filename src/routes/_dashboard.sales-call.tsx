@@ -3154,8 +3154,8 @@ function LeadChooser({
             col="yesterday"
             count={buckets.yesterday.length}
           >
-            {buckets.yesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
-            {buckets.yesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
+            {orderedYesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
+            {orderedYesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
           </Column>
 
           <Column
