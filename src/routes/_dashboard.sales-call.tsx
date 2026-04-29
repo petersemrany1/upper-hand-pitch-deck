@@ -2286,6 +2286,34 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               </div>
             )}
           </button>
+
+          {/* Manually confirm deposit paid */}
+          <button
+            onClick={() => void handleConfirmDepositPaid()}
+            disabled={confirmingDeposit || depositPaid}
+            className="w-full rounded-[8px] flex items-center justify-between mt-3"
+            style={{
+              background: depositPaid ? "#dcfce7" : "#ffffff",
+              border: `0.5px solid ${depositPaid ? COLORS.green : COLORS.line}`,
+              padding: "16px 20px",
+              cursor: depositPaid ? "default" : confirmingDeposit ? "wait" : "pointer",
+              opacity: confirmingDeposit ? 0.7 : 1,
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: depositPaid ? COLORS.green : COLORS.text, marginBottom: 2 }}>
+                {depositPaid ? "✓ Deposit paid — lead converted" : "Confirm deposit paid"}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>
+                {depositPaid ? "This lead has moved to Booked — Deposit Paid" : "Tap once the patient has paid the $75 deposit"}
+              </div>
+            </div>
+            {!depositPaid && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.green, flexShrink: 0, marginLeft: 12 }}>
+                {confirmingDeposit ? "Saving…" : "Confirm ✓"}
+              </div>
+            )}
+          </button>
         </div>
 
         {/* Reset booking — bottom of screen */}
