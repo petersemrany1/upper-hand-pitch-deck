@@ -2771,6 +2771,12 @@ function LeadChooser({
     return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
   };
 
+  // A lead is "active today" if there's been any call attempt today, or if
+  // the lead has a callback scheduled for today/future, or the rep has
+  // explicitly set a status that implies they're still working it.
+  const hasActivityToday = (l: Lead) => (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) > 0;
+  const isConverted = (l: Lead) => normaliseStatus(l.status, l) === "booked_deposit_paid";
+
   // Build column buckets — every lead appears in EXACTLY one column.
   // Priority order: tomorrow (future callback / auto-bumped) > today > yesterday.
   const buckets = useMemo(() => {
@@ -2783,6 +2789,9 @@ function LeadChooser({
 
     for (const l of filtered) {
       if (placed.has(l.id)) continue;
+
+      // -1) Converted leads (deposit paid) live in their own popup, not the columns.
+      if (isConverted(l)) { placed.add(l.id); continue; }
 
       // 0) User-forced column wins (drag/drop or move buttons)
       const forced = forcedCol[l.id];
