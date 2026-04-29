@@ -114,6 +114,9 @@ function SalesCallPortal() {
   const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
   // attempts grouped per lead per local date "YYYY-MM-DD" with the most recent outcome
   const [attemptsByDay, setAttemptsByDay] = useState<Record<string, Record<string, { count: number; lastOutcome: string | null }>>>({});
+  // First-ever call timestamp per lead — used so "Day N" counts from the
+  // first time the rep actually called them (not from when the lead landed).
+  const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
 
@@ -170,6 +173,20 @@ function SalesCallPortal() {
       }
       setAttemptCounts(counts);
       setAttemptsByDay(byDay);
+
+      // First-ever call timestamp per lead (across all history, ascending order
+      // so the first row per lead wins). Drives the "Day N" pipeline counter.
+      const { data: firstRows } = await supabase
+        .from("call_records")
+        .select("lead_id, called_at")
+        .order("called_at", { ascending: true })
+        .limit(5000);
+      const firsts: Record<string, string> = {};
+      for (const row of firstRows ?? []) {
+        if (!row.lead_id || !row.called_at) continue;
+        if (!firsts[row.lead_id]) firsts[row.lead_id] = row.called_at as string;
+      }
+      setFirstCallByLead(firsts);
     };
     void load();
     const ch = supabase.channel("attempt-counts")
@@ -283,6 +300,7 @@ function SalesCallPortal() {
           leads={leads}
           attemptCounts={attemptCounts}
           attemptsByDay={attemptsByDay}
+          firstCallByLead={firstCallByLead}
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
@@ -376,6 +394,7 @@ function SalesCallPortal() {
           repId={repId}
           mmsImages={mmsImages}
           attemptCounts={attemptCounts}
+          firstCallAt={firstCallByLead[active.id] ?? null}
           onChangeLead={() => setActiveId(null)}
         />
       </aside>
@@ -2560,10 +2579,16 @@ const ATTEMPTS_PER_DAY = (day: number) => (day <= 7 ? 3 : 1);
 // e.g. lead created today = Day 1, created yesterday = Day 2, etc.
 // We use this instead of the static `day_number` column so it ticks over
 // automatically as time passes — leads from yesterday correctly show Day 2.
-function pipelineDay(l: { created_at: string; day_number?: number | null }): number {
-  if (!l.created_at) return Math.max(1, l.day_number ?? 1);
-  const created = new Date(l.created_at);
-  const a = new Date(created.getFullYear(), created.getMonth(), created.getDate()).getTime();
+function pipelineDay(
+  l: { created_at: string; day_number?: number | null },
+  firstCallAt?: string | null,
+): number {
+  // Day 1 = first day the rep called. If no call yet, they're still Day 1
+  // (waiting on their first attempt). Once called, the counter ticks over
+  // each calendar day.
+  if (!firstCallAt) return 1;
+  const first = new Date(firstCallAt);
+  const a = new Date(first.getFullYear(), first.getMonth(), first.getDate()).getTime();
   const now = new Date();
   const b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
   const days = Math.floor((b - a) / 86400000) + 1;
@@ -2651,20 +2676,22 @@ function LeadChooser({
   leads,
   attemptCounts,
   attemptsByDay,
+  firstCallByLead,
   onPick,
 }: {
   leads: Lead[];
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
+  firstCallByLead: Record<string, string>;
   onPick: (id: string) => void;
 }) {
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
-  // Local override so a card "moved back to today" via the button/drag
-  // re-buckets immediately without waiting for the realtime round-trip.
-  const [overrideToToday, setOverrideToToday] = useState<Set<string>>(new Set());
+  // Local override so drag/drop and "move" buttons re-bucket immediately
+  // without waiting for the realtime round-trip. Maps lead id → forced column.
+  const [forcedCol, setForcedCol] = useState<Record<string, "yesterday" | "today" | "tomorrow">>({});
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
   // Manual ordering per column (id list). When present, leads in that column
@@ -2714,7 +2741,7 @@ function LeadChooser({
   };
   const isNew = (l: Lead) => normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
   const failedThreeToday = (l: Lead) => {
-    if (overrideToToday.has(l.id)) return false;
+    if (forcedCol[l.id] === "today") return false;
     const slot = attemptsByDay[l.id]?.[todayKey];
     if (!slot) return false;
     if (slot.count < 3) return false;
@@ -2735,6 +2762,21 @@ function LeadChooser({
 
     for (const l of filtered) {
       if (placed.has(l.id)) continue;
+
+      // 0) User-forced column wins (drag/drop or move buttons)
+      const forced = forcedCol[l.id];
+      if (forced === "tomorrow") { out.tomorrow.push(l); placed.add(l.id); continue; }
+      if (forced === "yesterday") { out.yesterday.push(l); placed.add(l.id); continue; }
+      if (forced === "today") {
+        // Pick the most appropriate today section for forced leads
+        const u = leadUrgency(l);
+        if (callbackOn(l, today) && u === "overdue") out.today.push({ section: "overdue", lead: l });
+        else if (callbackOn(l, today)) out.today.push({ section: "callback", lead: l });
+        else if (noAnswerYesterday(l)) out.today.push({ section: "no-answer-yesterday", lead: l });
+        else if (isNew(l)) out.today.push({ section: "new", lead: l });
+        else out.today.push({ section: "remaining", lead: l });
+        placed.add(l.id); continue;
+      }
 
       // 1) Tomorrow column wins first (future-scheduled callback or auto-bumped)
       if (callbackOn(l, tomorrow) || failedThreeToday(l)) {
@@ -2795,7 +2837,7 @@ function LeadChooser({
 
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, attemptsByDay, overrideToToday, todayKey, yesterdayKey]);
+  }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
 
   // Apply manual reordering on top of the auto buckets. When the user has
   // dragged any card within a column, that column renders as one flat list
@@ -2855,8 +2897,8 @@ function LeadChooser({
   };
 
   const moveToToday = async (leadId: string) => {
-    // Optimistic local override
-    setOverrideToToday((prev) => { const n = new Set(prev); n.add(leadId); return n; });
+    // Optimistic local override so the card jumps columns instantly
+    setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
     // If the lead has a callback set for tomorrow, clear it back to today's next slot
     const lead = leads.find((l) => l.id === leadId);
     if (lead?.callback_scheduled_at) {
@@ -2875,12 +2917,34 @@ function LeadChooser({
 
   const moveToTomorrow = async (leadId: string) => {
     const cb = new Date(); cb.setDate(cb.getDate() + 1); cb.setHours(9, 0, 0, 0);
-    setOverrideToToday((prev) => { const n = new Set(prev); n.delete(leadId); return n; });
+    setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
     await supabase
       .from("meta_leads")
       .update({ callback_scheduled_at: cb.toISOString(), status: "callback_scheduled", updated_at: new Date().toISOString() })
       .eq("id", leadId);
     toast.success("Moved to Tomorrow 9am");
+  };
+
+  const moveToYesterday = async (leadId: string) => {
+    setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
+    // Clear any future callback so it doesn't drag the lead back to today/tomorrow
+    await supabase
+      .from("meta_leads")
+      .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+    toast.success("Moved to Yesterday");
+  };
+
+  const clearCallback = async (leadId: string) => {
+    try {
+      await supabase
+        .from("meta_leads")
+        .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
+        .eq("id", leadId);
+      toast.success("Callback removed");
+    } catch {
+      toast.error("Couldn't remove callback");
+    }
   };
 
   const renderStatusBadge = (l: Lead) => {
@@ -2930,7 +2994,7 @@ function LeadChooser({
     const tone = opts.tone ?? "today";
     const section = opts.section ?? "remaining";
     const u = leadUrgency(l);
-    const day = pipelineDay(l);
+    const day = pipelineDay(l, firstCallByLead[l.id]);
     const attempts = ATTEMPTS_PER_DAY(day);
     const todayCount = attemptCounts[l.id] ?? 0;
     const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
@@ -3035,6 +3099,15 @@ function LeadChooser({
                 Push to Tomorrow →
               </button>
             )}
+            {l.callback_scheduled_at && (
+              <button
+                onClick={() => void clearCallback(l.id)}
+                title="Remove the scheduled callback for this lead"
+                style={{ fontSize: 11, color: COLORS.red, background: "transparent", textDecoration: "underline" }}
+              >
+                ✕ Clear callback
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -3104,9 +3177,7 @@ function LeadChooser({
     if (wasInCol !== col) {
       if (col === "today") await moveToToday(id);
       else if (col === "tomorrow") await moveToTomorrow(id);
-      else {
-        await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
-      }
+      else await moveToYesterday(id);
     }
 
     // 2) Apply manual ordering inside the target column
@@ -3154,7 +3225,19 @@ function LeadChooser({
   );
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => { setOpenStatusFor(null); setStatusAnchor(null); }}>
+    <div
+      className="h-full overflow-y-auto"
+      style={{ background: "#f7f7f5", color: COLORS.text }}
+      onClick={(e) => {
+        // Only close the status popover when the click is on the bare
+        // background — clicks anywhere else (cards, popover, buttons) keep
+        // the popover open so options can be selected.
+        if (e.target === e.currentTarget) {
+          setOpenStatusFor(null);
+          setStatusAnchor(null);
+        }
+      }}
+    >
       <div className="max-w-[1400px] mx-auto px-6 py-8">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <div>
@@ -3298,12 +3381,13 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, attemptCounts, onChangeLead,
+  active, repId, mmsImages, attemptCounts, firstCallAt, onChangeLead,
 }: {
   active: Lead;
   repId: string | null;
   mmsImages: { name: string; url: string }[];
   attemptCounts: Record<string, number>;
+  firstCallAt: string | null;
   onChangeLead: () => void;
 }) {
   void repId;
@@ -3425,7 +3509,7 @@ function RightPanel({
     if (r.success) toast.success("Sent"); else toast.error(r.error);
   };
 
-  const day = pipelineDay(active);
+  const day = pipelineDay(active, firstCallAt);
   const attempts = ATTEMPTS_PER_DAY(day);
   const fullName = [active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed";
   const objectionResp = openObjection
@@ -3700,6 +3784,30 @@ function RightPanel({
             >
               {savingCallback ? "Saving..." : "Confirm callback →"}
             </button>
+            {active.callback_scheduled_at && (
+              <button
+                disabled={savingCallback}
+                onClick={async () => {
+                  setSavingCallback(true);
+                  try {
+                    const { error } = await supabase.from("meta_leads").update({
+                      callback_scheduled_at: null,
+                      updated_at: new Date().toISOString(),
+                    }).eq("id", active.id);
+                    if (error) throw error;
+                    setShowCallbackPicker(false);
+                    toast.success("Callback removed");
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Couldn't remove callback");
+                  } finally {
+                    setSavingCallback(false);
+                  }
+                }}
+                style={{ width: "100%", marginTop: 6, background: "transparent", color: COLORS.red, fontSize: 11, fontWeight: 600, padding: "6px 0", borderRadius: 6, cursor: "pointer", border: `0.5px solid ${COLORS.line}`, opacity: savingCallback ? 0.6 : 1 }}
+              >
+                ✕ Remove existing callback
+              </button>
+            )}
           </div>
           );
         })()}
