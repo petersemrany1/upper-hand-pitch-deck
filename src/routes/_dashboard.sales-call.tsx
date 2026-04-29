@@ -2816,7 +2816,7 @@ function LeadChooser({
   const yesterdayKey = localDateKey(yesterday);
 
   const persistedColumnFor = (l: Lead): DayCol | null => {
-    const column = l.raw_payload?.pipeline_column;
+    const column = rawPayloadObject(l.raw_payload).pipeline_column;
     if (column === "today" || column === "tomorrow" || column === "yesterday") return column;
     return null;
   };
@@ -3129,7 +3129,7 @@ function LeadChooser({
     // Optimistic local override so the card jumps columns instantly
     setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...(lead?.raw_payload ?? {}), pipeline_column: "today" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "today" };
     onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
     // If the lead has a callback set for tomorrow, clear it back to today's next slot
     if (lead?.callback_scheduled_at) {
@@ -3155,7 +3155,7 @@ function LeadChooser({
 
   const moveToTomorrow = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...(lead?.raw_payload ?? {}), pipeline_column: "tomorrow" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "tomorrow" };
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
     onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
     await supabase
@@ -3167,7 +3167,7 @@ function LeadChooser({
 
   const moveToYesterday = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...(lead?.raw_payload ?? {}), pipeline_column: "yesterday" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "yesterday" };
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
     onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null, raw_payload: rawPayload });
