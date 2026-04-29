@@ -3323,7 +3323,7 @@ function RightPanel({
             fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
           }}
         >
-          {showSms ? "Hide SMS" : "💬 Send SMS"}
+          {showSms ? "Hide SMS composer" : "💬 Open SMS composer"}
         </button>
         {showSms && (
           <div style={{ marginTop: 10 }}>
