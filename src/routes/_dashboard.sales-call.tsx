@@ -1880,6 +1880,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       });
       setBooked(true);
     }
+    if (lead.status && lead.status.toLowerCase().includes("deposit_paid")) {
+      setDepositPaid(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.booking_date, lead.booking_time, clinics, doctors]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
