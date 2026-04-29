@@ -2676,6 +2676,7 @@ const localDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 type DayCol = "yesterday" | "today" | "tomorrow";
+type DragState = { id: string; col: DayCol; x: number; y: number; pointerId: number; dragging: boolean; offsetX: number; offsetY: number };
 
 const sameLocalDate = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
