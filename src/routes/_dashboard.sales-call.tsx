@@ -2741,6 +2741,11 @@ function LeadChooser({
     const cb = new Date(l.callback_scheduled_at);
     return sameLocalDate(cb, when);
   };
+  const callbackIsOverdue = (l: Lead) => {
+    if (!l.callback_scheduled_at) return false;
+    const t = new Date(l.callback_scheduled_at).getTime();
+    return !Number.isNaN(t) && t <= Date.now();
+  };
   const noAnswerYesterday = (l: Lead) => {
     const slot = attemptsByDay[l.id]?.[yesterdayKey];
     if (!slot) return false;
@@ -2755,6 +2760,12 @@ function LeadChooser({
     if (slot.count < 3) return false;
     const outcome = (slot.lastOutcome ?? "").toLowerCase();
     // only auto-bump if the recent calls were no-answers (not connected/booked)
+    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+  };
+  const exhaustedYesterday = (l: Lead) => {
+    const slot = attemptsByDay[l.id]?.[yesterdayKey];
+    if (!slot || slot.count < 3) return false;
+    const outcome = (slot.lastOutcome ?? "").toLowerCase();
     return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
   };
 
@@ -2793,13 +2804,13 @@ function LeadChooser({
 
       // 2) Today column — overdue / callback / no-answer-yesterday / new / remaining
       const u = leadUrgency(l);
-      if (callbackOn(l, today) && u === "overdue") {
+      if (callbackIsOverdue(l)) {
         out.today.push({ section: "overdue", lead: l }); placed.add(l.id); continue;
       }
       if (callbackOn(l, today)) {
         out.today.push({ section: "callback", lead: l }); placed.add(l.id); continue;
       }
-      if (noAnswerYesterday(l)) {
+      if (noAnswerYesterday(l) || exhaustedYesterday(l)) {
         // shows in TODAY (so the rep retries them today), not duplicated in yesterday
         out.today.push({ section: "no-answer-yesterday", lead: l }); placed.add(l.id); continue;
       }
