@@ -2836,7 +2836,7 @@ function LeadChooser({
 
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, attemptsByDay, overrideToToday, todayKey, yesterdayKey]);
+  }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
 
   // Apply manual reordering on top of the auto buckets. When the user has
   // dragged any card within a column, that column renders as one flat list
