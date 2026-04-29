@@ -2675,6 +2675,9 @@ function statusMeta(s: string | null | undefined, l?: Lead) {
 const localDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
+type DayCol = "yesterday" | "today" | "tomorrow";
+type DragState = { id: string; col: DayCol; x: number; y: number; pointerId: number; dragging: boolean; offsetX: number; offsetY: number };
+
 const sameLocalDate = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
@@ -2700,20 +2703,19 @@ function LeadChooser({
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   // Local override so drag/drop and "move" buttons re-bucket immediately
   // without waiting for the realtime round-trip. Maps lead id → forced column.
-  const [forcedCol, setForcedCol] = useState<Record<string, "yesterday" | "today" | "tomorrow">>({});
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
+  const [forcedCol, setForcedCol] = useState<Record<string, DayCol>>({});
+  const [dropCol, setDropCol] = useState<DayCol | null>(null);
   // Manual ordering per column (id list). When present, leads in that column
   // render in this order; new leads append at the end.
-  const [manualOrder, setManualOrder] = useState<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+  const [manualOrder, setManualOrder] = useState<Record<DayCol, string[]>>({
     yesterday: [], today: [], tomorrow: [],
   });
-  const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
-  const dragIdRef = useRef<string | null>(null);
-  const dropTargetRef = useRef<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ col: DayCol; beforeId: string | null } | null>(null);
+  const dragStateRef = useRef<DragState | null>(null);
+  const dropTargetRef = useRef<{ col: DayCol; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
   // below). Used by drag/drop math.
-  const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+  const colOrderRef = useRef<Record<DayCol, string[]>>({
     yesterday: [], today: [], tomorrow: [],
   });
 
@@ -2914,13 +2916,34 @@ function LeadChooser({
     };
   }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
 
-  const setDropPreview = useCallback((next: { col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null) => {
+  const setDropPreview = useCallback((next: { col: DayCol; beforeId: string | null } | null) => {
     const prev = dropTargetRef.current;
     if (prev?.col === next?.col && prev?.beforeId === next?.beforeId) return;
     dropTargetRef.current = next;
     setDropCol(next?.col ?? null);
     setDropTarget(next);
   }, []);
+
+  const columnFromSection = (section: string): DayCol =>
+    section === "yesterday" ? "yesterday" : section === "tomorrow" ? "tomorrow" : "today";
+
+  const blocksCardDrag = (target: EventTarget | null) =>
+    target instanceof HTMLElement && !!target.closest("button,a,input,textarea,select,[data-no-card-drag]");
+
+  const dropTargetFromPoint = (leadId: string, x: number, y: number) => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const column = el?.closest("[data-drop-col]") as HTMLElement | null;
+    const col = column?.dataset.dropCol as DayCol | undefined;
+    if (!col) return null;
+
+    const card = el?.closest("[data-lead-card]") as HTMLElement | null;
+    const overId = card?.dataset.leadId;
+    if (!column || !card || !overId || overId === leadId || !column.contains(card)) return { col, beforeId: null };
+
+    const rect = card.getBoundingClientRect();
+    const isAbove = y < rect.top + rect.height / 2;
+    return { col, beforeId: isAbove ? overId : nextLeadIdInCol(col, overId) };
+  };
 
   // Close the status menu when the user presses Escape.
   useEffect(() => {
@@ -3103,18 +3126,39 @@ function LeadChooser({
       <div
         key={l.id}
         data-lead-card
-
-        onDragOver={(e) => {
-          const currentDragId = dragIdRef.current;
-          if (!currentDragId || currentDragId === l.id) return;
-          e.preventDefault();
-          e.stopPropagation();
-          const col: "yesterday" | "today" | "tomorrow" =
-            section === "yesterday" ? "yesterday" :
-            section === "tomorrow" ? "tomorrow" : "today";
+        data-lead-id={l.id}
+        onPointerDown={(e) => {
+          if (e.button !== 0 || blocksCardDrag(e.target)) return;
+          const col = columnFromSection(section);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          const isAbove = e.clientY < rect.top + rect.height / 2;
-          setDropPreview({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
+          dragStateRef.current = { id: l.id, col, x: e.clientX, y: e.clientY, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const state = dragStateRef.current;
+          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
+          const dx = Math.abs(e.clientX - state.x);
+          const dy = Math.abs(e.clientY - state.y);
+          if (!state.dragging && dx + dy < 2) return;
+          state.dragging = true;
+          e.preventDefault();
+          setDropPreview(dropTargetFromPoint(l.id, e.clientX, e.clientY));
+        }}
+        onPointerUp={(e) => {
+          const state = dragStateRef.current;
+          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
+          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+          dragStateRef.current = null;
+          const target = dropTargetFromPoint(l.id, e.clientX, e.clientY) ?? dropTargetRef.current;
+          setDropPreview(null);
+          if (state.dragging && target) void handleDrop(l.id, target.col, target);
+        }}
+        onPointerCancel={(e) => {
+          const state = dragStateRef.current;
+          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
+          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+          dragStateRef.current = null;
+          setDropPreview(null);
         }}
         className="rounded-[10px]"
         style={{
@@ -3126,6 +3170,10 @@ function LeadChooser({
           // Drop indicator above this card
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
+          cursor: "grab",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          touchAction: "none",
         }}
       >
         {banner && (
@@ -3134,36 +3182,17 @@ function LeadChooser({
           </div>
         )}
         <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Dedicated drag handle — only this region is draggable, so the
-              card's buttons / badges can never intercept the drag-start. */}
+          {/* Visual grip only — the whole card now moves from the first press. */}
           <div
-            draggable
-            onDragStart={(e) => {
-              dragIdRef.current = l.id;
-              setDragId(l.id);
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", l.id);
-              try {
-                // Drag image = the whole card, snapshotted synchronously.
-                const card = (e.currentTarget as HTMLElement).closest("[data-lead-card]") as HTMLElement | null;
-                if (card) {
-                  const rect = card.getBoundingClientRect();
-                  e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top);
-                }
-              } catch { /* ignore */ }
-            }}
-            onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
             title="Drag to move"
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: 18, height: 36, flexShrink: 0,
-              cursor: "grab",
+              pointerEvents: "none",
               color: "#bbb", fontSize: 14, lineHeight: 1,
               userSelect: "none", WebkitUserSelect: "none",
               touchAction: "none",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#666")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#bbb")}
           >
             ⋮⋮
           </div>
@@ -3272,7 +3301,7 @@ function LeadChooser({
   // return the id of the lead that comes AFTER it in render order (or null
   // if it's the last). Used so dropping in the bottom half of a card inserts
   // the dragged lead immediately after it.
-  const nextLeadIdInCol = (col: "yesterday" | "today" | "tomorrow", afterId: string): string | null => {
+  const nextLeadIdInCol = (col: DayCol, afterId: string): string | null => {
     const arr = colOrderRef.current[col];
     const i = arr.indexOf(afterId);
     if (i < 0 || i === arr.length - 1) return null;
@@ -3280,15 +3309,11 @@ function LeadChooser({
   };
 
   // Drop handlers
-  const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
-    const id = dragIdRef.current;
-    const target = dropTargetRef.current;
-    dragIdRef.current = null;
-    setDragId(null); setDropPreview(null);
-    if (!id) return;
+  const handleDrop = async (id: string, col: DayCol, target: { col: DayCol; beforeId: string | null } | null) => {
+    setDropPreview(null);
 
     // 1) Update column membership when crossing day boundaries
-    const wasInCol: "yesterday" | "today" | "tomorrow" =
+    const wasInCol: DayCol =
       colOrderRef.current.yesterday.includes(id) ? "yesterday" :
       colOrderRef.current.tomorrow.includes(id) ? "tomorrow" : "today";
     if (wasInCol !== col) {
@@ -3315,12 +3340,11 @@ function LeadChooser({
     title, subtitle, tone, col, children, count,
   }: {
     title: string; subtitle: string; tone: "muted" | "today";
-    col: "yesterday" | "today" | "tomorrow"; children: React.ReactNode; count: number;
+    col: DayCol; children: React.ReactNode; count: number;
   }) => (
     <div
-      onDragOver={(e) => { e.preventDefault(); if (dragIdRef.current) setDropPreview({ col, beforeId: null }); }}
-      onDragLeave={() => setDropCol((c) => (c === col ? null : c))}
-      onDrop={() => void handleDrop(col)}
+      data-drop-col={col}
+      onPointerEnter={() => { if (dragStateRef.current?.dragging) setDropPreview({ col, beforeId: null }); }}
       style={{
         flex: 1,
         minWidth: 0,
