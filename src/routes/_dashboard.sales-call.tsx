@@ -3861,14 +3861,15 @@ function RightPanel({
                   setSavingCallback(true);
                   const previousCallback = active.callback_scheduled_at;
                   const previousStatus = active.status;
+                  const clearedCallbackStatus = normaliseStatus(active.status, active) === "callback_scheduled" ? "in_progress" : (active.status ?? "in_progress");
                   onLocalLeadUpdate?.(active.id, {
                     callback_scheduled_at: null,
-                    status: normaliseStatus(active.status, active) === "callback_scheduled" ? "in_progress" : active.status,
+                    status: clearedCallbackStatus,
                   });
                   try {
                     const { error } = await supabase.from("meta_leads").update({
                       callback_scheduled_at: null,
-                      status: normaliseStatus(active.status, active) === "callback_scheduled" ? "in_progress" : active.status,
+                      status: clearedCallbackStatus,
                       updated_at: new Date().toISOString(),
                     }).eq("id", active.id);
                     if (error) throw error;
