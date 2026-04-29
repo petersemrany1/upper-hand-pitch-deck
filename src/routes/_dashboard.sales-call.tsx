@@ -2937,7 +2937,7 @@ function LeadChooser({
 
     const card = el?.closest("[data-lead-card]") as HTMLElement | null;
     const overId = card?.dataset.leadId;
-    if (!card || !overId || overId === leadId || !column.contains(card)) return { col, beforeId: null };
+    if (!column || !card || !overId || overId === leadId || !column.contains(card)) return { col, beforeId: null };
 
     const rect = card.getBoundingClientRect();
     const isAbove = y < rect.top + rect.height / 2;
