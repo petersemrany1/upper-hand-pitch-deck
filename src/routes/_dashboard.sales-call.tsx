@@ -2962,13 +2962,14 @@ function LeadChooser({
       ...(wasCallbackStatus ? { status: "in_progress" } : {}),
     });
     try {
+      const patch: Record<string, unknown> = {
+        callback_scheduled_at: null,
+        updated_at: new Date().toISOString(),
+      };
+      if (wasCallbackStatus) patch.status = newStatus ?? "in_progress";
       const { error } = await supabase
         .from("meta_leads")
-        .update({
-          callback_scheduled_at: null,
-          ...(wasCallbackStatus ? { status: newStatus } : {}),
-          updated_at: new Date().toISOString(),
-        })
+        .update(patch)
         .eq("id", leadId);
       if (error) throw error;
       toast.success("Callback removed");
