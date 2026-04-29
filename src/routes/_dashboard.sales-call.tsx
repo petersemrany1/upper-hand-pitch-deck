@@ -3183,7 +3183,7 @@ function LeadChooser({
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
           cursor: "grab",
-          visibility: !opts.preview && dragVisual?.id === l.id ? "hidden" : "visible",
+          opacity: !opts.preview && dragVisual?.id === l.id ? 0.18 : tone === "muted" ? 0.7 : 1,
           userSelect: "none",
           WebkitUserSelect: "none",
           touchAction: "none",
