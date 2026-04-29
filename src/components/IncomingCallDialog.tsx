@@ -179,14 +179,21 @@ export function IncomingCallDialog() {
           </div>
         )}
 
-        {/* Last call notes preview */}
+        {/* Last call notes preview — scrollable */}
         {matched?.call_notes && (
           <div
-            className="mb-4 rounded-lg p-2.5 text-left text-[12px] text-[#333] leading-snug"
-            style={{ background: "#fafaf9", border: "1px solid #ebebeb", maxHeight: 96, overflow: "hidden" }}
+            className="mb-4 rounded-lg p-2.5 text-left text-[12px] text-[#333] leading-snug overscroll-contain"
+            style={{
+              background: "#fafaf9",
+              border: "1px solid #ebebeb",
+              maxHeight: 220,
+              overflowY: "auto",
+              WebkitOverflowScrolling: "touch",
+              whiteSpace: "pre-wrap",
+            }}
           >
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#888] mb-1">Last notes</div>
-            {matched.call_notes.length > 220 ? matched.call_notes.slice(0, 220) + "…" : matched.call_notes}
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#888] mb-1 sticky top-0 bg-[#fafaf9] pb-1">Last notes</div>
+            {matched.call_notes}
           </div>
         )}
 
