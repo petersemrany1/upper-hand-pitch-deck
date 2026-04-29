@@ -2963,6 +2963,7 @@ function LeadChooser({
       if (sameLocalDate(cb, tomorrow)) {
         const next = new Date();
         next.setMinutes(next.getMinutes() + 30);
+        onLocalLeadUpdate?.(leadId, { callback_scheduled_at: next.toISOString() });
         await supabase
           .from("meta_leads")
           .update({ callback_scheduled_at: next.toISOString(), updated_at: new Date().toISOString() })
@@ -2975,6 +2976,7 @@ function LeadChooser({
   const moveToTomorrow = async (leadId: string) => {
     const cb = new Date(); cb.setDate(cb.getDate() + 1); cb.setHours(9, 0, 0, 0);
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
+    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: cb.toISOString(), status: "callback_scheduled" });
     await supabase
       .from("meta_leads")
       .update({ callback_scheduled_at: cb.toISOString(), status: "callback_scheduled", updated_at: new Date().toISOString() })
@@ -2985,6 +2987,7 @@ function LeadChooser({
   const moveToYesterday = async (leadId: string) => {
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
+    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null });
     await supabase
       .from("meta_leads")
       .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
