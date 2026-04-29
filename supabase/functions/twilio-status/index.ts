@@ -4,6 +4,7 @@ import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 serve(async (req) => {
   try {
+    const requestUrl = new URL(req.url);
     const formData = await req.formData();
 
     // Reject unsigned requests. Without this an attacker could POST a fake
@@ -13,6 +14,8 @@ serve(async (req) => {
     }
 
     const callSid = formData.get("CallSid")?.toString() || "";
+    const parentCallSid = requestUrl.searchParams.get("parentCallSid") || "";
+    const recordSid = parentCallSid || callSid;
     const callStatus = formData.get("CallStatus")?.toString() || "";
     const callDuration =
       formData.get("CallDuration")?.toString() ||
@@ -23,6 +26,7 @@ serve(async (req) => {
 
     console.log("Twilio status callback:", {
       callSid,
+      parentCallSid,
       callStatus,
       recordingSid,
       recordingUrl,
@@ -33,7 +37,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    if (!callSid) {
+    if (!recordSid) {
       console.warn("twilio-status: no CallSid in payload, ignoring");
       return new Response("OK", { status: 200 });
     }
@@ -60,7 +64,7 @@ serve(async (req) => {
     const { data: upserted, error: upErr } = await supabase
       .from("call_records")
       .upsert(
-        { twilio_call_sid: callSid, ...patch },
+        { twilio_call_sid: recordSid, ...patch },
         { onConflict: "twilio_call_sid" },
       )
       .select("id, clinic_id, lead_id")
@@ -99,6 +103,7 @@ serve(async (req) => {
     } else if (!hasRecording) {
       console.log("twilio-status: no recording URL, skipping analysis", {
         callSid,
+        parentCallSid,
         callStatus,
       });
     }
