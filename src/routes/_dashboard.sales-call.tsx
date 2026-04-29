@@ -2322,11 +2322,6 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 <option key={d.id} value={d.id}>{d.name}{d.title ? ` — ${d.title}` : ""}</option>
               ))}
             </select>
-            {selectedDoctor?.what_makes_them_different && (
-              <div className="text-[12px]" style={{ color: COLORS.muted, marginTop: 6, lineHeight: 1.5 }}>
-                {selectedDoctor.what_makes_them_different}
-              </div>
-            )}
           </div>
         )}
 
