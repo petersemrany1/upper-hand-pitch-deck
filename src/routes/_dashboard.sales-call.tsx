@@ -2965,7 +2965,7 @@ function LeadChooser({
   useEffect(() => {
     const onMove = (e: PointerEvent) => {
       const state = dragStateRef.current;
-      if (!state || state.pointerId !== e.pointerId) return;
+      if (!state || (state.pointerId !== -1 && state.pointerId !== e.pointerId)) return;
       e.preventDefault();
       state.dragging = true;
       setDragVisual({ id: state.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: state.width, height: state.height });
