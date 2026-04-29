@@ -173,6 +173,20 @@ function SalesCallPortal() {
       }
       setAttemptCounts(counts);
       setAttemptsByDay(byDay);
+
+      // First-ever call timestamp per lead (across all history, ascending order
+      // so the first row per lead wins). Drives the "Day N" pipeline counter.
+      const { data: firstRows } = await supabase
+        .from("call_records")
+        .select("lead_id, called_at")
+        .order("called_at", { ascending: true })
+        .limit(5000);
+      const firsts: Record<string, string> = {};
+      for (const row of firstRows ?? []) {
+        if (!row.lead_id || !row.called_at) continue;
+        if (!firsts[row.lead_id]) firsts[row.lead_id] = row.called_at as string;
+      }
+      setFirstCallByLead(firsts);
     };
     void load();
     const ch = supabase.channel("attempt-counts")
