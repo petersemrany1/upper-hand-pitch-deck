@@ -3209,16 +3209,16 @@ function LeadChooser({
               todayManualFlat.map((it) => renderLeadCard(it.lead, { section: it.section }))
             ) : (
               <>
-                <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} />
-                {todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
-                <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} />
-                {todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
-                <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} />
-                {todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
-                <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} />
-                {todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
-                <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" />
-                {todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
+                <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} sectionKey="overdue" />
+                {!collapsed.overdue && todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
+                <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} sectionKey="callback" />
+                {!collapsed.callback && todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
+                <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} sectionKey="no-answer-yesterday" />
+                {!collapsed["no-answer-yesterday"] && todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
+                <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} sectionKey="new" />
+                {!collapsed.new && todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
+                <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" sectionKey="remaining" />
+                {!collapsed.remaining && todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
               </>
             )}
           </Column>
