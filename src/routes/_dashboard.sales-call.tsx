@@ -2930,7 +2930,7 @@ function LeadChooser({
     const tone = opts.tone ?? "today";
     const section = opts.section ?? "remaining";
     const u = leadUrgency(l);
-    const day = l.day_number ?? 1;
+    const day = pipelineDay(l);
     const attempts = ATTEMPTS_PER_DAY(day);
     const todayCount = attemptCounts[l.id] ?? 0;
     const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
