@@ -1346,7 +1346,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
       <div style={{ height: 24 }} />
 
       {/* 5 — Bring it back to them */}
-      <StepLabel>5. Bring it back to them</StepLabel>
+      <StepLabel>4. Bring it back to them</StepLabel>
       <ul className="flex flex-col" style={{ gap: 8 }}>
         {[
           "Use their exact words from discovery",
