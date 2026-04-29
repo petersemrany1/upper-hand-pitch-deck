@@ -2921,15 +2921,29 @@ function LeadChooser({
 
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
+    const lead = leads.find((l) => l.id === leadId);
+    const patch: Partial<Lead> = {
+      status: key,
+      ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
+    };
     // Optimistic local update so UI updates immediately, no refresh required.
-    onLocalLeadUpdate?.(leadId, { status: key });
+    onLocalLeadUpdate?.(leadId, patch);
     setOpenStatusFor(null);
     setStatusAnchor(null);
     setSavingStatus(leadId);
     try {
-      await updateLeadStatus({ data: { leadId, status: key } });
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase
+        .from("meta_leads")
+        .update({ ...patch, updated_at: nowIso })
+        .eq("id", leadId);
+      if (error) throw error;
       toast.success("Status updated");
     } catch {
+      onLocalLeadUpdate?.(leadId, {
+        status: lead?.status ?? null,
+        callback_scheduled_at: lead?.callback_scheduled_at ?? null,
+      });
       toast.error("Couldn't update status");
     } finally {
       setSavingStatus(null);
