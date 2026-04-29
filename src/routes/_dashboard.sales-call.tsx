@@ -2872,7 +2872,7 @@ function LeadChooser({
   // Converted leads (Booked — Deposit Paid) — shown in a separate popup, not in the columns.
   const convertedLeads = useMemo(
     () => leads.filter((l) => normaliseStatus(l.status, l) === "booked_deposit_paid")
-      .sort((a, b) => new Date(b.updated_at ?? b.created_at).getTime() - new Date(a.updated_at ?? a.created_at).getTime()),
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [leads],
   );
 
