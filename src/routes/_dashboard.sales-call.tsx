@@ -2329,6 +2329,25 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               </div>
             )}
           </button>
+
+          {depositPaid && (
+            <button
+              onClick={() => void handleUndoDepositPaid()}
+              disabled={confirmingDeposit}
+              className="w-full rounded-[8px] flex items-center justify-center mt-2"
+              style={{
+                background: "#ffffff",
+                border: `0.5px solid ${COLORS.line}`,
+                padding: "10px 20px",
+                cursor: confirmingDeposit ? "wait" : "pointer",
+                fontSize: 12,
+                fontWeight: 500,
+                color: COLORS.muted,
+              }}
+            >
+              {confirmingDeposit ? "Undoing…" : "↶ Undo deposit confirmation"}
+            </button>
+          )}
         </div>
 
         {/* Reset booking — bottom of screen */}
