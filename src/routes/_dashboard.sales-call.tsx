@@ -3362,17 +3362,7 @@ function LeadChooser({
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "1fr 1.4fr 1fr" }}>
-          <Column
-            title="Yesterday"
-            subtitle={yesterday.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}
-            tone="muted"
-            col="yesterday"
-            count={buckets.yesterday.length}
-          >
-            {orderedYesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
-            {orderedYesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
-          </Column>
+        <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "1.6fr 1fr" }}>
 
           <Column
             title="Today"
