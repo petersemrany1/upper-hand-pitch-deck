@@ -3074,10 +3074,16 @@ function LeadChooser({
       <div
         key={l.id}
         draggable
-        onDragStart={() => setDragId(l.id)}
-        onDragEnd={() => { setDragId(null); setDropCol(null); setDropTarget(null); }}
+        onDragStart={(e) => {
+          dragIdRef.current = l.id;
+          setDragId(l.id);
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", l.id);
+        }}
+        onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
         onDragOver={(e) => {
-          if (!dragId || dragId === l.id) return;
+          const currentDragId = dragIdRef.current;
+          if (!currentDragId || currentDragId === l.id) return;
           e.preventDefault();
           e.stopPropagation();
           // Determine which column this card belongs to via its section
@@ -3086,8 +3092,7 @@ function LeadChooser({
             section === "tomorrow" ? "tomorrow" : "today";
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
           const isAbove = e.clientY < rect.top + rect.height / 2;
-          setDropCol(col);
-          setDropTarget({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
+          setDropPreview({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
         }}
         className="rounded-[10px]"
         style={{
