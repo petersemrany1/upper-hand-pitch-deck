@@ -254,6 +254,20 @@ export const saveBooking = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+export const clearBooking = createServerFn({ method: "POST" })
+  .inputValidator((data: { leadId: string }) => ({ leadId: String(data.leadId ?? "") }))
+  .handler(async ({ data }) => {
+    if (!data.leadId) return { success: false as const, error: "leadId required" };
+    const { error } = await supabaseAdmin.from("meta_leads").update({
+      booking_date: null,
+      booking_time: null,
+      status: "new",
+      updated_at: new Date().toISOString(),
+    }).eq("id", data.leadId);
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const };
+  });
+
 export const updateLeadStatus = createServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; status: string }) => ({
     leadId: String(data.leadId ?? ""), status: String(data.status ?? ""),
