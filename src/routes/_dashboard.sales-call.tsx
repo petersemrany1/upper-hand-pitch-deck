@@ -3102,7 +3102,7 @@ function LeadChooser({
 
   const renderLeadCard = (
     l: Lead,
-    opts: { tone?: "muted" | "today"; section?: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining" | "tomorrow" | "yesterday" } = {}
+    opts: { tone?: "muted" | "today"; section?: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining" | "tomorrow" | "yesterday"; preview?: boolean } = {}
   ) => {
     const tone = opts.tone ?? "today";
     const section = opts.section ?? "remaining";
@@ -3182,7 +3182,7 @@ function LeadChooser({
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
           cursor: "grab",
-          visibility: dragVisual?.id === l.id ? "hidden" : "visible",
+          visibility: !opts.preview && dragVisual?.id === l.id ? "hidden" : "visible",
           userSelect: "none",
           WebkitUserSelect: "none",
           touchAction: "none",
@@ -3479,7 +3479,7 @@ function LeadChooser({
               boxShadow: "0 18px 40px rgba(0,0,0,0.18)",
             }}
           >
-            {renderLeadCard(lead, { tone: forcedCol[lead.id] === "tomorrow" ? "muted" : "today", section: forcedCol[lead.id] === "tomorrow" ? "tomorrow" : "remaining" })}
+            {renderLeadCard(lead, { tone: forcedCol[lead.id] === "tomorrow" ? "muted" : "today", section: forcedCol[lead.id] === "tomorrow" ? "tomorrow" : "remaining", preview: true })}
           </div>
         );
       })()}
