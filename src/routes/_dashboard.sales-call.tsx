@@ -3044,9 +3044,6 @@ function LeadChooser({
   // return the id of the lead that comes AFTER it in render order (or null
   // if it's the last). Used so dropping in the bottom half of a card inserts
   // the dragged lead immediately after it.
-  const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
-    yesterday: [], today: [], tomorrow: [],
-  });
   const nextLeadIdInCol = (col: "yesterday" | "today" | "tomorrow", afterId: string): string | null => {
     const arr = colOrderRef.current[col];
     const i = arr.indexOf(afterId);
