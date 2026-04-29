@@ -2888,6 +2888,10 @@ function LeadChooser({
 
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
+    // Optimistic local update so UI updates immediately, no refresh required.
+    onLocalLeadUpdate?.(leadId, { status: key });
+    setOpenStatusFor(null);
+    setStatusAnchor(null);
     setSavingStatus(leadId);
     try {
       await updateLeadStatus({ data: { leadId, status: key } });
@@ -2896,8 +2900,6 @@ function LeadChooser({
       toast.error("Couldn't update status");
     } finally {
       setSavingStatus(null);
-      setOpenStatusFor(null);
-      setStatusAnchor(null);
     }
   };
 
