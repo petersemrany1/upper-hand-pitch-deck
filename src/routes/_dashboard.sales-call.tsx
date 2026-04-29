@@ -1546,7 +1546,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
 
   const check = async () => {
     const eligible =
-      form.citizen === "yes" && form.earning === "yes" && form.bankrupt === "no" && form.centrelink === "no";
+      form.citizen === "yes" && form.earning === "yes" && form.bankrupt === "no";
     setResult({ eligible });
     const r = await saveFinanceCheck({ data: { leadId: lead.id, eligible, answers: form } });
     if (r.success) toast.success(eligible ? "Marked eligible" : "Marked not eligible");
