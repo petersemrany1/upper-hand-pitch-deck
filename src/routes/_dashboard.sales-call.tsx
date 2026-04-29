@@ -2923,6 +2923,9 @@ function LeadChooser({
     setDropTarget(next);
   }, []);
 
+  const columnFromSection = (section: string): DayCol =>
+    section === "yesterday" ? "yesterday" : section === "tomorrow" ? "tomorrow" : "today";
+
   // Close the status menu when the user presses Escape.
   useEffect(() => {
     if (!openStatusFor) return;
