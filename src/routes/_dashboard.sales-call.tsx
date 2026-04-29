@@ -3401,7 +3401,7 @@ function RightPanel({
     if (r.success) toast.success("Sent"); else toast.error(r.error);
   };
 
-  const day = active.day_number ?? 1;
+  const day = pipelineDay(active);
   const attempts = ATTEMPTS_PER_DAY(day);
   const fullName = [active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed";
   const objectionResp = openObjection
