@@ -28,7 +28,7 @@ type Lead = {
   status: string | null; call_notes: string | null; created_at: string;
   callback_scheduled_at: string | null; day_number: number | null;
   finance_eligible: boolean | null; booking_date: string | null; booking_time: string | null;
-  clinic_id: string | null; rep_id: string | null;
+  clinic_id: string | null; rep_id: string | null; raw_payload: Record<string, unknown> | null;
 };
 
 type Clinic = {
