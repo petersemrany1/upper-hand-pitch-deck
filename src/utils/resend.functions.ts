@@ -989,7 +989,7 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
     }
 
     // Step 2 — fetch call_records for all these leads to get duration data
-    const leadIds = (leads as { id: string }[]).map((l) => l.id);
+    const leadIds = (filteredLeads as { id: string }[]).map((l) => l.id);
     const { data: callRecs } = await admin
       .from("call_records")
       .select("lead_id, duration_seconds")
@@ -1006,7 +1006,7 @@ export const analyseCallPatterns = createServerFn({ method: "POST" })
     }
 
     // Step 4 — tag each lead
-    const taggedNotes = (leads as {
+    const taggedNotes = (filteredLeads as {
       id: string;
       call_notes: string | null;
       status: string | null;
