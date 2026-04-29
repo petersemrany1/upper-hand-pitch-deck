@@ -2675,11 +2675,13 @@ function LeadChooser({
   leads,
   attemptCounts,
   attemptsByDay,
+  firstCallByLead,
   onPick,
 }: {
   leads: Lead[];
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
+  firstCallByLead: Record<string, string>;
   onPick: (id: string) => void;
 }) {
   const [q, setQ] = useState("");
