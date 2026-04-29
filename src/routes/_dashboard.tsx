@@ -30,6 +30,9 @@ function DashboardLayout() {
   const navigate = useNavigate();
   const { session, ready } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
+  // Sales Call page has its own in-call UI on the right panel, so the
+  // floating widget is redundant and overlaps the objections column.
+  const hideFloatingCall = location.pathname === "/sales-call";
 
   // Redirect unauthenticated users once the session check has resolved.
   useEffect(() => {
@@ -103,7 +106,7 @@ function DashboardLayout() {
         </div>
       </div>
       <IncomingCallDialog />
-      <FloatingCallWidget />
+      {!hideFloatingCall && <FloatingCallWidget />}
       <SmsNotifier />
     </SidebarProvider>
   );
