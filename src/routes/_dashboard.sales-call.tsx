@@ -2777,6 +2777,48 @@ function LeadChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, attemptsByDay, overrideToToday, todayKey, yesterdayKey]);
 
+  // Apply manual reordering on top of the auto buckets. When the user has
+  // dragged any card within a column, that column renders as one flat list
+  // in the manual order (so they can slot a lead anywhere — not auto-bottom).
+  const orderedYesterday = useMemo(() => {
+    const ids = manualOrder.yesterday;
+    if (ids.length === 0) return buckets.yesterday;
+    const map = new Map(buckets.yesterday.map((l) => [l.id, l] as const));
+    const ordered: Lead[] = [];
+    for (const id of ids) { const l = map.get(id); if (l) { ordered.push(l); map.delete(id); } }
+    for (const l of buckets.yesterday) if (map.has(l.id)) { ordered.push(l); map.delete(l.id); }
+    return ordered;
+  }, [buckets.yesterday, manualOrder.yesterday]);
+
+  const orderedTomorrow = useMemo(() => {
+    const ids = manualOrder.tomorrow;
+    if (ids.length === 0) return buckets.tomorrow;
+    const map = new Map(buckets.tomorrow.map((l) => [l.id, l] as const));
+    const ordered: Lead[] = [];
+    for (const id of ids) { const l = map.get(id); if (l) { ordered.push(l); map.delete(id); } }
+    for (const l of buckets.tomorrow) if (map.has(l.id)) { ordered.push(l); map.delete(l.id); }
+    return ordered;
+  }, [buckets.tomorrow, manualOrder.tomorrow]);
+
+  const todayManualFlat = useMemo(() => {
+    const ids = manualOrder.today;
+    if (ids.length === 0) return null;
+    const map = new Map(buckets.today.map((it) => [it.lead.id, it] as const));
+    const ordered: { section: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining"; lead: Lead }[] = [];
+    for (const id of ids) { const it = map.get(id); if (it) { ordered.push(it); map.delete(id); } }
+    for (const it of buckets.today) if (map.has(it.lead.id)) { ordered.push(it); map.delete(it.lead.id); }
+    return ordered;
+  }, [buckets.today, manualOrder.today]);
+
+  // Keep a ref of what's currently rendered in each column so drop math works.
+  useEffect(() => {
+    colOrderRef.current = {
+      yesterday: orderedYesterday.map((l) => l.id),
+      today: (todayManualFlat ?? buckets.today).map((it) => it.lead.id),
+      tomorrow: orderedTomorrow.map((l) => l.id),
+    };
+  }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
+
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
     setSavingStatus(leadId);
