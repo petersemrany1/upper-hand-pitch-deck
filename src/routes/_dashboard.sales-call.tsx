@@ -3167,7 +3167,7 @@ function LeadChooser({
           >
             ⋮⋮
           </div>
-          <div data-lead-card style={{ display: "contents" }} />
+          
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
