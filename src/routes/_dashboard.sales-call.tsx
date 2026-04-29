@@ -3167,9 +3167,7 @@ function LeadChooser({
     if (wasInCol !== col) {
       if (col === "today") await moveToToday(id);
       else if (col === "tomorrow") await moveToTomorrow(id);
-      else {
-        await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
-      }
+      else await moveToYesterday(id);
     }
 
     // 2) Apply manual ordering inside the target column
