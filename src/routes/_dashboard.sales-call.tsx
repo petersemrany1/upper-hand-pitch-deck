@@ -2676,7 +2676,8 @@ const localDateKey = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 type DayCol = "yesterday" | "today" | "tomorrow";
-type DragState = { id: string; col: DayCol; x: number; y: number; pointerId: number; dragging: boolean; offsetX: number; offsetY: number };
+type DragState = { id: string; col: DayCol; pointerId: number; dragging: boolean; offsetX: number; offsetY: number; width: number; height: number };
+type DragVisual = { id: string; left: number; top: number; width: number; height: number };
 
 const sameLocalDate = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -2711,6 +2712,7 @@ function LeadChooser({
     yesterday: [], today: [], tomorrow: [],
   });
   const [dropTarget, setDropTarget] = useState<{ col: DayCol; beforeId: string | null } | null>(null);
+  const [dragVisual, setDragVisual] = useState<DragVisual | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const dropTargetRef = useRef<{ col: DayCol; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
@@ -2931,7 +2933,11 @@ function LeadChooser({
     target instanceof HTMLElement && !!target.closest("button,a,input,textarea,select,[data-no-card-drag]");
 
   const dropTargetFromPoint = (leadId: string, x: number, y: number) => {
+    const draggedEl = document.querySelector(`[data-lead-card][data-lead-id="${leadId}"]`) as HTMLElement | null;
+    const previousPointerEvents = draggedEl?.style.pointerEvents;
+    if (draggedEl) draggedEl.style.pointerEvents = "none";
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    if (draggedEl) draggedEl.style.pointerEvents = previousPointerEvents ?? "";
     const column = el?.closest("[data-drop-col]") as HTMLElement | null;
     const col = column?.dataset.dropCol as DayCol | undefined;
     if (!col) return null;
@@ -2944,6 +2950,40 @@ function LeadChooser({
     const isAbove = y < rect.top + rect.height / 2;
     return { col, beforeId: isAbove ? overId : nextLeadIdInCol(col, overId) };
   };
+
+  const finishDrag = useCallback((clientX: number, clientY: number, pointerId?: number) => {
+    const state = dragStateRef.current;
+    if (pointerId !== undefined && state && state.pointerId !== pointerId) return;
+    if (!state) return;
+    dragStateRef.current = null;
+    const target = dropTargetFromPoint(state.id, clientX, clientY) ?? dropTargetRef.current;
+    setDropPreview(null);
+    setDragVisual(null);
+    if (state.dragging && target) void handleDrop(state.id, target.col, target);
+  }, []);
+
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      const state = dragStateRef.current;
+      if (!state || (state.pointerId !== -1 && state.pointerId !== e.pointerId)) return;
+      e.preventDefault();
+      state.dragging = true;
+      setDragVisual({ id: state.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: state.width, height: state.height });
+      setDropPreview(dropTargetFromPoint(state.id, e.clientX, e.clientY));
+    };
+    const onUp = (e: PointerEvent) => finishDrag(e.clientX, e.clientY, e.pointerId);
+    document.addEventListener("pointermove", onMove, { passive: false });
+    document.addEventListener("pointerup", onUp, true);
+    document.addEventListener("pointercancel", onUp, true);
+    const onBlur = () => finishDrag(0, 0);
+    window.addEventListener("blur", onBlur);
+    return () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp, true);
+      document.removeEventListener("pointercancel", onUp, true);
+      window.removeEventListener("blur", onBlur);
+    };
+  }, [finishDrag]);
 
   // Close the status menu when the user presses Escape.
   useEffect(() => {
@@ -3096,7 +3136,7 @@ function LeadChooser({
 
   const renderLeadCard = (
     l: Lead,
-    opts: { tone?: "muted" | "today"; section?: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining" | "tomorrow" | "yesterday" } = {}
+    opts: { tone?: "muted" | "today"; section?: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining" | "tomorrow" | "yesterday"; preview?: boolean } = {}
   ) => {
     const tone = opts.tone ?? "today";
     const section = opts.section ?? "remaining";
@@ -3127,38 +3167,23 @@ function LeadChooser({
         key={l.id}
         data-lead-card
         data-lead-id={l.id}
+        draggable={!opts.preview}
+        onDragStart={(e) => {
+          if (opts.preview || blocksCardDrag(e.target)) { e.preventDefault(); return; }
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", l.id);
+          const col = columnFromSection(section);
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          dragStateRef.current = { id: l.id, col, pointerId: -1, dragging: true, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
+          setDragVisual({ id: l.id, left: e.clientX - (e.clientX - rect.left), top: e.clientY - (e.clientY - rect.top), width: rect.width, height: rect.height });
+        }}
+        onDragEnd={(e) => finishDrag(e.clientX, e.clientY)}
         onPointerDown={(e) => {
           if (e.button !== 0 || blocksCardDrag(e.target)) return;
           const col = columnFromSection(section);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          dragStateRef.current = { id: l.id, col, x: e.clientX, y: e.clientY, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top };
+          dragStateRef.current = { id: l.id, col, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
           (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-        }}
-        onPointerMove={(e) => {
-          const state = dragStateRef.current;
-          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
-          const dx = Math.abs(e.clientX - state.x);
-          const dy = Math.abs(e.clientY - state.y);
-          if (!state.dragging && dx + dy < 2) return;
-          state.dragging = true;
-          e.preventDefault();
-          setDropPreview(dropTargetFromPoint(l.id, e.clientX, e.clientY));
-        }}
-        onPointerUp={(e) => {
-          const state = dragStateRef.current;
-          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
-          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-          dragStateRef.current = null;
-          const target = dropTargetFromPoint(l.id, e.clientX, e.clientY) ?? dropTargetRef.current;
-          setDropPreview(null);
-          if (state.dragging && target) void handleDrop(l.id, target.col, target);
-        }}
-        onPointerCancel={(e) => {
-          const state = dragStateRef.current;
-          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
-          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
-          dragStateRef.current = null;
-          setDropPreview(null);
         }}
         className="rounded-[10px]"
         style={{
@@ -3166,11 +3191,11 @@ function LeadChooser({
           border: `0.5px solid ${COLORS.line}`,
           borderLeft: accent === "transparent" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
           marginBottom: 8,
-          opacity: tone === "muted" ? 0.7 : 1,
           // Drop indicator above this card
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
           cursor: "grab",
+          opacity: !opts.preview && dragVisual?.id === l.id ? 0.18 : tone === "muted" ? 0.7 : 1,
           userSelect: "none",
           WebkitUserSelect: "none",
           touchAction: "none",
@@ -3449,6 +3474,28 @@ function LeadChooser({
           </Column>
         </div>
       </div>
+
+      {dragVisual && (() => {
+        const lead = leads.find((item) => item.id === dragVisual.id);
+        if (!lead) return null;
+        return (
+          <div
+            style={{
+              position: "fixed",
+              left: dragVisual.left,
+              top: dragVisual.top,
+              width: dragVisual.width,
+              height: dragVisual.height,
+              zIndex: 2000,
+              pointerEvents: "none",
+              transform: "rotate(1deg)",
+              boxShadow: "0 18px 40px rgba(0,0,0,0.18)",
+            }}
+          >
+            {renderLeadCard(lead, { tone: forcedCol[lead.id] === "tomorrow" ? "muted" : "today", section: forcedCol[lead.id] === "tomorrow" ? "tomorrow" : "remaining", preview: true })}
+          </div>
+        );
+      })()}
 
       {/* Floating Converted Leads pill (bottom-right) */}
       <button
