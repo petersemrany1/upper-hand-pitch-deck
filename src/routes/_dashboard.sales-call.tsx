@@ -2744,6 +2744,11 @@ function RightPanel({
   const [callbackTime, setCallbackTime] = useState("");
   const [savingCallback, setSavingCallback] = useState(false);
 
+  // Send a photo panel
+  const [showPhoto, setShowPhoto] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<{ label: string; url: string } | null>(null);
+  const [sendingPhoto, setSendingPhoto] = useState(false);
+
   // SMS panel
   const [showSms, setShowSms] = useState(false);
   const [smsText, setSmsText] = useState("");
