@@ -1079,7 +1079,7 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
         return { success: false as const, error: json?.error?.message || "Claude API error" };
       }
       const text = json?.content?.[0]?.text ?? "No analysis returned.";
-      return { success: true as const, text, count: leads.length };
+      return { success: true as const, text, count: filteredLeads.length };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       return { success: false as const, error: msg };
