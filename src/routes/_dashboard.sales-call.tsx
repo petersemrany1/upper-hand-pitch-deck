@@ -2993,14 +2993,51 @@ function LeadChooser({
       </div>
     );
 
+  // Helper for renderLeadCard's onDragOver: given a column and a lead id,
+  // return the id of the lead that comes AFTER it in render order (or null
+  // if it's the last). Used so dropping in the bottom half of a card inserts
+  // the dragged lead immediately after it.
+  const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+    yesterday: [], today: [], tomorrow: [],
+  });
+  const nextLeadIdInCol = (col: "yesterday" | "today" | "tomorrow", afterId: string): string | null => {
+    const arr = colOrderRef.current[col];
+    const i = arr.indexOf(afterId);
+    if (i < 0 || i === arr.length - 1) return null;
+    return arr[i + 1];
+  };
+
   // Drop handlers
   const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
-    const id = dragId; setDragId(null); setDropCol(null);
+    const id = dragId;
+    const target = dropTarget;
+    setDragId(null); setDropCol(null); setDropTarget(null);
     if (!id) return;
-    if (col === "today") return moveToToday(id);
-    if (col === "tomorrow") return moveToTomorrow(id);
-    // yesterday: rare — just clear callback so it falls back to wherever the data places it
-    await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
+
+    // 1) Update column membership when crossing day boundaries
+    const wasInCol: "yesterday" | "today" | "tomorrow" =
+      colOrderRef.current.yesterday.includes(id) ? "yesterday" :
+      colOrderRef.current.tomorrow.includes(id) ? "tomorrow" : "today";
+    if (wasInCol !== col) {
+      if (col === "today") await moveToToday(id);
+      else if (col === "tomorrow") await moveToTomorrow(id);
+      else {
+        await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
+      }
+    }
+
+    // 2) Apply manual ordering inside the target column
+    setManualOrder((prev) => {
+      // Start from current rendered order so we preserve existing layout
+      const base = [...colOrderRef.current[col]].filter((x) => x !== id);
+      let insertAt = base.length;
+      if (target && target.col === col && target.beforeId) {
+        const idx = base.indexOf(target.beforeId);
+        if (idx >= 0) insertAt = idx;
+      }
+      base.splice(insertAt, 0, id);
+      return { ...prev, [col]: base };
+    });
   };
 
   const Column = ({
