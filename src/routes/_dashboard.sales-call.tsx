@@ -2661,14 +2661,22 @@ function RightPanel({
   useEffect(() => { setOpenObjection(null); }, [active.id]);
 
   const callNow = async () => {
+    console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (!active.phone) { toast.error("No phone number"); return; }
     if (deviceStatus === "loading" || deviceStatus === "idle") {
       toast.message("Dialler still warming up — try again in a moment.");
       return;
     }
+    if (deviceStatus === "error") {
+      toast.error("Dialler errored — refresh the page to reconnect.");
+      return;
+    }
     try {
+      console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id });
+      console.log("[callNow] placeCall returned");
     } catch (e) {
+      console.error("[callNow] placeCall threw", e);
       toast.error(e instanceof Error ? e.message : "Failed to start call");
     }
   };
