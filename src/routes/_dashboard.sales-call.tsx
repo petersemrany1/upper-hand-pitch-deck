@@ -3146,8 +3146,11 @@ function LeadChooser({
           const dx = Math.abs(e.clientX - state.x);
           const dy = Math.abs(e.clientY - state.y);
           if (!state.dragging && dx + dy < 2) return;
-          state.dragging = true;
           e.preventDefault();
+          const card = e.currentTarget as HTMLElement;
+          const rect = card.getBoundingClientRect();
+          state.dragging = true;
+          setDragVisual({ id: l.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: rect.width, height: rect.height });
           setDropPreview(dropTargetFromPoint(l.id, e.clientX, e.clientY));
         }}
         onPointerUp={(e) => {
@@ -3157,6 +3160,7 @@ function LeadChooser({
           dragStateRef.current = null;
           const target = dropTargetFromPoint(l.id, e.clientX, e.clientY) ?? dropTargetRef.current;
           setDropPreview(null);
+          setDragVisual(null);
           if (state.dragging && target) void handleDrop(l.id, target.col, target);
         }}
         onPointerCancel={(e) => {
@@ -3165,6 +3169,7 @@ function LeadChooser({
           try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
           dragStateRef.current = null;
           setDropPreview(null);
+          setDragVisual(null);
         }}
         className="rounded-[10px]"
         style={{
@@ -3177,6 +3182,7 @@ function LeadChooser({
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
           cursor: "grab",
+          visibility: dragVisual?.id === l.id ? "hidden" : "visible",
           userSelect: "none",
           WebkitUserSelect: "none",
           touchAction: "none",
