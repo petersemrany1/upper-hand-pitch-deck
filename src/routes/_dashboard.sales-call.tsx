@@ -2677,6 +2677,7 @@ const localDateKey = (d: Date) =>
 
 type DayCol = "yesterday" | "today" | "tomorrow";
 type DragState = { id: string; col: DayCol; x: number; y: number; pointerId: number; dragging: boolean; offsetX: number; offsetY: number };
+type DragVisual = { id: string; left: number; top: number; width: number; height: number };
 
 const sameLocalDate = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -2711,6 +2712,7 @@ function LeadChooser({
     yesterday: [], today: [], tomorrow: [],
   });
   const [dropTarget, setDropTarget] = useState<{ col: DayCol; beforeId: string | null } | null>(null);
+  const [dragVisual, setDragVisual] = useState<DragVisual | null>(null);
   const dragStateRef = useRef<DragState | null>(null);
   const dropTargetRef = useRef<{ col: DayCol; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
