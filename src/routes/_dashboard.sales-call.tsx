@@ -3125,18 +3125,38 @@ function LeadChooser({
       <div
         key={l.id}
         data-lead-card
-
-        onDragOver={(e) => {
-          const currentDragId = dragIdRef.current;
-          if (!currentDragId || currentDragId === l.id) return;
+        data-lead-id={l.id}
+        onPointerDown={(e) => {
+          if (e.button !== 0 || blocksCardDrag(e.target)) return;
+          const origin = columnFromSection(section);
+          dragStateRef.current = { id: l.id, origin, x: e.clientX, y: e.clientY, pointerId: e.pointerId, dragging: false };
+          (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+        }}
+        onPointerMove={(e) => {
+          const state = dragStateRef.current;
+          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
+          const dx = Math.abs(e.clientX - state.x);
+          const dy = Math.abs(e.clientY - state.y);
+          if (!state.dragging && dx + dy < 2) return;
+          state.dragging = true;
           e.preventDefault();
-          e.stopPropagation();
-          const col: "yesterday" | "today" | "tomorrow" =
-            section === "yesterday" ? "yesterday" :
-            section === "tomorrow" ? "tomorrow" : "today";
-          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          const isAbove = e.clientY < rect.top + rect.height / 2;
-          setDropPreview({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
+          setDropPreview(dropTargetFromPoint(l.id, e.clientX, e.clientY));
+        }}
+        onPointerUp={(e) => {
+          const state = dragStateRef.current;
+          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
+          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+          dragStateRef.current = null;
+          const target = dropTargetFromPoint(l.id, e.clientX, e.clientY) ?? dropTargetRef.current;
+          setDropPreview(null);
+          if (state.dragging && target) void handleDrop(l.id, target.col, target);
+        }}
+        onPointerCancel={(e) => {
+          const state = dragStateRef.current;
+          if (!state || state.id !== l.id || state.pointerId !== e.pointerId) return;
+          try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+          dragStateRef.current = null;
+          setDropPreview(null);
         }}
         className="rounded-[10px]"
         style={{
@@ -3148,6 +3168,10 @@ function LeadChooser({
           // Drop indicator above this card
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
           transition: "box-shadow 80ms",
+          cursor: "grab",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          touchAction: "none",
         }}
       >
         {banner && (
