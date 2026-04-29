@@ -2659,6 +2659,11 @@ function LeadChooser({
     yesterday: [], today: [], tomorrow: [],
   });
   const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
+  // Snapshot of the currently rendered ids per column (kept in sync via useEffect
+  // below). Used by drag/drop math.
+  const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+    yesterday: [], today: [], tomorrow: [],
+  });
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
