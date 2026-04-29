@@ -1682,6 +1682,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [sendingDeposit, setSendingDeposit] = useState(false);
   const [handoverSent, setHandoverSent] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [depositSent, setDepositSent] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
@@ -1980,7 +1981,6 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       } catch { return `${bookedData.date} at ${bookedData.time}`; }
     })();
 
-    const [resetting, setResetting] = useState(false);
     const handleResetBooking = async () => {
       setResetting(true);
       const r = await clearBooking({ data: { leadId: lead.id } });
