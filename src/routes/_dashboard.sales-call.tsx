@@ -3302,6 +3302,7 @@ function RightPanel({
         {showPhoto && (() => {
           const PHOTO_OPTIONS: { label: string; url: string }[] = [
             { label: "Natural vs Un-natural", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/natural-vs-unnatural.jpg" },
+            { label: "Before & After 1", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-1.png" },
           ];
           return (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
