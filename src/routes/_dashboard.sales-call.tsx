@@ -3120,37 +3120,52 @@ function LeadChooser({
   const moveToToday = async (leadId: string) => {
     // Optimistic local override so the card jumps columns instantly
     setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
-    // If the lead has a callback set for tomorrow, clear it back to today's next slot
     const lead = leads.find((l) => l.id === leadId);
+    const rawPayload = { ...(lead?.raw_payload ?? {}), pipeline_column: "today" };
+    onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
+    // If the lead has a callback set for tomorrow, clear it back to today's next slot
     if (lead?.callback_scheduled_at) {
       const cb = new Date(lead.callback_scheduled_at);
       if (sameLocalDate(cb, tomorrow)) {
         const next = new Date();
         next.setMinutes(next.getMinutes() + 30);
-        onLocalLeadUpdate?.(leadId, { callback_scheduled_at: next.toISOString() });
+        onLocalLeadUpdate?.(leadId, { callback_scheduled_at: next.toISOString(), raw_payload: rawPayload });
         await supabase
           .from("meta_leads")
-          .update({ callback_scheduled_at: next.toISOString(), updated_at: new Date().toISOString() })
+          .update({ callback_scheduled_at: next.toISOString(), raw_payload: rawPayload, updated_at: new Date().toISOString() })
           .eq("id", leadId);
+        toast.success("Moved to Today");
+        return;
       }
     }
+    await supabase
+      .from("meta_leads")
+      .update({ raw_payload: rawPayload, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
     toast.success("Moved to Today");
   };
 
   const moveToTomorrow = async (leadId: string) => {
-    // Just move the card to tomorrow's column — do NOT auto-schedule a callback.
-    // The rep can explicitly schedule one via the "Schedule callback" UI.
+    const lead = leads.find((l) => l.id === leadId);
+    const rawPayload = { ...(lead?.raw_payload ?? {}), pipeline_column: "tomorrow" };
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
+    onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
+    await supabase
+      .from("meta_leads")
+      .update({ raw_payload: rawPayload, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
     toast.success("Moved to Tomorrow");
   };
 
   const moveToYesterday = async (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    const rawPayload = { ...(lead?.raw_payload ?? {}), pipeline_column: "yesterday" };
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
-    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null });
+    onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null, raw_payload: rawPayload });
     await supabase
       .from("meta_leads")
-      .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
+      .update({ callback_scheduled_at: null, raw_payload: rawPayload, updated_at: new Date().toISOString() })
       .eq("id", leadId);
     toast.success("Moved to Yesterday");
   };
