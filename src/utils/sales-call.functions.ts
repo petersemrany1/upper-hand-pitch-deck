@@ -483,16 +483,34 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       .not("booking_date", "is", null)
       .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
 
-    const byRep = new Map<string, {
-      calls: number; attempted: number; connected: number; bookings: number;
-      shortCalls: number; convos: number; holds: number; workSeconds: number;
-    }>();
-    for (const r of reps ?? []) byRep.set(r.id, { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 });
+    // Dedupe reps by email (keeps the row with an email so calls attribute correctly).
+    // Reps with no email get kept under their id only.
+    const seenEmail = new Set<string>();
+    const dedupedReps = (reps ?? []).filter((r) => {
+      const e = (r.email ?? "").trim().toLowerCase();
+      if (!e) return true;
+      if (seenEmail.has(e)) return false;
+      seenEmail.add(e);
+      return true;
+    });
+
+    // Pick a fallback rep for unattributed (rep_id IS NULL) rows. Prefer the rep
+    // with an email (likely the actively signed-in one) — currently the only
+    // human dialing the phones — so today's calls show up on the leaderboard.
+    const fallbackRepId: string | null =
+      dedupedReps.find((r) => (r.email ?? "").trim() !== "")?.id
+      ?? dedupedReps[0]?.id
+      ?? null;
+
+    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 });
+    const byRep = new Map<string, ReturnType<typeof blank>>();
+    for (const r of dedupedReps) byRep.set(r.id, blank());
 
     for (const c of calls ?? []) {
-      if (!c.rep_id) continue;
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
-      const s = byRep.get(c.rep_id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 };
+      const repId = c.rep_id ?? fallbackRepId;
+      if (!repId) continue;
+      const s = byRep.get(repId) ?? blank();
       s.calls += 1;
       s.attempted += 1;
       if (c.outcome === "connected") s.connected += 1;
@@ -501,18 +519,19 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       if (dur > 0 && dur < 120) s.shortCalls += 1;
       if (dur >= 180) s.convos += 1;
       if (dur >= 300) s.holds += 1;
-      byRep.set(c.rep_id, s);
+      byRep.set(repId, s);
     }
     for (const b of bookings ?? []) {
-      if (!b.rep_id) continue;
       if (excludedLeadIds.has(b.id as string)) continue; // skip Peter Test
-      const s = byRep.get(b.rep_id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 };
+      const repId = b.rep_id ?? fallbackRepId;
+      if (!repId) continue;
+      const s = byRep.get(repId) ?? blank();
       s.bookings += 1;
-      byRep.set(b.rep_id, s);
+      byRep.set(repId, s);
     }
 
-    const rows = (reps ?? []).map((r) => {
-      const s = byRep.get(r.id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 };
+    const rows = dedupedReps.map((r) => {
+      const s = byRep.get(r.id) ?? blank();
       const conversion = s.connected > 0 ? Math.round((s.bookings / s.connected) * 100) : 0;
       const convosPct = s.calls > 0 ? Math.round((s.convos / s.calls) * 100) : 0;
       return {
