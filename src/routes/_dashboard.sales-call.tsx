@@ -3102,23 +3102,6 @@ function LeadChooser({
     return (
       <div
         key={l.id}
-        draggable
-        onDragStart={(e) => {
-          dragIdRef.current = l.id;
-          setDragId(l.id);
-          e.dataTransfer.effectAllowed = "move";
-          e.dataTransfer.setData("text/plain", l.id);
-          // Set drag image synchronously to the card itself — without this some
-          // browsers (Chrome/Safari) abort the drag if React re-renders before
-          // the default image snapshot is taken, which forces the user to
-          // click-release-click-and-hold.
-          try {
-            const el = e.currentTarget as HTMLElement;
-            const rect = el.getBoundingClientRect();
-            e.dataTransfer.setDragImage(el, e.clientX - rect.left, e.clientY - rect.top);
-          } catch { /* setDragImage not available — ignore */ }
-        }}
-        onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
         onDragOver={(e) => {
           const currentDragId = dragIdRef.current;
           if (!currentDragId || currentDragId === l.id) return;
@@ -3137,14 +3120,10 @@ function LeadChooser({
           border: `0.5px solid ${COLORS.line}`,
           borderLeft: accent === "transparent" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
           marginBottom: 8,
-          opacity: dragId === l.id ? 0.4 : (tone === "muted" ? 0.7 : 1),
-          cursor: dragId === l.id ? "grabbing" : "grab",
-          // Prevent text-selection from hijacking the first click and
-          // cancelling the drag-start.
-          userSelect: "none",
-          WebkitUserSelect: "none",
+          opacity: tone === "muted" ? 0.7 : 1,
           // Drop indicator above this card
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
+          transition: "box-shadow 80ms",
         }}
       >
         {banner && (
@@ -3152,7 +3131,41 @@ function LeadChooser({
             {banner.text}
           </div>
         )}
-        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+          {/* Dedicated drag handle — only this region is draggable, so the
+              card's buttons / badges can never intercept the drag-start. */}
+          <div
+            draggable
+            onDragStart={(e) => {
+              dragIdRef.current = l.id;
+              setDragId(l.id);
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", l.id);
+              try {
+                // Drag image = the whole card, snapshotted synchronously.
+                const card = (e.currentTarget as HTMLElement).closest("[data-lead-card]") as HTMLElement | null;
+                if (card) {
+                  const rect = card.getBoundingClientRect();
+                  e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top);
+                }
+              } catch { /* ignore */ }
+            }}
+            onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
+            title="Drag to move"
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 18, height: 36, flexShrink: 0,
+              cursor: "grab",
+              color: "#bbb", fontSize: 14, lineHeight: 1,
+              userSelect: "none", WebkitUserSelect: "none",
+              touchAction: "none",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "#666")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "#bbb")}
+          >
+            ⋮⋮
+          </div>
+          <div data-lead-card style={{ display: "contents" }} />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
