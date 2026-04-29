@@ -294,10 +294,12 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
       console.error("Voice SDK call error:", e);
+      stopRingback();
       activeCall = null;
       setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, status: "error" });
     });
   } catch (err) {
+    stopRingback();
     const msg = extractErrorMessage(err, "Failed to start call");
     setSnapshot({ error: msg, status: "error" });
     throw err instanceof Error ? err : new Error(msg);
