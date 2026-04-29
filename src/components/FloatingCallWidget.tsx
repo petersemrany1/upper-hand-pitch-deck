@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText,
+  Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText, ArrowRight,
 } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { supabase } from "@/integrations/supabase/client";
+import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { toast } from "sonner";
 
 // Global floating call widget. Renders nothing unless a call is connecting or
