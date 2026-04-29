@@ -2556,6 +2556,20 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
 const ATTEMPTS_PER_DAY = (day: number) => (day <= 7 ? 3 : 1);
 
+// Day-in-pipeline derived from created_at (calendar-day diff, 1-indexed).
+// e.g. lead created today = Day 1, created yesterday = Day 2, etc.
+// We use this instead of the static `day_number` column so it ticks over
+// automatically as time passes — leads from yesterday correctly show Day 2.
+function pipelineDay(l: { created_at: string; day_number?: number | null }): number {
+  if (!l.created_at) return Math.max(1, l.day_number ?? 1);
+  const created = new Date(l.created_at);
+  const a = new Date(created.getFullYear(), created.getMonth(), created.getDate()).getTime();
+  const now = new Date();
+  const b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.floor((b - a) / 86400000) + 1;
+  return Math.max(1, days);
+}
+
 type LeadUrgency = "overdue" | "due" | "upcoming";
 
 function leadUrgency(l: Lead): LeadUrgency {
@@ -2709,46 +2723,48 @@ function LeadChooser({
     return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
   };
 
-  // Build column buckets
+  // Build column buckets — every lead appears in EXACTLY one column.
+  // Priority order: tomorrow (future callback / auto-bumped) > today > yesterday.
   const buckets = useMemo(() => {
     const out = {
       yesterday: [] as Lead[],
       today: [] as { section: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining"; lead: Lead }[],
       tomorrow: [] as Lead[],
     };
-    const usedToday = new Set<string>();
+    const placed = new Set<string>();
+
     for (const l of filtered) {
-      // Yesterday column = callbacks scheduled yesterday OR called yesterday
-      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
-        // also mirror "no-answer yesterday" leads inside today; here we keep the yesterday column
-        out.yesterday.push(l);
+      if (placed.has(l.id)) continue;
+
+      // 1) Tomorrow column wins first (future-scheduled callback or auto-bumped)
+      if (callbackOn(l, tomorrow) || failedThreeToday(l)) {
+        out.tomorrow.push(l); placed.add(l.id); continue;
       }
-      // Tomorrow column = explicit callback tomorrow OR auto-bumped after 3 fails today
-      const cbTomorrow = callbackOn(l, tomorrow);
-      if (cbTomorrow || failedThreeToday(l)) {
-        out.tomorrow.push(l);
-        if (cbTomorrow) continue; // a future-callback lead never sits inside today
-        if (failedThreeToday(l)) continue;
-      }
-    }
-    // Build today's prioritised list separately
-    for (const l of filtered) {
-      if (callbackOn(l, tomorrow)) continue;
-      if (failedThreeToday(l)) continue;
+
+      // 2) Today column — overdue / callback / no-answer-yesterday / new / remaining
       const u = leadUrgency(l);
       if (callbackOn(l, today) && u === "overdue") {
-        out.today.push({ section: "overdue", lead: l }); usedToday.add(l.id); continue;
+        out.today.push({ section: "overdue", lead: l }); placed.add(l.id); continue;
       }
       if (callbackOn(l, today)) {
-        out.today.push({ section: "callback", lead: l }); usedToday.add(l.id); continue;
+        out.today.push({ section: "callback", lead: l }); placed.add(l.id); continue;
       }
       if (noAnswerYesterday(l)) {
-        out.today.push({ section: "no-answer-yesterday", lead: l }); usedToday.add(l.id); continue;
+        // shows in TODAY (so the rep retries them today), not duplicated in yesterday
+        out.today.push({ section: "no-answer-yesterday", lead: l }); placed.add(l.id); continue;
       }
       if (isNew(l)) {
-        out.today.push({ section: "new", lead: l }); usedToday.add(l.id); continue;
+        out.today.push({ section: "new", lead: l }); placed.add(l.id); continue;
       }
-      out.today.push({ section: "remaining", lead: l }); usedToday.add(l.id);
+
+      // 3) Yesterday column — only if NOT already placed and they had activity yesterday
+      //    (callback yesterday, or last contact was yesterday and we don't need them today)
+      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
+        out.yesterday.push(l); placed.add(l.id); continue;
+      }
+
+      // 4) Everything else falls into today's "remaining"
+      out.today.push({ section: "remaining", lead: l }); placed.add(l.id);
     }
 
     // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining
@@ -2765,7 +2781,6 @@ function LeadChooser({
       return new Date(b.lead.created_at).getTime() - new Date(a.lead.created_at).getTime();
     });
 
-    // Yesterday: callbacks first then by when last contacted
     out.yesterday.sort((a, b) => {
       const ya = callbackOn(a, yesterday) ? 0 : 1;
       const yb = callbackOn(b, yesterday) ? 0 : 1;
@@ -2915,7 +2930,7 @@ function LeadChooser({
     const tone = opts.tone ?? "today";
     const section = opts.section ?? "remaining";
     const u = leadUrgency(l);
-    const day = l.day_number ?? 1;
+    const day = pipelineDay(l);
     const attempts = ATTEMPTS_PER_DAY(day);
     const todayCount = attemptCounts[l.id] ?? 0;
     const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
@@ -3033,12 +3048,36 @@ function LeadChooser({
     return groups;
   }, [buckets.today]);
 
-  const SectionHeader = ({ title, count, color }: { title: string; count: number; color: string }) =>
-    count === 0 ? null : (
-      <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color, margin: "12px 4px 6px" }}>
-        {title} · {count}
-      </div>
+  // Collapsed today sections (each section can be folded so the rep can
+  // skip past New leads to get to Remaining etc.).
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const toggleSection = (k: string) => setCollapsed((p) => ({ ...p, [k]: !p[k] }));
+
+  const SectionHeader = ({ title, count, color, sectionKey }: { title: string; count: number; color: string; sectionKey: string }) => {
+    if (count === 0) return null;
+    const isCollapsed = !!collapsed[sectionKey];
+    return (
+      <button
+        type="button"
+        onClick={() => toggleSection(sectionKey)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
+          color, margin: "12px 0 6px", background: "transparent", border: "none",
+          cursor: "pointer", padding: "2px 4px", width: "100%", textAlign: "left",
+        }}
+      >
+        <ChevronDown
+          style={{
+            width: 12, height: 12, opacity: 0.7,
+            transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+            transition: "transform 120ms",
+          }}
+        />
+        <span>{title} · {count}</span>
+      </button>
     );
+  };
 
   // Helper for renderLeadCard's onDragOver: given a column and a lead id,
   // return the id of the lead that comes AFTER it in render order (or null
@@ -3170,16 +3209,16 @@ function LeadChooser({
               todayManualFlat.map((it) => renderLeadCard(it.lead, { section: it.section }))
             ) : (
               <>
-                <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} />
-                {todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
-                <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} />
-                {todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
-                <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} />
-                {todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
-                <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} />
-                {todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
-                <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" />
-                {todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
+                <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} sectionKey="overdue" />
+                {!collapsed.overdue && todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
+                <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} sectionKey="callback" />
+                {!collapsed.callback && todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
+                <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} sectionKey="no-answer-yesterday" />
+                {!collapsed["no-answer-yesterday"] && todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
+                <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} sectionKey="new" />
+                {!collapsed.new && todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
+                <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" sectionKey="remaining" />
+                {!collapsed.remaining && todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
               </>
             )}
           </Column>
@@ -3386,7 +3425,7 @@ function RightPanel({
     if (r.success) toast.success("Sent"); else toast.error(r.error);
   };
 
-  const day = active.day_number ?? 1;
+  const day = pipelineDay(active);
   const attempts = ATTEMPTS_PER_DAY(day);
   const fullName = [active.first_name, active.last_name].filter(Boolean).join(" ") || "Unnamed";
   const objectionResp = openObjection
