@@ -3686,6 +3686,8 @@ function LeadChooser({
                 borderRadius: 10,
                 boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
                 minWidth: 220,
+                maxHeight: "calc(100vh - 16px)",
+                overflowY: "auto",
                 padding: 4,
               }}
             >
