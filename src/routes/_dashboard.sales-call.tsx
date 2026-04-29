@@ -2975,11 +2975,13 @@ function LeadChooser({
     document.addEventListener("pointermove", onMove, { passive: false });
     document.addEventListener("pointerup", onUp, true);
     document.addEventListener("pointercancel", onUp, true);
-    window.addEventListener("blur", () => finishDrag(0, 0));
+    const onBlur = () => finishDrag(0, 0);
+    window.addEventListener("blur", onBlur);
     return () => {
       document.removeEventListener("pointermove", onMove);
       document.removeEventListener("pointerup", onUp, true);
       document.removeEventListener("pointercancel", onUp, true);
+      window.removeEventListener("blur", onBlur);
     };
   }, [finishDrag]);
 
