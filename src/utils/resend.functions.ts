@@ -957,83 +957,135 @@ export const sendManualSms = createServerFn({ method: "POST" })
 export const analyseCallPatterns = createServerFn({ method: "POST" })
   .inputValidator((data: { range: "today" | "yesterday" | "week" | "lastweek" | "30d" }) => data)
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
+    const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return { success: false as const, error: "AI gateway not configured" };
+      return { success: false as const, error: "ANTHROPIC_API_KEY not configured" };
     }
 
+    // Build date range
     const now = new Date();
     const from = new Date();
     let to = new Date(now);
     if (data.range === "today") {
       from.setHours(0, 0, 0, 0);
     } else if (data.range === "yesterday") {
-      from.setDate(from.getDate() - 1);
-      from.setHours(0, 0, 0, 0);
-      to = new Date();
-      to.setHours(0, 0, 0, 0);
+      from.setDate(from.getDate() - 1); from.setHours(0, 0, 0, 0);
+      to = new Date(); to.setHours(0, 0, 0, 0);
     } else if (data.range === "week") {
       from.setDate(from.getDate() - 7);
     } else if (data.range === "lastweek") {
       from.setDate(from.getDate() - 14);
-      to = new Date();
-      to.setDate(to.getDate() - 7);
+      to = new Date(); to.setDate(to.getDate() - 7);
     } else {
       from.setDate(from.getDate() - 30);
     }
 
     const admin = getAdminClient();
+
+    // Step 1 — fetch all leads with call notes in this date range
     const { data: leads } = await admin
       .from("meta_leads")
-      .select("call_notes, status, first_name")
+      .select("id, call_notes, status, first_name, last_name, booking_date")
       .gte("updated_at", from.toISOString())
       .lte("updated_at", to.toISOString())
       .not("call_notes", "is", null);
 
-    const notes = (leads ?? [])
-      .map((l: { call_notes: string | null; status: string | null; first_name: string | null }) =>
-        `[${l.status ?? "unknown"}] ${l.first_name ?? ""}: ${l.call_notes}`
-      )
-      .filter((n: string) => n.length > 20)
-      .join("\n\n---\n\n");
-
-    if (!notes.trim()) {
+    if (!leads || leads.length === 0) {
       return { success: true as const, text: "No call notes found for this period.", count: 0 };
     }
 
-    const systemPrompt = `You are a sales performance analyst for Hair Transplant Group, an Australian hair transplant lead generation business. Analyse the following call notes and patient summaries and provide insights in these exact sections:
+    // Step 2 — fetch call_records for all these leads to get duration data
+    const leadIds = (leads as { id: string }[]).map((l) => l.id);
+    const { data: callRecs } = await admin
+      .from("call_records")
+      .select("lead_id, duration_seconds")
+      .in("lead_id", leadIds)
+      .gte("called_at", from.toISOString())
+      .lte("called_at", to.toISOString());
 
-1. TOP OBJECTIONS — What are the most common reasons people are saying no or getting off the phone?
-2. MAIN PAIN POINTS — What hair loss concerns keep coming up?
-3. DREAM OUTCOMES — What are people most excited about? What do they want?
-4. WHAT'S KEEPING PEOPLE ON THE PHONE — What topics or approaches are generating the longest conversations?
-5. PATTERNS TO ACT ON — 2-3 specific things the rep should change or double down on based on this data.
+    // Step 3 — engaged = at least one call > 3 mins
+    const engagedLeadIds = new Set<string>();
+    for (const c of (callRecs ?? []) as { lead_id: string | null; duration_seconds: number | null }[]) {
+      if (c.lead_id && (c.duration_seconds ?? 0) > 180) {
+        engagedLeadIds.add(c.lead_id);
+      }
+    }
 
-Be specific. Use numbers where possible (e.g. "6 out of 10 mentioned..."). Plain prose, no fluff.`;
+    // Step 4 — tag each lead
+    const taggedNotes = (leads as {
+      id: string;
+      call_notes: string | null;
+      status: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      booking_date: string | null;
+    }[])
+      .map((l) => {
+        if (!l.call_notes?.trim()) return null;
+        const isConverted = !!l.booking_date;
+        const isEngaged = engagedLeadIds.has(l.id);
+        const tag = isConverted
+          ? "[CONVERTED]"
+          : isEngaged
+          ? "[ENGAGED - NOT CONVERTED]"
+          : "[NOT CONVERTED]";
+        const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unknown";
+        return `${tag} ${name}: ${l.call_notes.trim()}`;
+      })
+      .filter(Boolean)
+      .join("\n\n---\n\n");
+
+    if (!taggedNotes.trim()) {
+      return { success: true as const, text: "No call notes found for this period.", count: 0 };
+    }
+
+    const systemPrompt = `You are a sales performance analyst for Hair Transplant Group, an Australian hair transplant lead generation business. You will receive call notes from patient leads tagged as:
+- [CONVERTED] = they booked a consultation — the call worked
+- [ENGAGED - NOT CONVERTED] = they had a real conversation over 3 minutes but did not book — these are the missed opportunities
+- [NOT CONVERTED] = short call, no answer, or quick rejection
+
+Analyse all the notes and return EXACTLY these 5 sections with these exact bold headings. Be forensically specific — use real numbers, real names where helpful, and exact phrases or quotes from the notes wherever you can find them. No fluff.
+
+**1. WHY PEOPLE ARE GETTING OFF THE PHONE**
+What are the most common reasons conversations end without a booking? What specific objections, moments, or phrases cause people to disengage? Quote the exact language where you see it.
+
+**2. MAIN PAIN POINTS**
+What hair loss concerns keep coming up across all calls? Be specific about location (hairline, crown, temples), emotional impact (confidence at work, avoiding photos, social situations). Use numbers where possible e.g. "8 out of 12 mentioned...".
+
+**3. DREAM OUTCOMES**
+What are people most excited about? What do they say when they picture having their hair back? What specific feelings and outcomes motivate them most?
+
+**4. WHAT'S KEEPING PEOPLE ON THE PHONE**
+What topics, questions, or moments in the conversation are generating the most engagement? What seems to work based on the converted and engaged leads?
+
+**5. MISSED OPPORTUNITIES**
+Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had real conversations but did not book. What patterns do you see across these specific leads in why they dropped off? Name each pattern clearly, how many times it appears, and what was happening in the conversation at that moment. Do not suggest fixes — just identify the patterns with precision.`;
 
     try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${apiKey}`,
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-pro",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: `Call notes from ${leads?.length ?? 0} leads:\n\n${notes}` },
-          ],
-          max_tokens: 1200,
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1500,
+          system: systemPrompt,
+          messages: [{
+            role: "user",
+            content: `Call notes from ${leads.length} leads (range: ${data.range}):\n\n${taggedNotes}`,
+          }],
         }),
       });
 
-      const json = await res.json();
+      const json = await res.json() as { content?: { text?: string }[]; error?: { message?: string } };
       if (!res.ok) {
-        return { success: false as const, error: json?.error?.message || "AI request failed" };
+        return { success: false as const, error: json?.error?.message || "Claude API error" };
       }
-      const text = json?.choices?.[0]?.message?.content ?? "No analysis returned.";
-      return { success: true as const, text, count: leads?.length ?? 0 };
+      const text = json?.content?.[0]?.text ?? "No analysis returned.";
+      return { success: true as const, text, count: leads.length };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       return { success: false as const, error: msg };
