@@ -3338,12 +3338,11 @@ function LeadChooser({
     title, subtitle, tone, col, children, count,
   }: {
     title: string; subtitle: string; tone: "muted" | "today";
-    col: "yesterday" | "today" | "tomorrow"; children: React.ReactNode; count: number;
+    col: DayCol; children: React.ReactNode; count: number;
   }) => (
     <div
-      onDragOver={(e) => { e.preventDefault(); if (dragIdRef.current) setDropPreview({ col, beforeId: null }); }}
-      onDragLeave={() => setDropCol((c) => (c === col ? null : c))}
-      onDrop={() => void handleDrop(col)}
+      data-drop-col={col}
+      onPointerEnter={() => { if (dragStateRef.current?.dragging) setDropPreview({ col, beforeId: null }); }}
       style={{
         flex: 1,
         minWidth: 0,
