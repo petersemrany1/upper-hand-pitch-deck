@@ -166,37 +166,35 @@ function LeaderboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
-                  <Th>Rank</Th><Th>Rep</Th><Th>Live</Th><Th>Bookings</Th><Th>Bonus $</Th>
-                  <Th>Attempted</Th><Th>Connected</Th><Th>Work min</Th><Th>Short calls</Th>
-                  <Th>Convos %</Th><Th>Conv %</Th><Th>Earnings</Th>
+                  <Th>Rank</Th><Th>Rep</Th><Th>Bookings</Th><Th>Live</Th><Th>Calls</Th><Th>Convos</Th><Th>Holds</Th><Th>Conv %</Th><Th>Bonus $</Th><Th>Hours</Th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={r.id} className="border-t" style={{ borderColor: C.line, background: i === 0 ? "rgba(251,191,36,0.05)" : "transparent" }}>
-                    <Td><div className="flex items-center gap-1.5">
-                      {i === 0 ? <Crown className="h-4 w-4" style={{ color: C.gold }} /> : <span style={{ color: C.muted }}>#{i + 1}</span>}
-                      {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#fffbeb" }}>Leader</span>}
-                    </div></Td>
-                    <Td><span className="font-semibold">{r.name}</span></Td>
-                    <Td><span className="h-2 w-2 inline-block rounded-full" style={{ background: C.muted }} /></Td>
-                    <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : C.muted }}>{r.bookings}</span></Td>
-                    <Td><span style={{ color: r.bonus > 0 ? C.green : C.muted }}>${r.bonus}</span></Td>
-                    <Td>{r.attempted ?? r.calls}</Td>
-                    <Td><span style={{ color: r.connected > 0 ? C.green : C.muted }}>{r.connected}</span></Td>
-                    <Td>{r.workMinutes}</Td>
-                    <Td><span style={{ color: r.shortCalls > 5 ? C.amber : C.muted }}>{r.shortCalls}</span></Td>
-                    <Td>{r.convosPct}%</Td>
-                    <Td><span style={{ color: r.conversion >= 20 ? C.green : r.conversion >= 10 ? C.amber : C.red }}>{r.conversion}%</span></Td>
                     <Td>
-                      <div className="h-2 w-32 rounded-full overflow-hidden" style={{ background: C.line }}>
-                        <div className="h-full" style={{ width: `${Math.min(100, (r.bonus / maxBonus) * 100)}%`, background: `linear-gradient(90deg, ${C.green}, ${C.gold})` }} />
+                      <div className="flex items-center gap-1.5">
+                        {i === 0 ? <Crown className="h-4 w-4" style={{ color: C.gold }} /> : <span style={{ color: "#111" }}>#{i + 1}</span>}
+                        {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#111" }}>Leader</span>}
                       </div>
                     </Td>
+                    <Td><span className="font-semibold" style={{ color: "#111" }}>{r.name}</span></Td>
+                    <Td><span className="font-bold text-base" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
+                    <Td><span className="h-2 w-2 inline-block rounded-full" style={{ background: C.green }} /></Td>
+                    <Td><span style={{ color: "#111" }}>{r.calls}</span></Td>
+                    <Td><span style={{ color: r.convos > 0 ? C.green : "#111" }}>{r.convos}</span></Td>
+                    <Td><span style={{ color: r.holds > 0 ? C.green : "#111" }}>{r.holds}</span></Td>
+                    <Td>
+                      <span style={{ color: r.conversion >= 20 ? C.green : r.conversion >= 10 ? C.amber : r.conversion > 0 ? C.red : "#111" }}>
+                        {r.conversion}%
+                      </span>
+                    </Td>
+                    <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
+                    <Td><span style={{ color: "#111" }}>{(r.workMinutes / 60).toFixed(1)}h</span></Td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
+                  <tr><td colSpan={10} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
                 )}
               </tbody>
             </table>
@@ -213,9 +211,45 @@ function LeaderboardPage() {
               <div className="text-sm font-bold" style={{ color: "#111" }}>Call Pattern Analysis</div>
               {patternLoading && <span className="text-[10px]" style={{ color: "#888" }}>analysing…</span>}
             </div>
-            <pre className="text-sm whitespace-pre-wrap leading-relaxed" style={{ fontFamily: "inherit", color: "#111" }}>
-              {patternText || (patternLoading ? "Thinking…" : "")}
-            </pre>
+            <div className="text-sm leading-relaxed" style={{ color: "#111", fontFamily: "inherit" }}>
+              {patternLoading && !patternText && (
+                <div style={{ color: "#888", fontSize: 13 }}>
+                  Analysing call transcripts — this takes about 10 seconds...
+                </div>
+              )}
+              {patternText && patternText.split(/\n(?=\*\*\d\.)/).map((section, i) => {
+                const lines = section.trim().split("\n");
+                const headingLine = lines[0].replace(/\*\*/g, "").trim();
+                const body = lines.slice(1).join("\n").trim();
+                const isMissed = headingLine.toUpperCase().includes("MISSED");
+                return (
+                  <div key={i} style={{
+                    marginBottom: 24,
+                    paddingBottom: 24,
+                    borderBottom: i < 4 ? "0.5px solid #ebebeb" : "none",
+                  }}>
+                    <div style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.07em",
+                      color: isMissed ? "#f4522d" : "#8b5cf6",
+                      marginBottom: 8,
+                    }}>
+                      {headingLine}
+                    </div>
+                    <div style={{
+                      fontSize: 14,
+                      color: "#111",
+                      lineHeight: 1.9,
+                      whiteSpace: "pre-wrap",
+                    }}>
+                      {body}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
