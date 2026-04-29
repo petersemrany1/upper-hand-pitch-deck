@@ -300,6 +300,7 @@ function SalesCallPortal() {
           leads={leads}
           attemptCounts={attemptCounts}
           attemptsByDay={attemptsByDay}
+          firstCallByLead={firstCallByLead}
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
