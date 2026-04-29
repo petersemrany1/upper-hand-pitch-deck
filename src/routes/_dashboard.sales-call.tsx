@@ -3052,7 +3052,7 @@ function RightPanel({
                 }}
               >
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#666", marginBottom: 6 }}>
-                  Selling points{panelDoctor?.name ? ` — ${panelDoctor.name}` : ""}
+                  Doctor Selling Points{panelDoctor?.name ? ` — ${panelDoctor.name}` : ""}
                 </div>
                 {loadingSellingPoints ? (
                   <div style={{ fontSize: 13, color: "#666" }}>Generating…</div>
