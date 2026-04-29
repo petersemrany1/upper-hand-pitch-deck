@@ -2556,6 +2556,20 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
 const ATTEMPTS_PER_DAY = (day: number) => (day <= 7 ? 3 : 1);
 
+// Day-in-pipeline derived from created_at (calendar-day diff, 1-indexed).
+// e.g. lead created today = Day 1, created yesterday = Day 2, etc.
+// We use this instead of the static `day_number` column so it ticks over
+// automatically as time passes — leads from yesterday correctly show Day 2.
+function pipelineDay(l: { created_at: string; day_number?: number | null }): number {
+  if (!l.created_at) return Math.max(1, l.day_number ?? 1);
+  const created = new Date(l.created_at);
+  const a = new Date(created.getFullYear(), created.getMonth(), created.getDate()).getTime();
+  const now = new Date();
+  const b = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const days = Math.floor((b - a) / 86400000) + 1;
+  return Math.max(1, days);
+}
+
 type LeadUrgency = "overdue" | "due" | "upcoming";
 
 function leadUrgency(l: Lead): LeadUrgency {
