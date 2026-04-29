@@ -3180,36 +3180,17 @@ function LeadChooser({
           </div>
         )}
         <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 10 }}>
-          {/* Dedicated drag handle — only this region is draggable, so the
-              card's buttons / badges can never intercept the drag-start. */}
+          {/* Visual grip only — the whole card now moves from the first press. */}
           <div
-            draggable
-            onDragStart={(e) => {
-              dragIdRef.current = l.id;
-              setDragId(l.id);
-              e.dataTransfer.effectAllowed = "move";
-              e.dataTransfer.setData("text/plain", l.id);
-              try {
-                // Drag image = the whole card, snapshotted synchronously.
-                const card = (e.currentTarget as HTMLElement).closest("[data-lead-card]") as HTMLElement | null;
-                if (card) {
-                  const rect = card.getBoundingClientRect();
-                  e.dataTransfer.setDragImage(card, e.clientX - rect.left, e.clientY - rect.top);
-                }
-              } catch { /* ignore */ }
-            }}
-            onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
             title="Drag to move"
             style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: 18, height: 36, flexShrink: 0,
-              cursor: "grab",
+              pointerEvents: "none",
               color: "#bbb", fontSize: 14, lineHeight: 1,
               userSelect: "none", WebkitUserSelect: "none",
               touchAction: "none",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "#666")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "#bbb")}
           >
             ⋮⋮
           </div>
