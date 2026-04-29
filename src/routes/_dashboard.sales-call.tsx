@@ -2012,6 +2012,21 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     }
   };
 
+  const handleUndoDepositPaid = async () => {
+    if (confirmingDeposit) return;
+    setConfirmingDeposit(true);
+    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_no_deposit" } });
+    setConfirmingDeposit(false);
+    if (r.success) {
+      setDepositPaid(false);
+      (lead as { status: string | null }).status = "booked_no_deposit";
+      toast.success("Deposit confirmation undone");
+    } else {
+      toast.error(`Could not undo: ${r.error ?? "unknown error"}`);
+    }
+  };
+
+
   const openPreview = async () => {
     const { data: freshLead } = await supabase
       .from("meta_leads")
@@ -2314,6 +2329,25 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               </div>
             )}
           </button>
+
+          {depositPaid && (
+            <button
+              onClick={() => void handleUndoDepositPaid()}
+              disabled={confirmingDeposit}
+              className="w-full rounded-[8px] flex items-center justify-center mt-2"
+              style={{
+                background: "#ffffff",
+                border: `0.5px solid ${COLORS.line}`,
+                padding: "10px 20px",
+                cursor: confirmingDeposit ? "wait" : "pointer",
+                fontSize: 12,
+                fontWeight: 500,
+                color: COLORS.muted,
+              }}
+            >
+              {confirmingDeposit ? "Undoing…" : "↶ Undo deposit confirmation"}
+            </button>
+          )}
         </div>
 
         {/* Reset booking — bottom of screen */}
