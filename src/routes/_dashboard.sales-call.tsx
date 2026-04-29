@@ -1980,7 +1980,19 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       } catch { return `${bookedData.date} at ${bookedData.time}`; }
     })();
 
-    const handleResetBooking = () => {
+    const [resetting, setResetting] = useState(false);
+    const handleResetBooking = async () => {
+      setResetting(true);
+      const r = await clearBooking({ data: { leadId: lead.id } });
+      if (!r.success) {
+        setResetting(false);
+        toast.error(`Reset failed: ${r.error}`);
+        return;
+      }
+      // Mutate the lead prop so the restore-effect doesn't re-trigger when
+      // the rep navigates away and comes back to this lead.
+      (lead as { booking_date: string | null }).booking_date = null;
+      (lead as { booking_time: string | null }).booking_time = null;
       setBooked(false);
       setBookedData(null);
       setHandoverSent(false);
@@ -1990,28 +2002,12 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setIntelStatus("waiting");
       setPollAttempt(0);
       setShowResetConfirm(false);
-      toast.success("Booking reset — fresh slate");
+      setResetting(false);
+      toast.success("Booking permanently cleared — fresh slate");
     };
 
     return (
       <div className="max-w-2xl mx-auto">
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: COLORS.muted,
-              background: "#fff",
-              border: `0.5px solid ${COLORS.line}`,
-              borderRadius: 8,
-              padding: "6px 12px",
-              cursor: "pointer",
-            }}
-          >
-            ↺ Reset booking
-          </button>
-        </div>
         <Eyebrow>Step 10 — Deposit & Book</Eyebrow>
         <StepHeading>Booked!</StepHeading>
 
