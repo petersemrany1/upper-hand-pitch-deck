@@ -2915,7 +2915,7 @@ function LeadChooser({
     };
   }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
 
-  const setDropPreview = useCallback((next: { col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null) => {
+  const setDropPreview = useCallback((next: { col: DayCol; beforeId: string | null } | null) => {
     const prev = dropTargetRef.current;
     if (prev?.col === next?.col && prev?.beforeId === next?.beforeId) return;
     dropTargetRef.current = next;
