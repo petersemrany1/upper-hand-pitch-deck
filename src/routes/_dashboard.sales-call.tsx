@@ -2828,9 +2828,9 @@ function LeadChooser({
         out.today.push({ section: "new", lead: l }); placed.add(l.id); continue;
       }
 
-      // 3) Yesterday column — only if NOT already placed and they had activity yesterday
-      //    (callback yesterday, or last contact was yesterday and we don't need them today)
-      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
+      // 3) Yesterday column — only if NOT already placed, they had activity yesterday,
+      //    AND they haven't been touched today (no calls today).
+      if (!hasActivityToday(l) && (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey])) {
         out.yesterday.push(l); placed.add(l.id); continue;
       }
 
