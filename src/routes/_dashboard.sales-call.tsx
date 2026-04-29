@@ -2688,9 +2688,9 @@ function LeadChooser({
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
-  // Local override so a card "moved back to today" via the button/drag
-  // re-buckets immediately without waiting for the realtime round-trip.
-  const [overrideToToday, setOverrideToToday] = useState<Set<string>>(new Set());
+  // Local override so drag/drop and "move" buttons re-bucket immediately
+  // without waiting for the realtime round-trip. Maps lead id → forced column.
+  const [forcedCol, setForcedCol] = useState<Record<string, "yesterday" | "today" | "tomorrow">>({});
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
   // Manual ordering per column (id list). When present, leads in that column
