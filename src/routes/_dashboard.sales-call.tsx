@@ -3112,6 +3112,15 @@ function LeadChooser({
           setDragId(l.id);
           e.dataTransfer.effectAllowed = "move";
           e.dataTransfer.setData("text/plain", l.id);
+          // Set drag image synchronously to the card itself — without this some
+          // browsers (Chrome/Safari) abort the drag if React re-renders before
+          // the default image snapshot is taken, which forces the user to
+          // click-release-click-and-hold.
+          try {
+            const el = e.currentTarget as HTMLElement;
+            const rect = el.getBoundingClientRect();
+            e.dataTransfer.setDragImage(el, e.clientX - rect.left, e.clientY - rect.top);
+          } catch { /* setDragImage not available — ignore */ }
         }}
         onDragEnd={() => { dragIdRef.current = null; setDragId(null); setDropPreview(null); }}
         onDragOver={(e) => {
@@ -3119,7 +3128,6 @@ function LeadChooser({
           if (!currentDragId || currentDragId === l.id) return;
           e.preventDefault();
           e.stopPropagation();
-          // Determine which column this card belongs to via its section
           const col: "yesterday" | "today" | "tomorrow" =
             section === "yesterday" ? "yesterday" :
             section === "tomorrow" ? "tomorrow" : "today";
@@ -3133,8 +3141,12 @@ function LeadChooser({
           border: `0.5px solid ${COLORS.line}`,
           borderLeft: accent === "transparent" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
           marginBottom: 8,
-          opacity: tone === "muted" ? 0.7 : 1,
-          cursor: "grab",
+          opacity: dragId === l.id ? 0.4 : (tone === "muted" ? 0.7 : 1),
+          cursor: dragId === l.id ? "grabbing" : "grab",
+          // Prevent text-selection from hijacking the first click and
+          // cancelling the drag-start.
+          userSelect: "none",
+          WebkitUserSelect: "none",
           // Drop indicator above this card
           boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
         }}
