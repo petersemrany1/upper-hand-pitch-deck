@@ -524,21 +524,20 @@ export const findLeadByPhone = createServerFn({ method: "POST" })
     const tail = phoneTail9(data.phone);
     if (!tail) return { success: false as const, error: "No phone provided", lead: null };
 
-    // Match the last 9 digits against meta_leads.phone using a normalised compare.
-    // We pull a small set and filter in JS (avoids needing a DB function/index).
+    // Fast path: ask the DB to find rows whose phone CONTAINS the last 9 digits.
+    // This returns in milliseconds vs scanning 2000 rows JS-side.
     const { data: candidates, error } = await supabaseAdmin
       .from("meta_leads")
       .select("id, first_name, last_name, phone, day_number, status, call_notes, callback_scheduled_at, booking_date, booking_time")
-      .not("phone", "is", null)
-      .order("updated_at", { ascending: false })
-      .limit(2000);
+      .ilike("phone", `%${tail}%`)
+      .limit(10);
 
     if (error) return { success: false as const, error: error.message, lead: null };
 
     const match = (candidates ?? []).find((l) => phoneTail9(l.phone) === tail);
     if (!match) return { success: true as const, lead: null };
 
-    // Count attempts for context
+    // Count attempts for context (run after match found — small query)
     const { count } = await supabaseAdmin
       .from("call_records")
       .select("id", { count: "exact", head: true })
