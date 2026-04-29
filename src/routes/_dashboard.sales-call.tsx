@@ -2933,9 +2933,12 @@ function LeadChooser({
     setSavingStatus(leadId);
     try {
       const nowIso = new Date().toISOString();
+      const dbPatch = key !== "callback_scheduled"
+        ? { status: key, callback_scheduled_at: null, updated_at: nowIso }
+        : { status: key, updated_at: nowIso };
       const { error } = await supabase
         .from("meta_leads")
-        .update({ ...patch, updated_at: nowIso })
+        .update(dbPatch)
         .eq("id", leadId);
       if (error) throw error;
       toast.success("Status updated");
