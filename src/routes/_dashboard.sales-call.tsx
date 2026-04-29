@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
@@ -250,6 +250,10 @@ function SalesCallPortal() {
 
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
+  const updateLocalLead = useCallback((id: string, patch: Partial<Lead>) => {
+    setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+  }, []);
+
   const markStepComplete = (k: StepKey) => {
     setCompleted((prev) => { const n = new Set(prev); n.add(k); return n; });
   };
@@ -301,9 +305,7 @@ function SalesCallPortal() {
           attemptCounts={attemptCounts}
           attemptsByDay={attemptsByDay}
           firstCallByLead={firstCallByLead}
-          onLocalLeadUpdate={(id, patch) =>
-            setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
-          }
+          onLocalLeadUpdate={updateLocalLead}
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
@@ -398,6 +400,7 @@ function SalesCallPortal() {
           mmsImages={mmsImages}
           attemptCounts={attemptCounts}
           firstCallAt={firstCallByLead[active.id] ?? null}
+          onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => setActiveId(null)}
         />
       </aside>
