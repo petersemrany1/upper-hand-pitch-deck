@@ -2896,8 +2896,8 @@ function LeadChooser({
   };
 
   const moveToToday = async (leadId: string) => {
-    // Optimistic local override
-    setOverrideToToday((prev) => { const n = new Set(prev); n.add(leadId); return n; });
+    // Optimistic local override so the card jumps columns instantly
+    setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
     // If the lead has a callback set for tomorrow, clear it back to today's next slot
     const lead = leads.find((l) => l.id === leadId);
     if (lead?.callback_scheduled_at) {
@@ -2916,12 +2916,34 @@ function LeadChooser({
 
   const moveToTomorrow = async (leadId: string) => {
     const cb = new Date(); cb.setDate(cb.getDate() + 1); cb.setHours(9, 0, 0, 0);
-    setOverrideToToday((prev) => { const n = new Set(prev); n.delete(leadId); return n; });
+    setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
     await supabase
       .from("meta_leads")
       .update({ callback_scheduled_at: cb.toISOString(), status: "callback_scheduled", updated_at: new Date().toISOString() })
       .eq("id", leadId);
     toast.success("Moved to Tomorrow 9am");
+  };
+
+  const moveToYesterday = async (leadId: string) => {
+    setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
+    // Clear any future callback so it doesn't drag the lead back to today/tomorrow
+    await supabase
+      .from("meta_leads")
+      .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+    toast.success("Moved to Yesterday");
+  };
+
+  const clearCallback = async (leadId: string) => {
+    try {
+      await supabase
+        .from("meta_leads")
+        .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
+        .eq("id", leadId);
+      toast.success("Callback removed");
+    } catch {
+      toast.error("Couldn't remove callback");
+    }
   };
 
   const renderStatusBadge = (l: Lead) => {
