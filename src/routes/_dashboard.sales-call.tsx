@@ -2933,7 +2933,11 @@ function LeadChooser({
     target instanceof HTMLElement && !!target.closest("button,a,input,textarea,select,[data-no-card-drag]");
 
   const dropTargetFromPoint = (leadId: string, x: number, y: number) => {
+    const draggedEl = document.querySelector(`[data-lead-card][data-lead-id="${leadId}"]`) as HTMLElement | null;
+    const previousPointerEvents = draggedEl?.style.pointerEvents;
+    if (draggedEl) draggedEl.style.pointerEvents = "none";
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    if (draggedEl) draggedEl.style.pointerEvents = previousPointerEvents ?? "";
     const column = el?.closest("[data-drop-col]") as HTMLElement | null;
     const col = column?.dataset.dropCol as DayCol | undefined;
     if (!col) return null;
