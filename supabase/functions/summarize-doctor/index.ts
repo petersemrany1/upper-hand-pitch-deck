@@ -65,7 +65,7 @@ Output 5–8 bullets. STRICT rules:
 - Each bullet MUST be ONE short line, max 8 words. No commas-into-clauses, no sub-points.
 - Sentence fragments only (no full sentences). Skip articles where possible.
 - Plain English, confident, no hype words ("world-class", "best-in-class", "premier", etc.).
-- Lead with hardest credibility facts (years, specialty, signature technique).
+- ORDER bullets by patient-appeal: #1 = the single most persuasive selling point a real patient would care about most (e.g. proven results, signature technique, deep experience, prestige training, safety record). Rank descending so weakest/nice-to-have points are LAST. Drop anything truly weak.
 - No greetings, preamble, headers, or closing. Just the bullets.
 - Do NOT invent facts not in the input.
 Examples of the right length: "15+ years in facial surgery", "Trained under Dr Smith in Paris", "Specialises in natural-looking rhinoplasty".`;
