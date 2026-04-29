@@ -2408,25 +2408,18 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <div>
-            <Label>Date of Birth</Label>
-            <input type="date" value={form.dob} onChange={(e) => set("dob", e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-          </div>
-          <div>
-            <Label>Funding type</Label>
-            <div className="flex gap-1.5 mt-1">
-              {["Savings", "Super", "Finance"].map((v) => (
-                <button key={v} onClick={() => set("funding", v)}
-                  className="flex-1 px-2 py-1.5 rounded-md text-[12px] font-medium"
-                  style={{
-                    background: form.funding === v ? COLORS.coral : "#f9f9f9",
-                    color: form.funding === v ? "#fff" : COLORS.muted,
-                    border: `1px solid ${form.funding === v ? COLORS.coral : COLORS.line}`,
-                  }}>{v}</button>
-              ))}
-            </div>
+        <div>
+          <Label>Funding type</Label>
+          <div className="flex gap-1.5 mt-1">
+            {["Savings", "Super", "Finance"].map((v) => (
+              <button key={v} onClick={() => set("funding", v)}
+                className="flex-1 px-2 py-1.5 rounded-md text-[12px] font-medium"
+                style={{
+                  background: form.funding === v ? COLORS.coral : "#f9f9f9",
+                  color: form.funding === v ? "#fff" : COLORS.muted,
+                  border: `1px solid ${form.funding === v ? COLORS.coral : COLORS.line}`,
+                }}>{v}</button>
+            ))}
           </div>
         </div>
 
