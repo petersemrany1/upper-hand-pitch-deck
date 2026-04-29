@@ -2953,14 +2953,29 @@ function LeadChooser({
   };
 
   const clearCallback = async (leadId: string) => {
+    const lead = leads.find((l) => l.id === leadId);
+    const wasCallbackStatus = (lead?.status ?? "").toLowerCase() === "callback_scheduled";
+    const newStatus = wasCallbackStatus ? "in_progress" : lead?.status;
+    // Optimistic local update so the card refreshes immediately
+    onLocalLeadUpdate?.(leadId, {
+      callback_scheduled_at: null,
+      ...(wasCallbackStatus ? { status: "in_progress" } : {}),
+    });
     try {
-      await supabase
-        .from("meta_leads")
-        .update({ callback_scheduled_at: null, updated_at: new Date().toISOString() })
-        .eq("id", leadId);
+      const nowIso = new Date().toISOString();
+      const query = wasCallbackStatus
+        ? supabase.from("meta_leads").update({ callback_scheduled_at: null, status: newStatus ?? "in_progress", updated_at: nowIso }).eq("id", leadId)
+        : supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: nowIso }).eq("id", leadId);
+      const { error } = await query;
+      if (error) throw error;
       toast.success("Callback removed");
-    } catch {
-      toast.error("Couldn't remove callback");
+    } catch (e) {
+      // Revert optimistic change on failure
+      onLocalLeadUpdate?.(leadId, {
+        callback_scheduled_at: lead?.callback_scheduled_at ?? null,
+        ...(wasCallbackStatus ? { status: lead?.status } : {}),
+      });
+      toast.error(`Couldn't remove callback${e instanceof Error ? `: ${e.message}` : ""}`);
     }
   };
 
