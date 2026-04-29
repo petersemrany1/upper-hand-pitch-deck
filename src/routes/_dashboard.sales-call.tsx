@@ -301,6 +301,9 @@ function SalesCallPortal() {
           attemptCounts={attemptCounts}
           attemptsByDay={attemptsByDay}
           firstCallByLead={firstCallByLead}
+          onLocalLeadUpdate={(id, patch) =>
+            setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)))
+          }
           onPick={(id) => {
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
@@ -2677,12 +2680,14 @@ function LeadChooser({
   attemptCounts,
   attemptsByDay,
   firstCallByLead,
+  onLocalLeadUpdate,
   onPick,
 }: {
   leads: Lead[];
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
   firstCallByLead: Record<string, string>;
+  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onPick: (id: string) => void;
 }) {
   const [q, setQ] = useState("");
@@ -2881,8 +2886,22 @@ function LeadChooser({
     };
   }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
 
+  // Close the status menu when the user presses Escape.
+  useEffect(() => {
+    if (!openStatusFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpenStatusFor(null); setStatusAnchor(null); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openStatusFor]);
+
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
+    // Optimistic local update so UI updates immediately, no refresh required.
+    onLocalLeadUpdate?.(leadId, { status: key });
+    setOpenStatusFor(null);
+    setStatusAnchor(null);
     setSavingStatus(leadId);
     try {
       await updateLeadStatus({ data: { leadId, status: key } });
@@ -2891,8 +2910,6 @@ function LeadChooser({
       toast.error("Couldn't update status");
     } finally {
       setSavingStatus(null);
-      setOpenStatusFor(null);
-      setStatusAnchor(null);
     }
   };
 
@@ -3323,40 +3340,63 @@ function LeadChooser({
         const lead = leads.find((x) => x.id === openStatusFor);
         if (!lead) return null;
         return (
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: "fixed",
-              top: statusAnchor.top,
-              left: statusAnchor.left,
-              zIndex: 1000,
-              background: "#fff",
-              border: `1px solid ${COLORS.line}`,
-              borderRadius: 10,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
-              minWidth: 220,
-              padding: 4,
-            }}
-          >
-            {STATUS_OPTIONS.map((opt) => (
+          <>
+            {/* Full-screen backdrop catches clicks anywhere outside the menu */}
+            <div
+              onClick={() => { setOpenStatusFor(null); setStatusAnchor(null); }}
+              onContextMenu={(e) => { e.preventDefault(); setOpenStatusFor(null); setStatusAnchor(null); }}
+              style={{ position: "fixed", inset: 0, zIndex: 999, background: "transparent" }}
+            />
+            <div
+              role="menu"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: "fixed",
+                top: statusAnchor.top,
+                left: statusAnchor.left,
+                zIndex: 1000,
+                background: "#fff",
+                border: `1px solid ${COLORS.line}`,
+                borderRadius: 10,
+                boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+                minWidth: 220,
+                padding: 4,
+              }}
+            >
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => void changeStatus(lead.id, opt.key)}
+                  style={{
+                    width: "100%", textAlign: "left", padding: "8px 10px",
+                    borderRadius: 6, background: "transparent", color: "#111",
+                    fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                    border: "none",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f4")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span>{opt.emoji}</span>
+                  <span style={{ color: opt.color, fontWeight: 600 }}>{opt.label}</span>
+                </button>
+              ))}
+              <div style={{ height: 1, background: COLORS.line, margin: "4px 0" }} />
               <button
-                key={opt.key}
                 type="button"
-                onClick={() => void changeStatus(lead.id, opt.key)}
+                onClick={() => { setOpenStatusFor(null); setStatusAnchor(null); }}
                 style={{
                   width: "100%", textAlign: "left", padding: "8px 10px",
-                  borderRadius: 6, background: "transparent", color: "#111",
-                  fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                  border: "none",
+                  borderRadius: 6, background: "transparent", color: "#666",
+                  fontSize: 12, cursor: "pointer", border: "none",
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f4")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <span>{opt.emoji}</span>
-                <span style={{ color: opt.color, fontWeight: 600 }}>{opt.label}</span>
+                Cancel
               </button>
-            ))}
-          </div>
+            </div>
+          </>
         );
       })()}
     </div>
