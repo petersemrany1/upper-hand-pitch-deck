@@ -11,7 +11,7 @@ import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
-  saveBooking, updateLeadStatus, ensureRepForEmail,
+  saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms } from "@/utils/resend.functions";
