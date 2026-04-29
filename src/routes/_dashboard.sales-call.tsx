@@ -1843,6 +1843,10 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       const doctorName = sd?.name ?? "Dr. Shabna Singh";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
+      // Mutate the lead prop so when the rep switches tabs and comes back,
+      // the restore-effect sees the booking and skips the form.
+      (lead as { booking_date: string | null }).booking_date = form.date;
+      (lead as { booking_time: string | null }).booking_time = form.time;
       onBooked();
       toast.success("Appointment booked!");
 
