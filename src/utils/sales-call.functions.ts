@@ -430,7 +430,7 @@ export const deleteRep = createServerFn({ method: "POST" })
 /* ───────────────────────── Leaderboard ───────────────────────── */
 
 export const getLeaderboard = createServerFn({ method: "POST" })
-  .inputValidator((data: { range: "today" | "yesterday" | "week" | "lastweek" | "30d" }) => ({
+  .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => ({
     range: data.range ?? "today",
   }))
   .handler(async ({ data }) => {
@@ -441,6 +441,10 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       case "yesterday": {
         const y = new Date(now); y.setDate(now.getDate() - 1);
         from = startOfDay(y); to = startOfDay(now); break;
+      }
+      case "today_yesterday": {
+        const y = new Date(now); y.setDate(now.getDate() - 1);
+        from = startOfDay(y); to = new Date(now); break;
       }
       case "week": {
         const w = new Date(now); w.setDate(now.getDate() - 7);
@@ -459,13 +463,25 @@ export const getLeaderboard = createServerFn({ method: "POST" })
         from = startOfDay(now); to = new Date(now);
     }
 
+    // HARD RULE — exclude any lead whose name is "Peter Test" from every leaderboard metric.
+    const { data: peterRows } = await supabaseAdmin
+      .from("meta_leads")
+      .select("id")
+      .ilike("first_name", "peter")
+      .ilike("last_name", "test");
+    const excludedLeadIds = new Set((peterRows ?? []).map((p) => p.id as string));
+
     const { data: reps } = await supabaseAdmin.from("sales_reps").select("*");
     const { data: calls } = await supabaseAdmin.from("call_records")
-      .select("rep_id, duration_seconds, outcome, called_at")
+      .select("rep_id, lead_id, duration_seconds, outcome, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
+    // Count bookings as any lead with a booking_date set in the period (covers
+    // booked_deposit_paid + callback_scheduled-with-date). updated_at is when
+    // the booking was confirmed.
     const { data: bookings } = await supabaseAdmin.from("meta_leads")
-      .select("rep_id, status, updated_at")
-      .eq("status", "booked").gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
+      .select("id, rep_id, status, booking_date, updated_at")
+      .not("booking_date", "is", null)
+      .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
 
     const byRep = new Map<string, {
       calls: number; attempted: number; connected: number; bookings: number;
@@ -475,6 +491,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     for (const c of calls ?? []) {
       if (!c.rep_id) continue;
+      if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       const s = byRep.get(c.rep_id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 };
       s.calls += 1;
       s.attempted += 1;
@@ -488,6 +505,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
     for (const b of bookings ?? []) {
       if (!b.rep_id) continue;
+      if (excludedLeadIds.has(b.id as string)) continue; // skip Peter Test
       const s = byRep.get(b.rep_id) ?? { calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 };
       s.bookings += 1;
       byRep.set(b.rep_id, s);
