@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.meta-leads]
 verify_jwt = false
+
+[functions.summarize-doctor]
+verify_jwt = false
