@@ -478,7 +478,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     // `outcome` is also unused at the moment, so we infer "connected" from
     // status = 'completed' AND a non-trivial duration.
     const { data: calls } = await supabaseAdmin.from("call_records")
-      .select("rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
+      .select("id, rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
     // Bookings = leads with status = 'booked_deposit_paid' confirmed in the
     // period. callback_scheduled / no_answer with a future booking_date are
