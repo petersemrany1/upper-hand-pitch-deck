@@ -2708,6 +2708,8 @@ function LeadChooser({
     yesterday: [], today: [], tomorrow: [],
   });
   const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
+  const dragIdRef = useRef<string | null>(null);
+  const dropTargetRef = useRef<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
   // below). Used by drag/drop math.
   const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
@@ -2898,6 +2900,14 @@ function LeadChooser({
       tomorrow: orderedTomorrow.map((l) => l.id),
     };
   }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
+
+  const setDropPreview = useCallback((next: { col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null) => {
+    const prev = dropTargetRef.current;
+    if (prev?.col === next?.col && prev?.beforeId === next?.beforeId) return;
+    dropTargetRef.current = next;
+    setDropCol(next?.col ?? null);
+    setDropTarget(next);
+  }, []);
 
   // Close the status menu when the user presses Escape.
   useEffect(() => {
