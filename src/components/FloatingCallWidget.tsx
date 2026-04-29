@@ -80,6 +80,25 @@ function useCallContext(callSid: string | null) {
 export function FloatingCallWidget() {
   const { status, activeCallSid, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
   const { clinicName, contactName, phone } = useCallContext(activeCallSid);
+  const navigate = useNavigate();
+
+  // If this is an inbound call, try to match it to a meta_lead so we can offer
+  // a one-tap "Open in Sales Call" button (saves the rep ~15s of fumbling).
+  const [matchedLead, setMatchedLead] = useState<{
+    id: string; first_name: string | null; last_name: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!incomingFrom) { setMatchedLead(null); return; }
+    let cancelled = false;
+    void findLeadByPhone({ data: { phone: incomingFrom } }).then((r) => {
+      if (cancelled) return;
+      if (r.success && r.lead) {
+        setMatchedLead({ id: r.lead.id, first_name: r.lead.first_name, last_name: r.lead.last_name });
+      }
+    }).catch(() => { /* noop */ });
+    return () => { cancelled = true; };
+  }, [incomingFrom]);
 
   const [expanded, setExpanded] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
