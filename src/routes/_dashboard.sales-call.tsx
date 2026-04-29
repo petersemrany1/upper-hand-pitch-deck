@@ -2558,6 +2558,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
   { label: "No time", key: "No time" },
   { label: "Consult price", key: "Consult price" },
   { label: "Transplant price", key: "Transplant price" },
+  { label: "Who are you", key: "Who are you" },
 ];
 
 function RightPanel({
@@ -3290,5 +3291,10 @@ const OBJECTIONS = [
     q: "Transplant price",
     a: "Absolutely — I'll definitely give you the price. Can you just tell me, how much hair do you have on the top at the moment?",
     note: "Agree with their question, then start another conversation. Once they answer you're back in discovery.",
+  },
+  {
+    q: "Who are you",
+    a: "Great question — The Hair Transplant Group is a network of specialist clinics all around Australia. [Clinic Name] and [Dr Name] are part of our network. Some clinics have multiple doctors — the reason I'm suggesting Dr [Name] specifically is because of what you just told me about XYZ.",
+    note: "Swap [Clinic Name], [Dr Name] and XYZ with the lead's actual details from discovery.",
   },
 ];
