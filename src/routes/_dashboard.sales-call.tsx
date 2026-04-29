@@ -2585,8 +2585,79 @@ function getTimeSlot(lead: Lead): "9am" | "12pm" | "3pm" {
 const fmtShort = (s: string) =>
   new Date(s).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 
-function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptCounts: Record<string, number>; onPick: (id: string) => void }) {
+/* The 7 statuses the rep can cycle through inline. Keeping them here so the
+ * card and the popover stay in sync. */
+type StatusKey =
+  | "new"
+  | "no_answer"
+  | "callback_scheduled"
+  | "not_interested"
+  | "booked_no_deposit"
+  | "booked_deposit_paid"
+  | "dropped";
+
+const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: string; bg: string }[] = [
+  { key: "new",                  label: "New",                  emoji: "🔵", color: "#1d4ed8", bg: "#dbeafe" },
+  { key: "no_answer",            label: "No Answer",            emoji: "🟡", color: "#a16207", bg: "#fef9c3" },
+  { key: "callback_scheduled",   label: "Callback Scheduled",   emoji: "🟠", color: "#c2410c", bg: "#ffedd5" },
+  { key: "not_interested",       label: "Not Interested",       emoji: "🔴", color: "#b91c1c", bg: "#fee2e2" },
+  { key: "booked_no_deposit",    label: "Booked — No Deposit",  emoji: "🟣", color: "#7e22ce", bg: "#f3e8ff" },
+  { key: "booked_deposit_paid",  label: "Booked — Deposit Paid",emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
+  { key: "dropped",              label: "Dropped",              emoji: "⚫", color: "#374151", bg: "#e5e7eb" },
+];
+
+// Map any legacy / loose status string we might find in the DB onto the new key set.
+function normaliseStatus(s: string | null | undefined, l?: Lead): StatusKey {
+  const raw = (s ?? "").toLowerCase().replace(/\s+/g, "_");
+  if (raw.includes("deposit_paid")) return "booked_deposit_paid";
+  if (raw.includes("booked")) {
+    if (l?.booking_date) return "booked_no_deposit";
+    return "booked_no_deposit";
+  }
+  if (raw.includes("callback")) return "callback_scheduled";
+  if (raw.includes("not_interested") || raw === "ineligible") return "not_interested";
+  if (raw.includes("no_answer") || raw === "contacted") return "no_answer";
+  if (raw === "dropped") return "dropped";
+  if (l?.callback_scheduled_at) return "callback_scheduled";
+  return "new";
+}
+
+function statusMeta(s: string | null | undefined, l?: Lead) {
+  const key = normaliseStatus(s, l);
+  return STATUS_OPTIONS.find((o) => o.key === key) ?? STATUS_OPTIONS[0];
+}
+
+const localDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+const sameLocalDate = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+function LeadChooser({
+  leads,
+  attemptCounts,
+  attemptsByDay,
+  onPick,
+}: {
+  leads: Lead[];
+  attemptCounts: Record<string, number>;
+  attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
+  onPick: (id: string) => void;
+}) {
   const [q, setQ] = useState("");
+  const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
+  const [savingStatus, setSavingStatus] = useState<string | null>(null);
+  // Local override so a card "moved back to today" via the button/drag
+  // re-buckets immediately without waiting for the realtime round-trip.
+  const [overrideToToday, setOverrideToToday] = useState<Set<string>>(new Set());
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayKey = localDateKey(today);
+  const yesterdayKey = localDateKey(yesterday);
 
   const filtered = useMemo(() => {
     const list = leads.filter((l) => {
@@ -2603,136 +2674,438 @@ function LeadChooser({ leads, attemptCounts, onPick }: { leads: Lead[]; attemptC
     );
   }, [leads, q]);
 
-  const renderLeadCard = (l: Lead) => {
-    const u = leadUrgency(l);
-    const accent = u === "overdue" ? COLORS.red : u === "due" ? COLORS.amber : "transparent";
-    const day = l.day_number ?? 1;
-    const attempts = ATTEMPTS_PER_DAY(day);
-    const todayCount = attemptCounts[l.id] ?? 0;
-    const attemptDisplay = todayCount;
-    const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
+  // Bucketing helpers
+  const callbackOn = (l: Lead, when: Date) => {
+    if (!l.callback_scheduled_at) return false;
+    const cb = new Date(l.callback_scheduled_at);
+    return sameLocalDate(cb, when);
+  };
+  const noAnswerYesterday = (l: Lead) => {
+    const slot = attemptsByDay[l.id]?.[yesterdayKey];
+    if (!slot) return false;
+    const outcome = (slot.lastOutcome ?? "").toLowerCase();
+    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+  };
+  const isNew = (l: Lead) => normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
+  const failedThreeToday = (l: Lead) => {
+    if (overrideToToday.has(l.id)) return false;
+    const slot = attemptsByDay[l.id]?.[todayKey];
+    if (!slot) return false;
+    if (slot.count < 3) return false;
+    const outcome = (slot.lastOutcome ?? "").toLowerCase();
+    // only auto-bump if the recent calls were no-answers (not connected/booked)
+    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+  };
+
+  // Build column buckets
+  const buckets = useMemo(() => {
+    const out = {
+      yesterday: [] as Lead[],
+      today: [] as { section: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining"; lead: Lead }[],
+      tomorrow: [] as Lead[],
+    };
+    const usedToday = new Set<string>();
+    for (const l of filtered) {
+      // Yesterday column = callbacks scheduled yesterday OR called yesterday
+      if (callbackOn(l, yesterday) || attemptsByDay[l.id]?.[yesterdayKey]) {
+        // also mirror "no-answer yesterday" leads inside today; here we keep the yesterday column
+        out.yesterday.push(l);
+      }
+      // Tomorrow column = explicit callback tomorrow OR auto-bumped after 3 fails today
+      const cbTomorrow = callbackOn(l, tomorrow);
+      if (cbTomorrow || failedThreeToday(l)) {
+        out.tomorrow.push(l);
+        if (cbTomorrow) continue; // a future-callback lead never sits inside today
+        if (failedThreeToday(l)) continue;
+      }
+    }
+    // Build today's prioritised list separately
+    for (const l of filtered) {
+      if (callbackOn(l, tomorrow)) continue;
+      if (failedThreeToday(l)) continue;
+      const u = leadUrgency(l);
+      if (callbackOn(l, today) && u === "overdue") {
+        out.today.push({ section: "overdue", lead: l }); usedToday.add(l.id); continue;
+      }
+      if (callbackOn(l, today)) {
+        out.today.push({ section: "callback", lead: l }); usedToday.add(l.id); continue;
+      }
+      if (noAnswerYesterday(l)) {
+        out.today.push({ section: "no-answer-yesterday", lead: l }); usedToday.add(l.id); continue;
+      }
+      if (isNew(l)) {
+        out.today.push({ section: "new", lead: l }); usedToday.add(l.id); continue;
+      }
+      out.today.push({ section: "remaining", lead: l }); usedToday.add(l.id);
+    }
+
+    // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining
+    const order = { overdue: 0, callback: 1, "no-answer-yesterday": 2, new: 3, remaining: 4 } as const;
+    out.today.sort((a, b) => {
+      const oa = order[a.section]; const ob = order[b.section];
+      if (oa !== ob) return oa - ob;
+      // within callback section, sort by scheduled time ascending
+      if (a.section === "callback" || a.section === "overdue") {
+        const ta = a.lead.callback_scheduled_at ? new Date(a.lead.callback_scheduled_at).getTime() : 0;
+        const tb = b.lead.callback_scheduled_at ? new Date(b.lead.callback_scheduled_at).getTime() : 0;
+        return ta - tb;
+      }
+      return new Date(b.lead.created_at).getTime() - new Date(a.lead.created_at).getTime();
+    });
+
+    // Yesterday: callbacks first then by when last contacted
+    out.yesterday.sort((a, b) => {
+      const ya = callbackOn(a, yesterday) ? 0 : 1;
+      const yb = callbackOn(b, yesterday) ? 0 : 1;
+      if (ya !== yb) return ya - yb;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    out.tomorrow.sort((a, b) => {
+      const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+      const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
+
+    return out;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, attemptsByDay, overrideToToday, todayKey, yesterdayKey]);
+
+  // Mutators
+  const changeStatus = async (leadId: string, key: StatusKey) => {
+    setSavingStatus(leadId);
+    try {
+      await updateLeadStatus({ data: { leadId, status: key } });
+      toast.success("Status updated");
+    } catch {
+      toast.error("Couldn't update status");
+    } finally {
+      setSavingStatus(null);
+      setOpenStatusFor(null);
+    }
+  };
+
+  const moveToToday = async (leadId: string) => {
+    // Optimistic local override
+    setOverrideToToday((prev) => { const n = new Set(prev); n.add(leadId); return n; });
+    // If the lead has a callback set for tomorrow, clear it back to today's next slot
+    const lead = leads.find((l) => l.id === leadId);
+    if (lead?.callback_scheduled_at) {
+      const cb = new Date(lead.callback_scheduled_at);
+      if (sameLocalDate(cb, tomorrow)) {
+        const next = new Date();
+        next.setMinutes(next.getMinutes() + 30);
+        await supabase
+          .from("meta_leads")
+          .update({ callback_scheduled_at: next.toISOString(), updated_at: new Date().toISOString() })
+          .eq("id", leadId);
+      }
+    }
+    toast.success("Moved to Today");
+  };
+
+  const moveToTomorrow = async (leadId: string) => {
+    const cb = new Date(); cb.setDate(cb.getDate() + 1); cb.setHours(9, 0, 0, 0);
+    setOverrideToToday((prev) => { const n = new Set(prev); n.delete(leadId); return n; });
+    await supabase
+      .from("meta_leads")
+      .update({ callback_scheduled_at: cb.toISOString(), status: "callback_scheduled", updated_at: new Date().toISOString() })
+      .eq("id", leadId);
+    toast.success("Moved to Tomorrow 9am");
+  };
+
+  const renderStatusBadge = (l: Lead) => {
+    const meta = statusMeta(l.status, l);
+    const showTime = meta.key === "callback_scheduled" && l.callback_scheduled_at;
+    const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
+    const cbLabel = cb ? cb.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : "";
     return (
-      <div
-        key={l.id}
-        className="flex items-center gap-4 rounded-[10px]"
-        style={{
-          background: "#ffffff",
-          border: `0.5px solid ${COLORS.line}`,
-          borderLeft: u === "upcoming" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
-          padding: "16px 18px",
-          marginBottom: 8,
-        }}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <div style={{ fontSize: 15, fontWeight: 500, color: "#111" }}>{name}</div>
-            <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
-          </div>
-          <div style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
-            {l.phone || "no phone"}
-            {l.funding_preference ? <> · <span style={{ color: "#111" }}>{l.funding_preference}</span></> : null}
-          </div>
-          <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-            <span
-              style={{
-                padding: "2px 8px",
-                borderRadius: 20,
-                fontSize: 11,
-                fontWeight: 500,
-                textTransform: "uppercase",
-                letterSpacing: "0.04em",
-                background: `${statusColor(l.status)}1a`,
-                color: statusColor(l.status),
-              }}
-            >
-              {l.status || "new"}
-            </span>
-            <span style={{ fontSize: 12, color: "#111", opacity: 0.7 }}>
-              Day {day} · Attempt {Math.min(attemptDisplay, attempts)} of {attempts}
-            </span>
-            {l.callback_scheduled_at && (
-              <span style={{ fontSize: 12, color: COLORS.blue, fontWeight: 500 }}>
-                · {new Date(l.callback_scheduled_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}
-              </span>
-            )}
-            {u === "overdue" && (
-              <span style={{ fontSize: 12, color: COLORS.red, fontWeight: 500 }}>· Overdue</span>
-            )}
-            {u === "due" && (
-              <span style={{ fontSize: 12, color: COLORS.amber, fontWeight: 500 }}>· Due now</span>
-            )}
-          </div>
-        </div>
+      <div style={{ position: "relative" }}>
         <button
-          onClick={() => onPick(l.id)}
-          className="rounded-[8px] flex-shrink-0"
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setOpenStatusFor(openStatusFor === l.id ? null : l.id); }}
+          disabled={savingStatus === l.id}
           style={{
-            background: COLORS.coral,
-            color: "#ffffff",
-            fontSize: 14,
-            fontWeight: 500,
-            padding: "10px 18px",
+            padding: "4px 10px",
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 600,
+            background: meta.bg,
+            color: meta.color,
+            border: `1px solid ${meta.color}33`,
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
           }}
         >
-          Start Call →
+          <span>{meta.emoji}</span>
+          <span>{meta.label}{showTime ? ` — ${cbLabel}` : ""}</span>
+          <ChevronDown style={{ width: 12, height: 12, opacity: 0.6 }} />
         </button>
+        {openStatusFor === l.id && (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 30,
+              background: "#fff", border: `1px solid ${COLORS.line}`, borderRadius: 10,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.08)", minWidth: 220, padding: 4,
+            }}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => void changeStatus(l.id, opt.key)}
+                style={{
+                  width: "100%", textAlign: "left", padding: "8px 10px",
+                  borderRadius: 6, background: "transparent", color: "#111",
+                  fontSize: 13, display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f5f5f4")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+              >
+                <span>{opt.emoji}</span>
+                <span style={{ color: opt.color, fontWeight: 600 }}>{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
 
-  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
-  const overdue = filtered.filter((l) =>
-    l.callback_scheduled_at ? new Date(l.callback_scheduled_at) < startOfToday : false
-  );
-  const overdueIds = new Set(overdue.map((l) => l.id));
-  const remaining = filtered.filter((l) => !overdueIds.has(l.id));
-  const slot9 = remaining.filter((l) => getTimeSlot(l) === "9am");
-  const slot12 = remaining.filter((l) => getTimeSlot(l) === "12pm");
-  const slot3 = remaining.filter((l) => getTimeSlot(l) === "3pm");
+  const renderLeadCard = (
+    l: Lead,
+    opts: { tone?: "muted" | "today"; section?: "overdue" | "callback" | "no-answer-yesterday" | "new" | "remaining" | "tomorrow" | "yesterday" } = {}
+  ) => {
+    const tone = opts.tone ?? "today";
+    const section = opts.section ?? "remaining";
+    const u = leadUrgency(l);
+    const day = l.day_number ?? 1;
+    const attempts = ATTEMPTS_PER_DAY(day);
+    const todayCount = attemptCounts[l.id] ?? 0;
+    const name = [l.first_name, l.last_name].filter(Boolean).join(" ") || "Unnamed lead";
+    const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
+    const cbTime = cb ? cb.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : null;
 
-  const SlotSection = ({ title, slotLeads, color }: { title: string; slotLeads: Lead[]; color: string }) =>
-    slotLeads.length === 0 ? null : (
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color, marginBottom: 8, paddingLeft: 4 }}>
-          {title} — {slotLeads.length} lead{slotLeads.length !== 1 ? "s" : ""}
+    let accent: string = "transparent";
+    let banner: { text: string; color: string; bg: string } | null = null;
+    if (section === "overdue" || (section === "callback" && u === "overdue")) {
+      accent = COLORS.red;
+      banner = { text: `⚠️ Overdue — ${name} was due at ${cbTime ?? ""}`.trim(), color: "#fff", bg: COLORS.red };
+    } else if (section === "callback") {
+      accent = COLORS.coral;
+      banner = { text: `📞 Call ${name}${cbTime ? ` at ${cbTime}` : ""}`, color: "#fff", bg: COLORS.coral };
+    } else if (section === "no-answer-yesterday") {
+      accent = COLORS.amber;
+    } else if (section === "new") {
+      accent = COLORS.blue;
+    }
+
+    return (
+      <div
+        key={l.id}
+        draggable
+        onDragStart={() => setDragId(l.id)}
+        onDragEnd={() => { setDragId(null); setDropCol(null); }}
+        className="rounded-[10px]"
+        style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderLeft: accent === "transparent" ? `0.5px solid ${COLORS.line}` : `4px solid ${accent}`,
+          marginBottom: 8,
+          opacity: tone === "muted" ? 0.7 : 1,
+          cursor: "grab",
+          overflow: "hidden",
+        }}
+      >
+        {banner && (
+          <div style={{ background: banner.bg, color: banner.color, fontSize: 12, fontWeight: 600, padding: "6px 12px" }}>
+            {banner.text}
+          </div>
+        )}
+        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
+              <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
+            </div>
+            <div style={{ fontSize: 12, color: "#444", marginTop: 2 }}>
+              {l.phone || "no phone"}
+              {l.funding_preference ? ` · ${l.funding_preference}` : ""}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
+              {renderStatusBadge(l)}
+              <span style={{ fontSize: 11, color: "#666" }}>
+                Day {day} · Attempt {Math.min(todayCount, attempts)} of {attempts}
+              </span>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
+            <button
+              onClick={() => onPick(l.id)}
+              className="rounded-[8px] flex-shrink-0"
+              style={{
+                background: tone === "muted" ? "#f5f5f4" : COLORS.coral,
+                color: tone === "muted" ? "#111" : "#ffffff",
+                fontSize: 13,
+                fontWeight: 600,
+                padding: "8px 14px",
+                border: tone === "muted" ? `1px solid ${COLORS.line}` : "none",
+              }}
+            >
+              {tone === "muted" ? "Open" : "Start →"}
+            </button>
+            {section === "tomorrow" && (
+              <button
+                onClick={() => void moveToToday(l.id)}
+                style={{ fontSize: 11, color: COLORS.coral, background: "transparent", textDecoration: "underline" }}
+              >
+                ← Move to Today
+              </button>
+            )}
+            {section !== "tomorrow" && section !== "yesterday" && (
+              <button
+                onClick={() => void moveToTomorrow(l.id)}
+                style={{ fontSize: 11, color: "#666", background: "transparent", textDecoration: "underline" }}
+              >
+                Push to Tomorrow →
+              </button>
+            )}
+          </div>
         </div>
-        {slotLeads.map((l) => renderLeadCard(l))}
+      </div>
+    );
+  };
+
+  // Today subgroup headers
+  const todayGrouped = useMemo(() => {
+    const groups: Record<string, Lead[]> = { overdue: [], callback: [], "no-answer-yesterday": [], new: [], remaining: [] };
+    for (const item of buckets.today) groups[item.section].push(item.lead);
+    return groups;
+  }, [buckets.today]);
+
+  const SectionHeader = ({ title, count, color }: { title: string; count: number; color: string }) =>
+    count === 0 ? null : (
+      <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color, margin: "12px 4px 6px" }}>
+        {title} · {count}
       </div>
     );
 
-  return (
-    <div className="h-full overflow-y-auto" style={{ background: "#ffffff", color: COLORS.text }}>
-      <div className="max-w-3xl mx-auto px-6 py-10">
-        <h1 style={{ fontSize: 28, fontWeight: 500, color: "#111", lineHeight: 1.2 }}>
-          Who are you calling?
-        </h1>
-        <p style={{ marginTop: 8, fontSize: 14, color: "#111" }}>Select a lead to begin</p>
+  // Drop handlers
+  const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
+    const id = dragId; setDragId(null); setDropCol(null);
+    if (!id) return;
+    if (col === "today") return moveToToday(id);
+    if (col === "tomorrow") return moveToTomorrow(id);
+    // yesterday: rare — just clear callback so it falls back to wherever the data places it
+    await supabase.from("meta_leads").update({ callback_scheduled_at: null, updated_at: new Date().toISOString() }).eq("id", id);
+  };
 
-        <div className="relative" style={{ marginTop: 24 }}>
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#111", opacity: 0.5 }} />
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search by name or phone…"
-            className="w-full rounded-[8px] outline-none"
-            style={{
-              background: "#ffffff",
-              border: `0.5px solid ${COLORS.line}`,
-              color: "#111",
-              fontSize: 14,
-              padding: "12px 14px 12px 38px",
-            }}
-          />
+  const Column = ({
+    title, subtitle, tone, col, children, count,
+  }: {
+    title: string; subtitle: string; tone: "muted" | "today";
+    col: "yesterday" | "today" | "tomorrow"; children: React.ReactNode; count: number;
+  }) => (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setDropCol(col); }}
+      onDragLeave={() => setDropCol((c) => (c === col ? null : c))}
+      onDrop={() => void handleDrop(col)}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        background: tone === "today" ? "#ffffff" : "#fafafa",
+        border: `1px solid ${dropCol === col ? COLORS.coral : COLORS.line}`,
+        borderRadius: 14,
+        padding: 14,
+        opacity: tone === "muted" ? 0.85 : 1,
+        transition: "border-color 120ms",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: tone === "today" ? "#111" : "#666" }}>{title}</div>
+        <div style={{ fontSize: 11, color: "#999" }}>{count} {count === 1 ? "lead" : "leads"}</div>
+      </div>
+      <div style={{ fontSize: 11, color: "#999", marginBottom: 10 }}>{subtitle}</div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div className="h-full overflow-y-auto" style={{ background: "#f7f7f5", color: COLORS.text }} onClick={() => setOpenStatusFor(null)}>
+      <div className="max-w-[1400px] mx-auto px-6 py-8">
+        <div className="flex items-baseline justify-between gap-4 flex-wrap">
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 600, color: "#111", lineHeight: 1.2 }}>
+              Today's call sheet
+            </h1>
+            <p style={{ marginTop: 4, fontSize: 13, color: "#666" }}>
+              {todayGrouped.callback.length + todayGrouped.overdue.length} callback{(todayGrouped.callback.length + todayGrouped.overdue.length) === 1 ? "" : "s"} ·{" "}
+              {todayGrouped["no-answer-yesterday"].length} to retry from yesterday ·{" "}
+              {todayGrouped.new.length} new lead{todayGrouped.new.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div className="relative" style={{ minWidth: 260 }}>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: "#111", opacity: 0.5 }} />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search by name or phone…"
+              className="w-full rounded-[8px] outline-none"
+              style={{
+                background: "#ffffff",
+                border: `0.5px solid ${COLORS.line}`,
+                color: "#111",
+                fontSize: 13,
+                padding: "10px 12px 10px 36px",
+              }}
+            />
+          </div>
         </div>
 
-        <div className="mt-6">
-          {filtered.length === 0 && (
-            <div style={{ padding: "24px 0", fontSize: 14, color: "#111", opacity: 0.7 }}>No leads to call.</div>
-          )}
-          {overdue.length > 0 && <SlotSection title="⚠️ Overdue callbacks" slotLeads={overdue} color={COLORS.coral} />}
-          <SlotSection title="9am session" slotLeads={slot9} color="#3b82f6" />
-          <SlotSection title="12pm session" slotLeads={slot12} color="#8b5cf6" />
-          <SlotSection title="3pm session" slotLeads={slot3} color="#10b981" />
+        <div className="mt-6 grid gap-4" style={{ gridTemplateColumns: "1fr 1.4fr 1fr" }}>
+          <Column
+            title="Yesterday"
+            subtitle={yesterday.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}
+            tone="muted"
+            col="yesterday"
+            count={buckets.yesterday.length}
+          >
+            {buckets.yesterday.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing from yesterday.</div>}
+            {buckets.yesterday.map((l) => renderLeadCard(l, { tone: "muted", section: "yesterday" }))}
+          </Column>
+
+          <Column
+            title="Today"
+            subtitle={today.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}
+            tone="today"
+            col="today"
+            count={buckets.today.length}
+          >
+            {buckets.today.length === 0 && <div style={{ fontSize: 13, color: "#888" }}>You're all caught up.</div>}
+            <SectionHeader title="⚠️ Overdue callbacks" count={todayGrouped.overdue.length} color={COLORS.red} />
+            {todayGrouped.overdue.map((l) => renderLeadCard(l, { section: "overdue" }))}
+            <SectionHeader title="📞 Callbacks scheduled" count={todayGrouped.callback.length} color={COLORS.coral} />
+            {todayGrouped.callback.map((l) => renderLeadCard(l, { section: "callback" }))}
+            <SectionHeader title="🟡 No answer yesterday" count={todayGrouped["no-answer-yesterday"].length} color={COLORS.amber} />
+            {todayGrouped["no-answer-yesterday"].map((l) => renderLeadCard(l, { section: "no-answer-yesterday" }))}
+            <SectionHeader title="🔵 New leads" count={todayGrouped.new.length} color={COLORS.blue} />
+            {todayGrouped.new.map((l) => renderLeadCard(l, { section: "new" }))}
+            <SectionHeader title="Remaining" count={todayGrouped.remaining.length} color="#999" />
+            {todayGrouped.remaining.map((l) => renderLeadCard(l, { section: "remaining" }))}
+          </Column>
+
+          <Column
+            title="Tomorrow"
+            subtitle={tomorrow.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}
+            tone="muted"
+            col="tomorrow"
+            count={buckets.tomorrow.length}
+          >
+            {buckets.tomorrow.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing queued. Drag a lead here to push it.</div>}
+            {buckets.tomorrow.map((l) => renderLeadCard(l, { tone: "muted", section: "tomorrow" }))}
+          </Column>
         </div>
       </div>
     </div>
