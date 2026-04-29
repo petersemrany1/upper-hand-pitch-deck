@@ -2886,6 +2886,16 @@ function LeadChooser({
     };
   }, [orderedYesterday, orderedTomorrow, todayManualFlat, buckets.today]);
 
+  // Close the status menu when the user presses Escape.
+  useEffect(() => {
+    if (!openStatusFor) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setOpenStatusFor(null); setStatusAnchor(null); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openStatusFor]);
+
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
     // Optimistic local update so UI updates immediately, no refresh required.
