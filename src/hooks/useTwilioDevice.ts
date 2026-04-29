@@ -307,6 +307,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
 }
 
 function hangupCall() {
+  stopRingback();
   try { activeCall?.disconnect(); } catch { /* noop */ }
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
