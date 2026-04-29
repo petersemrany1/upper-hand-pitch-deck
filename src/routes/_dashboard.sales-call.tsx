@@ -3417,6 +3417,83 @@ function LeadChooser({
         </div>
       </div>
 
+      {/* Floating Converted Leads pill (bottom-right) */}
+      <button
+        type="button"
+        onClick={() => setConvertedOpen((v) => !v)}
+        style={{
+          position: "fixed", bottom: 20, right: 20, zIndex: 998,
+          background: "#15803d", color: "#fff", border: "none",
+          borderRadius: 999, padding: "10px 16px",
+          fontSize: 13, fontWeight: 600, cursor: "pointer",
+          boxShadow: "0 6px 18px rgba(21,128,61,0.35)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}
+      >
+        🟢 Converted
+        <span style={{
+          background: "rgba(255,255,255,0.25)", borderRadius: 999,
+          padding: "1px 8px", fontSize: 12, fontWeight: 700,
+        }}>{convertedLeads.length}</span>
+      </button>
+
+      {convertedOpen && (
+        <>
+          <div
+            onClick={() => setConvertedOpen(false)}
+            style={{ position: "fixed", inset: 0, zIndex: 998, background: "transparent" }}
+          />
+          <div
+            style={{
+              position: "fixed", bottom: 70, right: 20, zIndex: 999,
+              width: 340, maxHeight: 420, overflowY: "auto",
+              background: "#fff", border: `1px solid ${COLORS.line}`,
+              borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
+              padding: 12,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#15803d" }}>
+                🟢 Converted Leads
+              </div>
+              <div style={{ fontSize: 11, color: "#999" }}>
+                {convertedLeads.length} {convertedLeads.length === 1 ? "lead" : "leads"}
+              </div>
+            </div>
+            {convertedLeads.length === 0 && (
+              <div style={{ fontSize: 12, color: "#888", padding: "12px 4px" }}>
+                No converted leads yet. Mark a lead as "Booked — Deposit Paid" to add them here.
+              </div>
+            )}
+            {convertedLeads.map((l) => (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => { setConvertedOpen(false); onPick(l.id); }}
+                style={{
+                  width: "100%", textAlign: "left", display: "block",
+                  background: "#dcfce7", border: "1px solid #bbf7d0",
+                  borderRadius: 8, padding: "10px 12px", marginBottom: 6,
+                  cursor: "pointer", color: "#111",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#bbf7d0")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "#dcfce7")}
+              >
+                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                  {(l.first_name ?? "") + " " + (l.last_name ?? "")}
+                </div>
+                <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>
+                  {l.booking_date ? `📅 ${l.booking_date}${l.booking_time ? ` · ${l.booking_time}` : ""}` : "Deposit paid"}
+                </div>
+                {l.phone && (
+                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{l.phone}</div>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
       {openStatusFor && statusAnchor && (() => {
         const lead = leads.find((x) => x.id === openStatusFor);
         if (!lead) return null;
