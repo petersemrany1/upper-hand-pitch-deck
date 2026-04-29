@@ -3579,7 +3579,27 @@ function RightPanel({
         >
           Schedule callback
         </button>
-        {showCallbackPicker && (
+        {showCallbackPicker && (() => {
+          const saveCallbackAt = async (dt: Date) => {
+            setSavingCallback(true);
+            try {
+              const { error } = await supabase.from("meta_leads").update({
+                callback_scheduled_at: dt.toISOString(),
+                status: "Callback Scheduled",
+                updated_at: new Date().toISOString(),
+              }).eq("id", active.id);
+              if (error) throw error;
+              setShowCallbackPicker(false);
+              setCallbackDate("");
+              setCallbackTime("");
+              toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Couldn't save callback");
+            } finally {
+              setSavingCallback(false);
+            }
+          };
+          return (
           <div style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8, padding: "12px 14px", marginTop: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
               Schedule callback
@@ -3588,13 +3608,13 @@ function RightPanel({
               {(["30 min", "1 hour", "2 hours"] as const).map((label) => (
                 <button
                   key={label}
+                  disabled={savingCallback}
                   onClick={() => {
                     const d = new Date();
                     d.setMinutes(d.getMinutes() + (label === "30 min" ? 30 : label === "1 hour" ? 60 : 120));
-                    setCallbackDate(d.toISOString().split("T")[0]);
-                    setCallbackTime(d.toTimeString().slice(0, 5));
+                    void saveCallbackAt(d);
                   }}
-                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer", opacity: savingCallback ? 0.6 : 1 }}
                 >
                   {label}
                 </button>
@@ -3608,18 +3628,42 @@ function RightPanel({
               ] as const).map((opt) => (
                 <button
                   key={opt.label}
+                  disabled={savingCallback}
                   onClick={() => {
                     const d = new Date();
                     d.setDate(d.getDate() + 1);
-                    setCallbackDate(d.toISOString().split("T")[0]);
-                    setCallbackTime(opt.time);
+                    const [hh, mm] = opt.time.split(":").map(Number);
+                    d.setHours(hh, mm, 0, 0);
+                    void saveCallbackAt(d);
                   }}
-                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer" }}
+                  style={{ fontSize: 11, padding: "4px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111", cursor: "pointer", opacity: savingCallback ? 0.6 : 1 }}
                 >
                   {opt.label}
                 </button>
               ))}
             </div>
+            <div style={{ fontSize: 10, color: "#999", marginBottom: 8, fontStyle: "italic" }}>
+              Or pick a custom date & time:
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
+              <input type="time" value={callbackTime} onChange={(e) => setCallbackTime(e.target.value)}
+                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
+            </div>
+            <button
+              onClick={() => {
+                if (!callbackDate || !callbackTime) return;
+                void saveCallbackAt(new Date(`${callbackDate}T${callbackTime}`));
+              }}
+              disabled={savingCallback || !callbackDate || !callbackTime}
+              style={{ width: "100%", background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 6, cursor: "pointer", opacity: (savingCallback || !callbackDate || !callbackTime) ? 0.6 : 1, border: "none" }}
+            >
+              {savingCallback ? "Saving..." : "Confirm callback →"}
+            </button>
+          </div>
+          );
+        })()}
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
               <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
                 style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
