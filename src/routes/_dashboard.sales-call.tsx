@@ -3664,33 +3664,6 @@ function RightPanel({
           </div>
           );
         })()}
-            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
-              <input type="date" value={callbackDate} onChange={(e) => setCallbackDate(e.target.value)}
-                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
-              <input type="time" value={callbackTime} onChange={(e) => setCallbackTime(e.target.value)}
-                style={{ flex: 1, fontSize: 12, padding: "6px 8px", borderRadius: 4, border: `0.5px solid ${COLORS.line}`, background: "#fff", color: "#111" }} />
-            </div>
-            <button
-              onClick={async () => {
-                if (!callbackDate || !callbackTime) return;
-                setSavingCallback(true);
-                const dt = new Date(`${callbackDate}T${callbackTime}`);
-                await supabase.from("meta_leads").update({
-                  callback_scheduled_at: dt.toISOString(),
-                  status: "Callback Scheduled",
-                  updated_at: new Date().toISOString(),
-                }).eq("id", active.id);
-                setSavingCallback(false);
-                setShowCallbackPicker(false);
-                toast.success(`Callback set for ${dt.toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" })}`);
-              }}
-              disabled={savingCallback || !callbackDate || !callbackTime}
-              style={{ width: "100%", background: COLORS.coral, color: "#fff", fontSize: 12, fontWeight: 600, padding: "8px 0", borderRadius: 6, cursor: "pointer", opacity: savingCallback ? 0.6 : 1, border: "none" }}
-            >
-              {savingCallback ? "Saving..." : "Confirm callback →"}
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Section 3 — Clinic info */}
