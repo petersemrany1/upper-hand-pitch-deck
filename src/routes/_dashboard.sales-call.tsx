@@ -1539,7 +1539,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
 function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void }) {
   const autoName = [lead.first_name, lead.last_name].filter(Boolean).join(" ");
   const [form, setForm] = useState({
-    name: autoName, dob: "", price: "", citizen: "", earning: "", bankrupt: "", centrelink: "", homeowner: "",
+    name: autoName, dob: "", price: "", citizen: "", earning: "", bankrupt: "", homeowner: "",
   });
   const [result, setResult] = useState<null | { eligible: boolean }>(null);
   const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
