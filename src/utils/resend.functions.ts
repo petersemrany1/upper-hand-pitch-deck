@@ -955,7 +955,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
 /* ──────────────── Pattern analysis (Claude via Lovable AI Gateway) ──────────────── */
 
 export const analyseCallPatterns = createServerFn({ method: "POST" })
-  .inputValidator((data: { range: "today" | "yesterday" | "week" | "lastweek" | "30d" }) => data)
+  .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => data)
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
