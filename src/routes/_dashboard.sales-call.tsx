@@ -2702,20 +2702,19 @@ function LeadChooser({
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   // Local override so drag/drop and "move" buttons re-bucket immediately
   // without waiting for the realtime round-trip. Maps lead id → forced column.
-  const [forcedCol, setForcedCol] = useState<Record<string, "yesterday" | "today" | "tomorrow">>({});
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dropCol, setDropCol] = useState<"yesterday" | "today" | "tomorrow" | null>(null);
+  const [forcedCol, setForcedCol] = useState<Record<string, DayCol>>({});
+  const [dropCol, setDropCol] = useState<DayCol | null>(null);
   // Manual ordering per column (id list). When present, leads in that column
   // render in this order; new leads append at the end.
-  const [manualOrder, setManualOrder] = useState<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+  const [manualOrder, setManualOrder] = useState<Record<DayCol, string[]>>({
     yesterday: [], today: [], tomorrow: [],
   });
-  const [dropTarget, setDropTarget] = useState<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
-  const dragIdRef = useRef<string | null>(null);
-  const dropTargetRef = useRef<{ col: "yesterday" | "today" | "tomorrow"; beforeId: string | null } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ col: DayCol; beforeId: string | null } | null>(null);
+  const dragStateRef = useRef<{ id: string; origin: DayCol; x: number; y: number; pointerId: number; dragging: boolean } | null>(null);
+  const dropTargetRef = useRef<{ col: DayCol; beforeId: string | null } | null>(null);
   // Snapshot of the currently rendered ids per column (kept in sync via useEffect
   // below). Used by drag/drop math.
-  const colOrderRef = useRef<Record<"yesterday" | "today" | "tomorrow", string[]>>({
+  const colOrderRef = useRef<Record<DayCol, string[]>>({
     yesterday: [], today: [], tomorrow: [],
   });
 
