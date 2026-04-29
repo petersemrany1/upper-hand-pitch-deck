@@ -3236,9 +3236,9 @@ function LeadChooser({
       colOrderRef.current.yesterday.includes(id) ? "yesterday" :
       colOrderRef.current.tomorrow.includes(id) ? "tomorrow" : "today";
     if (wasInCol !== col) {
-      if (col === "today") await moveToToday(id);
-      else if (col === "tomorrow") await moveToTomorrow(id);
-      else await moveToYesterday(id);
+      if (col === "today") void moveToToday(id);
+      else if (col === "tomorrow") void moveToTomorrow(id);
+      else void moveToYesterday(id);
     }
 
     // 2) Apply manual ordering inside the target column
