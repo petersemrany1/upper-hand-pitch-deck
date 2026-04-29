@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Device, type Call } from "@twilio/voice-sdk";
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
+import { stopRingback } from "@/utils/ringback";
 
 // Browser-based Twilio softphone — module-level singleton.
 //
@@ -259,12 +260,14 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     });
     outgoing.on("accept", (c: Call) => {
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
+      stopRingback();
       const sid = c.parameters?.CallSid ?? null;
       if (sid) void insertCallRow(sid);
       setSnapshot({ activeCallSid: sid, status: "in-call" });
     });
     outgoing.on("disconnect", () => {
       console.log("Voice SDK: call disconnected");
+      stopRingback();
       const sid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
       // Mark the call as awaiting recording so the Clinics page can show progress.
       if (sid) {
@@ -280,19 +283,23 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       setSnapshot({ activeCallSid: null, status: "ready" });
     });
     outgoing.on("cancel", () => {
+      stopRingback();
       activeCall = null;
       setSnapshot({ activeCallSid: null, status: "ready" });
     });
     outgoing.on("reject", () => {
+      stopRingback();
       activeCall = null;
       setSnapshot({ activeCallSid: null, status: "ready" });
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
       console.error("Voice SDK call error:", e);
+      stopRingback();
       activeCall = null;
       setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, status: "error" });
     });
   } catch (err) {
+    stopRingback();
     const msg = extractErrorMessage(err, "Failed to start call");
     setSnapshot({ error: msg, status: "error" });
     throw err instanceof Error ? err : new Error(msg);
@@ -300,6 +307,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
 }
 
 function hangupCall() {
+  stopRingback();
   try { activeCall?.disconnect(); } catch { /* noop */ }
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;

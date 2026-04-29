@@ -15,6 +15,7 @@ import {
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms } from "@/utils/resend.functions";
+import { startRingback, stopRingback } from "@/utils/ringback";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
@@ -2671,11 +2672,16 @@ function RightPanel({
       toast.error("Dialler errored — refresh the page to reconnect.");
       return;
     }
+    // Start ringback synchronously inside the click gesture so the browser
+    // allows the AudioContext to play. The Twilio SDK will not deliver
+    // carrier ringback over WebRTC, so we generate it locally.
+    startRingback();
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id });
       console.log("[callNow] placeCall returned");
     } catch (e) {
+      stopRingback();
       console.error("[callNow] placeCall threw", e);
       toast.error(e instanceof Error ? e.message : "Failed to start call");
     }
