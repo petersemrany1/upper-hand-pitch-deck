@@ -3225,9 +3225,10 @@ function LeadChooser({
 
   // Drop handlers
   const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
-    const id = dragId;
-    const target = dropTarget;
-    setDragId(null); setDropCol(null); setDropTarget(null);
+    const id = dragIdRef.current;
+    const target = dropTargetRef.current;
+    dragIdRef.current = null;
+    setDragId(null); setDropPreview(null);
     if (!id) return;
 
     // 1) Update column membership when crossing day boundaries
@@ -3261,7 +3262,7 @@ function LeadChooser({
     col: "yesterday" | "today" | "tomorrow"; children: React.ReactNode; count: number;
   }) => (
     <div
-      onDragOver={(e) => { e.preventDefault(); setDropCol(col); }}
+      onDragOver={(e) => { e.preventDefault(); if (dragIdRef.current) setDropPreview({ col, beforeId: null }); }}
       onDragLeave={() => setDropCol((c) => (c === col ? null : c))}
       onDrop={() => void handleDrop(col)}
       style={{
