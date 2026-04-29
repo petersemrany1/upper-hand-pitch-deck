@@ -310,6 +310,22 @@ export function FloatingCallWidget() {
         </div>
       )}
 
+      {/* Open in Sales Call (only for inbound matched leads) */}
+      {matchedLead && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              navigate({ to: "/sales-call", search: { leadId: matchedLead.id } as never });
+            }}
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
+          >
+            Open {[matchedLead.first_name, matchedLead.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Action row */}
       <div className="px-4 pb-4 grid grid-cols-4 gap-2">
         <ActionButton
