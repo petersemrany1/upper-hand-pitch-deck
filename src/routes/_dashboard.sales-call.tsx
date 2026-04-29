@@ -112,6 +112,8 @@ function SalesCallPortal() {
   const [ampPrefill, setAmpPrefill] = useState<string>("");
   const [audioPrefill, setAudioPrefill] = useState<string>("");
   const [attemptCounts, setAttemptCounts] = useState<Record<string, number>>({});
+  // attempts grouped per lead per local date "YYYY-MM-DD" with the most recent outcome
+  const [attemptsByDay, setAttemptsByDay] = useState<Record<string, Record<string, { count: number; lastOutcome: string | null }>>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
 
