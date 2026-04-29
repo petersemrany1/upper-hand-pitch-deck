@@ -3299,7 +3299,7 @@ function LeadChooser({
   // return the id of the lead that comes AFTER it in render order (or null
   // if it's the last). Used so dropping in the bottom half of a card inserts
   // the dragged lead immediately after it.
-  const nextLeadIdInCol = (col: "yesterday" | "today" | "tomorrow", afterId: string): string | null => {
+  const nextLeadIdInCol = (col: DayCol, afterId: string): string | null => {
     const arr = colOrderRef.current[col];
     const i = arr.indexOf(afterId);
     if (i < 0 || i === arr.length - 1) return null;
@@ -3307,15 +3307,11 @@ function LeadChooser({
   };
 
   // Drop handlers
-  const handleDrop = async (col: "yesterday" | "today" | "tomorrow") => {
-    const id = dragIdRef.current;
-    const target = dropTargetRef.current;
-    dragIdRef.current = null;
-    setDragId(null); setDropPreview(null);
-    if (!id) return;
+  const handleDrop = async (id: string, col: DayCol, target: { col: DayCol; beforeId: string | null } | null) => {
+    setDropPreview(null);
 
     // 1) Update column membership when crossing day boundaries
-    const wasInCol: "yesterday" | "today" | "tomorrow" =
+    const wasInCol: DayCol =
       colOrderRef.current.yesterday.includes(id) ? "yesterday" :
       colOrderRef.current.tomorrow.includes(id) ? "tomorrow" : "today";
     if (wasInCol !== col) {
