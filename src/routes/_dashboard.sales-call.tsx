@@ -189,6 +189,27 @@ function SalesCallPortal() {
     void listMmsImages().then((r) => { if (r.success) setMmsImages(r.images); });
   }, []);
 
+  // Preselect a lead from ?leadId= (used by the FloatingCallWidget's
+  // "Open in Sales Call" button when an inbound caller is recognised).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const wantedId = params.get("leadId");
+    if (!wantedId) return;
+    // Wait until leads are loaded, then match
+    if (leads.length === 0) return;
+    const found = leads.find((l) => l.id === wantedId);
+    if (found && activeId !== found.id) {
+      setActiveId(found.id);
+      setStep("mindset");
+      setCompleted(new Set());
+      // Clear the param so a refresh doesn't re-trigger
+      const url = new URL(window.location.href);
+      url.searchParams.delete("leadId");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, [leads, activeId]);
+
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
   const markStepComplete = (k: StepKey) => {
