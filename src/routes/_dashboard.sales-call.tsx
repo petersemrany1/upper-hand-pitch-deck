@@ -2894,7 +2894,20 @@ function LeadChooser({
         key={l.id}
         draggable
         onDragStart={() => setDragId(l.id)}
-        onDragEnd={() => { setDragId(null); setDropCol(null); }}
+        onDragEnd={() => { setDragId(null); setDropCol(null); setDropTarget(null); }}
+        onDragOver={(e) => {
+          if (!dragId || dragId === l.id) return;
+          e.preventDefault();
+          e.stopPropagation();
+          // Determine which column this card belongs to via its section
+          const col: "yesterday" | "today" | "tomorrow" =
+            section === "yesterday" ? "yesterday" :
+            section === "tomorrow" ? "tomorrow" : "today";
+          const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+          const isAbove = e.clientY < rect.top + rect.height / 2;
+          setDropCol(col);
+          setDropTarget({ col, beforeId: isAbove ? l.id : nextLeadIdInCol(col, l.id) });
+        }}
         className="rounded-[10px]"
         style={{
           background: "#ffffff",
@@ -2903,7 +2916,8 @@ function LeadChooser({
           marginBottom: 8,
           opacity: tone === "muted" ? 0.7 : 1,
           cursor: "grab",
-          overflow: "hidden",
+          // Drop indicator above this card
+          boxShadow: dropTarget?.beforeId === l.id ? `inset 0 3px 0 0 ${COLORS.coral}` : undefined,
         }}
       >
         {banner && (
