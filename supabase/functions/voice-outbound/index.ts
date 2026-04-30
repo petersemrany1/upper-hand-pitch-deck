@@ -129,9 +129,14 @@ serve(async (req) => {
     callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
   );
 
+  // answerOnBridge="true" — caller hears real ringing and audio connects
+  //   the instant the callee picks up. Without it, Twilio answers our leg
+  //   immediately and pumps silence until bridge → feels like delay.
+  // trim="trim-silence" — strips dead air at the start of the recording
+  //   AND speeds up the audible bridge.
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial callerId="${TWILIO_CALLER_ID}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="do-not-trim" timeout="30">
+  <Dial answerOnBridge="true" callerId="${TWILIO_CALLER_ID}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence" timeout="30">
     <Number statusCallback="${childStatusCallbackUrl}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${dialTo}</Number>
   </Dial>
 </Response>`;
