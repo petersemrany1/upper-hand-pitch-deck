@@ -17,6 +17,12 @@ function digitsOnly(s: string): string {
   return (s || "").replace(/[^0-9]/g, "");
 }
 
+function escapeXml(s: string): string {
+  return s.replace(/[<>&'"]/g, (c) => ({
+    "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;",
+  }[c]!));
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -54,6 +60,7 @@ serve(async (req) => {
       // This handles +61 vs 0-prefix and any spaces/brackets in the stored
       // clinic phone column.
       let clinicId: string | null = null;
+      let leadId: string | null = null;
       if (from) {
         const fromDigits = digitsOnly(from);
         const tail = fromDigits.slice(-9);
@@ -72,6 +79,18 @@ serve(async (req) => {
             });
             if (match?.id) clinicId = match.id;
           }
+
+          const { data: leads } = await supabase
+            .from("meta_leads")
+            .select("id, phone")
+            .not("phone", "is", null);
+          if (leads) {
+            const match = leads.find((l) => {
+              const ld = digitsOnly(l.phone || "");
+              return ld.length >= 6 && ld.slice(-9) === tail;
+            });
+            if (match?.id) leadId = match.id;
+          }
         }
       }
 
@@ -84,6 +103,7 @@ serve(async (req) => {
             direction: "inbound",
             status: "ringing",
             clinic_id: clinicId,
+            lead_id: leadId,
           },
           { onConflict: "twilio_call_sid" },
         );
@@ -92,9 +112,11 @@ serve(async (req) => {
     }
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const statusCallbackUrl = escapeXml(`${supabaseUrl}/functions/v1/twilio-status`);
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial timeout="20">
+  <Dial timeout="20" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence">
     <Client>peter_browser</Client>
   </Dial>
 </Response>`;
