@@ -3723,29 +3723,83 @@ function LeadChooser({
               </div>
             )}
             {convertedLeads.map((l) => (
-              <button
+              <div
                 key={l.id}
-                type="button"
-                onClick={() => { setConvertedOpen(false); onPick(l.id); }}
                 style={{
-                  width: "100%", textAlign: "left", display: "block",
                   background: "#dcfce7", border: "1px solid #bbf7d0",
                   borderRadius: 8, padding: "10px 12px", marginBottom: 6,
-                  cursor: "pointer", color: "#111",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#bbf7d0")}
-                onMouseLeave={(e) => (e.currentTarget.style.background = "#dcfce7")}
               >
-                <div style={{ fontSize: 13, fontWeight: 600 }}>
-                  {(l.first_name ?? "") + " " + (l.last_name ?? "")}
+                <button
+                  type="button"
+                  onClick={() => { setConvertedOpen(false); onPick(l.id); }}
+                  style={{
+                    width: "100%", textAlign: "left", display: "block",
+                    background: "transparent", border: "none", padding: 0,
+                    cursor: "pointer", color: "#111",
+                  }}
+                >
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>
+                    {(l.first_name ?? "") + " " + (l.last_name ?? "")}
+                  </div>
+                  <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>
+                    {l.booking_date ? `📅 ${l.booking_date}${l.booking_time ? ` · ${l.booking_time}` : ""}` : "Deposit paid"}
+                  </div>
+                  {l.phone && (
+                    <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{l.phone}</div>
+                  )}
+                </button>
+                <div style={{ display: "flex", gap: 6, marginTop: 8, paddingTop: 8, borderTop: "1px solid #bbf7d0" }}>
+                  <button
+                    type="button"
+                    disabled={savingStatus === l.id}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Mark ${l.first_name ?? "this lead"} as Cancelled? This will clear their booking.`)) return;
+                      setSavingStatus(l.id);
+                      const r = await updateLeadStatus({ data: { leadId: l.id, status: "cancelled" } });
+                      if (!r.success) { setSavingStatus(null); toast.error(`Failed: ${r.error}`); return; }
+                      await clearBooking({ data: { leadId: l.id } });
+                      onLocalLeadUpdate?.(l.id, { status: "cancelled", booking_date: null, booking_time: null } as Partial<Lead>);
+                      setSavingStatus(null);
+                      toast.success("Marked as cancelled");
+                    }}
+                    style={{
+                      flex: 1, fontSize: 11, fontWeight: 500, color: "#b45309",
+                      background: "#fffbeb", border: "1px solid #fcd34d",
+                      borderRadius: 6, padding: "6px 8px",
+                      cursor: savingStatus === l.id ? "wait" : "pointer",
+                      opacity: savingStatus === l.id ? 0.6 : 1,
+                    }}
+                  >
+                    ✕ Cancelled
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingStatus === l.id}
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm(`Mark ${l.first_name ?? "this lead"} as No-show? This will clear their booking.`)) return;
+                      setSavingStatus(l.id);
+                      const r = await updateLeadStatus({ data: { leadId: l.id, status: "no_show" } });
+                      if (!r.success) { setSavingStatus(null); toast.error(`Failed: ${r.error}`); return; }
+                      await clearBooking({ data: { leadId: l.id } });
+                      onLocalLeadUpdate?.(l.id, { status: "no_show", booking_date: null, booking_time: null } as Partial<Lead>);
+                      setSavingStatus(null);
+                      toast.success("Marked as no-show");
+                    }}
+                    style={{
+                      flex: 1, fontSize: 11, fontWeight: 500, color: "#991b1b",
+                      background: "#fef2f2", border: "1px solid #fca5a5",
+                      borderRadius: 6, padding: "6px 8px",
+                      cursor: savingStatus === l.id ? "wait" : "pointer",
+                      opacity: savingStatus === l.id ? 0.6 : 1,
+                    }}
+                  >
+                    ⊘ No-show
+                  </button>
                 </div>
-                <div style={{ fontSize: 11, color: "#15803d", marginTop: 2 }}>
-                  {l.booking_date ? `📅 ${l.booking_date}${l.booking_time ? ` · ${l.booking_time}` : ""}` : "Deposit paid"}
-                </div>
-                {l.phone && (
-                  <div style={{ fontSize: 11, color: "#666", marginTop: 2 }}>{l.phone}</div>
-                )}
-              </button>
+              </div>
             ))}
           </div>
         </>
