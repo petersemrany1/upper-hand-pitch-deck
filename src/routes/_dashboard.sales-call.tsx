@@ -2798,9 +2798,34 @@ function LeadChooser({
   const yesterdayKey = localDateKey(yesterday);
 
   const persistedColumnFor = (l: Lead): DayCol | null => {
-    const column = rawPayloadObject(l.raw_payload).pipeline_column;
-    if (column === "today" || column === "tomorrow" || column === "yesterday") return column;
-    return null;
+    const payload = rawPayloadObject(l.raw_payload);
+    const column = payload.pipeline_column;
+    if (column !== "today" && column !== "tomorrow" && column !== "yesterday") return null;
+    // If the move was tagged with the calendar date it referred to, resolve it
+    // relative to today. e.g. a "tomorrow" set yesterday should appear in
+    // "today" today, then slide to "yesterday" the day after.
+    const setOnRaw = payload.pipeline_column_date;
+    const setOn = typeof setOnRaw === "string" ? setOnRaw : null;
+    if (setOn) {
+      // Compute the absolute target date the user originally meant.
+      const [y, m, d] = setOn.split("-").map((n) => parseInt(n, 10));
+      if (!Number.isNaN(y) && !Number.isNaN(m) && !Number.isNaN(d)) {
+        const setOnDate = new Date(y, m - 1, d);
+        const target = new Date(setOnDate);
+        if (column === "tomorrow") target.setDate(target.getDate() + 1);
+        else if (column === "yesterday") target.setDate(target.getDate() - 1);
+        // Compare to today
+        const targetKey = localDateKey(target);
+        if (targetKey === localDateKey(today)) return "today";
+        if (targetKey === localDateKey(tomorrow)) return "tomorrow";
+        if (targetKey === localDateKey(yesterday)) return "yesterday";
+        // If the target date is in the past (older than yesterday), slide to yesterday.
+        if (target.getTime() < yesterday.getTime()) return "yesterday";
+        // If the target date is further in the future than tomorrow, keep in tomorrow.
+        if (target.getTime() > tomorrow.getTime()) return "tomorrow";
+      }
+    }
+    return column;
   };
 
   const filtered = useMemo(() => {
@@ -3111,7 +3136,7 @@ function LeadChooser({
     // Optimistic local override so the card jumps columns instantly
     setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "today" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "today", pipeline_column_date: localDateKey(today) };
     onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
     // If the lead has a callback set for tomorrow, clear it back to today's next slot
     if (lead?.callback_scheduled_at) {
@@ -3137,7 +3162,7 @@ function LeadChooser({
 
   const moveToTomorrow = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "tomorrow" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "tomorrow", pipeline_column_date: localDateKey(today) };
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
     onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
     await supabase
@@ -3149,7 +3174,7 @@ function LeadChooser({
 
   const moveToYesterday = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "yesterday" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "yesterday", pipeline_column_date: localDateKey(today) };
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
     onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null, raw_payload: rawPayload });
