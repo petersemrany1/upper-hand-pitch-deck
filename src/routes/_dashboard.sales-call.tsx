@@ -2031,7 +2031,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const openPreview = async () => {
     const { data: freshLead } = await supabase
       .from("meta_leads")
-      .select("call_notes, funding_preference, finance_eligible, phone, email")
+      .select("call_notes, funding_preference, finance_eligible, phone, email, status")
       .eq("id", lead.id)
       .single();
 
@@ -2043,7 +2043,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       lead.finance_eligible === true ? "Yes" :
       lead.finance_eligible === false ? "No" : "Not checked"
     );
-    setPreviewDeposit(depositSent);
+    // Deposit is paid if either we sent+confirmed it this session OR the lead status reflects it
+    const statusImpliesDeposit = (freshLead?.status || "").toLowerCase().includes("deposit_paid");
+    setPreviewDeposit(depositSent || statusImpliesDeposit);
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
     setShowPreview(true);
