@@ -152,7 +152,7 @@ export function MissedCallsList() {
                   <div className="text-[11px] font-medium text-[#111111] truncate leading-tight">
                     {label}
                   </div>
-                  <div className="text-[9px] leading-tight" style={{ color: "#111111" }}>
+                  <div className="text-[9px] leading-tight" style={{ color: "#6b7280" }}>
                     {relativeTime(row.called_at)}
                     {missed ? " · Missed" : ""}
                   </div>
