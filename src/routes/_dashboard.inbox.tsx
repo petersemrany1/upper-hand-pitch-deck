@@ -79,7 +79,30 @@ function InboxPage() {
       console.error("loadThreads", error);
       return;
     }
-    setThreads((data as unknown as Thread[]) ?? []);
+    const rows = (data as unknown as Thread[]) ?? [];
+
+    // For threads without a display_name or clinic match, look up the lead by phone
+    const norm = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "");
+    const needsLookup = rows.filter((t) => !t.display_name && !t.clinic?.clinic_name);
+    if (needsLookup.length > 0) {
+      const { data: leads } = await supabase
+        .from("meta_leads")
+        .select("first_name, last_name, phone");
+      const leadMap = new Map<string, string>();
+      for (const l of (leads as Array<{ first_name: string | null; last_name: string | null; phone: string | null }>) ?? []) {
+        const key = norm(l.phone);
+        if (!key) continue;
+        const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
+        if (name && !leadMap.has(key)) leadMap.set(key, name);
+      }
+      for (const t of rows) {
+        if (t.display_name || t.clinic?.clinic_name) continue;
+        const name = leadMap.get(norm(t.phone));
+        if (name) t.display_name = name;
+      }
+    }
+
+    setThreads(rows);
   }, []);
 
   const loadMessages = useCallback(async (threadId: string) => {
