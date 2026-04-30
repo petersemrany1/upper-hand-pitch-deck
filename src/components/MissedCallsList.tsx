@@ -136,7 +136,7 @@ export function MissedCallsList() {
               <li
                 key={row.id}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5"
-                style={{ background: "#141418", border: "1px solid #ebebeb" }}
+                style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
               >
                 <span
                   className="flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
@@ -152,7 +152,7 @@ export function MissedCallsList() {
                   <div className="text-[11px] font-medium text-[#111111] truncate leading-tight">
                     {label}
                   </div>
-                  <div className="text-[9px] leading-tight" style={{ color: "#111111" }}>
+                  <div className="text-[9px] leading-tight" style={{ color: "#6b7280" }}>
                     {relativeTime(row.called_at)}
                     {missed ? " · Missed" : ""}
                   </div>
@@ -161,7 +161,7 @@ export function MissedCallsList() {
                   type="button"
                   onClick={() => void handleCallback(row)}
                   disabled={!row.phone || dialerStatus !== "ready"}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] transition active:scale-95 disabled:opacity-40 flex-shrink-0"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-white transition active:scale-95 disabled:opacity-40 flex-shrink-0"
                   style={{ background: "#f4522d", border: "1px solid #f4522d" }}
                   aria-label={`Call back ${label}`}
                   title={`Call back ${label}`}

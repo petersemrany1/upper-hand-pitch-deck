@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { IncomingCallDialog } from "@/components/IncomingCallDialog";
 import { SmsNotifier } from "@/components/SmsNotifier";
+import { MissedCallNotifier } from "@/components/MissedCallNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -85,6 +86,7 @@ function DashboardLayout() {
         <IncomingCallDialog />
         <FloatingCallWidget />
         <SmsNotifier />
+        <MissedCallNotifier />
       </>
     );
   }
@@ -108,6 +110,7 @@ function DashboardLayout() {
       <IncomingCallDialog />
       {!hideFloatingCall && <FloatingCallWidget />}
       <SmsNotifier />
+      <MissedCallNotifier />
     </SidebarProvider>
   );
 }
