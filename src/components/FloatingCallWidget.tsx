@@ -50,6 +50,7 @@ function useCallContext(callSid: string | null) {
     let cancelled = false;
     let attempts = 0;
     let gotName = false;
+    let gotLeadId = false;
     const fetchCtx = async () => {
       attempts += 1;
       const { data } = await supabase
@@ -67,9 +68,12 @@ function useCallContext(callSid: string | null) {
         const name = analysis?.contact_name || leadName || clinic?.owner_name || null;
         if (name) { setContactName(name); gotName = true; }
         if (data.phone) setPhone(data.phone);
-        if (data.lead_id) setLeadId(data.lead_id as string);
+        if (data.lead_id) { setLeadId(data.lead_id as string); gotLeadId = true; }
       }
-      if (!cancelled && !gotName && attempts < 6) {
+      // Keep polling until we have BOTH a name AND a lead id (or we run out of attempts).
+      // The lead_id is what powers the "Open in Sales Call" button — without it, the
+      // button never appears even though the row will populate moments later.
+      if (!cancelled && (!gotName || !gotLeadId) && attempts < 8) {
         setTimeout(fetchCtx, 800);
       }
     };
