@@ -2481,29 +2481,62 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                             if (summary) summaries.push({ idx: i + 1, summary, when: c.called_at });
                           }
 
-                          if (summaries.length === 0) {
-                            toast.error("Could not generate summaries from any call");
-                            return;
-                          }
+                          // Filter out useless / too-brief summaries — clinic doesn't want to see them
+                          const isUseless = (s: string) => {
+                            const lc = s.toLowerCase();
+                            return (
+                              lc.includes("too brief") ||
+                              lc.includes("not enough patient intel") ||
+                              lc.includes("no useful intel") ||
+                              lc.includes("voicemail") ||
+                              lc.includes("no answer") ||
+                              lc.includes("did not connect") ||
+                              lc.includes("hung up") ||
+                              lc.includes("call dropped") ||
+                              s.trim().length < 40
+                            );
+                          };
+                          const usefulSummaries = summaries.filter((s) => !isUseless(s.summary));
 
-                          // 3. Build chronological notes block and condense into the structured handover format
-                          const notesBlock = summaries
+                          // 3. Build chronological notes block (only useful calls) and pull structured deal facts
+                          const notesBlock = usefulSummaries
                             .map((s, i) => {
-                              const label = i === summaries.length - 1 && summaries.length > 1 ? "Latest Call" : `Call ${s.idx}`;
+                              const label = i === usefulSummaries.length - 1 && usefulSummaries.length > 1 ? "Latest Call" : `Call ${i + 1}`;
                               const when = (() => { try { return new Date(s.when).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }); } catch { return ""; } })();
                               return `${label}${when ? ` (${when})` : ""}:\n${s.summary}`;
                             })
                             .join("\n\n");
 
+                          const { data: leadFacts } = await supabase
+                            .from("meta_leads")
+                            .select("funding_preference, finance_eligible, status, booking_date, booking_time")
+                            .eq("id", lead.id)
+                            .maybeSingle();
+                          const dealFacts = {
+                            deposit_paid: previewDeposit,
+                            finance_eligible: leadFacts?.finance_eligible ?? null,
+                            funding_preference: previewFunding || leadFacts?.funding_preference || null,
+                            booking_date: leadFacts?.booking_date || null,
+                            booking_time: leadFacts?.booking_time || null,
+                            status: leadFacts?.status || null,
+                          };
+
                           const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
-                            body: { leadId: lead.id, notes: notesBlock },
+                            body: { leadId: lead.id, notes: notesBlock, dealFacts },
                           });
                           if (condErr) throw condErr;
                           const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
 
                           if (finalText) {
                             setPreviewIntel(finalText);
-                            toast.success(`Patient intel refreshed from ${summaries.length} call${summaries.length === 1 ? "" : "s"} ✓`);
+                            const usedCount = usefulSummaries.length;
+                            const totalCount = summaries.length;
+                            const skipped = totalCount - usedCount;
+                            toast.success(
+                              usedCount === 0
+                                ? "Patient intel built from deal facts (no useful call intel)"
+                                : `Patient intel refreshed from ${usedCount} call${usedCount === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""} ✓`,
+                            );
                           } else {
                             // Fall back to re-reading the lead in case the function updated the row
                             const { data: fresh } = await supabase
