@@ -80,6 +80,24 @@ function setSnapshot(patch: Partial<Snapshot>) {
   notify();
 }
 
+function teardownBridgeStatus() {
+  if (bridgeStatusChannel) {
+    try { supabase.removeChannel(bridgeStatusChannel); } catch { /* noop */ }
+    bridgeStatusChannel = null;
+  }
+  if (bridgePollTimer !== null) {
+    window.clearInterval(bridgePollTimer);
+    bridgePollTimer = null;
+  }
+}
+
+function completeBridgeCall(status: Status = "ready") {
+  stopRingback();
+  teardownBridgeStatus();
+  activeBridgeCallSid = null;
+  setSnapshot({ activeCallSid: null, status });
+}
+
 async function fetchToken(): Promise<string> {
   // Pass the user's access token explicitly. supabase.functions.invoke does
   // this automatically once a session exists, but we also keep the explicit
