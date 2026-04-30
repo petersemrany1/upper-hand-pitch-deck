@@ -3911,6 +3911,7 @@ function RightPanel({
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
+  const [condensingNotes, setCondensingNotes] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
