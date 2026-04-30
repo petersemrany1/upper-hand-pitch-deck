@@ -16,7 +16,12 @@ type InboundRow = {
   called_at: string;
   clinic_id: string | null;
   clinics: { clinic_name: string } | null;
+  lead_name?: string | null;
 };
+
+function digitsOnly(s: string | null | undefined): string {
+  return (s || "").replace(/[^0-9]/g, "");
+}
 
 function relativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
