@@ -315,17 +315,20 @@ export function FloatingCallWidget() {
         </div>
       )}
 
-      {/* Open in Sales Call (only for inbound matched leads) */}
-      {matchedLead && (
+      {/* Open in Sales Call — works for both inbound matched leads and
+          outbound calls placed from the sales-call screen. */}
+      {(matchedLead || leadId) && (
         <div className="px-4 pb-3">
           <button
             type="button"
             onClick={() => {
-              navigate({ to: "/sales-call", search: { leadId: matchedLead.id } as never });
+              const id = leadId || matchedLead?.id;
+              if (!id) return;
+              navigate({ to: "/sales-call", search: { leadId: id } as never });
             }}
             className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
           >
-            Open {[matchedLead.first_name, matchedLead.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call
+            Open {contactName || [matchedLead?.first_name, matchedLead?.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call
             <ArrowRight className="h-4 w-4" />
           </button>
         </div>
