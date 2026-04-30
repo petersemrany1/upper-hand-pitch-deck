@@ -917,6 +917,26 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
         return { success: false as const, error: result.message || "SMS failed" };
       }
 
+      // Log to sms_messages so the inbox shows the confirmation thread
+      try {
+        const admin = getAdminClient();
+        const threadId = await ensureSmsThread(admin, formatted, data.leadId);
+        await admin.from("sms_messages").insert({
+          thread_id: threadId,
+          lead_id: data.leadId,
+          body: message,
+          direction: "outbound",
+          sent_at: new Date().toISOString(),
+          phone: formatted,
+          to_number: formatted,
+          from_number: TWILIO_FROM,
+          twilio_message_sid: result.sid,
+          status: "sent",
+        });
+      } catch (logErr) {
+        console.error("Failed to log booking confirmation SMS:", logErr);
+      }
+
       return { success: true as const, sid: result.sid as string };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
