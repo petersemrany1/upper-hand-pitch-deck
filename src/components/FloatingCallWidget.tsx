@@ -121,11 +121,11 @@ export function FloatingCallWidget() {
 
   const isActive = status === "connecting" || status === "in-call";
 
-  // Display label hierarchy: clinic name → incoming caller → phone → fallback.
-  // Issue #10: clinic name must be prominent, not just the phone number.
-  const primaryLabel = clinicName || incomingFrom || phone || "Outbound call";
+  // Display label hierarchy: contact/lead name → clinic → incoming caller →
+  // phone → fallback. Name first so the rep instantly sees who they're talking to.
+  const primaryLabel = contactName || clinicName || incomingFrom || phone || "Outbound call";
   const secondaryLabel =
-    clinicName && contactName ? contactName : clinicName ? phone : null;
+    contactName && clinicName ? clinicName : contactName ? phone : clinicName ? phone : null;
 
   // Track call timer
   useEffect(() => {
