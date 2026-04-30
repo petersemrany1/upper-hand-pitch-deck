@@ -2536,6 +2536,14 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                           };
                           const useful = enriched.filter((e) => !isUseless(e.transcript, e.summary));
 
+                          if (useful.length === 0 && longUnrecorded.length > 0) {
+                            toast.error(
+                              "Found a real call for this patient, but that old inbound call was not recorded. Add the patient story manually for this one; future inbound calls are now recorded automatically.",
+                              { duration: 9000 },
+                            );
+                            return;
+                          }
+
                           // 3. Build chronological notes block. Prefer raw transcript (richer source) and fall back to summary.
                           const notesBlock = useful
                             .map((e, i) => {
