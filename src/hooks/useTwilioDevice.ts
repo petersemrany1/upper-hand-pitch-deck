@@ -118,20 +118,19 @@ async function ensureDevice(): Promise<void> {
       const token = await fetchToken();
 
       // Audio tuning notes:
-      // - PCMU first avoids an extra Opus → PSTN transcode step on normal
-      //   phone-number calls. That is less fancy than Opus, but lower latency.
-      // - If the route falls back to Opus, keep it in the speech sweet spot.
+      // - Opus first: it has built-in packet-loss concealment + adaptive
+      //   jitter handling. PCMU is narrowband and degrades badly on wifi,
+      //   forcing the browser's jitter buffer to grow → audible delay.
+      // - 24kbps Opus = clean speech with low buffering.
       // - edge: "sydney" keeps the media path local for AU users.
-      // - aggressive ICE + low-latency media constraints reduce browser-side
-      //   buffering before audio leaves the computer.
+      // - dscp tags packets so home routers prioritise voice.
       // - closeProtection avoids accidental disconnects mid-call.
       const d = new Device(token, {
         logLevel: 1,
-        codecPreferences: ["pcmu" as never, "opus" as never],
+        codecPreferences: ["opus" as never, "pcmu" as never],
         edge: "sydney",
         dscp: true,
-        rtcConstraints: lowLatencyMediaOptions().rtcConstraints,
-        maxAverageBitrate: 40000,
+        maxAverageBitrate: 24000,
         forceAggressiveIceNomination: true,
         closeProtection: true,
         enableImprovedSignalingErrorPrecision: true,
