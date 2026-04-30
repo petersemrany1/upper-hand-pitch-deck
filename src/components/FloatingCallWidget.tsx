@@ -84,7 +84,7 @@ function useCallContext(callSid: string | null) {
 
 export function FloatingCallWidget() {
   const { status, activeCallSid, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
-  const { clinicName, contactName, phone } = useCallContext(activeCallSid);
+  const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
 
   // If this is an inbound call, try to match it to a meta_lead so we can offer
