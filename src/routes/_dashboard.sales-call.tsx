@@ -2962,6 +2962,10 @@ function LeadChooser({
       // -1) Converted leads (deposit paid) live in their own popup, not the columns.
       if (isConverted(l)) { placed.add(l.id); continue; }
 
+      // -1b) Cancelled / no-show leads are hidden from the call sheet entirely.
+      const rawStatus = (l.status ?? "").toLowerCase();
+      if (rawStatus === "cancelled" || rawStatus === "no_show") { placed.add(l.id); continue; }
+
       // 0) User-forced/persisted column wins (drag/drop or move buttons)
       const forced = forcedCol[l.id] ?? persistedColumnFor(l);
       if (forced === "tomorrow") { out.tomorrow.push(l); placed.add(l.id); continue; }
