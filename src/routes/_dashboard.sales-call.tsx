@@ -2538,11 +2538,16 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                             const usedCount = useful.length;
                             const totalCount = enriched.length;
                             const skipped = totalCount - usedCount;
-                            toast.success(
-                              usedCount === 0
-                                ? "Patient intel built from deal facts (no useful call intel)"
-                                : `Patient intel refreshed from ${usedCount} call${usedCount === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""} ✓`,
-                            );
+                            if (usedCount === 0) {
+                              toast.warning(
+                                `No usable call recordings (${totalCount} found — all voicemail/no-answer). Add patient details manually before sending.`,
+                                { duration: 7000 },
+                              );
+                            } else {
+                              toast.success(
+                                `Patient intel refreshed from ${usedCount} call${usedCount === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""} ✓`,
+                              );
+                            }
                           } else {
                             const { data: fresh } = await supabase
                               .from("meta_leads")
