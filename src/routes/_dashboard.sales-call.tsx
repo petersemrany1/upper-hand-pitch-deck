@@ -3881,6 +3881,15 @@ function RightPanel({
   const [sendingSms, setSendingSms] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
+  // Customer journey modal
+  const [showJourney, setShowJourney] = useState(false);
+  const [journeyCalls, setJourneyCalls] = useState<{
+    id: string; called_at: string; direction: string; status: string | null;
+    duration: number | null; outcome: string | null;
+    call_analysis: { summary?: string; notes?: string } | null;
+  }[]>([]);
+  const [loadingJourney, setLoadingJourney] = useState(false);
+
   // Load SMS history for this lead
   useEffect(() => {
     void (async () => {
@@ -3891,6 +3900,22 @@ function RightPanel({
         .order("created_at", { ascending: true })
         .limit(50);
       setSmsHistory((data ?? []) as typeof smsHistory);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id]);
+
+  // Load call history for this lead (for the customer journey view)
+  useEffect(() => {
+    setLoadingJourney(true);
+    void (async () => {
+      const { data } = await supabase
+        .from("call_records")
+        .select("id, called_at, direction, status, duration, outcome, call_analysis")
+        .eq("lead_id", active.id)
+        .order("called_at", { ascending: true })
+        .limit(50);
+      setJourneyCalls((data ?? []) as typeof journeyCalls);
+      setLoadingJourney(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
