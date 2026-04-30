@@ -3788,7 +3788,7 @@ function RightPanel({
   onChangeLead: () => void;
 }) {
   void repId;
-  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(false);
+  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
@@ -3881,7 +3881,7 @@ function RightPanel({
     if (!active.phone) { toast.error("No phone number"); return; }
     try {
       console.log("[callNow] placing call to", active.phone);
-      await placeCall(active.phone, { leadId: active.id, mode: "phone-bridge" });
+      await placeCall(active.phone, { leadId: active.id });
       console.log("[callNow] placeCall returned");
     } catch (e) {
       stopRingback();
