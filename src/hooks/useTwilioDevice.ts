@@ -101,11 +101,21 @@ async function ensureDevice(): Promise<void> {
       setSnapshot({ status: "loading", dialerStatus: "connecting" });
       const token = await fetchToken();
 
+      // Audio tuning notes:
+      // - Opus first for best quality + low latency on modern networks; PCMU
+      //   fallback for legacy carriers.
+      // - maxAverageBitrate raised to 32 kbps. The previous 24 kbps was on
+      //   the edge of what Opus needs for clean voice and was contributing
+      //   to perceptible latency / muffled audio.
+      // - edge: "sydney" keeps the media path local for AU users.
+      // - closeProtection avoids accidental disconnects mid-call.
       const d = new Device(token, {
         logLevel: 1,
         codecPreferences: ["opus" as never, "pcmu" as never],
         edge: "sydney",
-        maxAverageBitrate: 24000,
+        maxAverageBitrate: 32000,
+        closeProtection: true,
+        enableImprovedSignalingErrorPrecision: true,
       } as ConstructorParameters<typeof Device>[1]);
       device = d;
 
