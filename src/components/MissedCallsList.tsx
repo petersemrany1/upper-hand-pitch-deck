@@ -136,7 +136,7 @@ export function MissedCallsList() {
               <li
                 key={row.id}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5"
-                style={{ background: "#141418", border: "1px solid #ebebeb" }}
+                style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
               >
                 <span
                   className="flex h-6 w-6 items-center justify-center rounded-full flex-shrink-0"
