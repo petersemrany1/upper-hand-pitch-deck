@@ -4229,6 +4229,7 @@ function RightPanel({
         </div>
         <button
           onClick={async () => {
+            if (!window.confirm("Are you sure you want to drop this lead?")) return;
             onLocalLeadUpdate?.(active.id, { status: "dropped", callback_scheduled_at: null });
             await updateLeadStatus({ data: { leadId: active.id, status: "dropped" } });
             toast.success("Lead dropped");
