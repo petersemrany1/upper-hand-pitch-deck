@@ -120,6 +120,14 @@ function SalesCallPortal() {
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
+  // Ref on the centre scroll column so we can reset scroll-to-top whenever
+  // the active lead or current step changes (otherwise picking a new client
+  // leaves the user at the previous scroll position — often the bottom).
+  const mainScrollRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
+    if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0 });
+  }, [activeId, step]);
 
   useEffect(() => {
     const check = async () => {
@@ -366,7 +374,7 @@ function SalesCallPortal() {
       </aside>
 
       {/* CENTER */}
-      <main className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-6 py-[60px]">
+      <main ref={mainScrollRef} className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-6 py-[60px]">
         <div className="w-full" style={{ maxWidth: 640 }}>
           <StepContent
             step={step}
