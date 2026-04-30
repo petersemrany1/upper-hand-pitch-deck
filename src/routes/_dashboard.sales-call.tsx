@@ -3879,20 +3879,9 @@ function RightPanel({
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (!active.phone) { toast.error("No phone number"); return; }
-    if (deviceStatus === "loading" || deviceStatus === "idle") {
-      toast.message("Dialler still warming up — try again in a moment.");
-      return;
-    }
-    if (deviceStatus === "error") {
-      toast.error("Dialler errored — refresh the page to reconnect.");
-      return;
-    }
-    // Prime the AudioContext inside the user gesture so ringback can play
-    // later when Twilio fires the "ringing" event (browser autoplay policy).
-    primeAudioContext();
     try {
       console.log("[callNow] placing call to", active.phone);
-      await placeCall(active.phone, { leadId: active.id });
+      await placeCall(active.phone, { leadId: active.id, mode: "phone-bridge" });
       console.log("[callNow] placeCall returned");
     } catch (e) {
       stopRingback();
@@ -3989,7 +3978,6 @@ function RightPanel({
         {!inCall ? (
           <button
             onClick={() => void callNow()}
-            disabled={deviceStatus === "loading" || deviceStatus === "idle"}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
             style={{
               background: COLORS.coral,
@@ -3997,7 +3985,6 @@ function RightPanel({
               fontSize: 15,
               fontWeight: 500,
               padding: "14px 16px",
-              opacity: deviceStatus === "loading" || deviceStatus === "idle" ? 0.6 : 1,
             }}
           >
             📞 Call Now
