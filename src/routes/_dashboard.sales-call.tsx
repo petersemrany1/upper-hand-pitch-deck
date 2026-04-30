@@ -2330,25 +2330,86 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
           </button>
         </div>
 
-        {/* Reset booking — bottom of screen */}
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 32, paddingTop: 20, borderTop: `0.5px dashed ${COLORS.line}` }}>
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            disabled={resetting}
-            style={{
-              fontSize: 12,
-              fontWeight: 500,
-              color: COLORS.muted,
-              background: "#fff",
-              border: `0.5px solid ${COLORS.line}`,
-              borderRadius: 8,
-              padding: "8px 16px",
-              cursor: resetting ? "wait" : "pointer",
-              opacity: resetting ? 0.6 : 1,
-            }}
-          >
-            ↺ Reset booking (permanently delete)
-          </button>
+        {/* If the booking falls through */}
+        <div style={{ marginTop: 32, paddingTop: 20, borderTop: `0.5px dashed ${COLORS.line}` }}>
+          <div style={{
+            fontSize: 11, fontWeight: 600, textTransform: "uppercase",
+            letterSpacing: "0.06em", color: "#999", marginBottom: 10, textAlign: "center",
+          }}>
+            If the booking falls through
+          </div>
+          <div className="flex gap-2 justify-center" style={{ marginBottom: 16 }}>
+            <button
+              onClick={async () => {
+                setResetting(true);
+                const s = await updateLeadStatus({ data: { leadId: lead.id, status: "cancelled" } });
+                if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
+                await clearBooking({ data: { leadId: lead.id } });
+                (lead as { booking_date: string | null }).booking_date = null;
+                (lead as { booking_time: string | null }).booking_time = null;
+                (lead as { status: string }).status = "cancelled";
+                setBooked(false); setBookedData(null); setHandoverSent(false);
+                setDepositSent(false); setDepositPaid(false);
+                setSendingHandover(false); setSendingDeposit(false);
+                setIntelStatus("waiting"); setPollAttempt(0); setResetting(false);
+                toast.success("Marked as cancelled");
+              }}
+              disabled={resetting}
+              style={{
+                fontSize: 13, fontWeight: 500, color: "#b45309",
+                background: "#fffbeb", border: `0.5px solid #fcd34d`,
+                borderRadius: 8, padding: "10px 18px",
+                cursor: resetting ? "wait" : "pointer", opacity: resetting ? 0.6 : 1,
+              }}
+            >
+              ✕ Mark as Cancelled
+            </button>
+            <button
+              onClick={async () => {
+                setResetting(true);
+                const s = await updateLeadStatus({ data: { leadId: lead.id, status: "no_show" } });
+                if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
+                await clearBooking({ data: { leadId: lead.id } });
+                (lead as { booking_date: string | null }).booking_date = null;
+                (lead as { booking_time: string | null }).booking_time = null;
+                (lead as { status: string }).status = "no_show";
+                setBooked(false); setBookedData(null); setHandoverSent(false);
+                setDepositSent(false); setDepositPaid(false);
+                setSendingHandover(false); setSendingDeposit(false);
+                setIntelStatus("waiting"); setPollAttempt(0); setResetting(false);
+                toast.success("Marked as no-show");
+              }}
+              disabled={resetting}
+              style={{
+                fontSize: 13, fontWeight: 500, color: "#991b1b",
+                background: "#fef2f2", border: `0.5px solid #fca5a5`,
+                borderRadius: 8, padding: "10px 18px",
+                cursor: resetting ? "wait" : "pointer", opacity: resetting ? 0.6 : 1,
+              }}
+            >
+              ⊘ Mark as No-show
+            </button>
+          </div>
+
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              disabled={resetting}
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: COLORS.muted,
+                background: "#fff",
+                border: `0.5px solid ${COLORS.line}`,
+                borderRadius: 8,
+                padding: "8px 16px",
+                cursor: resetting ? "wait" : "pointer",
+                opacity: resetting ? 0.6 : 1,
+              }}
+            >
+              ↺ Reset booking (permanently delete)
+            </button>
+          </div>
         </div>
 
         {showPreview && (
