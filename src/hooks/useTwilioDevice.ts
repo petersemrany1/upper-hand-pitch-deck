@@ -256,6 +256,58 @@ async function ensureDevice(): Promise<void> {
 
 async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
   console.log("[placeCall] entry", { phone, hasDevice: !!device, currentStatus });
+  const usePhoneBridge = extraParams?.mode === "phone-bridge";
+  if (usePhoneBridge) {
+    setSnapshot({ error: null, status: "connecting" });
+    try {
+      const result = await startPhoneBridgeCall({
+        data: { toPhone: phone, leadId: extraParams?.leadId, repPhone: extraParams?.repPhone },
+      });
+      if (!result.success || !result.callSid) {
+        throw new Error(result.error || "Failed to start phone call");
+      }
+      activeBridgeCallSid = result.callSid;
+      setSnapshot({ activeCallSid: result.callSid, status: "connecting" });
+
+      const handleBridgeStatus = (next?: string | null) => {
+        if (!next) return;
+        if (next === "ringing") startRingback();
+        if (next === "in-progress" || next === "answered") {
+          stopRingback();
+          setSnapshot({ status: "in-call" });
+        }
+        if (["completed", "busy", "no-answer", "failed", "canceled", "cancelled"].includes(next)) {
+          completeBridgeCall("ready");
+        }
+      };
+
+      teardownBridgeStatus();
+      bridgeStatusChannel = supabase
+        .channel(`phone-bridge-${result.callSid}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "call_records", filter: `twilio_call_sid=eq.${result.callSid}` },
+          (payload) => handleBridgeStatus((payload.new as { status?: string } | null)?.status),
+        )
+        .subscribe();
+      bridgePollTimer = window.setInterval(() => {
+        void supabase
+          .from("call_records")
+          .select("status")
+          .eq("twilio_call_sid", result.callSid!)
+          .maybeSingle()
+          .then(({ data }) => handleBridgeStatus(data?.status));
+      }, 1500);
+    } catch (err) {
+      stopRingback();
+      teardownBridgeStatus();
+      activeBridgeCallSid = null;
+      const msg = extractErrorMessage(err, "Failed to start phone call");
+      setSnapshot({ error: msg, status: "error" });
+      throw err instanceof Error ? err : new Error(msg);
+    }
+    return;
+  }
   if (!device) {
     setSnapshot({ error: "Dialler not ready yet. Try again in a moment." });
     throw new Error("Dialler not ready yet — please wait a moment and try again.");
