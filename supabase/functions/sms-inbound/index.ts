@@ -130,14 +130,16 @@ serve(async (req) => {
       if (!bytes) continue;
       const ext = extFromContentType(ct);
       const path = `${threadId}/${messageSid || crypto.randomUUID()}_${i}.${ext}`;
-      const { error: upErr } = await sb.storage.from("sms-media").upload(path, bytes, {
+      // Upload to the PUBLIC mms-images bucket so <img src> works in the inbox.
+      // sms-media is private and getPublicUrl on it returns a 403 link.
+      const { error: upErr } = await sb.storage.from("mms-images").upload(path, bytes, {
         contentType: ct, upsert: true,
       });
       if (upErr) {
         console.error("sms-inbound: media upload failed", upErr);
         continue;
       }
-      const { data: pub } = sb.storage.from("sms-media").getPublicUrl(path);
+      const { data: pub } = sb.storage.from("mms-images").getPublicUrl(path);
       mediaUrls.push(pub.publicUrl);
     }
 

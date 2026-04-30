@@ -269,7 +269,7 @@ function InboxPage() {
                   <div className="flex flex-col items-end gap-1">
                     <span className="text-[10px] text-[#111111]">{fmtTime(t.last_message_at)}</span>
                     {t.unread_count > 0 && (
-                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-[#111111] text-[9px] font-bold">
+                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold">
                         {t.unread_count}
                       </span>
                     )}
@@ -326,8 +326,9 @@ function InboxPage() {
                     <div
                       className="max-w-[70%] rounded-2xl px-4 py-2"
                       style={{
-                        background: out ? "#f4522d" : "#f9f9f9",
-                        color: out ? "#fff" : "#ebebeb",
+                        background: out ? "#f4522d" : "#ffffff",
+                        color: out ? "#ffffff" : "#111111",
+                        border: out ? "none" : "1px solid #ebebeb",
                         borderBottomRightRadius: out ? 4 : 16,
                         borderBottomLeftRadius: out ? 16 : 4,
                       }}
@@ -399,7 +400,7 @@ function InboxPage() {
                   onClick={() => void handleSend()}
                   disabled={sending || (!composeBody.trim() && composeFiles.length === 0)}
                   className="h-9 px-4 rounded inline-flex items-center gap-2 text-sm font-medium disabled:opacity-50"
-                  style={{ background: "#f4522d", color: "#111111" }}
+                  style={{ background: "#f4522d", color: "#ffffff" }}
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send
