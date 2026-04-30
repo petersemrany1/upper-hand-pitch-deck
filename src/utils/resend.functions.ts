@@ -18,6 +18,51 @@ function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
 }
 
+/**
+ * Find or create an sms_threads row for the given phone so outbound messages
+ * are visible in the Inbox. Mirrors the logic used by the sms-inbound edge function.
+ */
+async function ensureSmsThread(
+  admin: ReturnType<typeof getAdminClient>,
+  phone: string,
+  leadId?: string | null,
+): Promise<string | null> {
+  try {
+    const { data: existing } = await admin
+      .from("sms_threads")
+      .select("id")
+      .eq("phone", phone)
+      .maybeSingle();
+    if (existing?.id) return existing.id as string;
+
+    let displayName: string | null = null;
+    if (leadId) {
+      const { data: lead } = await admin
+        .from("meta_leads")
+        .select("first_name,last_name")
+        .eq("id", leadId)
+        .maybeSingle();
+      if (lead) {
+        displayName = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || null;
+      }
+    }
+
+    const { data: created, error: createErr } = await admin
+      .from("sms_threads")
+      .insert({ phone, display_name: displayName })
+      .select("id")
+      .single();
+    if (createErr || !created) {
+      console.error("ensureSmsThread: create failed", createErr);
+      return null;
+    }
+    return created.id as string;
+  } catch (e) {
+    console.error("ensureSmsThread error", e);
+    return null;
+  }
+}
+
 async function sendViaResend(
   to: string,
   subject: string,
@@ -872,6 +917,26 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
         return { success: false as const, error: result.message || "SMS failed" };
       }
 
+      // Log to sms_messages so the inbox shows the confirmation thread
+      try {
+        const admin = getAdminClient();
+        const threadId = await ensureSmsThread(admin, formatted, data.leadId);
+        await admin.from("sms_messages").insert({
+          thread_id: threadId,
+          lead_id: data.leadId,
+          body: message,
+          direction: "outbound",
+          sent_at: new Date().toISOString(),
+          phone: formatted,
+          to_number: formatted,
+          from_number: TWILIO_FROM,
+          twilio_message_sid: result.sid,
+          status: "sent",
+        });
+      } catch (logErr) {
+        console.error("Failed to log booking confirmation SMS:", logErr);
+      }
+
       return { success: true as const, sid: result.sid as string };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
@@ -925,10 +990,12 @@ export const sendManualSms = createServerFn({ method: "POST" })
         return { success: false as const, error: result.message || "SMS failed" };
       }
 
-      // Log to sms_messages
+      // Log to sms_messages and link to a thread so it shows in the inbox
       try {
         const admin = getAdminClient();
+        const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         await admin.from("sms_messages").insert({
+          thread_id: threadId,
           lead_id: data.leadId,
           body: data.body,
           direction: "outbound",
