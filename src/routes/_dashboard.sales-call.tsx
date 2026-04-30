@@ -3136,7 +3136,7 @@ function LeadChooser({
     // Optimistic local override so the card jumps columns instantly
     setForcedCol((prev) => ({ ...prev, [leadId]: "today" }));
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "today" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "today", pipeline_column_date: localDateKey(today) };
     onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
     // If the lead has a callback set for tomorrow, clear it back to today's next slot
     if (lead?.callback_scheduled_at) {
@@ -3162,7 +3162,7 @@ function LeadChooser({
 
   const moveToTomorrow = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "tomorrow" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "tomorrow", pipeline_column_date: localDateKey(today) };
     setForcedCol((prev) => ({ ...prev, [leadId]: "tomorrow" }));
     onLocalLeadUpdate?.(leadId, { raw_payload: rawPayload });
     await supabase
@@ -3174,7 +3174,7 @@ function LeadChooser({
 
   const moveToYesterday = async (leadId: string) => {
     const lead = leads.find((l) => l.id === leadId);
-    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "yesterday" };
+    const rawPayload = { ...rawPayloadObject(lead?.raw_payload ?? null), pipeline_column: "yesterday", pipeline_column_date: localDateKey(today) };
     setForcedCol((prev) => ({ ...prev, [leadId]: "yesterday" }));
     // Clear any future callback so it doesn't drag the lead back to today/tomorrow
     onLocalLeadUpdate?.(leadId, { callback_scheduled_at: null, raw_payload: rawPayload });
