@@ -3,6 +3,7 @@ import { Device, type Call } from "@twilio/voice-sdk";
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
+import { startPhoneBridgeCall, endPhoneBridgeCall } from "@/utils/sales-call.functions";
 
 // Browser-based Twilio softphone — module-level singleton.
 //
@@ -43,9 +44,12 @@ function lowLatencyMediaOptions() {
 // ----- Singleton state -----
 let device: Device | null = null;
 let activeCall: Call | null = null;
+let activeBridgeCallSid: string | null = null;
 let pendingIncoming: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
+let bridgeStatusChannel: ReturnType<typeof supabase.channel> | null = null;
+let bridgePollTimer: number | null = null;
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
