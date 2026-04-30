@@ -30,51 +30,56 @@ const KEYPAD: { d: string; sub?: string }[] = [
   { d: "*" }, { d: "0", sub: "+" }, { d: "#" },
 ];
 
-// Resolve the clinic + contact name for the active call SID by reading the
-// call_records → clinics join. Polls briefly because the row is upserted by
-// voice-outbound right around the time the call connects.
+// Resolve clinic + lead/contact name for the active call SID. Reads
+// call_records joined to clinics and meta_leads. Polls briefly because the
+// row is upserted by voice-outbound right around the time the call connects.
 function useCallContext(callSid: string | null) {
   const [clinicName, setClinicName] = useState<string | null>(null);
   const [contactName, setContactName] = useState<string | null>(null);
   const [phone, setPhone] = useState<string | null>(null);
+  const [leadId, setLeadId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!callSid) {
       setClinicName(null);
       setContactName(null);
       setPhone(null);
+      setLeadId(null);
       return;
     }
     let cancelled = false;
     let attempts = 0;
+    let gotName = false;
     const fetchCtx = async () => {
       attempts += 1;
       const { data } = await supabase
         .from("call_records")
-        .select("phone, clinic_id, call_analysis, clinics(clinic_name, owner_name)")
+        .select("phone, clinic_id, lead_id, call_analysis, clinics(clinic_name, owner_name), meta_leads(first_name, last_name)")
         .eq("twilio_call_sid", callSid)
         .maybeSingle();
       if (cancelled) return;
       if (data) {
         const clinic = (data as { clinics: { clinic_name?: string; owner_name?: string } | null }).clinics;
+        const lead = (data as { meta_leads: { first_name?: string | null; last_name?: string | null } | null }).meta_leads;
         if (clinic?.clinic_name) setClinicName(clinic.clinic_name);
         const analysis = data.call_analysis as { contact_name?: string | null } | null;
-        const owner = analysis?.contact_name || clinic?.owner_name || null;
-        if (owner) setContactName(owner);
+        const leadName = lead ? [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() : "";
+        const name = analysis?.contact_name || leadName || clinic?.owner_name || null;
+        if (name) { setContactName(name); gotName = true; }
         if (data.phone) setPhone(data.phone);
+        if (data.lead_id) setLeadId(data.lead_id as string);
       }
-      if (!cancelled && !clinicName && attempts < 5) {
-        setTimeout(fetchCtx, 1000);
+      if (!cancelled && !gotName && attempts < 6) {
+        setTimeout(fetchCtx, 800);
       }
     };
     void fetchCtx();
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callSid]);
 
-  return { clinicName, contactName, phone };
+  return { clinicName, contactName, phone, leadId };
 }
 
 export function FloatingCallWidget() {
