@@ -17,29 +17,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-const TWILIO_GATEWAY_BASE = "https://connector-gateway.lovable.dev/twilio";
-
 async function downloadMedia(mediaUrl: string, contentType: string): Promise<Uint8Array | null> {
-  // Twilio media URLs require auth — fetch via gateway by appending the path part
-  // (gateway handles auth). The MediaUrl is full path under /2010-04-01/Accounts/{Sid}/...
-  // Strip the host so the gateway routes it correctly.
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  const twilioKey = Deno.env.get("TWILIO_API_KEY");
-  if (!lovableKey || !twilioKey) {
-    console.error("Missing LOVABLE_API_KEY or TWILIO_API_KEY for media download");
+  // Twilio media URLs require auth — use HTTP Basic Auth with API Key SID/Secret
+  // (matching the pattern used by analyse-call / auto-analyse-call).
+  const sid = Deno.env.get("TWILIO_API_KEY_SID");
+  const secret = Deno.env.get("TWILIO_API_KEY_SECRET");
+  if (!sid || !secret) {
+    console.error("Missing TWILIO_API_KEY_SID or TWILIO_API_KEY_SECRET for media download");
     return null;
   }
   try {
-    const u = new URL(mediaUrl);
-    // Path looks like /2010-04-01/Accounts/{AccountSid}/Messages/{MsgSid}/Media/{MediaSid}
-    // Gateway expects path AFTER /2010-04-01/Accounts/{AccountSid}/
-    const m = u.pathname.match(/\/2010-04-01\/Accounts\/[^/]+\/(.*)$/);
-    const subPath = m ? m[1] : u.pathname.replace(/^\//, "");
-    const gwUrl = `${TWILIO_GATEWAY_BASE}/${subPath}`;
-    const res = await fetch(gwUrl, {
+    const auth = "Basic " + btoa(`${sid}:${secret}`);
+    const res = await fetch(mediaUrl, {
       headers: {
-        "Authorization": `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": twilioKey,
+        "Authorization": auth,
         "Accept": contentType || "*/*",
       },
       redirect: "follow",
