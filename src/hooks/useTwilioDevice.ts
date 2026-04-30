@@ -447,6 +447,11 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
 
 function hangupCall() {
   stopRingback();
+  if (activeBridgeCallSid) {
+    const sid = activeBridgeCallSid;
+    void endPhoneBridgeCall({ data: { callSid: sid } }).catch((e) => console.error("endPhoneBridgeCall failed", e));
+    completeBridgeCall("ready");
+  }
   try { activeCall?.disconnect(); } catch { /* noop */ }
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
