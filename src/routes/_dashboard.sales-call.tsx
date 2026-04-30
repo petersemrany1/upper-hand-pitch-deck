@@ -2444,33 +2444,79 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                       onClick={async () => {
                         setRefreshingIntel(true);
                         try {
-                          const { data: latest, error: latestErr } = await supabase
+                          // 1. Fetch ALL call records for this lead that have a recording
+                          const { data: calls, error: callsErr } = await supabase
                             .from("call_records")
-                            .select("id, recording_url")
+                            .select("id, recording_url, call_analysis, called_at")
                             .eq("lead_id", lead.id)
                             .not("recording_url", "is", null)
-                            .order("called_at", { ascending: false })
-                            .limit(1)
-                            .maybeSingle();
-                          if (latestErr) throw latestErr;
-                          if (!latest?.id) {
+                            .order("called_at", { ascending: true });
+                          if (callsErr) throw callsErr;
+                          if (!calls || calls.length === 0) {
                             toast.error("No call recordings found for this lead");
                             return;
                           }
-                          const { error: invErr } = await supabase.functions.invoke("auto-analyse-call", {
-                            body: { callRecordId: latest.id },
+
+                          // 2. Ensure each call has a patient_summary; analyse any that don't
+                          const summaries: { idx: number; summary: string; when: string }[] = [];
+                          for (let i = 0; i < calls.length; i++) {
+                            const c = calls[i] as { id: string; call_analysis: { patient_summary?: string } | null; called_at: string };
+                            let summary = c.call_analysis?.patient_summary?.trim() || "";
+                            if (!summary) {
+                              const { error: invErr } = await supabase.functions.invoke("auto-analyse-call", {
+                                body: { callRecordId: c.id },
+                              });
+                              if (invErr) {
+                                console.error("auto-analyse-call failed for", c.id, invErr);
+                                continue;
+                              }
+                              const { data: refreshed } = await supabase
+                                .from("call_records")
+                                .select("call_analysis")
+                                .eq("id", c.id)
+                                .maybeSingle();
+                              const ra = refreshed?.call_analysis as { patient_summary?: string } | null;
+                              summary = ra?.patient_summary?.trim() || "";
+                            }
+                            if (summary) summaries.push({ idx: i + 1, summary, when: c.called_at });
+                          }
+
+                          if (summaries.length === 0) {
+                            toast.error("Could not generate summaries from any call");
+                            return;
+                          }
+
+                          // 3. Build chronological notes block and condense into the structured handover format
+                          const notesBlock = summaries
+                            .map((s, i) => {
+                              const label = i === summaries.length - 1 && summaries.length > 1 ? "Latest Call" : `Call ${s.idx}`;
+                              const when = (() => { try { return new Date(s.when).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }); } catch { return ""; } })();
+                              return `${label}${when ? ` (${when})` : ""}:\n${s.summary}`;
+                            })
+                            .join("\n\n");
+
+                          const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
+                            body: { leadId: lead.id, notes: notesBlock },
                           });
-                          if (invErr) throw invErr;
-                          const { data: fresh } = await supabase
-                            .from("meta_leads")
-                            .select("call_notes")
-                            .eq("id", lead.id)
-                            .single();
-                          if (fresh?.call_notes?.trim()) {
-                            setPreviewIntel(fresh.call_notes);
-                            toast.success("Patient intel refreshed ✓");
+                          if (condErr) throw condErr;
+                          const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
+
+                          if (finalText) {
+                            setPreviewIntel(finalText);
+                            toast.success(`Patient intel refreshed from ${summaries.length} call${summaries.length === 1 ? "" : "s"} ✓`);
                           } else {
-                            toast.message("Refresh complete — no new summary returned");
+                            // Fall back to re-reading the lead in case the function updated the row
+                            const { data: fresh } = await supabase
+                              .from("meta_leads")
+                              .select("call_notes")
+                              .eq("id", lead.id)
+                              .single();
+                            if (fresh?.call_notes?.trim()) {
+                              setPreviewIntel(fresh.call_notes);
+                              toast.success("Patient intel refreshed ✓");
+                            } else {
+                              toast.message("Refresh complete — no summary returned");
+                            }
                           }
                         } catch (e) {
                           const msg = e instanceof Error ? e.message : "Failed to refresh intel";
