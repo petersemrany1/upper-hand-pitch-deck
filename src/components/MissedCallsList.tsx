@@ -167,7 +167,7 @@ export function MissedCallsList() {
         <ul className="space-y-1.5">
           {rows.map((row) => {
             const missed = isMissed(row);
-            const label = row.clinics?.clinic_name || row.phone || "Unknown";
+            const label = row.lead_name || row.clinics?.clinic_name || row.phone || "Unknown";
             return (
               <li
                 key={row.id}
