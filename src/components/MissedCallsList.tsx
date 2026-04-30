@@ -55,7 +55,38 @@ export function MissedCallsList() {
       .eq("direction", "inbound")
       .order("called_at", { ascending: false })
       .limit(8);
-    if (!error && data) setRows(data as unknown as InboundRow[]);
+    if (!error && data) {
+      const rows = data as unknown as InboundRow[];
+      // Look up lead names by matching last 9 digits of phone.
+      const tails = Array.from(
+        new Set(
+          rows
+            .map((r) => digitsOnly(r.phone).slice(-9))
+            .filter((t) => t.length >= 6),
+        ),
+      );
+      if (tails.length > 0) {
+        const { data: leads } = await supabase
+          .from("meta_leads")
+          .select("first_name, last_name, phone")
+          .not("phone", "is", null);
+        if (leads) {
+          const byTail = new Map<string, string>();
+          for (const l of leads as { first_name: string | null; last_name: string | null; phone: string | null }[]) {
+            const t = digitsOnly(l.phone).slice(-9);
+            if (t.length >= 6) {
+              const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
+              if (name && !byTail.has(t)) byTail.set(t, name);
+            }
+          }
+          for (const r of rows) {
+            const t = digitsOnly(r.phone).slice(-9);
+            if (t && byTail.has(t)) r.lead_name = byTail.get(t)!;
+          }
+        }
+      }
+      setRows(rows);
+    }
     setLoading(false);
   }, []);
 
