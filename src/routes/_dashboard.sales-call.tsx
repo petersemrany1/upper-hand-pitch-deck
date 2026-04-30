@@ -653,41 +653,141 @@ function StepContent({
   }
 
   if (step === "commitment") {
+    const neverList = [
+      { line: '"Would you like to book?"', why: "binary yes/no exit door" },
+      { line: '"Are you just looking?"', why: "don't say it, just book them" },
+      { line: '"Do you want to think about it?"', why: "you just lost them" },
+      { line: '"No pressure / no rush"', why: "you're handing them the off-ramp" },
+    ];
+
+    const variantCard = (opts: {
+      label: string;
+      color: string;
+      bg: string;
+      border: string;
+      quote: string;
+      note: string;
+    }) => (
+      <div style={{
+        background: opts.bg,
+        border: `0.5px solid ${opts.border}`,
+        borderRadius: 8,
+        padding: "16px 20px",
+        marginBottom: 14,
+      }}>
+        <div style={{
+          fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em",
+          color: opts.color, marginBottom: 10,
+        }}>
+          {opts.label}
+        </div>
+        <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.6 }}>
+          {opts.quote}
+        </div>
+        <div style={{ marginTop: 10, fontSize: 13, fontStyle: "italic", color: COLORS.hint, lineHeight: 1.5 }}>
+          {opts.note}
+        </div>
+      </div>
+    );
+
     return (
       <div className="max-w-2xl mx-auto">
-        <Eyebrow>Step 7 — Commitment</Eyebrow>
-        <StepHeading>Ask For Commitment</StepHeading>
-        <ScriptBody>
-          Based on all of that — is it something you wanna get sorted now? Where are you at with all of this?
-        </ScriptBody>
-        <Coach>Wait for their answer. Let them tell you where they're at. Do not fill the silence.</Coach>
-        <div className="mt-5 grid gap-2">
-          <RuleBad>Never say "would you like to book" — binary yes/no exit door.</RuleBad>
-          <RuleBad>Never say "do you want to think about it" — you just lost them.</RuleBad>
-          <RuleBad>Never say "no pressure" or "no rush" — you're handing them the off-ramp.</RuleBad>
-          <RuleGood>Ask it open. Wait. Let them land.</RuleGood>
-        </div>
-        <CalloutGreen title="When they say yes">
-          Fantastic. Fantastic. I want to get you in with <Pill name>Dr. [NAME]</Pill> — honestly based on everything you've told me, <Pill name>Dr. [NAME]</Pill> is exactly who you want for this. [reference what they said on the call]. Let me just pull up the availability now."
-          <Coach>Presume the booking.</Coach>
-        </CalloutGreen>
-        <div style={{
-          background: COLORS.amberBg,
-          borderLeft: `2px solid ${COLORS.amber}`,
-          borderRadius: "0 8px 8px 0",
-          padding: "14px 16px",
-          marginTop: 12,
+        <Eyebrow>Step 8 — Commitment</Eyebrow>
+        <h1 style={{
+          fontSize: 32, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
+          letterSpacing: "-0.01em", marginBottom: 28, textAlign: "center",
         }}>
-          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amberDark, marginBottom: 8 }}>
-            When they wobble
+          Ask For Commitment
+        </h1>
+
+        {/* 1. SAY THIS */}
+        <div style={{
+          background: "#fafaf7",
+          borderLeft: `2px solid ${COLORS.coral}`,
+          borderRadius: "0 8px 8px 0",
+          padding: "18px 22px",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em",
+            color: COLORS.coral, marginBottom: 10,
+          }}>
+            Say this
           </div>
-          <div style={{ fontSize: 14, color: COLORS.amberDark, lineHeight: 1.7 }}>
-            "Yeah of course — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might actually be able to help you with that right now."
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, fontStyle: "italic", color: COLORS.amberDark, lineHeight: 1.5 }}>
-            Agree. Then open it up. Get them talking about the specific concern and you're back in discovery.
+          <div style={{ fontSize: 19, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>
+            "So where are you at with all of this — is this something you want to get sorted?"
           </div>
         </div>
+
+        {/* 2. STOP */}
+        <div style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderRadius: 8,
+          padding: "16px 20px",
+          marginBottom: 24,
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 14,
+        }}>
+          <span style={{
+            display: "inline-block",
+            width: 10, height: 10, borderRadius: 999,
+            background: "#dc2626", marginTop: 6, flexShrink: 0,
+          }} />
+          <div style={{ fontSize: 15, color: COLORS.text, lineHeight: 1.5 }}>
+            Then stop. Wait for their answer. Do not fill the silence. Let them land.
+          </div>
+        </div>
+
+        {/* 3. WHEN THEY SAY YES */}
+        {variantCard({
+          label: "When they say yes",
+          color: "#15803d",
+          bg: "#f0fdf4",
+          border: "#bbf7d0",
+          quote: '"Fantastic. I want to get you in with Dr. [NAME] — honestly based on everything you\'ve told me, [reference what they said]. Let me pull up the availability now."',
+          note: "Presume the booking. Move straight to dates.",
+        })}
+
+        {/* 4. WHEN THEY SAY JUST LOOKING */}
+        {variantCard({
+          label: 'When they say "just looking"',
+          color: "#1d4ed8",
+          bg: "#eff6ff",
+          border: "#bfdbfe",
+          quote: '"Excellent — let\'s get you booked in. That\'s exactly what the free consult is for. And it\'s fully refunded the moment you arrive."',
+          note: "Don't pause on it. Treat it like a yes and move to dates.",
+        })}
+
+        {/* 5. WHEN THEY WOBBLE */}
+        {variantCard({
+          label: "When they wobble",
+          color: "#b45309",
+          bg: "#fffbeb",
+          border: "#fde68a",
+          quote: '"Yeah of course — what part of it do you want to think through? Is it the cost, the procedure itself, or something else? Because I might actually be able to help you with that right now."',
+          note: "Agree first. Then open it up — you're back in discovery.",
+        })}
+
+        {/* 6. NEVER SAY */}
+        <div style={{
+          fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em",
+          color: COLORS.text, marginTop: 20, marginBottom: 12,
+        }}>
+          Never say
+        </div>
+        <ul className="flex flex-col" style={{ gap: 10, listStyle: "none", padding: 0, margin: 0 }}>
+          {neverList.map((n, i) => (
+            <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 14, lineHeight: 1.5 }}>
+              <span style={{ color: "#dc2626", fontWeight: 600, flexShrink: 0 }}>✕</span>
+              <span style={{ color: COLORS.text }}>
+                <span style={{ fontWeight: 500 }}>{n.line}</span>
+                <span style={{ color: COLORS.hint }}> — {n.why}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </div>
     );
   }
