@@ -4803,7 +4803,7 @@ function RightPanel({
                             });
                             const j = await r.json();
                             if (!r.ok || !j?.condensed) throw new Error(j?.error || "Failed");
-                            updateLocalLead(active.id, { call_notes: j.condensed });
+                            onLocalLeadUpdate?.(active.id, { call_notes: j.condensed });
                             toast.success("Notes condensed");
                           } catch (e) {
                             toast.error(`Couldn't condense: ${e instanceof Error ? e.message : "unknown"}`);
