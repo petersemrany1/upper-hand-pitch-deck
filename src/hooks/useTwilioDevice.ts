@@ -3,6 +3,7 @@ import { Device, type Call } from "@twilio/voice-sdk";
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
+import { startPhoneBridgeCall, endPhoneBridgeCall } from "@/utils/sales-call.functions";
 
 // Browser-based Twilio softphone — module-level singleton.
 //
@@ -43,9 +44,12 @@ function lowLatencyMediaOptions() {
 // ----- Singleton state -----
 let device: Device | null = null;
 let activeCall: Call | null = null;
+let activeBridgeCallSid: string | null = null;
 let pendingIncoming: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
+let bridgeStatusChannel: ReturnType<typeof supabase.channel> | null = null;
+let bridgePollTimer: number | null = null;
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
@@ -74,6 +78,24 @@ function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
   if (patch.incomingFrom !== undefined) currentIncomingFrom = patch.incomingFrom;
   notify();
+}
+
+function teardownBridgeStatus() {
+  if (bridgeStatusChannel) {
+    try { supabase.removeChannel(bridgeStatusChannel); } catch { /* noop */ }
+    bridgeStatusChannel = null;
+  }
+  if (bridgePollTimer !== null) {
+    window.clearInterval(bridgePollTimer);
+    bridgePollTimer = null;
+  }
+}
+
+function completeBridgeCall(status: Status = "ready") {
+  stopRingback();
+  teardownBridgeStatus();
+  activeBridgeCallSid = null;
+  setSnapshot({ activeCallSid: null, status });
 }
 
 async function fetchToken(): Promise<string> {
@@ -234,6 +256,58 @@ async function ensureDevice(): Promise<void> {
 
 async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
   console.log("[placeCall] entry", { phone, hasDevice: !!device, currentStatus });
+  const usePhoneBridge = extraParams?.mode === "phone-bridge";
+  if (usePhoneBridge) {
+    setSnapshot({ error: null, status: "connecting" });
+    try {
+      const result = await startPhoneBridgeCall({
+        data: { toPhone: phone, leadId: extraParams?.leadId, repPhone: extraParams?.repPhone },
+      });
+      if (!result.success || !result.callSid) {
+        throw new Error(result.error || "Failed to start phone call");
+      }
+      activeBridgeCallSid = result.callSid;
+      setSnapshot({ activeCallSid: result.callSid, status: "connecting" });
+
+      const handleBridgeStatus = (next?: string | null) => {
+        if (!next) return;
+        if (next === "ringing") startRingback();
+        if (next === "in-progress" || next === "answered") {
+          stopRingback();
+          setSnapshot({ status: "in-call" });
+        }
+        if (["completed", "busy", "no-answer", "failed", "canceled", "cancelled"].includes(next)) {
+          completeBridgeCall("ready");
+        }
+      };
+
+      teardownBridgeStatus();
+      bridgeStatusChannel = supabase
+        .channel(`phone-bridge-${result.callSid}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "call_records", filter: `twilio_call_sid=eq.${result.callSid}` },
+          (payload) => handleBridgeStatus((payload.new as { status?: string } | null)?.status),
+        )
+        .subscribe();
+      bridgePollTimer = window.setInterval(() => {
+        void supabase
+          .from("call_records")
+          .select("status")
+          .eq("twilio_call_sid", result.callSid!)
+          .maybeSingle()
+          .then(({ data }) => handleBridgeStatus(data?.status));
+      }, 1500);
+    } catch (err) {
+      stopRingback();
+      teardownBridgeStatus();
+      activeBridgeCallSid = null;
+      const msg = extractErrorMessage(err, "Failed to start phone call");
+      setSnapshot({ error: msg, status: "error" });
+      throw err instanceof Error ? err : new Error(msg);
+    }
+    return;
+  }
   if (!device) {
     setSnapshot({ error: "Dialler not ready yet. Try again in a moment." });
     throw new Error("Dialler not ready yet — please wait a moment and try again.");
@@ -373,6 +447,11 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
 
 function hangupCall() {
   stopRingback();
+  if (activeBridgeCallSid) {
+    const sid = activeBridgeCallSid;
+    void endPhoneBridgeCall({ data: { callSid: sid } }).catch((e) => console.error("endPhoneBridgeCall failed", e));
+    completeBridgeCall("ready");
+  }
   try { activeCall?.disconnect(); } catch { /* noop */ }
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;

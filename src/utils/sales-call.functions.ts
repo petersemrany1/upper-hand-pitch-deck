@@ -12,6 +12,107 @@ function formatAUPhone(raw: string): string {
   return "+61" + cleaned;
 }
 
+type TwilioCallResponse = {
+  sid?: string;
+  status?: string;
+  message?: string;
+};
+
+function twilioAuth(accountSid: string, authToken: string): string {
+  return Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+}
+
+export const startPhoneBridgeCall = createServerFn({ method: "POST" })
+  .inputValidator((data: { toPhone: string; leadId?: string; repPhone?: string }) => ({
+    toPhone: String(data.toPhone ?? "").trim(),
+    leadId: data.leadId ? String(data.leadId) : "",
+    repPhone: data.repPhone ? String(data.repPhone).trim() : "",
+  }))
+  .handler(async ({ data }) => {
+    if (!data.toPhone) return { success: false as const, error: "Destination phone required" };
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const cloudUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    if (!accountSid || !authToken || !cloudUrl) {
+      return { success: false as const, error: "Phone system is not configured" };
+    }
+
+    const toPhone = formatAUPhone(data.toPhone);
+    const repPhone = formatAUPhone(data.repPhone || process.env.SALES_REP_PHONE || "0418214953");
+    const voiceUrl = new URL(`${cloudUrl}/functions/v1/voice-outbound`);
+    voiceUrl.searchParams.set("phone", toPhone);
+    if (data.leadId) voiceUrl.searchParams.set("leadId", data.leadId);
+
+    const statusCallbackUrl = `${cloudUrl}/functions/v1/twilio-status`;
+    const params = new URLSearchParams({
+      To: repPhone,
+      From: TWILIO_FROM,
+      Url: voiceUrl.toString(),
+      Method: "POST",
+      StatusCallback: statusCallbackUrl,
+      StatusCallbackMethod: "POST",
+    });
+    for (const event of ["initiated", "ringing", "answered", "completed"]) {
+      params.append("StatusCallbackEvent", event);
+    }
+
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${twilioAuth(accountSid, authToken)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params,
+    });
+    const result = (await res.json().catch(() => ({}))) as TwilioCallResponse;
+    if (!res.ok || !result.sid) {
+      await logError("startPhoneBridgeCall", result.message || `Twilio call failed (${res.status})`, { toPhone, repPhone, raw: result });
+      return { success: false as const, error: result.message || "Failed to start phone call" };
+    }
+
+    await supabaseAdmin.from("call_records").upsert(
+      {
+        twilio_call_sid: result.sid,
+        lead_id: data.leadId || null,
+        phone: toPhone,
+        direction: "outbound",
+        status: result.status || "queued",
+        called_at: new Date().toISOString(),
+      },
+      { onConflict: "twilio_call_sid" },
+    );
+
+    return { success: true as const, callSid: result.sid, status: result.status || "queued" };
+  });
+
+export const endPhoneBridgeCall = createServerFn({ method: "POST" })
+  .inputValidator((data: { callSid: string }) => ({ callSid: String(data.callSid ?? "").trim() }))
+  .handler(async ({ data }) => {
+    if (!data.callSid) return { success: false as const, error: "Call SID required" };
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (!accountSid || !authToken) return { success: false as const, error: "Phone system is not configured" };
+
+    const completeCall = async (sid: string) => fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls/${sid}.json`, {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${twilioAuth(accountSid, authToken)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ Status: "completed" }),
+    });
+
+    const main = await completeCall(data.callSid);
+    if (!main.ok) {
+      const result = (await main.json().catch(() => ({}))) as TwilioCallResponse;
+      return { success: false as const, error: result.message || "Failed to hang up call" };
+    }
+
+    void supabaseAdmin.from("call_records").update({ status: "completed" }).eq("twilio_call_sid", data.callSid);
+    return { success: true as const };
+  });
+
 /* ───────────────────────── Distance Matrix ───────────────────────── */
 
 export const matchClinicsBySuburb = createServerFn({ method: "POST" })
