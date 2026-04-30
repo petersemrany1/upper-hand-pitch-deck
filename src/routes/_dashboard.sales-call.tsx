@@ -3788,7 +3788,7 @@ function RightPanel({
   onChangeLead: () => void;
 }) {
   void repId;
-  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
+  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(false);
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
