@@ -3881,6 +3881,15 @@ function RightPanel({
   const [sendingSms, setSendingSms] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
+  // Customer journey modal
+  const [showJourney, setShowJourney] = useState(false);
+  const [journeyCalls, setJourneyCalls] = useState<{
+    id: string; called_at: string; direction: string; status: string | null;
+    duration: number | null; outcome: string | null;
+    call_analysis: { summary?: string; notes?: string } | null;
+  }[]>([]);
+  const [loadingJourney, setLoadingJourney] = useState(false);
+
   // Load SMS history for this lead
   useEffect(() => {
     void (async () => {
@@ -3891,6 +3900,22 @@ function RightPanel({
         .order("created_at", { ascending: true })
         .limit(50);
       setSmsHistory((data ?? []) as typeof smsHistory);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id]);
+
+  // Load call history for this lead (for the customer journey view)
+  useEffect(() => {
+    setLoadingJourney(true);
+    void (async () => {
+      const { data } = await supabase
+        .from("call_records")
+        .select("id, called_at, direction, status, duration, outcome, call_analysis")
+        .eq("lead_id", active.id)
+        .order("called_at", { ascending: true })
+        .limit(50);
+      setJourneyCalls((data ?? []) as typeof journeyCalls);
+      setLoadingJourney(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
@@ -3985,8 +4010,27 @@ function RightPanel({
 
       {/* Section 1 — Lead card */}
       <div style={{ padding: "12px 18px 18px" }}>
-        <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
-          {fullName}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
+            {fullName}
+          </div>
+          <button
+            onClick={() => setShowJourney(true)}
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              padding: "5px 10px",
+              borderRadius: 14,
+              background: "#111",
+              color: "#fff",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            Customer Journey
+          </button>
         </div>
         {active.phone && (
           <div style={{ fontSize: 14, color: COLORS.coral, marginTop: 4 }}>{active.phone}</div>
@@ -4626,6 +4670,121 @@ function RightPanel({
           </div>
         )}
       </div>
+
+      {/* Customer Journey modal */}
+      {showJourney && (
+        <div
+          onClick={() => setShowJourney(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 9999, padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 12, maxWidth: 640, width: "100%",
+              maxHeight: "85vh", display: "flex", flexDirection: "column",
+              overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
+          >
+            <div style={{
+              padding: "16px 20px", borderBottom: "1px solid #eee",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>
+                  Customer Journey
+                </div>
+                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
+                  {fullName} · everything that's happened so far
+                </div>
+              </div>
+              <button
+                onClick={() => setShowJourney(false)}
+                style={{ background: "transparent", border: "none", fontSize: 22, color: "#666", cursor: "pointer", lineHeight: 1 }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ overflowY: "auto", padding: "16px 20px", color: "#111" }}>
+              {/* Snapshot */}
+              <div style={{ marginBottom: 18, padding: 12, background: "#f7f7f7", borderRadius: 8, fontSize: 13 }}>
+                <div><strong>Status:</strong> {active.status || "new"}</div>
+                {active.funding_preference && <div><strong>Funding:</strong> {active.funding_preference}</div>}
+                {active.booking_date && (
+                  <div><strong>Booking:</strong> {active.booking_date} {active.booking_time || ""}</div>
+                )}
+                {active.callback_scheduled_at && (
+                  <div><strong>Callback:</strong> {fmtTime(active.callback_scheduled_at)}</div>
+                )}
+                <div><strong>First seen:</strong> {fmtTime(active.created_at)}</div>
+              </div>
+
+              {/* Lead notes */}
+              {active.call_notes && active.call_notes.trim() && (
+                <div style={{ marginBottom: 18 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 6 }}>
+                    Your notes
+                  </div>
+                  <div style={{ fontSize: 13, whiteSpace: "pre-wrap", padding: 10, background: "#fffbe6", borderRadius: 6, border: "1px solid #f0e4a3" }}>
+                    {active.call_notes}
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline */}
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 8 }}>
+                Timeline
+              </div>
+              {loadingJourney ? (
+                <div style={{ fontSize: 13, color: "#666" }}>Loading…</div>
+              ) : (() => {
+                const items: { ts: string; kind: "call" | "sms"; node: React.ReactNode }[] = [];
+                journeyCalls.forEach((c) => {
+                  const summary = c.call_analysis?.summary || c.call_analysis?.notes || "";
+                  items.push({
+                    ts: c.called_at,
+                    kind: "call",
+                    node: (
+                      <div key={`c-${c.id}`} style={{ padding: "10px 12px", borderLeft: `3px solid ${c.direction === "inbound" ? "#22c55e" : "#3b82f6"}`, background: "#fafafa", borderRadius: 4, marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
+                          {fmtTime(c.called_at)} · {c.direction === "inbound" ? "📞 Inbound" : "📱 Outbound"} call
+                          {typeof c.duration === "number" && c.duration > 0 ? ` · ${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : ""}
+                          {c.status ? ` · ${c.status}` : ""}
+                        </div>
+                        {c.outcome && <div style={{ fontSize: 13, fontWeight: 500 }}>Outcome: {c.outcome}</div>}
+                        {summary && <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap" }}>{summary}</div>}
+                      </div>
+                    ),
+                  });
+                });
+                smsHistory.forEach((s, i) => {
+                  items.push({
+                    ts: s.created_at,
+                    kind: "sms",
+                    node: (
+                      <div key={`s-${i}`} style={{ padding: "10px 12px", borderLeft: `3px solid ${s.direction === "inbound" ? "#a855f7" : "#f97316"}`, background: "#fafafa", borderRadius: 4, marginBottom: 8 }}>
+                        <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
+                          {fmtTime(s.created_at)} · {s.direction === "inbound" ? "💬 Inbound" : "✉️ Outbound"} SMS
+                        </div>
+                        <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{s.body}</div>
+                      </div>
+                    ),
+                  });
+                });
+                items.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+                if (items.length === 0) {
+                  return <div style={{ fontSize: 13, color: "#666" }}>No previous calls or messages yet — this is your first contact.</div>;
+                }
+                return <div>{items.map((i) => i.node)}</div>;
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
