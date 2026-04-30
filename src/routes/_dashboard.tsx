@@ -86,6 +86,7 @@ function DashboardLayout() {
         <IncomingCallDialog />
         <FloatingCallWidget />
         <SmsNotifier />
+        <MissedCallNotifier />
       </>
     );
   }
