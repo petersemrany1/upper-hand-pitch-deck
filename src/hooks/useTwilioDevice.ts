@@ -24,6 +24,9 @@ type DialerStatus = "connecting" | "ready" | "failed";
 const TOKEN_REFRESH_MS = 50 * 60 * 1000;
 
 function lowLatencyMediaOptions() {
+  // Keep audio constraints realistic. Asking the browser for ideal:0.01s
+  // latency makes it silently degrade or buffer more to compensate, which
+  // INCREASES perceived delay. Standard AEC/NS/AGC at default latency wins.
   return {
     rtcConstraints: {
       audio: {
@@ -31,11 +34,7 @@ function lowLatencyMediaOptions() {
         noiseSuppression: true,
         autoGainControl: true,
         channelCount: { ideal: 1 },
-        latency: { ideal: 0.01, max: 0.03 },
       },
-    },
-    rtcConfiguration: {
-      iceCandidatePoolSize: 1,
     },
   };
 }
