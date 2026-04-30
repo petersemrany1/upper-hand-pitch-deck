@@ -161,7 +161,7 @@ export function MissedCallsList() {
                   type="button"
                   onClick={() => void handleCallback(row)}
                   disabled={!row.phone || dialerStatus !== "ready"}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] transition active:scale-95 disabled:opacity-40 flex-shrink-0"
+                  className="flex h-7 w-7 items-center justify-center rounded-md text-white transition active:scale-95 disabled:opacity-40 flex-shrink-0"
                   style={{ background: "#f4522d", border: "1px solid #f4522d" }}
                   aria-label={`Call back ${label}`}
                   title={`Call back ${label}`}
