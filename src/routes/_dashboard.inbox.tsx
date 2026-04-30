@@ -269,7 +269,7 @@ function InboxPage() {
                   <div className="flex flex-col items-end gap-1">
                     <span className="text-[10px] text-[#111111]">{fmtTime(t.last_message_at)}</span>
                     {t.unread_count > 0 && (
-                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-[#111111] text-[9px] font-bold">
+                      <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold">
                         {t.unread_count}
                       </span>
                     )}
