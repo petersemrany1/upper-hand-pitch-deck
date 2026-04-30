@@ -3886,7 +3886,7 @@ function RightPanel({
   const [journeyCalls, setJourneyCalls] = useState<{
     id: string; called_at: string; direction: string; status: string | null;
     duration: number | null; outcome: string | null;
-    call_analysis: { summary?: string; notes?: string } | null;
+    call_analysis: { summary?: string; notes?: string; patient_summary?: string; transcript?: string } | null;
   }[]>([]);
   const [loadingJourney, setLoadingJourney] = useState(false);
 
