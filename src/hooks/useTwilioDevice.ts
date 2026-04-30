@@ -23,6 +23,23 @@ type DialerStatus = "connecting" | "ready" | "failed";
 
 const TOKEN_REFRESH_MS = 50 * 60 * 1000;
 
+function lowLatencyMediaOptions() {
+  return {
+    rtcConstraints: {
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        channelCount: { ideal: 1 },
+        latency: { ideal: 0.01, max: 0.03 },
+      },
+    },
+    rtcConfiguration: {
+      iceCandidatePoolSize: 1,
+    },
+  };
+}
+
 // ----- Singleton state -----
 let device: Device | null = null;
 let activeCall: Call | null = null;
@@ -102,18 +119,19 @@ async function ensureDevice(): Promise<void> {
       const token = await fetchToken();
 
       // Audio tuning notes:
-      // - Opus first for best quality + low latency on modern networks; PCMU
-      //   fallback for legacy carriers.
-      // - maxAverageBitrate raised to 32 kbps. The previous 24 kbps was on
-      //   the edge of what Opus needs for clean voice and was contributing
-      //   to perceptible latency / muffled audio.
+      // - PCMU first avoids an extra Opus → PSTN transcode step on normal
+      //   phone-number calls. That is less fancy than Opus, but lower latency.
+      // - If the route falls back to Opus, keep it in the speech sweet spot.
       // - edge: "sydney" keeps the media path local for AU users.
+      // - aggressive ICE + low-latency media constraints reduce browser-side
+      //   buffering before audio leaves the computer.
       // - closeProtection avoids accidental disconnects mid-call.
       const d = new Device(token, {
         logLevel: 1,
-        codecPreferences: ["opus" as never, "pcmu" as never],
+        codecPreferences: ["pcmu" as never, "opus" as never],
         edge: "sydney",
-        maxAverageBitrate: 32000,
+        maxAverageBitrate: 40000,
+        forceAggressiveIceNomination: true,
         closeProtection: true,
         enableImprovedSignalingErrorPrecision: true,
       } as ConstructorParameters<typeof Device>[1]);
@@ -228,7 +246,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   setSnapshot({ error: null, status: "connecting" });
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
-    const outgoing = await device.connect({ params });
+    const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
 
     // Insert the call_records row as soon as Twilio assigns a CallSid.
@@ -364,7 +382,7 @@ function hangupCall() {
 
 function answerIncoming() {
   if (!pendingIncoming) return;
-  try { pendingIncoming.accept(); } catch (e) { console.error("answerIncoming failed", e); }
+  try { pendingIncoming.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
 }
 
 function rejectIncoming() {

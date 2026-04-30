@@ -94,7 +94,7 @@ serve(async (req) => {
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial answerOnBridge="true" timeout="20">
+  <Dial timeout="20">
     <Client>peter_browser</Client>
   </Dial>
 </Response>`;
