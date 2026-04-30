@@ -16,7 +16,7 @@ import {
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms } from "@/utils/resend.functions";
-import { stopRingback, primeAudioContext } from "@/utils/ringback";
+import { stopRingback } from "@/utils/ringback";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
