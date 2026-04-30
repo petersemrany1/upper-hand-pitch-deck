@@ -4010,8 +4010,27 @@ function RightPanel({
 
       {/* Section 1 — Lead card */}
       <div style={{ padding: "12px 18px 18px" }}>
-        <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
-          {fullName}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
+            {fullName}
+          </div>
+          <button
+            onClick={() => setShowJourney(true)}
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.04em",
+              padding: "5px 10px",
+              borderRadius: 14,
+              background: "#111",
+              color: "#fff",
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+            }}
+          >
+            Customer Journey
+          </button>
         </div>
         {active.phone && (
           <div style={{ fontSize: 14, color: COLORS.coral, marginTop: 4 }}>{active.phone}</div>
