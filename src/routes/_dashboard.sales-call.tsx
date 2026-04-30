@@ -570,149 +570,83 @@ function StepContent({
   }
 
   if (step === "audiobook") {
-    const fnameAudio = lead.first_name || "[name]";
-    const examples: { label: string; text: string }[] = [
-      {
-        label: "The Mirror Moment",
-        text: "Imagine waking up six months from now, getting ready in the morning, looking in the mirror — and just seeing your hairline back. No hat. No checking angles. Just you, looking like you again. How would that actually feel?",
-      },
-      {
-        label: "The Social Moment",
-        text: "Picture yourself at [their event — wedding, birthday, reunion]. Someone takes a photo. And for the first time in years you're not dreading seeing it. You're not thinking about it at all. How would that feel?",
-      },
-      {
-        label: "The Everyday Moment",
-        text: "Think about just getting out of the shower and not having to think about it. No awkward styling. Just getting on with your day. That's what this gives you. How would that feel?",
-      },
-    ];
-
-    const bullets = [
-      "Use THEIR words — not generic phrases",
-      "Reference their WHY NOW — the wedding, the event, the photo",
-      "Name their specific area — hairline, crown, temples",
-      "Frame it as waking up tomorrow without the problem",
-      "2–3 sentences max. Then stop.",
-    ];
-
+    const highlight = COLORS.coral;
     return (
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <Eyebrow>Step 6 — Audiobook</Eyebrow>
         <h1 style={{
           fontSize: 32, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
-          letterSpacing: "-0.01em", marginBottom: 20, textAlign: "center",
+          letterSpacing: "-0.01em", marginBottom: 32, textAlign: "center",
         }}>
           Paint The Picture
         </h1>
 
-        {/* Top banner */}
+        {/* 1. SAY THIS — pivot line */}
         <div style={{
-          background: "#fffbeb",
-          border: "0.5px solid #fcd34d",
-          borderRadius: 8,
-          padding: 16,
-          marginBottom: 24,
-          textAlign: "center",
-          fontSize: 14,
-          fontWeight: 500,
-          color: "#92400e",
-          lineHeight: 1.5,
-        }}>
-          ⭐ This is where the sale happens. Not at the deposit. Right here.
-        </div>
-
-        {/* SAY THIS card */}
-        <div style={{
-          background: "#ffffff",
+          background: "#fafaf7",
           borderLeft: `2px solid ${COLORS.coral}`,
           borderRadius: "0 8px 8px 0",
-          padding: "16px 20px",
+          padding: "18px 22px",
+          marginBottom: 20,
         }}>
           <div style={{
-            fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.05em",
-            color: COLORS.coral, marginBottom: 8,
+            fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em",
+            color: COLORS.coral, marginBottom: 10,
           }}>
             Say this
           </div>
-          <div style={{ fontSize: 20, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
-            {fnameAudio}, I want you to picture something for me...
-          </div>
-          <div style={{ marginTop: 10, fontSize: 13, fontStyle: "italic", color: COLORS.text, lineHeight: 1.5 }}>
-            Then pause. Use their exact words from discovery. Make it personal.
+          <div style={{ fontSize: 19, fontWeight: 500, color: COLORS.text, lineHeight: 1.5 }}>
+            "Look, I could talk about the technical side all day — but what it really comes down to is this..."
           </div>
         </div>
 
-        {/* Optional AI prefill, kept subtle */}
-        {audioPrefill && (
+        {/* 2. THE FORMULA */}
+        <div style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderRadius: 8,
+          padding: "18px 22px",
+          marginBottom: 20,
+        }}>
           <div style={{
-            marginTop: 16,
-            padding: "14px 16px",
-            borderRadius: 8,
-            background: "#ffffff",
-            border: `0.5px solid ${COLORS.gold}`,
+            fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.08em",
+            color: COLORS.text, marginBottom: 10,
           }}>
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.gold, fontWeight: 500, marginBottom: 6 }}>
-              AI-suggested picture (from discovery)
-            </div>
-            <p style={{ fontSize: 15, color: COLORS.text, lineHeight: 1.7 }}>{audioPrefill}</p>
+            The formula
           </div>
-        )}
-
-        {/* Coaching bullets */}
-        <ul className="flex flex-col" style={{ gap: 8, marginTop: 24 }}>
-          {bullets.map((b, i) => (
-            <li key={i} className="flex items-start" style={{ gap: 10 }}>
-              <span className="inline-block rounded-full" style={{ width: 5, height: 5, background: COLORS.coral, marginTop: 8, flexShrink: 0 }} />
-              <span style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.6 }}>{b}</span>
-            </li>
-          ))}
-        </ul>
-
-        {/* Examples */}
-        <div style={{
-          fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
-          color: COLORS.text, fontWeight: 600, marginTop: 24, marginBottom: 12,
-        }}>
-          Examples
+          <div style={{ fontSize: 18, color: COLORS.text, lineHeight: 1.6 }}>
+            Imagine waking up <span style={{ color: highlight, fontWeight: 600 }}>[timeframe]</span> from now... <span style={{ color: highlight, fontWeight: 600 }}>[use their exact words from discovery]</span> ... <span style={{ color: highlight, fontWeight: 600 }}>[their dream outcome]</span>. How would that actually feel?
+          </div>
         </div>
-        <div className="flex flex-col" style={{ gap: 12 }}>
-          {examples.map((ex, i) => (
-            <div key={i}>
-              <div style={{
-                fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em",
-                color: COLORS.text, fontWeight: 600, marginBottom: 8,
-              }}>
-                {ex.label}
-              </div>
-              <div style={{
-                background: "#ffffff",
-                border: `0.5px solid ${COLORS.line}`,
-                borderRadius: 8,
-                padding: 20,
-                fontSize: 17,
-                fontStyle: "italic",
-                color: COLORS.text,
-                lineHeight: 1.8,
-              }}>
-                {ex.text}
-              </div>
+
+        {/* 3. STOP */}
+        <div style={{
+          background: "#ffffff",
+          border: `0.5px solid ${COLORS.line}`,
+          borderRadius: 8,
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 14,
+        }}>
+          <span style={{
+            display: "inline-block",
+            width: 10,
+            height: 10,
+            borderRadius: 999,
+            background: "#dc2626",
+            marginTop: 6,
+            flexShrink: 0,
+          }} />
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: COLORS.text, lineHeight: 1.4 }}>
+              Then stop. Don't speak.
             </div>
-          ))}
-        </div>
-
-        {/* Bottom warning */}
-        <div style={{
-          marginTop: 24,
-          background: "#fffbeb",
-          borderLeft: `2px solid ${COLORS.gold}`,
-          borderRadius: "0 8px 8px 0",
-          padding: "14px 16px",
-          fontSize: 14,
-          fontWeight: 500,
-          color: "#92400e",
-          lineHeight: 1.6,
-        }}>
-          Say the picture. Then stop. Do not speak. The silence is working for you. Wait for them to respond.
+            <div style={{ fontSize: 14, color: COLORS.hint, lineHeight: 1.6, marginTop: 4 }}>
+              The silence is working for you. Wait for them to respond.
+            </div>
+          </div>
         </div>
       </div>
     );
