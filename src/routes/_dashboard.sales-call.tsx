@@ -2447,7 +2447,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                           // 1. Fetch ALL call records for this lead that have a recording
                           const { data: calls, error: callsErr } = await supabase
                             .from("call_records")
-                            .select("id, recording_url, call_analysis, called_at")
+                            .select("id, recording_url, call_analysis, called_at, duration")
                             .eq("lead_id", lead.id)
                             .not("recording_url", "is", null)
                             .order("called_at", { ascending: true });
@@ -2457,12 +2457,13 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                             return;
                           }
 
-                          // 2. Ensure each call has a patient_summary; analyse any that don't
-                          const summaries: { idx: number; summary: string; when: string }[] = [];
+                          // 2. Ensure each call has been analysed (so we have a transcript). Analyse any that haven't.
+                          type CallRow = { id: string; call_analysis: { patient_summary?: string; transcript?: string } | null; called_at: string; duration?: number | null };
+                          const enriched: { idx: number; transcript: string; summary: string; when: string }[] = [];
                           for (let i = 0; i < calls.length; i++) {
-                            const c = calls[i] as { id: string; call_analysis: { patient_summary?: string } | null; called_at: string };
-                            let summary = c.call_analysis?.patient_summary?.trim() || "";
-                            if (!summary) {
+                            const c = calls[i] as CallRow;
+                            let analysis = c.call_analysis;
+                            if (!analysis?.transcript) {
                               const { error: invErr } = await supabase.functions.invoke("auto-analyse-call", {
                                 body: { callRecordId: c.id },
                               });
@@ -2475,35 +2476,38 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                                 .select("call_analysis")
                                 .eq("id", c.id)
                                 .maybeSingle();
-                              const ra = refreshed?.call_analysis as { patient_summary?: string } | null;
-                              summary = ra?.patient_summary?.trim() || "";
+                              analysis = refreshed?.call_analysis as CallRow["call_analysis"];
                             }
-                            if (summary) summaries.push({ idx: i + 1, summary, when: c.called_at });
+                            const transcript = (analysis?.transcript || "").trim();
+                            const summary = (analysis?.patient_summary || "").trim();
+                            // Skip calls that produced nothing useful
+                            if (!transcript && !summary) continue;
+                            enriched.push({ idx: i + 1, transcript, summary, when: c.called_at });
                           }
 
-                          // Filter out useless / too-brief summaries — clinic doesn't want to see them
-                          const isUseless = (s: string) => {
-                            const lc = s.toLowerCase();
-                            return (
-                              lc.includes("too brief") ||
-                              lc.includes("not enough patient intel") ||
-                              lc.includes("no useful intel") ||
-                              lc.includes("voicemail") ||
-                              lc.includes("no answer") ||
-                              lc.includes("did not connect") ||
-                              lc.includes("hung up") ||
-                              lc.includes("call dropped") ||
-                              s.trim().length < 40
-                            );
+                          // Filter out calls that clearly had no useful patient intel (voicemail, no answer, very short transcripts)
+                          const isUseless = (t: string, s: string) => {
+                            const blob = `${t}\n${s}`.toLowerCase();
+                            if (
+                              blob.includes("too brief") ||
+                              blob.includes("no useful intel") ||
+                              blob.includes("not enough patient intel")
+                            ) return true;
+                            // If we have NO transcript and only a short summary mentioning voicemail/no-answer, skip
+                            if (!t && (s.toLowerCase().includes("voicemail") || s.toLowerCase().includes("no answer") || s.length < 40)) return true;
+                            // Very short transcripts (under ~120 chars of speech) are almost always useless
+                            if (t && t.replace(/\s+/g, " ").length < 120 && !s) return true;
+                            return false;
                           };
-                          const usefulSummaries = summaries.filter((s) => !isUseless(s.summary));
+                          const useful = enriched.filter((e) => !isUseless(e.transcript, e.summary));
 
-                          // 3. Build chronological notes block (only useful calls) and pull structured deal facts
-                          const notesBlock = usefulSummaries
-                            .map((s, i) => {
-                              const label = i === usefulSummaries.length - 1 && usefulSummaries.length > 1 ? "Latest Call" : `Call ${i + 1}`;
-                              const when = (() => { try { return new Date(s.when).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }); } catch { return ""; } })();
-                              return `${label}${when ? ` (${when})` : ""}:\n${s.summary}`;
+                          // 3. Build chronological notes block. Prefer raw transcript (richer source) and fall back to summary.
+                          const notesBlock = useful
+                            .map((e, i) => {
+                              const label = i === useful.length - 1 && useful.length > 1 ? "Latest Call" : `Call ${i + 1}`;
+                              const when = (() => { try { return new Date(e.when).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }); } catch { return ""; } })();
+                              const body = e.transcript || e.summary;
+                              return `--- ${label}${when ? ` (${when})` : ""} ---\n${body}`;
                             })
                             .join("\n\n");
 
@@ -2529,8 +2533,8 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
                           if (finalText) {
                             setPreviewIntel(finalText);
-                            const usedCount = usefulSummaries.length;
-                            const totalCount = summaries.length;
+                            const usedCount = useful.length;
+                            const totalCount = enriched.length;
                             const skipped = totalCount - usedCount;
                             toast.success(
                               usedCount === 0
@@ -2538,7 +2542,6 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                                 : `Patient intel refreshed from ${usedCount} call${usedCount === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""} ✓`,
                             );
                           } else {
-                            // Fall back to re-reading the lead in case the function updated the row
                             const { data: fresh } = await supabase
                               .from("meta_leads")
                               .select("call_notes")
