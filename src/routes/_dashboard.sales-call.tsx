@@ -2446,21 +2446,54 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                       onClick={async () => {
                         setRefreshingIntel(true);
                         try {
-                          // 1. Fetch ALL call records for this lead that have a recording
-                          const { data: calls, error: callsErr } = await supabase
+                          // 1. Fetch ALL call records for this lead, plus any same-phone orphaned rows.
+                          type CallRow = {
+                            id: string;
+                            recording_url: string | null;
+                            call_analysis: { patient_summary?: string; transcript?: string } | null;
+                            called_at: string;
+                            duration?: number | null;
+                            phone?: string | null;
+                          };
+                          const callSelect = "id, recording_url, call_analysis, called_at, duration, phone";
+                          const normalizePhone = (value?: string | null) => (value || "").replace(/[^0-9]/g, "");
+                          const byId = new Map<string, CallRow>();
+                          const addRows = (rows?: CallRow[] | null) => rows?.forEach((row) => byId.set(row.id, row));
+
+                          const { data: leadCalls, error: callsErr } = await supabase
                             .from("call_records")
-                            .select("id, recording_url, call_analysis, called_at, duration")
+                            .select(callSelect)
                             .eq("lead_id", lead.id)
-                            .not("recording_url", "is", null)
                             .order("called_at", { ascending: true });
                           if (callsErr) throw callsErr;
-                          if (!calls || calls.length === 0) {
-                            toast.error("No call recordings found for this lead");
+                          addRows(leadCalls as CallRow[] | null);
+
+                          const phoneTail = normalizePhone(lead.phone).slice(-9);
+                          if (phoneTail.length >= 6) {
+                            const { data: phoneCalls, error: phoneErr } = await supabase
+                              .from("call_records")
+                              .select(callSelect)
+                              .ilike("phone", `%${phoneTail}%`)
+                              .order("called_at", { ascending: true });
+                            if (phoneErr) throw phoneErr;
+                            addRows(phoneCalls as CallRow[] | null);
+                          }
+
+                          const allCalls = Array.from(byId.values()).sort((a, b) => new Date(a.called_at).getTime() - new Date(b.called_at).getTime());
+                          const calls = allCalls.filter((c) => !!c.recording_url);
+                          const longUnrecorded = allCalls.filter((c) => !c.recording_url && (c.duration ?? 0) >= 60);
+                          if (allCalls.length === 0) {
+                            toast.error("No calls found for this lead");
+                            return;
+                          }
+                          if (calls.length === 0) {
+                            toast.error(longUnrecorded.length > 0
+                              ? "Found a real call, but it was not recorded so Patient Intel cannot be rebuilt from audio. Add the patient details manually for this old call."
+                              : "No call recordings found for this lead");
                             return;
                           }
 
-                          // 2. Ensure each call has been analysed (so we have a transcript). Analyse any that haven't.
-                          type CallRow = { id: string; call_analysis: { patient_summary?: string; transcript?: string } | null; called_at: string; duration?: number | null };
+                          // 2. Ensure each recorded call has been analysed (so we have a transcript). Analyse any that haven't.
                           const enriched: { idx: number; transcript: string; summary: string; when: string }[] = [];
                           for (let i = 0; i < calls.length; i++) {
                             const c = calls[i] as CallRow;
