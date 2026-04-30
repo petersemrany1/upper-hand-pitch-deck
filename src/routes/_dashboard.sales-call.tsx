@@ -3886,7 +3886,7 @@ function RightPanel({
   const [journeyCalls, setJourneyCalls] = useState<{
     id: string; called_at: string; direction: string; status: string | null;
     duration: number | null; outcome: string | null;
-    call_analysis: { summary?: string; notes?: string } | null;
+    call_analysis: { summary?: string; notes?: string; patient_summary?: string; transcript?: string } | null;
   }[]>([]);
   const [loadingJourney, setLoadingJourney] = useState(false);
 
@@ -4744,19 +4744,30 @@ function RightPanel({
               ) : (() => {
                 const items: { ts: string; kind: "call" | "sms"; node: React.ReactNode }[] = [];
                 journeyCalls.forEach((c) => {
-                  const summary = c.call_analysis?.summary || c.call_analysis?.notes || "";
+                  const transcript = (c.call_analysis?.transcript || "").trim();
+                  const rawSummary = (c.call_analysis?.patient_summary || c.call_analysis?.summary || c.call_analysis?.notes || "").trim();
+                  const dur = typeof c.duration === "number" ? c.duration : 0;
+                  const looksLikeVoicemail = dur > 0 && dur <= 8 && /unable to (answer|come)|leave (a |your )?message|voicemail|you've called/i.test(transcript);
+                  const isPlaceholder = /too brief to capture/i.test(rawSummary);
+                  let shortSummary = "";
+                  if (rawSummary && !isPlaceholder) {
+                    const firstSentence = rawSummary.split(/(?<=[.!?])\s/)[0];
+                    shortSummary = firstSentence.length > 140 ? firstSentence.slice(0, 140).trimEnd() + "…" : firstSentence;
+                  }
+                  const tag = looksLikeVoicemail ? "📭 Voicemail — no answer" : null;
                   items.push({
                     ts: c.called_at,
                     kind: "call",
                     node: (
-                      <div key={`c-${c.id}`} style={{ padding: "10px 12px", borderLeft: `3px solid ${c.direction === "inbound" ? "#22c55e" : "#3b82f6"}`, background: "#fafafa", borderRadius: 4, marginBottom: 8 }}>
+                      <div key={`c-${c.id}`} style={{ padding: "10px 12px", borderLeft: `3px solid ${looksLikeVoicemail ? "#9ca3af" : c.direction === "inbound" ? "#22c55e" : "#3b82f6"}`, background: "#fafafa", borderRadius: 4, marginBottom: 8 }}>
                         <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
                           {fmtTime(c.called_at)} · {c.direction === "inbound" ? "📞 Inbound" : "📱 Outbound"} call
-                          {typeof c.duration === "number" && c.duration > 0 ? ` · ${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : ""}
-                          {c.status ? ` · ${c.status}` : ""}
+                          {dur > 0 ? ` · ${Math.floor(dur / 60)}m ${dur % 60}s` : ""}
                         </div>
-                        {c.outcome && <div style={{ fontSize: 13, fontWeight: 500 }}>Outcome: {c.outcome}</div>}
-                        {summary && <div style={{ fontSize: 13, marginTop: 4, whiteSpace: "pre-wrap" }}>{summary}</div>}
+                        {tag && <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>{tag}</div>}
+                        {!tag && c.outcome && <div style={{ fontSize: 13, fontWeight: 500, color: "#111" }}>Outcome: {c.outcome}</div>}
+                        {!tag && shortSummary && <div style={{ fontSize: 13, marginTop: 4, color: "#111" }}>{shortSummary}</div>}
+                        {!tag && !shortSummary && !c.outcome && <div style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>No notes captured</div>}
                       </div>
                     ),
                   });
