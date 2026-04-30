@@ -131,7 +131,7 @@ serve(async (req) => {
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial callerId="${TWILIO_CALLER_ID}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" answerOnBridge="true" trim="do-not-trim" timeout="30">
+  <Dial callerId="${TWILIO_CALLER_ID}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="do-not-trim" timeout="30">
     <Number statusCallback="${childStatusCallbackUrl}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${dialTo}</Number>
   </Dial>
 </Response>`;
