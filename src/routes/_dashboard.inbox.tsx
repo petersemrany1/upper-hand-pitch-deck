@@ -326,8 +326,9 @@ function InboxPage() {
                     <div
                       className="max-w-[70%] rounded-2xl px-4 py-2"
                       style={{
-                        background: out ? "#f4522d" : "#f9f9f9",
-                        color: out ? "#fff" : "#ebebeb",
+                        background: out ? "#f4522d" : "#ffffff",
+                        color: out ? "#ffffff" : "#111111",
+                        border: out ? "none" : "1px solid #ebebeb",
                         borderBottomRightRadius: out ? 4 : 16,
                         borderBottomLeftRadius: out ? 16 : 4,
                       }}
