@@ -109,6 +109,22 @@ export function FloatingCallWidget() {
     return () => { cancelled = true; };
   }, [incomingFrom]);
 
+  // Outbound fallback: if we know the dialled phone but the call_records row
+  // hasn't surfaced a lead_id (e.g. the call was placed from a screen that
+  // didn't pass leadId, or the row hasn't been upserted yet), match by phone
+  // so the "Open in Sales Call" button still appears.
+  useEffect(() => {
+    if (leadId || !phone || incomingFrom) return;
+    let cancelled = false;
+    void findLeadByPhone({ data: { phone } }).then((r) => {
+      if (cancelled) return;
+      if (r.success && r.lead) {
+        setMatchedLead({ id: r.lead.id, first_name: r.lead.first_name, last_name: r.lead.last_name });
+      }
+    }).catch(() => { /* noop */ });
+    return () => { cancelled = true; };
+  }, [leadId, phone, incomingFrom]);
+
   const [expanded, setExpanded] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [muted, setMuted] = useState(false);
