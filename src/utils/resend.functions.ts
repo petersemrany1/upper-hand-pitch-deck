@@ -925,10 +925,12 @@ export const sendManualSms = createServerFn({ method: "POST" })
         return { success: false as const, error: result.message || "SMS failed" };
       }
 
-      // Log to sms_messages
+      // Log to sms_messages and link to a thread so it shows in the inbox
       try {
         const admin = getAdminClient();
+        const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         await admin.from("sms_messages").insert({
+          thread_id: threadId,
           lead_id: data.leadId,
           body: data.body,
           direction: "outbound",
