@@ -3911,6 +3911,7 @@ function RightPanel({
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
+  const [condensingNotes, setCondensingNotes] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
@@ -4784,10 +4785,45 @@ function RightPanel({
               {/* Lead notes */}
               {active.call_notes && active.call_notes.trim() && (
                 <div style={{ marginBottom: 18 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 6 }}>
-                    Your notes
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888" }}>
+                      Your notes
+                    </div>
+                    {active.call_notes.length > 350 && (
+                      <button
+                        type="button"
+                        disabled={condensingNotes}
+                        onClick={async () => {
+                          setCondensingNotes(true);
+                          try {
+                            const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/condense-notes`, {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+                              body: JSON.stringify({ leadId: active.id, notes: active.call_notes }),
+                            });
+                            const j = await r.json();
+                            if (!r.ok || !j?.condensed) throw new Error(j?.error || "Failed");
+                            onLocalLeadUpdate?.(active.id, { call_notes: j.condensed });
+                            toast.success("Notes condensed");
+                          } catch (e) {
+                            toast.error(`Couldn't condense: ${e instanceof Error ? e.message : "unknown"}`);
+                          } finally {
+                            setCondensingNotes(false);
+                          }
+                        }}
+                        style={{
+                          fontSize: 11, fontWeight: 500, color: "#1d4ed8",
+                          background: "#eff6ff", border: "1px solid #bfdbfe",
+                          borderRadius: 6, padding: "3px 8px",
+                          cursor: condensingNotes ? "wait" : "pointer",
+                          opacity: condensingNotes ? 0.6 : 1,
+                        }}
+                      >
+                        {condensingNotes ? "Condensing…" : "✨ Condense"}
+                      </button>
+                    )}
                   </div>
-                  <div style={{ fontSize: 13, whiteSpace: "pre-wrap", padding: 10, background: "#fffbe6", borderRadius: 6, border: "1px solid #f0e4a3" }}>
+                  <div style={{ fontSize: 13, whiteSpace: "pre-wrap", padding: 10, background: "#fffbe6", borderRadius: 6, border: "1px solid #f0e4a3", lineHeight: 1.55 }}>
                     {active.call_notes}
                   </div>
                 </div>
