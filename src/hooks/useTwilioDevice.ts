@@ -246,7 +246,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   setSnapshot({ error: null, status: "connecting" });
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
-    const outgoing = await device.connect({ params });
+    const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
 
     // Insert the call_records row as soon as Twilio assigns a CallSid.
