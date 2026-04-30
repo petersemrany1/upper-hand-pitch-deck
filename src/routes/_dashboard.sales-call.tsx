@@ -374,7 +374,7 @@ function SalesCallPortal() {
       </aside>
 
       {/* CENTER */}
-      <main className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-6 py-[60px]">
+      <main ref={mainScrollRef} className="flex-1 overflow-y-auto min-h-0 flex flex-col items-center px-6 py-[60px]">
         <div className="w-full" style={{ maxWidth: 640 }}>
           <StepContent
             step={step}
