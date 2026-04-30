@@ -400,7 +400,7 @@ function InboxPage() {
                   onClick={() => void handleSend()}
                   disabled={sending || (!composeBody.trim() && composeFiles.length === 0)}
                   className="h-9 px-4 rounded inline-flex items-center gap-2 text-sm font-medium disabled:opacity-50"
-                  style={{ background: "#f4522d", color: "#111111" }}
+                  style={{ background: "#f4522d", color: "#ffffff" }}
                 >
                   {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send
