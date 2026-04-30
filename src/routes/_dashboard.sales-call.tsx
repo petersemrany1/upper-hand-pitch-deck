@@ -4801,14 +4801,16 @@ function RightPanel({
                   const transcript = (c.call_analysis?.transcript || "").trim();
                   const rawSummary = (c.call_analysis?.patient_summary || c.call_analysis?.summary || c.call_analysis?.notes || "").trim();
                   const dur = typeof c.duration === "number" ? c.duration : 0;
-                  const looksLikeVoicemail = dur > 0 && dur <= 8 && /unable to (answer|come)|leave (a |your )?message|voicemail|you've called/i.test(transcript);
+                  const transcriptVoicemail = dur > 0 && dur <= 10 && /unable to (answer|come)|leave (a |your )?message|voicemail|you've called/i.test(transcript);
+                  // Any short call (≤10s) is effectively a no-answer / voicemail hit
+                  const looksLikeVoicemail = transcriptVoicemail || (dur > 0 && dur <= 10);
                   const isPlaceholder = /too brief to capture/i.test(rawSummary);
                   let shortSummary = "";
                   if (rawSummary && !isPlaceholder) {
                     const firstSentence = rawSummary.split(/(?<=[.!?])\s/)[0];
                     shortSummary = firstSentence.length > 140 ? firstSentence.slice(0, 140).trimEnd() + "…" : firstSentence;
                   }
-                  const tag = looksLikeVoicemail ? "📭 Voicemail — no answer" : null;
+                  const tag = looksLikeVoicemail ? "📭 No answer / voicemail" : null;
                   items.push({
                     ts: c.called_at,
                     kind: "call",
