@@ -1879,7 +1879,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
 
   useEffect(() => {
     void supabase.from("partner_clinics")
-      .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+      .select("id, clinic_name, address, city, state, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
       .eq("is_active", true)
       .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
@@ -1913,8 +1913,13 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   // Restore booked state if this lead already has a saved booking (rep navigated away and came back)
   useEffect(() => {
     if (lead.booking_date && lead.booking_time && !booked) {
+      // Wait until clinics + doctors have loaded so we don't bake placeholder
+      // strings ("[CLINIC NAME — fill in before sending]") into bookedData.
+      if (clinics.length === 0) return;
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+      // If a clinic is selected but its doctors haven't loaded yet, wait.
+      if (form.clinicId && doctors.length === 0) return;
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
@@ -2095,9 +2100,19 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   };
 
   const confirmAndSend = async () => {
+    const selectedClinic = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
+    const clinicEmail = selectedClinic?.email ?? null;
+    if (!clinicEmail) {
+      toast.error("No clinic email on file — add one in Partner Clinics before sending the handover.");
+      return;
+    }
+    if (!bookedData?.clinicName || bookedData.clinicName.startsWith("[CLINIC NAME") ||
+        !bookedData?.doctorName || bookedData.doctorName.startsWith("[DOCTOR NAME")) {
+      toast.error("Clinic or doctor info missing — reload the page and try again.");
+      return;
+    }
     setShowPreview(false);
     setSendingHandover(true);
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
     const r = await sendClinicHandoverEmail({
       data: {
         leadId: lead.id,
@@ -2110,9 +2125,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
         bookingDate: bookedData?.date ?? "",
         bookingTime: bookedData?.time ?? "",
-        clinicName: bookedData?.clinicName ?? "[CLINIC NAME — fill in before sending]",
-        clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
-        doctorName: bookedData?.doctorName ?? "[DOCTOR NAME — fill in before sending]",
+        clinicName: bookedData!.clinicName,
+        clinicEmail,
+        doctorName: bookedData!.doctorName,
         depositPaid: previewDeposit,
       },
     });
