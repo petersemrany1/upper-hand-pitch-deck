@@ -2098,44 +2098,60 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
     const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
-    setPreviewClinicEmail(sc?.email ?? "");
+    setPreviewClinicEmail(sc?.email || "peter@gobold.com.au");
     setShowPreview(true);
   };
 
   const confirmAndSend = async () => {
-    const clinicEmail = previewClinicEmail.trim();
-    if (!clinicEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)) {
+    const clinicEmail = (previewClinicEmail.trim() || "peter@gobold.com.au");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)) {
       toast.error("Enter a valid clinic email before sending.");
       return;
     }
-    if (!bookedData?.clinicName || bookedData.clinicName.startsWith("[CLINIC NAME") ||
-        !bookedData?.doctorName || bookedData.doctorName.startsWith("[DOCTOR NAME")) {
-      toast.error("Clinic or doctor info missing — reload the page and try again.");
+    // Resolve clinic/doctor names with fallback to current form selection so
+    // stale placeholder strings in bookedData don't block the send.
+    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+    const resolvedClinicName =
+      bookedData?.clinicName && !bookedData.clinicName.startsWith("[CLINIC NAME")
+        ? bookedData.clinicName
+        : (selectedClinic?.clinic_name ?? "");
+    const resolvedDoctorName =
+      bookedData?.doctorName && !bookedData.doctorName.startsWith("[DOCTOR NAME")
+        ? bookedData.doctorName
+        : (selectedDoctor?.name ?? "");
+    if (!resolvedClinicName || !resolvedDoctorName) {
+      toast.error("Clinic or doctor info missing — pick them in Step 10 and try again.");
       return;
     }
     setShowPreview(false);
     setSendingHandover(true);
-    const r = await sendClinicHandoverEmail({
-      data: {
-        leadId: lead.id,
-        firstName: lead.first_name ?? "",
-        lastName: lead.last_name ?? "",
-        email: previewEmail || null,
-        phone: previewPhone || null,
-        callNotes: previewIntel,
-        fundingPreference: previewFunding,
-        financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
-        bookingDate: bookedData?.date ?? "",
-        bookingTime: bookedData?.time ?? "",
-        clinicName: bookedData!.clinicName,
-        clinicEmail,
-        doctorName: bookedData!.doctorName,
-        depositPaid: previewDeposit,
-      },
-    });
-    setSendingHandover(false);
-    if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
-    else toast.error(`Handover failed: ${r.error}`);
+    try {
+      const r = await sendClinicHandoverEmail({
+        data: {
+          leadId: lead.id,
+          firstName: lead.first_name ?? "",
+          lastName: lead.last_name ?? "",
+          email: previewEmail || null,
+          phone: previewPhone || null,
+          callNotes: previewIntel,
+          fundingPreference: previewFunding,
+          financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
+          bookingDate: bookedData?.date ?? "",
+          bookingTime: bookedData?.time ?? "",
+          clinicName: resolvedClinicName,
+          clinicEmail,
+          doctorName: resolvedDoctorName,
+          depositPaid: previewDeposit,
+        },
+      });
+      setSendingHandover(false);
+      if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+      else toast.error(`Handover failed: ${r.error ?? "unknown error"}`);
+    } catch (err) {
+      setSendingHandover(false);
+      toast.error(`Handover failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
   };
 
   if (booked && bookedData) {
