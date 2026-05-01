@@ -726,7 +726,12 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   </body>
 </html>`;
 
-    const clinicEmailTo = data.clinicEmail || "[CLINIC EMAIL — fill in before sending]";
+    const clinicEmailTo = data.clinicEmail || "";
+    if (!clinicEmailTo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmailTo)) {
+      const err = "No clinic email on file — add one in Partner Clinics before sending the handover.";
+      await logError("sendClinicHandoverEmail", err, { leadId: data.leadId, clinicName: data.clinicName });
+      return { success: false, error: err };
+    }
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
