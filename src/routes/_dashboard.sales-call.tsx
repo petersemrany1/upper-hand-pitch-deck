@@ -4828,7 +4828,7 @@ function RightPanel({
       </div>
 
       {/* Section 6 — SMS */}
-      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+      <div style={{ padding: "14px 18px 96px", borderTop: `0.5px solid ${COLORS.line}` }}>
         <button
           onClick={() => setShowSms((v) => !v)}
           style={{
