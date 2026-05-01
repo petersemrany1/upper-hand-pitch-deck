@@ -1805,6 +1805,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [previewDeposit, setPreviewDeposit] = useState(false);
   const [previewPhone, setPreviewPhone] = useState("");
   const [previewEmail, setPreviewEmail] = useState("");
+  const [previewClinicEmail, setPreviewClinicEmail] = useState("");
   const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
   const [pollAttempt, setPollAttempt] = useState(0);
   const [showManualNotes, setShowManualNotes] = useState(false);
@@ -2096,14 +2097,15 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     setPreviewDeposit(depositSent || statusImpliesDeposit);
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
+    const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
+    setPreviewClinicEmail(sc?.email ?? "");
     setShowPreview(true);
   };
 
   const confirmAndSend = async () => {
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
-    const clinicEmail = selectedClinic?.email ?? null;
-    if (!clinicEmail) {
-      toast.error("No clinic email on file — add one in Partner Clinics before sending the handover.");
+    const clinicEmail = previewClinicEmail.trim();
+    if (!clinicEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)) {
+      toast.error("Enter a valid clinic email before sending.");
       return;
     }
     if (!bookedData?.clinicName || bookedData.clinicName.startsWith("[CLINIC NAME") ||
@@ -2731,7 +2733,15 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                   <input value={previewPhone} onChange={(e) => setPreviewPhone(e.target.value)} placeholder="Phone"
                     className="w-full rounded-[6px] outline-none mb-2"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
-                  <input value={previewEmail} onChange={(e) => setPreviewEmail(e.target.value)} placeholder="Email"
+                  <input value={previewEmail} onChange={(e) => setPreviewEmail(e.target.value)} placeholder="Patient email"
+                    className="w-full rounded-[6px] outline-none"
+                    style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
+                </div>
+
+                {/* Clinic email */}
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Clinic Email <span style={{ color: COLORS.coral }}>— required</span></div>
+                  <input value={previewClinicEmail} onChange={(e) => setPreviewClinicEmail(e.target.value)} placeholder="bookings@clinic.com"
                     className="w-full rounded-[6px] outline-none"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }} />
                 </div>
