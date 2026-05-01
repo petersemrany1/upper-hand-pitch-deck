@@ -700,7 +700,7 @@ function StepContent({
 
     return (
       <div className="max-w-2xl mx-auto">
-        <Eyebrow>Step 8 — Commitment</Eyebrow>
+        <Eyebrow>Step 7 — Commitment</Eyebrow>
         <h1 style={{
           fontSize: 32, fontWeight: 500, color: COLORS.text, lineHeight: 1.2,
           letterSpacing: "-0.01em", marginBottom: 28, textAlign: "center",
@@ -1918,8 +1918,8 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
-        clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
-        doctorName: selectedDoctor?.name ?? "Dr. Shobhna Singh",
+        clinicName: selectedClinic?.clinic_name ?? "[CLINIC NAME — fill in before sending]",
+        doctorName: selectedDoctor?.name ?? "[DOCTOR NAME — fill in before sending]",
       });
       setBooked(true);
     }
@@ -1956,8 +1956,8 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-      const clinicName = selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre";
-      const doctorName = sd?.name ?? "Dr. Shobhna Singh";
+      const clinicName = selectedClinic?.clinic_name ?? "[CLINIC NAME — fill in before sending]";
+      const doctorName = sd?.name ?? "[DOCTOR NAME — fill in before sending]";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
       // Mutate the lead prop so when the rep switches tabs and comes back,
@@ -2109,9 +2109,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
         bookingDate: bookedData?.date ?? "",
         bookingTime: bookedData?.time ?? "",
-        clinicName: bookedData?.clinicName ?? "Nitai Medical & Cosmetic Centre",
+        clinicName: bookedData?.clinicName ?? "[CLINIC NAME — fill in before sending]",
         clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
-        doctorName: bookedData?.doctorName ?? "Dr. Shobhna Singh",
+        doctorName: bookedData?.doctorName ?? "[DOCTOR NAME — fill in before sending]",
         depositPaid: previewDeposit,
       },
     });

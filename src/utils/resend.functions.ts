@@ -726,7 +726,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   </body>
 </html>`;
 
-    const clinicEmailTo = data.clinicEmail || "peter@gobold.com.au";
+    const clinicEmailTo = data.clinicEmail || "[CLINIC EMAIL — fill in before sending]";
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
