@@ -161,7 +161,7 @@ function LeaderboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
-                  <Th>Rank</Th><Th>Rep</Th><Th>Bookings</Th><Th>Live</Th><Th>Calls</Th><Th>Convos</Th><Th>Holds</Th><Th>Conv %</Th><Th>Bonus $</Th><Th>Hours</Th>
+                  <Th>Rank</Th><Th>Rep</Th><Th>Calls</Th><Th>Not Reached</Th><Th>Short</Th><Th>Convos</Th><Th>Hold %</Th><Th>Conv %</Th><Th>Booked</Th><Th>Work</Th><Th>Break</Th><Th>Bonus</Th>
                 </tr>
               </thead>
               <tbody>
@@ -174,22 +174,28 @@ function LeaderboardPage() {
                       </div>
                     </Td>
                     <Td><span className="font-semibold" style={{ color: "#111" }}>{r.name}</span></Td>
-                    <Td><span className="font-bold text-base" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
-                    <Td><span className="h-2 w-2 inline-block rounded-full" style={{ background: C.green }} /></Td>
                     <Td><span style={{ color: "#111" }}>{r.calls}</span></Td>
-                    <Td><span style={{ color: r.convos > 0 ? C.green : "#111" }}>{r.convos}</span></Td>
-                    <Td><span style={{ color: r.holds > 0 ? C.green : "#111" }}>{r.holds}</span></Td>
+                    <Td><span style={{ color: r.notReached > 0 ? C.red : "#111" }}>{r.notReached}</span></Td>
+                    <Td><span style={{ color: r.short > 0 ? C.amber : "#111" }}>{r.short}</span></Td>
+                    <Td><span style={{ color: r.convos > 0 ? C.amber : "#111" }}>{r.convos}</span></Td>
+                    <Td>
+                      <span style={{ color: r.holdRate >= 20 ? C.green : r.holdRate >= 10 ? C.amber : r.holdRate > 0 ? C.red : "#111" }}>
+                        {r.holdRate}%
+                      </span>
+                    </Td>
                     <Td>
                       <span style={{ color: r.conversion >= 20 ? C.green : r.conversion >= 10 ? C.amber : r.conversion > 0 ? C.red : "#111" }}>
                         {r.conversion}%
                       </span>
                     </Td>
-                    <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
+                    <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
                     <Td><span style={{ color: "#111" }}>{(r.workMinutes / 60).toFixed(1)}h</span></Td>
+                    <Td><span style={{ color: "#111" }}>{(r.breakMinutes / 60).toFixed(1)}h</span></Td>
+                    <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={10} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
+                  <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
                 )}
               </tbody>
             </table>
