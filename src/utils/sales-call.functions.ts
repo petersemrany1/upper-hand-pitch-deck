@@ -507,7 +507,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       ?? dedupedReps[0]?.id
       ?? null;
 
-    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, shortCalls: 0, convos: 0, holds: 0, workSeconds: 0 });
+    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
@@ -538,15 +538,43 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       }
     }
 
+    // Break time = sum of gaps between consecutive calls per rep
+    const callsByRep = new Map<string, number[]>();
+    for (const c of calls ?? []) {
+      if (c.status === "ringing" || c.status === "initiated") continue;
+      const repId = c.rep_id ?? fallbackRepId;
+      if (!repId) continue;
+      const ts = new Date(c.called_at).getTime();
+      if (!callsByRep.has(repId)) callsByRep.set(repId, []);
+      callsByRep.get(repId)!.push(ts);
+    }
+    for (const [repId, timestamps] of callsByRep.entries()) {
+      timestamps.sort((a, b) => a - b);
+      let breakSecs = 0;
+      for (let i = 1; i < timestamps.length; i++) {
+        const gapSecs = (timestamps[i] - timestamps[i - 1]) / 1000;
+        // CRITICAL: only count gaps under 30 minutes (1800 seconds) as break.
+        // Gaps longer than 30 minutes mean end of session — do not count them.
+        if (gapSecs > 0 && gapSecs < 1800) breakSecs += gapSecs;
+      }
+      const s = byRep.get(repId) ?? blank();
+      s.breakSeconds = Math.round(breakSecs);
+      byRep.set(repId, s);
+    }
+
     for (const agg of byLead.values()) {
       const s = byRep.get(agg.repId) ?? blank();
-      s.calls += 1;            // 1 lead contacted = 1 call
+      s.calls += 1;
       s.attempted += 1;
-      if (agg.anyConnected) s.connected += 1;
-      s.workSeconds += agg.totalDur; // hours = real talk time across all dials
-      if (agg.maxDur > 0 && agg.maxDur < 120) s.shortCalls += 1;
-      if (agg.maxDur >= 180) s.convos += 1;
-      if (agg.maxDur >= 300) s.holds += 1;
+      s.workSeconds += agg.totalDur;
+      if (!agg.anyConnected) {
+        s.notReached += 1;
+      } else {
+        s.connected += 1;
+        if (agg.maxDur < 60) s.short += 1;
+        if (agg.maxDur >= 60 && agg.maxDur <= 120) s.convos += 1;
+        if (agg.maxDur > 120) s.holds += 1;
+      }
       byRep.set(agg.repId, s);
     }
     for (const b of bookings ?? []) {
@@ -560,17 +588,23 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     const rows = dedupedReps.map((r) => {
       const s = byRep.get(r.id) ?? blank();
+      const holdRate = s.calls > 0 ? Math.round((s.holds / s.calls) * 100) : 0;
       const conversion = s.connected > 0 ? Math.round((s.bookings / s.connected) * 100) : 0;
-      const convosPct = s.calls > 0 ? Math.round((s.convos / s.calls) * 100) : 0;
       return {
         id: r.id, name: r.name, email: r.email,
-        calls: s.calls, attempted: s.attempted, connected: s.connected, bookings: s.bookings,
-        bonus: s.bookings * 75, shortCalls: s.shortCalls,
-        convos: s.convos, holds: s.holds,
+        calls: s.calls,
+        notReached: s.notReached,
+        short: s.short,
+        convos: s.convos,
+        holds: s.holds,
+        holdRate,
+        conversion,
+        bookings: s.bookings,
         workMinutes: Math.round(s.workSeconds / 60),
-        convosPct, conversion,
+        breakMinutes: Math.round(s.breakSeconds / 60),
+        bonus: s.bookings * 50,
       };
-    }).sort((a, b) => b.bookings - a.bookings || b.connected - a.connected);
+    }).sort((a, b) => b.bookings - a.bookings || b.calls - a.calls);
 
     return { success: true as const, rows };
   });
