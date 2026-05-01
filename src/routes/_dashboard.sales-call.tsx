@@ -2039,6 +2039,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       },
     });
     setSendingDeposit(false);
+    if (r.success) setDepositSent(true);
   };
 
   const handleConfirmDepositPaid = async () => {
