@@ -1919,7 +1919,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         date: lead.booking_date,
         time: lead.booking_time,
         clinicName: selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre",
-        doctorName: selectedDoctor?.name ?? "Dr. Shabna Singh",
+        doctorName: selectedDoctor?.name ?? "Dr. Shobhna Singh",
       });
       setBooked(true);
     }
@@ -1957,7 +1957,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       const clinicName = selectedClinic?.clinic_name ?? "Nitai Medical & Cosmetic Centre";
-      const doctorName = sd?.name ?? "Dr. Shabna Singh";
+      const doctorName = sd?.name ?? "Dr. Shobhna Singh";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
       // Mutate the lead prop so when the rep switches tabs and comes back,
@@ -2111,7 +2111,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         bookingTime: bookedData?.time ?? "",
         clinicName: bookedData?.clinicName ?? "Nitai Medical & Cosmetic Centre",
         clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
-        doctorName: bookedData?.doctorName ?? "Dr. Shabna Singh",
+        doctorName: bookedData?.doctorName ?? "Dr. Shobhna Singh",
         depositPaid: previewDeposit,
       },
     });
