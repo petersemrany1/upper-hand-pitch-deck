@@ -395,45 +395,32 @@ type ClinicPrice = {
 };
 
 function BookingPricesSection() {
-  const [defaultPrice, setDefaultPrice] = useState<string>("800");
-  const [savingDefault, setSavingDefault] = useState(false);
   const [clinics, setClinics] = useState<ClinicPrice[]>([]);
   const [loading, setLoading] = useState(true);
   const [edits, setEdits] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
-    const [settingsRes, clinicsRes] = await Promise.all([
-      supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
-      supabase.from("partner_clinics").select("id, clinic_name, price_per_booking").order("clinic_name"),
-    ]);
-    const dp = Number((settingsRes.data?.value as unknown) ?? 800) || 800;
-    setDefaultPrice(String(dp));
-    setClinics((clinicsRes.data ?? []) as ClinicPrice[]);
+    const { data } = await supabase
+      .from("partner_clinics")
+      .select("id, clinic_name, price_per_booking")
+      .order("clinic_name");
+    setClinics((data ?? []) as ClinicPrice[]);
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
-
-  const saveDefault = async () => {
-    const n = Number(defaultPrice);
-    if (!n || n <= 0) { toast.error("Enter a valid price"); return; }
-    setSavingDefault(true);
-    const { error } = await supabase
-      .from("app_settings")
-      .upsert({ key: "default_booking_price", value: n, updated_at: new Date().toISOString() });
-    setSavingDefault(false);
-    if (error) toast.error(error.message);
-    else toast.success("Default price saved");
-  };
 
   const saveClinic = async (id: string) => {
     const raw = edits[id];
     const n = Number(raw);
     if (!n || n <= 0) { toast.error("Enter a valid price"); return; }
+    setSavingId(id);
     const { error } = await supabase
       .from("partner_clinics")
       .update({ price_per_booking: n })
       .eq("id", id);
+    setSavingId(null);
     if (error) { toast.error(error.message); return; }
     toast.success("Saved");
     setClinics((cs) => cs.map((c) => c.id === id ? { ...c, price_per_booking: n } : c));
@@ -447,94 +434,64 @@ function BookingPricesSection() {
         <div>
           <h2 className="text-lg font-bold text-foreground">Booking Prices</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Revenue per booking. Used on the dashboard.
+            Revenue per booking, per clinic. New partner clinics appear here automatically.
           </p>
         </div>
       </div>
 
-      <div className="mb-6">
-        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
-          Default price per booking
-        </label>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 max-w-xs">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-            <input
-              type="number"
-              value={defaultPrice}
-              onChange={(e) => setDefaultPrice(e.target.value)}
-              className="w-full pl-7 pr-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary"
-            />
-          </div>
-          <button
-            onClick={saveDefault}
-            disabled={savingDefault}
-            className="px-4 py-2 rounded-md text-sm font-bold disabled:opacity-50"
-            style={{ background: "#f4522d", color: "#fff" }}
-          >
-            {savingDefault ? "Saving…" : "Save"}
-          </button>
+      {loading ? (
+        <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
+      ) : clinics.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+          No partner clinics yet. Add one in Partner Clinics to set its price.
         </div>
-        <p className="text-xs text-muted-foreground mt-1.5">
-          Used for any booking whose clinic doesn't have a custom price set.
-        </p>
-      </div>
-
-      <div className="border-t border-border pt-5">
-        <h3 className="text-sm font-bold text-foreground mb-3">Per-clinic pricing</h3>
-        {loading ? (
-          <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
-        ) : clinics.length === 0 ? (
-          <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
-            No partner clinics yet.
-          </div>
-        ) : (
-          <div className="overflow-hidden rounded-lg border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/40">
-                <tr className="text-left">
-                  <th className="px-4 py-2.5 font-medium text-muted-foreground">Clinic</th>
-                  <th className="px-4 py-2.5 font-medium text-muted-foreground w-48">Price per booking</th>
-                  <th className="px-4 py-2.5 w-24"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {clinics.map((c) => {
-                  const editing = edits[c.id] !== undefined;
-                  const value = editing ? edits[c.id] : String(c.price_per_booking ?? "");
-                  return (
-                    <tr key={c.id} className="border-t border-border">
-                      <td className="px-4 py-2.5 font-medium text-foreground">{c.clinic_name}</td>
-                      <td className="px-4 py-2">
-                        <div className="relative max-w-[10rem]">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                          <input
-                            type="number"
-                            value={value}
-                            onChange={(e) => setEdits((prev) => ({ ...prev, [c.id]: e.target.value }))}
-                            className="w-full pl-7 pr-2 py-1.5 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary"
-                          />
-                        </div>
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        {editing && (
-                          <button
-                            onClick={() => void saveClinic(c.id)}
-                            className="px-3 py-1.5 rounded-md text-xs font-bold"
-                            style={{ background: "#f4522d", color: "#fff" }}
-                          >
-                            Save
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      ) : (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40">
+              <tr className="text-left">
+                <th className="px-4 py-2.5 font-medium text-muted-foreground">Clinic</th>
+                <th className="px-4 py-2.5 font-medium text-muted-foreground w-48">Price per booking</th>
+                <th className="px-4 py-2.5 w-24"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {clinics.map((c) => {
+                const editing = edits[c.id] !== undefined;
+                const value = editing ? edits[c.id] : String(c.price_per_booking ?? "");
+                return (
+                  <tr key={c.id} className="border-t border-border">
+                    <td className="px-4 py-2.5 font-medium text-foreground">{c.clinic_name}</td>
+                    <td className="px-4 py-2">
+                      <div className="relative max-w-[10rem]">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                        <input
+                          type="number"
+                          value={value}
+                          onChange={(e) => setEdits((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                          className="w-full pl-7 pr-2 py-1.5 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {editing && (
+                        <button
+                          onClick={() => void saveClinic(c.id)}
+                          disabled={savingId === c.id}
+                          className="px-3 py-1.5 rounded-md text-xs font-bold disabled:opacity-50"
+                          style={{ background: "#f4522d", color: "#fff" }}
+                        >
+                          {savingId === c.id ? "Saving…" : "Save"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }
