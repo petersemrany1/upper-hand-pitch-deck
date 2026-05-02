@@ -140,7 +140,7 @@ function LeaderboardPage() {
             </button>
             <button onClick={() => setShowAdd(true)}
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: C.blue, color: "#111111" }}>
+              style={{ background: BLUE, color: "#111111" }}>
               <Plus className="h-3.5 w-3.5" /> Add Rep
             </button>
           </div>
@@ -151,9 +151,9 @@ function LeaderboardPage() {
             <button key={r.key} onClick={() => setRange(r.key)}
               className="px-3 py-1.5 text-xs font-bold rounded-md"
               style={{
-                background: range === r.key ? C.blue : "transparent",
+                background: range === r.key ? BLUE : "transparent",
                 color: range === r.key ? "#fff" : C.muted,
-                border: `1px solid ${range === r.key ? C.blue : C.line}`,
+                border: `1px solid ${range === r.key ? BLUE : C.line}`,
               }}>{r.label}</button>
           ))}
         </div>
@@ -257,12 +257,12 @@ function LeaderboardPage() {
         )}
 
         {coachOpen && (
-          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(45,107,228,0.06), transparent)", border: `1px solid ${C.blue}` }}>
+          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(45,107,228,0.06), transparent)", border: `1px solid ${BLUE}` }}>
             <button onClick={() => setCoachOpen(false)} className="absolute top-3 right-3" style={{ color: C.muted }}>
               <X className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4" style={{ color: C.blue }} />
+              <Sparkles className="h-4 w-4" style={{ color: BLUE }} />
               <div className="text-sm font-bold">AI Coach Analysis</div>
               {coachLoading && <span className="text-[10px]" style={{ color: C.muted }}>streaming…</span>}
             </div>
@@ -291,7 +291,7 @@ function LeaderboardPage() {
               <input value={newRep.email} onChange={(e) => setNewRep({ ...newRep, email: e.target.value })} placeholder="Email" type="email"
                 className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
               <button onClick={() => void onAddRep()} disabled={inviting} className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-60"
-                style={{ background: C.blue, color: "#fff" }}>{inviting ? "Sending…" : "Send Invite"}</button>
+                style={{ background: BLUE, color: "#fff" }}>{inviting ? "Sending…" : "Send Invite"}</button>
             </div>
           </div>
         </div>
