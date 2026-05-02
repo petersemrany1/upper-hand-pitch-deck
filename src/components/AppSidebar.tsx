@@ -15,13 +15,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
-type NavFolder = { title: string; items: NavItem[] };
+type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
 
 const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard };
 
 const folders: NavFolder[] = [
   {
     title: "Sales",
+    repIcon: Headphones,
+    repUrl: "/sales-call",
     items: [
       { title: "Sales Portal", url: "/sales-call", icon: Headphones },
       { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
@@ -31,6 +33,8 @@ const folders: NavFolder[] = [
   },
   {
     title: "Clinic Acquisition",
+    repIcon: Presentation,
+    repUrl: "/pitch-deck",
     items: [
       { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
       { title: "Clinics", url: "/clinics", icon: Building2 },
@@ -88,8 +92,8 @@ export function AppSidebar() {
     };
   }, []);
 
-  const renderItem = (item: NavItem, indent = false) => {
-    const active = isActive(item.url);
+  const renderItem = (item: NavItem, indent = false, forceActive = false) => {
+    const active = forceActive || isActive(item.url);
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton
@@ -176,11 +180,13 @@ export function AppSidebar() {
 
               {folders.map((folder) => {
                 const open = openFolders[folder.title];
+                const folderActive = folder.items.some((i) => isActive(i.url));
                 return (
                   <div key={folder.title}>
-                    <SidebarMenuItem>
+                    {/* Expanded: folder header (clickable to toggle) */}
+                    <SidebarMenuItem className="group-data-[collapsible=icon]:hidden">
                       <SidebarMenuButton
-                        className="!rounded-none group-data-[collapsible=icon]:hidden"
+                        className="!rounded-none"
                         onClick={() => setOpenFolders((p) => ({ ...p, [folder.title]: !p[folder.title] }))}
                         style={{
                           background: "transparent",
@@ -204,10 +210,13 @@ export function AppSidebar() {
                         />
                       </SidebarMenuButton>
                     </SidebarMenuItem>
-                    {open && folder.items.map((item) => renderItem(item, true))}
-                    {/* When collapsed to icon, still show items (no folder header) */}
+                    {/* Expanded: child items (only when folder open) */}
+                    <div className="group-data-[collapsible=icon]:hidden">
+                      {open && folder.items.map((item) => renderItem(item, true))}
+                    </div>
+                    {/* Collapsed: single representative icon for the whole folder */}
                     <div className="hidden group-data-[collapsible=icon]:block">
-                      {folder.items.map((item) => renderItem(item))}
+                      {renderItem({ title: folder.title, url: folder.repUrl, icon: folder.repIcon }, false, folderActive)}
                     </div>
                   </div>
                 );
