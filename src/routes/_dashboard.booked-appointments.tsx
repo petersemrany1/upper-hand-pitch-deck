@@ -17,6 +17,7 @@ type Reminder = {
   booking_time: string | null;
   doctor_name: string | null;
   patient_first_name: string | null;
+  patient_last_name: string | null;
   patient_phone: string | null;
   three_day_sms_sent: boolean;
   three_day_sms_sent_at: string | null;
@@ -85,6 +86,13 @@ function fmtSendDate(d: string, daysBefore: number): string {
   date.setDate(date.getDate() - daysBefore);
   return date.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 }
+// Returns the send date as a comparable Date (3pm Sydney on booking_date - daysBefore)
+function sendDateAt3pm(d: string, daysBefore: number): Date {
+  const date = parseBookingDate(d);
+  date.setDate(date.getDate() - daysBefore);
+  date.setHours(15, 0, 0, 0);
+  return date;
+}
 
 type Filter = "all" | "week" | "month" | "past";
 
@@ -151,11 +159,12 @@ function BookedAppointmentsPage() {
     for (const r of rows) {
       if (!r.booking_date) continue;
       const d = parseBookingDate(r.booking_date);
-      if (r.status === "no_show") noShow++;
+      const inMonth = d >= startOfMonth && d <= endOfMonth;
+      if (inMonth && r.status === "showed_up") showed++;
+      if (inMonth && r.status === "no_show") noShow++;
       if (r.status === "confirmed") {
-        if (d >= startOfMonth && d <= endOfMonth) thisMonth++;
+        if (inMonth) thisMonth++;
         if (d >= today && d <= sevenAhead) thisWeek++;
-        if (d < today) showed++;
       }
     }
     return { thisMonth, thisWeek, showed, noShow };
@@ -184,7 +193,7 @@ function BookedAppointmentsPage() {
       if (!r.booking_date) { pastCancelled.push(r); continue; }
       const d = parseBookingDate(r.booking_date);
       const diff = daysBetween(new Date(today), new Date(d));
-      if (r.status === "cancelled" || r.status === "no_show" || diff < 0) {
+      if (r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up" || diff < 0) {
         pastCancelled.push(r);
       } else if (diff <= 1) {
         todayTomorrow.push(r);
@@ -231,6 +240,18 @@ function BookedAppointmentsPage() {
     }
     setBusy(null);
     toast.success("Marked as no-show");
+    void load();
+  };
+
+  const onShowedUp = async (r: Reminder) => {
+    setBusy(r.id);
+    const upd = await supabase
+      .from("appointment_reminders")
+      .update({ status: "showed_up" })
+      .eq("id", r.id);
+    if (upd.error) { setBusy(null); toast.error("Failed"); return; }
+    setBusy(null);
+    toast.success("Marked as showed up");
     void load();
   };
 
@@ -310,11 +331,11 @@ function BookedAppointmentsPage() {
         ) : (
           <>
             <Section title="Today & Tomorrow" rows={grouped.todayTomorrow} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
             )} />
 
             <Section title="Upcoming" rows={grouped.upcoming} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
             )} />
 
             {/* Past & Cancelled — collapsible */}
@@ -337,7 +358,7 @@ function BookedAppointmentsPage() {
                   {grouped.pastCancelled.length === 0 ? (
                     <div style={{ ...cardStyle, padding: 20, textAlign: "center", color: COLOR.muted, fontSize: 13 }}>None</div>
                   ) : grouped.pastCancelled.map((r) => (
-                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} busy={busy === r.id} />
+                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
                   ))}
                 </div>
               )}
@@ -424,13 +445,14 @@ function Section({ title, rows, renderCard }: { title: string; rows: Reminder[];
 }
 
 function Card({
-  r, today, onCall, onCancel, onNoShow, busy,
+  r, today, onCall, onCancel, onNoShow, onShowedUp, busy,
 }: {
   r: Reminder;
   today: Date;
   onCall: (r: Reminder) => void;
   onCancel: () => void;
   onNoShow: (r: Reminder) => void;
+  onShowedUp: (r: Reminder) => void;
   busy: boolean;
 }) {
   const d = r.booking_date ? parseBookingDate(r.booking_date) : null;
@@ -438,7 +460,7 @@ function Card({
 
   let leftBorder = COLOR.green;
   let faded = false;
-  if (r.status === "cancelled" || r.status === "no_show") {
+  if (r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up") {
     leftBorder = COLOR.muted; faded = true;
   } else if (diff === 0) leftBorder = COLOR.coral;
   else if (diff === 1) leftBorder = COLOR.amber;
@@ -455,11 +477,15 @@ function Card({
   const statusBadge = (() => {
     if (r.status === "cancelled") return { label: "Cancelled", bg: COLOR.greyBg, fg: COLOR.grey };
     if (r.status === "no_show") return { label: "No Show", bg: COLOR.redBg, fg: COLOR.red };
+    if (r.status === "showed_up") return { label: "Showed Up", bg: COLOR.greenBg, fg: COLOR.green };
     return { label: "Confirmed", bg: COLOR.greenBg, fg: COLOR.green };
   })();
 
-  const isPast = diff !== null && diff < 0;
-  const isCancelled = r.status === "cancelled" || r.status === "no_show";
+  const isPastOrToday = diff !== null && diff <= 0;
+  const isFinalised = r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up";
+  const showOutcomeButtons = isPastOrToday && r.status === "confirmed";
+
+  const fullName = [r.patient_first_name, r.patient_last_name].filter(Boolean).join(" ") || "Unknown";
 
   return (
     <div style={{
@@ -491,7 +517,7 @@ function Card({
         {/* Middle */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>
-            {r.patient_first_name || "Unknown"}
+            {fullName}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
             {r.doctor_name ? `Dr ${r.doctor_name}` : "—"}
@@ -519,7 +545,7 @@ function Card({
 
         {/* Right actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-          {!isCancelled && (
+          {!isFinalised && (
             <button
               onClick={() => onCall(r)}
               style={{
@@ -532,7 +558,33 @@ function Card({
               <PhoneIcon size={12} /> Call Now
             </button>
           )}
-          {!isCancelled && (
+
+          {showOutcomeButtons ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => onShowedUp(r)}
+                disabled={busy}
+                style={{
+                  fontSize: 11, fontWeight: 500, color: "#fff",
+                  background: COLOR.green, border: "none", borderRadius: 8,
+                  padding: "6px 12px", cursor: busy ? "wait" : "pointer",
+                }}
+              >
+                ✓ Showed Up
+              </button>
+              <button
+                onClick={() => onNoShow(r)}
+                disabled={busy}
+                style={{
+                  fontSize: 11, fontWeight: 500, color: COLOR.red,
+                  background: COLOR.card, border: `0.5px solid ${COLOR.red}`, borderRadius: 8,
+                  padding: "6px 12px", cursor: busy ? "wait" : "pointer",
+                }}
+              >
+                ✗ No Show
+              </button>
+            </div>
+          ) : !isFinalised ? (
             <button
               onClick={onCancel}
               disabled={busy}
@@ -545,20 +597,7 @@ function Card({
             >
               <X size={11} /> Cancel
             </button>
-          )}
-          {isPast && r.status === "confirmed" && (
-            <button
-              onClick={() => onNoShow(r)}
-              disabled={busy}
-              style={{
-                fontSize: 11, fontWeight: 500, color: COLOR.red,
-                background: COLOR.redBg, border: `0.5px solid #fca5a5`, borderRadius: 8,
-                padding: "6px 12px", cursor: busy ? "wait" : "pointer",
-              }}
-            >
-              No Show
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -591,7 +630,7 @@ function ReminderPill({
   bookingDate: string | null;
 }) {
   const label = kind === "3day" ? "3-day SMS" : "24hr SMS";
-  if (status === "cancelled" || status === "no_show") {
+  if (status === "cancelled" || status === "no_show" || status === "showed_up") {
     return (
       <span style={{ fontSize: 11, color: COLOR.muted, background: COLOR.greyBg, padding: "3px 8px", borderRadius: 6 }}>
         — {label}
@@ -601,15 +640,31 @@ function ReminderPill({
   if (sent) {
     return (
       <span style={{ fontSize: 11, color: COLOR.green, background: COLOR.greenBg, padding: "3px 8px", borderRadius: 6 }}>
-        ✓ {label}
+        ✓ {label} sent
       </span>
     );
   }
   const daysBefore = kind === "3day" ? 3 : 1;
-  const sendDate = bookingDate ? fmtSendDate(bookingDate, daysBefore) : "—";
+  if (!bookingDate) {
+    return (
+      <span style={{ fontSize: 11, color: COLOR.muted, background: COLOR.greyBg, padding: "3px 8px", borderRadius: 6 }}>
+        — {label}
+      </span>
+    );
+  }
+  const sendAt = sendDateAt3pm(bookingDate, daysBefore);
+  const sendDateStr = fmtSendDate(bookingDate, daysBefore);
+  const now = new Date();
+  if (sendAt.getTime() < now.getTime()) {
+    return (
+      <span style={{ fontSize: 11, color: COLOR.red, background: COLOR.redBg, padding: "3px 8px", borderRadius: 6 }}>
+        ⚠ Missed — should have sent {sendDateStr}
+      </span>
+    );
+  }
   return (
     <span style={{ fontSize: 11, color: COLOR.amber, background: COLOR.amberBg, padding: "3px 8px", borderRadius: 6 }}>
-      ⏳ {label} — sends {sendDate} 3pm
+      ⏳ {label} — sends {sendDateStr} 3pm
     </span>
   );
 }
