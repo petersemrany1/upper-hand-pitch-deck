@@ -309,5 +309,34 @@ function LeaderboardPage() {
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) { return <th className="text-left px-3 py-2.5 font-semibold">{children}</th>; }
+function Th({ children, info }: { children: React.ReactNode; info?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <th className="text-left px-3 py-2.5 font-semibold relative">
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        {children}
+        {info && (
+          <span
+            onMouseEnter={() => setShow(true)}
+            onMouseLeave={() => setShow(false)}
+            style={{ cursor: "help", fontSize: 10, color: "#aaa", userSelect: "none", position: "relative" }}
+          >
+            ⓘ
+            {show && (
+              <span style={{
+                position: "absolute", top: "100%", left: 0, zIndex: 50,
+                background: "#111", color: "#fff", fontSize: 11,
+                padding: "5px 10px", borderRadius: 6, whiteSpace: "normal",
+                fontWeight: 400, textTransform: "none", letterSpacing: 0,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)", width: 240, marginTop: 4,
+              }}>
+                {info}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+    </th>
+  );
+}
 function Td({ children }: { children: React.ReactNode }) { return <td className="px-3 py-3">{children}</td>; }
