@@ -429,7 +429,10 @@ function DashboardHome() {
               <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
                 {bookingsMonth}
               </div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>
+              <div style={{ fontSize: 14, color: "#111", fontWeight: 600, marginTop: 6 }}>
+                ${revenueMonth.toLocaleString()} revenue
+              </div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
                 Target: {target || 0} / month
               </div>
               {target > 0 ? (
