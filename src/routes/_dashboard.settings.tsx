@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, deleteRep } from "@/utils/sales-call.functions";
+import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   component: SettingsPage,
@@ -56,10 +57,13 @@ type Rep = {
   email: string | null;
   first_name: string | null;
   last_name: string | null;
+  role: string;
   created_at: string;
 };
 
 function SettingsPage() {
+  const { role, user } = useAuth();
+  const isAdmin = role === "admin";
   return (
     <div className="min-h-screen bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12">
       <div className="max-w-4xl mx-auto">
@@ -75,27 +79,38 @@ function SettingsPage() {
               Settings
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Manage your team and portal configuration.
+              {isAdmin ? "Manage your team and portal configuration." : "Your account."}
             </p>
           </div>
         </div>
 
-        <TeamSection />
+        {isAdmin && <TeamSection />}
 
-        <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
-          <h2 className="text-lg font-bold text-foreground mb-3">Payment Links</h2>
-          <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 text-sm text-foreground">
-            <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
-            <div>
-              <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
-              <p className="text-muted-foreground leading-relaxed">
-                When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
-                Session is created for the exact amount of the selected pack — including
-                custom prices.
-              </p>
+        {!isAdmin && (
+          <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
+            <h2 className="text-lg font-bold text-foreground mb-3">Account</h2>
+            <div className="text-sm text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{user?.email ?? "—"}</span>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
+
+        {isAdmin && (
+          <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
+            <h2 className="text-lg font-bold text-foreground mb-3">Payment Links</h2>
+            <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 text-sm text-foreground">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+              <div>
+                <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
+                  Session is created for the exact amount of the selected pack — including
+                  custom prices.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
@@ -116,10 +131,22 @@ function TeamSection() {
   useEffect(() => { void load(); }, []);
 
   const onDelete = async (rep: Rep) => {
-    if (!confirm(`Remove ${rep.name}? This won't delete their auth account.`)) return;
+    if (!confirm(`Remove ${rep.name}? This will also delete their login.`)) return;
     const r = await deleteRep({ data: { id: rep.id } });
     if (r.success) { toast.success("Rep removed"); void load(); }
     else toast.error(r.error);
+  };
+
+  const onRoleChange = async (rep: Rep, nextRole: "admin" | "rep") => {
+    const prev = reps;
+    setReps((rs) => rs.map((x) => x.id === rep.id ? { ...x, role: nextRole } : x));
+    const r = await updateRepRole({ data: { id: rep.id, role: nextRole } });
+    if (!r.success) {
+      setReps(prev);
+      toast.error(r.error);
+    } else {
+      toast.success(`${rep.name} is now ${nextRole}`);
+    }
   };
 
   return (
@@ -157,6 +184,7 @@ function TeamSection() {
                 <th className="text-left px-4 py-2.5 font-semibold">First Name</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Last Name</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Email</th>
+                <th className="text-left px-4 py-2.5 font-semibold">Role</th>
                 <th className="text-right px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -166,6 +194,16 @@ function TeamSection() {
                   <td className="px-4 py-3 font-medium">{r.first_name || "—"}</td>
                   <td className="px-4 py-3 font-medium">{r.last_name || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.email || "—"}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={r.role === "admin" ? "admin" : "rep"}
+                      onChange={(e) => void onRoleChange(r, e.target.value as "admin" | "rep")}
+                      className="px-2 py-1 rounded-md text-xs border border-border bg-background focus:outline-none focus:border-primary"
+                    >
+                      <option value="rep">rep</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
