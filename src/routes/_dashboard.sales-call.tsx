@@ -4240,7 +4240,7 @@ function RightPanel({
     if (!active.phone) { toast.error("No phone number"); return; }
     try {
       console.log("[callNow] placing call to", active.phone);
-      await placeCall(active.phone, { leadId: active.id });
+      await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
       console.log("[callNow] placeCall returned");
     } catch (e) {
       stopRingback();
