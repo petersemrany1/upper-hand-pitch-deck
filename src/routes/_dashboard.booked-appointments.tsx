@@ -86,6 +86,13 @@ function fmtSendDate(d: string, daysBefore: number): string {
   date.setDate(date.getDate() - daysBefore);
   return date.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
 }
+// Returns the send date as a comparable Date (3pm Sydney on booking_date - daysBefore)
+function sendDateAt3pm(d: string, daysBefore: number): Date {
+  const date = parseBookingDate(d);
+  date.setDate(date.getDate() - daysBefore);
+  date.setHours(15, 0, 0, 0);
+  return date;
+}
 
 type Filter = "all" | "week" | "month" | "past";
 
