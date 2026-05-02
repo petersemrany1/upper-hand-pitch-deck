@@ -195,6 +195,16 @@ function TeamSection() {
                   <td className="px-4 py-3 font-medium">{r.last_name || "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.email || "—"}</td>
                   <td className="px-4 py-3">
+                    <select
+                      value={r.role === "admin" ? "admin" : "rep"}
+                      onChange={(e) => void onRoleChange(r, e.target.value as "admin" | "rep")}
+                      className="px-2 py-1 rounded-md text-xs border border-border bg-background focus:outline-none focus:border-primary"
+                    >
+                      <option value="rep">rep</option>
+                      <option value="admin">admin</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setEditing(r)}
