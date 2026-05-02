@@ -689,7 +689,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       // Skip in-flight calls (no real duration yet) so they don't pollute the count
       if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id ?? fallbackRepId;
+      const repId = c.rep_id;
       if (!repId) continue;
       const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
       const connected = c.outcome === "connected" || (c.status === "completed" && dur > 0);
@@ -709,7 +709,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const callsByRep = new Map<string, number[]>();
     for (const c of calls ?? []) {
       if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id ?? fallbackRepId;
+      const repId = c.rep_id;
       if (!repId) continue;
       const ts = new Date(c.called_at).getTime();
       if (!callsByRep.has(repId)) callsByRep.set(repId, []);
@@ -738,7 +738,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const shiftByRep = new Map<string, { first: number; last: number }>();
     for (const c of calls ?? []) {
       if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id ?? fallbackRepId;
+      const repId = c.rep_id;
       if (!repId) continue;
       const ts = new Date(c.called_at).getTime();
       const existing = shiftByRep.get(repId);
