@@ -109,8 +109,8 @@ serve(async (req) => {
     console.log("[send-appointment-reminders] TEST MODE — sending both messages to", phone);
 
     const now = new Date();
-    const firstName = "Peter";
-    const doctorName = "Dr. Test";
+    const firstName = (typeof body.first_name === "string" && body.first_name.trim()) || "Peter";
+    const doctorName = (typeof body.doctor_name === "string" && body.doctor_name.trim()) || "Dr. Test";
     const threeDayDate = addDaysISO(now, 3);
     const oneDayDate = addDaysISO(now, 1);
     const timeStr = "2:00 PM";
