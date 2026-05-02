@@ -1976,42 +1976,10 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       onBooked();
       toast.success("Appointment booked!");
 
-      // Create / refresh appointment reminder row for the cron job
-      try {
-        const { data: existing } = await supabase
-          .from("appointment_reminders")
-          .select("id")
-          .eq("lead_id", lead.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        console.log("[appointment_reminders] doctor_name to insert:", sd?.name);
-        const payload = {
-          lead_id: lead.id,
-          booking_date: form.date,
-          booking_time: form.time,
-          doctor_name: sd?.name ?? null,
-          patient_first_name: lead.first_name ?? null,
-          patient_last_name: lead.last_name ?? null,
-          patient_phone: lead.phone ?? null,
-          status: "confirmed",
-        };
-        if (existing && existing.length > 0) {
-          await supabase
-            .from("appointment_reminders")
-            .update({
-              ...payload,
-              three_day_sms_sent: false,
-              three_day_sms_sent_at: null,
-              twentyfour_hour_sms_sent: false,
-              twentyfour_hour_sms_sent_at: null,
-            })
-            .eq("id", existing[0].id);
-        } else {
-          await supabase.from("appointment_reminders").insert(payload);
-        }
-      } catch (e) {
-        console.error("[appointment_reminders] insert failed", e);
-      }
+      // NOTE: appointment reminders are NOT created here. They are created
+      // only once the deposit is confirmed (handleConfirmDepositPaid below),
+      // because no-deposit bookings are unreliable and shouldn't trigger SMS
+      // reminders or appear on the Booked Appointments dashboard.
 
       // Clear persisted form draft now that booking is saved
       try {
