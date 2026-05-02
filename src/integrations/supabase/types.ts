@@ -41,6 +41,7 @@ export type Database = {
           id: string
           lead_id: string | null
           patient_first_name: string | null
+          patient_last_name: string | null
           patient_phone: string | null
           status: string
           three_day_sms_sent: boolean
@@ -57,6 +58,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           patient_first_name?: string | null
+          patient_last_name?: string | null
           patient_phone?: string | null
           status?: string
           three_day_sms_sent?: boolean
@@ -73,6 +75,7 @@ export type Database = {
           id?: string
           lead_id?: string | null
           patient_first_name?: string | null
+          patient_last_name?: string | null
           patient_phone?: string | null
           status?: string
           three_day_sms_sent?: boolean
