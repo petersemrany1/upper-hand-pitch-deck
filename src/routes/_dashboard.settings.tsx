@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail } from "lucide-react";
+import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   component: SettingsPage,
