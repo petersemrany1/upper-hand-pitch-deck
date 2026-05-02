@@ -445,13 +445,14 @@ function Section({ title, rows, renderCard }: { title: string; rows: Reminder[];
 }
 
 function Card({
-  r, today, onCall, onCancel, onNoShow, busy,
+  r, today, onCall, onCancel, onNoShow, onShowedUp, busy,
 }: {
   r: Reminder;
   today: Date;
   onCall: (r: Reminder) => void;
   onCancel: () => void;
   onNoShow: (r: Reminder) => void;
+  onShowedUp: (r: Reminder) => void;
   busy: boolean;
 }) {
   const d = r.booking_date ? parseBookingDate(r.booking_date) : null;
@@ -459,7 +460,7 @@ function Card({
 
   let leftBorder = COLOR.green;
   let faded = false;
-  if (r.status === "cancelled" || r.status === "no_show") {
+  if (r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up") {
     leftBorder = COLOR.muted; faded = true;
   } else if (diff === 0) leftBorder = COLOR.coral;
   else if (diff === 1) leftBorder = COLOR.amber;
@@ -476,11 +477,15 @@ function Card({
   const statusBadge = (() => {
     if (r.status === "cancelled") return { label: "Cancelled", bg: COLOR.greyBg, fg: COLOR.grey };
     if (r.status === "no_show") return { label: "No Show", bg: COLOR.redBg, fg: COLOR.red };
+    if (r.status === "showed_up") return { label: "Showed Up", bg: COLOR.greenBg, fg: COLOR.green };
     return { label: "Confirmed", bg: COLOR.greenBg, fg: COLOR.green };
   })();
 
-  const isPast = diff !== null && diff < 0;
-  const isCancelled = r.status === "cancelled" || r.status === "no_show";
+  const isPastOrToday = diff !== null && diff <= 0;
+  const isFinalised = r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up";
+  const showOutcomeButtons = isPastOrToday && r.status === "confirmed";
+
+  const fullName = [r.patient_first_name, r.patient_last_name].filter(Boolean).join(" ") || "Unknown";
 
   return (
     <div style={{
@@ -512,7 +517,7 @@ function Card({
         {/* Middle */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 600 }}>
-            {r.patient_first_name || "Unknown"}
+            {fullName}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
             {r.doctor_name ? `Dr ${r.doctor_name}` : "—"}
@@ -540,7 +545,7 @@ function Card({
 
         {/* Right actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-end" }}>
-          {!isCancelled && (
+          {!isFinalised && (
             <button
               onClick={() => onCall(r)}
               style={{
@@ -553,7 +558,33 @@ function Card({
               <PhoneIcon size={12} /> Call Now
             </button>
           )}
-          {!isCancelled && (
+
+          {showOutcomeButtons ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                onClick={() => onShowedUp(r)}
+                disabled={busy}
+                style={{
+                  fontSize: 11, fontWeight: 500, color: "#fff",
+                  background: COLOR.green, border: "none", borderRadius: 8,
+                  padding: "6px 12px", cursor: busy ? "wait" : "pointer",
+                }}
+              >
+                ✓ Showed Up
+              </button>
+              <button
+                onClick={() => onNoShow(r)}
+                disabled={busy}
+                style={{
+                  fontSize: 11, fontWeight: 500, color: COLOR.red,
+                  background: COLOR.card, border: `0.5px solid ${COLOR.red}`, borderRadius: 8,
+                  padding: "6px 12px", cursor: busy ? "wait" : "pointer",
+                }}
+              >
+                ✗ No Show
+              </button>
+            </div>
+          ) : !isFinalised ? (
             <button
               onClick={onCancel}
               disabled={busy}
@@ -566,20 +597,7 @@ function Card({
             >
               <X size={11} /> Cancel
             </button>
-          )}
-          {isPast && r.status === "confirmed" && (
-            <button
-              onClick={() => onNoShow(r)}
-              disabled={busy}
-              style={{
-                fontSize: 11, fontWeight: 500, color: COLOR.red,
-                background: COLOR.redBg, border: `0.5px solid #fca5a5`, borderRadius: 8,
-                padding: "6px 12px", cursor: busy ? "wait" : "pointer",
-              }}
-            >
-              No Show
-            </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -612,7 +630,7 @@ function ReminderPill({
   bookingDate: string | null;
 }) {
   const label = kind === "3day" ? "3-day SMS" : "24hr SMS";
-  if (status === "cancelled" || status === "no_show") {
+  if (status === "cancelled" || status === "no_show" || status === "showed_up") {
     return (
       <span style={{ fontSize: 11, color: COLOR.muted, background: COLOR.greyBg, padding: "3px 8px", borderRadius: 6 }}>
         — {label}
@@ -622,15 +640,31 @@ function ReminderPill({
   if (sent) {
     return (
       <span style={{ fontSize: 11, color: COLOR.green, background: COLOR.greenBg, padding: "3px 8px", borderRadius: 6 }}>
-        ✓ {label}
+        ✓ {label} sent
       </span>
     );
   }
   const daysBefore = kind === "3day" ? 3 : 1;
-  const sendDate = bookingDate ? fmtSendDate(bookingDate, daysBefore) : "—";
+  if (!bookingDate) {
+    return (
+      <span style={{ fontSize: 11, color: COLOR.muted, background: COLOR.greyBg, padding: "3px 8px", borderRadius: 6 }}>
+        — {label}
+      </span>
+    );
+  }
+  const sendAt = sendDateAt3pm(bookingDate, daysBefore);
+  const sendDateStr = fmtSendDate(bookingDate, daysBefore);
+  const now = new Date();
+  if (sendAt.getTime() < now.getTime()) {
+    return (
+      <span style={{ fontSize: 11, color: COLOR.red, background: COLOR.redBg, padding: "3px 8px", borderRadius: 6 }}>
+        ⚠ Missed — should have sent {sendDateStr}
+      </span>
+    );
+  }
   return (
     <span style={{ fontSize: 11, color: COLOR.amber, background: COLOR.amberBg, padding: "3px 8px", borderRadius: 6 }}>
-      ⏳ {label} — sends {sendDate} 3pm
+      ⏳ {label} — sends {sendDateStr} 3pm
     </span>
   );
 }
