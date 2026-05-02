@@ -83,7 +83,7 @@ function SettingsPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
   return (
-    <div className="min-h-screen bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12" style={{ fontFamily: "DM Sans, sans-serif" }}>
+    <div className="min-h-full md:h-full md:overflow-y-auto bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -105,7 +105,7 @@ function SettingsPage() {
         <div className="space-y-8">
           {isAdmin && <TeamSection />}
           <AccountSection user={user} />
-          <NotificationsSection />
+          <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
           <LogsSection />
         </div>
@@ -159,23 +159,52 @@ function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) 
   const [lastName, setLastName] = useState(initialLast);
   const [savedTag, setSavedTag] = useState(false);
   const [sendingReset, setSendingReset] = useState(false);
+  const [repId, setRepId] = useState<string | null>(null);
+  const baselineRef = (typeof window !== "undefined") ? null : null;
 
-  // Auto-save name changes (debounced) to user_metadata
+  // On mount, look up sales_reps row by email and prefill any missing fields.
   useEffect(() => {
+    if (!user?.email) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("sales_reps")
+        .select("id, first_name, last_name")
+        .eq("email", user.email!)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setRepId(data.id);
+      setFirstName((cur) => cur || data.first_name || "");
+      setLastName((cur) => cur || data.last_name || "");
+    })();
+    return () => { cancelled = true; };
+  }, [user?.email]);
+
+  const saveName = async (nextFirst: string, nextLast: string) => {
     if (!user) return;
-    if (firstName === initialFirst && lastName === initialLast) return;
-    const t = setTimeout(async () => {
-      const { error } = await supabase.auth.updateUser({
-        data: { first_name: firstName, last_name: lastName, full_name: `${firstName} ${lastName}`.trim() },
-      });
-      if (!error) {
-        setSavedTag(true);
-        setTimeout(() => setSavedTag(false), 1500);
-      }
-    }, 500);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [firstName, lastName]);
+    const full = `${nextFirst} ${nextLast}`.trim();
+    const { error } = await supabase.auth.updateUser({
+      data: { first_name: nextFirst, last_name: nextLast, full_name: full },
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (repId) {
+      await supabase
+        .from("sales_reps")
+        .update({ first_name: nextFirst, last_name: nextLast, name: full || nextFirst || nextLast })
+        .eq("id", repId);
+    } else if (user.email) {
+      // Try matching by email if we didn't load a row yet
+      await supabase
+        .from("sales_reps")
+        .update({ first_name: nextFirst, last_name: nextLast, name: full || nextFirst || nextLast })
+        .eq("email", user.email);
+    }
+    setSavedTag(true);
+    setTimeout(() => setSavedTag(false), 1500);
+  };
 
   const onChangePassword = async () => {
     if (!user?.email) {
@@ -191,6 +220,8 @@ function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) 
     else toast.success("Password reset email sent");
   };
 
+  void baselineRef;
+
   return (
     <SectionShell
       icon={<UserIcon className="w-5 h-5" />}
@@ -199,8 +230,18 @@ function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) 
     >
       <div className="space-y-3">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="First name" value={firstName} onChange={setFirstName} />
-          <Field label="Last name" value={lastName} onChange={setLastName} />
+          <Field
+            label="First name"
+            value={firstName}
+            onChange={setFirstName}
+            onBlur={() => void saveName(firstName, lastName)}
+          />
+          <Field
+            label="Last name"
+            value={lastName}
+            onChange={setLastName}
+            onBlur={() => void saveName(firstName, lastName)}
+          />
         </div>
         <div>
           <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
@@ -210,11 +251,19 @@ function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) 
             {user?.email ?? "—"}
           </div>
         </div>
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            Password
+          </label>
+          <div className="px-3 py-2 rounded-md bg-muted/40 text-sm text-muted-foreground border border-border tracking-widest">
+            ••••••••
+          </div>
+        </div>
       </div>
 
       <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: "0.5px solid #f0f0ee" }}>
         <div className="text-xs text-muted-foreground">
-          {savedTag ? <span className="text-emerald-600 font-medium">Saved</span> : "Changes save automatically."}
+          {savedTag ? <span className="text-emerald-600 font-medium">Saved</span> : "Changes save on blur."}
         </div>
         <button
           onClick={() => void onChangePassword()}
@@ -228,16 +277,16 @@ function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) 
     </SectionShell>
   );
 }
-
-function NotificationsSection() {
+function NotificationsSection({ defaultEmail }: { defaultEmail?: string | null }) {
   const [handoverEmail, setHandoverEmail] = useState("");
   const [alertsOn, setAlertsOn] = useState(false);
   const [savedKey, setSavedKey] = useState<string | null>(null);
 
   useEffect(() => {
-    setHandoverEmail(localStorage.getItem("fallback_handover_email") ?? "");
+    const stored = localStorage.getItem("fallback_handover_email");
+    setHandoverEmail(stored && stored.length > 0 ? stored : (defaultEmail ?? ""));
     setAlertsOn(localStorage.getItem("new_lead_alerts_enabled") === "true");
-  }, []);
+  }, [defaultEmail]);
 
   const flashSaved = (key: string) => {
     setSavedKey(key);
@@ -356,8 +405,12 @@ function TeamSection() {
     setLoading(true);
     setLoadError(null);
     const r = await listReps();
-    if (r.success) setReps(r.reps as Rep[]);
-    else setLoadError(r.error || "Failed to load reps");
+    if (r.success) {
+      const filtered = (r.reps as Rep[]).filter(
+        (rep) => rep.email && rep.email.trim().length > 0,
+      );
+      setReps(filtered);
+    } else setLoadError(r.error || "Failed to load reps");
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
@@ -611,8 +664,8 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
 }
 
 function Field({
-  label, value, onChange, placeholder, type = "text",
-}: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; type?: string }) {
+  label, value, onChange, onBlur, placeholder, type = "text",
+}: { label: string; value: string; onChange: (v: string) => void; onBlur?: () => void; placeholder?: string; type?: string }) {
   return (
     <div>
       <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">{label}</label>
@@ -620,6 +673,7 @@ function Field({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         placeholder={placeholder}
         className="w-full px-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary transition-colors"
       />
