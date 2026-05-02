@@ -2,8 +2,35 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { useEffect } from "react";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { AuthProvider } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 import appCss from "../styles.css?url";
+
+// Attach Supabase JWT to all server function calls so requireSupabaseAuth middleware passes.
+if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched) {
+  (window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched = true;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    try {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : (input as Request).url;
+      if (url && url.includes("/_serverFn/")) {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (token) {
+          const headers = new Headers(init?.headers || (input instanceof Request ? input.headers : undefined));
+          if (!headers.has("authorization")) headers.set("authorization", `Bearer ${token}`);
+          return origFetch(input, { ...init, headers });
+        }
+      }
+    } catch {}
+    return origFetch(input, init);
+  };
+}
 
 function NotFoundComponent() {
   return (
