@@ -124,6 +124,11 @@ function SalesCallPortal() {
   // the active lead or current step changes (otherwise picking a new client
   // leaves the user at the previous scroll position — often the bottom).
   const mainScrollRef = useRef<HTMLElement | null>(null);
+  // Forced-outcome guard: when a call has just ended without a booking,
+  // InCallPanel surfaces a modal and sets this ref to true so the parent
+  // can block lead navigation until an outcome is selected.
+  const outcomeRequiredRef = useRef(false);
+  const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
   useEffect(() => {
     if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0 });
