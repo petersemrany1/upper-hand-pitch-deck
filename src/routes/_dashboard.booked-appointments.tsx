@@ -159,11 +159,12 @@ function BookedAppointmentsPage() {
     for (const r of rows) {
       if (!r.booking_date) continue;
       const d = parseBookingDate(r.booking_date);
-      if (r.status === "no_show") noShow++;
+      const inMonth = d >= startOfMonth && d <= endOfMonth;
+      if (inMonth && r.status === "showed_up") showed++;
+      if (inMonth && r.status === "no_show") noShow++;
       if (r.status === "confirmed") {
-        if (d >= startOfMonth && d <= endOfMonth) thisMonth++;
+        if (inMonth) thisMonth++;
         if (d >= today && d <= sevenAhead) thisWeek++;
-        if (d < today) showed++;
       }
     }
     return { thisMonth, thisWeek, showed, noShow };
