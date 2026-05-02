@@ -425,6 +425,59 @@ function DashboardHome() {
           />
         </div>
 
+        {/* Conversion rate — unique leads called vs bookings */}
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Conversion rate</div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>Unique leads called vs bookings</div>
+            </div>
+            <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
+              {(["day","week","month","year","all"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setConvPeriod(p)}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: 0,
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    background: convPeriod === p ? "#fff" : "transparent",
+                    color: convPeriod === p ? "#111" : "#888",
+                    boxShadow: convPeriod === p ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
+                    fontFamily: FONT,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
+            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: "#111", letterSpacing: "-0.03em", lineHeight: 1 }}>{convLeads}</div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>Unique leads called</div>
+            </div>
+            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: "#16a34a", letterSpacing: "-0.03em", lineHeight: 1 }}>{convBookings}</div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>Bookings</div>
+            </div>
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: "#f4522d", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                {convBookings > 0
+                  ? `1 in ${(convLeads / convBookings).toFixed(convLeads / convBookings >= 10 ? 0 : 1)}`
+                  : convLeads > 0 ? "0%" : "—"}
+              </div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
+                {convLeads > 0 ? `${Math.round((convBookings / convLeads) * 100)}% conversion` : "Ratio"}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {/* Pipeline */}
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }}>
