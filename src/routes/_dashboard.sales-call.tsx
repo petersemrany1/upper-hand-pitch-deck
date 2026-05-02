@@ -4256,6 +4256,16 @@ function RightPanel({
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
+
+  // Forced-outcome modal: shown after a non-booked call >= 10s ends
+  const [outcomeRequired, setOutcomeRequired] = useState(false);
+  const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
+  const wasInCallRef = useRef(false);
+  const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
+  const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
+  const [outcomeCallbackTime, setOutcomeCallbackTime] = useState("");
+  const [outcomeBusy, setOutcomeBusy] = useState(false);
+
   const [condensingNotes, setCondensingNotes] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
