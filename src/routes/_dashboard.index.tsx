@@ -140,6 +140,12 @@ function DashboardHome() {
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [targetInput, setTargetInput] = useState("");
 
+  // Conversion rate widget state
+  type ConvPeriod = "day" | "week" | "month" | "year" | "all";
+  const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
+  const [convLeads, setConvLeads] = useState(0);
+  const [convBookings, setConvBookings] = useState(0);
+
   // Load target from localStorage on mount. Only admins are prompted to set it;
   // reps just consume the value the admin saved.
   useEffect(() => {
