@@ -32,6 +32,57 @@ export type Database = {
         }
         Relationships: []
       }
+      appointment_reminders: {
+        Row: {
+          booking_date: string | null
+          booking_time: string | null
+          created_at: string
+          doctor_name: string | null
+          id: string
+          lead_id: string | null
+          patient_first_name: string | null
+          patient_phone: string | null
+          status: string
+          three_day_sms_sent: boolean
+          three_day_sms_sent_at: string | null
+          twentyfour_hour_sms_sent: boolean
+          twentyfour_hour_sms_sent_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          booking_date?: string | null
+          booking_time?: string | null
+          created_at?: string
+          doctor_name?: string | null
+          id?: string
+          lead_id?: string | null
+          patient_first_name?: string | null
+          patient_phone?: string | null
+          status?: string
+          three_day_sms_sent?: boolean
+          three_day_sms_sent_at?: string | null
+          twentyfour_hour_sms_sent?: boolean
+          twentyfour_hour_sms_sent_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          booking_date?: string | null
+          booking_time?: string | null
+          created_at?: string
+          doctor_name?: string | null
+          id?: string
+          lead_id?: string | null
+          patient_first_name?: string | null
+          patient_phone?: string | null
+          status?: string
+          three_day_sms_sent?: boolean
+          three_day_sms_sent_at?: string | null
+          twentyfour_hour_sms_sent?: boolean
+          twentyfour_hour_sms_sent_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       call_records: {
         Row: {
           analysis_stage: string | null
