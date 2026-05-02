@@ -4,8 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // Helper: ensure the calling user is an admin (matched by email in sales_reps).
-async function assertAdmin(supabase: Awaited<ReturnType<typeof requireSupabaseAuth>> extends never ? never : any, userId: string) {
-  // We need the email from auth.users — use admin client (server-only).
+async function assertAdmin(userId: string) {
   const { data: u, error: uErr } = await supabaseAdmin.auth.admin.getUserById(userId);
   if (uErr || !u?.user?.email) throw new Error("Could not verify caller");
   const email = u.user.email;
