@@ -1973,6 +1973,41 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       onBooked();
       toast.success("Appointment booked!");
 
+      // Create / refresh appointment reminder row for the cron job
+      try {
+        const { data: existing } = await supabase
+          .from("appointment_reminders")
+          .select("id")
+          .eq("lead_id", lead.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const payload = {
+          lead_id: lead.id,
+          booking_date: form.date,
+          booking_time: form.time,
+          doctor_name: sd?.name ?? null,
+          patient_first_name: lead.first_name ?? null,
+          patient_phone: lead.phone ?? null,
+          status: "confirmed",
+        };
+        if (existing && existing.length > 0) {
+          await supabase
+            .from("appointment_reminders")
+            .update({
+              ...payload,
+              three_day_sms_sent: false,
+              three_day_sms_sent_at: null,
+              twentyfour_hour_sms_sent: false,
+              twentyfour_hour_sms_sent_at: null,
+            })
+            .eq("id", existing[0].id);
+        } else {
+          await supabase.from("appointment_reminders").insert(payload);
+        }
+      } catch (e) {
+        console.error("[appointment_reminders] insert failed", e);
+      }
+
       // Clear persisted form draft now that booking is saved
       try {
         if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
