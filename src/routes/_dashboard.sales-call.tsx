@@ -321,6 +321,11 @@ function SalesCallPortal() {
           firstCallByLead={firstCallByLead}
           onLocalLeadUpdate={updateLocalLead}
           onPick={(id) => {
+            if (outcomeRequiredRef.current) {
+              setPendingLeadId(id);
+              toast.error("Please set a call outcome first");
+              return;
+            }
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
           }}
