@@ -308,6 +308,11 @@ export const saveCallNotes = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+// Reference implementation for the "correct" call_records insert pattern.
+// Currently unused at runtime — the live outbound flow goes through the
+// browser Twilio SDK (useTwilioDevice.ts -> insertCallRow) and the
+// voice-outbound edge function, both of which now mirror the lead_id +
+// rep_id pattern below. Keep this in sync with those writers.
 export const logCallAttempt = createServerFn({ method: "POST" })
   .inputValidator((data: {
     leadId: string; repId: string | null; outcome: "no_answer" | "connected";
