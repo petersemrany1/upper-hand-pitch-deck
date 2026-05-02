@@ -1984,12 +1984,14 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
           .eq("lead_id", lead.id)
           .order("created_at", { ascending: false })
           .limit(1);
+        console.log("[appointment_reminders] doctor_name to insert:", sd?.name);
         const payload = {
           lead_id: lead.id,
           booking_date: form.date,
           booking_time: form.time,
           doctor_name: sd?.name ?? null,
           patient_first_name: lead.first_name ?? null,
+          patient_last_name: lead.last_name ?? null,
           patient_phone: lead.phone ?? null,
           status: "confirmed",
         };
