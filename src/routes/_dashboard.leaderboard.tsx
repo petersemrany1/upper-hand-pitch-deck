@@ -12,9 +12,11 @@ export const Route = createFileRoute("/_dashboard/leaderboard")({
 });
 
 const C = {
-  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#111111",
-  blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
+  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#111111", muted: "#111111",
+  coral: "#f4522d", green: "#16a34a", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
 };
+// Backwards-compat alias used in a few inline styles below
+const BLUE = "#f4522d";
 
 type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
 type Row = Awaited<ReturnType<typeof getLeaderboard>>["rows"][number];
@@ -120,7 +122,7 @@ function LeaderboardPage() {
     { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
     { key: "30d", label: "30 Days" },
   ];
-  const maxBonus = Math.max(...rows.map((r) => r.bonus), 1000);
+  
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: C.bg, color: C.text }}>
@@ -138,7 +140,7 @@ function LeaderboardPage() {
             </button>
             <button onClick={() => setShowAdd(true)}
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: C.blue, color: "#111111" }}>
+              style={{ background: BLUE, color: "#111111" }}>
               <Plus className="h-3.5 w-3.5" /> Add Rep
             </button>
           </div>
@@ -149,9 +151,9 @@ function LeaderboardPage() {
             <button key={r.key} onClick={() => setRange(r.key)}
               className="px-3 py-1.5 text-xs font-bold rounded-md"
               style={{
-                background: range === r.key ? C.blue : "transparent",
+                background: range === r.key ? BLUE : "transparent",
                 color: range === r.key ? "#fff" : C.muted,
-                border: `1px solid ${range === r.key ? C.blue : C.line}`,
+                border: `1px solid ${range === r.key ? BLUE : C.line}`,
               }}>{r.label}</button>
           ))}
         </div>
@@ -161,39 +163,48 @@ function LeaderboardPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
-                  <Th>Rank</Th><Th>Rep</Th><Th>Calls</Th><Th>Not Reached</Th><Th>Short</Th><Th>Convos</Th><Th>Hold %</Th><Th>Conv %</Th><Th>Booked</Th><Th>Work</Th><Th>Break</Th><Th>Bonus</Th>
+                  <Th>Rank</Th>
+                  <Th>Rep</Th>
+                  <Th info="Unique people dialled. Calling the same person 5 times = 1 call.">Calls</Th>
+                  <Th info="No answer, voicemail, or hung up before connecting.">Not Reached</Th>
+                  <Th info="Picked up but under 2 minutes — too short for a real conversation.">Short</Th>
+                  <Th info="Calls that lasted 2 minutes or more.">Convos</Th>
+                  <Th info="Of everyone who picked up, % that stayed for a real conversation (2min+).">Hold %</Th>
+                  <Th info="Bookings as a percentage of real conversations (Booked ÷ Convos).">Conv %</Th>
+                  <Th info="Leads marked as deposit paid in this period.">Booked</Th>
+                  <Th info="Total shift time from first call to last call of the day.">Work</Th>
+                  <Th info="Average time between calls during the shift. Green = under 1 min, amber = 1–3 min, red = 3+ min.">Break</Th>
+                  <Th info="Bookings × $50.">Bonus</Th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
-                  <tr key={r.id} className="border-t" style={{ borderColor: C.line, background: i === 0 ? "rgba(251,191,36,0.05)" : "transparent" }}>
-                    <Td>
-                      <div className="flex items-center gap-1.5">
-                        {i === 0 ? <Crown className="h-4 w-4" style={{ color: C.gold }} /> : <span style={{ color: "#111" }}>#{i + 1}</span>}
-                        {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#111" }}>Leader</span>}
-                      </div>
-                    </Td>
-                    <Td><span className="font-semibold" style={{ color: "#111" }}>{r.name}</span></Td>
-                    <Td><span style={{ color: "#111" }}>{r.calls}</span></Td>
-                    <Td><span style={{ color: r.notReached > 0 ? C.red : "#111" }}>{r.notReached}</span></Td>
-                    <Td><span style={{ color: r.short > 0 ? C.amber : "#111" }}>{r.short}</span></Td>
-                    <Td><span style={{ color: r.convos > 0 ? C.amber : "#111" }}>{r.convos}</span></Td>
-                    <Td>
-                      <span style={{ color: r.holdRate >= 20 ? C.green : r.holdRate >= 10 ? C.amber : r.holdRate > 0 ? C.red : "#111" }}>
-                        {r.holdRate}%
-                      </span>
-                    </Td>
-                    <Td>
-                      <span style={{ color: r.conversion >= 20 ? C.green : r.conversion >= 10 ? C.amber : r.conversion > 0 ? C.red : "#111" }}>
-                        {r.conversion}%
-                      </span>
-                    </Td>
-                    <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
-                    <Td><span style={{ color: "#111" }}>{(r.workMinutes / 60).toFixed(1)}h</span></Td>
-                    <Td><span style={{ color: "#111" }}>{(r.breakMinutes / 60).toFixed(1)}h</span></Td>
-                    <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
-                  </tr>
-                ))}
+                {rows.map((r, i) => {
+                  const holdColor = r.holdRate === 0 ? "#111" : r.holdRate >= 60 ? C.green : r.holdRate >= 40 ? C.amber : C.red;
+                  const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : "#111";
+                  const avgBreakMin = r.breakGaps > 0 ? r.breakMinutes / r.breakGaps : 0;
+                  const breakColor = avgBreakMin === 0 ? "#111" : avgBreakMin <= 1 ? C.green : avgBreakMin <= 3 ? C.amber : C.red;
+                  return (
+                    <tr key={r.id} className="border-t" style={{ borderColor: C.line, background: i === 0 ? "rgba(251,191,36,0.05)" : "transparent" }}>
+                      <Td>
+                        <div className="flex items-center gap-1.5">
+                          {i === 0 ? <Crown className="h-4 w-4" style={{ color: C.gold }} /> : <span style={{ color: "#111" }}>#{i + 1}</span>}
+                          {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#111" }}>Leader</span>}
+                        </div>
+                      </Td>
+                      <Td><span className="font-semibold" style={{ color: "#111" }}>{r.name}</span></Td>
+                      <Td><span style={{ color: "#111" }}>{r.calls}</span></Td>
+                      <Td><span style={{ color: "#111" }}>{r.notReached}</span></Td>
+                      <Td><span style={{ color: "#111" }}>{r.short}</span></Td>
+                      <Td><span style={{ color: "#111" }}>{r.convos}</span></Td>
+                      <Td><span style={{ color: holdColor }}>{r.holdRate}%</span></Td>
+                      <Td><span style={{ color: convColor }}>{r.conversion}%</span></Td>
+                      <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
+                      <Td><span style={{ color: "#111" }}>{(r.workMinutes / 60).toFixed(1)}h</span></Td>
+                      <Td><span style={{ color: breakColor }}>{avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—"}</span></Td>
+                      <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
+                    </tr>
+                  );
+                })}
                 {rows.length === 0 && (
                   <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
                 )}
@@ -255,12 +266,12 @@ function LeaderboardPage() {
         )}
 
         {coachOpen && (
-          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(45,107,228,0.06), transparent)", border: `1px solid ${C.blue}` }}>
+          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(45,107,228,0.06), transparent)", border: `1px solid ${BLUE}` }}>
             <button onClick={() => setCoachOpen(false)} className="absolute top-3 right-3" style={{ color: C.muted }}>
               <X className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4" style={{ color: C.blue }} />
+              <Sparkles className="h-4 w-4" style={{ color: BLUE }} />
               <div className="text-sm font-bold">AI Coach Analysis</div>
               {coachLoading && <span className="text-[10px]" style={{ color: C.muted }}>streaming…</span>}
             </div>
@@ -289,7 +300,7 @@ function LeaderboardPage() {
               <input value={newRep.email} onChange={(e) => setNewRep({ ...newRep, email: e.target.value })} placeholder="Email" type="email"
                 className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
               <button onClick={() => void onAddRep()} disabled={inviting} className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-60"
-                style={{ background: C.blue, color: "#fff" }}>{inviting ? "Sending…" : "Send Invite"}</button>
+                style={{ background: BLUE, color: "#fff" }}>{inviting ? "Sending…" : "Send Invite"}</button>
             </div>
           </div>
         </div>
@@ -298,5 +309,34 @@ function LeaderboardPage() {
   );
 }
 
-function Th({ children }: { children: React.ReactNode }) { return <th className="text-left px-3 py-2.5 font-semibold">{children}</th>; }
+function Th({ children, info }: { children: React.ReactNode; info?: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <th className="text-left px-3 py-2.5 font-semibold relative">
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        {children}
+        {info && (
+          <span
+            onMouseEnter={() => setShow(true)}
+            onMouseLeave={() => setShow(false)}
+            style={{ cursor: "help", fontSize: 10, color: "#aaa", userSelect: "none", position: "relative" }}
+          >
+            ⓘ
+            {show && (
+              <span style={{
+                position: "absolute", top: "100%", left: 0, zIndex: 50,
+                background: "#111", color: "#fff", fontSize: 11,
+                padding: "5px 10px", borderRadius: 6, whiteSpace: "normal",
+                fontWeight: 400, textTransform: "none", letterSpacing: 0,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)", width: 240, marginTop: 4,
+              }}>
+                {info}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+    </th>
+  );
+}
 function Td({ children }: { children: React.ReactNode }) { return <td className="px-3 py-3">{children}</td>; }

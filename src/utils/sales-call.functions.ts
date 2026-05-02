@@ -670,7 +670,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       ?? dedupedReps[0]?.id
       ?? null;
 
-    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0 });
+    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
@@ -714,14 +714,40 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     for (const [repId, timestamps] of callsByRep.entries()) {
       timestamps.sort((a, b) => a - b);
       let breakSecs = 0;
+      let gapCount = 0;
       for (let i = 1; i < timestamps.length; i++) {
         const gapSecs = (timestamps[i] - timestamps[i - 1]) / 1000;
         // CRITICAL: only count gaps under 30 minutes (1800 seconds) as break.
         // Gaps longer than 30 minutes mean end of session — do not count them.
-        if (gapSecs > 0 && gapSecs < 1800) breakSecs += gapSecs;
+        if (gapSecs > 0 && gapSecs < 1800) {
+          breakSecs += gapSecs;
+          gapCount += 1;
+        }
       }
       const s = byRep.get(repId) ?? blank();
       s.breakSeconds = Math.round(breakSecs);
+      s.breakGaps = gapCount;
+      byRep.set(repId, s);
+    }
+
+    // Work = shift duration: time from first call to last call of the day per rep
+    const shiftByRep = new Map<string, { first: number; last: number }>();
+    for (const c of calls ?? []) {
+      if (c.status === "ringing" || c.status === "initiated") continue;
+      const repId = c.rep_id ?? fallbackRepId;
+      if (!repId) continue;
+      const ts = new Date(c.called_at).getTime();
+      const existing = shiftByRep.get(repId);
+      if (!existing) {
+        shiftByRep.set(repId, { first: ts, last: ts });
+      } else {
+        if (ts < existing.first) existing.first = ts;
+        if (ts > existing.last) existing.last = ts;
+      }
+    }
+    for (const [repId, shift] of shiftByRep.entries()) {
+      const s = byRep.get(repId) ?? blank();
+      s.workSeconds = Math.round((shift.last - shift.first) / 1000);
       byRep.set(repId, s);
     }
 
@@ -729,14 +755,13 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       const s = byRep.get(agg.repId) ?? blank();
       s.calls += 1;
       s.attempted += 1;
-      s.workSeconds += agg.totalDur;
       if (!agg.anyConnected) {
         s.notReached += 1;
       } else {
         s.connected += 1;
-        if (agg.maxDur < 60) s.short += 1;
-        if (agg.maxDur >= 60 && agg.maxDur <= 120) s.convos += 1;
-        if (agg.maxDur > 120) s.holds += 1;
+        if (agg.maxDur < 120) s.short += 1;
+        if (agg.maxDur >= 120) s.convos += 1;
+        if (agg.maxDur >= 120) s.holds += 1;
       }
       byRep.set(agg.repId, s);
     }
@@ -751,8 +776,8 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     const rows = dedupedReps.map((r) => {
       const s = byRep.get(r.id) ?? blank();
-      const holdRate = s.calls > 0 ? Math.round((s.holds / s.calls) * 100) : 0;
-      const conversion = s.connected > 0 ? Math.round((s.bookings / s.connected) * 100) : 0;
+      const holdRate = s.connected > 0 ? Math.round((s.holds / s.connected) * 100) : 0;
+      const conversion = s.convos > 0 ? Math.round((s.bookings / s.convos) * 100) : 0;
       return {
         id: r.id, name: r.name, email: r.email,
         calls: s.calls,
@@ -765,6 +790,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
         bookings: s.bookings,
         workMinutes: Math.round(s.workSeconds / 60),
         breakMinutes: Math.round(s.breakSeconds / 60),
+        breakGaps: s.breakGaps,
         bonus: s.bookings * 50,
       };
     }).sort((a, b) => b.bookings - a.bookings || b.calls - a.calls);
