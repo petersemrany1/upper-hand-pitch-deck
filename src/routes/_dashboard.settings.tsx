@@ -131,10 +131,22 @@ function TeamSection() {
   useEffect(() => { void load(); }, []);
 
   const onDelete = async (rep: Rep) => {
-    if (!confirm(`Remove ${rep.name}? This won't delete their auth account.`)) return;
+    if (!confirm(`Remove ${rep.name}? This will also delete their login.`)) return;
     const r = await deleteRep({ data: { id: rep.id } });
     if (r.success) { toast.success("Rep removed"); void load(); }
     else toast.error(r.error);
+  };
+
+  const onRoleChange = async (rep: Rep, nextRole: "admin" | "rep") => {
+    const prev = reps;
+    setReps((rs) => rs.map((x) => x.id === rep.id ? { ...x, role: nextRole } : x));
+    const r = await updateRepRole({ data: { id: rep.id, role: nextRole } });
+    if (!r.success) {
+      setReps(prev);
+      toast.error(r.error);
+    } else {
+      toast.success(`${rep.name} is now ${nextRole}`);
+    }
   };
 
   return (
