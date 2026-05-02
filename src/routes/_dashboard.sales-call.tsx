@@ -4361,16 +4361,35 @@ function RightPanel({
   // Run the timer only when actually connected
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
+    wasInCallRef.current = true;
     const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
     return () => clearInterval(i);
   }, [deviceStatus]);
 
-  // Reset timer when the call ends
+  // Reset timer when the call ends + force outcome modal for non-booked calls
   useEffect(() => {
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
+      if (wasInCallRef.current) {
+        const duration = callTimer;
+        const k = normaliseStatus(active.status, active);
+        const isBooked = k === "booked_deposit_paid" || k === "booked_no_deposit";
+        if (!isBooked && duration >= 10) {
+          setCallDurationAtHangup(duration);
+          setOutcomeView("menu");
+          setOutcomeRequired(true);
+          onOutcomeRequiredChange?.(true);
+        } else if (!isBooked && duration > 0 && duration < 10) {
+          // Auto no-answer for very short calls
+          void updateLeadStatus({ data: { leadId: active.id, status: "no_answer" } });
+          onLocalLeadUpdate?.(active.id, { status: "no_answer" });
+          toast.success("Marked as No Answer");
+        }
+        wasInCallRef.current = false;
+      }
       setCallTimer(0);
       setKeypadOpen(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceStatus]);
 
   // Reset open objection when switching leads
