@@ -156,40 +156,76 @@ function DashboardHome() {
     const monthIso = startOfMonth().toISOString();
     const nowIso = new Date().toISOString();
 
+    // Resolve rep_id for the current user. Admins see ALL activity; reps only
+    // see rows attributed to them (call_records.rep_id / meta_leads.rep_id).
+    let repId: string | null = null;
+    if (!isAdmin && session?.user?.email) {
+      const { data: repRow } = await supabase
+        .from("sales_reps")
+        .select("id")
+        .ilike("email", session.user.email)
+        .maybeSingle();
+      repId = repRow?.id ?? null;
+    }
+    // If a non-admin user has no sales_reps row, scope to a non-existent id so
+    // they see zeros rather than the whole company's data.
+    const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
+
+    const callsTodayQ = supabase
+      .from("call_records")
+      .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
+      .gte("called_at", todayIso);
+    if (scopeId) callsTodayQ.eq("rep_id", scopeId);
+
+    const bookingsTodayQ = supabase
+      .from("meta_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "booked_deposit_paid")
+      .gte("updated_at", todayIso);
+    if (scopeId) bookingsTodayQ.eq("rep_id", scopeId);
+
+    const bookingsMonthQ = supabase
+      .from("meta_leads")
+      .select("id, clinic_id")
+      .eq("status", "booked_deposit_paid")
+      .gte("updated_at", monthIso);
+    if (scopeId) bookingsMonthQ.eq("rep_id", scopeId);
+
+    const pipelineQ = supabase.from("meta_leads").select("status");
+    if (scopeId) pipelineQ.eq("rep_id", scopeId);
+
+    const newLeadsQ = supabase
+      .from("meta_leads")
+      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone")
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (scopeId) newLeadsQ.eq("rep_id", scopeId);
+
+    const overdueQ = supabase
+      .from("meta_leads")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "callback_scheduled")
+      .lt("callback_scheduled_at", nowIso);
+    if (scopeId) overdueQ.eq("rep_id", scopeId);
+
+    const missedQ = supabase
+      .from("call_records")
+      .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
+      .gte("called_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+      .or("outcome.ilike.%missed%,outcome.ilike.%no_answer%,outcome.ilike.%no answer%")
+      .order("called_at", { ascending: false })
+      .limit(20);
+    if (scopeId) missedQ.eq("rep_id", scopeId);
+
     const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes] =
       await Promise.all([
-        supabase
-          .from("call_records")
-          .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
-          .gte("called_at", todayIso),
-        supabase
-          .from("meta_leads")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "booked_deposit_paid")
-          .gte("updated_at", todayIso),
-        supabase
-          .from("meta_leads")
-          .select("id, clinic_id")
-          .eq("status", "booked_deposit_paid")
-          .gte("updated_at", monthIso),
-        supabase.from("meta_leads").select("status"),
-        supabase
-          .from("meta_leads")
-          .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone")
-          .order("created_at", { ascending: false })
-          .limit(5),
-        supabase
-          .from("meta_leads")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "callback_scheduled")
-          .lt("callback_scheduled_at", nowIso),
-        supabase
-          .from("call_records")
-          .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
-          .gte("called_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-          .or("outcome.ilike.%missed%,outcome.ilike.%no_answer%,outcome.ilike.%no answer%")
-          .order("called_at", { ascending: false })
-          .limit(20),
+        callsTodayQ,
+        bookingsTodayQ,
+        bookingsMonthQ,
+        pipelineQ,
+        newLeadsQ,
+        overdueQ,
+        missedQ,
         supabase
           .from("sms_messages")
           .select("id, body, from_number, created_at, direction")
@@ -242,7 +278,7 @@ function DashboardHome() {
     setOverdueCallbacks(overdueRes.count ?? 0);
     setMissedCalls((missedRes.data ?? []) as CallRow[]);
     setUnreadSms((smsRes.data ?? []) as SmsRow[]);
-  }, []);
+  }, [isAdmin, session?.user?.email]);
 
   useEffect(() => {
     if (!authReady || !session) return;
