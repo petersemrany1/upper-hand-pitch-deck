@@ -362,24 +362,26 @@ export const addRep = createServerFn({ method: "POST" })
 
 /* Invite a new rep: sends Supabase auth invite email + creates sales_reps row */
 export const inviteRep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { firstName: string; lastName: string; email: string }) => ({
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
     email: String(data.email ?? "").toLowerCase().trim(),
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
     if (!data.firstName) return { success: false as const, error: "First name required" };
     if (!data.lastName) return { success: false as const, error: "Last name required" };
     if (!data.email || !data.email.includes("@")) return { success: false as const, error: "Valid email required" };
 
     const fullName = `${data.firstName} ${data.lastName}`.trim();
 
-    // Check if rep already exists
     const { data: existing } = await supabaseAdmin.from("sales_reps")
-      .select("*").eq("email", data.email).maybeSingle();
+      .select("*").ilike("email", data.email).maybeSingle();
     if (existing) return { success: false as const, error: "A rep with that email already exists" };
 
-    // Send Supabase auth invite (creates auth.users row + emails magic link)
     const siteUrl = process.env.SITE_URL || "https://upperhanddashboard.lovable.app";
     const { data: invite, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
       data.email,
@@ -393,13 +395,13 @@ export const inviteRep = createServerFn({ method: "POST" })
       return { success: false as const, error: inviteErr.message };
     }
 
-    // Create the sales_reps row
     const { data: created, error: insertErr } = await supabaseAdmin.from("sales_reps")
       .insert({
         name: fullName,
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
+        role: "rep",
       } as never).select("*").single();
     if (insertErr) {
       return { success: false as const, error: insertErr.message };
@@ -407,23 +409,31 @@ export const inviteRep = createServerFn({ method: "POST" })
     return { success: true as const, rep: created, userId: invite.user?.id ?? null };
   });
 
-/* List reps for the team management screen */
+/* List reps for the team management screen — admin only */
 export const listReps = createServerFn({ method: "POST" })
-  .handler(async () => {
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message, reps: [] };
+    }
     const { data, error } = await supabaseAdmin.from("sales_reps")
       .select("*").order("created_at", { ascending: true });
     if (error) return { success: false as const, error: error.message, reps: [] };
     return { success: true as const, reps: data ?? [] };
   });
 
-/* Update an existing rep's name fields */
+/* Update an existing rep's name fields — admin only */
 export const updateRep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string; firstName: string; lastName: string }) => ({
     id: String(data.id ?? ""),
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
     if (!data.id) return { success: false as const, error: "id required" };
     const fullName = `${data.firstName} ${data.lastName}`.trim();
     const { data: updated, error } = await supabaseAdmin.from("sales_reps")
@@ -433,13 +443,55 @@ export const updateRep = createServerFn({ method: "POST" })
     return { success: true as const, rep: updated };
   });
 
-/* Remove a rep */
-export const deleteRep = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "") }))
-  .handler(async ({ data }) => {
+/* Update a rep's role (admin/rep) — admin only */
+export const updateRepRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; role: "admin" | "rep" }) => ({
+    id: String(data.id ?? ""),
+    role: data.role === "admin" ? ("admin" as const) : ("rep" as const),
+  }))
+  .handler(async ({ data, context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
     if (!data.id) return { success: false as const, error: "id required" };
+    const { error } = await supabaseAdmin.from("sales_reps")
+      .update({ role: data.role } as never)
+      .eq("id", data.id);
+    if (error) return { success: false as const, error: error.message };
+    return { success: true as const };
+  });
+
+/* Remove a rep — admin only. Also deletes their auth user. */
+export const deleteRep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "") }))
+  .handler(async ({ data, context }) => {
+    let callerEmail: string;
+    try { callerEmail = await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+    if (!data.id) return { success: false as const, error: "id required" };
+
+    const { data: rep } = await supabaseAdmin.from("sales_reps")
+      .select("email").eq("id", data.id).maybeSingle();
+    if (rep?.email && rep.email.toLowerCase() === callerEmail.toLowerCase()) {
+      return { success: false as const, error: "You cannot remove yourself" };
+    }
+
     const { error } = await supabaseAdmin.from("sales_reps").delete().eq("id", data.id);
     if (error) return { success: false as const, error: error.message };
+
+    // Best-effort: delete the matching auth user too.
+    if (rep?.email) {
+      try {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+        const match = list?.users.find((u) => u.email?.toLowerCase() === rep.email!.toLowerCase());
+        if (match) await supabaseAdmin.auth.admin.deleteUser(match.id);
+      } catch (e) {
+        await logError("deleteRep.authDelete", (e as Error).message, { email: rep.email });
+      }
+    }
     return { success: true as const };
   });
 
