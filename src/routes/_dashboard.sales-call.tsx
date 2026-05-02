@@ -1973,6 +1973,41 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       onBooked();
       toast.success("Appointment booked!");
 
+      // Create / refresh appointment reminder row for the cron job
+      try {
+        const { data: existing } = await supabase
+          .from("appointment_reminders")
+          .select("id")
+          .eq("lead_id", lead.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        const payload = {
+          lead_id: lead.id,
+          booking_date: form.date,
+          booking_time: form.time,
+          doctor_name: sd?.name ?? null,
+          patient_first_name: lead.first_name ?? null,
+          patient_phone: lead.phone ?? null,
+          status: "confirmed",
+        };
+        if (existing && existing.length > 0) {
+          await supabase
+            .from("appointment_reminders")
+            .update({
+              ...payload,
+              three_day_sms_sent: false,
+              three_day_sms_sent_at: null,
+              twentyfour_hour_sms_sent: false,
+              twentyfour_hour_sms_sent_at: null,
+            })
+            .eq("id", existing[0].id);
+        } else {
+          await supabase.from("appointment_reminders").insert(payload);
+        }
+      } catch (e) {
+        console.error("[appointment_reminders] insert failed", e);
+      }
+
       // Clear persisted form draft now that booking is saved
       try {
         if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
@@ -2173,6 +2208,13 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         toast.error(`Reset failed: ${r.error}`);
         return;
       }
+      try {
+        await supabase
+          .from("appointment_reminders")
+          .update({ status: "cancelled" })
+          .eq("lead_id", lead.id)
+          .eq("status", "confirmed");
+      } catch (e) { console.error("[appointment_reminders] cancel failed", e); }
       // Mutate the lead prop so the restore-effect doesn't re-trigger when
       // the rep navigates away and comes back to this lead.
       (lead as { booking_date: string | null }).booking_date = null;
@@ -2423,6 +2465,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 const s = await updateLeadStatus({ data: { leadId: lead.id, status: "cancelled" } });
                 if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
                 await clearBooking({ data: { leadId: lead.id } });
+                try { await supabase.from("appointment_reminders").update({ status: "cancelled" }).eq("lead_id", lead.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                 (lead as { booking_date: string | null }).booking_date = null;
                 (lead as { booking_time: string | null }).booking_time = null;
                 (lead as { status: string }).status = "cancelled";
@@ -2448,6 +2491,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 const s = await updateLeadStatus({ data: { leadId: lead.id, status: "no_show" } });
                 if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
                 await clearBooking({ data: { leadId: lead.id } });
+                try { await supabase.from("appointment_reminders").update({ status: "no_show" }).eq("lead_id", lead.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                 (lead as { booking_date: string | null }).booking_date = null;
                 (lead as { booking_time: string | null }).booking_time = null;
                 (lead as { status: string }).status = "no_show";
@@ -3978,6 +4022,7 @@ function LeadChooser({
                       const r = await updateLeadStatus({ data: { leadId: l.id, status: "cancelled" } });
                       if (!r.success) { setSavingStatus(null); toast.error(`Failed: ${r.error}`); return; }
                       await clearBooking({ data: { leadId: l.id } });
+                      try { await supabase.from("appointment_reminders").update({ status: "cancelled" }).eq("lead_id", l.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                       onLocalLeadUpdate?.(l.id, { status: "cancelled", booking_date: null, booking_time: null } as Partial<Lead>);
                       setSavingStatus(null);
                       toast.success("Marked as cancelled");
@@ -4002,6 +4047,7 @@ function LeadChooser({
                       const r = await updateLeadStatus({ data: { leadId: l.id, status: "no_show" } });
                       if (!r.success) { setSavingStatus(null); toast.error(`Failed: ${r.error}`); return; }
                       await clearBooking({ data: { leadId: l.id } });
+                      try { await supabase.from("appointment_reminders").update({ status: "no_show" }).eq("lead_id", l.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                       onLocalLeadUpdate?.(l.id, { status: "no_show", booking_date: null, booking_time: null } as Partial<Lead>);
                       setSavingStatus(null);
                       toast.success("Marked as no-show");
