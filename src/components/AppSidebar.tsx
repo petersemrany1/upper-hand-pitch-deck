@@ -92,8 +92,8 @@ export function AppSidebar() {
     };
   }, []);
 
-  const renderItem = (item: NavItem, indent = false) => {
-    const active = isActive(item.url);
+  const renderItem = (item: NavItem, indent = false, forceActive = false) => {
+    const active = forceActive || isActive(item.url);
     return (
       <SidebarMenuItem key={item.title}>
         <SidebarMenuButton
