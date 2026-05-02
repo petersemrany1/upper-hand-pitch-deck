@@ -86,6 +86,7 @@ function SettingsPage() {
         </div>
 
         {isAdmin && <TeamSection />}
+        {isAdmin && <BookingPricesSection />}
 
         {!isAdmin && (
           <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
