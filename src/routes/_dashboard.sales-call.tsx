@@ -5369,7 +5369,7 @@ function ForcedOutcomeModal({
     }
   };
 
-  const optionStyle: React.CSSProperties = {
+  const optionStyle: CSSProperties = {
     width: "100%",
     padding: "14px 20px",
     borderRadius: 10,
@@ -5381,8 +5381,8 @@ function ForcedOutcomeModal({
     marginBottom: 8,
     transition: "border-color 120ms ease",
   };
-  const onHover = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#f4522d"; };
-  const onLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#e8e8e6"; };
+  const onHover = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#f4522d"; };
+  const onLeave = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#e8e8e6"; };
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
