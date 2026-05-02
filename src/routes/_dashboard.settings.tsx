@@ -405,8 +405,12 @@ function TeamSection() {
     setLoading(true);
     setLoadError(null);
     const r = await listReps();
-    if (r.success) setReps(r.reps as Rep[]);
-    else setLoadError(r.error || "Failed to load reps");
+    if (r.success) {
+      const filtered = (r.reps as Rep[]).filter(
+        (rep) => rep.email && rep.email.trim().length > 0,
+      );
+      setReps(filtered);
+    } else setLoadError(r.error || "Failed to load reps");
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
