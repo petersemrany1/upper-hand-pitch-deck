@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, deleteRep } from "@/utils/sales-call.functions";
+import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   component: SettingsPage,
