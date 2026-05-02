@@ -22,6 +22,8 @@ const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard }
 const folders: NavFolder[] = [
   {
     title: "Sales",
+    repIcon: Headphones,
+    repUrl: "/sales-call",
     items: [
       { title: "Sales Portal", url: "/sales-call", icon: Headphones },
       { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
@@ -31,6 +33,8 @@ const folders: NavFolder[] = [
   },
   {
     title: "Clinic Acquisition",
+    repIcon: Presentation,
+    repUrl: "/pitch-deck",
     items: [
       { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
       { title: "Clinics", url: "/clinics", icon: Building2 },
