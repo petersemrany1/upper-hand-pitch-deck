@@ -47,8 +47,8 @@ function statusColor(s: string | null): { bg: string; fg: string } {
 }
 
 export function IncomingCallDialog() {
-  const { status, incomingFrom, reject } = useTwilioDevice();
-  const isRinging = status === "ringing-incoming";
+  const { status: deviceStatus, incomingFrom, reject } = useTwilioDevice();
+  const isRinging = deviceStatus === "ringing-incoming";
 
   const [matched, setMatched] = useState<MatchedLead | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -139,8 +139,8 @@ export function IncomingCallDialog() {
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"
     : null;
-  const status = matched?.status ?? null;
-  const statusCol = statusColor(status);
+  const leadStatus = matched?.status ?? null;
+  const statusCol = statusColor(leadStatus);
 
   const handleSendSms = async () => {
     if (!incomingFrom || smsBusy || smsSent) return;
