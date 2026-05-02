@@ -5274,6 +5274,213 @@ function RightPanel({
           </div>
         </div>
       )}
+
+      {/* Forced outcome modal */}
+      {outcomeRequired && (
+        <ForcedOutcomeModal
+          active={active}
+          callDuration={callDurationAtHangup}
+          view={outcomeView}
+          setView={setOutcomeView}
+          callbackDate={outcomeCallbackDate}
+          setCallbackDate={setOutcomeCallbackDate}
+          callbackTime={outcomeCallbackTime}
+          setCallbackTime={setOutcomeCallbackTime}
+          busy={outcomeBusy}
+          setBusy={setOutcomeBusy}
+          onLocalLeadUpdate={onLocalLeadUpdate}
+          onClosed={() => {
+            setOutcomeRequired(false);
+            setOutcomeView("menu");
+            setOutcomeCallbackDate("");
+            setOutcomeCallbackTime("");
+            onOutcomeRequiredChange?.(false);
+            toast.success("Status updated ✓");
+            // If parent had a pending lead waiting, let it apply now
+            onAfterOutcomeApplied?.();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ForcedOutcomeModal({
+  active, callDuration, view, setView,
+  callbackDate, setCallbackDate, callbackTime, setCallbackTime,
+  busy, setBusy, onLocalLeadUpdate, onClosed,
+}: {
+  active: Lead;
+  callDuration: number;
+  view: "menu" | "callback" | "drop";
+  setView: (v: "menu" | "callback" | "drop") => void;
+  callbackDate: string;
+  setCallbackDate: (v: string) => void;
+  callbackTime: string;
+  setCallbackTime: (v: string) => void;
+  busy: boolean;
+  setBusy: (v: boolean) => void;
+  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
+  onClosed: () => void;
+}) {
+  const apply = async (status: string, extra?: Partial<Lead>) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await updateLeadStatus({ data: { leadId: active.id, status } });
+      if (!r?.success) {
+        toast.error(r?.error ?? "Failed to update");
+        setBusy(false);
+        return;
+      }
+      onLocalLeadUpdate?.(active.id, { status, ...(extra ?? {}) } as Partial<Lead>);
+      onClosed();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmCallback = async () => {
+    if (!callbackDate || !callbackTime) return;
+    const dt = new Date(`${callbackDate}T${callbackTime}:00`);
+    if (isNaN(dt.getTime())) { toast.error("Invalid date/time"); return; }
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await updateLeadStatus({ data: { leadId: active.id, status: "callback_scheduled" } });
+      if (!r?.success) {
+        toast.error(r?.error ?? "Failed to update");
+        setBusy(false);
+        return;
+      }
+      const { error } = await supabase
+        .from("meta_leads")
+        .update({ callback_scheduled_at: dt.toISOString() })
+        .eq("id", active.id);
+      if (error) {
+        toast.error(error.message);
+        setBusy(false);
+        return;
+      }
+      onLocalLeadUpdate?.(active.id, { status: "callback_scheduled", callback_scheduled_at: dt.toISOString() } as Partial<Lead>);
+      onClosed();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const optionStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "14px 20px",
+    borderRadius: 10,
+    border: "1.5px solid #e8e8e6",
+    background: "#fff",
+    textAlign: "left",
+    fontSize: 15,
+    cursor: "pointer",
+    marginBottom: 8,
+    transition: "border-color 120ms ease",
+  };
+  const onHover = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#f4522d"; };
+  const onLeave = (e: React.MouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#e8e8e6"; };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+        <div style={{ fontSize: 20, fontWeight: 600, color: "#111" }}>How did that go?</div>
+        <div style={{ fontSize: 12, color: "#999", marginBottom: 20, marginTop: 4 }}>
+          Set the outcome to keep your pipeline accurate.
+          {callDuration > 0 ? ` (Call: ${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")})` : ""}
+        </div>
+
+        {view === "menu" && (
+          <>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("callback")}>📞 Callback</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>🤝 Had Convo — Chase Up</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>📵 No Answer / Voicemail</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>❌ Not Interested</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>⛔ Dropped</button>
+          </>
+        )}
+
+        {view === "callback" && (
+          <div>
+            <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>Pick a date and time for the callback:</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                type="date"
+                value={callbackDate}
+                onChange={(e) => setCallbackDate(e.target.value)}
+                style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
+              />
+              <input
+                type="time"
+                value={callbackTime}
+                onChange={(e) => setCallbackTime(e.target.value)}
+                style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setView("menu")}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #e8e8e6", background: "#fff", fontSize: 14, cursor: "pointer" }}
+              >
+                ← Back
+              </button>
+              <button
+                onClick={confirmCallback}
+                disabled={!callbackDate || !callbackTime || busy}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: (!callbackDate || !callbackTime || busy) ? "#f4a892" : "#f4522d",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: (!callbackDate || !callbackTime || busy) ? "not-allowed" : "pointer",
+                }}
+              >
+                Confirm Callback →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === "drop" && (
+          <div>
+            <div style={{ fontSize: 14, color: "#111", marginBottom: 16, lineHeight: 1.4 }}>
+              Are you sure? This will permanently drop this lead.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setView("menu")}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #e8e8e6", background: "#fff", fontSize: 14, cursor: "pointer" }}
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => apply("dropped")}
+                disabled={busy}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: busy ? "#f1a3a3" : "#dc2626",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                Yes, Drop
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
