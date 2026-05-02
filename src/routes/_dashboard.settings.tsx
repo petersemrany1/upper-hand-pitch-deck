@@ -277,14 +277,16 @@ function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) 
     </SectionShell>
   );
 }
+function NotificationsSection({ defaultEmail }: { defaultEmail?: string | null }) {
   const [handoverEmail, setHandoverEmail] = useState("");
   const [alertsOn, setAlertsOn] = useState(false);
   const [savedKey, setSavedKey] = useState<string | null>(null);
 
   useEffect(() => {
-    setHandoverEmail(localStorage.getItem("fallback_handover_email") ?? "");
+    const stored = localStorage.getItem("fallback_handover_email");
+    setHandoverEmail(stored && stored.length > 0 ? stored : (defaultEmail ?? ""));
     setAlertsOn(localStorage.getItem("new_lead_alerts_enabled") === "true");
-  }, []);
+  }, [defaultEmail]);
 
   const flashSaved = (key: string) => {
     setSavedKey(key);
