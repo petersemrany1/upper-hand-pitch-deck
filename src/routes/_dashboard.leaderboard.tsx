@@ -183,6 +183,8 @@ function LeaderboardPage() {
                   const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : "#111";
                   const avgBreakMin = r.breakGaps > 0 ? r.breakMinutes / r.breakGaps : 0;
                   const breakColor = avgBreakMin === 0 ? "#111" : avgBreakMin <= 1 ? C.green : avgBreakMin <= 3 ? C.amber : C.red;
+                  // Peter Semrany develops the app, so his Work/Break aren't real shift data — hide them.
+                  const isPeter = (r.name ?? "").trim().toLowerCase() === "peter semrany";
                   return (
                     <tr key={r.id} className="border-t" style={{ borderColor: C.line, background: i === 0 ? "rgba(251,191,36,0.05)" : "transparent" }}>
                       <Td>
@@ -199,8 +201,8 @@ function LeaderboardPage() {
                       <Td><span style={{ color: holdColor }}>{r.holdRate}%</span></Td>
                       <Td><span style={{ color: convColor }}>{r.conversion}%</span></Td>
                       <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
-                      <Td><span style={{ color: "#111" }}>{(r.workMinutes / 60).toFixed(1)}h</span></Td>
-                      <Td><span style={{ color: breakColor }}>{avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—"}</span></Td>
+                      <Td><span style={{ color: "#111" }}>{isPeter ? "—" : `${(r.workMinutes / 60).toFixed(1)}h`}</span></Td>
+                      <Td><span style={{ color: isPeter ? "#111" : breakColor }}>{isPeter ? "—" : (avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—")}</span></Td>
                       <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
                     </tr>
                   );
