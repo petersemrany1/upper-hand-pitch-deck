@@ -1,6 +1,22 @@
 import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
+
+// Gate helper: ensures the calling user is an admin in sales_reps.
+// Uses email matching (case-insensitive).
+async function assertAdmin(userId: string): Promise<string> {
+  const { data: u, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (error || !u?.user?.email) throw new Error("Could not verify caller");
+  const email = u.user.email;
+  const { data: rep } = await supabaseAdmin
+    .from("sales_reps")
+    .select("role")
+    .ilike("email", email)
+    .maybeSingle();
+  if (rep?.role !== "admin") throw new Error("Forbidden: admin only");
+  return email;
+}
 
 const TWILIO_FROM = "+61468031075";
 
