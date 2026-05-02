@@ -117,7 +117,8 @@ type PipelineCounts = {
 };
 
 function DashboardHome() {
-  const { ready: authReady, session } = useAuth();
+  const { ready: authReady, session, role } = useAuth();
+  const isAdmin = role === "admin";
   // Boot Twilio device (kept from existing dashboard)
   useTwilioDevice(true);
 
@@ -139,15 +140,16 @@ function DashboardHome() {
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [targetInput, setTargetInput] = useState("");
 
-  // Load target from localStorage on mount
+  // Load target from localStorage on mount. Only admins are prompted to set it;
+  // reps just consume the value the admin saved.
   useEffect(() => {
     const stored = localStorage.getItem(targetKey());
     if (stored && Number(stored) > 0) {
       setTarget(Number(stored));
-    } else {
+    } else if (isAdmin) {
       setShowTargetModal(true);
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
@@ -460,14 +462,14 @@ function DashboardHome() {
                     {targetPct}% of target
                   </div>
                 </>
-              ) : (
+              ) : isAdmin ? (
                 <button
                   onClick={() => setShowTargetModal(true)}
                   style={{ marginTop: 16, fontSize: 13, color: "#f4522d", fontWeight: 500, background: "none", border: 0, cursor: "pointer", padding: 0 }}
                 >
                   Set target →
                 </button>
-              )}
+              ) : null}
             </div>
           </Card>
         </div>
