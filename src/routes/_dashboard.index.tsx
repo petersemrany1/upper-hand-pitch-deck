@@ -462,14 +462,14 @@ function DashboardHome() {
                     {targetPct}% of target
                   </div>
                 </>
-              ) : (
+              ) : isAdmin ? (
                 <button
                   onClick={() => setShowTargetModal(true)}
                   style={{ marginTop: 16, fontSize: 13, color: "#f4522d", fontWeight: 500, background: "none", border: 0, cursor: "pointer", padding: 0 }}
                 >
                   Set target →
                 </button>
-              )}
+              ) : null}
             </div>
           </Card>
         </div>
