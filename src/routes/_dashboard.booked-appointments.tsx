@@ -193,7 +193,7 @@ function BookedAppointmentsPage() {
       if (!r.booking_date) { pastCancelled.push(r); continue; }
       const d = parseBookingDate(r.booking_date);
       const diff = daysBetween(new Date(today), new Date(d));
-      if (r.status === "cancelled" || r.status === "no_show" || diff < 0) {
+      if (r.status === "cancelled" || r.status === "no_show" || r.status === "showed_up" || diff < 0) {
         pastCancelled.push(r);
       } else if (diff <= 1) {
         todayTomorrow.push(r);
