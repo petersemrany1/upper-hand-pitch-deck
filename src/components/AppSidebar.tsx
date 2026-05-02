@@ -19,7 +19,7 @@ type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; re
 
 const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard };
 
-const folders: NavFolder[] = [
+const ALL_FOLDERS: NavFolder[] = [
   {
     title: "Sales",
     repIcon: Headphones,
@@ -52,7 +52,18 @@ export function AppSidebar() {
   const currentPath = location.pathname;
   const [unreadSms, setUnreadSms] = useState(0);
   const { isMobile, setOpenMobile } = useSidebar();
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
+
+  // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
+  const folders: NavFolder[] = role === "admin"
+    ? ALL_FOLDERS
+    : ALL_FOLDERS
+        .filter((f) => f.title !== "Clinic Acquisition")
+        .map((f) =>
+          f.title === "Sales"
+            ? { ...f, items: f.items.filter((i) => i.title !== "Leads") }
+            : f
+        );
 
   const isActive = (path: string) => currentPath === path;
 
