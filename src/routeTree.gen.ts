@@ -25,6 +25,7 @@ import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.le
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
+import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
 
@@ -107,6 +108,12 @@ const DashboardClientsRoute = DashboardClientsRouteImport.update({
   path: '/clients',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardBookedAppointmentsRoute =
+  DashboardBookedAppointmentsRouteImport.update({
+    id: '/booked-appointments',
+    path: '/booked-appointments',
+    getParentRoute: () => DashboardRoute,
+  } as any)
 const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -123,6 +130,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/analytics': typeof DashboardAnalyticsRoute
+  '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
@@ -141,6 +149,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/analytics': typeof DashboardAnalyticsRoute
+  '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
@@ -162,6 +171,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
+  '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
@@ -184,6 +194,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/analytics'
+    | '/booked-appointments'
     | '/clients'
     | '/clinics'
     | '/inbox'
@@ -202,6 +213,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/analytics'
+    | '/booked-appointments'
     | '/clients'
     | '/clinics'
     | '/inbox'
@@ -222,6 +234,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_dashboard/analytics'
+    | '/_dashboard/booked-appointments'
     | '/_dashboard/clients'
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
@@ -360,6 +373,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardClientsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/booked-appointments': {
+      id: '/_dashboard/booked-appointments'
+      path: '/booked-appointments'
+      fullPath: '/booked-appointments'
+      preLoaderRoute: typeof DashboardBookedAppointmentsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/analytics': {
       id: '/_dashboard/analytics'
       path: '/analytics'
@@ -379,6 +399,7 @@ declare module '@tanstack/react-router' {
 
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
+  DashboardBookedAppointmentsRoute: typeof DashboardBookedAppointmentsRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
@@ -395,6 +416,7 @@ interface DashboardRouteChildren {
 
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
+  DashboardBookedAppointmentsRoute: DashboardBookedAppointmentsRoute,
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
