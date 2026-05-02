@@ -4295,6 +4295,38 @@ function RightPanel({
   const [sendingSms, setSendingSms] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
+  // AI one-liner summary of where things are at with this lead.
+  // Pulled from call_records.call_analysis.summary, regenerated when the
+  // lead is selected and after each call ends (via the outcome modal).
+  const [leadCallSummary, setLeadCallSummary] = useState<string | null>(null);
+  const refreshLeadSummary = useCallback(async (mode: "cached" | "regenerate") => {
+    try {
+      const { data: latest } = await supabase
+        .from("call_records")
+        .select("call_analysis")
+        .eq("lead_id", active.id)
+        .order("called_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const cached = (latest?.call_analysis as { summary?: string } | null)?.summary;
+      if (cached) setLeadCallSummary(cached);
+      else if (mode === "cached") setLeadCallSummary(null);
+
+      if (mode === "regenerate") {
+        const { data, error } = await supabase.functions.invoke("generate-lead-summary", {
+          body: { leadId: active.id },
+        });
+        if (!error && (data as { summary?: string })?.summary) {
+          setLeadCallSummary((data as { summary: string }).summary);
+        }
+      }
+    } catch { /* noop */ }
+  }, [active.id]);
+  useEffect(() => {
+    setLeadCallSummary(null);
+    void refreshLeadSummary("regenerate");
+  }, [active.id, refreshLeadSummary]);
+
   // Customer journey modal
   const [showJourney, setShowJourney] = useState(false);
   const [journeyCalls, setJourneyCalls] = useState<{
