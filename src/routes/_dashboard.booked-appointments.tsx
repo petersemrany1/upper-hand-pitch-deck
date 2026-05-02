@@ -344,7 +344,10 @@ function BookedAppointmentsPage() {
             </div>
           </>
         )}
+          </>
+        )}
       </div>
+
 
       {/* Cancel confirmation */}
       {confirmCancel && (
