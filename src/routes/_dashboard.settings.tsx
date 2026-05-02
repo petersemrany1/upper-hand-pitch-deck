@@ -105,7 +105,7 @@ function SettingsPage() {
         <div className="space-y-8">
           {isAdmin && <TeamSection />}
           <AccountSection user={user} />
-          <NotificationsSection />
+          <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
           <LogsSection />
         </div>
