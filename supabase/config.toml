@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.summarize-doctor]
 verify_jwt = false
+
+[functions.send-appointment-reminders]
+verify_jwt = false
