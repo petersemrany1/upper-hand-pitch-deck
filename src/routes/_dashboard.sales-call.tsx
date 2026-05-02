@@ -421,6 +421,17 @@ function SalesCallPortal() {
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => setActiveId(null)}
+          onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
+          onAfterOutcomeApplied={() => {
+            if (pendingLeadId) {
+              const id = pendingLeadId;
+              setPendingLeadId(null);
+              setActiveId(id);
+              setStep("mindset");
+              setCompleted(new Set());
+              setAmpPrefill(""); setAudioPrefill("");
+            }
+          }}
         />
       </aside>
 
