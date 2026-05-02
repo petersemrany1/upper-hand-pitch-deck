@@ -771,7 +771,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
     for (const b of bookings ?? []) {
       if (excludedLeadIds.has(b.id as string)) continue; // skip Peter Test
-      const repId = b.rep_id ?? fallbackRepId;
+      const repId = b.rep_id;
       if (!repId) continue;
       const s = byRep.get(repId) ?? blank();
       s.bookings += 1;
