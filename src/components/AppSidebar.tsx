@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, BarChart3, AlertTriangle, Building2, Inbox, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -11,23 +11,36 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { getUnresolvedCount } from "@/utils/error-logger.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
-const items = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Sales Call", url: "/sales-call", icon: Headphones },
-  { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
-  { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
-  { title: "Clinics", url: "/clinics", icon: Building2 },
-  { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
-  { title: "Analytics", url: "/analytics", icon: BarChart3 },
-  { title: "Phone & Contacts", url: "/clients", icon: Phone },
-  { title: "Inbox", url: "/inbox", icon: Inbox },
-  { title: "Leads", url: "/leads", icon: Users },
-  { title: "Sent Links", url: "/sent-links", icon: Send },
-  { title: "Logs", url: "/logs", icon: AlertTriangle },
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
+type NavFolder = { title: string; items: NavItem[] };
+
+const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard };
+
+const folders: NavFolder[] = [
+  {
+    title: "Sales",
+    items: [
+      { title: "Sales Portal", url: "/sales-call", icon: Headphones },
+      { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
+      { title: "Leads", url: "/leads", icon: Users },
+    ],
+  },
+  {
+    title: "Clinic Acquisition",
+    items: [
+      { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
+      { title: "Clinics", url: "/clinics", icon: Building2 },
+      { title: "Sent Links", url: "/sent-links", icon: Send },
+    ],
+  },
+];
+
+const bottomItems: NavItem[] = [
+  { title: "Phone", url: "/inbox", icon: Phone },
   { title: "Settings", url: "/settings", icon: SettingsIcon },
 ];
 
@@ -35,17 +48,31 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [unreadSms, setUnreadSms] = useState(0);
   const { isMobile, setOpenMobile } = useSidebar();
   const { signOut } = useAuth();
 
-  useEffect(() => {
-    getUnresolvedCount().then((r) => setUnresolvedCount(r.count)).catch(() => {});
-    const interval = setInterval(() => {
-      getUnresolvedCount().then((r) => setUnresolvedCount(r.count)).catch(() => {});
-    }, 30000);
+  const isActive = (path: string) => currentPath === path;
 
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    for (const f of folders) {
+      init[f.title] = f.items.some((i) => i.url === currentPath);
+    }
+    return init;
+  });
+
+  useEffect(() => {
+    setOpenFolders((prev) => {
+      const next = { ...prev };
+      for (const f of folders) {
+        if (f.items.some((i) => i.url === currentPath)) next[f.title] = true;
+      }
+      return next;
+    });
+  }, [currentPath]);
+
+  useEffect(() => {
     const loadUnread = async () => {
       const { data } = await supabase.from("sms_threads").select("unread_count");
       const total = (data ?? []).reduce((s, r) => s + (r.unread_count ?? 0), 0);
@@ -57,12 +84,62 @@ export function AppSidebar() {
       .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, loadUnread)
       .subscribe();
     return () => {
-      clearInterval(interval);
       void supabase.removeChannel(ch);
     };
   }, []);
 
-  const isActive = (path: string) => currentPath === path;
+  const renderItem = (item: NavItem, indent = false) => {
+    const active = isActive(item.url);
+    return (
+      <SidebarMenuItem key={item.title}>
+        <SidebarMenuButton
+          asChild
+          isActive={active}
+          className="!rounded-none"
+          style={{
+            borderLeft: active ? "2px solid #f4522d" : "2px solid transparent",
+            background: active ? "#fff1ee" : "transparent",
+            color: active ? "#f4522d" : "#111111",
+            fontSize: 13,
+            fontWeight: active ? 500 : 400,
+            transition: "all 0.15s ease",
+            height: 36,
+            cursor: "pointer",
+          }}
+        >
+          <Link
+            to={item.url}
+            className="relative"
+            onClick={() => { if (isMobile) setOpenMobile(false); }}
+            onMouseEnter={(e) => {
+              if (!active) e.currentTarget.style.background = "#f5f5f5";
+            }}
+            onMouseLeave={(e) => {
+              if (!active) e.currentTarget.style.background = "transparent";
+            }}
+            style={{ cursor: "pointer", transition: "background 0.15s ease", paddingLeft: indent ? 24 : undefined }}
+          >
+            <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
+            <span className="flex-1">{item.title}</span>
+            {item.title === "Phone" && unreadSms > 0 && (
+              <>
+                <span
+                  className="ml-auto inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-[10px] font-medium group-data-[collapsible=icon]:hidden"
+                  style={{ background: "#ecfdf5", color: "#10b981" }}
+                >
+                  {unreadSms}
+                </span>
+                <span
+                  className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full md:group-data-[collapsible=icon]:block hidden"
+                  style={{ background: "#10b981", boxShadow: "0 0 0 2px #ffffff" }}
+                />
+              </>
+            )}
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar
@@ -95,76 +172,48 @@ export function AppSidebar() {
         <SidebarGroup className="pt-2">
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => {
-                const active = isActive(item.url);
+              {renderItem(topItem)}
+
+              {folders.map((folder) => {
+                const open = openFolders[folder.title];
                 return (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      className="!rounded-none"
-                      style={{
-                        borderLeft: active ? "2px solid #f4522d" : "2px solid transparent",
-                        background: active ? "#fff1ee" : "transparent",
-                        color: active ? "#f4522d" : "#111111",
-                        fontSize: 13,
-                        fontWeight: active ? 500 : 400,
-                        transition: "all 0.15s ease",
-                        height: 36,
-                        cursor: "pointer",
-                      }}
-                    >
-                      <Link
-                        to={item.url}
-                        className="relative"
-                        onClick={() => { if (isMobile) setOpenMobile(false); }}
-                        onMouseEnter={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.background = "#f5f5f5";
-                          }
+                  <div key={folder.title}>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        className="!rounded-none group-data-[collapsible=icon]:hidden"
+                        onClick={() => setOpenFolders((p) => ({ ...p, [folder.title]: !p[folder.title] }))}
+                        style={{
+                          background: "transparent",
+                          color: "#6b6b6b",
+                          fontSize: 11,
+                          fontWeight: 500,
+                          letterSpacing: "0.04em",
+                          textTransform: "uppercase",
+                          height: 32,
+                          cursor: "pointer",
                         }}
-                        onMouseLeave={(e) => {
-                          if (!active) {
-                            e.currentTarget.style.background = "transparent";
-                          }
-                        }}
-                        style={{ cursor: "pointer", transition: "background 0.15s ease" }}
                       >
-                        <item.icon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
-                        <span className="flex-1">{item.title}</span>
-                        {item.title === "Logs" && unresolvedCount > 0 && (
-                          <>
-                            <span
-                              className="ml-auto inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-[10px] font-medium group-data-[collapsible=icon]:hidden"
-                              style={{ background: "#fef2f2", color: "#dc2626" }}
-                            >
-                              {unresolvedCount}
-                            </span>
-                            <span
-                              className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full md:group-data-[collapsible=icon]:block hidden"
-                              style={{ background: "#dc2626", boxShadow: "0 0 0 2px #ffffff" }}
-                            />
-                          </>
-                        )}
-                        {item.title === "Inbox" && unreadSms > 0 && (
-                          <>
-                            <span
-                              className="ml-auto inline-flex items-center justify-center h-[18px] min-w-[18px] px-1.5 rounded-full text-[10px] font-medium group-data-[collapsible=icon]:hidden"
-                              style={{ background: "#ecfdf5", color: "#10b981" }}
-                            >
-                              {unreadSms}
-                            </span>
-                            <span
-                              className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full md:group-data-[collapsible=icon]:block hidden"
-                              style={{ background: "#10b981", boxShadow: "0 0 0 2px #ffffff" }}
-                            />
-                          </>
-                        )}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                        <span className="flex-1 text-left">{folder.title}</span>
+                        <ChevronDown
+                          className="h-3.5 w-3.5"
+                          style={{
+                            transition: "transform 0.15s ease",
+                            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+                            color: "#6b6b6b",
+                          }}
+                        />
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                    {open && folder.items.map((item) => renderItem(item, true))}
+                    {/* When collapsed to icon, still show items (no folder header) */}
+                    <div className="hidden group-data-[collapsible=icon]:block">
+                      {folder.items.map((item) => renderItem(item))}
+                    </div>
+                  </div>
                 );
               })}
+
+              {bottomItems.map((item) => renderItem(item))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
