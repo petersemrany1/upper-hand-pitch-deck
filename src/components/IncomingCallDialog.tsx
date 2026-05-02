@@ -253,7 +253,7 @@ export function IncomingCallDialog() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {statusLabel(status)}
+                  {statusLabel(leadStatus)}
                 </span>
               )}
               {fullName && incomingFrom && (
