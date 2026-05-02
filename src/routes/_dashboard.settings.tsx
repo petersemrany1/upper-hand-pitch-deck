@@ -268,13 +268,18 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
       return;
     }
     setLoading(true);
-    const r = await inviteRep({ data: { firstName, lastName, email } });
-    setLoading(false);
-    if (r.success) {
-      toast.success(`Invite sent to ${email}`);
-      onDone();
-    } else {
-      toast.error(r.error);
+    try {
+      const r = await inviteRep({ data: { firstName, lastName, email } });
+      if (r.success) {
+        toast.success(`Invite sent to ${email}`);
+        onDone();
+      } else {
+        toast.error(r.error || "Failed to send invite");
+      }
+    } catch (err) {
+      toast.error((err as Error)?.message || "Failed to send invite");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -298,8 +303,8 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
 
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="First name" value={firstName} onChange={setFirstName} placeholder="Peter" />
-            <Field label="Last name" value={lastName} onChange={setLastName} placeholder="Semrany" />
+            <Field label="First name" value={firstName} onChange={setFirstName} placeholder="First name" />
+            <Field label="Last name" value={lastName} onChange={setLastName} placeholder="Last name" />
           </div>
           <Field label="Email" value={email} onChange={setEmail} placeholder="rep@company.com" type="email" />
         </div>
