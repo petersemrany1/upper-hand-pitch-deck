@@ -1,56 +1,29 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, Phone, FileText, PhoneCall, Loader2, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ChevronDown, AlertTriangle } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
-import { MissedCallsList } from "@/components/MissedCallsList";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
   head: () => ({
     meta: [
       { title: "Dashboard" },
-      { name: "description", content: "Your dashboard overview." },
+      { name: "description", content: "Your sales dashboard." },
+    ],
+    links: [
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap",
+      },
     ],
   }),
 });
 
-type SavedPhone = { name: string; phone: string };
-type ActivityItem = {
-  color: string;
-  text: string;
-  time: string;
-  sortDate: string;
-  clinicId?: string | null;
-  icon?: "call" | "contract" | "zoom" | "followup";
-};
-
-const DEFAULT_PHONES: SavedPhone[] = [{ name: "Peter Semrany", phone: "0418214953" }];
-
-function getStoredPhones(): SavedPhone[] {
-  try {
-    const stored = localStorage.getItem("saved_caller_phones");
-    if (stored) return JSON.parse(stored);
-  } catch {}
-  return DEFAULT_PHONES;
-}
-
-function relativeTime(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diff = now - then;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days === 1) return "Yesterday";
-  return `${days}d ago`;
-}
+const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
 function getGreeting(): string {
   const h = new Date().getHours();
@@ -68,476 +41,686 @@ function formatDate(): string {
   });
 }
 
+function relativeTime(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function startOfToday(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function startOfMonth(): Date {
+  const d = new Date();
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function monthYearLabel(): string {
+  return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+}
+
+function targetKey(): string {
+  const d = new Date();
+  return `booking_target_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "?";
+}
+
+type Lead = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  status: string | null;
+  created_at: string;
+  updated_at: string;
+  callback_scheduled_at: string | null;
+  phone: string | null;
+};
+
+type CallRow = {
+  id: string;
+  lead_id: string | null;
+  duration: number | null;
+  duration_seconds: number | null;
+  called_at: string;
+  outcome: string | null;
+  phone: string | null;
+};
+
+type SmsRow = {
+  id: string;
+  body: string | null;
+  from_number: string | null;
+  created_at: string;
+  direction: string;
+};
+
+type PipelineCounts = {
+  new: number;
+  callback: number;
+  retry: number;
+  had_convo: number;
+  booked: number;
+};
+
 function DashboardHome() {
   const { ready: authReady, session } = useAuth();
-  const [totalContacts, setTotalContacts] = useState<number | null>(null);
-  const [callsThisWeek, setCallsThisWeek] = useState<number | null>(null);
-  const [contractsSent, setContractsSent] = useState<number | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [recentCalls, setRecentCalls] = useState<Array<{ name: string; time: string; duration: string }>>([]);
-  const [followUps, setFollowUps] = useState<Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>>([]);
+  // Boot Twilio device (kept from existing dashboard)
+  useTwilioDevice(true);
 
-  const [dialNumber, setDialNumber] = useState("");
-  const [calling, setCalling] = useState(false);
-  const [callMessage, setCallMessage] = useState<string | null>(null);
-  const [savedPhones] = useState<SavedPhone[]>(getStoredPhones);
-  void savedPhones;
+  const [callsToday, setCallsToday] = useState(0);
+  const [holdRate, setHoldRate] = useState(0);
+  const [bookingsToday, setBookingsToday] = useState(0);
+  const [bookingsMonth, setBookingsMonth] = useState(0);
+  const [pipeline, setPipeline] = useState<PipelineCounts>({
+    new: 0, callback: 0, retry: 0, had_convo: 0, booked: 0,
+  });
+  const [newLeads, setNewLeads] = useState<Lead[]>([]);
+  const [overdueCallbacks, setOverdueCallbacks] = useState(0);
+  const [missedCalls, setMissedCalls] = useState<CallRow[]>([]);
+  const [unreadSms, setUnreadSms] = useState<SmsRow[]>([]);
+  const [missedOpen, setMissedOpen] = useState(false);
 
-  // Opt-in: dashboard hosts the Quick Dial widget so it boots the Device.
-  // (The dashboard layout no longer initialises Twilio app-wide.)
-  const {
-    status: deviceStatus,
-    dialerStatus,
-    error: dialerError,
-    call: placeCall,
-    hangup,
-    retry,
-  } = useTwilioDevice(true);
+  const [target, setTarget] = useState<number>(0);
+  const [showTargetModal, setShowTargetModal] = useState(false);
+  const [targetInput, setTargetInput] = useState("");
 
-  const dialerStateLabel =
-    dialerStatus === "ready" ? "Ready" : dialerStatus === "failed" ? "Failed" : "Connecting";
-  const dialerStateColor =
-    dialerStatus === "ready" ? "#22c55e" : dialerStatus === "failed" ? "#ef4444" : "#f59e0b";
-  const isCallActive = deviceStatus === "in-call" || deviceStatus === "connecting";
-
-  // Single round-trip: get_dashboard_stats RPC returns counts + recent calls
-  // + recent contracts + due follow-ups in one query (replaces 5 separate
-  // unindexed queries that previously fired on dashboard mount).
-  const loadData = useCallback(async () => {
-    type Stats = {
-      total_contacts: number;
-      calls_this_week: number;
-      contracts_sent: number;
-      recent_calls: Array<{
-        id: string;
-        status: string | null;
-        called_at: string;
-        duration: number | null;
-        client_name: string | null;
-      }>;
-      recent_contracts: Array<{ id: string; clinic_name: string; created_at: string }>;
-      follow_ups: Array<{ id: string; clinic_name: string; phone: string | null; next_follow_up: string }>;
-    };
-
-    const [statsRes, zoomsRes, callRecordsRes] = await Promise.all([
-      supabase.rpc("get_dashboard_stats" as never),
-      // Zooms: clinic_contacts rows whose outcome mentions "Zoom"
-      supabase
-        .from("clinic_contacts")
-        .select("id, clinic_id, outcome, next_action_date, created_at, clinics(clinic_name)")
-        .ilike("outcome", "%Zoom%")
-        .order("created_at", { ascending: false })
-        .limit(10),
-      // Recent calls with their clinic so the activity item can deep-link
-      supabase
-        .from("call_records")
-        .select("id, status, called_at, clinic_id, clinics(clinic_name)")
-        .order("called_at", { ascending: false })
-        .limit(8),
-    ]);
-
-    const statsRpc = statsRes as { data: unknown; error: unknown };
-    if (statsRpc.error || !statsRpc.data) {
-      console.error("get_dashboard_stats failed", statsRpc.error);
-      return;
+  // Load target from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem(targetKey());
+    if (stored && Number(stored) > 0) {
+      setTarget(Number(stored));
+    } else {
+      setShowTargetModal(true);
     }
-    const stats = statsRpc.data as Stats;
-
-    setTotalContacts(stats.total_contacts ?? 0);
-    setCallsThisWeek(stats.calls_this_week ?? 0);
-    setContractsSent(stats.contracts_sent ?? 0);
-    setFollowUps(stats.follow_ups ?? []);
-
-    const activityItems: ActivityItem[] = [];
-
-    // Calls (link to clinic when we have it)
-    type CallRow = { id: string; status: string | null; called_at: string; clinic_id: string | null; clinics: { clinic_name: string } | null };
-    for (const c of (callRecordsRes.data as CallRow[] | null) ?? []) {
-      const name = c.clinics?.clinic_name;
-      activityItems.push({
-        color: "#22c55e",
-        text: `Call ${c.status || "updated"}${name ? ` with ${name}` : ""}`,
-        time: relativeTime(c.called_at),
-        sortDate: c.called_at,
-        clinicId: c.clinic_id,
-        icon: "call",
-      });
-    }
-
-    setRecentCalls(
-      (stats.recent_calls ?? []).slice(0, 3).map((c) => ({
-        name: c.client_name || "Unknown",
-        time: relativeTime(c.called_at),
-        duration: c.duration ? `${Math.floor(c.duration / 60)}:${String(c.duration % 60).padStart(2, "0")}` : "—",
-      })),
-    );
-
-    // Contracts (no clinic_id stored on contract_logs, so non-clickable)
-    for (const c of stats.recent_contracts ?? []) {
-      activityItems.push({
-        color: "#f4522d",
-        text: `Contract sent to ${c.clinic_name}`,
-        time: relativeTime(c.created_at),
-        sortDate: c.created_at,
-        icon: "contract",
-      });
-    }
-
-    // Zooms — list out scheduled / completed Zoom calls
-    type ZoomRow = { id: string; clinic_id: string; outcome: string | null; next_action_date: string | null; created_at: string; clinics: { clinic_name: string } | null };
-    for (const z of (zoomsRes.data as ZoomRow[] | null) ?? []) {
-      const name = z.clinics?.clinic_name || "Unknown clinic";
-      const when = z.next_action_date ? ` for ${z.next_action_date}` : "";
-      activityItems.push({
-        color: "#a855f7",
-        text: `${z.outcome || "Zoom"}${when} — ${name}`,
-        time: relativeTime(z.created_at),
-        sortDate: z.created_at,
-        clinicId: z.clinic_id,
-        icon: "zoom",
-      });
-    }
-
-    activityItems.sort((a, b) => new Date(b.sortDate).getTime() - new Date(a.sortDate).getTime());
-    setActivity(activityItems.slice(0, 15));
   }, []);
 
-  // Auth-ready gate: don't fire data queries until the JWT is attached. This
-  // prevents the wave of unauth round-trips that used to fire on cold start.
+  const loadData = useCallback(async () => {
+    const todayIso = startOfToday().toISOString();
+    const monthIso = startOfMonth().toISOString();
+    const nowIso = new Date().toISOString();
+
+    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes] =
+      await Promise.all([
+        supabase
+          .from("call_records")
+          .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
+          .gte("called_at", todayIso),
+        supabase
+          .from("meta_leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "booked_deposit_paid")
+          .gte("updated_at", todayIso),
+        supabase
+          .from("meta_leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "booked_deposit_paid")
+          .gte("updated_at", monthIso),
+        supabase.from("meta_leads").select("status"),
+        supabase
+          .from("meta_leads")
+          .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone")
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
+          .from("meta_leads")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "callback_scheduled")
+          .lt("callback_scheduled_at", nowIso),
+        supabase
+          .from("call_records")
+          .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
+          .gte("called_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
+          .or("outcome.ilike.%missed%,outcome.ilike.%no_answer%,outcome.ilike.%no answer%")
+          .order("called_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("sms_messages")
+          .select("id, body, from_number, created_at, direction")
+          .eq("direction", "inbound")
+          .order("created_at", { ascending: false })
+          .limit(20),
+      ]);
+
+    const calls = (callsRes.data ?? []) as CallRow[];
+    const uniqueLeads = new Set(calls.map((c) => c.lead_id).filter(Boolean));
+    const heldCount = calls.filter((c) => {
+      const d = c.duration_seconds ?? c.duration ?? 0;
+      return d > 120;
+    }).length;
+    const totalUnique = uniqueLeads.size;
+    setCallsToday(totalUnique);
+    setHoldRate(totalUnique > 0 ? Math.round((heldCount / totalUnique) * 100) : 0);
+
+    setBookingsToday(bookingsTodayRes.count ?? 0);
+    setBookingsMonth(bookingsMonthRes.count ?? 0);
+
+    const counts: PipelineCounts = { new: 0, callback: 0, retry: 0, had_convo: 0, booked: 0 };
+    for (const row of (pipelineRes.data ?? []) as { status: string | null }[]) {
+      const s = row.status ?? "";
+      if (s === "new") counts.new++;
+      else if (s === "callback_scheduled") counts.callback++;
+      else if (s === "had_convo_chase_up" || s === "no_answer") {
+        if (s === "no_answer") counts.retry++;
+        else counts.had_convo++;
+      } else if (s === "booked_deposit_paid") counts.booked++;
+    }
+    setPipeline(counts);
+
+    setNewLeads((newLeadsRes.data ?? []) as Lead[]);
+    setOverdueCallbacks(overdueRes.count ?? 0);
+    setMissedCalls((missedRes.data ?? []) as CallRow[]);
+    setUnreadSms((smsRes.data ?? []) as SmsRow[]);
+  }, []);
+
   useEffect(() => {
     if (!authReady || !session) return;
     void loadData();
   }, [authReady, session, loadData]);
 
-  const handleQuickDial = async () => {
-    if (!dialNumber || calling) return;
+  const firstName = useMemo(() => {
+    const meta = session?.user?.user_metadata as Record<string, unknown> | undefined;
+    const fromMeta = (meta?.first_name as string | undefined) || (meta?.full_name as string | undefined);
+    if (fromMeta) return String(fromMeta).split(" ")[0];
+    const email = session?.user?.email ?? "";
+    return email.split("@")[0].split(/[._]/)[0].replace(/^\w/, (c) => c.toUpperCase()) || "there";
+  }, [session]);
 
-    if (isCallActive) {
-      hangup();
-      setCallMessage("Call ended.");
-      return;
-    }
+  const bonus = bookingsToday * 50;
+  const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
 
-    if (dialerStatus === "failed") {
-      setCallMessage("Connection failed — click to retry");
-      return;
-    }
-
-    if (dialerStatus !== "ready") {
-      setCallMessage("Dialer is connecting...");
-      return;
-    }
-
-    setCalling(true);
-    setCallMessage(null);
-    try {
-      await placeCall(dialNumber);
-      setCallMessage("Dialling the clinic from your browser…");
-    } catch (err) {
-      setCallMessage(err instanceof Error ? err.message : "Call failed. Try again.");
-    } finally {
-      setCalling(false);
-    }
+  const confirmTarget = () => {
+    const n = Number(targetInput);
+    if (!n || n <= 0) return;
+    localStorage.setItem(targetKey(), String(n));
+    setTarget(n);
+    setShowTargetModal(false);
+    setTargetInput("");
   };
 
-  useEffect(() => {
-    if (deviceStatus === "in-call") {
-      setCallMessage("Connected — you're on the call.");
+  const missedItems = useMemo(() => {
+    const items: Array<{ id: string; name: string; type: "call" | "sms"; time: string }> = [];
+    for (const c of missedCalls) {
+      items.push({ id: `c-${c.id}`, name: c.phone || "Unknown", type: "call", time: c.called_at });
     }
-  }, [deviceStatus]);
-
-  useEffect(() => {
-    if (dialerStatus === "failed") {
-      setCallMessage(dialerError || "Connection failed — click to retry");
+    for (const s of unreadSms) {
+      items.push({ id: `s-${s.id}`, name: s.from_number || "Unknown", type: "sms", time: s.created_at });
     }
-  }, [dialerError, dialerStatus]);
+    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+  }, [missedCalls, unreadSms]);
 
-  const stats = [
-    {
-      label: "TOTAL CONTACTS",
-      value: totalContacts,
-      icon: Users,
-      gradient: "#ffffff",
-      borderColor: "#f4522d",
-      iconColor: "#f4522d",
-      iconBg: "#fff1ee",
-    },
-    {
-      label: "CALLS THIS WEEK",
-      value: callsThisWeek,
-      icon: Phone,
-      gradient: "#ffffff",
-      borderColor: "#3b82f6",
-      iconColor: "#3b82f6",
-      iconBg: "#eff6ff",
-    },
-    {
-      label: "CONTRACTS SENT",
-      value: contractsSent,
-      icon: FileText,
-      gradient: "#ffffff",
-      borderColor: "#8b5cf6",
-      iconColor: "#8b5cf6",
-      iconBg: "#f5f3ff",
-    },
-  ];
+  const missedCount = missedItems.length;
 
   return (
-    <div
-      className="dashboard-grid flex flex-col md:grid h-auto md:h-full overflow-visible md:overflow-hidden p-4 gap-3"
-    >
-      <div
-        className="md:col-span-4 rounded-lg flex items-center justify-between px-5 py-4 md:py-3"
-        style={{ background: "#ffffff", border: "0.5px solid #ebebeb" }}
-      >
-        <div>
-          <div style={{ fontSize: 22, color: "#111111", fontWeight: 500, letterSpacing: "-0.01em" }}>{getGreeting()}, Peter</div>
-          <div style={{ fontSize: 12, color: "#111111", marginTop: 2 }}>{formatDate()}</div>
-        </div>
-      </div>
-
-      <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {stats.map((s) => {
-          const Icon = s.icon;
-          return (
+    <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Top bar */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
+              {getGreeting()}, {firstName}
+            </div>
+            <div style={{ fontSize: 13, color: "#999", marginTop: 4 }}>{formatDate()}</div>
+          </div>
+          {overdueCallbacks > 0 && (
             <div
-              key={s.label}
-              className="rounded-lg p-5"
               style={{
-                background: "#ffffff",
-                border: "0.5px solid #ebebeb",
+                background: "#fef2f2",
+                color: "#b91c1c",
+                fontSize: 12,
+                fontWeight: 600,
+                padding: "6px 12px",
+                borderRadius: 999,
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
               }}
             >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div style={{ fontSize: 28, color: "#111111", fontWeight: 500, lineHeight: 1.1 }}>
-                    {s.value === null ? "—" : s.value}
-                  </div>
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {overdueCallbacks} callback{overdueCallbacks === 1 ? "" : "s"} overdue
+            </div>
+          )}
+        </div>
+
+        {/* Stats strip */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <StatCard
+            label="Bookings Today"
+            value={bookingsToday}
+            valueColor="#f4522d"
+            sub={bonus > 0 ? `$${bonus} bonus earned` : "$0 bonus earned"}
+            borderLeft="3px solid #f4522d"
+          />
+          <StatCard
+            label="Calls Today"
+            value={callsToday}
+            valueColor="#111"
+            sub={`${callsToday} unique lead${callsToday === 1 ? "" : "s"}`}
+          />
+          <StatCard
+            label="Hold Rate"
+            value={`${holdRate}%`}
+            valueColor="#16a34a"
+            sub="past 2 minutes"
+          />
+        </div>
+
+        {/* Pipeline */}
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Pipeline</div>
+            <Link to="/sales-call" style={{ fontSize: 13, color: "#f4522d", fontWeight: 500 }}>
+              Open call sheet →
+            </Link>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", borderTop: "0.5px solid #f0f0ee" }}>
+            <PipelineCol label="New" value={pipeline.new} color="#3b82f6" />
+            <PipelineCol label="Callback" value={pipeline.callback} color="#f4522d" />
+            <PipelineCol label="Retry" value={pipeline.retry} color="#f59e0b" />
+            <PipelineCol label="Had Convo" value={pipeline.had_convo} color="#8b5cf6" />
+            <PipelineCol label="Booked" value={pipeline.booked} color="#16a34a" />
+          </div>
+        </Card>
+
+        {/* Two column row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <Card>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
+              <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} from Meta</div>
+            </div>
+            <div>
+              {newLeads.length === 0 ? (
+                <div style={{ padding: 20, fontSize: 13, color: "#999" }}>No new leads yet.</div>
+              ) : (
+                newLeads.map((l) => {
+                  const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
+                  const badge = statusBadge(l.status);
+                  return (
+                    <Link
+                      key={l.id}
+                      to="/sales-call"
+                      search={{ leadId: l.id } as never}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "12px 20px",
+                        borderBottom: "0.5px solid #f6f6f4",
+                        textDecoration: "none",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: "50%",
+                          background: "#fff1ee",
+                          color: "#f4522d",
+                          fontSize: 12,
+                          fontWeight: 600,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0,
+                        }}
+                      >
+                        {initials(name)}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          textTransform: "uppercase",
+                          letterSpacing: "0.05em",
+                          padding: "3px 8px",
+                          borderRadius: 4,
+                          background: badge.bg,
+                          color: badge.fg,
+                        }}
+                      >
+                        {badge.label}
+                      </span>
+                      <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
+                        {relativeTime(l.created_at)}
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <div style={{ padding: 20 }}>
+              <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
+                Bookings — {monthYearLabel()}
+              </div>
+              <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                {bookingsMonth}
+              </div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>
+                Target: {target || 0} / month
+              </div>
+              {target > 0 ? (
+                <>
                   <div
                     style={{
-                      fontSize: 11,
-                      color: "#111111",
-                      letterSpacing: "0.05em",
-                      marginTop: 8,
-                      fontWeight: 500,
-                      textTransform: "uppercase",
+                      marginTop: 16,
+                      background: "#f0f0ee",
+                      height: 5,
+                      borderRadius: 4,
+                      overflow: "hidden",
                     }}
                   >
-                    {s.label}
+                    <div
+                      style={{
+                        width: `${targetPct}%`,
+                        background: "#f4522d",
+                        height: "100%",
+                        borderRadius: 4,
+                        transition: "width 300ms",
+                      }}
+                    />
                   </div>
-                </div>
-                <div className="flex items-center justify-center rounded-md" style={{ width: 32, height: 32, background: s.iconBg }}>
-                  <Icon className="h-4 w-4" style={{ color: s.iconColor }} />
-                </div>
-              </div>
+                  <div style={{ fontSize: 12, color: "#f4522d", fontWeight: 500, marginTop: 8 }}>
+                    {targetPct}% of target
+                  </div>
+                </>
+              ) : (
+                <button
+                  onClick={() => setShowTargetModal(true)}
+                  style={{ marginTop: 16, fontSize: 13, color: "#f4522d", fontWeight: 500, background: "none", border: 0, cursor: "pointer", padding: 0 }}
+                >
+                  Set target →
+                </button>
+              )}
             </div>
-          );
-        })}
-
-        <div className="sm:col-span-3 rounded-lg flex flex-col overflow-hidden min-h-[240px] md:min-h-0" style={{ background: "transparent" }}>
-          <div className="px-4 pt-3 pb-2 flex items-center gap-4">
-            <span style={{ fontSize: 10, color: "#f4522d", letterSpacing: "0.2em", fontWeight: 600 }}>ACTIVITY</span>
-            <span
-              style={{
-                fontSize: 10,
-                color: "#f59e0b",
-                letterSpacing: "0.2em",
-                fontWeight: 600,
-                marginLeft: "auto",
-              }}
-            >
-              FOLLOW UPS DUE
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 pb-2" style={{ minHeight: 0 }}>
-            <FollowUpsDue followUps={followUps} />
-            {activity.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#111111", padding: "16px 0" }}>No recent activity</div>
-            ) : (
-              activity.map((item, i) => {
-                const row = (
-                  <>
-                    <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: item.color }} />
-                    <span className="flex-1 truncate" style={{ fontSize: 13, color: "#111111" }}>{item.text}</span>
-                    <span className="shrink-0" style={{ fontSize: 11, color: "#111111" }}>{item.time}</span>
-                  </>
-                );
-                return item.clinicId ? (
-                  <Link
-                    key={i}
-                    to="/clinics"
-                    search={{ clinic: item.clinicId }}
-                    className="flex items-center gap-3 hover:bg-[#f9f9f9] rounded -mx-1 px-1"
-                    style={{ height: 36 }}
-                  >
-                    {row}
-                  </Link>
-                ) : (
-                  <div key={i} className="flex items-center gap-3" style={{ height: 36 }}>
-                    {row}
-                  </div>
-                );
-              })
-            )}
-          </div>
+          </Card>
         </div>
+
+        {/* Missed / SMS panel */}
+        <Card>
+          <button
+            onClick={() => setMissedOpen((o) => !o)}
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "14px 20px",
+              background: "none",
+              border: 0,
+              cursor: "pointer",
+              fontFamily: FONT,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f4522d" }} />
+              <span style={{ fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
+                Missed calls & unread SMS
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 13, color: "#f4522d", fontWeight: 600 }}>{missedCount}</span>
+              <ChevronDown
+                className="h-4 w-4"
+                style={{
+                  color: "#aaa",
+                  transform: missedOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 200ms",
+                }}
+              />
+            </div>
+          </button>
+          {missedOpen && (
+            <div style={{ borderTop: "0.5px solid #f0f0ee" }}>
+              {missedItems.length === 0 ? (
+                <div style={{ padding: 20, fontSize: 13, color: "#999" }}>Nothing missed. Nice work.</div>
+              ) : (
+                missedItems.map((it) => (
+                  <div
+                    key={it.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "12px 20px",
+                      borderBottom: "0.5px solid #f6f6f4",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background: "#fff1ee",
+                        color: "#f4522d",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {initials(it.name)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#111", fontWeight: 500 }}>{it.name}</div>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.05em",
+                        padding: "3px 8px",
+                        borderRadius: 4,
+                        background: it.type === "call" ? "#fef2f2" : "#eff6ff",
+                        color: it.type === "call" ? "#b91c1c" : "#1d4ed8",
+                      }}
+                    >
+                      {it.type === "call" ? "Missed call" : "SMS reply"}
+                    </span>
+                    <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
+                      {relativeTime(it.time)}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </Card>
       </div>
 
-      <div
-        className="md:row-span-2 rounded-lg flex flex-col overflow-hidden"
-        style={{
-          background: "#ffffff",
-          border: "1px solid #ebebeb",
-          borderLeft: "3px solid #f4522d",
-        }}
-      >
-        <div className="px-4 pt-4 pb-3">
+      {/* Target modal */}
+      {showTargetModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            fontFamily: FONT,
+            padding: 16,
+          }}
+        >
           <div
             style={{
-              fontSize: 10,
-              color: "#f4522d",
-              letterSpacing: "0.2em",
-              fontWeight: 600,
-              marginBottom: 4,
+              background: "#fff",
+              borderRadius: 16,
+              padding: 32,
+              maxWidth: 440,
+              width: "100%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
             }}
           >
-            QUICK DIAL
-          </div>
-          <p style={{ fontSize: 11, color: "#111111", marginBottom: 12 }}>Call a clinic directly</p>
-
-          <div
-            className="mb-3 rounded-md px-3 py-2 flex items-center justify-between gap-3"
-            style={{
-              background: dialerStatus === "ready" ? "#ecfdf5" : dialerStatus === "failed" ? "#fef2f2" : "#fffbeb",
-              border: `0.5px solid ${dialerStatus === "ready" ? "#6ee7b7" : dialerStatus === "failed" ? "#fca5a5" : "#fde68a"}`,
-            }}
-          >
-            <div>
-              <div className="flex items-center gap-2" style={{ fontSize: 11, color: dialerStatus === "ready" ? "#10b981" : dialerStatus === "failed" ? "#dc2626" : "#92400e", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                <span className="rounded-full" style={{ width: 8, height: 8, background: dialerStateColor }} />
-                {dialerStateLabel}
-              </div>
-              <div style={{ fontSize: 11, color: "#111111", marginTop: 4 }}>
-                {dialerStatus === "failed"
-                  ? "Connection failed — click to retry"
-                  : dialerStatus === "ready"
-                    ? "Dialler ready"
-                    : "Connecting to Twilio..."}
-              </div>
+            <div style={{ fontSize: 20, fontWeight: 600, color: "#111", letterSpacing: "-0.01em" }}>
+              What's your booking target for {monthYearLabel()}?
             </div>
-            {dialerStatus === "failed" && (
-              <Button
-                type="button"
-                onClick={() => {
-                  setCallMessage(null);
-                  retry();
-                }}
-                className="border-0 text-white text-xs px-3"
-                style={{ background: "#dc2626", height: 32, borderRadius: 6 }}
-              >
-                Retry
-              </Button>
-            )}
-          </div>
-
-          <Input
-            placeholder="Phone number"
-            value={dialNumber}
-            onChange={(e) => setDialNumber(e.target.value)}
-            className="mb-2 text-sm"
-            style={{ background: "#ffffff", color: "#111111", height: 38, border: "0.5px solid #ebebeb", borderRadius: 6 }}
-          />
-
-          <Button
-            onClick={handleQuickDial}
-            disabled={!dialNumber || calling || (dialerStatus === "connecting" && !isCallActive)}
-            className="w-full border-0 text-white font-medium text-sm"
-            style={{ background: isCallActive ? "#dc2626" : "#f4522d", height: 44, borderRadius: 6 }}
-          >
-            {calling ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : isCallActive ? (
-              <>
-                <PhoneCall className="h-4 w-4 mr-2" />
-                Hang Up
-              </>
-            ) : (
-              <>
-                <PhoneCall className="h-4 w-4 mr-2" />
-                Call Now
-              </>
-            )}
-          </Button>
-
-          {callMessage && (
-            <div
-              className="mt-2 rounded px-3 py-2"
+            <div style={{ fontSize: 13, color: "#999", marginTop: 8 }}>
+              You can update this anytime in settings.
+            </div>
+            <input
+              type="number"
+              min={1}
+              autoFocus
+              value={targetInput}
+              onChange={(e) => setTargetInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") confirmTarget();
+              }}
+              placeholder="e.g. 30"
               style={{
-                fontSize: 11,
-                color: dialerStatus === "failed" ? "#fca5a5" : "#111111",
-                background: "#f9f9f9",
+                marginTop: 20,
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 16,
+                border: "0.5px solid #e8e8e6",
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: FONT,
+              }}
+            />
+            <button
+              onClick={confirmTarget}
+              disabled={!Number(targetInput) || Number(targetInput) <= 0}
+              style={{
+                marginTop: 16,
+                width: "100%",
+                background: "#f4522d",
+                color: "#fff",
+                border: 0,
+                borderRadius: 8,
+                padding: "12px",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: Number(targetInput) > 0 ? "pointer" : "not-allowed",
+                opacity: Number(targetInput) > 0 ? 1 : 0.5,
+                fontFamily: FONT,
               }}
             >
-              {callMessage}
-            </div>
-          )}
-
-          <div className="mt-4">
-            <MissedCallsList />
+              Confirm
+            </button>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
 
-        <div className="mt-auto px-4 pb-4">
-          <div
-            style={{
-              fontSize: 10,
-              color: "#111111",
-              letterSpacing: "0.15em",
-              marginBottom: 8,
-              fontWeight: 500,
-            }}
-          >
-            RECENT CALLS
-          </div>
-          {recentCalls.length === 0 ? (
-            <div style={{ fontSize: 11, color: "#111111" }}>No recent calls</div>
-          ) : (
-            <div className="space-y-2">
-              {recentCalls.map((c, i) => (
-                <div key={i} className="flex items-center justify-between" style={{ fontSize: 11 }}>
-                  <span style={{ color: "#111111" }}>{c.name}</span>
-                  <span style={{ color: "#111111" }}>{c.duration} · {c.time}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "0.5px solid #e8e8e6",
+        borderRadius: 14,
+        overflow: "hidden",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  valueColor,
+  sub,
+  borderLeft,
+}: {
+  label: string;
+  value: number | string;
+  valueColor: string;
+  sub: string;
+  borderLeft?: string;
+}) {
+  return (
+    <div
+      style={{
+        background: "#fff",
+        border: "0.5px solid #e8e8e6",
+        borderLeft: borderLeft ?? "0.5px solid #e8e8e6",
+        borderRadius: 14,
+        padding: 20,
+      }}
+    >
+      <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: 40,
+          fontWeight: 600,
+          letterSpacing: "-0.03em",
+          color: valueColor,
+          marginTop: 8,
+          lineHeight: 1,
+        }}
+      >
+        {value}
+      </div>
+      <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{sub}</div>
+    </div>
+  );
+}
+
+function PipelineCol({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div
+      style={{
+        padding: "20px 16px",
+        textAlign: "center",
+        borderRight: "0.5px solid #f0f0ee",
+      }}
+    >
+      <div style={{ fontSize: 32, fontWeight: 600, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
+      <div
+        style={{
+          fontSize: 10,
+          color: "#999",
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          fontWeight: 600,
+          marginTop: 8,
+        }}
+      >
+        {label}
       </div>
     </div>
   );
 }
 
-type FollowUp = { id: string; clinic_name: string; phone: string | null; next_follow_up: string };
-
-function FollowUpsDue({ followUps }: { followUps: FollowUp[] }) {
-  if (followUps.length === 0) return null;
-
-  return (
-    <div className="mb-3 pb-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
-      {followUps.map((f) => (
-        <Link
-          key={f.id}
-          to="/clinics"
-          search={{ clinic: f.id }}
-          className="flex items-center gap-3 hover:bg-[#f9f9f9] rounded -mx-1 px-1"
-          style={{ height: 32 }}
-        >
-          <span className="rounded-full shrink-0" style={{ width: 6, height: 6, background: "#f59e0b" }} />
-          <span className="flex-1 truncate" style={{ fontSize: 12, color: "#111111" }}>{f.clinic_name}</span>
-          <span style={{ fontSize: 10, color: "#f4522d", background: "#fff1ee", padding: "2px 6px", borderRadius: 4, fontWeight: 500 }}>{f.next_follow_up}</span>
-          <Calendar className="w-3 h-3 shrink-0" style={{ color: "#f59e0b" }} />
-        </Link>
-      ))}
-    </div>
-  );
+function statusBadge(status: string | null): { label: string; bg: string; fg: string } {
+  switch (status) {
+    case "booked_deposit_paid":
+      return { label: "Booked", bg: "#dcfce7", fg: "#15803d" };
+    case "callback_scheduled":
+      return { label: "Callback", bg: "#fef3c7", fg: "#a16207" };
+    case "had_convo_chase_up":
+      return { label: "Chase", bg: "#f3e8ff", fg: "#7e22ce" };
+    case "no_answer":
+      return { label: "Retry", bg: "#fef3c7", fg: "#a16207" };
+    case "new":
+    default:
+      return { label: "New", bg: "#dbeafe", fg: "#1d4ed8" };
+  }
 }
