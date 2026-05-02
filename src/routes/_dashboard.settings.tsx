@@ -62,6 +62,8 @@ type Rep = {
 };
 
 function SettingsPage() {
+  const { role, user } = useAuth();
+  const isAdmin = role === "admin";
   return (
     <div className="min-h-screen bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12">
       <div className="max-w-4xl mx-auto">
@@ -77,27 +79,38 @@ function SettingsPage() {
               Settings
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Manage your team and portal configuration.
+              {isAdmin ? "Manage your team and portal configuration." : "Your account."}
             </p>
           </div>
         </div>
 
-        <TeamSection />
+        {isAdmin && <TeamSection />}
 
-        <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
-          <h2 className="text-lg font-bold text-foreground mb-3">Payment Links</h2>
-          <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 text-sm text-foreground">
-            <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
-            <div>
-              <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
-              <p className="text-muted-foreground leading-relaxed">
-                When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
-                Session is created for the exact amount of the selected pack — including
-                custom prices.
-              </p>
+        {!isAdmin && (
+          <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
+            <h2 className="text-lg font-bold text-foreground mb-3">Account</h2>
+            <div className="text-sm text-muted-foreground">
+              Signed in as <span className="font-medium text-foreground">{user?.email ?? "—"}</span>
             </div>
-          </div>
-        </section>
+          </section>
+        )}
+
+        {isAdmin && (
+          <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
+            <h2 className="text-lg font-bold text-foreground mb-3">Payment Links</h2>
+            <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 text-sm text-foreground">
+              <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
+              <div>
+                <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
+                  Session is created for the exact amount of the selected pack — including
+                  custom prices.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );
