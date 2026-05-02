@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { IncomingCallDialog } from "@/components/IncomingCallDialog";
+import { IncomingCallDialog, useIncomingBannerActive, INCOMING_BANNER_HEIGHT } from "@/components/IncomingCallDialog";
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { MissedCallNotifier } from "@/components/MissedCallNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
@@ -103,7 +103,7 @@ function DashboardLayout() {
   return (
     <SidebarProvider defaultOpen={false}>
       <DeviceBootstrap />
-      <div className="h-screen flex w-full overflow-hidden" style={{ background: "#f7f7f5" }}>
+      <DashboardShell>
         <AppSidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <SidebarTrigger
@@ -115,11 +115,30 @@ function DashboardLayout() {
             <Outlet />
           </main>
         </div>
-      </div>
+      </DashboardShell>
       <IncomingCallDialog />
       <FloatingCallWidget />
       <SmsNotifier />
       <MissedCallNotifier />
     </SidebarProvider>
+  );
+}
+
+// Wraps the dashboard chrome and reserves space at the top whenever the
+// incoming-call banner is visible, so the banner pushes content down
+// instead of overlaying it.
+function DashboardShell({ children }: { children: React.ReactNode }) {
+  const bannerActive = useIncomingBannerActive();
+  return (
+    <div
+      className="h-screen flex w-full overflow-hidden"
+      style={{
+        background: "#f7f7f5",
+        paddingTop: bannerActive ? INCOMING_BANNER_HEIGHT : 0,
+        transition: "padding-top 200ms ease-out",
+      }}
+    >
+      {children}
+    </div>
   );
 }
