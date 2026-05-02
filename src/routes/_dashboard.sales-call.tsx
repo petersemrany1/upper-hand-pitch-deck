@@ -2465,6 +2465,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 const s = await updateLeadStatus({ data: { leadId: lead.id, status: "cancelled" } });
                 if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
                 await clearBooking({ data: { leadId: lead.id } });
+                try { await supabase.from("appointment_reminders").update({ status: "cancelled" }).eq("lead_id", lead.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                 (lead as { booking_date: string | null }).booking_date = null;
                 (lead as { booking_time: string | null }).booking_time = null;
                 (lead as { status: string }).status = "cancelled";
@@ -2490,6 +2491,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 const s = await updateLeadStatus({ data: { leadId: lead.id, status: "no_show" } });
                 if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
                 await clearBooking({ data: { leadId: lead.id } });
+                try { await supabase.from("appointment_reminders").update({ status: "no_show" }).eq("lead_id", lead.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                 (lead as { booking_date: string | null }).booking_date = null;
                 (lead as { booking_time: string | null }).booking_time = null;
                 (lead as { status: string }).status = "no_show";
@@ -4020,6 +4022,7 @@ function LeadChooser({
                       const r = await updateLeadStatus({ data: { leadId: l.id, status: "cancelled" } });
                       if (!r.success) { setSavingStatus(null); toast.error(`Failed: ${r.error}`); return; }
                       await clearBooking({ data: { leadId: l.id } });
+                      try { await supabase.from("appointment_reminders").update({ status: "cancelled" }).eq("lead_id", l.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                       onLocalLeadUpdate?.(l.id, { status: "cancelled", booking_date: null, booking_time: null } as Partial<Lead>);
                       setSavingStatus(null);
                       toast.success("Marked as cancelled");
@@ -4044,6 +4047,7 @@ function LeadChooser({
                       const r = await updateLeadStatus({ data: { leadId: l.id, status: "no_show" } });
                       if (!r.success) { setSavingStatus(null); toast.error(`Failed: ${r.error}`); return; }
                       await clearBooking({ data: { leadId: l.id } });
+                      try { await supabase.from("appointment_reminders").update({ status: "no_show" }).eq("lead_id", l.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
                       onLocalLeadUpdate?.(l.id, { status: "no_show", booking_date: null, booking_time: null } as Partial<Lead>);
                       setSavingStatus(null);
                       toast.success("Marked as no-show");
