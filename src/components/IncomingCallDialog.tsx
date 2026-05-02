@@ -1,234 +1,366 @@
 import { useEffect, useRef, useState } from "react";
-import { Phone, PhoneOff } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { findLeadByPhone } from "@/utils/sales-call.functions";
+import { sendSms } from "@/utils/sms.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { Check, Phone, X } from "lucide-react";
 
-// Global incoming-call alert. Shows a full-screen-ish modal with caller ID,
-// matches the inbound number against meta_leads so the rep instantly sees
-// WHO is calling (name, day, attempt count, previous notes), plays a
-// ringtone, and exposes Accept / Reject buttons. Auto-mounted in the
-// dashboard layout so it works on any page.
+// Slim incoming-call banner that slides in from the top of the screen.
+// Sits ABOVE app content (the dashboard layout reserves 64px when this
+// is visible, so it pushes content down rather than overlaying it).
+//
+// Replaces the old full-screen modal — the old name is kept so existing
+// imports keep working.
+
+const BANNER_HEIGHT = 64;
+const AUTO_DISMISS_MS = 30_000;
 
 type MatchedLead = {
   id: string;
   first_name: string | null;
   last_name: string | null;
   phone: string | null;
-  day_number: number | null;
   status: string | null;
   call_notes: string | null;
-  callback_scheduled_at: string | null;
-  booking_date: string | null;
-  booking_time: string | null;
-  attempt_count: number;
 };
 
-function useRingtone(active: boolean) {
-  const ctxRef = useRef<AudioContext | null>(null);
-  const stopRef = useRef<(() => void) | null>(null);
+function statusLabel(s: string | null): string {
+  if (!s) return "New";
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
-  useEffect(() => {
-    if (!active) {
-      stopRef.current?.();
-      stopRef.current = null;
-      return;
-    }
-
-    let cancelled = false;
-    const start = async () => {
-      try {
-        const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const ctx = new Ctx();
-        ctxRef.current = ctx;
-        if (ctx.state === "suspended") await ctx.resume();
-        if (cancelled) return;
-
-        let timer: number | null = null;
-        const playRing = () => {
-          const now = ctx.currentTime;
-          [0, 0.4].forEach((offset) => {
-            const osc = ctx.createOscillator();
-            const gain = ctx.createGain();
-            osc.frequency.value = 480;
-            const o2 = ctx.createOscillator();
-            o2.frequency.value = 620;
-            o2.connect(gain);
-            osc.connect(gain);
-            gain.gain.setValueAtTime(0.0001, now + offset);
-            gain.gain.exponentialRampToValueAtTime(0.15, now + offset + 0.05);
-            gain.gain.exponentialRampToValueAtTime(0.0001, now + offset + 0.3);
-            gain.connect(ctx.destination);
-            osc.start(now + offset);
-            o2.start(now + offset);
-            osc.stop(now + offset + 0.32);
-            o2.stop(now + offset + 0.32);
-          });
-        };
-        playRing();
-        timer = window.setInterval(playRing, 2000);
-        stopRef.current = () => {
-          if (timer !== null) window.clearInterval(timer);
-          ctx.close().catch(() => { /* noop */ });
-        };
-      } catch (e) {
-        console.warn("Ringtone unavailable", e);
-      }
-    };
-    void start();
-    return () => {
-      cancelled = true;
-      stopRef.current?.();
-      stopRef.current = null;
-    };
-  }, [active]);
+function statusColor(s: string | null): { bg: string; fg: string } {
+  switch (s) {
+    case "callback_scheduled":
+      return { bg: "#fef3c7", fg: "#92400e" };
+    case "booked_deposit_paid":
+    case "booked_no_deposit":
+      return { bg: "#d1fae5", fg: "#065f46" };
+    case "not_interested":
+    case "dropped":
+      return { bg: "#fee2e2", fg: "#991b1b" };
+    case "no_answer":
+      return { bg: "#e0e7ff", fg: "#3730a3" };
+    default:
+      return { bg: "#f3f4f6", fg: "#374151" };
+  }
 }
 
 export function IncomingCallDialog() {
-  const { status, incomingFrom, answer, reject } = useTwilioDevice();
-  const isRinging = status === "ringing-incoming";
+  const { status: deviceStatus, incomingFrom, reject } = useTwilioDevice();
+  const isRinging = deviceStatus === "ringing-incoming";
 
   const [matched, setMatched] = useState<MatchedLead | null>(null);
-  const [looking, setLooking] = useState(false);
+  const [summary, setSummary] = useState<string | null>(null);
+  const [smsSent, setSmsSent] = useState(false);
+  const [smsBusy, setSmsBusy] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const dismissTimerRef = useRef<number | null>(null);
 
-  useRingtone(isRinging);
-
-  // Lookup the caller against meta_leads the moment the phone rings
+  // Reset transient UI whenever a new call starts/ends
   useEffect(() => {
-    if (!isRinging || !incomingFrom) {
+    if (!isRinging) {
       setMatched(null);
-      return;
+      setSummary(null);
+      setSmsSent(false);
+      setSmsBusy(false);
+      setDismissed(false);
+      if (dismissTimerRef.current) {
+        window.clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
     }
-    setLooking(true);
-    setMatched(null);
+  }, [isRinging]);
+
+  // Match incoming caller to a lead via phone tail
+  useEffect(() => {
+    if (!isRinging || !incomingFrom) return;
     void findLeadByPhone({ data: { phone: incomingFrom } })
       .then((r) => {
-        if (r.success && r.lead) setMatched(r.lead);
+        if (r.success && r.lead) {
+          setMatched({
+            id: r.lead.id,
+            first_name: r.lead.first_name,
+            last_name: r.lead.last_name,
+            phone: r.lead.phone,
+            status: r.lead.status,
+            call_notes: r.lead.call_notes,
+          });
+        }
       })
-      .catch(() => { /* noop */ })
-      .finally(() => setLooking(false));
+      .catch(() => { /* noop */ });
   }, [isRinging, incomingFrom]);
 
-  // Browser notification (best effort) — include name if matched
+  // Fetch / generate the AI one-liner once we have a matched lead
   useEffect(() => {
-    if (!isRinging) return;
-    try {
-      if ("Notification" in window) {
-        if (Notification.permission === "granted") {
-          const name = matched ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") : null;
-          new Notification("Incoming call", { body: name || incomingFrom || "Unknown caller" });
-        } else if (Notification.permission !== "denied") {
-          Notification.requestPermission().catch(() => { /* noop */ });
-        }
-      }
-    } catch { /* noop */ }
-  }, [isRinging, incomingFrom, matched]);
+    if (!matched) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        // Try cached summary on most recent call_records first
+        const { data: latest } = await supabase
+          .from("call_records")
+          .select("call_analysis")
+          .eq("lead_id", matched.id)
+          .order("called_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const cached = (latest?.call_analysis as { summary?: string } | null)?.summary;
+        if (cached && !cancelled) setSummary(cached);
 
-  if (!isRinging) return null;
+        // Fire generation in background to refresh
+        const { data, error } = await supabase.functions.invoke("generate-lead-summary", {
+          body: { leadId: matched.id },
+        });
+        if (!cancelled && !error && (data as { summary?: string })?.summary) {
+          setSummary((data as { summary: string }).summary);
+        }
+      } catch { /* noop */ }
+    })();
+    return () => { cancelled = true; };
+  }, [matched]);
+
+  // Auto-dismiss after 30s of no action
+  useEffect(() => {
+    if (!isRinging || dismissed) return;
+    dismissTimerRef.current = window.setTimeout(() => {
+      setDismissed(true);
+    }, AUTO_DISMISS_MS);
+    return () => {
+      if (dismissTimerRef.current) {
+        window.clearTimeout(dismissTimerRef.current);
+        dismissTimerRef.current = null;
+      }
+    };
+  }, [isRinging, dismissed]);
+
+  if (!isRinging || dismissed) return null;
 
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"
     : null;
+  const leadStatus = matched?.status ?? null;
+  const statusCol = statusColor(leadStatus);
+
+  const handleSendSms = async () => {
+    if (!incomingFrom || smsBusy || smsSent) return;
+    setSmsBusy(true);
+    try {
+      const r = await sendSms({
+        data: {
+          to: incomingFrom,
+          body:
+            "Hi, I'm just on the phone at the moment — I'll call you back shortly.",
+        },
+      });
+      if (r.success) setSmsSent(true);
+    } catch { /* noop */ }
+    setSmsBusy(false);
+  };
+
+  const handleIgnore = () => {
+    // Just hide the banner — call keeps ringing until voicemail timeout.
+    setDismissed(true);
+  };
+
+  const handleVoicemail = () => {
+    // Reject in the SDK — voice-inbound TwiML routes to voicemail on no-answer.
+    try { reject(); } catch { /* noop */ }
+    setDismissed(true);
+  };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-      style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Incoming call"
-    >
+    <>
+      <style>{`
+        @keyframes incoming-banner-slide {
+          from { transform: translateY(-100%); }
+          to { transform: translateY(0); }
+        }
+        @keyframes incoming-banner-pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.55; transform: scale(1.25); }
+        }
+      `}</style>
       <div
-        className="w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl"
-        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+        role="alert"
+        aria-label="Incoming call"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: BANNER_HEIGHT,
+          background: "#ffffff",
+          borderBottom: "1px solid #e8e8e6",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+          zIndex: 200,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 20px",
+          gap: 16,
+          animation: "incoming-banner-slide 200ms ease-out",
+        }}
       >
-        <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-emerald-500">
-          {matched ? "📞 Lead calling back" : "Incoming call"}
-        </div>
-
-        {/* Name (or phone fallback) */}
-        <div className="mb-1 text-2xl font-bold text-[#111111]">
-          {fullName || incomingFrom || "Unknown caller"}
-        </div>
-
-        {/* Phone underneath name when matched */}
-        {fullName && (
-          <div className="mb-2 text-xs text-[#666]">{incomingFrom}</div>
-        )}
-
-        {/* Lead context badges */}
-        {matched && (
-          <div className="mb-3 flex flex-wrap items-center justify-center gap-1.5">
-            {matched.day_number != null && (
-              <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 border border-blue-200">
-                Day {matched.day_number}
+        {/* Left side — caller info */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              background: "#ff6b5c",
+              flexShrink: 0,
+              animation: "incoming-banner-pulse 1.4s ease-in-out infinite",
+            }}
+          />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  color: "#999",
+                  fontWeight: 600,
+                }}
+              >
+                Incoming call
               </span>
-            )}
-            <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 border border-amber-200">
-              Attempt {matched.attempt_count + 1}
-            </span>
-            {matched.status && matched.status !== "new" && (
-              <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-[11px] font-semibold text-stone-700 border border-stone-200 capitalize">
-                {matched.status}
+              <span
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#111",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: 240,
+                }}
+              >
+                {fullName || incomingFrom || "Unknown caller"}
               </span>
-            )}
-            {matched.booking_date && (
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200">
-                Booked {matched.booking_date}
-              </span>
+              {matched && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 600,
+                    padding: "2px 8px",
+                    borderRadius: 999,
+                    background: statusCol.bg,
+                    color: statusCol.fg,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {statusLabel(leadStatus)}
+                </span>
+              )}
+              {fullName && incomingFrom && (
+                <span style={{ fontSize: 11, color: "#aaa" }}>{incomingFrom}</span>
+              )}
+            </div>
+            {summary && (
+              <div
+                style={{
+                  fontSize: 12,
+                  fontStyle: "italic",
+                  color: "#888",
+                  marginTop: 2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+                title={summary}
+              >
+                {summary}
+              </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* Last call notes preview — scrollable */}
-        {matched?.call_notes && (
-          <div
-            className="mb-4 rounded-lg p-2.5 text-left text-[12px] text-[#333] leading-snug overscroll-contain"
+        {/* Right side — actions */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => void handleSendSms()}
+            disabled={smsBusy || smsSent}
             style={{
-              background: "#fafaf9",
-              border: "1px solid #ebebeb",
-              maxHeight: 220,
-              overflowY: "auto",
-              WebkitOverflowScrolling: "touch",
-              whiteSpace: "pre-wrap",
+              fontSize: 13,
+              fontWeight: 500,
+              padding: "8px 12px",
+              borderRadius: 8,
+              background: "#fff",
+              color: smsSent ? "#15803d" : "#111",
+              border: "1px solid #e0e0de",
+              cursor: smsBusy || smsSent ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
             }}
           >
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-[#888] mb-1 sticky top-0 bg-[#fafaf9] pb-1">Last notes</div>
-            {matched.call_notes}
-          </div>
-        )}
+            {smsSent ? (
+              <>
+                <Check size={14} strokeWidth={2.5} /> Sent
+              </>
+            ) : (
+              <>📱 {smsBusy ? "Sending…" : "Send SMS"}</>
+            )}
+          </button>
 
-        {looking && !matched && (
-          <div className="mb-4 text-xs text-[#888]">Looking up caller…</div>
-        )}
-
-        {!looking && !matched && (
-          <div className="mb-4 text-sm text-[#111111]">Ringing…</div>
-        )}
-
-        <div className="flex items-center justify-center gap-8">
           <button
             type="button"
-            onClick={reject}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-white shadow-lg transition hover:bg-red-500 active:scale-95"
-            aria-label="Reject call"
+            onClick={handleIgnore}
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              padding: "8px 12px",
+              borderRadius: 8,
+              background: "transparent",
+              color: "#888",
+              border: "none",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
           >
-            <PhoneOff className="h-7 w-7" />
+            <X size={14} /> Ignore
           </button>
+
           <button
             type="button"
-            onClick={answer}
-            className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:bg-emerald-500 active:scale-95 animate-pulse"
-            aria-label="Answer call"
+            onClick={handleVoicemail}
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              padding: "8px 12px",
+              borderRadius: 8,
+              background: "#fff",
+              color: "#111",
+              border: "1px solid #e0e0de",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
+            }}
           >
-            <Phone className="h-7 w-7" />
+            <Phone size={13} /> Send to Voicemail
           </button>
-        </div>
-
-        <div className="mt-6 flex justify-center gap-12 text-xs text-[#111111]">
-          <span>Decline</span>
-          <span>Answer</span>
         </div>
       </div>
-    </div>
+    </>
   );
 }
+
+// Helper hook for the dashboard layout: returns true when the banner is
+// occupying space at the top of the viewport, so the layout can reserve
+// padding-top to avoid overlap.
+export function useIncomingBannerActive(): boolean {
+  const { status } = useTwilioDevice();
+  return status === "ringing-incoming";
+}
+
+export const INCOMING_BANNER_HEIGHT = BANNER_HEIGHT;
