@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
@@ -124,6 +124,11 @@ function SalesCallPortal() {
   // the active lead or current step changes (otherwise picking a new client
   // leaves the user at the previous scroll position — often the bottom).
   const mainScrollRef = useRef<HTMLElement | null>(null);
+  // Forced-outcome guard: when a call has just ended without a booking,
+  // InCallPanel surfaces a modal and sets this ref to true so the parent
+  // can block lead navigation until an outcome is selected.
+  const outcomeRequiredRef = useRef(false);
+  const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
   useEffect(() => {
     if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
     if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0 });
@@ -316,6 +321,11 @@ function SalesCallPortal() {
           firstCallByLead={firstCallByLead}
           onLocalLeadUpdate={updateLocalLead}
           onPick={(id) => {
+            if (outcomeRequiredRef.current) {
+              setPendingLeadId(id);
+              toast.error("Please set a call outcome first");
+              return;
+            }
             setActiveId(id); setStep("mindset"); setCompleted(new Set());
             setAmpPrefill(""); setAudioPrefill("");
           }}
@@ -411,6 +421,17 @@ function SalesCallPortal() {
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => setActiveId(null)}
+          onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
+          onAfterOutcomeApplied={() => {
+            if (pendingLeadId) {
+              const id = pendingLeadId;
+              setPendingLeadId(null);
+              setActiveId(id);
+              setStep("mindset");
+              setCompleted(new Set());
+              setAmpPrefill(""); setAudioPrefill("");
+            }
+          }}
         />
       </aside>
 
@@ -4218,6 +4239,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead,
+  onOutcomeRequiredChange, onAfterOutcomeApplied,
 }: {
   active: Lead;
   repId: string | null;
@@ -4226,12 +4248,24 @@ function RightPanel({
   firstCallAt: string | null;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
+  onOutcomeRequiredChange?: (val: boolean) => void;
+  onAfterOutcomeApplied?: () => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
+
+  // Forced-outcome modal: shown after a non-booked call >= 10s ends
+  const [outcomeRequired, setOutcomeRequired] = useState(false);
+  const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
+  const wasInCallRef = useRef(false);
+  const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
+  const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
+  const [outcomeCallbackTime, setOutcomeCallbackTime] = useState("");
+  const [outcomeBusy, setOutcomeBusy] = useState(false);
+
   const [condensingNotes, setCondensingNotes] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
@@ -4327,16 +4361,35 @@ function RightPanel({
   // Run the timer only when actually connected
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
+    wasInCallRef.current = true;
     const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
     return () => clearInterval(i);
   }, [deviceStatus]);
 
-  // Reset timer when the call ends
+  // Reset timer when the call ends + force outcome modal for non-booked calls
   useEffect(() => {
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
+      if (wasInCallRef.current) {
+        const duration = callTimer;
+        const k = normaliseStatus(active.status, active);
+        const isBooked = k === "booked_deposit_paid" || k === "booked_no_deposit";
+        if (!isBooked && duration >= 10) {
+          setCallDurationAtHangup(duration);
+          setOutcomeView("menu");
+          setOutcomeRequired(true);
+          onOutcomeRequiredChange?.(true);
+        } else if (!isBooked && duration > 0 && duration < 10) {
+          // Auto no-answer for very short calls
+          void updateLeadStatus({ data: { leadId: active.id, status: "no_answer" } });
+          onLocalLeadUpdate?.(active.id, { status: "no_answer" });
+          toast.success("Marked as No Answer");
+        }
+        wasInCallRef.current = false;
+      }
       setCallTimer(0);
       setKeypadOpen(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceStatus]);
 
   // Reset open objection when switching leads
@@ -4376,7 +4429,13 @@ function RightPanel({
       {/* Change lead link — top of right column, small + muted */}
       <div style={{ padding: "12px 18px 0" }}>
         <button
-          onClick={onChangeLead}
+          onClick={() => {
+            if (outcomeRequired) {
+              toast.error("Please set a call outcome first");
+              return;
+            }
+            onChangeLead();
+          }}
           style={{
             fontSize: 12,
             color: "#111",
@@ -5215,6 +5274,213 @@ function RightPanel({
           </div>
         </div>
       )}
+
+      {/* Forced outcome modal */}
+      {outcomeRequired && (
+        <ForcedOutcomeModal
+          active={active}
+          callDuration={callDurationAtHangup}
+          view={outcomeView}
+          setView={setOutcomeView}
+          callbackDate={outcomeCallbackDate}
+          setCallbackDate={setOutcomeCallbackDate}
+          callbackTime={outcomeCallbackTime}
+          setCallbackTime={setOutcomeCallbackTime}
+          busy={outcomeBusy}
+          setBusy={setOutcomeBusy}
+          onLocalLeadUpdate={onLocalLeadUpdate}
+          onClosed={() => {
+            setOutcomeRequired(false);
+            setOutcomeView("menu");
+            setOutcomeCallbackDate("");
+            setOutcomeCallbackTime("");
+            onOutcomeRequiredChange?.(false);
+            toast.success("Status updated ✓");
+            // If parent had a pending lead waiting, let it apply now
+            onAfterOutcomeApplied?.();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ForcedOutcomeModal({
+  active, callDuration, view, setView,
+  callbackDate, setCallbackDate, callbackTime, setCallbackTime,
+  busy, setBusy, onLocalLeadUpdate, onClosed,
+}: {
+  active: Lead;
+  callDuration: number;
+  view: "menu" | "callback" | "drop";
+  setView: (v: "menu" | "callback" | "drop") => void;
+  callbackDate: string;
+  setCallbackDate: (v: string) => void;
+  callbackTime: string;
+  setCallbackTime: (v: string) => void;
+  busy: boolean;
+  setBusy: (v: boolean) => void;
+  onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
+  onClosed: () => void;
+}) {
+  const apply = async (status: string, extra?: Partial<Lead>) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await updateLeadStatus({ data: { leadId: active.id, status } });
+      if (!r?.success) {
+        toast.error(r?.error ?? "Failed to update");
+        setBusy(false);
+        return;
+      }
+      onLocalLeadUpdate?.(active.id, { status, ...(extra ?? {}) } as Partial<Lead>);
+      onClosed();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmCallback = async () => {
+    if (!callbackDate || !callbackTime) return;
+    const dt = new Date(`${callbackDate}T${callbackTime}:00`);
+    if (isNaN(dt.getTime())) { toast.error("Invalid date/time"); return; }
+    if (busy) return;
+    setBusy(true);
+    try {
+      const r = await updateLeadStatus({ data: { leadId: active.id, status: "callback_scheduled" } });
+      if (!r?.success) {
+        toast.error(r?.error ?? "Failed to update");
+        setBusy(false);
+        return;
+      }
+      const { error } = await supabase
+        .from("meta_leads")
+        .update({ callback_scheduled_at: dt.toISOString() })
+        .eq("id", active.id);
+      if (error) {
+        toast.error(error.message);
+        setBusy(false);
+        return;
+      }
+      onLocalLeadUpdate?.(active.id, { status: "callback_scheduled", callback_scheduled_at: dt.toISOString() } as Partial<Lead>);
+      onClosed();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const optionStyle: CSSProperties = {
+    width: "100%",
+    padding: "14px 20px",
+    borderRadius: 10,
+    border: "1.5px solid #e8e8e6",
+    background: "#fff",
+    textAlign: "left",
+    fontSize: 15,
+    cursor: "pointer",
+    marginBottom: 8,
+    transition: "border-color 120ms ease",
+  };
+  const onHover = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#f4522d"; };
+  const onLeave = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#e8e8e6"; };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ background: "#fff", borderRadius: 16, padding: 32, maxWidth: 400, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}>
+        <div style={{ fontSize: 20, fontWeight: 600, color: "#111" }}>How did that go?</div>
+        <div style={{ fontSize: 12, color: "#999", marginBottom: 20, marginTop: 4 }}>
+          Set the outcome to keep your pipeline accurate.
+          {callDuration > 0 ? ` (Call: ${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")})` : ""}
+        </div>
+
+        {view === "menu" && (
+          <>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("callback")}>📞 Callback</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>🤝 Had Convo — Chase Up</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>📵 No Answer / Voicemail</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>❌ Not Interested</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>⛔ Dropped</button>
+          </>
+        )}
+
+        {view === "callback" && (
+          <div>
+            <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>Pick a date and time for the callback:</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                type="date"
+                value={callbackDate}
+                onChange={(e) => setCallbackDate(e.target.value)}
+                style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
+              />
+              <input
+                type="time"
+                value={callbackTime}
+                onChange={(e) => setCallbackTime(e.target.value)}
+                style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setView("menu")}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #e8e8e6", background: "#fff", fontSize: 14, cursor: "pointer" }}
+              >
+                ← Back
+              </button>
+              <button
+                onClick={confirmCallback}
+                disabled={!callbackDate || !callbackTime || busy}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: (!callbackDate || !callbackTime || busy) ? "#f4a892" : "#f4522d",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: (!callbackDate || !callbackTime || busy) ? "not-allowed" : "pointer",
+                }}
+              >
+                Confirm Callback →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {view === "drop" && (
+          <div>
+            <div style={{ fontSize: 14, color: "#111", marginBottom: 16, lineHeight: 1.4 }}>
+              Are you sure? This will permanently drop this lead.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setView("menu")}
+                style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #e8e8e6", background: "#fff", fontSize: 14, cursor: "pointer" }}
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => apply("dropped")}
+                disabled={busy}
+                style={{
+                  flex: 2,
+                  padding: "12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: busy ? "#f1a3a3" : "#dc2626",
+                  color: "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}
+              >
+                Yes, Drop
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
