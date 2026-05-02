@@ -29,7 +29,7 @@ function DeviceBootstrap() {
 function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, ready } = useAuth();
+  const { session, ready, role } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
   // Floating call widget is rendered globally so the dialler/hangup button
   // follows the user across pages. It only renders when a call is actually
@@ -45,6 +45,15 @@ function DashboardLayout() {
       });
     }
   }, [ready, session, navigate, location.pathname]);
+
+  // Reps cannot access admin-only routes — bounce to dashboard.
+  useEffect(() => {
+    if (!ready || !session) return;
+    const blocked = ["/leads", "/clinics", "/pitch-deck", "/sent-links", "/logs"];
+    if (role === "rep" && blocked.includes(location.pathname)) {
+      navigate({ to: "/", replace: true });
+    }
+  }, [ready, session, role, location.pathname, navigate]);
 
   // While the session restores from localStorage, render the dashboard chrome
   // immediately with skeleton placeholders instead of a blank spinner.
