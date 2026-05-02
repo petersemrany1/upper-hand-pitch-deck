@@ -117,7 +117,8 @@ type PipelineCounts = {
 };
 
 function DashboardHome() {
-  const { ready: authReady, session } = useAuth();
+  const { ready: authReady, session, role } = useAuth();
+  const isAdmin = role === "admin";
   // Boot Twilio device (kept from existing dashboard)
   useTwilioDevice(true);
 
