@@ -88,6 +88,8 @@ function fmtSendDate(d: string, daysBefore: number): string {
 
 type Filter = "all" | "week" | "month" | "past";
 
+const ENABLED_KEY = "booked_appointments_enabled";
+
 function BookedAppointmentsPage() {
   const [rows, setRows] = useState<Reminder[]>([]);
   const [leads, setLeads] = useState<Record<string, Lead>>({});
@@ -96,6 +98,16 @@ function BookedAppointmentsPage() {
   const [pastOpen, setPastOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<Reminder | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [enabled, setEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(ENABLED_KEY) !== "false";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ENABLED_KEY, enabled ? "true" : "false");
+    }
+  }, [enabled]);
 
   // Twilio device for placing calls
   const twilio = useTwilioDevice(true);
