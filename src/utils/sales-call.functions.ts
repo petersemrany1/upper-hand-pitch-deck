@@ -667,13 +667,12 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       return true;
     });
 
-    // Pick a fallback rep for unattributed (rep_id IS NULL) rows. Prefer the rep
-    // with an email (likely the actively signed-in one) — currently the only
-    // human dialing the phones — so today's calls show up on the leaderboard.
-    const fallbackRepId: string | null =
-      dedupedReps.find((r) => (r.email ?? "").trim() !== "")?.id
-      ?? dedupedReps[0]?.id
-      ?? null;
+    // NOTE: previously we fell back to "first rep with an email" for any call
+    // with rep_id IS NULL. That hack masked the real bug (call_records rows
+    // being saved without rep_id) by silently misattributing every orphan
+    // call to a single rep. Now that the dialer + voice-outbound both write
+    // rep_id correctly, we DROP unattributed calls instead — surfacing any
+    // future regression instead of hiding it behind a plausible-looking number.
 
     const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
