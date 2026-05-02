@@ -2065,6 +2065,51 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setDepositPaid(true);
       (lead as { status: string | null }).status = "booked_deposit_paid";
       toast.success("Deposit confirmed — lead marked as paid ✓");
+
+      // Now that the deposit is paid, create / refresh the appointment
+      // reminder row so the SMS cron can pick it up and it appears on the
+      // Booked Appointments dashboard.
+      try {
+        const date = bookedData?.date ?? lead.booking_date ?? null;
+        const time = bookedData?.time ?? lead.booking_time ?? null;
+        if (date && time) {
+          const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+          const doctorName = bookedData?.doctorName ?? sd?.name ?? null;
+          console.log("[appointment_reminders] doctor_name to insert:", doctorName);
+          const payload = {
+            lead_id: lead.id,
+            booking_date: date,
+            booking_time: time,
+            doctor_name: doctorName,
+            patient_first_name: lead.first_name ?? null,
+            patient_last_name: lead.last_name ?? null,
+            patient_phone: lead.phone ?? null,
+            status: "confirmed",
+          };
+          const { data: existing } = await supabase
+            .from("appointment_reminders")
+            .select("id")
+            .eq("lead_id", lead.id)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (existing && existing.length > 0) {
+            await supabase
+              .from("appointment_reminders")
+              .update({
+                ...payload,
+                three_day_sms_sent: false,
+                three_day_sms_sent_at: null,
+                twentyfour_hour_sms_sent: false,
+                twentyfour_hour_sms_sent_at: null,
+              })
+              .eq("id", existing[0].id);
+          } else {
+            await supabase.from("appointment_reminders").insert(payload);
+          }
+        }
+      } catch (e) {
+        console.error("[appointment_reminders] insert failed", e);
+      }
     } else {
       toast.error(`Could not confirm deposit: ${r.error ?? "unknown error"}`);
     }
@@ -2079,6 +2124,18 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setDepositPaid(false);
       (lead as { status: string | null }).status = "booked_no_deposit";
       toast.success("Deposit confirmation undone");
+
+      // Pull the appointment back off the Booked Appointments dashboard —
+      // no-deposit bookings shouldn't appear there.
+      try {
+        await supabase
+          .from("appointment_reminders")
+          .update({ status: "cancelled" })
+          .eq("lead_id", lead.id)
+          .eq("status", "confirmed");
+      } catch (e) {
+        console.error("[appointment_reminders] undo-cancel failed", e);
+      }
     } else {
       toast.error(`Could not undo: ${r.error ?? "unknown error"}`);
     }
