@@ -4358,11 +4358,20 @@ function RightPanel({
     })();
   }, [active.id, active.clinic_id]);
 
-  // Run the timer only when actually connected
+  // Run the timer only when actually connected.
+  // We mirror callTimer into a ref so the disconnect effect always reads
+  // the latest duration, not a stale closure value.
+  const callTimerRef = useRef(0);
+  useEffect(() => { callTimerRef.current = callTimer; }, [callTimer]);
+
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
     wasInCallRef.current = true;
-    const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
+    const i = setInterval(() => setCallTimer((t) => {
+      const next = t + 1;
+      callTimerRef.current = next;
+      return next;
+    }), 1000);
     return () => clearInterval(i);
   }, [deviceStatus]);
 
@@ -4370,9 +4379,10 @@ function RightPanel({
   useEffect(() => {
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
-        const duration = callTimer;
+        const duration = callTimerRef.current;
         const k = normaliseStatus(active.status, active);
         const isBooked = k === "booked_deposit_paid" || k === "booked_no_deposit";
+        console.log("[outcome-modal] call ended", { deviceStatus, duration, status: active.status, isBooked });
         if (!isBooked && duration >= 10) {
           setCallDurationAtHangup(duration);
           setOutcomeView("menu");
@@ -4387,6 +4397,7 @@ function RightPanel({
         wasInCallRef.current = false;
       }
       setCallTimer(0);
+      callTimerRef.current = 0;
       setKeypadOpen(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
