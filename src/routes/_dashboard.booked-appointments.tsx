@@ -243,6 +243,18 @@ function BookedAppointmentsPage() {
     void load();
   };
 
+  const onShowedUp = async (r: Reminder) => {
+    setBusy(r.id);
+    const upd = await supabase
+      .from("appointment_reminders")
+      .update({ status: "showed_up" })
+      .eq("id", r.id);
+    if (upd.error) { setBusy(null); toast.error("Failed"); return; }
+    setBusy(null);
+    toast.success("Marked as showed up");
+    void load();
+  };
+
   return (
     <div style={{ background: COLOR.bg, height: "100vh", overflowY: "auto", fontFamily: "'DM Sans', system-ui, sans-serif", color: COLOR.text }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
