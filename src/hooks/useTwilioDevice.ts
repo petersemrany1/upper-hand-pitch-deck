@@ -253,12 +253,26 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // This guarantees a row exists before twilio-status fires, so the
     // recording webhook + auto-analyse-call chain has something to update.
     const insertCallRow = async (callSid: string) => {
+      const leadId = extraParams?.leadId || null;
+      const repId = extraParams?.repId || null;
+      const clinicId = extraParams?.clinicId || null;
+      // Verification log: confirm lead_id + rep_id are being threaded through
+      // on every outbound call. If either prints null on a real call, the
+      // upstream caller forgot to pass it.
+      console.log("[insertCallRow] saving call_records", {
+        callSid,
+        leadId,
+        repId,
+        clinicId,
+        phone,
+      });
       try {
         await supabase.from("call_records").upsert(
           {
             twilio_call_sid: callSid,
-            clinic_id: extraParams?.clinicId || null,
-            lead_id: extraParams?.leadId || null,
+            clinic_id: clinicId,
+            lead_id: leadId,
+            rep_id: repId,
             phone,
             status: "initiated",
             called_at: new Date().toISOString(),
