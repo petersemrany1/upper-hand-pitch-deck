@@ -308,6 +308,11 @@ export const saveCallNotes = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+// Reference implementation for the "correct" call_records insert pattern.
+// Currently unused at runtime — the live outbound flow goes through the
+// browser Twilio SDK (useTwilioDevice.ts -> insertCallRow) and the
+// voice-outbound edge function, both of which now mirror the lead_id +
+// rep_id pattern below. Keep this in sync with those writers.
 export const logCallAttempt = createServerFn({ method: "POST" })
   .inputValidator((data: {
     leadId: string; repId: string | null; outcome: "no_answer" | "connected";
@@ -662,13 +667,12 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       return true;
     });
 
-    // Pick a fallback rep for unattributed (rep_id IS NULL) rows. Prefer the rep
-    // with an email (likely the actively signed-in one) — currently the only
-    // human dialing the phones — so today's calls show up on the leaderboard.
-    const fallbackRepId: string | null =
-      dedupedReps.find((r) => (r.email ?? "").trim() !== "")?.id
-      ?? dedupedReps[0]?.id
-      ?? null;
+    // NOTE: previously we fell back to "first rep with an email" for any call
+    // with rep_id IS NULL. That hack masked the real bug (call_records rows
+    // being saved without rep_id) by silently misattributing every orphan
+    // call to a single rep. Now that the dialer + voice-outbound both write
+    // rep_id correctly, we DROP unattributed calls instead — surfacing any
+    // future regression instead of hiding it behind a plausible-looking number.
 
     const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
@@ -685,7 +689,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       // Skip in-flight calls (no real duration yet) so they don't pollute the count
       if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id ?? fallbackRepId;
+      const repId = c.rep_id;
       if (!repId) continue;
       const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
       const connected = c.outcome === "connected" || (c.status === "completed" && dur > 0);
@@ -705,7 +709,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const callsByRep = new Map<string, number[]>();
     for (const c of calls ?? []) {
       if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id ?? fallbackRepId;
+      const repId = c.rep_id;
       if (!repId) continue;
       const ts = new Date(c.called_at).getTime();
       if (!callsByRep.has(repId)) callsByRep.set(repId, []);
@@ -734,7 +738,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const shiftByRep = new Map<string, { first: number; last: number }>();
     for (const c of calls ?? []) {
       if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id ?? fallbackRepId;
+      const repId = c.rep_id;
       if (!repId) continue;
       const ts = new Date(c.called_at).getTime();
       const existing = shiftByRep.get(repId);
@@ -767,7 +771,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
     for (const b of bookings ?? []) {
       if (excludedLeadIds.has(b.id as string)) continue; // skip Peter Test
-      const repId = b.rep_id ?? fallbackRepId;
+      const repId = b.rep_id;
       if (!repId) continue;
       const s = byRep.get(repId) ?? blank();
       s.bookings += 1;

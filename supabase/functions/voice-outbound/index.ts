@@ -60,6 +60,7 @@ serve(async (req) => {
   let callSid = url.searchParams.get("CallSid") || "";
   let clinicId = url.searchParams.get("clinicId") || "";
   let leadId = url.searchParams.get("leadId") || "";
+  let repId = url.searchParams.get("repId") || "";
 
   if (req.method === "POST") {
     try {
@@ -75,12 +76,13 @@ serve(async (req) => {
       callSid = callSid || (form.get("CallSid")?.toString() ?? "");
       clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");
       leadId = leadId || (form.get("leadId")?.toString() ?? "");
+      repId = repId || (form.get("repId")?.toString() ?? "");
     } catch {
       // ignore — fall through to validation
     }
   }
 
-  console.log("voice-outbound: incoming", { phone, callSid, clinicId, method: req.method });
+  console.log("voice-outbound: incoming", { phone, callSid, clinicId, leadId, repId, method: req.method });
 
   if (!phone) {
     const errXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -104,8 +106,9 @@ serve(async (req) => {
   const dialTo = escapeXml(formatted);
 
   // Server-side safety net: ensure a call_records row exists tagged with
-  // clinic_id. The browser also inserts this row, but if that races or
-  // fails we still want the row to exist by the time twilio-status fires.
+  // clinic_id, lead_id and rep_id. The browser also inserts this row, but
+  // if that races or fails we still want the row to exist (with proper
+  // attribution) by the time twilio-status fires.
   if (callSid && supabaseUrl && serviceKey) {
     try {
       const sb = createClient(supabaseUrl, serviceKey);
@@ -115,6 +118,7 @@ serve(async (req) => {
           status: "initiated",
           clinic_id: clinicId || null,
           lead_id: leadId || null,
+          rep_id: repId || null,
           phone: dialTo,
         },
         { onConflict: "twilio_call_sid" },

@@ -437,12 +437,64 @@ function CallOutcomePrompt({
           .eq("twilio_call_sid", callSid);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from("call_records").insert({
-          status: "completed",
-          duration: durationSec,
-          call_analysis: { outcome, notes, from, loggedAt: new Date().toISOString() },
-        });
-        if (error) throw error;
+        // No callSid available (call was never tracked or SID was lost).
+        // Instead of creating a blank orphan row, try to find the most recent
+        // call_records row for this phone number within the last 5 minutes
+        // and update IT — that row already has lead_id / rep_id / clinic_id
+        // attached from the original insert.
+        const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+        let attached = false;
+        if (from) {
+          const fromDigits = from.replace(/[^0-9]/g, "");
+          const tail = fromDigits.slice(-9);
+          if (tail.length >= 6) {
+            const { data: recent } = await supabase
+              .from("call_records")
+              .select("id")
+              .ilike("phone", `%${tail}%`)
+              .gte("called_at", fiveMinAgo)
+              .order("called_at", { ascending: false })
+              .limit(1);
+            if (recent && recent.length > 0) {
+              const { error: upErr } = await supabase
+                .from("call_records")
+                .update({
+                  status: "completed",
+                  duration: durationSec,
+                  call_analysis: { outcome, notes, from, loggedAt: new Date().toISOString() },
+                })
+                .eq("id", recent[0].id);
+              if (upErr) throw upErr;
+              attached = true;
+            }
+          }
+        }
+
+        if (!attached) {
+          // Last-resort insert. At minimum stamp the current rep so the row
+          // is attributable instead of becoming a pure orphan.
+          const { data: sessionData } = await supabase.auth.getUser();
+          const userEmail = sessionData.user?.email;
+          let repId: string | null = null;
+          if (userEmail) {
+            const { data: rep } = await supabase
+              .from("sales_reps")
+              .select("id")
+              .eq("email", userEmail.toLowerCase().trim())
+              .maybeSingle();
+            repId = rep?.id ?? null;
+          }
+          console.log("[CallOutcomePrompt] fallback insert", { from, repId });
+          const { error } = await supabase.from("call_records").insert({
+            status: "completed",
+            duration: durationSec,
+            phone: from || null,
+            rep_id: repId,
+            direction: "outbound",
+            call_analysis: { outcome, notes, from, loggedAt: new Date().toISOString() },
+          });
+          if (error) throw error;
+        }
       }
       toast.success("Call logged");
       onClose();
