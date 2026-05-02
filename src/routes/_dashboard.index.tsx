@@ -291,6 +291,53 @@ function DashboardHome() {
     void loadData();
   }, [authReady, session, loadData]);
 
+  // Load conversion-rate data for the selected period.
+  // Unique leads = distinct lead_id on call_records in window (rep-scoped for non-admins).
+  // Bookings = meta_leads with status=booked_deposit_paid updated in window.
+  useEffect(() => {
+    if (!authReady || !session) return;
+    let cancelled = false;
+    (async () => {
+      let fromIso: string | null = null;
+      const now = new Date();
+      if (convPeriod === "day") {
+        const d = new Date(now); d.setHours(0,0,0,0); fromIso = d.toISOString();
+      } else if (convPeriod === "week") {
+        const d = new Date(now); d.setDate(d.getDate() - 7); fromIso = d.toISOString();
+      } else if (convPeriod === "month") {
+        const d = new Date(now.getFullYear(), now.getMonth(), 1); fromIso = d.toISOString();
+      } else if (convPeriod === "year") {
+        const d = new Date(now.getFullYear(), 0, 1); fromIso = d.toISOString();
+      }
+
+      let repId: string | null = null;
+      if (!isAdmin && session?.user?.email) {
+        const { data: repRow } = await supabase
+          .from("sales_reps").select("id").ilike("email", session.user.email).maybeSingle();
+        repId = repRow?.id ?? null;
+      }
+      const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
+
+      const callsQ = supabase.from("call_records").select("lead_id").not("lead_id", "is", null);
+      if (fromIso) callsQ.gte("called_at", fromIso);
+      if (scopeId) callsQ.eq("rep_id", scopeId);
+
+      const bookingsQ = supabase
+        .from("meta_leads").select("id", { count: "exact", head: true })
+        .eq("status", "booked_deposit_paid");
+      if (fromIso) bookingsQ.gte("updated_at", fromIso);
+      if (scopeId) bookingsQ.eq("rep_id", scopeId);
+
+      const [callsRes, bookingsRes] = await Promise.all([callsQ, bookingsQ]);
+      if (cancelled) return;
+      const unique = new Set(((callsRes.data ?? []) as { lead_id: string | null }[])
+        .map(c => c.lead_id).filter(Boolean));
+      setConvLeads(unique.size);
+      setConvBookings(bookingsRes.count ?? 0);
+    })();
+    return () => { cancelled = true; };
+  }, [authReady, session, isAdmin, convPeriod]);
+
   const firstName = useMemo(() => {
     const meta = session?.user?.user_metadata as Record<string, unknown> | undefined;
     const fromMeta = (meta?.first_name as string | undefined) || (meta?.full_name as string | undefined);
