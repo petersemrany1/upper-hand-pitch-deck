@@ -4120,7 +4120,7 @@ function RightPanel({
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
 }) {
-  void repId;
+  // repId is threaded into placeCall so call_records.rep_id is set on insert.
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
