@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail } from "lucide-react";
+import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail, DollarSign } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/settings")({
   component: SettingsPage,
@@ -85,6 +86,7 @@ function SettingsPage() {
         </div>
 
         {isAdmin && <TeamSection />}
+        {isAdmin && <BookingPricesSection />}
 
         {!isAdmin && (
           <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
@@ -383,5 +385,156 @@ function Field({
         className="w-full px-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary transition-colors"
       />
     </div>
+  );
+}
+
+type ClinicPrice = {
+  id: string;
+  clinic_name: string;
+  price_per_booking: number | null;
+};
+
+function BookingPricesSection() {
+  const [defaultPrice, setDefaultPrice] = useState<string>("800");
+  const [savingDefault, setSavingDefault] = useState(false);
+  const [clinics, setClinics] = useState<ClinicPrice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [edits, setEdits] = useState<Record<string, string>>({});
+
+  const load = async () => {
+    setLoading(true);
+    const [settingsRes, clinicsRes] = await Promise.all([
+      supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
+      supabase.from("partner_clinics").select("id, clinic_name, price_per_booking").order("clinic_name"),
+    ]);
+    const dp = Number((settingsRes.data?.value as unknown) ?? 800) || 800;
+    setDefaultPrice(String(dp));
+    setClinics((clinicsRes.data ?? []) as ClinicPrice[]);
+    setLoading(false);
+  };
+  useEffect(() => { void load(); }, []);
+
+  const saveDefault = async () => {
+    const n = Number(defaultPrice);
+    if (!n || n <= 0) { toast.error("Enter a valid price"); return; }
+    setSavingDefault(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "default_booking_price", value: n, updated_at: new Date().toISOString() });
+    setSavingDefault(false);
+    if (error) toast.error(error.message);
+    else toast.success("Default price saved");
+  };
+
+  const saveClinic = async (id: string) => {
+    const raw = edits[id];
+    const n = Number(raw);
+    if (!n || n <= 0) { toast.error("Enter a valid price"); return; }
+    const { error } = await supabase
+      .from("partner_clinics")
+      .update({ price_per_booking: n })
+      .eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Saved");
+    setClinics((cs) => cs.map((c) => c.id === id ? { ...c, price_per_booking: n } : c));
+    setEdits((e) => { const next = { ...e }; delete next[id]; return next; });
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
+      <div className="flex items-center gap-3 mb-5">
+        <DollarSign className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Booking Prices</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Revenue per booking. Used on the dashboard.
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
+          Default price per booking
+        </label>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 max-w-xs">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+            <input
+              type="number"
+              value={defaultPrice}
+              onChange={(e) => setDefaultPrice(e.target.value)}
+              className="w-full pl-7 pr-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary"
+            />
+          </div>
+          <button
+            onClick={saveDefault}
+            disabled={savingDefault}
+            className="px-4 py-2 rounded-md text-sm font-bold disabled:opacity-50"
+            style={{ background: "#f4522d", color: "#fff" }}
+          >
+            {savingDefault ? "Saving…" : "Save"}
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1.5">
+          Used for any booking whose clinic doesn't have a custom price set.
+        </p>
+      </div>
+
+      <div className="border-t border-border pt-5">
+        <h3 className="text-sm font-bold text-foreground mb-3">Per-clinic pricing</h3>
+        {loading ? (
+          <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
+        ) : clinics.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+            No partner clinics yet.
+          </div>
+        ) : (
+          <div className="overflow-hidden rounded-lg border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/40">
+                <tr className="text-left">
+                  <th className="px-4 py-2.5 font-medium text-muted-foreground">Clinic</th>
+                  <th className="px-4 py-2.5 font-medium text-muted-foreground w-48">Price per booking</th>
+                  <th className="px-4 py-2.5 w-24"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {clinics.map((c) => {
+                  const editing = edits[c.id] !== undefined;
+                  const value = editing ? edits[c.id] : String(c.price_per_booking ?? "");
+                  return (
+                    <tr key={c.id} className="border-t border-border">
+                      <td className="px-4 py-2.5 font-medium text-foreground">{c.clinic_name}</td>
+                      <td className="px-4 py-2">
+                        <div className="relative max-w-[10rem]">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                          <input
+                            type="number"
+                            value={value}
+                            onChange={(e) => setEdits((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                            className="w-full pl-7 pr-2 py-1.5 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {editing && (
+                          <button
+                            onClick={() => void saveClinic(c.id)}
+                            className="px-3 py-1.5 rounded-md text-xs font-bold"
+                            style={{ background: "#f4522d", color: "#fff" }}
+                          >
+                            Save
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       call_records: {
         Row: {
           analysis_stage: string | null
@@ -411,6 +429,7 @@ export type Database = {
           nearby_landmarks: string | null
           parking_info: string | null
           phone: string | null
+          price_per_booking: number
           state: string | null
           updated_at: string
           website: string | null
@@ -428,6 +447,7 @@ export type Database = {
           nearby_landmarks?: string | null
           parking_info?: string | null
           phone?: string | null
+          price_per_booking?: number
           state?: string | null
           updated_at?: string
           website?: string | null
@@ -445,6 +465,7 @@ export type Database = {
           nearby_landmarks?: string | null
           parking_info?: string | null
           phone?: string | null
+          price_per_booking?: number
           state?: string | null
           updated_at?: string
           website?: string | null
