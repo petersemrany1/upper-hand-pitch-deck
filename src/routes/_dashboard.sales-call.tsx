@@ -4239,6 +4239,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead,
+  onOutcomeRequiredChange, onAfterOutcomeApplied,
 }: {
   active: Lead;
   repId: string | null;
@@ -4247,6 +4248,8 @@ function RightPanel({
   firstCallAt: string | null;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
+  onOutcomeRequiredChange?: (val: boolean) => void;
+  onAfterOutcomeApplied?: () => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
