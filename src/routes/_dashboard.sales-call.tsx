@@ -1797,6 +1797,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
   const [depositSent, setDepositSent] = useState(false);
   const [depositPaid, setDepositPaid] = useState(false);
   const [confirmingDeposit, setConfirmingDeposit] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
   const [refreshingIntel, setRefreshingIntel] = useState(false);
@@ -2448,91 +2451,121 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               {confirmingDeposit ? (depositPaid ? "Undoing…" : "Saving…") : depositPaid ? "↶ Undo" : "Confirm ✓"}
             </div>
           </button>
+
+          {/* Send booking confirmation SMS to patient */}
+          <button
+            onClick={() => {
+              if (!lead.phone) { toast.error("No phone number on this lead"); return; }
+              setShowConfirmModal(true);
+            }}
+            disabled={confirmationSent || sendingConfirmation}
+            className="w-full rounded-[8px] flex items-center justify-between mt-3"
+            style={{
+              background: confirmationSent ? "#ecfdf5" : "#ffffff",
+              border: `0.5px solid ${confirmationSent ? COLORS.green : COLORS.line}`,
+              padding: "16px 20px",
+              cursor: confirmationSent ? "default" : sendingConfirmation ? "wait" : "pointer",
+              opacity: sendingConfirmation ? 0.7 : 1,
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: confirmationSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
+                {confirmationSent ? "✓ Confirmation sent" : "Send booking confirmation to patient"}
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>
+                Sends a confirmation SMS with appointment details
+              </div>
+            </div>
+            {!confirmationSent && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+                {sendingConfirmation ? "Sending…" : "Send →"}
+              </div>
+            )}
+          </button>
         </div>
 
-        {/* If the booking falls through */}
-        <div style={{ marginTop: 32, paddingTop: 20, borderTop: `0.5px dashed ${COLORS.line}` }}>
-          <div style={{
-            fontSize: 11, fontWeight: 600, textTransform: "uppercase",
-            letterSpacing: "0.06em", color: "#999", marginBottom: 10, textAlign: "center",
-          }}>
-            If the booking falls through
-          </div>
-          <div className="flex gap-2 justify-center" style={{ marginBottom: 16 }}>
-            <button
-              onClick={async () => {
-                setResetting(true);
-                const s = await updateLeadStatus({ data: { leadId: lead.id, status: "cancelled" } });
-                if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
-                await clearBooking({ data: { leadId: lead.id } });
-                try { await supabase.from("appointment_reminders").update({ status: "cancelled" }).eq("lead_id", lead.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
-                (lead as { booking_date: string | null }).booking_date = null;
-                (lead as { booking_time: string | null }).booking_time = null;
-                (lead as { status: string }).status = "cancelled";
-                setBooked(false); setBookedData(null); setHandoverSent(false);
-                setDepositSent(false); setDepositPaid(false);
-                setSendingHandover(false); setSendingDeposit(false);
-                setIntelStatus("waiting"); setPollAttempt(0); setResetting(false);
-                toast.success("Marked as cancelled");
-              }}
-              disabled={resetting}
-              style={{
-                fontSize: 13, fontWeight: 500, color: "#b45309",
-                background: "#fffbeb", border: `0.5px solid #fcd34d`,
-                borderRadius: 8, padding: "10px 18px",
-                cursor: resetting ? "wait" : "pointer", opacity: resetting ? 0.6 : 1,
-              }}
+        {/* Confirmation preview modal */}
+        {showConfirmModal && (() => {
+          const dateStr = (() => {
+            try {
+              const d = new Date(`${bookedData?.date}T${bookedData?.time}`);
+              return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
+            } catch { return bookedData?.date ?? ""; }
+          })();
+          const timeStr = (() => {
+            try {
+              const [h, m] = (bookedData?.time ?? "").split(":");
+              const hh = parseInt(h, 10);
+              const ampm = hh >= 12 ? "PM" : "AM";
+              const hour12 = hh % 12 === 0 ? 12 : hh % 12;
+              return `${hour12}:${m} ${ampm}`;
+            } catch { return bookedData?.time ?? ""; }
+          })();
+          const message = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${selectedDoctor?.name ?? ""} at ${clinic?.clinic_name ?? ""}. Address: ${clinic?.address ?? ""}, ${clinic?.city ?? ""} ${clinic?.state ?? ""}.`;
+          return (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center"
+              style={{ background: "rgba(0,0,0,0.5)" }}
+              onClick={() => !sendingConfirmation && setShowConfirmModal(false)}
             >
-              ✕ Mark as Cancelled
-            </button>
-            <button
-              onClick={async () => {
-                setResetting(true);
-                const s = await updateLeadStatus({ data: { leadId: lead.id, status: "no_show" } });
-                if (!s.success) { setResetting(false); toast.error(`Failed: ${s.error}`); return; }
-                await clearBooking({ data: { leadId: lead.id } });
-                try { await supabase.from("appointment_reminders").update({ status: "no_show" }).eq("lead_id", lead.id).eq("status", "confirmed"); } catch (e) { console.error(e); }
-                (lead as { booking_date: string | null }).booking_date = null;
-                (lead as { booking_time: string | null }).booking_time = null;
-                (lead as { status: string }).status = "no_show";
-                setBooked(false); setBookedData(null); setHandoverSent(false);
-                setDepositSent(false); setDepositPaid(false);
-                setSendingHandover(false); setSendingDeposit(false);
-                setIntelStatus("waiting"); setPollAttempt(0); setResetting(false);
-                toast.success("Marked as no-show");
-              }}
-              disabled={resetting}
-              style={{
-                fontSize: 13, fontWeight: 500, color: "#991b1b",
-                background: "#fef2f2", border: `0.5px solid #fca5a5`,
-                borderRadius: 8, padding: "10px 18px",
-                cursor: resetting ? "wait" : "pointer", opacity: resetting ? 0.6 : 1,
-              }}
-            >
-              ⊘ Mark as No-show
-            </button>
-          </div>
-
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <button
-              onClick={() => setShowResetConfirm(true)}
-              disabled={resetting}
-              style={{
-                fontSize: 12,
-                fontWeight: 500,
-                color: COLORS.muted,
-                background: "#fff",
-                border: `0.5px solid ${COLORS.line}`,
-                borderRadius: 8,
-                padding: "8px 16px",
-                cursor: resetting ? "wait" : "pointer",
-                opacity: resetting ? 0.6 : 1,
-              }}
-            >
-              ↺ Reset booking (permanently delete)
-            </button>
-          </div>
-        </div>
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg rounded-[12px]"
+                style={{ background: "#ffffff", padding: 24 }}
+              >
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Confirm before sending</div>
+                <div style={{ fontSize: 12, color: COLORS.muted, marginBottom: 16 }}>
+                  This SMS will be sent to {lead.phone}
+                </div>
+                <div style={{
+                  background: "#f7f7f5", border: `0.5px solid ${COLORS.line}`,
+                  borderRadius: 8, padding: 14, fontSize: 13, lineHeight: 1.5,
+                  color: COLORS.text, whiteSpace: "pre-wrap", marginBottom: 20,
+                }}>
+                  {message}
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => setShowConfirmModal(false)}
+                    disabled={sendingConfirmation}
+                    style={{
+                      fontSize: 13, padding: "8px 14px", borderRadius: 8,
+                      background: "#fff", border: `0.5px solid ${COLORS.line}`,
+                      cursor: sendingConfirmation ? "wait" : "pointer",
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!lead.phone) return;
+                      setSendingConfirmation(true);
+                      const r = await sendManualSms({ data: { leadId: lead.id, phone: lead.phone, body: message } });
+                      setSendingConfirmation(false);
+                      if (r.success) {
+                        setConfirmationSent(true);
+                        setShowConfirmModal(false);
+                        toast.success("Confirmation sent ✓");
+                      } else {
+                        toast.error(`Failed: ${r.error}`);
+                      }
+                    }}
+                    disabled={sendingConfirmation}
+                    style={{
+                      fontSize: 13, fontWeight: 500, color: "#fff",
+                      background: COLORS.coral, border: "none", borderRadius: 8,
+                      padding: "8px 14px",
+                      cursor: sendingConfirmation ? "wait" : "pointer",
+                      opacity: sendingConfirmation ? 0.7 : 1,
+                    }}
+                  >
+                    {sendingConfirmation ? "Sending…" : "Send confirmation →"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {showPreview && (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.5)" }}>
