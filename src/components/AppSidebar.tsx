@@ -29,6 +29,7 @@ const folders: NavFolder[] = [
       { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Leads", url: "/leads", icon: Users },
+      { title: "Phone", url: "/inbox", icon: Phone },
     ],
   },
   {
@@ -43,10 +44,7 @@ const folders: NavFolder[] = [
   },
 ];
 
-const bottomItems: NavItem[] = [
-  { title: "Phone", url: "/inbox", icon: Phone },
-  { title: "Settings", url: "/settings", icon: SettingsIcon },
-];
+const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
 export function AppSidebar() {
   const location = useLocation();
