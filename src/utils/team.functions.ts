@@ -21,7 +21,7 @@ async function assertAdmin(userId: string) {
 export const listTeam = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context.supabase, context.userId);
+    await assertAdmin(context.userId);
     const { data, error } = await supabaseAdmin
       .from("sales_reps")
       .select("id, name, email, role, created_at")
@@ -40,7 +40,7 @@ export const inviteRep = createServerFn({ method: "POST" })
     }).parse(input)
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
+    await assertAdmin(context.userId);
     const { error: invErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email);
     if (invErr) throw new Error(invErr.message);
 
@@ -75,7 +75,7 @@ export const updateRepRole = createServerFn({ method: "POST" })
     }).parse(input)
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context.supabase, context.userId);
+    await assertAdmin(context.userId);
     const { error } = await supabaseAdmin
       .from("sales_reps")
       .update({ role: data.role })
@@ -91,7 +91,7 @@ export const removeRep = createServerFn({ method: "POST" })
     z.object({ repId: z.string().uuid() }).parse(input)
   )
   .handler(async ({ data, context }) => {
-    const callerEmail = await assertAdmin(context.supabase, context.userId);
+    const callerEmail = await assertAdmin(context.userId);
     const { data: rep } = await supabaseAdmin
       .from("sales_reps")
       .select("email")
