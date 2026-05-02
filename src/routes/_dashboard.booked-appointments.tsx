@@ -235,7 +235,7 @@ function BookedAppointmentsPage() {
   };
 
   return (
-    <div style={{ background: COLOR.bg, minHeight: "100vh", fontFamily: "'DM Sans', system-ui, sans-serif", color: COLOR.text }}>
+    <div style={{ background: COLOR.bg, height: "100vh", overflowY: "auto", fontFamily: "'DM Sans', system-ui, sans-serif", color: COLOR.text }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
           <div>
