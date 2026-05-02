@@ -2501,7 +2501,8 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
               return `${hour12}:${m} ${ampm}`;
             } catch { return bookedData?.time ?? ""; }
           })();
-          const message = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${selectedDoctor?.name ?? ""} at ${clinic?.clinic_name ?? ""}. Address: ${clinic?.address ?? ""}, ${clinic?.city ?? ""} ${clinic?.state ?? ""}.`;
+          const doctorNameClean = (selectedDoctor?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
+          const message = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${clinic?.clinic_name ?? ""}. Address: ${clinic?.address ?? ""}, ${clinic?.city ?? ""} ${clinic?.state ?? ""}.`;
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center"
