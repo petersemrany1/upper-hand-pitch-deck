@@ -29,6 +29,7 @@ const folders: NavFolder[] = [
       { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Leads", url: "/leads", icon: Users },
+      { title: "Phone", url: "/inbox", icon: Phone },
     ],
   },
   {
@@ -43,10 +44,7 @@ const folders: NavFolder[] = [
   },
 ];
 
-const bottomItems: NavItem[] = [
-  { title: "Phone", url: "/inbox", icon: Phone },
-  { title: "Settings", url: "/settings", icon: SettingsIcon },
-];
+const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
 export function AppSidebar() {
   const location = useLocation();
@@ -222,13 +220,35 @@ export function AppSidebar() {
                 );
               })}
 
-              {bottomItems.map((item) => renderItem(item))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Sign out + avatar at bottom */}
-        <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-3" style={{ borderTop: "0.5px solid #f5f5f5", paddingTop: 12 }}>
+        {/* Settings (icon only) + Sign out + avatar at bottom */}
+        <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-2" style={{ borderTop: "0.5px solid #f5f5f5", paddingTop: 10 }}>
+          {(() => {
+            const active = isActive(settingsItem.url);
+            return (
+              <Link
+                to={settingsItem.url}
+                onClick={() => { if (isMobile) setOpenMobile(false); }}
+                aria-label="Settings"
+                title="Settings"
+                className="flex items-center justify-center rounded-md"
+                style={{
+                  width: 32,
+                  height: 32,
+                  background: active ? "#fff1ee" : "transparent",
+                  color: active ? "#f4522d" : "#111111",
+                  transition: "background 0.15s ease",
+                }}
+                onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "#f5f5f5"; }}
+                onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+              >
+                <SettingsIcon className="h-4 w-4" style={{ color: active ? "#f4522d" : "#111111" }} />
+              </Link>
+            );
+          })()}
           <button
             type="button"
             onClick={async () => { await signOut(); navigate({ to: "/login" }); }}
