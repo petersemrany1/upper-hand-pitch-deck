@@ -331,11 +331,11 @@ function BookedAppointmentsPage() {
         ) : (
           <>
             <Section title="Today & Tomorrow" rows={grouped.todayTomorrow} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
             )} />
 
             <Section title="Upcoming" rows={grouped.upcoming} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
             )} />
 
             {/* Past & Cancelled — collapsible */}
@@ -358,7 +358,7 @@ function BookedAppointmentsPage() {
                   {grouped.pastCancelled.length === 0 ? (
                     <div style={{ ...cardStyle, padding: 20, textAlign: "center", color: COLOR.muted, fontSize: 13 }}>None</div>
                   ) : grouped.pastCancelled.map((r) => (
-                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} busy={busy === r.id} />
+                    <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
                   ))}
                 </div>
               )}
