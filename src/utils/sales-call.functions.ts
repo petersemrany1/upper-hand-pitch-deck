@@ -425,7 +425,7 @@ export const inviteRep = createServerFn({ method: "POST" })
     }
     const actionLink = linkData.properties.action_link;
 
-    // 3. Send branded invite email via Resend.
+    // 3. Send branded invite email through the same verified sender domain used by the working email system.
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
         <h2 style="margin:0 0 12px">You've been invited to Upper Hand</h2>
@@ -449,6 +449,7 @@ export const inviteRep = createServerFn({ method: "POST" })
           from,
           to: [to],
           subject: "You've been invited to Upper Hand",
+          reply_to: "admin@bold-patients.com",
           html,
         }),
       });
@@ -461,36 +462,17 @@ export const inviteRep = createServerFn({ method: "POST" })
       let parsed: { message?: string; name?: string } = {};
       try { parsed = JSON.parse(body); } catch { /* ignore */ }
       const msg = parsed.message || body || "Unknown error";
-      if (/domain is not verified/i.test(msg)) {
-        return "Your sending domain (upperhand.digital) isn't verified in Resend yet. Verify it at resend.com/domains, or the invite can only be sent to the Resend account owner's own email.";
-      }
-      if (/can only send testing emails to your own email/i.test(msg)) {
-        return "Resend is in sandbox mode — it will only deliver to the Resend account owner's verified email until you verify upperhand.digital at resend.com/domains.";
-      }
+      if (/domain is not verified/i.test(msg)) return "The verified sender domain rejected this invite email.";
+      if (/can only send testing emails to your own email/i.test(msg)) return "The email provider rejected this recipient while in testing mode.";
       if (status === 429) {
-        return "Resend rate limit hit (2 requests/sec). Try again in a few seconds.";
+        return "Email rate limit hit. Try again in a few seconds.";
       }
       return `Email send failed (${status}): ${msg}`;
     };
 
     let sendResult: { ok: boolean; status: number; body: string };
     try {
-      // Try branded sender first.
-      sendResult = await sendVia("Upper Hand <noreply@upperhand.digital>", data.email);
-
-      // If the branded domain isn't verified, fall back to onboarding@resend.dev.
-      // Resend sandbox restricts that sender to ONLY the account owner's email,
-      // so this fallback only helps if the recipient is that owner.
-      if (!sendResult.ok && /domain is not verified/i.test(sendResult.body)) {
-        await logError(
-          "inviteRep:resend",
-          `Branded sender unverified — falling back to onboarding@resend.dev: ${sendResult.body}`,
-          { email: data.email },
-        );
-        // Small delay to dodge the 2 req/sec rate limit.
-        await new Promise((r) => setTimeout(r, 600));
-        sendResult = await sendVia("Upper Hand <onboarding@resend.dev>", data.email);
-      }
+      sendResult = await sendVia("Upper Hand <admin@bold-patients.com>", data.email);
     } catch (e) {
       await rollbackAuthUser(newUserId);
       await logError("inviteRep:resend", (e as Error).message, { email: data.email });
