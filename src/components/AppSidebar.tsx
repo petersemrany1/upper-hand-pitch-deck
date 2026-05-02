@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
-type NavFolder = { title: string; items: NavItem[] };
+type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
 
 const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard };
 
