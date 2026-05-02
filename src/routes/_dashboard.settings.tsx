@@ -178,6 +178,10 @@ function TeamSection() {
 
       {loading ? (
         <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
+      ) : loadError ? (
+        <div className="text-sm py-6 text-center border border-dashed border-destructive/40 rounded-lg text-destructive">
+          {loadError}
+        </div>
       ) : reps.length === 0 ? (
         <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
           No reps yet. Click <strong>Invite Rep</strong> to send the first invite.
