@@ -124,10 +124,14 @@ function TeamSection() {
   const [showInvite, setShowInvite] = useState(false);
   const [editing, setEditing] = useState<Rep | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const load = async () => {
     setLoading(true);
+    setLoadError(null);
     const r = await listReps();
     if (r.success) setReps(r.reps as Rep[]);
+    else setLoadError(r.error || "Failed to load reps");
     setLoading(false);
   };
   useEffect(() => { void load(); }, []);
