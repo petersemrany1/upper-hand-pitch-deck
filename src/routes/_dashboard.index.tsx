@@ -154,7 +154,7 @@ function DashboardHome() {
     const monthIso = startOfMonth().toISOString();
     const nowIso = new Date().toISOString();
 
-    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes] =
+    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes] =
       await Promise.all([
         supabase
           .from("call_records")
@@ -167,7 +167,7 @@ function DashboardHome() {
           .gte("updated_at", todayIso),
         supabase
           .from("meta_leads")
-          .select("id", { count: "exact", head: true })
+          .select("id, clinic_id")
           .eq("status", "booked_deposit_paid")
           .gte("updated_at", monthIso),
         supabase.from("meta_leads").select("status"),
@@ -194,6 +194,8 @@ function DashboardHome() {
           .eq("direction", "inbound")
           .order("created_at", { ascending: false })
           .limit(20),
+        supabase.from("partner_clinics").select("id, price_per_booking"),
+        supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
       ]);
 
     const calls = (callsRes.data ?? []) as CallRow[];
@@ -207,7 +209,20 @@ function DashboardHome() {
     setHoldRate(totalUnique > 0 ? Math.round((heldCount / totalUnique) * 100) : 0);
 
     setBookingsToday(bookingsTodayRes.count ?? 0);
-    setBookingsMonth(bookingsMonthRes.count ?? 0);
+
+    const monthBookings = (bookingsMonthRes.data ?? []) as { id: string; clinic_id: string | null }[];
+    setBookingsMonth(monthBookings.length);
+
+    const defaultPrice = Number((settingsRes.data?.value as unknown) ?? 800) || 800;
+    const priceMap = new Map<string, number>();
+    for (const c of (clinicsRes.data ?? []) as { id: string; price_per_booking: number | null }[]) {
+      priceMap.set(c.id, Number(c.price_per_booking) || defaultPrice);
+    }
+    const revenue = monthBookings.reduce(
+      (sum, b) => sum + (b.clinic_id ? (priceMap.get(b.clinic_id) ?? defaultPrice) : defaultPrice),
+      0
+    );
+    setRevenueMonth(revenue);
 
     const counts: PipelineCounts = { new: 0, callback: 0, retry: 0, had_convo: 0, booked: 0 };
     for (const row of (pipelineRes.data ?? []) as { status: string | null }[]) {
