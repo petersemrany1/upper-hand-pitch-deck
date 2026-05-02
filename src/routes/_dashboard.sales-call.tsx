@@ -4517,6 +4517,20 @@ function RightPanel({
         {active.phone && (
           <div style={{ fontSize: 14, color: COLORS.coral, marginTop: 4 }}>{active.phone}</div>
         )}
+        {leadCallSummary && (
+          <div
+            style={{
+              fontSize: 12,
+              fontStyle: "italic",
+              color: "#888",
+              marginTop: 4,
+              lineHeight: 1.4,
+            }}
+            title={leadCallSummary}
+          >
+            {leadCallSummary}
+          </div>
+        )}
         <div style={{ marginTop: 10 }}>
           {active.funding_preference ? (
             <span
@@ -5339,6 +5353,8 @@ function RightPanel({
             setOutcomeCallbackTime("");
             onOutcomeRequiredChange?.(false);
             toast.success("Status updated ✓");
+            // Regenerate the AI one-liner now that a new outcome is recorded
+            void refreshLeadSummary("regenerate");
             // If parent had a pending lead waiting, let it apply now
             onAfterOutcomeApplied?.();
           }}
