@@ -1,5 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Settings as SettingsIcon, Info, Users, Plus, X, Pencil, Trash2, Mail, DollarSign } from "lucide-react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import {
+  Settings as SettingsIcon,
+  Users,
+  Plus,
+  X,
+  Pencil,
+  Trash2,
+  Mail,
+  DollarSign,
+  User as UserIcon,
+  Bell,
+  FileText,
+  ChevronRight,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
@@ -12,45 +25,6 @@ export const Route = createFileRoute("/_dashboard/settings")({
     meta: [{ title: "Settings" }],
   }),
 });
-
-const STORAGE_KEY = "pitch-deck-settings";
-
-export type DeckSettings = {
-  caseValue: number;
-  pricePerShow: number;
-  convertRate: string;
-};
-
-export const DEFAULT_SETTINGS: DeckSettings = {
-  caseValue: 12000,
-  pricePerShow: 800,
-  convertRate: "1 in 4",
-};
-
-const CONVERT_RATES: Record<string, number> = {
-  "1 in 1": 1, "3 in 4": 0.75, "1 in 2": 0.5, "1 in 3": 0.333,
-  "1 in 4": 0.25, "1 in 5": 0.2, "1 in 6": 0.167, "1 in 7": 0.143,
-  "1 in 8": 0.125, "1 in 9": 0.111, "1 in 10": 0.1,
-};
-
-export function loadDeckSettings(): DeckSettings {
-  if (typeof window === "undefined") return DEFAULT_SETTINGS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return {
-      caseValue: Number(parsed.caseValue) || DEFAULT_SETTINGS.caseValue,
-      pricePerShow: Number(parsed.pricePerShow) || DEFAULT_SETTINGS.pricePerShow,
-      convertRate:
-        typeof parsed.convertRate === "string" && parsed.convertRate in CONVERT_RATES
-          ? parsed.convertRate
-          : DEFAULT_SETTINGS.convertRate,
-    };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
 
 type Rep = {
   id: string;
@@ -66,7 +40,7 @@ function SettingsPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
   return (
-    <div className="min-h-screen bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12">
+    <div className="min-h-screen bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center gap-3 mb-8">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -85,36 +59,245 @@ function SettingsPage() {
           </div>
         </div>
 
-        {isAdmin && <TeamSection />}
-        {isAdmin && <BookingPricesSection />}
-
-        {!isAdmin && (
-          <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
-            <h2 className="text-lg font-bold text-foreground mb-3">Account</h2>
-            <div className="text-sm text-muted-foreground">
-              Signed in as <span className="font-medium text-foreground">{user?.email ?? "—"}</span>
-            </div>
-          </section>
-        )}
-
-        {isAdmin && (
-          <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
-            <h2 className="text-lg font-bold text-foreground mb-3">Payment Links</h2>
-            <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-4 text-sm text-foreground">
-              <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-primary" />
-              <div>
-                <p className="font-medium mb-1">Stripe links are now fully dynamic.</p>
-                <p className="text-muted-foreground leading-relaxed">
-                  When you press <strong>Send Payment Link</strong>, a fresh Stripe Checkout
-                  Session is created for the exact amount of the selected pack — including
-                  custom prices.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
+        <div className="space-y-8">
+          {isAdmin && <TeamSection />}
+          <AccountSection user={user} />
+          <NotificationsSection />
+          {isAdmin && <BookingPricesSection />}
+          <LogsSection />
+        </div>
       </div>
     </div>
+  );
+}
+
+function SectionShell({
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      className="bg-white"
+      style={{ borderRadius: 14, border: "0.5px solid #e8e8e6", padding: 28 }}
+    >
+      <div className="flex items-center gap-3 mb-5">
+        <div className="text-primary">{icon}</div>
+        <div>
+          <h2 className="text-lg font-bold text-foreground">{title}</h2>
+          {subtitle && (
+            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+          )}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AccountSection({ user }: { user: ReturnType<typeof useAuth>["user"] }) {
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const initialFirst =
+    (meta.first_name as string | undefined) ||
+    ((meta.full_name as string | undefined)?.split(" ")[0] ?? "") ||
+    "";
+  const initialLast =
+    (meta.last_name as string | undefined) ||
+    ((meta.full_name as string | undefined)?.split(" ").slice(1).join(" ") ?? "") ||
+    "";
+
+  const [firstName, setFirstName] = useState(initialFirst);
+  const [lastName, setLastName] = useState(initialLast);
+  const [savedTag, setSavedTag] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+
+  // Auto-save name changes (debounced) to user_metadata
+  useEffect(() => {
+    if (!user) return;
+    if (firstName === initialFirst && lastName === initialLast) return;
+    const t = setTimeout(async () => {
+      const { error } = await supabase.auth.updateUser({
+        data: { first_name: firstName, last_name: lastName, full_name: `${firstName} ${lastName}`.trim() },
+      });
+      if (!error) {
+        setSavedTag(true);
+        setTimeout(() => setSavedTag(false), 1500);
+      }
+    }, 500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [firstName, lastName]);
+
+  const onChangePassword = async () => {
+    if (!user?.email) {
+      toast.error("No email on file");
+      return;
+    }
+    setSendingReset(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setSendingReset(false);
+    if (error) toast.error(error.message);
+    else toast.success("Password reset email sent");
+  };
+
+  return (
+    <SectionShell
+      icon={<UserIcon className="w-5 h-5" />}
+      title="Account"
+      subtitle="Your personal details."
+    >
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="First name" value={firstName} onChange={setFirstName} />
+          <Field label="Last name" value={lastName} onChange={setLastName} />
+        </div>
+        <div>
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+            Email
+          </label>
+          <div className="px-3 py-2 rounded-md bg-muted/40 text-sm text-muted-foreground border border-border">
+            {user?.email ?? "—"}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: "0.5px solid #f0f0ee" }}>
+        <div className="text-xs text-muted-foreground">
+          {savedTag ? <span className="text-emerald-600 font-medium">Saved</span> : "Changes save automatically."}
+        </div>
+        <button
+          onClick={() => void onChangePassword()}
+          disabled={sendingReset}
+          className="px-4 py-2 rounded-md text-sm font-bold transition-opacity disabled:opacity-60"
+          style={{ background: "#f4522d", color: "#fff" }}
+        >
+          {sendingReset ? "Sending…" : "Change password"}
+        </button>
+      </div>
+    </SectionShell>
+  );
+}
+
+function NotificationsSection() {
+  const [handoverEmail, setHandoverEmail] = useState("");
+  const [alertsOn, setAlertsOn] = useState(false);
+  const [savedKey, setSavedKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    setHandoverEmail(localStorage.getItem("fallback_handover_email") ?? "");
+    setAlertsOn(localStorage.getItem("new_lead_alerts_enabled") === "true");
+  }, []);
+
+  const flashSaved = (key: string) => {
+    setSavedKey(key);
+    setTimeout(() => setSavedKey((k) => (k === key ? null : k)), 1500);
+  };
+
+  // Debounced save for the email input
+  useEffect(() => {
+    const initial = localStorage.getItem("fallback_handover_email") ?? "";
+    if (handoverEmail === initial) return;
+    const t = setTimeout(() => {
+      localStorage.setItem("fallback_handover_email", handoverEmail);
+      flashSaved("handover");
+    }, 400);
+    return () => clearTimeout(t);
+  }, [handoverEmail]);
+
+  const onToggleAlerts = (next: boolean) => {
+    setAlertsOn(next);
+    localStorage.setItem("new_lead_alerts_enabled", String(next));
+    flashSaved("alerts");
+  };
+
+  return (
+    <SectionShell
+      icon={<Bell className="w-5 h-5" />}
+      title="Notifications"
+      subtitle="Where alerts go and what triggers them."
+    >
+      <div className="space-y-5">
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Handover email fallback
+            </label>
+            {savedKey === "handover" && (
+              <span className="text-[11px] text-emerald-600 font-medium">Saved</span>
+            )}
+          </div>
+          <input
+            type="email"
+            value={handoverEmail}
+            onChange={(e) => setHandoverEmail(e.target.value)}
+            placeholder="ops@yourcompany.com"
+            className="w-full px-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary transition-colors"
+          />
+          <p className="text-xs text-muted-foreground mt-1.5">
+            If a clinic has no email saved, booking handovers go here instead.
+          </p>
+        </div>
+
+        <div className="flex items-start justify-between gap-4 pt-5" style={{ borderTop: "0.5px solid #f0f0ee" }}>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold text-foreground">New lead email alerts</span>
+              {savedKey === "alerts" && (
+                <span className="text-[11px] text-emerald-600 font-medium">Saved</span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Get an email when a new Meta lead comes in.
+            </p>
+          </div>
+          <Toggle checked={alertsOn} onChange={onToggleAlerts} />
+        </div>
+      </div>
+    </SectionShell>
+  );
+}
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      onClick={() => onChange(!checked)}
+      className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors"
+      style={{ background: checked ? "#f4522d" : "#e5e5e3" }}
+    >
+      <span
+        className="inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform"
+        style={{ transform: checked ? "translateX(22px)" : "translateX(2px)" }}
+      />
+    </button>
+  );
+}
+
+function LogsSection() {
+  return (
+    <SectionShell
+      icon={<FileText className="w-5 h-5" />}
+      title="Logs"
+      subtitle="System activity and diagnostics."
+    >
+      <Link
+        to="/logs"
+        className="flex items-center justify-between rounded-md border border-border px-4 py-3 hover:border-primary transition-colors"
+      >
+        <span className="text-sm font-medium text-foreground">View system logs</span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+      </Link>
+    </SectionShell>
   );
 }
 
