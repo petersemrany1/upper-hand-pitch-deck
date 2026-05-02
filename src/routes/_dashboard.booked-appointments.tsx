@@ -17,6 +17,7 @@ type Reminder = {
   booking_time: string | null;
   doctor_name: string | null;
   patient_first_name: string | null;
+  patient_last_name: string | null;
   patient_phone: string | null;
   three_day_sms_sent: boolean;
   three_day_sms_sent_at: string | null;
