@@ -4429,7 +4429,13 @@ function RightPanel({
       {/* Change lead link — top of right column, small + muted */}
       <div style={{ padding: "12px 18px 0" }}>
         <button
-          onClick={onChangeLead}
+          onClick={() => {
+            if (outcomeRequired) {
+              toast.error("Please set a call outcome first");
+              return;
+            }
+            onChangeLead();
+          }}
           style={{
             fontSize: 12,
             color: "#111",
