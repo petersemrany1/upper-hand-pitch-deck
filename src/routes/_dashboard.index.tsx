@@ -140,15 +140,16 @@ function DashboardHome() {
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [targetInput, setTargetInput] = useState("");
 
-  // Load target from localStorage on mount
+  // Load target from localStorage on mount. Only admins are prompted to set it;
+  // reps just consume the value the admin saved.
   useEffect(() => {
     const stored = localStorage.getItem(targetKey());
     if (stored && Number(stored) > 0) {
       setTarget(Number(stored));
-    } else {
+    } else if (isAdmin) {
       setShowTargetModal(true);
     }
-  }, []);
+  }, [isAdmin]);
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
