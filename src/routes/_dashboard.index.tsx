@@ -125,6 +125,7 @@ function DashboardHome() {
   const [holdRate, setHoldRate] = useState(0);
   const [bookingsToday, setBookingsToday] = useState(0);
   const [bookingsMonth, setBookingsMonth] = useState(0);
+  const [revenueMonth, setRevenueMonth] = useState(0);
   const [pipeline, setPipeline] = useState<PipelineCounts>({
     new: 0, callback: 0, retry: 0, had_convo: 0, booked: 0,
   });
