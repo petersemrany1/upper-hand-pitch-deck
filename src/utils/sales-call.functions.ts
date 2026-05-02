@@ -383,16 +383,69 @@ export const inviteRep = createServerFn({ method: "POST" })
     if (existing) return { success: false as const, error: "A rep with that email already exists" };
 
     const siteUrl = process.env.SITE_URL || "https://upperhanddashboard.lovable.app";
-    const { data: invite, error: inviteErr } = await supabaseAdmin.auth.admin.inviteUserByEmail(
-      data.email,
-      {
-        redirectTo: `${siteUrl}/reset-password`,
-        data: { first_name: data.firstName, last_name: data.lastName, full_name: fullName },
-      },
-    );
-    if (inviteErr) {
-      await logError("inviteRep", inviteErr.message, { email: data.email });
-      return { success: false as const, error: inviteErr.message };
+
+    // Create the auth user (no email sent by Supabase) and generate a recovery link we email via Resend
+    const { data: createdUser, error: createUserErr } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      email_confirm: true,
+      user_metadata: { first_name: data.firstName, last_name: data.lastName, full_name: fullName },
+    });
+    if (createUserErr) {
+      await logError("inviteRep", createUserErr.message, { email: data.email });
+      return { success: false as const, error: createUserErr.message };
+    }
+
+    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+      type: "recovery",
+      email: data.email,
+      options: { redirectTo: `${siteUrl}/reset-password` },
+    });
+    if (linkErr) {
+      await logError("inviteRep", linkErr.message, { email: data.email });
+      return { success: false as const, error: linkErr.message };
+    }
+    const actionLink = linkData.properties?.action_link;
+
+    // Send branded invite email via Resend
+    const resendKey = process.env.RESEND_API_KEY;
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    if (resendKey && lovableKey && actionLink) {
+      try {
+        const html = `
+          <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+            <h2 style="margin:0 0 12px">You've been invited to Upper Hand</h2>
+            <p>Hi ${data.firstName},</p>
+            <p>You've been added as a sales rep. Click the button below to set your password and sign in.</p>
+            <p style="margin:24px 0">
+              <a href="${actionLink}" style="background:#111;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block">Set your password</a>
+            </p>
+            <p style="font-size:12px;color:#666">Or paste this link in your browser:<br>${actionLink}</p>
+          </div>`;
+        const resp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lovableKey}`,
+            "X-Connection-Api-Key": resendKey,
+          },
+          body: JSON.stringify({
+            from: "Upper Hand <noreply@upperhand.digital>",
+            to: [data.email],
+            subject: "You've been invited to Upper Hand",
+            html,
+          }),
+        });
+        if (!resp.ok) {
+          const body = await resp.text();
+          await logError("inviteRep:resend", `Resend send failed [${resp.status}]: ${body}`, { email: data.email });
+          return { success: false as const, error: `Email send failed: ${body}` };
+        }
+      } catch (e) {
+        await logError("inviteRep:resend", (e as Error).message, { email: data.email });
+        return { success: false as const, error: (e as Error).message };
+      }
+    } else {
+      return { success: false as const, error: "Email service not configured" };
     }
 
     const { data: created, error: insertErr } = await supabaseAdmin.from("sales_reps")
@@ -406,7 +459,7 @@ export const inviteRep = createServerFn({ method: "POST" })
     if (insertErr) {
       return { success: false as const, error: insertErr.message };
     }
-    return { success: true as const, rep: created, userId: invite.user?.id ?? null };
+    return { success: true as const, rep: created, userId: createdUser.user?.id ?? null };
   });
 
 /* List reps for the team management screen — admin only */
