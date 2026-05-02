@@ -389,75 +389,79 @@ function DashboardHome() {
           </div>
         </Card>
 
-        {/* Two column row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <Card>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
-              <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} from Meta</div>
-            </div>
-            <div>
-              {newLeads.length === 0 ? (
-                <div style={{ padding: 20, fontSize: 13, color: "#999" }}>No new leads yet.</div>
-              ) : (
-                newLeads.map((l) => {
-                  const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
-                  const badge = statusBadge(l.status);
-                  return (
-                    <Link
-                      key={l.id}
-                      to="/sales-call"
-                      search={{ leadId: l.id } as never}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "12px 20px",
-                        borderBottom: "0.5px solid #f6f6f4",
-                        textDecoration: "none",
-                      }}
-                    >
-                      <div
+        {/* Two column row — admins see "New leads today" + Bookings/target.
+            Reps don't get the company-wide leads feed; instead they see their
+            own monthly bookings and the bonus they've earned ($50 per booking). */}
+        <div style={{ display: "grid", gridTemplateColumns: isAdmin ? "1fr 1fr" : "1fr", gap: 16 }}>
+          {isAdmin && (
+            <Card>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
+                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} from Meta</div>
+              </div>
+              <div>
+                {newLeads.length === 0 ? (
+                  <div style={{ padding: 20, fontSize: 13, color: "#999" }}>No new leads yet.</div>
+                ) : (
+                  newLeads.map((l) => {
+                    const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
+                    const badge = statusBadge(l.status);
+                    return (
+                      <Link
+                        key={l.id}
+                        to="/sales-call"
+                        search={{ leadId: l.id } as never}
                         style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: "50%",
-                          background: "#fff1ee",
-                          color: "#f4522d",
-                          fontSize: 12,
-                          fontWeight: 600,
                           display: "flex",
                           alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
+                          gap: 12,
+                          padding: "12px 20px",
+                          borderBottom: "0.5px solid #f6f6f4",
+                          textDecoration: "none",
                         }}
                       >
-                        {initials(name)}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 600,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.05em",
-                          padding: "3px 8px",
-                          borderRadius: 4,
-                          background: badge.bg,
-                          color: badge.fg,
-                        }}
-                      >
-                        {badge.label}
-                      </span>
-                      <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
-                        {relativeTime(l.created_at)}
-                      </div>
-                    </Link>
-                  );
-                })
-              )}
-            </div>
-          </Card>
+                        <div
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            background: "#fff1ee",
+                            color: "#f4522d",
+                            fontSize: 12,
+                            fontWeight: 600,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {initials(name)}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 600,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            padding: "3px 8px",
+                            borderRadius: 4,
+                            background: badge.bg,
+                            color: badge.fg,
+                          }}
+                        >
+                          {badge.label}
+                        </span>
+                        <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
+                          {relativeTime(l.created_at)}
+                        </div>
+                      </Link>
+                    );
+                  })
+                )}
+              </div>
+            </Card>
+          )}
 
           <Card>
             <div style={{ padding: 20 }}>
@@ -467,12 +471,25 @@ function DashboardHome() {
               <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
                 {bookingsMonth}
               </div>
-              <div style={{ fontSize: 14, color: "#111", fontWeight: 600, marginTop: 6 }}>
-                ${revenueMonth.toLocaleString()} revenue
-              </div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-                Target: {target || 0} / month
-              </div>
+              {isAdmin ? (
+                <>
+                  <div style={{ fontSize: 14, color: "#111", fontWeight: 600, marginTop: 6 }}>
+                    ${revenueMonth.toLocaleString()} revenue
+                  </div>
+                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+                    Target: {target || 0} / month
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: 14, color: "#16a34a", fontWeight: 600, marginTop: 6 }}>
+                    ${(bookingsMonth * 50).toLocaleString()} bonus earned
+                  </div>
+                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
+                    $50 per booking{target > 0 ? ` · target ${target}/mo` : ""}
+                  </div>
+                </>
+              )}
               {target > 0 ? (
                 <>
                   <div
