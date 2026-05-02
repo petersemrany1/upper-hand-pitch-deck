@@ -384,7 +384,22 @@ export const inviteRep = createServerFn({ method: "POST" })
 
     const siteUrl = process.env.SITE_URL || "https://upperhanddashboard.lovable.app";
 
-    // Create the auth user (no email sent by Supabase) and generate a recovery link we email via Resend
+    const resendKey = process.env.RESEND_API_KEY;
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    if (!resendKey || !lovableKey) {
+      return { success: false as const, error: "Email service not configured (missing RESEND_API_KEY or LOVABLE_API_KEY)" };
+    }
+
+    // Helper: roll back the auth user we created if a later step fails, so the
+    // invite can be retried without "user already exists" errors.
+    const rollbackAuthUser = async (userId: string | undefined) => {
+      if (!userId) return;
+      try { await supabaseAdmin.auth.admin.deleteUser(userId); } catch (e) {
+        await logError("inviteRep.rollback", (e as Error).message, { email: data.email, userId });
+      }
+    };
+
+    // 1. Create the auth user (no email sent by Supabase).
     const { data: createdUser, error: createUserErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       email_confirm: true,
@@ -394,27 +409,23 @@ export const inviteRep = createServerFn({ method: "POST" })
       await logError("inviteRep", createUserErr.message, { email: data.email });
       return { success: false as const, error: createUserErr.message };
     }
+    const newUserId = createdUser.user?.id;
 
+    // 2. Generate the password-set link.
     const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
       type: "recovery",
       email: data.email,
       options: { redirectTo: `${siteUrl}/reset-password` },
     });
-    if (linkErr) {
-      await logError("inviteRep", linkErr.message, { email: data.email });
-      return { success: false as const, error: linkErr.message };
+    if (linkErr || !linkData.properties?.action_link) {
+      await rollbackAuthUser(newUserId);
+      const msg = linkErr?.message || "Failed to generate invite link";
+      await logError("inviteRep", msg, { email: data.email });
+      return { success: false as const, error: msg };
     }
-    const actionLink = linkData.properties?.action_link;
+    const actionLink = linkData.properties.action_link;
 
-    // Send branded invite email via Resend.
-    // Tries the branded sender first; on 403 (domain not yet verified in Resend)
-    // falls back to Resend's default verified sender so invites still go out.
-    const resendKey = process.env.RESEND_API_KEY;
-    const lovableKey = process.env.LOVABLE_API_KEY;
-    if (!resendKey || !lovableKey || !actionLink) {
-      return { success: false as const, error: "Email service not configured" };
-    }
-
+    // 3. Send branded invite email via Resend.
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
         <h2 style="margin:0 0 12px">You've been invited to Upper Hand</h2>
@@ -426,7 +437,7 @@ export const inviteRep = createServerFn({ method: "POST" })
         <p style="font-size:12px;color:#666">Or paste this link in your browser:<br>${actionLink}</p>
       </div>`;
 
-    const sendVia = async (from: string) => {
+    const sendVia = async (from: string, to: string) => {
       const resp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
         method: "POST",
         headers: {
@@ -436,7 +447,7 @@ export const inviteRep = createServerFn({ method: "POST" })
         },
         body: JSON.stringify({
           from,
-          to: [data.email],
+          to: [to],
           subject: "You've been invited to Upper Hand",
           html,
         }),
@@ -445,26 +456,55 @@ export const inviteRep = createServerFn({ method: "POST" })
       return { ok: resp.ok, status: resp.status, body };
     };
 
+    // Translate Resend's raw error JSON into a human-actionable message.
+    const explainResendError = (status: number, body: string): string => {
+      let parsed: { message?: string; name?: string } = {};
+      try { parsed = JSON.parse(body); } catch { /* ignore */ }
+      const msg = parsed.message || body || "Unknown error";
+      if (/domain is not verified/i.test(msg)) {
+        return "Your sending domain (upperhand.digital) isn't verified in Resend yet. Verify it at resend.com/domains, or the invite can only be sent to the Resend account owner's own email.";
+      }
+      if (/can only send testing emails to your own email/i.test(msg)) {
+        return "Resend is in sandbox mode — it will only deliver to the Resend account owner's verified email until you verify upperhand.digital at resend.com/domains.";
+      }
+      if (status === 429) {
+        return "Resend rate limit hit (2 requests/sec). Try again in a few seconds.";
+      }
+      return `Email send failed (${status}): ${msg}`;
+    };
+
+    let sendResult: { ok: boolean; status: number; body: string };
     try {
-      let result = await sendVia("Upper Hand <noreply@upperhand.digital>");
-      // Fallback if the custom domain isn't verified yet in Resend.
-      if (!result.ok && /domain is not verified/i.test(result.body)) {
+      // Try branded sender first.
+      sendResult = await sendVia("Upper Hand <noreply@upperhand.digital>", data.email);
+
+      // If the branded domain isn't verified, fall back to onboarding@resend.dev.
+      // Resend sandbox restricts that sender to ONLY the account owner's email,
+      // so this fallback only helps if the recipient is that owner.
+      if (!sendResult.ok && /domain is not verified/i.test(sendResult.body)) {
         await logError(
           "inviteRep:resend",
-          `Branded sender unverified — falling back to onboarding@resend.dev: ${result.body}`,
+          `Branded sender unverified — falling back to onboarding@resend.dev: ${sendResult.body}`,
           { email: data.email },
         );
-        result = await sendVia("Upper Hand <onboarding@resend.dev>");
-      }
-      if (!result.ok) {
-        await logError("inviteRep:resend", `Resend send failed [${result.status}]: ${result.body}`, { email: data.email });
-        return { success: false as const, error: `Email send failed: ${result.body}` };
+        // Small delay to dodge the 2 req/sec rate limit.
+        await new Promise((r) => setTimeout(r, 600));
+        sendResult = await sendVia("Upper Hand <onboarding@resend.dev>", data.email);
       }
     } catch (e) {
+      await rollbackAuthUser(newUserId);
       await logError("inviteRep:resend", (e as Error).message, { email: data.email });
-      return { success: false as const, error: (e as Error).message };
+      return { success: false as const, error: `Email send threw: ${(e as Error).message}` };
     }
 
+    if (!sendResult.ok) {
+      await rollbackAuthUser(newUserId);
+      const friendly = explainResendError(sendResult.status, sendResult.body);
+      await logError("inviteRep:resend", `Resend send failed [${sendResult.status}]: ${sendResult.body}`, { email: data.email });
+      return { success: false as const, error: friendly };
+    }
+
+    // 4. Insert the sales_reps row only after the email is actually sent.
     const { data: created, error: insertErr } = await supabaseAdmin.from("sales_reps")
       .insert({
         name: fullName,
@@ -474,9 +514,12 @@ export const inviteRep = createServerFn({ method: "POST" })
         role: "rep",
       } as never).select("*").single();
     if (insertErr) {
-      return { success: false as const, error: insertErr.message };
+      // Email already went out — keep the auth user but report the DB error so the
+      // user can manually add the row or retry. Don't roll back: the recipient has the link.
+      await logError("inviteRep.insert", insertErr.message, { email: data.email });
+      return { success: false as const, error: `Invite email sent, but failed to save rep row: ${insertErr.message}` };
     }
-    return { success: true as const, rep: created, userId: createdUser.user?.id ?? null };
+    return { success: true as const, rep: created, userId: newUserId ?? null };
   });
 
 /* List reps for the team management screen — admin only */
