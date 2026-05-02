@@ -12,9 +12,11 @@ export const Route = createFileRoute("/_dashboard/leaderboard")({
 });
 
 const C = {
-  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#ebebeb", muted: "#111111",
-  blue: "#f4522d", green: "#10b981", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
+  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#111111", muted: "#111111",
+  coral: "#f4522d", green: "#16a34a", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
 };
+// Backwards-compat alias used in a few inline styles below
+const BLUE = "#f4522d";
 
 type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
 type Row = Awaited<ReturnType<typeof getLeaderboard>>["rows"][number];
@@ -120,7 +122,7 @@ function LeaderboardPage() {
     { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
     { key: "30d", label: "30 Days" },
   ];
-  const maxBonus = Math.max(...rows.map((r) => r.bonus), 1000);
+  
 
   return (
     <div className="h-full overflow-y-auto" style={{ background: C.bg, color: C.text }}>
