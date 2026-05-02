@@ -88,6 +88,8 @@ function fmtSendDate(d: string, daysBefore: number): string {
 
 type Filter = "all" | "week" | "month" | "past";
 
+const ENABLED_KEY = "booked_appointments_enabled";
+
 function BookedAppointmentsPage() {
   const [rows, setRows] = useState<Reminder[]>([]);
   const [leads, setLeads] = useState<Record<string, Lead>>({});
@@ -96,6 +98,16 @@ function BookedAppointmentsPage() {
   const [pastOpen, setPastOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<Reminder | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [enabled, setEnabled] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(ENABLED_KEY) !== "false";
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(ENABLED_KEY, enabled ? "true" : "false");
+    }
+  }, [enabled]);
 
   // Twilio device for placing calls
   const twilio = useTwilioDevice(true);
@@ -225,10 +237,40 @@ function BookedAppointmentsPage() {
   return (
     <div style={{ background: COLOR.bg, minHeight: "100vh", fontFamily: "'DM Sans', system-ui, sans-serif", color: COLOR.text }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "32px 24px" }}>
-        <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 4 }}>Booked Appointments</h1>
-        <p style={{ fontSize: 13, color: COLOR.grey, marginBottom: 24 }}>
-          Track confirmed bookings and automated SMS reminders
-        </p>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
+          <div>
+            <h1 style={{ fontSize: 26, fontWeight: 600, letterSpacing: "-0.02em", marginBottom: 4 }}>Booked Appointments</h1>
+            <p style={{ fontSize: 13, color: COLOR.grey }}>
+              Track confirmed bookings and automated SMS reminders
+            </p>
+          </div>
+          <button
+            onClick={() => setEnabled((v) => !v)}
+            style={{
+              fontSize: 12, fontWeight: 500,
+              padding: "8px 14px", borderRadius: 999,
+              background: enabled ? COLOR.greenBg : COLOR.greyBg,
+              color: enabled ? COLOR.green : COLOR.grey,
+              border: `0.5px solid ${enabled ? COLOR.green : COLOR.border}`,
+              cursor: "pointer", whiteSpace: "nowrap",
+            }}
+          >
+            {enabled ? "● Enabled — Click to disable" : "○ Disabled — Click to enable"}
+          </button>
+        </div>
+
+        {!enabled ? (
+          <div style={{ ...cardStyle, padding: 60, textAlign: "center" }}>
+            <p style={{ fontSize: 10, letterSpacing: "0.08em", color: COLOR.muted, textTransform: "uppercase", marginBottom: 8 }}>
+              Page disabled
+            </p>
+            <p style={{ fontSize: 14, color: COLOR.grey }}>
+              The Booked Appointments page is turned off. Click the button above to re-enable.
+            </p>
+          </div>
+        ) : (
+          <>
+
 
         {/* Stats strip */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
@@ -302,7 +344,10 @@ function BookedAppointmentsPage() {
             </div>
           </>
         )}
+          </>
+        )}
       </div>
+
 
       {/* Cancel confirmation */}
       {confirmCancel && (
