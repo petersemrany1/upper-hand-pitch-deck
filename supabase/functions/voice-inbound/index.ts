@@ -94,6 +94,14 @@ serve(async (req) => {
         }
       }
 
+      // TODO: rep_id is not set here. Today every inbound call is forwarded
+      // to the single hardcoded "peter_browser" client identity, so all
+      // inbound calls implicitly belong to that one rep. When multiple reps
+      // start answering inbound calls (e.g. round-robin or based on which
+      // browser is online), this needs to resolve the answering rep —
+      // probably by mapping the Twilio Client identity that accepts the
+      // call to a sales_reps row, then UPDATE'ing rep_id on this row from
+      // a follow-up status callback.
       await supabase
         .from("call_records")
         .upsert(
