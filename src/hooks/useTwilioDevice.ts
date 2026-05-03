@@ -476,7 +476,7 @@ function hangupCall() {
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
   pendingIncoming = null;
-  setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready", incomingFrom: null });
+  setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "ready", incomingFrom: null });
 }
 
 function answerIncoming() {
@@ -497,7 +497,7 @@ function rejectIncoming() {
   if (!pendingIncoming) return;
   try { pendingIncoming.reject(); } catch (e) { console.error("rejectIncoming failed", e); }
   pendingIncoming = null;
-  setSnapshot({ status: "ready", activeCallStartedAt: null, incomingFrom: null });
+  setSnapshot({ status: "ready", activeCallStartedAt: null, activeCallInstanceId: null, incomingFrom: null });
 }
 
 function sendDigit(digit: string) {
@@ -545,7 +545,7 @@ export function useTwilioDevice(enabled: boolean = false) {
   const mute = useCallback((m: boolean) => setMute(m), []);
   const retry = useCallback(() => {
     setSnapshot({ error: null });
-    if (device && currentStatus !== "ready") setSnapshot({ status: "ready", activeCallStartedAt: null });
+    if (device && currentStatus !== "ready") setSnapshot({ status: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
   }, []);
 
   return {
@@ -556,6 +556,7 @@ export function useTwilioDevice(enabled: boolean = false) {
     activeLeadId: currentLeadId,
     activePhone: currentCallPhone,
     activeCallStartedAt: currentCallStartedAt,
+    activeCallInstanceId: currentCallInstanceId,
     incomingFrom: currentIncomingFrom,
     waitingFrom: currentWaitingFrom,
     call,
