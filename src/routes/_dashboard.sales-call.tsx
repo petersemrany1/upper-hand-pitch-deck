@@ -5125,6 +5125,8 @@ function RightPanel({
           onClick={async () => {
             if (!active.phone) { toast.error("No phone number on this lead"); return; }
             if (sendingDepositLink) return;
+            const ok = window.confirm(`Send the $75 deposit payment link via SMS to ${active.first_name ?? "this lead"} (${active.phone})?`);
+            if (!ok) return;
             setSendingDepositLink(true);
             const r = await sendStandaloneDepositSms({
               data: {
@@ -5148,9 +5150,9 @@ function RightPanel({
           }}
           disabled={sendingDepositLink || !active.phone}
           style={{
-            width: "100%", background: COLORS.coral, color: "#fff",
-            border: "none", borderRadius: 8,
-            fontSize: 13, fontWeight: 600, padding: "10px 12px",
+            width: "100%", background: "#ffffff", color: "#111",
+            border: `1px solid #111`, borderRadius: 8,
+            fontSize: 13, fontWeight: 500, padding: "8px 12px",
             cursor: sendingDepositLink || !active.phone ? "not-allowed" : "pointer",
             opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
           }}
