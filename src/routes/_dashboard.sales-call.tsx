@@ -5231,18 +5231,6 @@ function RightPanel({
           </div>
         </div>
       )}
-          disabled={sendingDepositLink || !active.phone}
-          style={{
-            width: "100%", background: "#ffffff", color: "#111",
-            border: `1px solid #111`, borderRadius: 8,
-            fontSize: 13, fontWeight: 500, padding: "8px 12px",
-            cursor: sendingDepositLink || !active.phone ? "not-allowed" : "pointer",
-            opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
-          }}
-        >
-          {sendingDepositLink ? "Sending…" : "💳 Send $75 deposit link to patient"}
-        </button>
-      </div>
 
       {/* Section 6 — SMS */}
       <div style={{ padding: "14px 18px 96px", borderTop: `0.5px solid ${COLORS.line}` }}>
