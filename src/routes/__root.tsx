@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { AuthProvider } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { GlobalCallLayer } from "@/components/GlobalCallLayer";
 
 import appCss from "../styles.css?url";
 
