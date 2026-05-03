@@ -55,12 +55,14 @@ let currentDialerStatus: DialerStatus = "connecting";
 let currentError: string | null = null;
 let currentCallSid: string | null = null;
 let currentIncomingFrom: string | null = null;
+let currentLeadId: string | null = null;
 
 type Snapshot = {
   status: Status;
   dialerStatus: DialerStatus;
   error: string | null;
   activeCallSid: string | null;
+  activeLeadId: string | null;
   incomingFrom: string | null;
   waitingFrom: string | null;
 };
@@ -78,6 +80,7 @@ function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.dialerStatus !== undefined) currentDialerStatus = patch.dialerStatus;
   if (patch.error !== undefined) currentError = patch.error;
   if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
+  if (patch.activeLeadId !== undefined) currentLeadId = patch.activeLeadId;
   if (patch.incomingFrom !== undefined) currentIncomingFrom = patch.incomingFrom;
   if (patch.waitingFrom !== undefined) currentWaitingFrom = patch.waitingFrom;
   notify();
@@ -303,7 +306,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
   }
 
-  setSnapshot({ error: null, status: "connecting" });
+  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null });
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
