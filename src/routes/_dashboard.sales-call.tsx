@@ -2276,6 +2276,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setDepositSent(false);
       setDepositPaid(false);
       setSendingHandover(false);
+      setConfirmationSent(false);
       setSendingDeposit(false);
       setIntelStatus("waiting");
       setPollAttempt(0);
@@ -2529,6 +2530,32 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
                 {sendingConfirmation ? "Sending…" : "Send →"}
               </div>
             )}
+          </button>
+
+          {/* Reset everything */}
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            disabled={resetting}
+            className="w-full rounded-[8px] flex items-center justify-between mt-3"
+            style={{
+              background: "#ffffff",
+              border: `0.5px solid ${COLORS.line}`,
+              padding: "16px 20px",
+              cursor: resetting ? "wait" : "pointer",
+              opacity: resetting ? 0.7 : 1,
+            }}
+          >
+            <div style={{ textAlign: "left" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.coral, marginBottom: 2 }}>
+                Reset everything
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.muted }}>
+                Clear booking, deposit, handover & confirmation — fresh slate
+              </div>
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+              {resetting ? "Resetting…" : "Reset ↺"}
+            </div>
           </button>
         </div>
 
