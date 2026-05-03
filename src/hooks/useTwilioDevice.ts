@@ -419,19 +419,19 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
           });
       }
       activeCall = null;
-      setSnapshot({ activeCallSid: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready" });
     });
     outgoing.on("cancel", () => {
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ activeCallSid: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready" });
     });
     outgoing.on("reject", () => {
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ activeCallSid: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready" });
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
       console.error("Voice SDK call error:", e);
@@ -454,7 +454,7 @@ function hangupCall() {
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
   pendingIncoming = null;
-  setSnapshot({ activeCallSid: null, status: "ready", incomingFrom: null });
+  setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready", incomingFrom: null });
 }
 
 function answerIncoming() {
