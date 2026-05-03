@@ -57,6 +57,7 @@ let currentCallSid: string | null = null;
 let currentIncomingFrom: string | null = null;
 let currentLeadId: string | null = null;
 let currentCallPhone: string | null = null;
+let currentCallStartedAt: number | null = null;
 
 type Snapshot = {
   status: Status;
@@ -65,6 +66,7 @@ type Snapshot = {
   activeCallSid: string | null;
   activeLeadId: string | null;
   activePhone: string | null;
+  activeCallStartedAt: number | null;
   incomingFrom: string | null;
   waitingFrom: string | null;
 };
@@ -84,6 +86,7 @@ function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
   if (patch.activeLeadId !== undefined) currentLeadId = patch.activeLeadId;
   if (patch.activePhone !== undefined) currentCallPhone = patch.activePhone;
+  if (patch.activeCallStartedAt !== undefined) currentCallStartedAt = patch.activeCallStartedAt;
   if (patch.incomingFrom !== undefined) currentIncomingFrom = patch.incomingFrom;
   if (patch.waitingFrom !== undefined) currentWaitingFrom = patch.waitingFrom;
   notify();
