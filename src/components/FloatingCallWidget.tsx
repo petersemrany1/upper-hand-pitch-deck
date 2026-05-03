@@ -138,6 +138,7 @@ export function FloatingCallWidget() {
 
   const startedAtRef = useRef<number | null>(null);
   const prevStatusRef = useRef(status);
+  const prevStatusForEndRef = useRef(status);
   const prevSidRef = useRef<string | null>(null);
 
   const isActive = status === "connecting" || status === "in-call";
@@ -198,7 +199,8 @@ export function FloatingCallWidget() {
 
   // Detect end-of-call → reset + prompt outcome
   useEffect(() => {
-    const wasActive = prevStatusRef.current === "in-call" || prevStatusRef.current === "connecting";
+    const previousStatus = prevStatusForEndRef.current;
+    const wasActive = previousStatus === "in-call" || previousStatus === "connecting";
     if (wasActive && !isActive) {
       const sid = prevSidRef.current;
       const from = incomingFrom;
@@ -215,7 +217,8 @@ export function FloatingCallWidget() {
       setDtmfTrail("");
       prevSidRef.current = null;
     }
-  }, [isActive, incomingFrom]);
+    prevStatusForEndRef.current = status;
+  }, [status, isActive, incomingFrom]);
 
   const handleDigit = (d: string) => {
     sendDtmf(d);
