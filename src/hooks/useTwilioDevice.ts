@@ -58,7 +58,10 @@ type Snapshot = {
   error: string | null;
   activeCallSid: string | null;
   incomingFrom: string | null;
+  waitingFrom: string | null;
 };
+
+let currentWaitingFrom: string | null = null;
 
 const subscribers = new Set<() => void>();
 
@@ -72,6 +75,7 @@ function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.error !== undefined) currentError = patch.error;
   if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
   if (patch.incomingFrom !== undefined) currentIncomingFrom = patch.incomingFrom;
+  if (patch.waitingFrom !== undefined) currentWaitingFrom = patch.waitingFrom;
   notify();
 }
 
