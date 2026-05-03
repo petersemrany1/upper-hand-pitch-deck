@@ -13,16 +13,17 @@ import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
-  saveCallNotes, discoveryToAmpAudio,
+  saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
-  validateSearch: (search: Record<string, unknown>): { leadId?: string } => {
+  validateSearch: (search: Record<string, unknown>): { leadId?: string; phone?: string } => {
     const leadId = typeof search.leadId === "string" ? search.leadId : undefined;
-    return leadId ? { leadId } : {};
+    const phone = typeof search.phone === "string" ? search.phone : undefined;
+    return { ...(leadId ? { leadId } : {}), ...(phone ? { phone } : {}) };
   },
 });
 
