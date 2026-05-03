@@ -310,7 +310,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
   }
 
-  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null });
+  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone });
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
@@ -423,19 +423,19 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
           });
       }
       activeCall = null;
-      setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready" });
     });
     outgoing.on("cancel", () => {
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready" });
     });
     outgoing.on("reject", () => {
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready" });
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
       console.error("Voice SDK call error:", e);
@@ -458,7 +458,7 @@ function hangupCall() {
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
   pendingIncoming = null;
-  setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready", incomingFrom: null });
+  setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready", incomingFrom: null });
 }
 
 function answerIncoming() {
