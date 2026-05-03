@@ -4480,16 +4480,13 @@ function RightPanel({
         const k = normaliseStatus(active.status, active);
         const isBooked = k === "booked_deposit_paid" || k === "booked_no_deposit";
         console.log("[outcome-modal] call ended", { deviceStatus, duration, status: active.status, isBooked });
-        if (!isBooked && duration >= 10) {
+        if (!isBooked && duration > 0) {
+          // Always prompt the rep to choose an outcome — never auto-change
+          // a lead's status without explicit user action.
           setCallDurationAtHangup(duration);
           setOutcomeView("menu");
           setOutcomeRequired(true);
           onOutcomeRequiredChange?.(true);
-        } else if (!isBooked && duration > 0 && duration < 10) {
-          // Auto no-answer for very short calls
-          void updateLeadStatus({ data: { leadId: active.id, status: "no_answer" } });
-          onLocalLeadUpdate?.(active.id, { status: "no_answer" });
-          toast.success("Marked as No Answer");
         }
         wasInCallRef.current = false;
       }
