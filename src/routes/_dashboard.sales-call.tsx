@@ -15,7 +15,7 @@ import {
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio,
 } from "@/utils/sales-call.functions";
-import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms } from "@/utils/resend.functions";
+import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
@@ -4320,6 +4320,7 @@ function RightPanel({
   const [showSms, setShowSms] = useState(false);
   const [smsText, setSmsText] = useState("");
   const [sendingSms, setSendingSms] = useState(false);
+  const [sendingDepositLink, setSendingDepositLink] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
   // AI one-liner summary of where things are at with this lead.
@@ -5116,6 +5117,46 @@ function RightPanel({
             </div>
           );
         })()}
+      </div>
+
+      {/* Section 5b — Send standalone $75 deposit link */}
+      <div style={{ padding: "14px 18px 0" }}>
+        <button
+          onClick={async () => {
+            if (!active.phone) { toast.error("No phone number on this lead"); return; }
+            if (sendingDepositLink) return;
+            setSendingDepositLink(true);
+            const r = await sendStandaloneDepositSms({
+              data: {
+                leadId: active.id,
+                firstName: active.first_name ?? "there",
+                phone: active.phone,
+              },
+            });
+            setSendingDepositLink(false);
+            if (r.success) {
+              toast.success("$75 deposit link sent via SMS ✓");
+              setSmsHistory((prev) => [...prev, {
+                body: `Deposit link sent: ${r.stripeUrl}`,
+                sent_at: new Date().toISOString(),
+                created_at: new Date().toISOString(),
+                direction: "outbound",
+              }]);
+            } else {
+              toast.error(r.error || "Failed to send deposit link");
+            }
+          }}
+          disabled={sendingDepositLink || !active.phone}
+          style={{
+            width: "100%", background: COLORS.coral, color: "#fff",
+            border: "none", borderRadius: 8,
+            fontSize: 13, fontWeight: 600, padding: "10px 12px",
+            cursor: sendingDepositLink || !active.phone ? "not-allowed" : "pointer",
+            opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
+          }}
+        >
+          {sendingDepositLink ? "Sending…" : "💳 Send $75 deposit link to patient"}
+        </button>
       </div>
 
       {/* Section 6 — SMS */}
