@@ -226,6 +226,7 @@ async function ensureDevice(): Promise<void> {
             setSnapshot({
               activeCallSid: c.parameters?.CallSid ?? null,
               activeLeadId: null,
+              activePhone: from,
               status: "in-call",
               incomingFrom: null,
               waitingFrom: null,
@@ -248,13 +249,13 @@ async function ensureDevice(): Promise<void> {
           console.log("Voice SDK: incoming call accepted, sid =", c.parameters?.CallSid);
           activeCall = c;
           pendingIncoming = null;
-          setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, activeLeadId: null, status: "in-call", incomingFrom: null });
+          setSnapshot({ activeCallSid: c.parameters?.CallSid ?? null, activeLeadId: null, activePhone: from, status: "in-call", incomingFrom: null });
         });
         call.on("disconnect", () => {
           console.log("Voice SDK: incoming call disconnected");
           if (activeCall === call) {
             activeCall = null;
-            setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready", incomingFrom: null });
+            setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready", incomingFrom: null });
           }
           if (pendingIncoming === call) pendingIncoming = null;
         });
@@ -262,7 +263,7 @@ async function ensureDevice(): Promise<void> {
           console.log("Voice SDK: incoming call cancelled by caller");
           if (activeCall === call) {
             activeCall = null;
-            setSnapshot({ activeCallSid: null, activeLeadId: null, status: "ready", incomingFrom: null });
+            setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready", incomingFrom: null });
           }
           if (pendingIncoming === call) {
             pendingIncoming = null;
