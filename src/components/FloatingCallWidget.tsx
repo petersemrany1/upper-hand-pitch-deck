@@ -87,7 +87,7 @@ function useCallContext(callSid: string | null) {
 }
 
 export function FloatingCallWidget() {
-  const { status, activeCallSid, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+  const { status, activeCallSid, activeLeadId, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
   const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
 
@@ -342,7 +342,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={() => {
-            const id = leadId || matchedLead?.id;
+            const id = activeLeadId || leadId || matchedLead?.id;
             if (id) {
               navigate({ to: "/sales-call", search: { leadId: id } });
             } else {
@@ -353,7 +353,7 @@ export function FloatingCallWidget() {
           }}
           className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
         >
-          {(leadId || matchedLead) ? (
+          {(activeLeadId || leadId || matchedLead) ? (
             <>Open {contactName || [matchedLead?.first_name, matchedLead?.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call</>
           ) : (
             <>Open Sales Call</>
