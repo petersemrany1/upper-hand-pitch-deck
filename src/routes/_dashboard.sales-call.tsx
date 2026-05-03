@@ -20,6 +20,9 @@ import { stopRingback } from "@/utils/ringback";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
+  validateSearch: (search: Record<string, unknown>) => ({
+    leadId: typeof search.leadId === "string" ? search.leadId : undefined,
+  }),
 });
 
 type Lead = {
