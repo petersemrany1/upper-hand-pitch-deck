@@ -87,7 +87,7 @@ function useCallContext(callSid: string | null) {
 }
 
 export function FloatingCallWidget() {
-  const { status, activeCallSid, activeLeadId, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+  const { status, activeCallSid, activeLeadId, activePhone, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
   const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
 
@@ -114,16 +114,17 @@ export function FloatingCallWidget() {
   // didn't pass leadId, or the row hasn't been upserted yet), match by phone
   // so the "Open in Sales Call" button still appears.
   useEffect(() => {
-    if (leadId || !phone || incomingFrom) return;
+    const phoneToMatch = phone || activePhone;
+    if (leadId || activeLeadId || !phoneToMatch || incomingFrom) return;
     let cancelled = false;
-    void findLeadByPhone({ data: { phone } }).then((r) => {
+    void findLeadByPhone({ data: { phone: phoneToMatch } }).then((r) => {
       if (cancelled) return;
       if (r.success && r.lead) {
         setMatchedLead({ id: r.lead.id, first_name: r.lead.first_name, last_name: r.lead.last_name });
       }
     }).catch(() => { /* noop */ });
     return () => { cancelled = true; };
-  }, [leadId, phone, incomingFrom]);
+  }, [leadId, activeLeadId, phone, activePhone, incomingFrom]);
 
   const [expanded, setExpanded] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
@@ -143,9 +144,9 @@ export function FloatingCallWidget() {
 
   // Display label hierarchy: contact/lead name → clinic → incoming caller →
   // phone → fallback. Name first so the rep instantly sees who they're talking to.
-  const primaryLabel = contactName || clinicName || incomingFrom || phone || "Outbound call";
+  const primaryLabel = contactName || clinicName || incomingFrom || phone || activePhone || "Outbound call";
   const secondaryLabel =
-    contactName && clinicName ? clinicName : contactName ? phone : clinicName ? phone : null;
+    contactName && clinicName ? clinicName : contactName ? (phone || activePhone) : clinicName ? (phone || activePhone) : null;
 
   // Track call timer
   useEffect(() => {
