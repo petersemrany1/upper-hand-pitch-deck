@@ -105,6 +105,8 @@ function fmtTime(s: string | null) {
 
 function SalesCallPortal() {
   const { user } = useAuth();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [step, setStep] = useState<StepKey>("mindset");
