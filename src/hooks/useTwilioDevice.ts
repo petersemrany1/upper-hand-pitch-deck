@@ -43,6 +43,10 @@ function lowLatencyMediaOptions() {
 let device: Device | null = null;
 let activeCall: Call | null = null;
 let pendingIncoming: Call | null = null;
+// Second simultaneous incoming call while another call is active (call-waiting).
+// We surface it on the banner instead of auto-rejecting; user can answer (which
+// puts the current call on hold-via-disconnect) or reject it.
+let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
 
