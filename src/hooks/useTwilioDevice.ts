@@ -283,7 +283,7 @@ async function ensureDevice(): Promise<void> {
           console.error("Voice SDK: incoming call error:", e);
           if (activeCall === call) activeCall = null;
           if (pendingIncoming === call) pendingIncoming = null;
-          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})`, status: activeCall ? "in-call" : "ready", incomingFrom: null });
+          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})`, activeCallStartedAt: activeCall ? currentCallStartedAt : null, status: activeCall ? "in-call" : "ready", incomingFrom: null });
         });
       });
 
@@ -447,12 +447,12 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, status: "error" });
+      setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "error" });
     });
   } catch (err) {
     stopRingback();
     const msg = extractErrorMessage(err, "Failed to start call");
-    setSnapshot({ error: msg, status: "error" });
+    setSnapshot({ error: msg, activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "error" });
     throw err instanceof Error ? err : new Error(msg);
   }
 }
