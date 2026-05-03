@@ -87,7 +87,7 @@ function useCallContext(callSid: string | null) {
 }
 
 export function FloatingCallWidget() {
-  const { status, activeCallSid, activeLeadId, activePhone, activeCallStartedAt, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+  const { status, activeCallSid, activeLeadId, activePhone, activeCallStartedAt, activeCallInstanceId, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
   const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
 
@@ -137,6 +137,7 @@ export function FloatingCallWidget() {
   const [endedFrom, setEndedFrom] = useState<string | null>(null);
 
   const startedAtRef = useRef<number | null>(null);
+  const timerIntervalRef = useRef<number | null>(null);
   const prevStatusRef = useRef(status);
   const prevStatusForEndRef = useRef(status);
   const prevSidRef = useRef<string | null>(null);
@@ -149,10 +150,15 @@ export function FloatingCallWidget() {
   const secondaryLabel =
     contactName && clinicName ? clinicName : contactName ? (phone || activePhone) : clinicName ? (phone || activePhone) : null;
 
-  // Track call timer from the canonical Twilio accept timestamp. This avoids
-  // inheriting an old local ref if the widget remounts or a previous call ended
-  // before this component saw the transition.
+  // Track call timer from the canonical Twilio accept timestamp, keyed by a
+  // unique call instance. Clearing the interval before every branch prevents
+  // old intervals from previous calls ever writing stale minutes back in.
   useEffect(() => {
+    if (timerIntervalRef.current !== null) {
+      window.clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
     if (status === "connecting") {
       startedAtRef.current = null;
       setSeconds(0);
@@ -162,14 +168,22 @@ export function FloatingCallWidget() {
     if (status === "in-call") {
       startedAtRef.current = activeCallStartedAt ?? Date.now();
       setSeconds(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000)));
-      const id = window.setInterval(() => {
+      timerIntervalRef.current = window.setInterval(() => {
         if (startedAtRef.current) {
           setSeconds(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000)));
         }
       }, 1000);
-      return () => window.clearInterval(id);
+      return () => {
+        if (timerIntervalRef.current !== null) {
+          window.clearInterval(timerIntervalRef.current);
+          timerIntervalRef.current = null;
+        }
+      };
     }
-  }, [status, activeCallSid, activeCallStartedAt]);
+
+    startedAtRef.current = null;
+    setSeconds(0);
+  }, [status, activeCallSid, activeCallStartedAt, activeCallInstanceId]);
 
   // Auto-expand on first active call
   useEffect(() => {
