@@ -5123,32 +5123,114 @@ function RightPanel({
       {/* Section 5b — Send standalone $75 deposit link */}
       <div style={{ padding: "14px 18px 0" }}>
         <button
-          onClick={async () => {
+          onClick={() => {
             if (!active.phone) { toast.error("No phone number on this lead"); return; }
             if (sendingDepositLink) return;
-            const ok = window.confirm(`Send the $75 deposit payment link via SMS to ${active.first_name ?? "this lead"} (${active.phone})?`);
-            if (!ok) return;
-            setSendingDepositLink(true);
-            const r = await sendStandaloneDepositSms({
-              data: {
-                leadId: active.id,
-                firstName: active.first_name ?? "there",
-                phone: active.phone,
-              },
-            });
-            setSendingDepositLink(false);
-            if (r.success) {
-              toast.success("$75 deposit link sent via SMS ✓");
-              setSmsHistory((prev) => [...prev, {
-                body: `Deposit link sent: ${r.stripeUrl}`,
-                sent_at: new Date().toISOString(),
-                created_at: new Date().toISOString(),
-                direction: "outbound",
-              }]);
-            } else {
-              toast.error(r.error || "Failed to send deposit link");
-            }
+            setConfirmDepositOpen(true);
           }}
+          disabled={sendingDepositLink || !active.phone}
+          style={{
+            width: "100%", background: "#ffffff", color: "#111",
+            border: `1px solid #111`, borderRadius: 8,
+            fontSize: 13, fontWeight: 500, padding: "8px 12px",
+            cursor: sendingDepositLink || !active.phone ? "not-allowed" : "pointer",
+            opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
+          }}
+        >
+          {sendingDepositLink ? "Sending…" : "💳 Send $75 deposit link to patient"}
+        </button>
+      </div>
+
+      {/* Branded confirm modal for deposit-link send */}
+      {confirmDepositOpen && (
+        <div
+          onClick={() => !sendingDepositLink && setConfirmDepositOpen(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(17,17,17,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 10000, padding: 16, backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 14, maxWidth: 420, width: "100%",
+              overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.28)",
+              border: `0.5px solid ${COLORS.line}`,
+            }}
+          >
+            <div style={{ padding: "22px 22px 6px" }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12,
+                background: "#fff5f2", display: "flex", alignItems: "center",
+                justifyContent: "center", fontSize: 22, marginBottom: 14,
+                border: `1px solid ${COLORS.coral}33`,
+              }}>💳</div>
+              <div style={{ fontSize: 17, fontWeight: 600, color: "#111", letterSpacing: -0.2 }}>
+                Send $75 deposit link?
+              </div>
+              <div style={{ fontSize: 13, color: "#555", marginTop: 6, lineHeight: 1.5 }}>
+                A Stripe payment link will be sent via SMS to{" "}
+                <strong style={{ color: "#111" }}>{active.first_name ?? "this lead"}</strong>{" "}
+                at <strong style={{ color: "#111" }}>{active.phone}</strong>.
+              </div>
+            </div>
+            <div style={{
+              display: "flex", gap: 8, padding: "16px 22px 18px",
+            }}>
+              <button
+                onClick={() => setConfirmDepositOpen(false)}
+                disabled={sendingDepositLink}
+                style={{
+                  flex: 1, background: "#fff", color: "#111",
+                  border: `1px solid ${COLORS.line}`, borderRadius: 8,
+                  fontSize: 13, fontWeight: 500, padding: "10px 12px",
+                  cursor: sendingDepositLink ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (sendingDepositLink) return;
+                  setSendingDepositLink(true);
+                  const r = await sendStandaloneDepositSms({
+                    data: {
+                      leadId: active.id,
+                      firstName: active.first_name ?? "there",
+                      phone: active.phone!,
+                    },
+                  });
+                  setSendingDepositLink(false);
+                  setConfirmDepositOpen(false);
+                  if (r.success) {
+                    toast.success("$75 deposit link sent via SMS ✓");
+                    setSmsHistory((prev) => [...prev, {
+                      body: `Deposit link sent: ${r.stripeUrl}`,
+                      sent_at: new Date().toISOString(),
+                      created_at: new Date().toISOString(),
+                      direction: "outbound",
+                    }]);
+                  } else {
+                    toast.error(r.error || "Failed to send deposit link");
+                  }
+                }}
+                disabled={sendingDepositLink}
+                style={{
+                  flex: 1, background: COLORS.coral, color: "#fff",
+                  border: "none", borderRadius: 8,
+                  fontSize: 13, fontWeight: 600, padding: "10px 12px",
+                  cursor: sendingDepositLink ? "not-allowed" : "pointer",
+                  opacity: sendingDepositLink ? 0.7 : 1,
+                  boxShadow: `0 4px 14px ${COLORS.coral}55`,
+                }}
+              >
+                {sendingDepositLink ? "Sending…" : "Yes, send link"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
           disabled={sendingDepositLink || !active.phone}
           style={{
             width: "100%", background: "#ffffff", color: "#111",
