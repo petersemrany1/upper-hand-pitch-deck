@@ -109,6 +109,7 @@ function SalesCallPortal() {
   const navigate = Route.useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const resolvingLeadIdRef = useRef<string | null>(null);
   const [step, setStep] = useState<StepKey>("mindset");
   const [completed, setCompleted] = useState<Set<StepKey>>(new Set());
   const [repId, setRepId] = useState<string | null>(null);
@@ -256,7 +257,20 @@ function SalesCallPortal() {
     if (!wantedId) return;
     if (leads.length === 0) return;
     const found = leads.find((l) => l.id === wantedId);
-    if (!found) return;
+    if (!found) {
+      if (resolvingLeadIdRef.current === wantedId) return;
+      resolvingLeadIdRef.current = wantedId;
+      void supabase
+        .from("meta_leads")
+        .select("*")
+        .eq("id", wantedId)
+        .maybeSingle()
+        .then(({ data }) => {
+          resolvingLeadIdRef.current = null;
+          if (data) setLeads((prev) => prev.some((l) => l.id === wantedId) ? prev : [data as Lead, ...prev]);
+        });
+      return;
+    }
     if (activeId !== found.id) {
       setActiveId(found.id);
       setStep("mindset");
