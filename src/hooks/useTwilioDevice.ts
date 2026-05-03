@@ -531,6 +531,7 @@ export function useTwilioDevice(enabled: boolean = false) {
     dialerStatus: currentDialerStatus,
     error: currentError,
     activeCallSid: currentCallSid,
+    activeLeadId: currentLeadId,
     incomingFrom: currentIncomingFrom,
     waitingFrom: currentWaitingFrom,
     call,
