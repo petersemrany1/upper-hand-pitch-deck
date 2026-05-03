@@ -282,6 +282,21 @@ function SalesCallPortal() {
     navigate({ search: (prev) => ({ ...prev, leadId: undefined }), replace: true });
   }, [search.leadId, leads, activeId, navigate]);
 
+  useEffect(() => {
+    const wantedPhone = search.phone;
+    if (!wantedPhone || search.leadId) return;
+    let cancelled = false;
+    void findLeadByPhone({ data: { phone: wantedPhone } }).then((r) => {
+      if (cancelled) return;
+      if (r.success && r.lead?.id) {
+        navigate({ search: (prev) => ({ ...prev, leadId: r.lead!.id, phone: undefined }), replace: true });
+        return;
+      }
+      navigate({ search: (prev) => ({ ...prev, phone: undefined }), replace: true });
+    });
+    return () => { cancelled = true; };
+  }, [search.phone, search.leadId, navigate]);
+
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
   const updateLocalLead = useCallback((id: string, patch: Partial<Lead>) => {
