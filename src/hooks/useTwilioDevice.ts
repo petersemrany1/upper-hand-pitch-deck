@@ -353,6 +353,12 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
   }
 
+  if (activeCall || currentStatus === "in-call") {
+    stopRingback();
+    try { activeCall?.disconnect(); } catch { /* noop */ }
+    activeCall = null;
+  }
+
   const instanceId = nextCallInstance();
   setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null, activeCallInstanceId: instanceId });
   try {
