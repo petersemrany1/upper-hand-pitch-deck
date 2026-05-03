@@ -181,7 +181,7 @@ async function ensureDevice(): Promise<void> {
           setSnapshot({ status: "ringing-incoming", dialerStatus: "ready", error: null });
           return;
         }
-        setSnapshot({ status: "ready", dialerStatus: "ready", error: null, activeCallStartedAt: null });
+        setSnapshot({ status: "ready", dialerStatus: "ready", error: null, activeCallStartedAt: null, activeCallInstanceId: null });
       });
 
       d.on("unregistered", () => {
@@ -195,6 +195,7 @@ async function ensureDevice(): Promise<void> {
         setSnapshot({
           error: e?.message || `Device error (${e?.code ?? "unknown"})`,
           activeCallStartedAt: activeCall ? currentCallStartedAt : null,
+          activeCallInstanceId: activeCall ? currentCallInstanceId : null,
           status: "error",
           dialerStatus: "failed",
         });
@@ -283,19 +284,19 @@ async function ensureDevice(): Promise<void> {
           }
           if (pendingIncoming === call) {
             pendingIncoming = null;
-            setSnapshot({ status: activeCall ? "in-call" : "ready", activeCallStartedAt: activeCall ? currentCallStartedAt : null, incomingFrom: null });
+            setSnapshot({ status: activeCall ? "in-call" : "ready", activeCallStartedAt: activeCall ? currentCallStartedAt : null, activeCallInstanceId: activeCall ? currentCallInstanceId : null, incomingFrom: null });
           }
         });
         call.on("reject", () => {
           console.log("Voice SDK: incoming call rejected");
           pendingIncoming = null;
-          setSnapshot({ status: "ready", activeCallStartedAt: null, incomingFrom: null });
+          setSnapshot({ status: "ready", activeCallStartedAt: null, activeCallInstanceId: null, incomingFrom: null });
         });
         call.on("error", (e: { message?: string; code?: number }) => {
           console.error("Voice SDK: incoming call error:", e);
           if (activeCall === call) activeCall = null;
           if (pendingIncoming === call) pendingIncoming = null;
-          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})`, activeCallStartedAt: activeCall ? currentCallStartedAt : null, status: activeCall ? "in-call" : "ready", incomingFrom: null });
+          setSnapshot({ error: e?.message || `Incoming call error (${e?.code ?? "unknown"})`, activeCallStartedAt: activeCall ? currentCallStartedAt : null, activeCallInstanceId: activeCall ? currentCallInstanceId : null, status: activeCall ? "in-call" : "ready", incomingFrom: null });
         });
       });
 
@@ -304,7 +305,7 @@ async function ensureDevice(): Promise<void> {
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
       console.error("Voice SDK init failed:", err);
-      setSnapshot({ error: msg, activeCallStartedAt: null, status: "error", dialerStatus: "failed" });
+      setSnapshot({ error: msg, activeCallStartedAt: null, activeCallInstanceId: null, status: "error", dialerStatus: "failed" });
       await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
         stepsToReproduce: "Page load triggered Voice SDK initialisation.",
       });
