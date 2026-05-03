@@ -249,24 +249,23 @@ function SalesCallPortal() {
 
   // Preselect a lead from ?leadId= (used by the FloatingCallWidget's
   // "Open in Sales Call" button when an inbound caller is recognised).
+  // We react to the search param itself (not just initial mount) so clicking
+  // the widget while already on this page still switches to the new lead.
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const wantedId = params.get("leadId");
+    const wantedId = search.leadId;
     if (!wantedId) return;
-    // Wait until leads are loaded, then match
     if (leads.length === 0) return;
     const found = leads.find((l) => l.id === wantedId);
-    if (found && activeId !== found.id) {
+    if (!found) return;
+    if (activeId !== found.id) {
       setActiveId(found.id);
       setStep("mindset");
       setCompleted(new Set());
-      // Clear the param so a refresh doesn't re-trigger
-      const url = new URL(window.location.href);
-      url.searchParams.delete("leadId");
-      window.history.replaceState({}, "", url.toString());
     }
-  }, [leads, activeId]);
+    // Clear the param so a refresh doesn't re-trigger and so re-clicking the
+    // same lead from the widget still fires this effect again.
+    navigate({ search: (prev) => ({ ...prev, leadId: undefined }), replace: true });
+  }, [search.leadId, leads, activeId, navigate]);
 
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
