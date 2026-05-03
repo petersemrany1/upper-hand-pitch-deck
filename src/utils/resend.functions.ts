@@ -1158,3 +1158,97 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
     }
   });
 
+// Send a standalone $75 deposit Stripe payment link via SMS to a patient,
+// without requiring a confirmed booking (date/clinic/doctor).
+export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      leadId: string;
+      firstName: string;
+      phone: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const TWILIO_FROM = "+61468031075";
+
+    if (!accountSid || !authToken) {
+      return { success: false as const, error: "Twilio credentials not configured" };
+    }
+
+    const stripeResult = await createHtgDepositSession({
+      data: {
+        firstName: data.firstName,
+        lastName: "",
+        email: "",
+        amount: 75,
+        leadId: data.leadId,
+      },
+    });
+
+    if (!stripeResult.success) {
+      return { success: false as const, error: `Stripe failed: ${stripeResult.error}` };
+    }
+
+    const stripeUrl = stripeResult.url;
+    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${stripeUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
+
+    const raw = data.phone.replace(/[\s\-()]/g, "");
+    const formatted = raw.startsWith("+")
+      ? raw
+      : raw.startsWith("0")
+      ? "+61" + raw.slice(1)
+      : "+61" + raw;
+
+    try {
+      const response = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            To: formatted,
+            From: TWILIO_FROM,
+            Body: message,
+          }),
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        await logError("sendStandaloneDepositSms", result.message || "Twilio SMS failed", {
+          leadId: data.leadId,
+          phone: formatted,
+        });
+        return { success: false as const, error: result.message || "SMS failed" };
+      }
+
+      // Log to sms_messages so it shows up in history
+      try {
+        const admin = getAdminClient();
+        await admin.from("sms_messages").insert({
+          lead_id: data.leadId,
+          phone: formatted,
+          direction: "outbound",
+          body: message,
+          to_number: formatted,
+          from_number: TWILIO_FROM,
+          twilio_message_sid: result.sid,
+          status: result.status ?? "sent",
+          sent_at: new Date().toISOString(),
+        });
+      } catch { /* noop */ }
+
+      return { success: true as const, sid: result.sid as string, stripeUrl };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Network error";
+      await logError("sendStandaloneDepositSms", msg, { leadId: data.leadId });
+      return { success: false as const, error: msg };
+    }
+  });
+
