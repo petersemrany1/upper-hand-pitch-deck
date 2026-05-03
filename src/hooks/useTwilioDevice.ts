@@ -293,7 +293,7 @@ async function ensureDevice(): Promise<void> {
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
       console.error("Voice SDK init failed:", err);
-      setSnapshot({ error: msg, status: "error", dialerStatus: "failed" });
+      setSnapshot({ error: msg, activeCallStartedAt: null, status: "error", dialerStatus: "failed" });
       await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
         stepsToReproduce: "Page load triggered Voice SDK initialisation.",
       });
@@ -485,7 +485,7 @@ function rejectIncoming() {
   if (!pendingIncoming) return;
   try { pendingIncoming.reject(); } catch (e) { console.error("rejectIncoming failed", e); }
   pendingIncoming = null;
-  setSnapshot({ status: "ready", incomingFrom: null });
+  setSnapshot({ status: "ready", activeCallStartedAt: null, incomingFrom: null });
 }
 
 function sendDigit(digit: string) {
@@ -533,7 +533,7 @@ export function useTwilioDevice(enabled: boolean = false) {
   const mute = useCallback((m: boolean) => setMute(m), []);
   const retry = useCallback(() => {
     setSnapshot({ error: null });
-    if (device && currentStatus !== "ready") setSnapshot({ status: "ready" });
+    if (device && currentStatus !== "ready") setSnapshot({ status: "ready", activeCallStartedAt: null });
   }, []);
 
   return {
