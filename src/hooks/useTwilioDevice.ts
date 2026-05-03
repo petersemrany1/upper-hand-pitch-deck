@@ -410,7 +410,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       teardownStatus();
       const sid = c.parameters?.CallSid ?? null;
       if (sid) void insertCallRow(sid);
-      setSnapshot({ activeCallSid: sid, status: "in-call" });
+      setSnapshot({ activeCallSid: sid, activeCallStartedAt: Date.now(), status: "in-call" });
     });
     outgoing.on("disconnect", () => {
       console.log("Voice SDK: call disconnected");
@@ -428,19 +428,19 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
           });
       }
       activeCall = null;
-      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready" });
     });
     outgoing.on("cancel", () => {
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready" });
     });
     outgoing.on("reject", () => {
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready" });
+      setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready" });
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
       console.error("Voice SDK call error:", e);
