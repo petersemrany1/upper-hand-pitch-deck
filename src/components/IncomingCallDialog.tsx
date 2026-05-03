@@ -237,7 +237,7 @@ export function IncomingCallDialog() {
                   fontWeight: 600,
                 }}
               >
-                Incoming call
+                {isWaiting ? "Call waiting" : "Incoming call"}
               </span>
               <span
                 style={{
@@ -250,7 +250,7 @@ export function IncomingCallDialog() {
                   maxWidth: 240,
                 }}
               >
-                {fullName || incomingFrom || "Unknown caller"}
+                {fullName || callerNumber || "Unknown caller"}
               </span>
               {matched && (
                 <span
@@ -267,8 +267,8 @@ export function IncomingCallDialog() {
                   {statusLabel(leadStatus)}
                 </span>
               )}
-              {fullName && incomingFrom && (
-                <span style={{ fontSize: 11, color: "#aaa" }}>{incomingFrom}</span>
+              {fullName && callerNumber && (
+                <span style={{ fontSize: 11, color: "#aaa" }}>{callerNumber}</span>
               )}
             </div>
             {summary && (
