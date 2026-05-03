@@ -510,6 +510,7 @@ export function useTwilioDevice(enabled: boolean = false) {
     error: currentError,
     activeCallSid: currentCallSid,
     incomingFrom: currentIncomingFrom,
+    waitingFrom: currentWaitingFrom,
     call,
     hangup,
     answer,
