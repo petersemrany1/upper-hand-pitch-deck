@@ -344,11 +344,11 @@ export function FloatingCallWidget() {
           onClick={() => {
             const id = leadId || matchedLead?.id;
             if (id) {
-              navigate({ to: "/sales-call", search: { leadId: id } as never });
+              navigate({ to: "/sales-call", search: { leadId: id } });
             } else {
               // No lead match — just open the sales-call screen so the rep can
               // search/select manually instead of being stuck.
-              navigate({ to: "/sales-call" });
+              navigate({ to: "/sales-call", search: {} });
             }
           }}
           className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
