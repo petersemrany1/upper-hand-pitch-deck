@@ -482,7 +482,7 @@ function DashboardHome() {
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }}>
             <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Pipeline</div>
-            <Link to="/sales-call" style={{ fontSize: 13, color: "#f4522d", fontWeight: 500 }}>
+            <Link to="/sales-call" search={{}} style={{ fontSize: 13, color: "#f4522d", fontWeight: 500 }}>
               Open call sheet →
             </Link>
           </div>
