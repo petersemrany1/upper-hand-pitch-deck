@@ -4320,6 +4320,7 @@ function RightPanel({
   const [showSms, setShowSms] = useState(false);
   const [smsText, setSmsText] = useState("");
   const [sendingSms, setSendingSms] = useState(false);
+  const [sendingDepositLink, setSendingDepositLink] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
   // AI one-liner summary of where things are at with this lead.
