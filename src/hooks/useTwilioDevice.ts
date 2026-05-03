@@ -328,7 +328,8 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
   }
 
-  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null, activeCallInstanceId: nextCallInstance() });
+  const instanceId = nextCallInstance();
+  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null, activeCallInstanceId: instanceId });
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
@@ -368,6 +369,8 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         console.error("call_records insert failed", e);
       }
     };
+
+    const isCurrentOutgoing = () => activeCall === outgoing && currentCallInstanceId === instanceId;
 
     // CallSid is usually available immediately after connect(), but
     // sometimes only on the ringing/accept event. Try both.
@@ -409,6 +412,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     if (earlySid) subscribeToStatus(earlySid);
 
     outgoing.on("ringing", () => {
+      if (!isCurrentOutgoing()) return;
       const sid = (outgoing as unknown as { parameters?: { CallSid?: string } }).parameters?.CallSid;
       if (sid && sid !== currentCallSid) {
         void insertCallRow(sid);
@@ -418,6 +422,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       if (currentStatus !== "in-call") setSnapshot({ status: "connecting" });
     });
     outgoing.on("accept", (c: Call) => {
+      if (!isCurrentOutgoing()) return;
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
       stopRingback();
       teardownStatus();
@@ -426,6 +431,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       setSnapshot({ activeCallSid: sid, activeCallStartedAt: Date.now(), status: "in-call" });
     });
     outgoing.on("disconnect", () => {
+      if (!isCurrentOutgoing()) return;
       console.log("Voice SDK: call disconnected");
       stopRingback();
       teardownStatus();
@@ -444,18 +450,21 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "ready" });
     });
     outgoing.on("cancel", () => {
+      if (!isCurrentOutgoing()) return;
       stopRingback();
       teardownStatus();
       activeCall = null;
       setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "ready" });
     });
     outgoing.on("reject", () => {
+      if (!isCurrentOutgoing()) return;
       stopRingback();
       teardownStatus();
       activeCall = null;
       setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "ready" });
     });
     outgoing.on("error", (e: { message?: string; code?: number }) => {
+      if (!isCurrentOutgoing()) return;
       console.error("Voice SDK call error:", e);
       stopRingback();
       teardownStatus();
