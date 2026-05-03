@@ -272,13 +272,13 @@ async function ensureDevice(): Promise<void> {
           }
           if (pendingIncoming === call) {
             pendingIncoming = null;
-            setSnapshot({ status: activeCall ? "in-call" : "ready", incomingFrom: null });
+            setSnapshot({ status: activeCall ? "in-call" : "ready", activeCallStartedAt: activeCall ? currentCallStartedAt : null, incomingFrom: null });
           }
         });
         call.on("reject", () => {
           console.log("Voice SDK: incoming call rejected");
           pendingIncoming = null;
-          setSnapshot({ status: "ready", incomingFrom: null });
+          setSnapshot({ status: "ready", activeCallStartedAt: null, incomingFrom: null });
         });
         call.on("error", (e: { message?: string; code?: number }) => {
           console.error("Voice SDK: incoming call error:", e);
