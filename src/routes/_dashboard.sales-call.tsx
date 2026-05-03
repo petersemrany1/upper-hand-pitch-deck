@@ -2276,6 +2276,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       setDepositSent(false);
       setDepositPaid(false);
       setSendingHandover(false);
+      setConfirmationSent(false);
       setSendingDeposit(false);
       setIntelStatus("waiting");
       setPollAttempt(0);
