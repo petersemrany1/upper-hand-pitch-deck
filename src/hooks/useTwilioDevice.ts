@@ -174,7 +174,7 @@ async function ensureDevice(): Promise<void> {
         console.log("DEVICE READY");
         console.log("DEVICE IDENTITY: peter_browser");
         if (activeCall) {
-          setSnapshot({ status: "in-call", dialerStatus: "ready", error: null, activeCallStartedAt: currentCallStartedAt ?? Date.now() });
+          setSnapshot({ status: "in-call", dialerStatus: "ready", error: null, activeCallStartedAt: currentCallStartedAt ?? Date.now(), activeCallInstanceId: currentCallInstanceId ?? nextCallInstance() });
           return;
         }
         if (pendingIncoming) {
