@@ -194,7 +194,12 @@ async function ensureDevice(): Promise<void> {
         console.log("DEVICE READY");
         console.log("DEVICE IDENTITY: peter_browser");
         if (activeCall) {
-          setSnapshot({ status: "in-call", dialerStatus: "ready", error: null, activeCallStartedAt: currentCallStartedAt ?? Date.now(), activeCallInstanceId: currentCallInstanceId ?? nextCallInstance() });
+          const state = getCallState(activeCall);
+          if (state && ["closed", "completed", "canceled", "cancelled", "disconnected", "failed", "rejected"].includes(state)) {
+            clearActiveCallState("ready");
+          } else {
+            setSnapshot({ status: "in-call", dialerStatus: "ready", error: null, activeCallStartedAt: currentCallStartedAt ?? Date.now(), activeCallInstanceId: currentCallInstanceId ?? nextCallInstance() });
+          }
           return;
         }
         if (pendingIncoming) {
