@@ -47,8 +47,15 @@ function statusColor(s: string | null): { bg: string; fg: string } {
 }
 
 export function IncomingCallDialog() {
-  const { status: deviceStatus, incomingFrom, answer, reject } = useTwilioDevice();
+  const { status: deviceStatus, incomingFrom, waitingFrom, answer, reject } = useTwilioDevice();
+  // Banner is shown when the device is ringing OR when a call-waiting second
+  // call comes in while the user is already on a call.
   const isRinging = deviceStatus === "ringing-incoming";
+  const isWaiting = !!waitingFrom && deviceStatus === "in-call";
+  const isActive = isRinging || isWaiting;
+  // Caller number we show in the banner — the waiting call takes priority
+  // when the user is already on another call.
+  const callerNumber = isWaiting ? waitingFrom : incomingFrom;
 
   const [matched, setMatched] = useState<MatchedLead | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -59,7 +66,7 @@ export function IncomingCallDialog() {
 
   // Reset transient UI whenever a new call starts/ends
   useEffect(() => {
-    if (!isRinging) {
+    if (!isActive) {
       setMatched(null);
       setSummary(null);
       setSmsSent(false);
@@ -70,7 +77,7 @@ export function IncomingCallDialog() {
         dismissTimerRef.current = null;
       }
     }
-  }, [isRinging]);
+  }, [isActive]);
 
   // Match incoming caller to a lead via phone tail
   useEffect(() => {
