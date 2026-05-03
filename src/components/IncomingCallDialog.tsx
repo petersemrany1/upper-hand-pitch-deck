@@ -81,8 +81,8 @@ export function IncomingCallDialog() {
 
   // Match incoming caller to a lead via phone tail
   useEffect(() => {
-    if (!isRinging || !incomingFrom) return;
-    void findLeadByPhone({ data: { phone: incomingFrom } })
+    if (!isActive || !callerNumber) return;
+    void findLeadByPhone({ data: { phone: callerNumber } })
       .then((r) => {
         if (r.success && r.lead) {
           setMatched({
@@ -96,7 +96,7 @@ export function IncomingCallDialog() {
         }
       })
       .catch(() => { /* noop */ });
-  }, [isRinging, incomingFrom]);
+  }, [isActive, callerNumber]);
 
   // Fetch / generate the AI one-liner once we have a matched lead
   useEffect(() => {
@@ -129,7 +129,7 @@ export function IncomingCallDialog() {
 
   // Auto-dismiss after 30s of no action
   useEffect(() => {
-    if (!isRinging || dismissed) return;
+    if (!isActive || dismissed) return;
     dismissTimerRef.current = window.setTimeout(() => {
       setDismissed(true);
     }, AUTO_DISMISS_MS);
@@ -139,9 +139,9 @@ export function IncomingCallDialog() {
         dismissTimerRef.current = null;
       }
     };
-  }, [isRinging, dismissed]);
+  }, [isActive, dismissed]);
 
-  if (!isRinging || dismissed) return null;
+  if (!isActive || dismissed) return null;
 
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"
@@ -150,12 +150,12 @@ export function IncomingCallDialog() {
   const statusCol = statusColor(leadStatus);
 
   const handleSendSms = async () => {
-    if (!incomingFrom || smsBusy || smsSent) return;
+    if (!callerNumber || smsBusy || smsSent) return;
     setSmsBusy(true);
     try {
       const r = await sendSms({
         data: {
-          to: incomingFrom,
+          to: callerNumber,
           body:
             "Hi, I'm just on the phone at the moment — I'll call you back shortly.",
         },
