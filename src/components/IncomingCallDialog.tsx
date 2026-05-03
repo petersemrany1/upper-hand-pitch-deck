@@ -47,7 +47,7 @@ function statusColor(s: string | null): { bg: string; fg: string } {
 }
 
 export function IncomingCallDialog() {
-  const { status: deviceStatus, incomingFrom, reject } = useTwilioDevice();
+  const { status: deviceStatus, incomingFrom, answer, reject } = useTwilioDevice();
   const isRinging = deviceStatus === "ringing-incoming";
 
   const [matched, setMatched] = useState<MatchedLead | null>(null);
@@ -156,6 +156,10 @@ export function IncomingCallDialog() {
       if (r.success) setSmsSent(true);
     } catch { /* noop */ }
     setSmsBusy(false);
+  };
+
+  const handleAnswer = () => {
+    try { answer(); } catch { /* noop */ }
   };
 
   const handleIgnore = () => {
@@ -281,6 +285,27 @@ export function IncomingCallDialog() {
 
         {/* Right side — actions */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={handleAnswer}
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              padding: "8px 12px",
+              borderRadius: 8,
+              background: "#16a34a",
+              color: "#fff",
+              border: "1px solid #15803d",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              whiteSpace: "nowrap",
+            }}
+          >
+            <Phone size={13} /> Answer
+          </button>
+
           <button
             type="button"
             onClick={() => void handleSendSms()}
