@@ -134,6 +134,10 @@ async function ensureDevice(): Promise<void> {
       // - dscp tags packets so home routers prioritise voice.
       // - closeProtection avoids accidental disconnects mid-call.
       const d = new Device(token, {
+        // Required for call waiting. Without this, the Twilio SDK silently
+        // ignores a second invite while the browser has an active call, so our
+        // "incoming" handler never fires and no banner can appear.
+        allowIncomingWhileBusy: true,
         logLevel: 1,
         codecPreferences: ["opus" as never, "pcmu" as never],
         edge: "sydney",
@@ -150,6 +154,14 @@ async function ensureDevice(): Promise<void> {
         console.log("DEVICE REGISTERED");
         console.log("DEVICE READY");
         console.log("DEVICE IDENTITY: peter_browser");
+        if (activeCall) {
+          setSnapshot({ status: "in-call", dialerStatus: "ready", error: null });
+          return;
+        }
+        if (pendingIncoming) {
+          setSnapshot({ status: "ringing-incoming", dialerStatus: "ready", error: null });
+          return;
+        }
         setSnapshot({ status: "ready", dialerStatus: "ready", error: null });
       });
 
@@ -192,7 +204,7 @@ async function ensureDevice(): Promise<void> {
             return;
           }
           waitingCall = call;
-          setSnapshot({ waitingFrom: from });
+          setSnapshot({ status: activeCall ? "in-call" : currentStatus, waitingFrom: from });
 
           const clear = () => {
             if (waitingCall === call) waitingCall = null;
