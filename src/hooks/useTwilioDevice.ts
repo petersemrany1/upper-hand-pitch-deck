@@ -463,7 +463,7 @@ function hangupCall() {
   try { pendingIncoming?.reject(); } catch { /* noop */ }
   activeCall = null;
   pendingIncoming = null;
-  setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, status: "ready", incomingFrom: null });
+  setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready", incomingFrom: null });
 }
 
 function answerIncoming() {
@@ -542,6 +542,7 @@ export function useTwilioDevice(enabled: boolean = false) {
     activeCallSid: currentCallSid,
     activeLeadId: currentLeadId,
     activePhone: currentCallPhone,
+    activeCallStartedAt: currentCallStartedAt,
     incomingFrom: currentIncomingFrom,
     waitingFrom: currentWaitingFrom,
     call,
