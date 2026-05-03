@@ -102,6 +102,26 @@ function nextCallInstance() {
   return currentCallInstanceId;
 }
 
+function getCallState(call: Call | null): string | null {
+  try {
+    return (call as unknown as { status?: () => string } | null)?.status?.() ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function clearActiveCallState(status: Status = "ready") {
+  activeCall = null;
+  setSnapshot({
+    activeCallSid: null,
+    activeLeadId: null,
+    activePhone: null,
+    activeCallStartedAt: null,
+    activeCallInstanceId: null,
+    status,
+  });
+}
+
 async function fetchToken(): Promise<string> {
   // Pass the user's access token explicitly. supabase.functions.invoke does
   // this automatically once a session exists, but we also keep the explicit
