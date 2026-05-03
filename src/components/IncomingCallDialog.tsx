@@ -391,8 +391,8 @@ export function IncomingCallDialog() {
 // occupying space at the top of the viewport, so the layout can reserve
 // padding-top to avoid overlap.
 export function useIncomingBannerActive(): boolean {
-  const { status } = useTwilioDevice();
-  return status === "ringing-incoming";
+  const { status, waitingFrom } = useTwilioDevice();
+  return status === "ringing-incoming" || (status === "in-call" && !!waitingFrom);
 }
 
 export const INCOMING_BANNER_HEIGHT = BANNER_HEIGHT;
