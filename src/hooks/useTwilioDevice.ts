@@ -436,11 +436,20 @@ function hangupCall() {
 }
 
 function answerIncoming() {
-  if (!pendingIncoming) return;
-  try { pendingIncoming.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
+  // Prefer waiting call if there is one — answering it ends the active call.
+  const target = waitingCall ?? pendingIncoming;
+  if (!target) return;
+  try { target.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
 }
 
 function rejectIncoming() {
+  // If there's a waiting call, reject that one (don't kill the active call).
+  if (waitingCall) {
+    try { waitingCall.reject(); } catch (e) { console.error("rejectWaiting failed", e); }
+    waitingCall = null;
+    setSnapshot({ waitingFrom: null });
+    return;
+  }
   if (!pendingIncoming) return;
   try { pendingIncoming.reject(); } catch (e) { console.error("rejectIncoming failed", e); }
   pendingIncoming = null;
