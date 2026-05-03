@@ -47,8 +47,15 @@ function statusColor(s: string | null): { bg: string; fg: string } {
 }
 
 export function IncomingCallDialog() {
-  const { status: deviceStatus, incomingFrom, answer, reject } = useTwilioDevice();
+  const { status: deviceStatus, incomingFrom, waitingFrom, answer, reject } = useTwilioDevice();
+  // Banner is shown when the device is ringing OR when a call-waiting second
+  // call comes in while the user is already on a call.
   const isRinging = deviceStatus === "ringing-incoming";
+  const isWaiting = !!waitingFrom && deviceStatus === "in-call";
+  const isActive = isRinging || isWaiting;
+  // Caller number we show in the banner — the waiting call takes priority
+  // when the user is already on another call.
+  const callerNumber = isWaiting ? waitingFrom : incomingFrom;
 
   const [matched, setMatched] = useState<MatchedLead | null>(null);
   const [summary, setSummary] = useState<string | null>(null);
@@ -59,7 +66,7 @@ export function IncomingCallDialog() {
 
   // Reset transient UI whenever a new call starts/ends
   useEffect(() => {
-    if (!isRinging) {
+    if (!isActive) {
       setMatched(null);
       setSummary(null);
       setSmsSent(false);
@@ -70,12 +77,12 @@ export function IncomingCallDialog() {
         dismissTimerRef.current = null;
       }
     }
-  }, [isRinging]);
+  }, [isActive]);
 
   // Match incoming caller to a lead via phone tail
   useEffect(() => {
-    if (!isRinging || !incomingFrom) return;
-    void findLeadByPhone({ data: { phone: incomingFrom } })
+    if (!isActive || !callerNumber) return;
+    void findLeadByPhone({ data: { phone: callerNumber } })
       .then((r) => {
         if (r.success && r.lead) {
           setMatched({
@@ -89,7 +96,7 @@ export function IncomingCallDialog() {
         }
       })
       .catch(() => { /* noop */ });
-  }, [isRinging, incomingFrom]);
+  }, [isActive, callerNumber]);
 
   // Fetch / generate the AI one-liner once we have a matched lead
   useEffect(() => {
@@ -122,7 +129,7 @@ export function IncomingCallDialog() {
 
   // Auto-dismiss after 30s of no action
   useEffect(() => {
-    if (!isRinging || dismissed) return;
+    if (!isActive || dismissed) return;
     dismissTimerRef.current = window.setTimeout(() => {
       setDismissed(true);
     }, AUTO_DISMISS_MS);
@@ -132,9 +139,9 @@ export function IncomingCallDialog() {
         dismissTimerRef.current = null;
       }
     };
-  }, [isRinging, dismissed]);
+  }, [isActive, dismissed]);
 
-  if (!isRinging || dismissed) return null;
+  if (!isActive || dismissed) return null;
 
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"
@@ -143,12 +150,12 @@ export function IncomingCallDialog() {
   const statusCol = statusColor(leadStatus);
 
   const handleSendSms = async () => {
-    if (!incomingFrom || smsBusy || smsSent) return;
+    if (!callerNumber || smsBusy || smsSent) return;
     setSmsBusy(true);
     try {
       const r = await sendSms({
         data: {
-          to: incomingFrom,
+          to: callerNumber,
           body:
             "Hi, I'm just on the phone at the moment — I'll call you back shortly.",
         },
@@ -230,7 +237,7 @@ export function IncomingCallDialog() {
                   fontWeight: 600,
                 }}
               >
-                Incoming call
+                {isWaiting ? "Call waiting" : "Incoming call"}
               </span>
               <span
                 style={{
@@ -243,7 +250,7 @@ export function IncomingCallDialog() {
                   maxWidth: 240,
                 }}
               >
-                {fullName || incomingFrom || "Unknown caller"}
+                {fullName || callerNumber || "Unknown caller"}
               </span>
               {matched && (
                 <span
@@ -260,8 +267,8 @@ export function IncomingCallDialog() {
                   {statusLabel(leadStatus)}
                 </span>
               )}
-              {fullName && incomingFrom && (
-                <span style={{ fontSize: 11, color: "#aaa" }}>{incomingFrom}</span>
+              {fullName && callerNumber && (
+                <span style={{ fontSize: 11, color: "#aaa" }}>{callerNumber}</span>
               )}
             </div>
             {summary && (
@@ -384,8 +391,8 @@ export function IncomingCallDialog() {
 // occupying space at the top of the viewport, so the layout can reserve
 // padding-top to avoid overlap.
 export function useIncomingBannerActive(): boolean {
-  const { status } = useTwilioDevice();
-  return status === "ringing-incoming";
+  const { status, waitingFrom } = useTwilioDevice();
+  return status === "ringing-incoming" || (status === "in-call" && !!waitingFrom);
 }
 
 export const INCOMING_BANNER_HEIGHT = BANNER_HEIGHT;

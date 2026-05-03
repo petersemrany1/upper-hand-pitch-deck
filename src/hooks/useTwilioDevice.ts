@@ -43,6 +43,10 @@ function lowLatencyMediaOptions() {
 let device: Device | null = null;
 let activeCall: Call | null = null;
 let pendingIncoming: Call | null = null;
+// Second simultaneous incoming call while another call is active (call-waiting).
+// We surface it on the banner instead of auto-rejecting; user can answer (which
+// puts the current call on hold-via-disconnect) or reject it.
+let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
 
@@ -58,7 +62,10 @@ type Snapshot = {
   error: string | null;
   activeCallSid: string | null;
   incomingFrom: string | null;
+  waitingFrom: string | null;
 };
+
+let currentWaitingFrom: string | null = null;
 
 const subscribers = new Set<() => void>();
 
@@ -72,6 +79,7 @@ function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.error !== undefined) currentError = patch.error;
   if (patch.activeCallSid !== undefined) currentCallSid = patch.activeCallSid;
   if (patch.incomingFrom !== undefined) currentIncomingFrom = patch.incomingFrom;
+  if (patch.waitingFrom !== undefined) currentWaitingFrom = patch.waitingFrom;
   notify();
 }
 
@@ -174,10 +182,43 @@ async function ensureDevice(): Promise<void> {
         console.log("Voice SDK: incoming call from", from, "sid =", call.parameters?.CallSid);
         console.log("INCOMING CALL");
 
-        // If already on a call, auto-reject the new one
-        if (activeCall) {
-          console.log("Voice SDK: rejecting incoming — already on a call");
-          try { call.reject(); } catch { /* noop */ }
+        // Call-waiting: already on a call. Don't reject — surface a second
+        // incoming banner so the user can pick it up (which ends the current
+        // call) or send to voicemail.
+        if (activeCall || pendingIncoming) {
+          if (waitingCall) {
+            // Already a waiting call queued; reject this third one.
+            try { call.reject(); } catch { /* noop */ }
+            return;
+          }
+          waitingCall = call;
+          setSnapshot({ waitingFrom: from });
+
+          const clear = () => {
+            if (waitingCall === call) waitingCall = null;
+            setSnapshot({ waitingFrom: null });
+          };
+          call.on("accept", (c: Call) => {
+            console.log("Voice SDK: waiting call accepted, sid =", c.parameters?.CallSid);
+            // Disconnect the previous active call — Twilio Voice SDK can only
+            // have one active media session at a time in the browser.
+            try { activeCall?.disconnect(); } catch { /* noop */ }
+            activeCall = c;
+            waitingCall = null;
+            setSnapshot({
+              activeCallSid: c.parameters?.CallSid ?? null,
+              status: "in-call",
+              incomingFrom: null,
+              waitingFrom: null,
+            });
+          });
+          call.on("disconnect", clear);
+          call.on("cancel", clear);
+          call.on("reject", clear);
+          call.on("error", (e: { message?: string; code?: number }) => {
+            console.error("Voice SDK: waiting call error:", e);
+            clear();
+          });
           return;
         }
 
@@ -395,11 +436,20 @@ function hangupCall() {
 }
 
 function answerIncoming() {
-  if (!pendingIncoming) return;
-  try { pendingIncoming.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
+  // Prefer waiting call if there is one — answering it ends the active call.
+  const target = waitingCall ?? pendingIncoming;
+  if (!target) return;
+  try { target.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
 }
 
 function rejectIncoming() {
+  // If there's a waiting call, reject that one (don't kill the active call).
+  if (waitingCall) {
+    try { waitingCall.reject(); } catch (e) { console.error("rejectWaiting failed", e); }
+    waitingCall = null;
+    setSnapshot({ waitingFrom: null });
+    return;
+  }
   if (!pendingIncoming) return;
   try { pendingIncoming.reject(); } catch (e) { console.error("rejectIncoming failed", e); }
   pendingIncoming = null;
@@ -460,6 +510,7 @@ export function useTwilioDevice(enabled: boolean = false) {
     error: currentError,
     activeCallSid: currentCallSid,
     incomingFrom: currentIncomingFrom,
+    waitingFrom: currentWaitingFrom,
     call,
     hangup,
     answer,
