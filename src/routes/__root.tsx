@@ -137,6 +137,7 @@ function RootComponent() {
   return (
     <AuthProvider>
       <Outlet />
+      <GlobalCallLayer />
     </AuthProvider>
   );
 }
