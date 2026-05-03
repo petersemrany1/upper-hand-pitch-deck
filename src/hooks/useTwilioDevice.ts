@@ -171,7 +171,7 @@ async function ensureDevice(): Promise<void> {
           setSnapshot({ status: "ringing-incoming", dialerStatus: "ready", error: null });
           return;
         }
-        setSnapshot({ status: "ready", dialerStatus: "ready", error: null });
+        setSnapshot({ status: "ready", dialerStatus: "ready", error: null, activeCallStartedAt: null });
       });
 
       d.on("unregistered", () => {
@@ -184,6 +184,7 @@ async function ensureDevice(): Promise<void> {
         console.error("Voice SDK error:", e);
         setSnapshot({
           error: e?.message || `Device error (${e?.code ?? "unknown"})`,
+          activeCallStartedAt: activeCall ? currentCallStartedAt : null,
           status: "error",
           dialerStatus: "failed",
         });
