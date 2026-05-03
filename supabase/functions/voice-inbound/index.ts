@@ -3,9 +3,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 // Returns TwiML to forward all inbound calls to the browser identity
-// "peter_browser". Also logs the inbound call to call_records (with
-// direction='inbound') and tries to match the caller to a known clinic
-// so the dashboard "Missed Calls" panel can show clinic name.
+// "peter_browser". If the browser client is offline / rejects / times out,
+// Twilio posts back here via <Dial action>, we mark the call as missed and
+// route the caller to voicemail instead of dropping the call immediately.
+// Also logs the inbound call to call_records (with direction='inbound') and
+// tries to match the caller to a known clinic/lead for the dashboard.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +25,15 @@ function escapeXml(s: string): string {
   }[c]!));
 }
 
+function voicemailTwiml(statusCallbackUrl: string): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="alice">Sorry, Peter is unavailable right now. Please leave a message after the tone.</Say>
+  <Record maxLength="120" playBeep="true" trim="trim-silence" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" />
+  <Hangup/>
+</Response>`;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -32,11 +43,13 @@ serve(async (req) => {
   // Try formData first; fall back to raw text parsing.
   let from = "";
   let callSid = "";
+  let dialCallStatus = "";
   let form: FormData | null = null;
   try {
     form = await req.formData();
     from = form.get("From")?.toString() ?? "";
     callSid = form.get("CallSid")?.toString() ?? "";
+    dialCallStatus = form.get("DialCallStatus")?.toString() ?? "";
   } catch {
     // ignore — TwiML body still works without a logged caller
   }
@@ -47,7 +60,7 @@ serve(async (req) => {
     return new Response("Forbidden", { status: 403, headers: corsHeaders });
   }
 
-  console.log("voice-inbound: incoming", { from, callSid });
+  console.log("voice-inbound: incoming", { from, callSid, dialCallStatus });
 
   // Fire-and-forget log to call_records.
   if (callSid) {
@@ -109,7 +122,7 @@ serve(async (req) => {
             twilio_call_sid: callSid,
             phone: from || null,
             direction: "inbound",
-            status: "ringing",
+            status: dialCallStatus || "ringing",
             clinic_id: clinicId,
             lead_id: leadId,
           },
@@ -122,10 +135,28 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const statusCallbackUrl = escapeXml(`${supabaseUrl}/functions/v1/twilio-status`);
+  const dialActionUrl = escapeXml(`${supabaseUrl}/functions/v1/voice-inbound`);
+
+  if (dialCallStatus) {
+    if (["no-answer", "busy", "failed", "canceled"].includes(dialCallStatus)) {
+      return new Response(voicemailTwiml(statusCallbackUrl), {
+        status: 200,
+        headers: { "Content-Type": "text/xml", ...corsHeaders },
+      });
+    }
+    return new Response(`<?xml version="1.0" encoding="UTF-8"?><Response/>`, {
+      status: 200,
+      headers: { "Content-Type": "text/xml", ...corsHeaders },
+    });
+  }
+
+  const childStatusCallbackUrl = escapeXml(
+    callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
+  );
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial timeout="20" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence">
-    <Client>peter_browser</Client>
+  <Dial action="${dialActionUrl}" method="POST" timeout="20" answerOnBridge="true" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence">
+    <Client statusCallback="${childStatusCallbackUrl}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">peter_browser</Client>
   </Dial>
 </Response>`;
 
