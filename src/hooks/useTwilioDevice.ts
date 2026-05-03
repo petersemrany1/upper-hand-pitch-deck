@@ -403,7 +403,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         setSnapshot({ activeCallSid: sid });
         subscribeToStatus(sid);
       }
-      setSnapshot({ status: "connecting" });
+      if (currentStatus !== "in-call") setSnapshot({ status: "connecting" });
     });
     outgoing.on("accept", (c: Call) => {
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
