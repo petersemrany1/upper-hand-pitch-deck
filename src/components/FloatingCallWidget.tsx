@@ -87,7 +87,7 @@ function useCallContext(callSid: string | null) {
 }
 
 export function FloatingCallWidget() {
-  const { status, activeCallSid, activeLeadId, activePhone, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+  const { status, activeCallSid, activeLeadId, activePhone, activeCallStartedAt, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
   const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
 
@@ -138,6 +138,7 @@ export function FloatingCallWidget() {
 
   const startedAtRef = useRef<number | null>(null);
   const prevStatusRef = useRef(status);
+  const prevStatusForEndRef = useRef(status);
   const prevSidRef = useRef<string | null>(null);
 
   const isActive = status === "connecting" || status === "in-call";
@@ -148,19 +149,27 @@ export function FloatingCallWidget() {
   const secondaryLabel =
     contactName && clinicName ? clinicName : contactName ? (phone || activePhone) : clinicName ? (phone || activePhone) : null;
 
-  // Track call timer
+  // Track call timer from the canonical Twilio accept timestamp. This avoids
+  // inheriting an old local ref if the widget remounts or a previous call ended
+  // before this component saw the transition.
   useEffect(() => {
+    if (status === "connecting") {
+      startedAtRef.current = null;
+      setSeconds(0);
+      return;
+    }
+
     if (status === "in-call") {
-      if (!startedAtRef.current) startedAtRef.current = Date.now();
+      startedAtRef.current = activeCallStartedAt ?? Date.now();
+      setSeconds(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000)));
       const id = window.setInterval(() => {
         if (startedAtRef.current) {
-          setSeconds(Math.floor((Date.now() - startedAtRef.current) / 1000));
+          setSeconds(Math.max(0, Math.floor((Date.now() - startedAtRef.current) / 1000)));
         }
       }, 1000);
       return () => window.clearInterval(id);
     }
-    if (status === "connecting") setSeconds(0);
-  }, [status]);
+  }, [status, activeCallSid, activeCallStartedAt]);
 
   // Auto-expand on first active call
   useEffect(() => {
@@ -190,7 +199,8 @@ export function FloatingCallWidget() {
 
   // Detect end-of-call → reset + prompt outcome
   useEffect(() => {
-    const wasActive = prevStatusRef.current === "in-call" || prevStatusRef.current === "connecting";
+    const previousStatus = prevStatusForEndRef.current;
+    const wasActive = previousStatus === "in-call" || previousStatus === "connecting";
     if (wasActive && !isActive) {
       const sid = prevSidRef.current;
       const from = incomingFrom;
@@ -207,7 +217,8 @@ export function FloatingCallWidget() {
       setDtmfTrail("");
       prevSidRef.current = null;
     }
-  }, [isActive, incomingFrom]);
+    prevStatusForEndRef.current = status;
+  }, [status, isActive, incomingFrom]);
 
   const handleDigit = (d: string) => {
     sendDtmf(d);
