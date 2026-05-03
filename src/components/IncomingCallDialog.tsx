@@ -337,7 +337,7 @@ export function IncomingCallDialog() {
                 <Check size={14} strokeWidth={2.5} /> Sent
               </>
             ) : (
-              <>📱 {smsBusy ? "Sending…" : "Send SMS"}</>
+              <>📱 {smsBusy ? "Sending…" : "Send Busy Text"}</>
             )}
           </button>
 
