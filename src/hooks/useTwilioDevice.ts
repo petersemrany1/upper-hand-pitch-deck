@@ -164,7 +164,7 @@ async function ensureDevice(): Promise<void> {
         console.log("DEVICE READY");
         console.log("DEVICE IDENTITY: peter_browser");
         if (activeCall) {
-          setSnapshot({ status: "in-call", dialerStatus: "ready", error: null });
+          setSnapshot({ status: "in-call", dialerStatus: "ready", error: null, activeCallStartedAt: currentCallStartedAt ?? Date.now() });
           return;
         }
         if (pendingIncoming) {
@@ -268,7 +268,7 @@ async function ensureDevice(): Promise<void> {
           console.log("Voice SDK: incoming call cancelled by caller");
           if (activeCall === call) {
             activeCall = null;
-              setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready", incomingFrom: null });
+            setSnapshot({ activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, status: "ready", incomingFrom: null });
           }
           if (pendingIncoming === call) {
             pendingIncoming = null;
@@ -316,7 +316,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
   }
 
-  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone });
+  setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null });
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
