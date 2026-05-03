@@ -92,8 +92,6 @@ function DashboardLayout() {
         <div className="pitch-deck-root">
           <Outlet />
         </div>
-        <IncomingCallDialog />
-        <FloatingCallWidget />
         <SmsNotifier />
         <MissedCallNotifier />
       </>
@@ -116,8 +114,6 @@ function DashboardLayout() {
           </main>
         </div>
       </DashboardShell>
-      <IncomingCallDialog />
-      <FloatingCallWidget />
       <SmsNotifier />
       <MissedCallNotifier />
     </SidebarProvider>
