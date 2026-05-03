@@ -13,16 +13,17 @@ import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
-  saveCallNotes, discoveryToAmpAudio,
+  saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
-  validateSearch: (search: Record<string, unknown>): { leadId?: string } => {
+  validateSearch: (search: Record<string, unknown>): { leadId?: string; phone?: string } => {
     const leadId = typeof search.leadId === "string" ? search.leadId : undefined;
-    return leadId ? { leadId } : {};
+    const phone = typeof search.phone === "string" ? search.phone : undefined;
+    return { ...(leadId ? { leadId } : {}), ...(phone ? { phone } : {}) };
   },
 });
 
@@ -278,8 +279,24 @@ function SalesCallPortal() {
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
-    navigate({ search: (prev) => ({ ...prev, leadId: undefined }), replace: true });
+    navigate({ search: (prev) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
   }, [search.leadId, leads, activeId, navigate]);
+
+  useEffect(() => {
+    const wantedPhone = search.phone;
+    if (!wantedPhone || search.leadId) return;
+    let cancelled = false;
+    void findLeadByPhone({ data: { phone: wantedPhone } }).then((r) => {
+      if (cancelled) return;
+      const foundId = r.success ? r.lead?.id : null;
+      if (foundId) {
+        navigate({ search: (prev) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
+        return;
+      }
+      navigate({ search: (prev) => ({ ...prev, phone: undefined }), replace: true });
+    });
+    return () => { cancelled = true; };
+  }, [search.phone, search.leadId, navigate]);
 
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
 
