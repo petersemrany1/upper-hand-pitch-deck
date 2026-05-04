@@ -4522,21 +4522,58 @@ function RightPanel({
           ) : (
             <span style={{ fontSize: 12, color: "#111", opacity: 0.5 }}>Funding unknown</span>
           )}
-          <span
-            style={{
-              marginLeft: 8,
-              padding: "3px 10px",
-              borderRadius: 20,
-              fontSize: 11,
-              fontWeight: 500,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              background: `${statusColor(active.status)}1a`,
-              color: statusColor(active.status),
-            }}
-          >
-            {active.status || "new"}
-          </span>
+          {(() => {
+            const meta = statusMeta(active.status, active);
+            return (
+              <span style={{ position: "relative", display: "inline-block", marginLeft: 8 }}>
+                <select
+                  value={meta.key}
+                  onChange={async (e) => {
+                    const key = e.target.value as StatusKey;
+                    const prev = active.status;
+                    onLocalLeadUpdate?.(active.id, {
+                      status: key,
+                      ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
+                    });
+                    try {
+                      const nowIso = new Date().toISOString();
+                      const dbPatch = key !== "callback_scheduled"
+                        ? { status: key, callback_scheduled_at: null, updated_at: nowIso }
+                        : { status: key, updated_at: nowIso };
+                      const { error } = await supabase.from("meta_leads").update(dbPatch).eq("id", active.id);
+                      if (error) throw error;
+                      toast.success("Status updated");
+                    } catch {
+                      onLocalLeadUpdate?.(active.id, { status: prev });
+                      toast.error("Couldn't update status");
+                    }
+                  }}
+                  style={{
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    MozAppearance: "none",
+                    padding: "3px 22px 3px 10px",
+                    borderRadius: 20,
+                    fontSize: 11,
+                    fontWeight: 500,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    background: `${meta.bg}`,
+                    color: meta.color,
+                    border: `0.5px solid ${meta.color}33`,
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                  title="Change status"
+                >
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.key} value={o.key}>{o.emoji} {o.label}</option>
+                  ))}
+                </select>
+                <span style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 9, color: meta.color }}>▾</span>
+              </span>
+            );
+          })()}
         </div>
         <div style={{ marginTop: 10, fontSize: 12, color: "#111" }}>
           Created {fmtTime(active.created_at)}
