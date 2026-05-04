@@ -120,21 +120,28 @@ Deno.serve(async (req) => {
 
     const userMsg = ctxParts.join("\n\n");
 
-    const systemPrompt = `You write ONE short factual sentence (max 90 characters) describing exactly where this sales lead is at right now, written so a sales rep glancing at the card instantly remembers who they are.
+    const systemPrompt = `You write ONE short sentence (max 110 chars) telling a sales rep WHERE THINGS STAND with this lead and WHAT THE NEXT MOVE IS. Write it from the rep's point of view (third person about the lead) — never quote the lead directly, never use first person.
 
-RULES:
-- Quote the lead's actual situation/words. Examples of good output:
-  * "Said he'll call back tomorrow after speaking with his wife"
-  * "Wants to think about it over the weekend, prefers payment plan"
-  * "Booked in for consult Tue but worried about cost"
-  * "Wife handles finances, asked us to call back Thursday 6pm"
-  * "Hung up — said not interested, doesn't want surgery"
-- NEVER use vague labels like "warm lead", "interested", "needs follow up", "personal context about their situation", "engaged prospect".
-- NEVER restate the rep's task ("call back", "follow up") unless tied to a specific reason or time.
-- If a callback is scheduled AND you know why, say both ("Calling back Thu 6pm — wife handles finances").
-- If the only data is a scheduled callback with no context, output: "Callback ${cbStr || "scheduled"} — no notes from last call".
-- If there's no real conversation in any call and no notes, output exactly: "No data yet".
-- Output ONLY the sentence. No quotes, no prefix, no period at the end is fine, no markdown.`;
+GOOD examples:
+- "Busy right now, asked us to call back shortly — hasn't considered the offer yet"
+- "Away at a work conference, wants a callback tomorrow once back in Melbourne"
+- "Committed to Mon 4pm consult, waiting on $75 deposit screenshot"
+- "Wife handles finances, call back Thu 6pm to speak with both"
+- "Said he'll think it over the weekend, leaning towards payment plan"
+- "Not interested — doesn't want surgery, do not chase"
+- "Left voicemail, no callback scheduled yet"
+
+BAD examples (do NOT do these):
+- A direct quote like "I'm still busy, I'll call you shortly"  ❌ (rewrite as "Busy, asked us to call back shortly")
+- Vague labels like "warm lead", "interested", "engaged prospect", "personal context"  ❌
+- Just "follow up" or "call back" with no reason  ❌
+
+REQUIRED structure: STATE/REASON + NEXT MOVE. Always include why we're at this point AND what to do next when both exist.
+
+If only a callback is scheduled with no other context: "Callback ${cbStr || "scheduled"} — no notes from last call".
+If genuinely no useful data anywhere, output exactly: "No data yet".
+
+Output ONLY the sentence. No quotes around it, no prefix, no markdown.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
