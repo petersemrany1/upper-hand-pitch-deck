@@ -280,7 +280,7 @@ function SalesCallPortal() {
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
-    navigate({ search: (prev) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
   }, [search.leadId, leads, activeId, navigate]);
 
   useEffect(() => {
@@ -291,10 +291,10 @@ function SalesCallPortal() {
       if (cancelled) return;
       const foundId = r.success ? r.lead?.id : null;
       if (foundId) {
-        navigate({ search: (prev) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
+        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
         return;
       }
-      navigate({ search: (prev) => ({ ...prev, phone: undefined }), replace: true });
+      navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
     });
     return () => { cancelled = true; };
   }, [search.phone, search.leadId, navigate]);
@@ -2044,26 +2044,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
       } catch { /* ignore */ }
 
-      // Fire-and-forget confirmation SMS to the patient via server function (keeps Twilio creds server-side)
-      if (lead.phone) {
-        void sendBookingConfirmationSms({
-          data: {
-            leadId: lead.id,
-            firstName: lead.first_name ?? "there",
-            phone: lead.phone,
-            clinicName,
-            doctorName,
-            bookingDate: form.date,
-            bookingTime: form.time,
-            clinicAddress: selectedClinic?.address ?? null,
-          },
-        })
-          .then((res) => {
-            if (res.success) toast.success("Confirmation SMS sent to patient ✓");
-            else toast.error(`Confirmation SMS failed: ${res.error}`);
-          })
-          .catch(() => toast.error("Confirmation SMS failed — check Twilio"));
-      }
+      // NOTE: booking confirmation SMS is NOT sent automatically here.
+      // It is sent only when the rep clicks the "Send booking confirmation"
+      // button below (which opens a preview modal first).
     } else {
       toast.error(r.error);
     }
