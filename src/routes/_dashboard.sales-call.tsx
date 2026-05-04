@@ -3734,6 +3734,30 @@ function LeadChooser({
     const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
     const cbTime = cb ? cb.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : null;
 
+    // 1-line "where they're at" summary: callback blurb + latest note line + last call outcome.
+    const lastLineOfNotes = (() => {
+      const raw = (l.call_notes ?? "").trim();
+      if (!raw) return "";
+      const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+      return lines.length ? lines[lines.length - 1] : "";
+    })();
+    const lastOutcome = (() => {
+      const days = attemptsByDay[l.id];
+      if (!days) return "";
+      const keys = Object.keys(days).sort().reverse();
+      for (const k of keys) {
+        const o = days[k]?.lastOutcome;
+        if (o && o.trim()) return o.trim();
+      }
+      return "";
+    })();
+    const cbBlurb = cb && cbTime
+      ? `Callback ${sameLocalDate(cb, today) ? "today" : sameLocalDate(cb, tomorrow) ? "tomorrow" : cb.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })} ${cbTime}`
+      : "";
+    const summaryRaw = [cbBlurb, lastLineOfNotes, lastOutcome ? `last call: ${lastOutcome}` : ""]
+      .map((s) => s.trim()).filter(Boolean).join(" · ");
+    const summary = summaryRaw.length > 120 ? summaryRaw.slice(0, 117).trimEnd() + "…" : summaryRaw;
+
     let accent: string = "transparent";
     let banner: { text: string; color: string; bg: string } | null = null;
     if (section === "overdue" || (section === "callback" && u === "overdue")) {
@@ -3809,6 +3833,22 @@ function LeadChooser({
               {l.phone || "no phone"}
               {l.funding_preference ? ` · ${l.funding_preference}` : ""}
             </div>
+            {summary && (
+              <div
+                title={summaryRaw}
+                style={{
+                  fontSize: 12,
+                  color: "#555",
+                  marginTop: 4,
+                  fontStyle: "italic",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {summary}
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
               {renderStatusBadge(l)}
               <span style={{ fontSize: 11, color: "#666" }}>
