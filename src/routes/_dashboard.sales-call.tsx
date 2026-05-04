@@ -3441,6 +3441,35 @@ function LeadChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
 
+  // Per-lead generation status for the AI pipeline summary so cards can show
+  // "Generating…" while the edge function builds the one-liner. Triggered
+  // lazily for any lead that doesn't have a cached summary yet.
+  const [genStatus, setGenStatus] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
+  const genQueueRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const missing = leads.filter((l) => !l.pipeline_summary && !genQueueRef.current.has(l.id)).slice(0, 6);
+    if (!missing.length) return;
+    missing.forEach((l) => genQueueRef.current.add(l.id));
+    setGenStatus((s) => {
+      const next = { ...s };
+      missing.forEach((l) => { next[l.id] = "loading"; });
+      return next;
+    });
+    (async () => {
+      for (const l of missing) {
+        try {
+          const { data, error } = await supabase.functions.invoke("generate-pipeline-summary", { body: { lead_id: l.id } });
+          if (error) throw error;
+          const summary = (data?.summary ?? "").toString();
+          if (summary && onLocalLeadUpdate) onLocalLeadUpdate(l.id, { pipeline_summary: summary });
+          setGenStatus((s) => ({ ...s, [l.id]: "done" }));
+        } catch (err) {
+          console.warn("pipeline summary failed for", l.id, err);
+          setGenStatus((s) => ({ ...s, [l.id]: "error" }));
+        }
+      }
+    })();
+  }, [leads, onLocalLeadUpdate]);
 
   // Apply manual reordering on top of the auto buckets. When the user has
   // dragged any card within a column, that column renders as one flat list
