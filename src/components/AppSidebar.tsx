@@ -52,9 +52,10 @@ export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const [unreadSms, setUnreadSms] = useState(0);
   const { isMobile, setOpenMobile } = useSidebar();
   const { signOut, role } = useAuth();
+  const { unreadSmsCount, missedCount } = useNotifications();
+  const unreadSms = unreadSmsCount;
 
   // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
   const folders: NavFolder[] = role === "admin"
