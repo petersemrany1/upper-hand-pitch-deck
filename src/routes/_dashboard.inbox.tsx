@@ -62,6 +62,7 @@ function InboxPage() {
   const [composeBody, setComposeBody] = useState("");
   const [composeFiles, setComposeFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [newPhone, setNewPhone] = useState("");
   const [showNewThread, setShowNewThread] = useState(false);
