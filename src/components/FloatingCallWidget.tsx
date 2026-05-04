@@ -136,6 +136,50 @@ export function FloatingCallWidget() {
   const [endedSid, setEndedSid] = useState<string | null>(null);
   const [endedFrom, setEndedFrom] = useState<string | null>(null);
 
+  // Draggable position offset from bottom-right corner. Persisted so the
+  // rep's chosen spot survives navigation.
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>(() => {
+    if (typeof window === "undefined") return { x: 0, y: 0 };
+    try {
+      const raw = window.localStorage.getItem("call-widget-offset");
+      if (raw) return JSON.parse(raw);
+    } catch { /* noop */ }
+    return { x: 0, y: 0 };
+  });
+  const dragStateRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
+
+  const startDrag = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, baseX: dragOffset.x, baseY: dragOffset.y, moved: false };
+  };
+  const onDrag = (e: React.PointerEvent) => {
+    const s = dragStateRef.current;
+    if (!s) return;
+    const dx = e.clientX - s.startX;
+    const dy = e.clientY - s.startY;
+    if (!s.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+    s.moved = true;
+    const nx = s.baseX - dx;
+    const ny = s.baseY - dy;
+    const maxX = Math.max(0, window.innerWidth - 80);
+    const maxY = Math.max(0, window.innerHeight - 60);
+    setDragOffset({ x: Math.max(0, Math.min(maxX, nx)), y: Math.max(0, Math.min(maxY, ny)) });
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragStateRef.current) return;
+    dragStateRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    try { window.localStorage.setItem("call-widget-offset", JSON.stringify(dragOffset)); } catch { /* noop */ }
+  };
+
+  const draggableStyle: React.CSSProperties = {
+    right: `${16 + dragOffset.x}px`,
+    bottom: `${16 + dragOffset.y}px`,
+    left: "auto",
+    touchAction: "none",
+  };
+
   const startedAtRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
   const prevStatusRef = useRef(status);
@@ -281,10 +325,20 @@ export function FloatingCallWidget() {
     return (
       <button
         type="button"
-        onClick={() => setExpanded(true)}
-        className="fixed bottom-4 right-4 z-[90] flex items-center gap-3 rounded-full px-4 py-2.5 shadow-2xl transition active:scale-95"
-        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
-        aria-label="Expand active call"
+        onClick={(e) => {
+          // Don't expand if user just dragged
+          if (dragStateRef.current) return;
+          setExpanded(true);
+          // also catch pointerup-after-drag race
+          void e;
+        }}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className="fixed z-[90] flex items-center gap-3 rounded-full px-4 py-2.5 shadow-2xl transition active:scale-95 cursor-grab active:cursor-grabbing"
+        style={{ background: "#ffffff", border: "1px solid #ebebeb", ...draggableStyle }}
+        aria-label="Expand active call (drag to move)"
       >
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
@@ -304,13 +358,20 @@ export function FloatingCallWidget() {
   // Expanded panel
   return (
     <div
-      className="fixed z-[95] bottom-4 right-4 left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in"
-      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+      className="fixed z-[95] left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in"
+      style={{ background: "#ffffff", border: "1px solid #ebebeb", ...draggableStyle }}
       role="dialog"
-      aria-label="Active call"
+      aria-label="Active call (drag header to move)"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+      {/* Header (drag handle) */}
+      <div
+        className="flex items-center justify-between px-4 pt-3 pb-2 cursor-grab active:cursor-grabbing select-none"
+        style={{ touchAction: "none" }}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
