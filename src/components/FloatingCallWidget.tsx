@@ -260,12 +260,8 @@ export function FloatingCallWidget() {
     const previousStatus = prevStatusForEndRef.current;
     const wasActive = previousStatus === "in-call" || previousStatus === "connecting";
     if (wasActive && !isActive) {
-      const sid = prevSidRef.current;
-      const from = incomingFrom;
-      setEndedSid(sid);
-      setEndedFrom(from);
-      setShowOutcome(true);
-      // reset internal state
+      // reset internal state — outcome popup removed; outcomes are logged manually from the right panel
+      prevSidRef.current = null;
       startedAtRef.current = null;
       setSeconds(0);
       setExpanded(false);
@@ -273,7 +269,6 @@ export function FloatingCallWidget() {
       setMuted(false);
       setHeld(false);
       setDtmfTrail("");
-      prevSidRef.current = null;
     }
     prevStatusForEndRef.current = status;
   }, [status, isActive, incomingFrom]);
