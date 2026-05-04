@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useNotifications } from "@/hooks/useNotifications";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
 type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
