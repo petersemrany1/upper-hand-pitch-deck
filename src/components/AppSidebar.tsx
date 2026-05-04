@@ -88,21 +88,7 @@ export function AppSidebar() {
     });
   }, [currentPath]);
 
-  useEffect(() => {
-    const loadUnread = async () => {
-      const { data } = await supabase.from("sms_threads").select("unread_count");
-      const total = (data ?? []).reduce((s, r) => s + (r.unread_count ?? 0), 0);
-      setUnreadSms(total);
-    };
-    void loadUnread();
-    const ch = supabase
-      .channel("sidebar-sms-unread")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, loadUnread)
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(ch);
-    };
-  }, []);
+  // unread SMS count now comes from the global NotificationsProvider.
 
   const renderItem = (item: NavItem, indent = false, forceActive = false) => {
     const active = forceActive || isActive(item.url);
