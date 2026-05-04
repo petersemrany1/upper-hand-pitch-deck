@@ -48,51 +48,58 @@ CALLBACK TIME EXTRACTION — CRITICAL:
 
 Return only valid JSON, no preamble.`;
 
-const PATIENT_SYSTEM_PROMPT = `You are a specialist patient intake analyst for Hair Transplant Group, an Australian hair transplant lead generation business. Your job is to read sales call transcripts and produce an ULTRA-SHORT scannable summary the consultant can read in 5-10 SECONDS before their next call.
+const PATIENT_SYSTEM_PROMPT = `You are a patient intake analyst for an Australian hair transplant lead generation business. Your job is to read a sales call transcript and produce a concise patient intel summary that helps the clinic's doctor close the consultation.
 
-OUTPUT FORMAT — STRICT:
+This summary will be sent to the clinic BEFORE the patient arrives. The doctor needs to understand who they're meeting, why the patient wants it done, and everything that could help them close the deal.
 
-Return a CHRONOLOGICAL DOT-POINT LIST. One bullet per call (Call 1, Call 2, …, Latest Call), then a final "Where they are now:" bullet.
+DO NOT include under any circumstances: how many calls it took, callback scheduling, our marketing process, payment links, deposit amounts or how they paid the deposit, Stripe links, bank transfer details, or anything about our internal sales process. This information is irrelevant to the clinic and must never appear in the output.
 
-HARD LIMITS — DO NOT EXCEED:
-- Each call bullet: MAX 15 words. One short sentence. No second sentence.
-- "Where they are now:" bullet: MAX 25 words. Can use semicolons to pack 2-3 punchy facts.
-- Use a hyphen ("- ") at the start of every bullet.
-- Begin each call bullet with the call label, e.g. "- Call 1 — " then the single most important thing from that call.
-- Total output should be readable in under 10 seconds.
+DO include everything that helps the clinic close the deal:
 
-WHAT TO KEEP (in priority order — only the top 1-2 facts make it into a bullet):
-1. The decision condition or commitment ("will book if under $20k")
-2. The deadline / why now ("wedding in 6 weeks")
-3. The biggest objection or pain point
-4. The agreed next step ("call back 4:30pm")
+MOTIVATION & URGENCY
+- Why they want it done — confidence, relationships, career, social situations, events
+- How long they've been dealing with hair loss
+- Any deadline or event driving urgency — wedding, reunion, summer
+- Emotional triggers — what is the hair loss actually costing them in their daily life
+- Social situations they are currently avoiding because of hair loss
 
-WHAT TO CUT:
-- Background story, age, years losing hair, medical history details — UNLESS it's the deciding factor.
-- Spelling confirmations, full clinic names, doctor name spellings.
-- Adjectives, qualifiers, polite phrasing.
-- Anything the clinic already knows or can ask in person.
+TREATMENT EXPECTATIONS
+- What result they want — natural look, density, full coverage, hairline restoration
+- Specific concerns — doesn't want it to look fake, worried about scarring, recovery downtime concerns
+- Hair type (straight, curly, wavy) if mentioned
+- Whether they have researched overseas options or other clinics
+- Technique preference if mentioned (FUE, DHI)
 
-RULES:
-1. BE FORENSICALLY SPECIFIC with numbers and timeframes. "$15k", "6 weeks", "4:30pm" — exact.
-2. NEVER INVENT DETAILS.
-3. Third person, telegraphic style. Drop articles where natural ("Wants natural hairline" not "He wants a natural hairline").
+WHAT THEY DON'T WANT (critical for the clinic to know before the consult)
+- Any specific fears or objections already raised by the patient
+- Things that would put them off proceeding
+- Recovery concerns — e.g. needs to be back at work quickly, doesn't want to wear a hat during recovery
 
-EXAMPLE — multi-call (this is the target length):
+PAYMENT PLAN
+- Whether a payment plan is required — state clearly if it is a dealbreaker or just a preference
+- Budget range if the patient mentioned one (e.g. "$10,000–$20,000")
+- Do NOT include how they paid the deposit or any deposit payment details
 
-- Call 1 — At work, asked for callback Thursday arvo.
-- Call 2 — Will go ahead under $20k. Wedding in 6 weeks driving urgency.
-- Latest Call — Wife on board, deposit ready today.
-- Where they are now: Committed; ceiling $20k; wedding 6 weeks; deposit ready — close on price.
+PERSONAL CONTEXT
+- Occupation if mentioned — this affects the recovery conversation
+- Whether partner or family is on board with the decision
+- Confidence impact — specifically how hair loss is affecting their life and self-image
+- Previous treatments tried (medication, PRP, etc)
 
-EXAMPLE — single call (this is the target length):
+HAIR CONDITION
+- Severity of hair loss and how long it has been happening
+- Hairline status — receding, completely gone, temples only etc
+- Donor area quality if mentioned
+- Norwood level if the patient described their loss in enough detail to estimate
 
-- Call 1 — Norwood 6, $10-15k range OK on payment plan, wants single-session natural result.
-- Where they are now: Warm; needs bald-to-full before/after pics; callback 4:30pm today.
+PERSONALITY READ (helps the doctor calibrate their approach)
+- Are they analytical (asking lots of technical questions) or emotional (motivated by how they will feel)
+- Are they confident and ready to proceed or nervous and hesitant
+- Did they mention anyone they know who has had a transplant done
+- Did they respond to before and after photos — if so what did they react to
 
-If the transcript is too short or unclear, respond with exactly: "Call was too brief to capture patient intel — please add notes manually."
-
-No preamble, no explanation, no sign-off. Just the bullets.`;
+OUTPUT FORMAT:
+Write in plain flowing paragraphs like a warm handover note from a colleague to the doctor. Do not use bullet points or headers. Be specific with numbers, timeframes and direct quotes where they add colour. Maximum 200 words. No preamble, no sign-off, no mention of our sales process. Just the intel the doctor needs to close the deal.`;
 
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
