@@ -6,6 +6,8 @@ import { IncomingCallDialog, useIncomingBannerActive, INCOMING_BANNER_HEIGHT } f
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { MissedCallNotifier } from "@/components/MissedCallNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
+import { NotificationBell } from "@/components/NotificationBell";
+import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
