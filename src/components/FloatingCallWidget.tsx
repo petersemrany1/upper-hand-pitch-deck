@@ -325,10 +325,20 @@ export function FloatingCallWidget() {
     return (
       <button
         type="button"
-        onClick={() => setExpanded(true)}
-        className="fixed bottom-4 right-4 z-[90] flex items-center gap-3 rounded-full px-4 py-2.5 shadow-2xl transition active:scale-95"
-        style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
-        aria-label="Expand active call"
+        onClick={(e) => {
+          // Don't expand if user just dragged
+          if (dragStateRef.current) return;
+          setExpanded(true);
+          // also catch pointerup-after-drag race
+          void e;
+        }}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+        className="fixed z-[90] flex items-center gap-3 rounded-full px-4 py-2.5 shadow-2xl transition active:scale-95 cursor-grab active:cursor-grabbing"
+        style={{ background: "#ffffff", border: "1px solid #ebebeb", ...draggableStyle }}
+        aria-label="Expand active call (drag to move)"
       >
         <span className="relative flex h-2.5 w-2.5">
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
