@@ -30,14 +30,33 @@ type Ctx = {
   missedCalls: MissedCall[];
   missedCount: number;
   totalCount: number;
+  unseenCount: number;
   acknowledgeMissed: (id: string) => void;
   acknowledgeAllMissed: () => void;
+  markNotificationsSeen: () => void;
   refresh: () => void;
 };
 
 const NotificationsContext = createContext<Ctx | null>(null);
 
 const ACK_KEY = "uh.missedCallsAcked.v1";
+const SEEN_AT_KEY = "uh.notificationsSeenAt.v1";
+
+function loadSeenAt(): number {
+  try {
+    return Number(localStorage.getItem(SEEN_AT_KEY) || "0") || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveSeenAt(value: number) {
+  try {
+    localStorage.setItem(SEEN_AT_KEY, String(value));
+  } catch {
+    // ignore
+  }
+}
 
 function loadAcked(): Set<string> {
   try {
@@ -67,6 +86,7 @@ function digitsOnly(s: string | null | undefined): string {
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [unreadThreads, setUnreadThreads] = useState<UnreadThread[]>([]);
   const [missedCalls, setMissedCalls] = useState<MissedCall[]>([]);
+  const [seenAt, setSeenAt] = useState<number>(loadSeenAt());
   const ackedRef = useRef<Set<string>>(loadAcked());
 
   const fetchThreads = useCallback(async () => {
@@ -199,16 +219,28 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const unreadSmsCount = unreadThreads.reduce((s, t) => s + (t.unread_count || 0), 0);
   const missedCount = missedCalls.length;
   const totalCount = unreadSmsCount + missedCount;
+  const unseenSmsCount = unreadThreads.reduce((s, t) => {
+    const lastAt = t.last_message_at ? new Date(t.last_message_at).getTime() : 0;
+    return lastAt > seenAt ? s + (t.unread_count || 0) : s;
+  }, 0);
+  const unseenMissedCount = missedCalls.filter((m) => new Date(m.called_at).getTime() > seenAt).length;
+  const unseenCount = unseenSmsCount + unseenMissedCount;
 
-  // Tab title + favicon dot — sticky awareness even when tab isn't focused.
+  const markNotificationsSeen = useCallback(() => {
+    const next = Date.now();
+    setSeenAt(next);
+    saveSeenAt(next);
+  }, []);
+
+  // Tab title + favicon dot show only new notifications since the bell was last opened.
   useEffect(() => {
     const baseTitle = "Upperhand Dashboard";
-    document.title = totalCount > 0 ? `(${totalCount}) ${baseTitle}` : baseTitle;
-  }, [totalCount]);
+    document.title = unseenCount > 0 ? `(${unseenCount}) ${baseTitle}` : baseTitle;
+  }, [unseenCount]);
 
   useEffect(() => {
-    setFaviconDot(totalCount > 0);
-  }, [totalCount]);
+    setFaviconDot(unseenCount > 0);
+  }, [unseenCount]);
 
   return (
     <NotificationsContext.Provider
@@ -218,8 +250,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         missedCalls,
         missedCount,
         totalCount,
+        unseenCount,
         acknowledgeMissed,
         acknowledgeAllMissed,
+        markNotificationsSeen,
         refresh,
       }}
     >
@@ -238,8 +272,10 @@ export function useNotifications(): Ctx {
       missedCalls: [],
       missedCount: 0,
       totalCount: 0,
+      unseenCount: 0,
       acknowledgeMissed: () => {},
       acknowledgeAllMissed: () => {},
+      markNotificationsSeen: () => {},
       refresh: () => {},
     };
   }
