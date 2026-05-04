@@ -146,14 +146,15 @@ function DashboardHome() {
   const [convLeads, setConvLeads] = useState(0);
   const [convBookings, setConvBookings] = useState(0);
 
-  // Load target from localStorage on mount. Only admins are prompted to set it;
-  // reps just consume the value the admin saved.
+  // Load target from localStorage on mount. Do NOT auto-open the modal —
+  // admins set/edit the target via the "Set target →" button. Auto-opening
+  // breaks in the preview iframe because browsers partition third-party
+  // storage, so the saved value is invisible there and the modal pops every
+  // time.
   useEffect(() => {
     const stored = localStorage.getItem(targetKey());
     if (stored && Number(stored) > 0) {
       setTarget(Number(stored));
-    } else if (isAdmin) {
-      setShowTargetModal(true);
     }
   }, [isAdmin]);
 
