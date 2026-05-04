@@ -316,7 +316,7 @@ function InboxPage() {
 
         {(active || showNewThread) && (
           <>
-            <header className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #ebebeb", background: "#ffffff" }}>
+            <header className="px-6 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid #ebebeb", background: "#ffffff" }}>
               <div className="flex-1 min-w-0">
                 {active ? (
                   <>
@@ -338,6 +338,19 @@ function InboxPage() {
                   </div>
                 )}
               </div>
+              {activePhone && (
+                <button
+                  type="button"
+                  onClick={() => dialerCall(activePhone)}
+                  disabled={dialerStatus !== "ready"}
+                  title={dialerStatus === "ready" ? `Call ${activePhone}` : "Phone not ready"}
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded-lg text-white text-xs font-semibold shadow active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: "#10b981" }}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </button>
+              )}
             </header>
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ background: "#f7f7f5" }}>
