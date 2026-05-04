@@ -3440,12 +3440,6 @@ function LeadChooser({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
 
-  // Converted leads (Booked — Deposit Paid) — shown in a separate popup, not in the columns.
-  const convertedLeads = useMemo(
-    () => leads.filter((l) => normaliseStatus(l.status, l) === "booked_deposit_paid")
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [leads],
-  );
 
   // Apply manual reordering on top of the auto buckets. When the user has
   // dragged any card within a column, that column renders as one flat list
