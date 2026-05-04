@@ -3842,10 +3842,6 @@ function LeadChooser({
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
               <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
             </div>
-            <div style={{ fontSize: 12, color: "#444", marginTop: 2 }}>
-              {l.phone || "no phone"}
-              {l.funding_preference ? ` · ${l.funding_preference}` : ""}
-            </div>
             {summary && (
               <div
                 title={summaryRaw}
