@@ -4460,7 +4460,7 @@ function RightPanel({
             {fullName}
           </div>
           <button
-            onClick={() => setShowJourney(true)}
+            onClick={() => { setComprehensiveUpdate(null); setShowJourney(true); }}
             style={{
               fontSize: 11,
               fontWeight: 600,
