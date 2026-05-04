@@ -358,10 +358,10 @@ export function FloatingCallWidget() {
   // Expanded panel
   return (
     <div
-      className="fixed z-[95] bottom-4 right-4 left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in"
-      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+      className="fixed z-[95] left-4 sm:left-auto sm:w-[360px] rounded-2xl shadow-2xl animate-fade-in"
+      style={{ background: "#ffffff", border: "1px solid #ebebeb", ...draggableStyle }}
       role="dialog"
-      aria-label="Active call"
+      aria-label="Active call (drag header to move)"
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 pt-3 pb-2">
