@@ -363,8 +363,15 @@ export function FloatingCallWidget() {
       role="dialog"
       aria-label="Active call (drag header to move)"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-3 pb-2">
+      {/* Header (drag handle) */}
+      <div
+        className="flex items-center justify-between px-4 pt-3 pb-2 cursor-grab active:cursor-grabbing select-none"
+        style={{ touchAction: "none" }}
+        onPointerDown={startDrag}
+        onPointerMove={onDrag}
+        onPointerUp={endDrag}
+        onPointerCancel={endDrag}
+      >
         <div className="flex items-center gap-2">
           <span className="relative flex h-2.5 w-2.5">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
