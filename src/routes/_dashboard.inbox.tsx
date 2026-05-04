@@ -70,6 +70,7 @@ function InboxPage() {
 
   const sendSmsFn = useServerFn(sendSms);
   const markReadFn = useServerFn(markThreadRead);
+  const { call: dialerCall, dialerStatus } = useTwilioDevice();
 
   const loadThreads = useCallback(async () => {
     const { data, error } = await supabase
