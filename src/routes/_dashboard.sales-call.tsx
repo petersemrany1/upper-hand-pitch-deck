@@ -2044,26 +2044,9 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
         if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
       } catch { /* ignore */ }
 
-      // Fire-and-forget confirmation SMS to the patient via server function (keeps Twilio creds server-side)
-      if (lead.phone) {
-        void sendBookingConfirmationSms({
-          data: {
-            leadId: lead.id,
-            firstName: lead.first_name ?? "there",
-            phone: lead.phone,
-            clinicName,
-            doctorName,
-            bookingDate: form.date,
-            bookingTime: form.time,
-            clinicAddress: selectedClinic?.address ?? null,
-          },
-        })
-          .then((res) => {
-            if (res.success) toast.success("Confirmation SMS sent to patient ✓");
-            else toast.error(`Confirmation SMS failed: ${res.error}`);
-          })
-          .catch(() => toast.error("Confirmation SMS failed — check Twilio"));
-      }
+      // NOTE: booking confirmation SMS is NOT sent automatically here.
+      // It is sent only when the rep clicks the "Send booking confirmation"
+      // button below (which opens a preview modal first).
     } else {
       toast.error(r.error);
     }
