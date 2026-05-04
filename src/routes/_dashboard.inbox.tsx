@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone } from "lucide-react";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 type Thread = {
   id: string;
