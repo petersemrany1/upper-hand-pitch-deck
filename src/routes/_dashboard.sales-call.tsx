@@ -280,7 +280,7 @@ function SalesCallPortal() {
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
-    navigate({ search: (prev) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
   }, [search.leadId, leads, activeId, navigate]);
 
   useEffect(() => {
@@ -291,10 +291,10 @@ function SalesCallPortal() {
       if (cancelled) return;
       const foundId = r.success ? r.lead?.id : null;
       if (foundId) {
-        navigate({ search: (prev) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
+        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
         return;
       }
-      navigate({ search: (prev) => ({ ...prev, phone: undefined }), replace: true });
+      navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
     });
     return () => { cancelled = true; };
   }, [search.phone, search.leadId, navigate]);
