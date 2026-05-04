@@ -3833,6 +3833,22 @@ function LeadChooser({
               {l.phone || "no phone"}
               {l.funding_preference ? ` · ${l.funding_preference}` : ""}
             </div>
+            {summary && (
+              <div
+                title={summaryRaw}
+                style={{
+                  fontSize: 12,
+                  color: "#555",
+                  marginTop: 4,
+                  fontStyle: "italic",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {summary}
+              </div>
+            )}
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
               {renderStatusBadge(l)}
               <span style={{ fontSize: 11, color: "#666" }}>
