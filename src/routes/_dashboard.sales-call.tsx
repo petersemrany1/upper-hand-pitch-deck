@@ -3734,13 +3734,12 @@ function LeadChooser({
     const cb = l.callback_scheduled_at ? new Date(l.callback_scheduled_at) : null;
     const cbTime = cb ? cb.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : null;
 
-    // 1-line "where they're at" summary: callback blurb + latest note line + last call outcome.
-    const lastLineOfNotes = (() => {
-      const raw = (l.call_notes ?? "").trim();
-      if (!raw) return "";
-      const lines = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-      return lines.length ? lines[lines.length - 1] : "";
-    })();
+    // 1-line "where they're at" summary. Foolproof: callback blurb wins, else
+    // pick the best short sentence from notes, else fall back to last outcome,
+    // else "No data yet". Always fits on one line — no "..." cliffhangers.
+    const cbBlurb = cb && cbTime
+      ? `Callback ${sameLocalDate(cb, today) ? "today" : sameLocalDate(cb, tomorrow) ? "tomorrow" : cb.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })} ${cbTime}`
+      : "";
     const lastOutcome = (() => {
       const days = attemptsByDay[l.id];
       if (!days) return "";
@@ -3751,12 +3750,34 @@ function LeadChooser({
       }
       return "";
     })();
-    const cbBlurb = cb && cbTime
-      ? `Callback ${sameLocalDate(cb, today) ? "today" : sameLocalDate(cb, tomorrow) ? "tomorrow" : cb.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })} ${cbTime}`
-      : "";
-    const summaryRaw = [cbBlurb, lastLineOfNotes, lastOutcome ? `last call: ${lastOutcome}` : ""]
-      .map((s) => s.trim()).filter(Boolean).join(" · ");
-    const summary = summaryRaw.length > 120 ? summaryRaw.slice(0, 117).trimEnd() + "…" : summaryRaw;
+    // Treat boilerplate "no useful info" lines as no-data so we look elsewhere.
+    const NOISE_RX = /(too brief to capture|please add notes manually|provide (a |the )?(real |full )?call transcript|i'?ll generate|no answer|voicemail|voice mail|no useful|n\/a)/i;
+    const HEADER_RX = /^[-–•*\s]*(where they are now|summary|notes?|next steps?|status|update|handover)\s*:\s*/i;
+    const pickSentence = (raw: string | null | undefined): string => {
+      if (!raw) return "";
+      // Split into candidate sentences across both newlines and sentence enders.
+      const chunks = raw
+        .split(/\r?\n+|(?<=[.!?])\s+/)
+        .map((s) => s.replace(HEADER_RX, "").trim())
+        .filter((s) => s.length > 0 && !NOISE_RX.test(s));
+      if (!chunks.length) return "";
+      // Prefer the most recent (last) meaningful chunk that fits a one-liner.
+      for (let i = chunks.length - 1; i >= 0; i--) {
+        const c = chunks[i].replace(/\s+/g, " ").trim();
+        if (c.length >= 8 && c.length <= 90) return c;
+      }
+      // Otherwise take the last meaningful chunk and hard-trim to a clause.
+      const last = chunks[chunks.length - 1].replace(/\s+/g, " ").trim();
+      const clause = last.split(/[,;:—–-]\s/)[0];
+      return clause.length <= 90 ? clause : clause.slice(0, 87).trimEnd() + "…";
+    };
+    const noteLine = pickSentence(l.call_notes);
+    const summaryRaw =
+      cbBlurb ||
+      noteLine ||
+      (lastOutcome ? `Last call: ${lastOutcome}` : "") ||
+      "No data yet";
+    const summary = summaryRaw.length > 90 ? summaryRaw.slice(0, 87).trimEnd() + "…" : summaryRaw;
 
     let accent: string = "transparent";
     let banner: { text: string; color: string; bg: string } | null = null;
