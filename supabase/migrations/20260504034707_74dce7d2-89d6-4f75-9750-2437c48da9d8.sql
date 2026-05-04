@@ -1,0 +1,1 @@
+UPDATE public.meta_leads SET pipeline_summary = NULL, pipeline_summary_updated_at = NULL;
