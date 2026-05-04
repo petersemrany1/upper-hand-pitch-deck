@@ -177,10 +177,10 @@ function InboxPage() {
   const active = threads.find((t) => t.id === activeId) ?? null;
   const activePhone = active?.phone || newPhone;
 
-  async function uploadAttachments(): Promise<string[]> {
-    if (composeFiles.length === 0) return [];
+  async function uploadAttachments(files: File[] = composeFiles): Promise<string[]> {
+    if (files.length === 0) return [];
     const urls: string[] = [];
-    for (const f of composeFiles) {
+    for (const f of files) {
       const ext = f.name.split(".").pop() || "bin";
       const path = `outbound/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("sms-media").upload(path, f, { contentType: f.type, upsert: false });
