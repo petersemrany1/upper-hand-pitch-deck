@@ -4382,22 +4382,11 @@ function RightPanel({
     return () => clearInterval(i);
   }, [deviceStatus]);
 
-  // Reset timer when the call ends + force outcome modal for non-booked calls
+  // Reset timer when the call ends. Outcome logging is now handled manually
+  // via the right panel — no forced modal.
   useEffect(() => {
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
-        const duration = callTimerRef.current;
-        const k = normaliseStatus(active.status, active);
-        const isBooked = k === "booked_deposit_paid" || k === "booked_no_deposit";
-        console.log("[outcome-modal] call ended", { deviceStatus, duration, status: active.status, isBooked });
-        if (!isBooked && duration > 0) {
-          // Always prompt the rep to choose an outcome — never auto-change
-          // a lead's status without explicit user action.
-          setCallDurationAtHangup(duration);
-          setOutcomeView("menu");
-          setOutcomeRequired(true);
-          onOutcomeRequiredChange?.(true);
-        }
         wasInCallRef.current = false;
       }
       setCallTimer(0);
