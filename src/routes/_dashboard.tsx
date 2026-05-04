@@ -6,6 +6,8 @@ import { IncomingCallDialog, useIncomingBannerActive, INCOMING_BANNER_HEIGHT } f
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { MissedCallNotifier } from "@/components/MissedCallNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
+import { NotificationBell } from "@/components/NotificationBell";
+import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
@@ -86,7 +88,7 @@ function DashboardLayout() {
 
   if (isFullscreen) {
     return (
-      <>
+      <NotificationsProvider>
         <DeviceBootstrap />
         {/* PROTECTED — pitch-deck-root scope restores original dark theme tokens */}
         <div className="pitch-deck-root">
@@ -94,29 +96,34 @@ function DashboardLayout() {
         </div>
         <SmsNotifier />
         <MissedCallNotifier />
-      </>
+      </NotificationsProvider>
     );
   }
 
   return (
-    <SidebarProvider defaultOpen={false}>
-      <DeviceBootstrap />
-      <DashboardShell>
-        <AppSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <SidebarTrigger
-            className="md:hidden fixed top-3 left-3 z-50 h-9 w-9 rounded-md"
-            style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
-            aria-label="Open navigation"
-          />
-          <main className="flex-1 overflow-y-auto md:overflow-hidden pt-14 md:pt-0">
-            <Outlet />
-          </main>
-        </div>
-      </DashboardShell>
-      <SmsNotifier />
-      <MissedCallNotifier />
-    </SidebarProvider>
+    <NotificationsProvider>
+      <SidebarProvider defaultOpen={false}>
+        <DeviceBootstrap />
+        <DashboardShell>
+          <AppSidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <SidebarTrigger
+              className="md:hidden fixed top-3 left-3 z-50 h-9 w-9 rounded-md"
+              style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
+              aria-label="Open navigation"
+            />
+            <div className="fixed top-3 right-3 z-50">
+              <NotificationBell />
+            </div>
+            <main className="flex-1 overflow-y-auto md:overflow-hidden pt-14 md:pt-0">
+              <Outlet />
+            </main>
+          </div>
+        </DashboardShell>
+        <SmsNotifier />
+        <MissedCallNotifier />
+      </SidebarProvider>
+    </NotificationsProvider>
   );
 }
 
