@@ -4240,6 +4240,8 @@ function RightPanel({
   const [outcomeBusy, setOutcomeBusy] = useState(false);
 
   const [condensingNotes, setCondensingNotes] = useState(false);
+  const [comprehensiveUpdate, setComprehensiveUpdate] = useState<string | null>(null);
+  const [generatingUpdate, setGeneratingUpdate] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
