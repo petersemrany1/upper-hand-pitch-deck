@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone } from "lucide-react";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 type Thread = {
   id: string;
@@ -69,6 +70,7 @@ function InboxPage() {
 
   const sendSmsFn = useServerFn(sendSms);
   const markReadFn = useServerFn(markThreadRead);
+  const { call: dialerCall, dialerStatus } = useTwilioDevice();
 
   const loadThreads = useCallback(async () => {
     const { data, error } = await supabase
@@ -314,7 +316,7 @@ function InboxPage() {
 
         {(active || showNewThread) && (
           <>
-            <header className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #ebebeb", background: "#ffffff" }}>
+            <header className="px-6 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid #ebebeb", background: "#ffffff" }}>
               <div className="flex-1 min-w-0">
                 {active ? (
                   <>
@@ -336,6 +338,19 @@ function InboxPage() {
                   </div>
                 )}
               </div>
+              {activePhone && (
+                <button
+                  type="button"
+                  onClick={() => dialerCall(activePhone)}
+                  disabled={dialerStatus !== "ready"}
+                  title={dialerStatus === "ready" ? `Call ${activePhone}` : "Phone not ready"}
+                  className="inline-flex items-center gap-2 h-9 px-3 rounded-lg text-white text-xs font-semibold shadow active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{ background: "#10b981" }}
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  Call
+                </button>
+              )}
             </header>
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ background: "#f7f7f5" }}>
