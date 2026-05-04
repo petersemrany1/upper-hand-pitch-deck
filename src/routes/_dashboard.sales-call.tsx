@@ -35,6 +35,7 @@ type Lead = {
   callback_scheduled_at: string | null; day_number: number | null;
   finance_eligible: boolean | null; booking_date: string | null; booking_time: string | null;
   clinic_id: string | null; rep_id: string | null; raw_payload: Json | null;
+  pipeline_summary?: string | null; pipeline_summary_updated_at?: string | null;
 };
 
 type Clinic = {
