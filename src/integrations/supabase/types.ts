@@ -412,6 +412,8 @@ export type Database = {
           id: string
           last_name: string | null
           phone: string | null
+          pipeline_summary: string | null
+          pipeline_summary_updated_at: string | null
           raw_payload: Json | null
           rep_id: string | null
           status: string
@@ -437,6 +439,8 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          pipeline_summary?: string | null
+          pipeline_summary_updated_at?: string | null
           raw_payload?: Json | null
           rep_id?: string | null
           status?: string
@@ -462,6 +466,8 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone?: string | null
+          pipeline_summary?: string | null
+          pipeline_summary_updated_at?: string | null
           raw_payload?: Json | null
           rep_id?: string | null
           status?: string
