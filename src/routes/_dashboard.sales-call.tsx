@@ -5292,21 +5292,21 @@ function RightPanel({
           <div
             onClick={(e) => e.stopPropagation()}
             style={{
-              background: "#fff", borderRadius: 12, maxWidth: 640, width: "100%",
-              maxHeight: "85vh", display: "flex", flexDirection: "column",
+              background: "#fff", borderRadius: 12, maxWidth: 720, width: "100%",
+              maxHeight: "88vh", display: "flex", flexDirection: "column",
               overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
             }}
           >
             <div style={{
-              padding: "16px 20px", borderBottom: "1px solid #eee",
+              padding: "14px 18px", borderBottom: "1px solid #eee",
               display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>
-                  Customer Journey
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>
+                  {fullName} — Journey
                 </div>
-                <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>
-                  {fullName} · everything that's happened so far
+                <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>
+                  Quick scan view
                 </div>
               </div>
               <button
@@ -5317,32 +5317,42 @@ function RightPanel({
               </button>
             </div>
 
-            <div style={{ overflowY: "auto", padding: "16px 20px", color: "#111" }}>
-              {/* Snapshot */}
-              <div style={{ marginBottom: 18, padding: 12, background: "#f7f7f7", borderRadius: 8, fontSize: 13 }}>
-                <div><strong>Status:</strong> {active.status || "new"}</div>
-                {active.funding_preference && <div><strong>Funding:</strong> {active.funding_preference}</div>}
-                {active.booking_date && (
-                  <div><strong>Booking:</strong> {active.booking_date} {active.booking_time || ""}</div>
-                )}
-                {active.callback_scheduled_at && (
-                  <div><strong>Callback:</strong> {fmtTime(active.callback_scheduled_at)}</div>
-                )}
-                <div><strong>First seen:</strong> {fmtTime(active.created_at)}</div>
-              </div>
+            <div style={{ overflowY: "auto", padding: "14px 18px", color: "#111" }}>
+              {/* Snapshot chips */}
+              {(() => {
+                const chips: { label: string; bg: string; fg: string }[] = [];
+                chips.push({ label: `● ${active.status || "new"}`, bg: "#eef2ff", fg: "#3730a3" });
+                if (active.funding_preference) chips.push({ label: `💰 ${active.funding_preference}`, bg: "#ecfdf5", fg: "#065f46" });
+                if (active.booking_date) chips.push({ label: `📅 ${active.booking_date}${active.booking_time ? " " + active.booking_time : ""}`, bg: "#fef3c7", fg: "#92400e" });
+                if (active.callback_scheduled_at) chips.push({ label: `⏰ ${fmtTime(active.callback_scheduled_at)}`, bg: "#fee2e2", fg: "#991b1b" });
+                const callCount = journeyCalls.length;
+                const smsCount = smsHistory.length;
+                if (callCount) chips.push({ label: `📞 ${callCount} call${callCount === 1 ? "" : "s"}`, bg: "#f1f5f9", fg: "#334155" });
+                if (smsCount) chips.push({ label: `💬 ${smsCount} SMS`, bg: "#f1f5f9", fg: "#334155" });
+                chips.push({ label: `🆕 ${fmtTime(active.created_at)}`, bg: "#f9fafb", fg: "#6b7280" });
+                return (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                    {chips.map((c, i) => (
+                      <span key={i} style={{
+                        fontSize: 11, fontWeight: 600, padding: "4px 8px",
+                        borderRadius: 999, background: c.bg, color: c.fg, whiteSpace: "nowrap",
+                      }}>{c.label}</span>
+                    ))}
+                  </div>
+                );
+              })()}
 
-              {/* Lead notes */}
+              {/* Lead notes - collapsed by default if long */}
               {active.call_notes && active.call_notes.trim() && (
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888" }}>
-                      Your notes
-                    </div>
+                <details open={active.call_notes.length < 220} style={{ marginBottom: 14 }}>
+                  <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span>📝 Your notes</span>
                     {active.call_notes.length > 350 && (
                       <button
                         type="button"
                         disabled={condensingNotes}
-                        onClick={async () => {
+                        onClick={async (e) => {
+                          e.preventDefault();
                           setCondensingNotes(true);
                           try {
                             const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/condense-notes`, {
@@ -5361,77 +5371,89 @@ function RightPanel({
                           }
                         }}
                         style={{
-                          fontSize: 11, fontWeight: 500, color: "#1d4ed8",
+                          fontSize: 10, fontWeight: 500, color: "#1d4ed8",
                           background: "#eff6ff", border: "1px solid #bfdbfe",
-                          borderRadius: 6, padding: "3px 8px",
+                          borderRadius: 6, padding: "2px 6px",
                           cursor: condensingNotes ? "wait" : "pointer",
                           opacity: condensingNotes ? 0.6 : 1,
                         }}
                       >
-                        {condensingNotes ? "Condensing…" : "✨ Condense"}
+                        {condensingNotes ? "…" : "✨ Condense"}
                       </button>
                     )}
-                  </div>
-                  <div style={{ fontSize: 13, whiteSpace: "pre-wrap", padding: 10, background: "#fffbe6", borderRadius: 6, border: "1px solid #f0e4a3", lineHeight: 1.55 }}>
+                  </summary>
+                  <div style={{ fontSize: 13, whiteSpace: "pre-wrap", padding: 10, background: "#fffbe6", borderRadius: 6, border: "1px solid #f0e4a3", lineHeight: 1.5 }}>
                     {active.call_notes}
                   </div>
-                </div>
+                </details>
               )}
 
               {/* Timeline */}
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 8 }}>
-                Timeline
+                Timeline (newest first)
               </div>
               {loadingJourney ? (
                 <div style={{ fontSize: 13, color: "#666" }}>Loading…</div>
               ) : (() => {
-                const items: { ts: string; kind: "call" | "sms"; node: React.ReactNode }[] = [];
+                type Item = { ts: string; node: React.ReactNode };
+                const items: Item[] = [];
                 journeyCalls.forEach((c) => {
                   const transcript = (c.call_analysis?.transcript || "").trim();
                   const rawSummary = (c.call_analysis?.patient_summary || c.call_analysis?.summary || c.call_analysis?.notes || "").trim();
                   const dur = typeof c.duration === "number" ? c.duration : 0;
                   const transcriptVoicemail = dur > 0 && dur <= 10 && /unable to (answer|come)|leave (a |your )?message|voicemail|you've called/i.test(transcript);
-                  // Any short call (≤10s) is effectively a no-answer / voicemail hit
                   const looksLikeVoicemail = transcriptVoicemail || (dur > 0 && dur <= 10);
                   const isPlaceholder = /too brief to capture/i.test(rawSummary);
                   let shortSummary = "";
                   if (rawSummary && !isPlaceholder) {
                     const firstSentence = rawSummary.split(/(?<=[.!?])\s/)[0];
-                    shortSummary = firstSentence.length > 140 ? firstSentence.slice(0, 140).trimEnd() + "…" : firstSentence;
+                    shortSummary = firstSentence.length > 160 ? firstSentence.slice(0, 160).trimEnd() + "…" : firstSentence;
                   }
-                  const tag = looksLikeVoicemail ? "📭 No answer / voicemail" : null;
+                  const inbound = c.direction === "inbound";
+                  const accent = looksLikeVoicemail ? "#9ca3af" : inbound ? "#22c55e" : "#3b82f6";
+                  const icon = looksLikeVoicemail ? "📭" : inbound ? "📞" : "📱";
+                  const label = looksLikeVoicemail ? "Voicemail / no answer" : (c.outcome || (inbound ? "Inbound call" : "Outbound call"));
+                  const durStr = dur > 0 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : "";
                   items.push({
                     ts: c.called_at,
-                    kind: "call",
                     node: (
-                      <div key={`c-${c.id}`} style={{ padding: "10px 12px", borderLeft: `3px solid ${looksLikeVoicemail ? "#9ca3af" : c.direction === "inbound" ? "#22c55e" : "#3b82f6"}`, background: "#fafafa", borderRadius: 4, marginBottom: 8 }}>
-                        <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
-                          {fmtTime(c.called_at)} · {c.direction === "inbound" ? "📞 Inbound" : "📱 Outbound"} call
-                          {dur > 0 ? ` · ${Math.floor(dur / 60)}m ${dur % 60}s` : ""}
+                      <div key={`c-${c.id}`} style={{ display: "flex", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${accent}`, background: "#fafafa", borderRadius: 4, marginBottom: 6, alignItems: "flex-start" }}>
+                        <div style={{ fontSize: 14, lineHeight: "18px" }}>{icon}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                            <span style={{ color: "#666" }}>{fmtTime(c.called_at)}</span>
+                            <span style={{ fontWeight: 600, color: "#111" }}>{label}</span>
+                            {durStr && <span style={{ color: "#9ca3af", fontSize: 11 }}>{durStr}</span>}
+                          </div>
+                          {shortSummary && <div style={{ fontSize: 12.5, marginTop: 2, color: "#374151", lineHeight: 1.4 }}>{shortSummary}</div>}
                         </div>
-                        {tag && <div style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>{tag}</div>}
-                        {!tag && c.outcome && <div style={{ fontSize: 13, fontWeight: 500, color: "#111" }}>Outcome: {c.outcome}</div>}
-                        {!tag && shortSummary && <div style={{ fontSize: 13, marginTop: 4, color: "#111" }}>{shortSummary}</div>}
-                        {!tag && !shortSummary && !c.outcome && <div style={{ fontSize: 12, color: "#9ca3af", fontStyle: "italic" }}>No notes captured</div>}
                       </div>
                     ),
                   });
                 });
                 smsHistory.forEach((s, i) => {
+                  const inbound = s.direction === "inbound";
+                  const accent = inbound ? "#a855f7" : "#f97316";
+                  const icon = inbound ? "💬" : "✉️";
+                  const oneLine = (s.body || "").replace(/\s+/g, " ").trim();
+                  const preview = oneLine.length > 140 ? oneLine.slice(0, 140) + "…" : oneLine;
                   items.push({
                     ts: s.created_at,
-                    kind: "sms",
                     node: (
-                      <div key={`s-${i}`} style={{ padding: "10px 12px", borderLeft: `3px solid ${s.direction === "inbound" ? "#a855f7" : "#f97316"}`, background: "#fafafa", borderRadius: 4, marginBottom: 8 }}>
-                        <div style={{ fontSize: 12, color: "#666", marginBottom: 4 }}>
-                          {fmtTime(s.created_at)} · {s.direction === "inbound" ? "💬 Inbound" : "✉️ Outbound"} SMS
+                      <div key={`s-${i}`} style={{ display: "flex", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${accent}`, background: "#fafafa", borderRadius: 4, marginBottom: 6, alignItems: "flex-start" }}>
+                        <div style={{ fontSize: 14, lineHeight: "18px" }}>{icon}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                            <span style={{ color: "#666" }}>{fmtTime(s.created_at)}</span>
+                            <span style={{ fontWeight: 600, color: "#111" }}>{inbound ? "SMS in" : "SMS out"}</span>
+                          </div>
+                          <div style={{ fontSize: 12.5, marginTop: 2, color: "#374151", lineHeight: 1.4 }}>{preview}</div>
                         </div>
-                        <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{s.body}</div>
                       </div>
                     ),
                   });
                 });
-                items.sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime());
+                items.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
                 if (items.length === 0) {
                   return <div style={{ fontSize: 13, color: "#666" }}>No previous calls or messages yet — this is your first contact.</div>;
                 }
