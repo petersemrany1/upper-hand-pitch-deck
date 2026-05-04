@@ -62,6 +62,7 @@ function InboxPage() {
   const [composeBody, setComposeBody] = useState("");
   const [composeFiles, setComposeFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [newPhone, setNewPhone] = useState("");
   const [showNewThread, setShowNewThread] = useState(false);
@@ -176,10 +177,10 @@ function InboxPage() {
   const active = threads.find((t) => t.id === activeId) ?? null;
   const activePhone = active?.phone || newPhone;
 
-  async function uploadAttachments(): Promise<string[]> {
-    if (composeFiles.length === 0) return [];
+  async function uploadAttachments(files: File[] = composeFiles): Promise<string[]> {
+    if (files.length === 0) return [];
     const urls: string[] = [];
-    for (const f of composeFiles) {
+    for (const f of files) {
       const ext = f.name.split(".").pop() || "bin";
       const path = `outbound/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage.from("sms-media").upload(path, f, { contentType: f.type, upsert: false });
@@ -194,25 +195,36 @@ function InboxPage() {
   }
 
   async function handleSend() {
+    if (sendingRef.current) return;
     if (!activePhone) { setError("Enter a phone number to start a new thread."); return; }
     if (!composeBody.trim() && composeFiles.length === 0) return;
+    sendingRef.current = true;
     setSending(true); setError(null);
+    // Snapshot + clear immediately so repeat Enter has nothing to send.
+    const bodyToSend = composeBody;
+    const filesToSend = composeFiles;
+    setComposeBody("");
+    setComposeFiles([]);
     try {
-      const mediaUrls = await uploadAttachments();
-      const result = await sendSmsFn({ data: { to: activePhone, body: composeBody, mediaUrls } });
+      const mediaUrls = await uploadAttachments(filesToSend);
+      const result = await sendSmsFn({ data: { to: activePhone, body: bodyToSend, mediaUrls } });
       if (!result.success) {
+        // Restore so the user can retry
+        setComposeBody(bodyToSend);
+        setComposeFiles(filesToSend);
         setError(result.error);
       } else {
-        setComposeBody("");
-        setComposeFiles([]);
         setShowNewThread(false);
         if (result.threadId) setActiveId(result.threadId);
         await loadThreads();
         if (result.threadId) await loadMessages(result.threadId);
       }
     } catch (e) {
+      setComposeBody(bodyToSend);
+      setComposeFiles(filesToSend);
       setError(e instanceof Error ? e.message : "Failed to send");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
