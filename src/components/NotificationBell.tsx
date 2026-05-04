@@ -30,12 +30,19 @@ export function NotificationBell() {
     unreadThreads,
     missedCalls,
     totalCount,
+    unseenCount,
     unreadSmsCount,
     missedCount,
     acknowledgeMissed,
     acknowledgeAllMissed,
+    markNotificationsSeen,
   } = useNotifications();
   const { call, dialerStatus } = useTwilioDevice();
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (nextOpen) markNotificationsSeen();
+  };
 
   const handleCallback = async (id: string, phone: string | null, clinicId: string | null) => {
     if (!phone) return;
@@ -54,11 +61,11 @@ export function NotificationBell() {
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={totalCount > 0 ? `${totalCount} new notifications` : "Notifications"}
+          aria-label={unseenCount > 0 ? `${unseenCount} new notifications` : "Notifications"}
           className="relative inline-flex items-center justify-center rounded-md transition"
           style={{
             width: 36,
@@ -69,7 +76,7 @@ export function NotificationBell() {
           }}
         >
           <Bell className="h-4 w-4" />
-          {totalCount > 0 && (
+          {unseenCount > 0 && (
             <span
               className="absolute -top-1 -right-1 inline-flex items-center justify-center rounded-full text-[10px] font-semibold"
               style={{
@@ -81,7 +88,7 @@ export function NotificationBell() {
                 border: "2px solid #ffffff",
               }}
             >
-              {totalCount > 99 ? "99+" : totalCount}
+              {unseenCount > 99 ? "99+" : unseenCount}
             </span>
           )}
         </button>
