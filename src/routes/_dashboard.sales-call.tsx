@@ -3234,7 +3234,7 @@ function LeadChooser({
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
-  const [convertedOpen, setConvertedOpen] = useState(false);
+  
   const [savingStatus, setSavingStatus] = useState<string | null>(null);
   // Local override so drag/drop and "move" buttons re-bucket immediately
   // without waiting for the realtime round-trip. Maps lead id → forced column.
