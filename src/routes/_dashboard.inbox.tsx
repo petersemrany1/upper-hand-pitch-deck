@@ -195,25 +195,36 @@ function InboxPage() {
   }
 
   async function handleSend() {
+    if (sendingRef.current) return;
     if (!activePhone) { setError("Enter a phone number to start a new thread."); return; }
     if (!composeBody.trim() && composeFiles.length === 0) return;
+    sendingRef.current = true;
     setSending(true); setError(null);
+    // Snapshot + clear immediately so repeat Enter has nothing to send.
+    const bodyToSend = composeBody;
+    const filesToSend = composeFiles;
+    setComposeBody("");
+    setComposeFiles([]);
     try {
-      const mediaUrls = await uploadAttachments();
-      const result = await sendSmsFn({ data: { to: activePhone, body: composeBody, mediaUrls } });
+      const mediaUrls = await uploadAttachments(filesToSend);
+      const result = await sendSmsFn({ data: { to: activePhone, body: bodyToSend, mediaUrls } });
       if (!result.success) {
+        // Restore so the user can retry
+        setComposeBody(bodyToSend);
+        setComposeFiles(filesToSend);
         setError(result.error);
       } else {
-        setComposeBody("");
-        setComposeFiles([]);
         setShowNewThread(false);
         if (result.threadId) setActiveId(result.threadId);
         await loadThreads();
         if (result.threadId) await loadMessages(result.threadId);
       }
     } catch (e) {
+      setComposeBody(bodyToSend);
+      setComposeFiles(filesToSend);
       setError(e instanceof Error ? e.message : "Failed to send");
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   }
