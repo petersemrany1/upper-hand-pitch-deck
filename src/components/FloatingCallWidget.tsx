@@ -136,6 +136,50 @@ export function FloatingCallWidget() {
   const [endedSid, setEndedSid] = useState<string | null>(null);
   const [endedFrom, setEndedFrom] = useState<string | null>(null);
 
+  // Draggable position offset from bottom-right corner. Persisted so the
+  // rep's chosen spot survives navigation.
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>(() => {
+    if (typeof window === "undefined") return { x: 0, y: 0 };
+    try {
+      const raw = window.localStorage.getItem("call-widget-offset");
+      if (raw) return JSON.parse(raw);
+    } catch { /* noop */ }
+    return { x: 0, y: 0 };
+  });
+  const dragStateRef = useRef<{ startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
+
+  const startDrag = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest("button, a, input, textarea, select")) return;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, baseX: dragOffset.x, baseY: dragOffset.y, moved: false };
+  };
+  const onDrag = (e: React.PointerEvent) => {
+    const s = dragStateRef.current;
+    if (!s) return;
+    const dx = e.clientX - s.startX;
+    const dy = e.clientY - s.startY;
+    if (!s.moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+    s.moved = true;
+    const nx = s.baseX - dx;
+    const ny = s.baseY - dy;
+    const maxX = Math.max(0, window.innerWidth - 80);
+    const maxY = Math.max(0, window.innerHeight - 60);
+    setDragOffset({ x: Math.max(0, Math.min(maxX, nx)), y: Math.max(0, Math.min(maxY, ny)) });
+  };
+  const endDrag = (e: React.PointerEvent) => {
+    if (!dragStateRef.current) return;
+    dragStateRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    try { window.localStorage.setItem("call-widget-offset", JSON.stringify(dragOffset)); } catch { /* noop */ }
+  };
+
+  const draggableStyle: React.CSSProperties = {
+    right: `${16 + dragOffset.x}px`,
+    bottom: `${16 + dragOffset.y}px`,
+    left: "auto",
+    touchAction: "none",
+  };
+
   const startedAtRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
   const prevStatusRef = useRef(status);
