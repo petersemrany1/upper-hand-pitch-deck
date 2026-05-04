@@ -4240,6 +4240,8 @@ function RightPanel({
   const [outcomeBusy, setOutcomeBusy] = useState(false);
 
   const [condensingNotes, setCondensingNotes] = useState(false);
+  const [comprehensiveUpdate, setComprehensiveUpdate] = useState<string | null>(null);
+  const [generatingUpdate, setGeneratingUpdate] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
@@ -4458,7 +4460,7 @@ function RightPanel({
             {fullName}
           </div>
           <button
-            onClick={() => setShowJourney(true)}
+            onClick={() => { setComprehensiveUpdate(null); setShowJourney(true); }}
             style={{
               fontSize: 11,
               fontWeight: 600,
@@ -5342,7 +5344,55 @@ function RightPanel({
                 );
               })()}
 
-              {/* Lead notes - collapsed by default if long */}
+              {/* Comprehensive Update — AI recap of everything */}
+              <div style={{ marginBottom: 14 }}>
+                <button
+                  type="button"
+                  disabled={generatingUpdate}
+                  onClick={async () => {
+                    setGeneratingUpdate(true);
+                    setComprehensiveUpdate(null);
+                    try {
+                      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/comprehensive-lead-update`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+                        body: JSON.stringify({ leadId: active.id }),
+                      });
+                      const j = await r.json();
+                      if (!r.ok || !j?.summary) throw new Error(j?.error || "Failed");
+                      setComprehensiveUpdate(j.summary);
+                    } catch (e) {
+                      toast.error(`Couldn't generate update: ${e instanceof Error ? e.message : "unknown"}`);
+                    } finally {
+                      setGeneratingUpdate(false);
+                    }
+                  }}
+                  style={{
+                    width: "100%",
+                    fontSize: 13, fontWeight: 600,
+                    color: "#fff",
+                    background: generatingUpdate ? "#94a3b8" : "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                    border: "none", borderRadius: 8,
+                    padding: "10px 14px",
+                    cursor: generatingUpdate ? "wait" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                  }}
+                >
+                  {generatingUpdate ? "✨ Generating recap…" : comprehensiveUpdate ? "✨ Regenerate Comprehensive Update" : "✨ Comprehensive Update"}
+                </button>
+                {comprehensiveUpdate && (
+                  <div style={{
+                    marginTop: 10, padding: "12px 14px",
+                    background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8,
+                    fontSize: 13, lineHeight: 1.55, color: "#1f2937",
+                    whiteSpace: "pre-wrap", maxHeight: 360, overflowY: "auto",
+                  }}>
+                    {comprehensiveUpdate}
+                  </div>
+                )}
+              </div>
+
+
               {active.call_notes && active.call_notes.trim() && (
                 <details open={active.call_notes.length < 220} style={{ marginBottom: 14 }}>
                   <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "#888", marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
