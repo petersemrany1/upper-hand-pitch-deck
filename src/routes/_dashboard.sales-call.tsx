@@ -762,6 +762,7 @@ function SalesCallPortal() {
                 setActiveId(null);
                 setSessionActive(false);
                 setSessionPaused(false);
+                setSessionStartedAt(null);
                 if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
                 toast.success("Session complete — great work!");
               }
@@ -786,6 +787,7 @@ function SalesCallPortal() {
                 setActiveId(null);
                 setSessionActive(false);
                 setSessionPaused(false);
+                setSessionStartedAt(null);
                 if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
                 toast.success("Session complete — great work!");
               }
