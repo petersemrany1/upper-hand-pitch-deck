@@ -33,6 +33,8 @@ type Ctx = {
   unseenCount: number;
   acknowledgeMissed: (id: string) => void;
   acknowledgeAllMissed: () => void;
+  acknowledgeThread: (threadId: string, lastMessageAt: string | null) => void;
+  acknowledgeAll: () => void;
   markNotificationsSeen: () => void;
   refresh: () => void;
 };
@@ -41,6 +43,7 @@ const NotificationsContext = createContext<Ctx | null>(null);
 
 const ACK_KEY = "uh.missedCallsAcked.v1";
 const SEEN_AT_KEY = "uh.notificationsSeenAt.v1";
+const THREAD_ACK_KEY = "uh.threadsAcked.v1";
 
 function loadSeenAt(): number {
   try {
@@ -74,6 +77,28 @@ function saveAcked(set: Set<string>) {
     // Keep only most recent 500 to avoid unbounded growth.
     const arr = Array.from(set).slice(-500);
     localStorage.setItem(ACK_KEY, JSON.stringify(arr));
+  } catch {
+    // ignore
+  }
+}
+
+// Per-thread ack: maps thread_id -> ISO timestamp of the last message that was
+// dismissed. The thread reappears only if a STRICTLY NEWER message arrives.
+function loadThreadAcks(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(THREAD_ACK_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function saveThreadAcks(map: Record<string, string>) {
+  try {
+    // Cap to most-recent 500 entries to bound growth.
+    const entries = Object.entries(map).slice(-500);
+    localStorage.setItem(THREAD_ACK_KEY, JSON.stringify(Object.fromEntries(entries)));
   } catch {
     // ignore
   }
