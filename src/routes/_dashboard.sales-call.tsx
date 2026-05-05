@@ -712,9 +712,11 @@ function SalesCallPortal() {
             }
           }}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
+          onCallStarted={() => {
+            if (sessionActive) setSessionCalls((c) => c + 1);
+          }}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             if (sessionActive) {
-              setSessionCalls((c) => c + 1);
               if (wasBooked) setSessionBookings((b) => b + 1);
               const nextIndex = sessionIndex + 1;
               setSessionIndex(nextIndex);
