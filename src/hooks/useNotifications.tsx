@@ -330,6 +330,8 @@ export function useNotifications(): Ctx {
       unseenCount: 0,
       acknowledgeMissed: () => {},
       acknowledgeAllMissed: () => {},
+      acknowledgeThread: () => {},
+      acknowledgeAll: () => {},
       markNotificationsSeen: () => {},
       refresh: () => {},
     };
