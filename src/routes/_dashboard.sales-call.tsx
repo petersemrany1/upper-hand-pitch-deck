@@ -3523,6 +3523,8 @@ function LeadChooser({
 
   const dropTargetFromPoint = (leadId: string, x: number, y: number) => {
     const draggedEl = document.querySelector(`[data-lead-card][data-lead-id="${leadId}"]`) as HTMLElement | null;
+    const draggedRect = draggedEl?.getBoundingClientRect();
+    if (draggedRect && x >= draggedRect.left && x <= draggedRect.right && y >= draggedRect.top && y <= draggedRect.bottom) return null;
     const previousPointerEvents = draggedEl?.style.pointerEvents;
     if (draggedEl) draggedEl.style.pointerEvents = "none";
     const el = document.elementFromPoint(x, y) as HTMLElement | null;
@@ -3546,6 +3548,13 @@ function LeadChooser({
     if (pointerId !== undefined && state && state.pointerId !== pointerId) return;
     if (!state) return;
     dragStateRef.current = null;
+    const originalEl = document.querySelector(`[data-lead-card][data-lead-id="${state.id}"]`) as HTMLElement | null;
+    const originalRect = originalEl?.getBoundingClientRect();
+    if (state.dragging && originalRect && clientX >= originalRect.left && clientX <= originalRect.right && clientY >= originalRect.top && clientY <= originalRect.bottom) {
+      setDropPreview(null);
+      setDragVisual(null);
+      return;
+    }
     const target = dropTargetFromPoint(state.id, clientX, clientY) ?? dropTargetRef.current;
     setDropPreview(null);
     setDragVisual(null);
