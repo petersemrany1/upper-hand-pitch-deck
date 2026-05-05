@@ -68,11 +68,6 @@ export function IncomingCallDialog() {
       setSummary(null);
       setSmsSent(false);
       setSmsBusy(false);
-      setDismissed(false);
-      if (dismissTimerRef.current) {
-        window.clearTimeout(dismissTimerRef.current);
-        dismissTimerRef.current = null;
-      }
     }
   }, [isActive]);
 
