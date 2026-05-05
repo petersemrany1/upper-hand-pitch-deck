@@ -160,9 +160,13 @@ function InboxPage() {
     void markReadFn({ data: { threadId: activeId } }).then(() => loadThreads());
   }, [activeId, loadMessages, loadThreads, markReadFn]);
 
-  // Auto-scroll to latest message
+  // Auto-scroll to latest message — scroll only the messages container,
+  // not the whole page (otherwise clicking a thread jumps the page to the bottom).
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const end = messagesEndRef.current;
+    if (!end) return;
+    const container = end.parentElement;
+    if (container) container.scrollTop = container.scrollHeight;
   }, [messages]);
 
   const filtered = useMemo(() => {
