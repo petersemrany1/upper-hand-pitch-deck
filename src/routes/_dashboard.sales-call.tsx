@@ -145,14 +145,25 @@ function SalesCallPortal() {
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
   // Session mode
-  const [sessionActive, setSessionActive] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
-  const [sessionQueue, setSessionQueue] = useState<string[]>([]);
-  const [sessionIndex, setSessionIndex] = useState(0);
-  const [sessionCalls, setSessionCalls] = useState(0);
-  const [sessionBookings, setSessionBookings] = useState(0);
-  const [sessionPaused, setSessionPaused] = useState(false);
-  const [sessionSeconds, setSessionSeconds] = useState(0);
+  const sessionRestored = (() => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
+  })();
+  const [sessionActive, setSessionActive] = useState<boolean>(sessionRestored?.active ?? false);
+  const [manualMode, setManualMode] = useState<boolean>(sessionRestored?.manualMode ?? false);
+  const [sessionQueue, setSessionQueue] = useState<string[]>(sessionRestored?.queue ?? []);
+  const [sessionIndex, setSessionIndex] = useState<number>(sessionRestored?.index ?? 0);
+  const [sessionCalls, setSessionCalls] = useState<number>(sessionRestored?.calls ?? 0);
+  const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
+  const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
+  const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("salesCall.session", JSON.stringify({
+      active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
+      calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
+    }));
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
