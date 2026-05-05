@@ -632,6 +632,27 @@ function SalesCallPortal() {
             setAmpPrefill={setAmpPrefill}
             audioPrefill={audioPrefill}
             setAudioPrefill={setAudioPrefill}
+            onDepositPaid={() => {
+              if (sessionActive) {
+                setSessionCalls((c) => c + 1);
+                setSessionBookings((b) => b + 1);
+                const nextIndex = sessionIndex + 1;
+                setSessionIndex(nextIndex);
+                const nextId = sessionQueue[nextIndex];
+                if (nextId) {
+                  setActiveId(nextId);
+                  setStep("mindset");
+                  setCompleted(new Set());
+                  setAmpPrefill(""); setAudioPrefill("");
+                } else {
+                  setActiveId(null);
+                  setSessionActive(false);
+                  setSessionPaused(false);
+                  if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                  toast.success("Session complete — great work!");
+                }
+              }
+            }}
           />
         </div>
       </main>
@@ -722,6 +743,7 @@ function SalesCallPortal() {
 function StepContent({
   step, lead, repName, repId, mmsImages, onAdvance, onMarkComplete,
   discoveryNotes, setDiscoveryNotes, ampPrefill, setAmpPrefill, audioPrefill, setAudioPrefill,
+  onDepositPaid,
 }: {
   step: StepKey;
   lead: Lead | null;
@@ -736,6 +758,7 @@ function StepContent({
   setAmpPrefill: (v: string) => void;
   audioPrefill: string;
   setAudioPrefill: (v: string) => void;
+  onDepositPaid?: () => void;
 }) {
   if (!lead) {
     return (
@@ -1103,7 +1126,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} />;
+    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} />;
   }
 
   return null;
@@ -2057,7 +2080,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
@@ -2387,6 +2410,7 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
       } catch (e) {
         console.error("[appointment_reminders] insert failed", e);
       }
+      onDepositPaid?.();
     } else {
       toast.error(`Could not confirm deposit: ${r.error ?? "unknown error"}`);
     }
