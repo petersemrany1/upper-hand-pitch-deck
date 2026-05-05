@@ -82,6 +82,11 @@ function notify() {
   for (const fn of subscribers) fn();
 }
 
+function notifySalesSessionCallStarted() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("upperhand:sales-call-started"));
+}
+
 function setSnapshot(patch: Partial<Snapshot>) {
   if (patch.status !== undefined) currentStatus = patch.status;
   if (patch.dialerStatus !== undefined) currentDialerStatus = patch.dialerStatus;
@@ -361,6 +366,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
 
   const instanceId = nextCallInstance();
   setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null, activeCallInstanceId: instanceId });
+  notifySalesSessionCallStarted();
   try {
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });

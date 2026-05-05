@@ -105,6 +105,12 @@ function fmtTime(s: string | null) {
   return new Date(s).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 }
 
+function normalisePhoneDigits(phone: string | null | undefined) {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.startsWith("61") && digits.length === 11) return `0${digits.slice(2)}`;
+  return digits;
+}
+
 function SalesCallPortal() {
   const { user } = useAuth();
   const search = Route.useSearch();
@@ -149,6 +155,19 @@ function SalesCallPortal() {
     if (typeof window === "undefined") return null;
     try { return JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
   })();
+  const inferredSessionStartedAt = (() => {
+    const restoredStartedAt = typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null;
+    if (restoredStartedAt) return restoredStartedAt;
+    if (sessionRestored?.active && typeof sessionRestored?.seconds === "number" && sessionRestored.seconds > 0) {
+      return new Date(Date.now() - sessionRestored.seconds * 1000).toISOString();
+    }
+    if (sessionRestored?.active) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today.toISOString();
+    }
+    return null;
+  })();
   const [sessionActive, setSessionActive] = useState<boolean>(sessionRestored?.active ?? false);
   const [manualMode, setManualMode] = useState<boolean>(sessionRestored?.manualMode ?? false);
   const [sessionQueue, setSessionQueue] = useState<string[]>(sessionRestored?.queue ?? []);
@@ -157,13 +176,15 @@ function SalesCallPortal() {
   const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
   const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
   const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(inferredSessionStartedAt);
   useEffect(() => {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("salesCall.session", JSON.stringify({
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
+      startedAt: sessionStartedAt,
     }));
-  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds]);
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
@@ -177,6 +198,45 @@ function SalesCallPortal() {
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
   }, [sessionActive, sessionPaused]);
+
+  useEffect(() => {
+    if (!sessionActive || !sessionStartedAt || leads.length === 0) return;
+    const leadIds = new Set(leads.map((l) => l.id));
+    const phones = new Set(leads.map((l) => normalisePhoneDigits(l.phone)).filter(Boolean));
+
+    const loadSessionCallCount = async () => {
+      const { data, error } = await supabase
+        .from("call_records")
+        .select("id, lead_id, phone, called_at")
+        .gte("called_at", sessionStartedAt);
+      if (error) {
+        console.error("session call count backfill failed", error);
+        return;
+      }
+
+      const count = (data ?? []).filter((row) => {
+        if (row.lead_id && leadIds.has(row.lead_id)) return true;
+        const digits = normalisePhoneDigits(row.phone);
+        return Boolean(digits && phones.has(digits));
+      }).length;
+
+      setSessionCalls((current) => Math.max(current, count));
+    };
+
+    void loadSessionCallCount();
+    const ch = supabase.channel("session-call-count")
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionCallCount())
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [sessionActive, sessionStartedAt, leads]);
+
+  useEffect(() => {
+    if (!sessionActive) return;
+    const handleStarted = () => setSessionCalls((c) => c + 1);
+    window.addEventListener("upperhand:sales-call-started", handleStarted);
+    return () => window.removeEventListener("upperhand:sales-call-started", handleStarted);
+  }, [sessionActive]);
+
   const sessionTimeStr = `${Math.floor(sessionSeconds / 3600).toString().padStart(2, "0")}:${Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, "0")}:${(sessionSeconds % 60).toString().padStart(2, "0")}`;
   // Ref on the centre scroll column so we can reset scroll-to-top whenever
   // the active lead or current step changes (otherwise picking a new client
@@ -462,11 +522,13 @@ function SalesCallPortal() {
             <button
               onClick={() => {
                 const q = buildSessionQueue();
+                const startedAt = new Date().toISOString();
                 setSessionQueue(q);
                 setSessionIndex(0);
                 setSessionCalls(0);
                 setSessionBookings(0);
                 setSessionSeconds(0);
+                setSessionStartedAt(startedAt);
                 setSessionPaused(false);
                 setSessionActive(true);
                 if (q.length > 0) {
@@ -545,6 +607,7 @@ function SalesCallPortal() {
       queueMicrotask(() => {
         setSessionActive(false);
         setSessionPaused(false);
+        setSessionStartedAt(null);
         if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
         toast.success("Session complete — great work!");
       });
@@ -578,7 +641,7 @@ function SalesCallPortal() {
               {sessionPaused ? '▶ Resume' : '☕ Break'}
             </button>
             <button
-              onClick={() => { setSessionActive(false); setSessionPaused(false); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); }}
+              onClick={() => { setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); }}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               End session
@@ -664,6 +727,7 @@ function SalesCallPortal() {
                   setActiveId(null);
                   setSessionActive(false);
                   setSessionPaused(false);
+                  setSessionStartedAt(null);
                   if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
                   toast.success("Session complete — great work!");
                 }
@@ -703,6 +767,7 @@ function SalesCallPortal() {
                 setActiveId(null);
                 setSessionActive(false);
                 setSessionPaused(false);
+                setSessionStartedAt(null);
                 if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
                 toast.success("Session complete — great work!");
               }
@@ -711,9 +776,7 @@ function SalesCallPortal() {
             }
           }}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
-          onCallStarted={() => {
-            setSessionCalls((c) => c + 1);
-          }}
+          onCallStarted={() => {}}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
@@ -729,6 +792,7 @@ function SalesCallPortal() {
                 setActiveId(null);
                 setSessionActive(false);
                 setSessionPaused(false);
+                setSessionStartedAt(null);
                 if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
                 toast.success("Session complete — great work!");
               }
