@@ -218,12 +218,6 @@ export function NotificationBell() {
                               <span className="text-[12px] font-medium truncate" style={{ color: "#111" }}>
                                 {label}
                               </span>
-                              <span
-                                className="inline-flex items-center justify-center h-[16px] min-w-[16px] px-1 rounded-full text-[9px] font-semibold flex-shrink-0"
-                                style={{ background: "#10b981", color: "#fff" }}
-                              >
-                                {t.unread_count}
-                              </span>
                             </div>
                             <div className="text-[10px] truncate" style={{ color: "#6b7280" }}>
                               {t.last_message_preview || "New message"} · {relTime(t.last_message_at)}
