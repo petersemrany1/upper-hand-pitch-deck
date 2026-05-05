@@ -743,6 +743,7 @@ function SalesCallPortal() {
 function StepContent({
   step, lead, repName, repId, mmsImages, onAdvance, onMarkComplete,
   discoveryNotes, setDiscoveryNotes, ampPrefill, setAmpPrefill, audioPrefill, setAudioPrefill,
+  onDepositPaid,
 }: {
   step: StepKey;
   lead: Lead | null;
@@ -757,6 +758,7 @@ function StepContent({
   setAmpPrefill: (v: string) => void;
   audioPrefill: string;
   setAudioPrefill: (v: string) => void;
+  onDepositPaid?: () => void;
 }) {
   if (!lead) {
     return (
