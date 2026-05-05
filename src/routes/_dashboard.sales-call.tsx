@@ -129,6 +129,28 @@ function SalesCallPortal() {
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
+  // Session mode
+  const [sessionActive, setSessionActive] = useState(false);
+  const [sessionQueue, setSessionQueue] = useState<string[]>([]);
+  const [sessionIndex, setSessionIndex] = useState(0);
+  const [sessionCalls, setSessionCalls] = useState(0);
+  const [sessionBookings, setSessionBookings] = useState(0);
+  const [sessionPaused, setSessionPaused] = useState(false);
+  const [sessionSeconds, setSessionSeconds] = useState(0);
+  const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionActiveRef = useRef(false);
+  useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
+  useEffect(() => {
+    if (sessionActive && !sessionPaused) {
+      sessionTimerRef.current = setInterval(() => {
+        setSessionSeconds((s) => s + 1);
+      }, 1000);
+    } else {
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+    }
+    return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
+  }, [sessionActive, sessionPaused]);
+  const sessionTimeStr = `${Math.floor(sessionSeconds / 3600).toString().padStart(2, "0")}:${Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, "0")}:${(sessionSeconds % 60).toString().padStart(2, "0")}`;
   // Ref on the centre scroll column so we can reset scroll-to-top whenever
   // the active lead or current step changes (otherwise picking a new client
   // leaves the user at the previous scroll position — often the bottom).
@@ -252,7 +274,13 @@ function SalesCallPortal() {
     };
     void load();
     const ch = supabase.channel("sales-call-leads")
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, load).subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
+        if (payload.eventType === "INSERT" && sessionActiveRef.current) {
+          const newId = (payload.new as { id?: string } | null)?.id;
+          if (newId) setSessionQueue((prev) => (prev.includes(newId) ? prev : [newId, ...prev]));
+        }
+        void load();
+      }).subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
 
@@ -357,35 +385,191 @@ function SalesCallPortal() {
     </div>
   ) : null;
 
-  // Show full-screen lead chooser before entering the framework
+  // Build the ordered session queue from the same buckets as LeadChooser
+  const buildSessionQueue = useCallback((): string[] => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    const todayKey = localDateKey(today);
+    const yesterdayKey = localDateKey(yesterday);
+    const callbackOverdue = (l: Lead) => {
+      if (!l.callback_scheduled_at) return false;
+      const t = new Date(l.callback_scheduled_at).getTime();
+      return !Number.isNaN(t) && t <= Date.now();
+    };
+    const callbackToday = (l: Lead) => {
+      if (!l.callback_scheduled_at) return false;
+      return sameLocalDate(new Date(l.callback_scheduled_at), today);
+    };
+    const noAnsYesterday = (l: Lead) => {
+      const slot = attemptsByDay[l.id]?.[yesterdayKey];
+      if (!slot) return false;
+      const o = (slot.lastOutcome ?? "").toLowerCase();
+      return o.includes("no") || o.includes("voicemail") || o.includes("missed") || o === "no-answer";
+    };
+    const newish = (l: Lead) =>
+      normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
+
+    const eligible = leads.filter((l) => {
+      const s = normaliseStatus(l.status, l);
+      if (s === "not_interested" || s === "booked_deposit_paid") return false;
+      const raw = (l.status ?? "").toLowerCase();
+      if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
+      return true;
+    });
+
+    const overdue: Lead[] = [];
+    const cbToday: Lead[] = [];
+    const chase: Lead[] = [];
+    const noAns: Lead[] = [];
+    const newLeads: Lead[] = [];
+    const remaining: Lead[] = [];
+    const placed = new Set<string>();
+    for (const l of eligible) {
+      if (callbackOverdue(l)) { overdue.push(l); placed.add(l.id); continue; }
+      if (callbackToday(l)) { cbToday.push(l); placed.add(l.id); continue; }
+      if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); placed.add(l.id); continue; }
+      if (noAnsYesterday(l)) { noAns.push(l); placed.add(l.id); continue; }
+      if (newish(l)) { newLeads.push(l); placed.add(l.id); continue; }
+      remaining.push(l); placed.add(l.id);
+    }
+    const cbSort = (a: Lead, b: Lead) => {
+      const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : 0;
+      const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : 0;
+      return ta - tb;
+    };
+    cbToday.sort(cbSort);
+    overdue.sort(cbSort);
+    return [...overdue, ...cbToday, ...chase, ...noAns, ...newLeads, ...remaining].map((l) => l.id);
+  }, [leads, attemptsByDay]);
+
+  // Show start-session screen / advance queue when no active lead
   if (!active) {
-    return (
-      <>
-        {callbackBanner}
-        <LeadChooser
-          leads={leads}
-          attemptCounts={attemptCounts}
-          attemptsByDay={attemptsByDay}
-          firstCallByLead={firstCallByLead}
-          onLocalLeadUpdate={updateLocalLead}
-          onPick={(id) => {
-            if (outcomeRequiredRef.current) {
-              setPendingLeadId(id);
-              toast.error("Please set a call outcome first");
-              return;
-            }
-            setActiveId(id); setStep("mindset"); setCompleted(new Set());
-            setAmpPrefill(""); setAudioPrefill("");
-          }}
-        />
-      </>
-    );
+    if (!sessionActive) {
+      const queueCount = buildSessionQueue().length;
+      return (
+        <>
+          {callbackBanner}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, padding: 40, background: "#f7f7f5" }}>
+            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6, color: "#111" }}>Ready to dial?</div>
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
+            <button
+              onClick={() => {
+                const q = buildSessionQueue();
+                setSessionQueue(q);
+                setSessionIndex(0);
+                setSessionCalls(0);
+                setSessionBookings(0);
+                setSessionSeconds(0);
+                setSessionPaused(false);
+                setSessionActive(true);
+                if (q.length > 0) {
+                  if (outcomeRequiredRef.current) {
+                    setPendingLeadId(q[0]);
+                    toast.error("Please set a call outcome first");
+                    return;
+                  }
+                  setActiveId(q[0]);
+                  setStep("mindset");
+                  setCompleted(new Set());
+                  setAmpPrefill("");
+                  setAudioPrefill("");
+                }
+              }}
+              style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, padding: "14px 0", width: "100%", maxWidth: 380, cursor: "pointer", fontFamily: "inherit", marginBottom: 12 }}
+            >
+              Start calling session
+            </button>
+            <button
+              onClick={() => { /* leave session inactive — show LeadChooser via fallback */ setSessionActive(false); setSessionQueue([]); setActiveId(null); /* trigger manual browse via re-render below */ }}
+              style={{ fontSize: 12, color: "#aaa", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Browse leads manually instead
+            </button>
+            <div style={{ marginTop: 32, width: "100%" }}>
+              <LeadChooser
+                leads={leads}
+                attemptCounts={attemptCounts}
+                attemptsByDay={attemptsByDay}
+                firstCallByLead={firstCallByLead}
+                onLocalLeadUpdate={updateLocalLead}
+                onPick={(id) => {
+                  if (outcomeRequiredRef.current) {
+                    setPendingLeadId(id);
+                    toast.error("Please set a call outcome first");
+                    return;
+                  }
+                  setActiveId(id); setStep("mindset"); setCompleted(new Set());
+                  setAmpPrefill(""); setAudioPrefill("");
+                }}
+              />
+            </div>
+          </div>
+        </>
+      );
+    } else {
+      const nextId = sessionQueue[sessionIndex];
+      if (nextId) {
+        // Defer to avoid setState during render
+        queueMicrotask(() => {
+          setActiveId(nextId);
+          setStep("mindset");
+          setCompleted(new Set());
+          setAmpPrefill("");
+          setAudioPrefill("");
+        });
+      } else {
+        queueMicrotask(() => {
+          setSessionActive(false);
+          setSessionPaused(false);
+          if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+          toast.success("Session complete — great work!");
+        });
+      }
+      return null;
+    }
   }
 
   return (
     <>
       {callbackBanner}
-      <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
+      <div className="h-full flex flex-col" style={{ background: COLORS.bg, color: COLORS.text }}>
+      {sessionActive && (
+        <div style={{ background: "#111", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 20 }}>
+            {[
+              { num: sessionCalls as number | string, label: "Calls", color: "#fff" },
+              { num: sessionBookings as number | string, label: "Booked", color: "#f4522d" },
+              { num: Math.max(0, sessionQueue.length - sessionIndex) as number | string, label: "Remaining", color: "#f59e0b" },
+              { num: sessionTimeStr, label: sessionPaused ? "On break" : "Session time", color: sessionPaused ? "#f59e0b" : "#fff" },
+            ].map((s) => (
+              <div key={s.label} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 500, color: s.color, lineHeight: 1 }}>{s.num}</div>
+                <div style={{ fontSize: 9, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555", marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setSessionPaused((p) => !p)}
+              style={{ fontSize: 11, color: sessionPaused ? "#f59e0b" : "#555", background: "transparent", border: `0.5px solid ${sessionPaused ? "#f59e0b" : "#333"}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              {sessionPaused ? "▶ Resume" : "☕ Break"}
+            </button>
+            <button
+              onClick={() => {
+                setSessionActive(false);
+                setSessionPaused(false);
+                setActiveId(null);
+                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+              }}
+              style={{ fontSize: 11, color: "#555", background: "transparent", border: "0.5px solid #333", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              End session
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
       {/* LEFT — vertical step nav (desktop only) */}
       <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>
         <div className="px-5 py-5 border-b" style={{ borderColor: COLORS.line }}>
@@ -468,9 +652,49 @@ function SalesCallPortal() {
           attemptCounts={attemptCounts}
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
-          onChangeLead={() => setActiveId(null)}
+          onChangeLead={() => {
+            if (sessionActive) {
+              const nextIndex = sessionIndex + 1;
+              setSessionIndex(nextIndex);
+              const nextId = sessionQueue[nextIndex];
+              if (nextId) {
+                setActiveId(nextId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+              } else {
+                setActiveId(null);
+                setSessionActive(false);
+                setSessionPaused(false);
+                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                toast.success("Session complete — great work!");
+              }
+            } else {
+              setActiveId(null);
+            }
+          }}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
-          onAfterOutcomeApplied={() => {
+          onAfterOutcomeApplied={(wasBooked?: boolean) => {
+            if (sessionActive) {
+              setSessionCalls((c) => c + 1);
+              if (wasBooked) setSessionBookings((b) => b + 1);
+              const nextIndex = sessionIndex + 1;
+              setSessionIndex(nextIndex);
+              const nextId = sessionQueue[nextIndex];
+              if (nextId) {
+                setActiveId(nextId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+              } else {
+                setActiveId(null);
+                setSessionActive(false);
+                setSessionPaused(false);
+                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                toast.success("Session complete — great work!");
+              }
+              return;
+            }
             if (pendingLeadId) {
               const id = pendingLeadId;
               setPendingLeadId(null);
@@ -482,6 +706,7 @@ function SalesCallPortal() {
           }}
         />
       </aside>
+      </div>
 
       <style>{`
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
@@ -4194,7 +4419,7 @@ function RightPanel({
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
   onOutcomeRequiredChange?: (val: boolean) => void;
-  onAfterOutcomeApplied?: () => void;
+  onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
@@ -5500,7 +5725,7 @@ function RightPanel({
           busy={outcomeBusy}
           setBusy={setOutcomeBusy}
           onLocalLeadUpdate={onLocalLeadUpdate}
-          onClosed={() => {
+          onClosed={(status?: string) => {
             setOutcomeRequired(false);
             setOutcomeView("menu");
             setOutcomeCallbackDate("");
@@ -5510,7 +5735,7 @@ function RightPanel({
             // Regenerate the AI one-liner now that a new outcome is recorded
             void refreshLeadSummary("regenerate");
             // If parent had a pending lead waiting, let it apply now
-            onAfterOutcomeApplied?.();
+            onAfterOutcomeApplied?.(status === "booked_deposit_paid");
           }}
         />
       )}
@@ -5534,7 +5759,7 @@ function ForcedOutcomeModal({
   busy: boolean;
   setBusy: (v: boolean) => void;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
-  onClosed: () => void;
+  onClosed: (status?: string) => void;
 }) {
   const apply = async (status: string, extra?: Partial<Lead>) => {
     if (busy) return;
@@ -5547,7 +5772,7 @@ function ForcedOutcomeModal({
         return;
       }
       onLocalLeadUpdate?.(active.id, { status, ...(extra ?? {}) } as Partial<Lead>);
-      onClosed();
+      onClosed(status);
     } finally {
       setBusy(false);
     }
@@ -5576,7 +5801,7 @@ function ForcedOutcomeModal({
         return;
       }
       onLocalLeadUpdate?.(active.id, { status: "callback_scheduled", callback_scheduled_at: dt.toISOString() } as Partial<Lead>);
-      onClosed();
+      onClosed("callback_scheduled");
     } finally {
       setBusy(false);
     }
