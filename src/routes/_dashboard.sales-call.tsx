@@ -105,6 +105,12 @@ function fmtTime(s: string | null) {
   return new Date(s).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 }
 
+function normalisePhoneDigits(phone: string | null | undefined) {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  if (digits.startsWith("61") && digits.length === 11) return `0${digits.slice(2)}`;
+  return digits;
+}
+
 function SalesCallPortal() {
   const { user } = useAuth();
   const search = Route.useSearch();
@@ -149,6 +155,14 @@ function SalesCallPortal() {
     if (typeof window === "undefined") return null;
     try { return JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
   })();
+  const inferredSessionStartedAt = (() => {
+    const restoredStartedAt = typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null;
+    if (restoredStartedAt) return restoredStartedAt;
+    if (sessionRestored?.active && typeof sessionRestored?.seconds === "number" && sessionRestored.seconds > 0) {
+      return new Date(Date.now() - sessionRestored.seconds * 1000).toISOString();
+    }
+    return null;
+  })();
   const [sessionActive, setSessionActive] = useState<boolean>(sessionRestored?.active ?? false);
   const [manualMode, setManualMode] = useState<boolean>(sessionRestored?.manualMode ?? false);
   const [sessionQueue, setSessionQueue] = useState<string[]>(sessionRestored?.queue ?? []);
@@ -157,13 +171,15 @@ function SalesCallPortal() {
   const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
   const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
   const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(inferredSessionStartedAt);
   useEffect(() => {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("salesCall.session", JSON.stringify({
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
+      startedAt: sessionStartedAt,
     }));
-  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds]);
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
