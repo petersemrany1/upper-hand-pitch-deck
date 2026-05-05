@@ -5759,7 +5759,7 @@ function ForcedOutcomeModal({
   busy: boolean;
   setBusy: (v: boolean) => void;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
-  onClosed: () => void;
+  onClosed: (status?: string) => void;
 }) {
   const apply = async (status: string, extra?: Partial<Lead>) => {
     if (busy) return;
@@ -5772,7 +5772,7 @@ function ForcedOutcomeModal({
         return;
       }
       onLocalLeadUpdate?.(active.id, { status, ...(extra ?? {}) } as Partial<Lead>);
-      onClosed();
+      onClosed(status);
     } finally {
       setBusy(false);
     }
