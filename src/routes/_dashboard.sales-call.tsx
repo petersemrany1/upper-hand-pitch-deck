@@ -131,6 +131,7 @@ function SalesCallPortal() {
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
   // Session mode
   const [sessionActive, setSessionActive] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessionCalls, setSessionCalls] = useState(0);
@@ -444,12 +445,12 @@ function SalesCallPortal() {
 
   // Show start-session screen / advance queue when no active lead
   if (!active) {
-    if (!sessionActive) {
+    if (!sessionActive && !manualMode) {
       const queueCount = buildSessionQueue().length;
       return (
         <>
           {callbackBanner}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, padding: 40, background: "#f7f7f5" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5" }}>
             <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6, color: "#111" }}>Ready to dial?</div>
             <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
             <button
@@ -480,12 +481,29 @@ function SalesCallPortal() {
               Start calling session
             </button>
             <button
-              onClick={() => { /* leave session inactive — show LeadChooser via fallback */ setSessionActive(false); setSessionQueue([]); setActiveId(null); /* trigger manual browse via re-render below */ }}
+              onClick={() => setManualMode(true)}
               style={{ fontSize: 12, color: "#aaa", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
             >
               Browse leads manually instead
             </button>
-            <div style={{ marginTop: 32, width: "100%" }}>
+          </div>
+        </>
+      );
+    }
+    if (manualMode && !sessionActive) {
+      return (
+        <>
+          {callbackBanner}
+          <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+            <div style={{ padding: "10px 16px", borderBottom: "0.5px solid #e8e8e6", background: "#fff", flexShrink: 0 }}>
+              <button
+                onClick={() => setManualMode(false)}
+                style={{ fontSize: 12, color: "#111", opacity: 0.7, background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                ← Back to session
+              </button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               <LeadChooser
                 leads={leads}
                 attemptCounts={attemptCounts}
@@ -506,27 +524,26 @@ function SalesCallPortal() {
           </div>
         </>
       );
-    } else {
-      const nextId = sessionQueue[sessionIndex];
-      if (nextId) {
-        // Defer to avoid setState during render
-        queueMicrotask(() => {
-          setActiveId(nextId);
-          setStep("mindset");
-          setCompleted(new Set());
-          setAmpPrefill("");
-          setAudioPrefill("");
-        });
-      } else {
-        queueMicrotask(() => {
-          setSessionActive(false);
-          setSessionPaused(false);
-          if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-          toast.success("Session complete — great work!");
-        });
-      }
-      return null;
     }
+    // sessionActive — auto-advance
+    const nextId = sessionQueue[sessionIndex];
+    if (nextId) {
+      queueMicrotask(() => {
+        setActiveId(nextId);
+        setStep("mindset");
+        setCompleted(new Set());
+        setAmpPrefill("");
+        setAudioPrefill("");
+      });
+    } else {
+      queueMicrotask(() => {
+        setSessionActive(false);
+        setSessionPaused(false);
+        if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+        toast.success("Session complete — great work!");
+      });
+    }
+    return null;
   }
 
   return (
@@ -534,7 +551,7 @@ function SalesCallPortal() {
       {callbackBanner}
       <div className="h-full flex flex-col" style={{ background: COLORS.bg, color: COLORS.text }}>
       {sessionActive && (
-        <div style={{ background: "#111", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ position: "relative", height: 44, background: "#111", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 20 }}>
             {[
               { num: sessionCalls as number | string, label: "Calls", color: "#fff" },
