@@ -322,26 +322,6 @@ export function IncomingCallDialog() {
 
           <button
             type="button"
-            onClick={handleIgnore}
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "8px 12px",
-              borderRadius: 8,
-              background: "transparent",
-              color: "#888",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            <X size={14} /> Ignore
-          </button>
-
-          <button
-            type="button"
             onClick={handleVoicemail}
             style={{
               fontSize: 13,
