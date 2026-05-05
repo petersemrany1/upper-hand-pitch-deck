@@ -2410,6 +2410,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       } catch (e) {
         console.error("[appointment_reminders] insert failed", e);
       }
+      onDepositPaid?.();
     } else {
       toast.error(`Could not confirm deposit: ${r.error ?? "unknown error"}`);
     }
