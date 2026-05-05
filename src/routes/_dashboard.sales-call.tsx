@@ -225,6 +225,13 @@ function SalesCallPortal() {
     return () => { void supabase.removeChannel(ch); };
   }, [sessionActive, sessionStartedAt, leads]);
 
+  useEffect(() => {
+    if (!sessionActive) return;
+    const handleStarted = () => setSessionCalls((c) => c + 1);
+    window.addEventListener("upperhand:sales-call-started", handleStarted);
+    return () => window.removeEventListener("upperhand:sales-call-started", handleStarted);
+  }, [sessionActive]);
+
   const sessionTimeStr = `${Math.floor(sessionSeconds / 3600).toString().padStart(2, "0")}:${Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, "0")}:${(sessionSeconds % 60).toString().padStart(2, "0")}`;
   // Ref on the centre scroll column so we can reset scroll-to-top whenever
   // the active lead or current step changes (otherwise picking a new client
