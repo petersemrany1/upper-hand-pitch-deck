@@ -193,6 +193,38 @@ function SalesCallPortal() {
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
   }, [sessionActive, sessionPaused]);
+
+  useEffect(() => {
+    if (!sessionActive || !sessionStartedAt || leads.length === 0) return;
+    const leadIds = new Set(leads.map((l) => l.id));
+    const phones = new Set(leads.map((l) => normalisePhoneDigits(l.phone)).filter(Boolean));
+
+    const loadSessionCallCount = async () => {
+      const { data, error } = await supabase
+        .from("call_records")
+        .select("id, lead_id, phone, called_at")
+        .gte("called_at", sessionStartedAt);
+      if (error) {
+        console.error("session call count backfill failed", error);
+        return;
+      }
+
+      const count = (data ?? []).filter((row) => {
+        if (row.lead_id && leadIds.has(row.lead_id)) return true;
+        const digits = normalisePhoneDigits(row.phone);
+        return Boolean(digits && phones.has(digits));
+      }).length;
+
+      setSessionCalls((current) => Math.max(current, count));
+    };
+
+    void loadSessionCallCount();
+    const ch = supabase.channel(`session-call-count-${sessionStartedAt}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionCallCount())
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, [sessionActive, sessionStartedAt, leads]);
+
   const sessionTimeStr = `${Math.floor(sessionSeconds / 3600).toString().padStart(2, "0")}:${Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, "0")}:${(sessionSeconds % 60).toString().padStart(2, "0")}`;
   // Ref on the centre scroll column so we can reset scroll-to-top whenever
   // the active lead or current step changes (otherwise picking a new client
