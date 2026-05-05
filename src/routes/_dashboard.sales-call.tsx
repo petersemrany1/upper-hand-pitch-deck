@@ -738,7 +738,6 @@ function SalesCallPortal() {
           }}
         />
       </aside>
-      </div>
 
       <style>{`
         @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.15); } }
