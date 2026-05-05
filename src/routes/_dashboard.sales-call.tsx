@@ -4621,12 +4621,13 @@ function RightPanel({
     return () => clearInterval(i);
   }, [deviceStatus]);
 
-  // Reset timer when the call ends. Outcome logging is now handled manually
-  // via the right panel — no forced modal.
+  // Reset timer when the call ends. Capture the duration so the manual
+  // "Next Lead" button can require an outcome if a call was just completed.
   useEffect(() => {
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
+        setCallDurationAtHangup(callTimerRef.current);
       }
       setCallTimer(0);
       callTimerRef.current = 0;
