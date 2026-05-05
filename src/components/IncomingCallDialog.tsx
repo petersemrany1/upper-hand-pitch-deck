@@ -13,7 +13,6 @@ import { Check, Phone, X } from "lucide-react";
 // imports keep working.
 
 const BANNER_HEIGHT = 64;
-const AUTO_DISMISS_MS = 30_000;
 
 type MatchedLead = {
   id: string;
