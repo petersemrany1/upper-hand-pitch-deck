@@ -532,7 +532,44 @@ function SalesCallPortal() {
   return (
     <>
       {callbackBanner}
-      <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
+      <div className="h-full flex flex-col" style={{ background: COLORS.bg, color: COLORS.text }}>
+      {sessionActive && (
+        <div style={{ background: "#111", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 20 }}>
+            {[
+              { num: sessionCalls as number | string, label: "Calls", color: "#fff" },
+              { num: sessionBookings as number | string, label: "Booked", color: "#f4522d" },
+              { num: Math.max(0, sessionQueue.length - sessionIndex) as number | string, label: "Remaining", color: "#f59e0b" },
+              { num: sessionTimeStr, label: sessionPaused ? "On break" : "Session time", color: sessionPaused ? "#f59e0b" : "#fff" },
+            ].map((s) => (
+              <div key={s.label} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 17, fontWeight: 500, color: s.color, lineHeight: 1 }}>{s.num}</div>
+                <div style={{ fontSize: 9, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.06em", color: "#555", marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setSessionPaused((p) => !p)}
+              style={{ fontSize: 11, color: sessionPaused ? "#f59e0b" : "#555", background: "transparent", border: `0.5px solid ${sessionPaused ? "#f59e0b" : "#333"}`, borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              {sessionPaused ? "▶ Resume" : "☕ Break"}
+            </button>
+            <button
+              onClick={() => {
+                setSessionActive(false);
+                setSessionPaused(false);
+                setActiveId(null);
+                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+              }}
+              style={{ fontSize: 11, color: "#555", background: "transparent", border: "0.5px solid #333", borderRadius: 6, padding: "5px 10px", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              End session
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
       {/* LEFT — vertical step nav (desktop only) */}
       <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>
         <div className="px-5 py-5 border-b" style={{ borderColor: COLORS.line }}>
