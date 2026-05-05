@@ -5725,7 +5725,7 @@ function RightPanel({
           busy={outcomeBusy}
           setBusy={setOutcomeBusy}
           onLocalLeadUpdate={onLocalLeadUpdate}
-          onClosed={() => {
+          onClosed={(status?: string) => {
             setOutcomeRequired(false);
             setOutcomeView("menu");
             setOutcomeCallbackDate("");
@@ -5735,7 +5735,7 @@ function RightPanel({
             // Regenerate the AI one-liner now that a new outcome is recorded
             void refreshLeadSummary("regenerate");
             // If parent had a pending lead waiting, let it apply now
-            onAfterOutcomeApplied?.();
+            onAfterOutcomeApplied?.(status === "booked_deposit_paid");
           }}
         />
       )}
