@@ -34,7 +34,6 @@ export function NotificationBell() {
     unreadSmsCount,
     missedCount,
     acknowledgeMissed,
-    acknowledgeAllMissed,
     acknowledgeThread,
     acknowledgeAll,
     markNotificationsSeen,
