@@ -186,10 +186,10 @@ export function NotificationBell() {
               {unreadThreads.length > 0 && (
                 <div>
                   <div
-                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
+                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider truncate"
                     style={{ color: "#6b7280", background: "#fafafa" }}
                   >
-                    Unread messages ({unreadSmsCount})
+                    Unread messages — {unreadThreads.map((t) => t.display_name || t.clinic_name || t.phone || "Unknown").join(", ")}
                   </div>
                   {unreadThreads.map((t) => {
                     const label = t.display_name || t.clinic_name || t.phone || "Unknown";
