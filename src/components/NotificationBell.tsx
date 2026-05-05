@@ -35,6 +35,8 @@ export function NotificationBell() {
     missedCount,
     acknowledgeMissed,
     acknowledgeAllMissed,
+    acknowledgeThread,
+    acknowledgeAll,
     markNotificationsSeen,
   } = useNotifications();
   const { call, dialerStatus } = useTwilioDevice();
