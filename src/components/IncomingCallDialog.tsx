@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { sendSms } from "@/utils/sms.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, Phone, X } from "lucide-react";
+import { Check, Phone } from "lucide-react";
 
 // Slim incoming-call banner that slides in from the top of the screen.
 // Sits ABOVE app content (the dashboard layout reserves 64px when this
