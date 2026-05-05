@@ -4612,6 +4612,18 @@ function RightPanel({
   const callTimerRef = useRef(0);
   useEffect(() => { callTimerRef.current = callTimer; }, [callTimer]);
 
+  // Fire onCallStarted exactly once per call: when device transitions into
+  // "connecting" (i.e. a new call is being placed). This catches every dial,
+  // including double-dials, regardless of which button started the call.
+  const prevDeviceStatusRef = useRef(deviceStatus);
+  useEffect(() => {
+    const prev = prevDeviceStatusRef.current;
+    if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call") {
+      onCallStarted?.();
+    }
+    prevDeviceStatusRef.current = deviceStatus;
+  }, [deviceStatus, onCallStarted]);
+
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
     wasInCallRef.current = true;
