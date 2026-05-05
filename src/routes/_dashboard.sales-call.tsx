@@ -161,6 +161,11 @@ function SalesCallPortal() {
     if (sessionRestored?.active && typeof sessionRestored?.seconds === "number" && sessionRestored.seconds > 0) {
       return new Date(Date.now() - sessionRestored.seconds * 1000).toISOString();
     }
+    if (sessionRestored?.active) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      return today.toISOString();
+    }
     return null;
   })();
   const [sessionActive, setSessionActive] = useState<boolean>(sessionRestored?.active ?? false);
