@@ -110,9 +110,24 @@ function SalesCallPortal() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [leads, setLeads] = useState<Lead[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return sessionStorage.getItem("salesCall.activeId") || null;
+  });
   const resolvingLeadIdRef = useRef<string | null>(null);
-  const [step, setStep] = useState<StepKey>("mindset");
+  const [step, setStep] = useState<StepKey>(() => {
+    if (typeof window === "undefined") return "mindset";
+    return (sessionStorage.getItem("salesCall.step") as StepKey) || "mindset";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (activeId) sessionStorage.setItem("salesCall.activeId", activeId);
+    else sessionStorage.removeItem("salesCall.activeId");
+  }, [activeId]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem("salesCall.step", step);
+  }, [step]);
   const [completed, setCompleted] = useState<Set<StepKey>>(new Set());
   const [repId, setRepId] = useState<string | null>(null);
   const [repName, setRepName] = useState<string>("");
