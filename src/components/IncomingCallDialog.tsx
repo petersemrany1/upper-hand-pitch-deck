@@ -152,15 +152,11 @@ export function IncomingCallDialog() {
     try { answer(); } catch { /* noop */ }
   };
 
-  const handleIgnore = () => {
-    // Just hide the banner — call keeps ringing until voicemail timeout.
-    setDismissed(true);
-  };
-
   const handleVoicemail = () => {
     // Reject in the SDK — voice-inbound TwiML routes to voicemail on no-answer.
+    // The banner will disappear automatically when the device leaves the
+    // ringing state.
     try { reject(); } catch { /* noop */ }
-    setDismissed(true);
   };
 
   return (
