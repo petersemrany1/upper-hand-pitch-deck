@@ -551,7 +551,7 @@ function SalesCallPortal() {
       {callbackBanner}
       <div className="h-full flex flex-col" style={{ background: COLORS.bg, color: COLORS.text }}>
       {sessionActive && (
-        <div style={{ background: "#111", padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+        <div style={{ position: "relative", height: 44, background: "#111", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <div style={{ display: "flex", gap: 20 }}>
             {[
               { num: sessionCalls as number | string, label: "Calls", color: "#fff" },
