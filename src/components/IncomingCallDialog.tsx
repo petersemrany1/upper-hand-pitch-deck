@@ -119,21 +119,12 @@ export function IncomingCallDialog() {
     return () => { cancelled = true; };
   }, [matched]);
 
-  // Auto-dismiss after 30s of no action
-  useEffect(() => {
-    if (!isActive || dismissed) return;
-    dismissTimerRef.current = window.setTimeout(() => {
-      setDismissed(true);
-    }, AUTO_DISMISS_MS);
-    return () => {
-      if (dismissTimerRef.current) {
-        window.clearTimeout(dismissTimerRef.current);
-        dismissTimerRef.current = null;
-      }
-    };
-  }, [isActive, dismissed]);
+  // Banner stays visible for the entire ringing/waiting lifecycle. It is
+  // cleared automatically when the device transitions out of the ringing
+  // state (answered, rejected, or remote hangup) — never by a stray click
+  // or a local timer.
 
-  if (!isActive || dismissed) return null;
+  if (!isActive) return null;
 
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"
