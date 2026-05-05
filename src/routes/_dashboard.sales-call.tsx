@@ -633,7 +633,8 @@ function SalesCallPortal() {
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <NotificationBell />
             <button
               onClick={() => setSessionPaused(p => !p)}
               style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
