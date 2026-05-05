@@ -389,28 +389,8 @@ function SalesCallPortal() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId]);
 
-  const callbackBanner = showCallbackAlert && dueCallbacks.length > 0 ? (
-    <div style={{
-      position: "fixed", top: 16, right: 16, zIndex: 100,
-      background: COLORS.coral, color: "#fff",
-      borderRadius: 10, padding: "14px 18px",
-      boxShadow: "0 4px 20px rgba(244,82,45,0.3)",
-      maxWidth: 320,
-    }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>📞 Callback due now</div>
-      {dueCallbacks.map((l) => (
-        <div key={l.id} style={{ fontSize: 13, marginBottom: 2 }}>
-          {l.first_name} {l.last_name} — finish your current call first
-        </div>
-      ))}
-      <button
-        onClick={() => setShowCallbackAlert(false)}
-        style={{ marginTop: 8, fontSize: 11, textDecoration: "underline", background: "transparent", color: "#fff", border: "none", cursor: "pointer" }}
-      >
-        Dismiss
-      </button>
-    </div>
-  ) : null;
+  const callbackBanner = null;
+
 
   // Build the ordered session queue from the same buckets as LeadChooser
   const buildSessionQueue = useCallback((): string[] => {
