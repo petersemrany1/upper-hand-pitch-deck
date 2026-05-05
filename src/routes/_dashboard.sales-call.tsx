@@ -139,8 +139,19 @@ function SalesCallPortal() {
   const outcomeRequiredRef = useRef(false);
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
   useEffect(() => {
+    // Reset the inner column scroll AND every scrollable ancestor (the
+    // dashboard <main> wraps this view in `overflow-y-auto`, so without this
+    // the page stays scrolled to the bottom after picking a new lead).
     if (mainScrollRef.current) mainScrollRef.current.scrollTop = 0;
-    if (typeof window !== "undefined") window.scrollTo({ top: 0, left: 0 });
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0 });
+      let node: HTMLElement | null = mainScrollRef.current?.parentElement ?? null;
+      while (node) {
+        const style = window.getComputedStyle(node);
+        if (/(auto|scroll)/.test(style.overflowY)) node.scrollTop = 0;
+        node = node.parentElement;
+      }
+    }
   }, [activeId, step]);
 
   useEffect(() => {
