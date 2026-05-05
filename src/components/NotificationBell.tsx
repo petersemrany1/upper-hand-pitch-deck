@@ -195,39 +195,53 @@ export function NotificationBell() {
                   {unreadThreads.map((t) => {
                     const label = t.display_name || t.clinic_name || t.phone || "Unknown";
                     return (
-                      <button
+                      <div
                         key={t.thread_id}
-                        type="button"
-                        onClick={() => {
-                          setOpen(false);
-                          navigate({ to: "/inbox", search: { thread: t.thread_id } });
-                        }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#fafafa]"
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-[#fafafa]"
                         style={{ borderBottom: "1px solid #f5f5f5" }}
                       >
-                        <span
-                          className="flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0"
-                          style={{ background: "#ecfdf5", color: "#10b981" }}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpen(false);
+                            navigate({ to: "/inbox", search: { thread: t.thread_id } });
+                          }}
+                          className="flex flex-1 items-center gap-2 text-left min-w-0"
                         >
-                          <MessageSquare className="h-3.5 w-3.5" />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[12px] font-medium truncate" style={{ color: "#111" }}>
-                              {label}
-                            </span>
-                            <span
-                              className="inline-flex items-center justify-center h-[16px] min-w-[16px] px-1 rounded-full text-[9px] font-semibold flex-shrink-0"
-                              style={{ background: "#10b981", color: "#fff" }}
-                            >
-                              {t.unread_count}
-                            </span>
+                          <span
+                            className="flex h-7 w-7 items-center justify-center rounded-full flex-shrink-0"
+                            style={{ background: "#ecfdf5", color: "#10b981" }}
+                          >
+                            <MessageSquare className="h-3.5 w-3.5" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[12px] font-medium truncate" style={{ color: "#111" }}>
+                                {label}
+                              </span>
+                              <span
+                                className="inline-flex items-center justify-center h-[16px] min-w-[16px] px-1 rounded-full text-[9px] font-semibold flex-shrink-0"
+                                style={{ background: "#10b981", color: "#fff" }}
+                              >
+                                {t.unread_count}
+                              </span>
+                            </div>
+                            <div className="text-[10px] truncate" style={{ color: "#6b7280" }}>
+                              {t.last_message_preview || "New message"} · {relTime(t.last_message_at)}
+                            </div>
                           </div>
-                          <div className="text-[10px] truncate" style={{ color: "#6b7280" }}>
-                            {t.last_message_preview || "New message"} · {relTime(t.last_message_at)}
-                          </div>
-                        </div>
-                      </button>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => acknowledgeThread(t.thread_id, t.last_message_at)}
+                          className="flex h-6 w-6 items-center justify-center rounded-md flex-shrink-0"
+                          style={{ color: "#9ca3af" }}
+                          title="Dismiss"
+                          aria-label="Dismiss"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
