@@ -219,7 +219,7 @@ function SalesCallPortal() {
     };
 
     void loadSessionCallCount();
-    const ch = supabase.channel(`session-call-count-${sessionStartedAt}`)
+    const ch = supabase.channel("session-call-count")
       .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionCallCount())
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
