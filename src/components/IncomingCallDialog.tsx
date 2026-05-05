@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { sendSms } from "@/utils/sms.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, Phone, X } from "lucide-react";
+import { Check, Phone } from "lucide-react";
 
 // Slim incoming-call banner that slides in from the top of the screen.
 // Sits ABOVE app content (the dashboard layout reserves 64px when this
@@ -13,7 +13,6 @@ import { Check, Phone, X } from "lucide-react";
 // imports keep working.
 
 const BANNER_HEIGHT = 64;
-const AUTO_DISMISS_MS = 30_000;
 
 type MatchedLead = {
   id: string;
@@ -61,8 +60,6 @@ export function IncomingCallDialog() {
   const [summary, setSummary] = useState<string | null>(null);
   const [smsSent, setSmsSent] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const dismissTimerRef = useRef<number | null>(null);
 
   // Reset transient UI whenever a new call starts/ends
   useEffect(() => {
@@ -71,11 +68,6 @@ export function IncomingCallDialog() {
       setSummary(null);
       setSmsSent(false);
       setSmsBusy(false);
-      setDismissed(false);
-      if (dismissTimerRef.current) {
-        window.clearTimeout(dismissTimerRef.current);
-        dismissTimerRef.current = null;
-      }
     }
   }, [isActive]);
 
@@ -127,21 +119,12 @@ export function IncomingCallDialog() {
     return () => { cancelled = true; };
   }, [matched]);
 
-  // Auto-dismiss after 30s of no action
-  useEffect(() => {
-    if (!isActive || dismissed) return;
-    dismissTimerRef.current = window.setTimeout(() => {
-      setDismissed(true);
-    }, AUTO_DISMISS_MS);
-    return () => {
-      if (dismissTimerRef.current) {
-        window.clearTimeout(dismissTimerRef.current);
-        dismissTimerRef.current = null;
-      }
-    };
-  }, [isActive, dismissed]);
+  // Banner stays visible for the entire ringing/waiting lifecycle. It is
+  // cleared automatically when the device transitions out of the ringing
+  // state (answered, rejected, or remote hangup) — never by a stray click
+  // or a local timer.
 
-  if (!isActive || dismissed) return null;
+  if (!isActive) return null;
 
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"
@@ -169,15 +152,11 @@ export function IncomingCallDialog() {
     try { answer(); } catch { /* noop */ }
   };
 
-  const handleIgnore = () => {
-    // Just hide the banner — call keeps ringing until voicemail timeout.
-    setDismissed(true);
-  };
-
   const handleVoicemail = () => {
     // Reject in the SDK — voice-inbound TwiML routes to voicemail on no-answer.
+    // The banner will disappear automatically when the device leaves the
+    // ringing state.
     try { reject(); } catch { /* noop */ }
-    setDismissed(true);
   };
 
   return (
@@ -339,26 +318,6 @@ export function IncomingCallDialog() {
             ) : (
               <>📱 {smsBusy ? "Sending…" : "Send Busy Text"}</>
             )}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleIgnore}
-            style={{
-              fontSize: 13,
-              fontWeight: 500,
-              padding: "8px 12px",
-              borderRadius: 8,
-              background: "transparent",
-              color: "#888",
-              border: "none",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            <X size={14} /> Ignore
           </button>
 
           <button
