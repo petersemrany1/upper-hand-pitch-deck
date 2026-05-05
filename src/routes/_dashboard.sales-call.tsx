@@ -2478,58 +2478,32 @@ function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discovery
             </button>
           </div>
 
-          {/* Send deposit to patient */}
+          {/* Mark as booked — deposit paid (single action, converts the lead) */}
           <button
-            onClick={() => void handleSendDeposit()}
-            disabled={sendingDeposit || depositSent}
+            onClick={() => void handleConfirmDepositPaid()}
+            disabled={confirmingDeposit || depositPaid}
             className="w-full rounded-[8px] flex items-center justify-between"
-            style={{
-              background: depositSent ? "#ecfdf5" : "#ffffff",
-              border: `0.5px solid ${depositSent ? COLORS.green : COLORS.line}`,
-              padding: "16px 20px",
-              cursor: depositSent ? "default" : sendingDeposit ? "wait" : "pointer",
-              opacity: sendingDeposit ? 0.7 : 1,
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: depositSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
-                {depositSent ? "✓ Deposit link sent to patient" : "Send $75 deposit link to patient"}
-              </div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>
-                Stripe payment link via SMS → {lead.phone ?? "no phone on file"}
-              </div>
-            </div>
-            {!depositSent && (
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-                {sendingDeposit ? "Sending…" : "Send →"}
-              </div>
-            )}
-          </button>
-
-          {/* Manually confirm deposit paid — click again to undo */}
-          <button
-            onClick={() => void (depositPaid ? handleUndoDepositPaid() : handleConfirmDepositPaid())}
-            disabled={confirmingDeposit}
-            className="w-full rounded-[8px] flex items-center justify-between mt-3"
             style={{
               background: depositPaid ? "#dcfce7" : "#ffffff",
               border: `0.5px solid ${depositPaid ? COLORS.green : COLORS.line}`,
               padding: "16px 20px",
-              cursor: confirmingDeposit ? "wait" : "pointer",
+              cursor: depositPaid ? "default" : confirmingDeposit ? "wait" : "pointer",
               opacity: confirmingDeposit ? 0.7 : 1,
             }}
           >
             <div style={{ textAlign: "left" }}>
               <div style={{ fontSize: 14, fontWeight: 600, color: depositPaid ? COLORS.green : COLORS.text, marginBottom: 2 }}>
-                {depositPaid ? "✓ Deposit paid — lead converted" : "Confirm deposit paid"}
+                {depositPaid ? "✓ Booked — Deposit Paid" : "Mark as booked — deposit paid"}
               </div>
               <div style={{ fontSize: 12, color: COLORS.muted }}>
-                {depositPaid ? "This lead has moved to Booked — Deposit Paid · tap to undo" : "Tap once the patient has paid the $75 deposit"}
+                {depositPaid ? "Lead has been converted." : "Marks this lead as a booked, deposit-paid conversion."}
               </div>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: depositPaid ? COLORS.muted : COLORS.green, flexShrink: 0, marginLeft: 12 }}>
-              {confirmingDeposit ? (depositPaid ? "Undoing…" : "Saving…") : depositPaid ? "↶ Undo" : "Confirm ✓"}
-            </div>
+            {!depositPaid && (
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.green, flexShrink: 0, marginLeft: 12 }}>
+                {confirmingDeposit ? "Saving…" : "Confirm ✓"}
+              </div>
+            )}
           </button>
 
           {/* Send booking confirmation SMS to patient */}
