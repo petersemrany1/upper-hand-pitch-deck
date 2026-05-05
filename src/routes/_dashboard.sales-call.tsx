@@ -1126,7 +1126,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} />;
+    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} />;
   }
 
   return null;
