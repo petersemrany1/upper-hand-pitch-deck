@@ -632,6 +632,27 @@ function SalesCallPortal() {
             setAmpPrefill={setAmpPrefill}
             audioPrefill={audioPrefill}
             setAudioPrefill={setAudioPrefill}
+            onDepositPaid={() => {
+              if (sessionActive) {
+                setSessionCalls((c) => c + 1);
+                setSessionBookings((b) => b + 1);
+                const nextIndex = sessionIndex + 1;
+                setSessionIndex(nextIndex);
+                const nextId = sessionQueue[nextIndex];
+                if (nextId) {
+                  setActiveId(nextId);
+                  setStep("mindset");
+                  setCompleted(new Set());
+                  setAmpPrefill(""); setAudioPrefill("");
+                } else {
+                  setActiveId(null);
+                  setSessionActive(false);
+                  setSessionPaused(false);
+                  if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                  toast.success("Session complete — great work!");
+                }
+              }
+            }}
           />
         </div>
       </main>
