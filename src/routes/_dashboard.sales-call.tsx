@@ -129,6 +129,28 @@ function SalesCallPortal() {
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
+  // Session mode
+  const [sessionActive, setSessionActive] = useState(false);
+  const [sessionQueue, setSessionQueue] = useState<string[]>([]);
+  const [sessionIndex, setSessionIndex] = useState(0);
+  const [sessionCalls, setSessionCalls] = useState(0);
+  const [sessionBookings, setSessionBookings] = useState(0);
+  const [sessionPaused, setSessionPaused] = useState(false);
+  const [sessionSeconds, setSessionSeconds] = useState(0);
+  const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionActiveRef = useRef(false);
+  useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
+  useEffect(() => {
+    if (sessionActive && !sessionPaused) {
+      sessionTimerRef.current = setInterval(() => {
+        setSessionSeconds((s) => s + 1);
+      }, 1000);
+    } else {
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+    }
+    return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
+  }, [sessionActive, sessionPaused]);
+  const sessionTimeStr = `${Math.floor(sessionSeconds / 3600).toString().padStart(2, "0")}:${Math.floor((sessionSeconds % 3600) / 60).toString().padStart(2, "0")}:${(sessionSeconds % 60).toString().padStart(2, "0")}`;
   // Ref on the centre scroll column so we can reset scroll-to-top whenever
   // the active lead or current step changes (otherwise picking a new client
   // leaves the user at the previous scroll position — often the bottom).
