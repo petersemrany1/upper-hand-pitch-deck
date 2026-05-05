@@ -651,7 +651,6 @@ function SalesCallPortal() {
             setAudioPrefill={setAudioPrefill}
             onDepositPaid={() => {
               if (sessionActive) {
-                setSessionCalls((c) => c + 1);
                 setSessionBookings((b) => b + 1);
                 const nextIndex = sessionIndex + 1;
                 setSessionIndex(nextIndex);
@@ -712,9 +711,11 @@ function SalesCallPortal() {
             }
           }}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
+          onCallStarted={() => {
+            if (sessionActive) setSessionCalls((c) => c + 1);
+          }}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             if (sessionActive) {
-              setSessionCalls((c) => c + 1);
               if (wasBooked) setSessionBookings((b) => b + 1);
               const nextIndex = sessionIndex + 1;
               setSessionIndex(nextIndex);
@@ -4449,7 +4450,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead,
-  onOutcomeRequiredChange, onAfterOutcomeApplied,
+  onOutcomeRequiredChange, onAfterOutcomeApplied, onCallStarted,
 }: {
   active: Lead;
   repId: string | null;
@@ -4460,6 +4461,7 @@ function RightPanel({
   onChangeLead: () => void;
   onOutcomeRequiredChange?: (val: boolean) => void;
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
+  onCallStarted?: () => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
@@ -4646,6 +4648,7 @@ function RightPanel({
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
       console.log("[callNow] placeCall returned");
+      onCallStarted?.();
     } catch (e) {
       stopRingback();
       console.error("[callNow] placeCall threw", e);

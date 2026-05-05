@@ -186,10 +186,10 @@ export function NotificationBell() {
               {unreadThreads.length > 0 && (
                 <div>
                   <div
-                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider"
+                    className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider truncate"
                     style={{ color: "#6b7280", background: "#fafafa" }}
                   >
-                    Unread messages ({unreadSmsCount})
+                    Unread messages — {unreadThreads.map((t) => t.display_name || t.clinic_name || t.phone || "Unknown").join(", ")}
                   </div>
                   {unreadThreads.map((t) => {
                     const label = t.display_name || t.clinic_name || t.phone || "Unknown";
@@ -217,12 +217,6 @@ export function NotificationBell() {
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-[12px] font-medium truncate" style={{ color: "#111" }}>
                                 {label}
-                              </span>
-                              <span
-                                className="inline-flex items-center justify-center h-[16px] min-w-[16px] px-1 rounded-full text-[9px] font-semibold flex-shrink-0"
-                                style={{ background: "#10b981", color: "#fff" }}
-                              >
-                                {t.unread_count}
                               </span>
                             </div>
                             <div className="text-[10px] truncate" style={{ color: "#6b7280" }}>
