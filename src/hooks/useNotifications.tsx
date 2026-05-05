@@ -306,6 +306,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         unseenCount,
         acknowledgeMissed,
         acknowledgeAllMissed,
+        acknowledgeThread,
+        acknowledgeAll,
         markNotificationsSeen,
         refresh,
       }}
