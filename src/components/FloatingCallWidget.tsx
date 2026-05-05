@@ -97,6 +97,13 @@ export function FloatingCallWidget() {
     id: string; first_name: string | null; last_name: string | null;
   } | null>(null);
 
+  // Clear stale matched lead whenever a new call starts (different SID/instance
+  // or different dialled phone). Without this, the previous call's name leaks
+  // into the new call's button label until the DB lookup catches up.
+  useEffect(() => {
+    setMatchedLead(null);
+  }, [activeCallInstanceId, activeCallSid, activePhone, incomingFrom]);
+
   useEffect(() => {
     if (!incomingFrom) { setMatchedLead(null); return; }
     let cancelled = false;
