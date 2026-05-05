@@ -528,7 +528,6 @@ function SalesCallPortal() {
       return null;
     }
   }
-  }
 
   return (
     <>
