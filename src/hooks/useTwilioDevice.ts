@@ -452,6 +452,23 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       }
       if (currentStatus !== "in-call") setSnapshot({ status: "connecting" });
     });
+    // Early-media detection: some carriers (e.g. Optus "the number you are
+    // calling has been disconnected") play an announcement BEFORE the SDK
+    // fires `accept`. In that case real audio is already streaming through
+    // WebRTC while our synthetic ringback is still playing on top, causing
+    // the user to hear both at once. The Voice SDK's `volume` event reports
+    // input/output RMS levels every ~50ms — the first time output volume goes
+    // above silence, kill the synthetic ringback so only the carrier audio
+    // (whether ringback, announcement, or voicemail) is heard.
+    let earlyMediaSilenced = false;
+    (outgoing as unknown as { on: (e: string, cb: (input: number, output: number) => void) => void })
+      .on("volume", (_input: number, output: number) => {
+        if (earlyMediaSilenced) return;
+        if (output > 0.005) {
+          earlyMediaSilenced = true;
+          stopRingback();
+        }
+      });
     outgoing.on("accept", (c: Call) => {
       if (!isCurrentOutgoing()) return;
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
