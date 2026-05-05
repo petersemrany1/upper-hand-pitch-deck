@@ -170,23 +170,20 @@ async function ensureDevice(): Promise<void> {
       const token = await fetchToken();
 
       // Audio tuning notes:
-      // - Opus first: it has built-in packet-loss concealment + adaptive
-      //   jitter handling. PCMU is narrowband and degrades badly on wifi,
-      //   forcing the browser's jitter buffer to grow → audible delay.
-      // - 24kbps Opus = clean speech with low buffering.
+      // - Opus first: built-in packet-loss concealment + adaptive jitter.
+      // - 40kbps Opus = full-band speech clarity. Earlier 24kbps cap was
+      //   too aggressive — callers reported muffled audio + couldn't hear
+      //   Peter clearly. 40k is still well within typical home upload.
       // - edge: "sydney" keeps the media path local for AU users.
       // - dscp tags packets so home routers prioritise voice.
       // - closeProtection avoids accidental disconnects mid-call.
       const d = new Device(token, {
-        // Required for call waiting. Without this, the Twilio SDK silently
-        // ignores a second invite while the browser has an active call, so our
-        // "incoming" handler never fires and no banner can appear.
         allowIncomingWhileBusy: true,
         logLevel: 1,
         codecPreferences: ["opus" as never, "pcmu" as never],
         edge: "sydney",
         dscp: true,
-        maxAverageBitrate: 24000,
+        maxAverageBitrate: 40000,
         forceAggressiveIceNomination: true,
         closeProtection: true,
         enableImprovedSignalingErrorPrecision: true,
