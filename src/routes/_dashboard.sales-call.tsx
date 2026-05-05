@@ -5801,7 +5801,7 @@ function ForcedOutcomeModal({
         return;
       }
       onLocalLeadUpdate?.(active.id, { status: "callback_scheduled", callback_scheduled_at: dt.toISOString() } as Partial<Lead>);
-      onClosed();
+      onClosed("callback_scheduled");
     } finally {
       setBusy(false);
     }
