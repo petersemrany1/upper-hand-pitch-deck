@@ -5778,6 +5778,7 @@ function RightPanel({
           onLocalLeadUpdate={onLocalLeadUpdate}
           onClosed={(status?: string) => {
             setOutcomeRequired(false);
+            setCallDurationAtHangup(0);
             setOutcomeView("menu");
             setOutcomeCallbackDate("");
             setOutcomeCallbackTime("");
