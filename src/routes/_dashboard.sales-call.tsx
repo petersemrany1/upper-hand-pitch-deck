@@ -564,13 +564,14 @@ function SalesCallPortal() {
         <>
           {callbackBanner}
           <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-            <div style={{ padding: "10px 16px", borderBottom: "0.5px solid #e8e8e6", background: "#fff", flexShrink: 0 }}>
+            <div style={{ padding: "10px 16px", borderBottom: "0.5px solid #e8e8e6", background: "#fff", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <button
                 onClick={() => setManualMode(false)}
-                style={{ fontSize: 12, color: "#111", opacity: 0.7, background: "transparent", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+                style={{ fontSize: 13, fontWeight: 600, color: "#fff", background: "#111", border: "none", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}
               >
-                ← Back to session
+                ← Close lead sheet
               </button>
+              <div style={{ fontSize: 12, color: "#888" }}>Browsing all leads</div>
             </div>
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               <LeadChooser
