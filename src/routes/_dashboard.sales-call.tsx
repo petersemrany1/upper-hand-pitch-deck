@@ -131,6 +131,7 @@ function SalesCallPortal() {
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
   // Session mode
   const [sessionActive, setSessionActive] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
   const [sessionQueue, setSessionQueue] = useState<string[]>([]);
   const [sessionIndex, setSessionIndex] = useState(0);
   const [sessionCalls, setSessionCalls] = useState(0);
