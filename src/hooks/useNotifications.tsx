@@ -252,6 +252,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setMissedCalls([]);
   }, [missedCalls]);
 
+  const acknowledgeThread = useCallback((threadId: string, lastMessageAt: string | null) => {
+    threadAcksRef.current[threadId] = lastMessageAt || new Date().toISOString();
+    saveThreadAcks(threadAcksRef.current);
+    setUnreadThreads((prev) => prev.filter((t) => t.thread_id !== threadId));
+  }, []);
+
+  const acknowledgeAll = useCallback(() => {
+    for (const m of missedCalls) ackedRef.current.add(m.id);
+    saveAcked(ackedRef.current);
+    for (const t of unreadThreads) {
+      threadAcksRef.current[t.thread_id] = t.last_message_at || new Date().toISOString();
+    }
+    saveThreadAcks(threadAcksRef.current);
+    setMissedCalls([]);
+    setUnreadThreads([]);
+  }, [missedCalls, unreadThreads]);
+
   const unreadSmsCount = unreadThreads.reduce((s, t) => s + (t.unread_count || 0), 0);
   const missedCount = missedCalls.length;
   const totalCount = unreadSmsCount + missedCount;
