@@ -4096,16 +4096,7 @@ function LeadChooser({
             )}
           </Column>
 
-          <Column
-            title="Tomorrow"
-            subtitle={tomorrow.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" })}
-            tone="muted"
-            col="tomorrow"
-            count={buckets.tomorrow.length}
-          >
-            {orderedTomorrow.length === 0 && <div style={{ fontSize: 12, color: "#aaa" }}>Nothing queued. Drag a lead here to push it.</div>}
-            {orderedTomorrow.map((l) => renderLeadCard(l, { tone: "muted", section: "tomorrow" }))}
-          </Column>
+          {/* Tomorrow column removed per request — leads pushed to tomorrow will surface in Today on the next day. */}
         </div>
       </div>
 
