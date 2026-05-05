@@ -2080,7 +2080,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, discoveryNotes, onBooked }: { lead: Lead; discoveryNotes: string; onBooked: () => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
