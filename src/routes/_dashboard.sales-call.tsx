@@ -3205,7 +3205,7 @@ const rawPayloadObject = (raw: Json | null): RawPayloadObject => {
 };
 
 type DayCol = "yesterday" | "today" | "tomorrow";
-type DragState = { id: string; col: DayCol; pointerId: number; dragging: boolean; offsetX: number; offsetY: number; width: number; height: number };
+type DragState = { id: string; col: DayCol; pointerId: number; dragging: boolean; startX: number; startY: number; offsetX: number; offsetY: number; width: number; height: number };
 type DragVisual = { id: string; left: number; top: number; width: number; height: number };
 
 const sameLocalDate = (a: Date, b: Date) =>
@@ -3533,7 +3533,8 @@ function LeadChooser({
 
     const card = el?.closest("[data-lead-card]") as HTMLElement | null;
     const overId = card?.dataset.leadId;
-    if (!column || !card || !overId || overId === leadId || !column.contains(card)) return { col, beforeId: null };
+    if (overId === leadId) return null;
+    if (!column || !card || !overId || !column.contains(card)) return { col, beforeId: null };
 
     const rect = card.getBoundingClientRect();
     const isAbove = y < rect.top + rect.height / 2;
@@ -3555,6 +3556,9 @@ function LeadChooser({
     const onMove = (e: PointerEvent) => {
       const state = dragStateRef.current;
       if (!state || (state.pointerId !== -1 && state.pointerId !== e.pointerId)) return;
+      const dx = e.clientX - state.startX;
+      const dy = e.clientY - state.startY;
+      if (!state.dragging && Math.hypot(dx, dy) < 8) return;
       e.preventDefault();
       state.dragging = true;
       setDragVisual({ id: state.id, left: e.clientX - state.offsetX, top: e.clientY - state.offsetY, width: state.width, height: state.height });
@@ -3790,7 +3794,7 @@ function LeadChooser({
           if (opts.preview || e.button !== 0 || blocksCardDrag(e.target)) return;
           const col = columnFromSection(section);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          dragStateRef.current = { id: l.id, col, pointerId: e.pointerId, dragging: false, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
+          dragStateRef.current = { id: l.id, col, pointerId: e.pointerId, dragging: false, startX: e.clientX, startY: e.clientY, offsetX: e.clientX - rect.left, offsetY: e.clientY - rect.top, width: rect.width, height: rect.height };
           // Do NOT call setPointerCapture — it routes pointer events away from
           // document-level listeners on some browsers, which breaks drop detection.
         }}
