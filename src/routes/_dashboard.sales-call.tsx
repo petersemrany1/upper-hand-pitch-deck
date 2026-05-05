@@ -4621,12 +4621,13 @@ function RightPanel({
     return () => clearInterval(i);
   }, [deviceStatus]);
 
-  // Reset timer when the call ends. Outcome logging is now handled manually
-  // via the right panel — no forced modal.
+  // Reset timer when the call ends. Capture the duration so the manual
+  // "Next Lead" button can require an outcome if a call was just completed.
   useEffect(() => {
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
+        setCallDurationAtHangup(callTimerRef.current);
       }
       setCallTimer(0);
       callTimerRef.current = 0;
@@ -4669,10 +4670,20 @@ function RightPanel({
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* Change lead link — top of right column, small + muted */}
-      <div style={{ padding: "12px 18px 0" }}>
+      {/* Next lead — top of right column */}
+      <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end" }}>
         <button
           onClick={() => {
+            if (inCall) {
+              toast.error("End the call first");
+              return;
+            }
+            // If a call was just completed, force an outcome before moving on
+            if (callDurationAtHangup > 0) {
+              setOutcomeRequired(true);
+              onOutcomeRequiredChange?.(true);
+              return;
+            }
             if (outcomeRequired) {
               toast.error("Please set a call outcome first");
               return;
@@ -4680,13 +4691,13 @@ function RightPanel({
             onChangeLead();
           }}
           style={{
-            fontSize: 12,
+            fontSize: 13,
+            fontWeight: 600,
             color: "#111",
-            opacity: 0.55,
             background: "transparent",
           }}
         >
-          ← Change Lead
+          Next Lead →
         </button>
       </div>
 
@@ -5767,6 +5778,7 @@ function RightPanel({
           onLocalLeadUpdate={onLocalLeadUpdate}
           onClosed={(status?: string) => {
             setOutcomeRequired(false);
+            setCallDurationAtHangup(0);
             setOutcomeView("menu");
             setOutcomeCallbackDate("");
             setOutcomeCallbackTime("");
