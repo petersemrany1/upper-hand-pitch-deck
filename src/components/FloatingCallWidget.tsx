@@ -197,7 +197,10 @@ export function FloatingCallWidget() {
 
   // Display label hierarchy: contact/lead name → clinic → incoming caller →
   // phone → fallback. Name first so the rep instantly sees who they're talking to.
-  const primaryLabel = contactName || clinicName || incomingFrom || phone || activePhone || "Outbound call";
+  const matchedLeadName = matchedLead
+    ? [matchedLead.first_name, matchedLead.last_name].filter(Boolean).join(" ").trim() || null
+    : null;
+  const primaryLabel = contactName || matchedLeadName || clinicName || incomingFrom || phone || activePhone || "Outbound call";
   const secondaryLabel =
     contactName && clinicName ? clinicName : contactName ? (phone || activePhone) : clinicName ? (phone || activePhone) : null;
 
