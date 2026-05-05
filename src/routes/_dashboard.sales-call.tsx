@@ -274,7 +274,13 @@ function SalesCallPortal() {
     };
     void load();
     const ch = supabase.channel("sales-call-leads")
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, load).subscribe();
+      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
+        if (payload.eventType === "INSERT" && sessionActiveRef.current) {
+          const newId = (payload.new as { id?: string } | null)?.id;
+          if (newId) setSessionQueue((prev) => (prev.includes(newId) ? prev : [newId, ...prev]));
+        }
+        void load();
+      }).subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
 
