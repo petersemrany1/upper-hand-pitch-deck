@@ -510,11 +510,13 @@ function SalesCallPortal() {
             <button
               onClick={() => {
                 const q = buildSessionQueue();
+                const startedAt = new Date().toISOString();
                 setSessionQueue(q);
                 setSessionIndex(0);
                 setSessionCalls(0);
                 setSessionBookings(0);
                 setSessionSeconds(0);
+                setSessionStartedAt(startedAt);
                 setSessionPaused(false);
                 setSessionActive(true);
                 if (q.length > 0) {
@@ -626,7 +628,7 @@ function SalesCallPortal() {
               {sessionPaused ? '▶ Resume' : '☕ Break'}
             </button>
             <button
-              onClick={() => { setSessionActive(false); setSessionPaused(false); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); }}
+              onClick={() => { setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); }}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               End session
