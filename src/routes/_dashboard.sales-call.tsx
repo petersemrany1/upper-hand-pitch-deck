@@ -576,30 +576,30 @@ function SalesCallPortal() {
     <>
       {callbackBanner}
       {sessionActive && (
-        <div style={{ background: '#111', padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ display: 'flex', gap: 20 }}>
+        <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             {[
               { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
               { num: sessionBookings as number | string, label: 'Booked', color: '#f4522d' },
               { num: Math.max(0, sessionQueue.length - sessionIndex) as number | string, label: 'Remaining', color: '#f59e0b' },
               { num: `${Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:${Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:${(sessionSeconds%60).toString().padStart(2,'0')}`, label: sessionPaused ? 'On break' : 'Session time', color: sessionPaused ? '#f59e0b' : '#fff' },
             ].map(s => (
-              <div key={String(s.label)} style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: 17, fontWeight: 500, color: s.color, lineHeight: 1 }}>{s.num}</div>
-                <div style={{ fontSize: 9, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#555', marginTop: 2 }}>{s.label}</div>
+              <div key={String(s.label)} style={{ textAlign: 'center', minWidth: 58 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.num}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b8b8b8', marginTop: 5 }}>{s.label}</div>
               </div>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
             <button
               onClick={() => setSessionPaused(p => !p)}
-              style={{ fontSize: 11, color: sessionPaused ? '#f59e0b' : '#555', background: 'transparent', border: `0.5px solid ${sessionPaused ? '#f59e0b' : '#333'}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               {sessionPaused ? '▶ Resume' : '☕ Break'}
             </button>
             <button
               onClick={() => { setSessionActive(false); setSessionPaused(false); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); }}
-              style={{ fontSize: 11, color: '#555', background: 'transparent', border: '0.5px solid #333', borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontFamily: 'inherit' }}
+              style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               End session
             </button>
