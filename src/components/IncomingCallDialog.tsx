@@ -60,8 +60,6 @@ export function IncomingCallDialog() {
   const [summary, setSummary] = useState<string | null>(null);
   const [smsSent, setSmsSent] = useState(false);
   const [smsBusy, setSmsBusy] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const dismissTimerRef = useRef<number | null>(null);
 
   // Reset transient UI whenever a new call starts/ends
   useEffect(() => {
