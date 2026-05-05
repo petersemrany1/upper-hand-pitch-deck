@@ -108,14 +108,14 @@ export function NotificationBell() {
           <span className="text-[12px] font-semibold" style={{ color: "#111" }}>
             Notifications
           </span>
-          {missedCount > 0 && (
+          {totalCount > 0 && (
             <button
               type="button"
-              onClick={acknowledgeAllMissed}
+              onClick={acknowledgeAll}
               className="text-[10px]"
               style={{ color: "#6b7280" }}
             >
-              Clear missed calls
+              Clear all
             </button>
           )}
         </div>
