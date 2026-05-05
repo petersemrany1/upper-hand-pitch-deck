@@ -651,7 +651,6 @@ function SalesCallPortal() {
             setAudioPrefill={setAudioPrefill}
             onDepositPaid={() => {
               if (sessionActive) {
-                setSessionCalls((c) => c + 1);
                 setSessionBookings((b) => b + 1);
                 const nextIndex = sessionIndex + 1;
                 setSessionIndex(nextIndex);
