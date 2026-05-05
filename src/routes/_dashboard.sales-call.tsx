@@ -385,29 +385,149 @@ function SalesCallPortal() {
     </div>
   ) : null;
 
-  // Show full-screen lead chooser before entering the framework
+  // Build the ordered session queue from the same buckets as LeadChooser
+  const buildSessionQueue = useCallback((): string[] => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    const todayKey = localDateKey(today);
+    const yesterdayKey = localDateKey(yesterday);
+    const callbackOverdue = (l: Lead) => {
+      if (!l.callback_scheduled_at) return false;
+      const t = new Date(l.callback_scheduled_at).getTime();
+      return !Number.isNaN(t) && t <= Date.now();
+    };
+    const callbackToday = (l: Lead) => {
+      if (!l.callback_scheduled_at) return false;
+      return sameLocalDate(new Date(l.callback_scheduled_at), today);
+    };
+    const noAnsYesterday = (l: Lead) => {
+      const slot = attemptsByDay[l.id]?.[yesterdayKey];
+      if (!slot) return false;
+      const o = (slot.lastOutcome ?? "").toLowerCase();
+      return o.includes("no") || o.includes("voicemail") || o.includes("missed") || o === "no-answer";
+    };
+    const newish = (l: Lead) =>
+      normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
+
+    const eligible = leads.filter((l) => {
+      const s = normaliseStatus(l.status, l);
+      if (s === "not_interested" || s === "booked_deposit_paid") return false;
+      const raw = (l.status ?? "").toLowerCase();
+      if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
+      return true;
+    });
+
+    const overdue: Lead[] = [];
+    const cbToday: Lead[] = [];
+    const chase: Lead[] = [];
+    const noAns: Lead[] = [];
+    const newLeads: Lead[] = [];
+    const remaining: Lead[] = [];
+    const placed = new Set<string>();
+    for (const l of eligible) {
+      if (callbackOverdue(l)) { overdue.push(l); placed.add(l.id); continue; }
+      if (callbackToday(l)) { cbToday.push(l); placed.add(l.id); continue; }
+      if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); placed.add(l.id); continue; }
+      if (noAnsYesterday(l)) { noAns.push(l); placed.add(l.id); continue; }
+      if (newish(l)) { newLeads.push(l); placed.add(l.id); continue; }
+      remaining.push(l); placed.add(l.id);
+    }
+    const cbSort = (a: Lead, b: Lead) => {
+      const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : 0;
+      const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : 0;
+      return ta - tb;
+    };
+    cbToday.sort(cbSort);
+    overdue.sort(cbSort);
+    return [...overdue, ...cbToday, ...chase, ...noAns, ...newLeads, ...remaining].map((l) => l.id);
+  }, [leads, attemptsByDay]);
+
+  // Show start-session screen / advance queue when no active lead
   if (!active) {
-    return (
-      <>
-        {callbackBanner}
-        <LeadChooser
-          leads={leads}
-          attemptCounts={attemptCounts}
-          attemptsByDay={attemptsByDay}
-          firstCallByLead={firstCallByLead}
-          onLocalLeadUpdate={updateLocalLead}
-          onPick={(id) => {
-            if (outcomeRequiredRef.current) {
-              setPendingLeadId(id);
-              toast.error("Please set a call outcome first");
-              return;
-            }
-            setActiveId(id); setStep("mindset"); setCompleted(new Set());
-            setAmpPrefill(""); setAudioPrefill("");
-          }}
-        />
-      </>
-    );
+    if (!sessionActive) {
+      const queueCount = buildSessionQueue().length;
+      return (
+        <>
+          {callbackBanner}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, padding: 40, background: "#f7f7f5" }}>
+            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6, color: "#111" }}>Ready to dial?</div>
+            <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
+            <button
+              onClick={() => {
+                const q = buildSessionQueue();
+                setSessionQueue(q);
+                setSessionIndex(0);
+                setSessionCalls(0);
+                setSessionBookings(0);
+                setSessionSeconds(0);
+                setSessionPaused(false);
+                setSessionActive(true);
+                if (q.length > 0) {
+                  if (outcomeRequiredRef.current) {
+                    setPendingLeadId(q[0]);
+                    toast.error("Please set a call outcome first");
+                    return;
+                  }
+                  setActiveId(q[0]);
+                  setStep("mindset");
+                  setCompleted(new Set());
+                  setAmpPrefill("");
+                  setAudioPrefill("");
+                }
+              }}
+              style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, padding: "14px 0", width: "100%", maxWidth: 380, cursor: "pointer", fontFamily: "inherit", marginBottom: 12 }}
+            >
+              Start calling session
+            </button>
+            <button
+              onClick={() => { /* leave session inactive — show LeadChooser via fallback */ setSessionActive(false); setSessionQueue([]); setActiveId(null); /* trigger manual browse via re-render below */ }}
+              style={{ fontSize: 12, color: "#aaa", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+            >
+              Browse leads manually instead
+            </button>
+            <div style={{ marginTop: 32, width: "100%" }}>
+              <LeadChooser
+                leads={leads}
+                attemptCounts={attemptCounts}
+                attemptsByDay={attemptsByDay}
+                firstCallByLead={firstCallByLead}
+                onLocalLeadUpdate={updateLocalLead}
+                onPick={(id) => {
+                  if (outcomeRequiredRef.current) {
+                    setPendingLeadId(id);
+                    toast.error("Please set a call outcome first");
+                    return;
+                  }
+                  setActiveId(id); setStep("mindset"); setCompleted(new Set());
+                  setAmpPrefill(""); setAudioPrefill("");
+                }}
+              />
+            </div>
+          </div>
+        </>
+      );
+    } else {
+      const nextId = sessionQueue[sessionIndex];
+      if (nextId) {
+        // Defer to avoid setState during render
+        queueMicrotask(() => {
+          setActiveId(nextId);
+          setStep("mindset");
+          setCompleted(new Set());
+          setAmpPrefill("");
+          setAudioPrefill("");
+        });
+      } else {
+        queueMicrotask(() => {
+          setSessionActive(false);
+          setSessionPaused(false);
+          if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+          toast.success("Session complete — great work!");
+        });
+      }
+      return null;
+    }
+  }
   }
 
   return (
