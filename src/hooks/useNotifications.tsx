@@ -33,6 +33,8 @@ type Ctx = {
   unseenCount: number;
   acknowledgeMissed: (id: string) => void;
   acknowledgeAllMissed: () => void;
+  acknowledgeThread: (threadId: string, lastMessageAt: string | null) => void;
+  acknowledgeAll: () => void;
   markNotificationsSeen: () => void;
   refresh: () => void;
 };
@@ -41,6 +43,7 @@ const NotificationsContext = createContext<Ctx | null>(null);
 
 const ACK_KEY = "uh.missedCallsAcked.v1";
 const SEEN_AT_KEY = "uh.notificationsSeenAt.v1";
+const THREAD_ACK_KEY = "uh.threadsAcked.v1";
 
 function loadSeenAt(): number {
   try {
@@ -79,6 +82,28 @@ function saveAcked(set: Set<string>) {
   }
 }
 
+// Per-thread ack: maps thread_id -> ISO timestamp of the last message that was
+// dismissed. The thread reappears only if a STRICTLY NEWER message arrives.
+function loadThreadAcks(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(THREAD_ACK_KEY);
+    if (!raw) return {};
+    return JSON.parse(raw) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function saveThreadAcks(map: Record<string, string>) {
+  try {
+    // Cap to most-recent 500 entries to bound growth.
+    const entries = Object.entries(map).slice(-500);
+    localStorage.setItem(THREAD_ACK_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch {
+    // ignore
+  }
+}
+
 function digitsOnly(s: string | null | undefined): string {
   return (s || "").replace(/[^0-9]/g, "");
 }
@@ -88,6 +113,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const [missedCalls, setMissedCalls] = useState<MissedCall[]>([]);
   const [seenAt, setSeenAt] = useState<number>(loadSeenAt());
   const ackedRef = useRef<Set<string>>(loadAcked());
+  const threadAcksRef = useRef<Record<string, string>>(loadThreadAcks());
 
   const fetchThreads = useCallback(async () => {
     const { data } = await supabase
@@ -97,6 +123,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .order("last_message_at", { ascending: false, nullsFirst: false })
       .limit(20);
     if (!data) return;
+    const acks = threadAcksRef.current;
     setUnreadThreads(
       (data as unknown as Array<{
         id: string;
@@ -106,15 +133,24 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         last_message_preview: string | null;
         last_message_at: string | null;
         clinic: { clinic_name: string } | null;
-      }>).map((t) => ({
-        thread_id: t.id,
-        phone: t.phone,
-        display_name: t.display_name,
-        clinic_name: t.clinic?.clinic_name ?? null,
-        unread_count: t.unread_count,
-        last_message_preview: t.last_message_preview,
-        last_message_at: t.last_message_at,
-      }))
+      }>)
+        .filter((t) => {
+          // Hide if user dismissed and no strictly newer message has arrived since.
+          const ackAt = acks[t.id];
+          if (!ackAt) return true;
+          const last = t.last_message_at ? new Date(t.last_message_at).getTime() : 0;
+          const ack = new Date(ackAt).getTime();
+          return last > ack;
+        })
+        .map((t) => ({
+          thread_id: t.id,
+          phone: t.phone,
+          display_name: t.display_name,
+          clinic_name: t.clinic?.clinic_name ?? null,
+          unread_count: t.unread_count,
+          last_message_preview: t.last_message_preview,
+          last_message_at: t.last_message_at,
+        }))
     );
   }, []);
 
@@ -216,6 +252,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     setMissedCalls([]);
   }, [missedCalls]);
 
+  const acknowledgeThread = useCallback((threadId: string, lastMessageAt: string | null) => {
+    threadAcksRef.current[threadId] = lastMessageAt || new Date().toISOString();
+    saveThreadAcks(threadAcksRef.current);
+    setUnreadThreads((prev) => prev.filter((t) => t.thread_id !== threadId));
+  }, []);
+
+  const acknowledgeAll = useCallback(() => {
+    for (const m of missedCalls) ackedRef.current.add(m.id);
+    saveAcked(ackedRef.current);
+    for (const t of unreadThreads) {
+      threadAcksRef.current[t.thread_id] = t.last_message_at || new Date().toISOString();
+    }
+    saveThreadAcks(threadAcksRef.current);
+    setMissedCalls([]);
+    setUnreadThreads([]);
+  }, [missedCalls, unreadThreads]);
+
   const unreadSmsCount = unreadThreads.reduce((s, t) => s + (t.unread_count || 0), 0);
   const missedCount = missedCalls.length;
   const totalCount = unreadSmsCount + missedCount;
@@ -253,6 +306,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         unseenCount,
         acknowledgeMissed,
         acknowledgeAllMissed,
+        acknowledgeThread,
+        acknowledgeAll,
         markNotificationsSeen,
         refresh,
       }}
@@ -275,6 +330,8 @@ export function useNotifications(): Ctx {
       unseenCount: 0,
       acknowledgeMissed: () => {},
       acknowledgeAllMissed: () => {},
+      acknowledgeThread: () => {},
+      acknowledgeAll: () => {},
       markNotificationsSeen: () => {},
       refresh: () => {},
     };
