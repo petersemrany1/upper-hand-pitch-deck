@@ -652,9 +652,49 @@ function SalesCallPortal() {
           attemptCounts={attemptCounts}
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
-          onChangeLead={() => setActiveId(null)}
+          onChangeLead={() => {
+            if (sessionActive) {
+              const nextIndex = sessionIndex + 1;
+              setSessionIndex(nextIndex);
+              const nextId = sessionQueue[nextIndex];
+              if (nextId) {
+                setActiveId(nextId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+              } else {
+                setActiveId(null);
+                setSessionActive(false);
+                setSessionPaused(false);
+                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                toast.success("Session complete — great work!");
+              }
+            } else {
+              setActiveId(null);
+            }
+          }}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
-          onAfterOutcomeApplied={() => {
+          onAfterOutcomeApplied={(wasBooked?: boolean) => {
+            if (sessionActive) {
+              setSessionCalls((c) => c + 1);
+              if (wasBooked) setSessionBookings((b) => b + 1);
+              const nextIndex = sessionIndex + 1;
+              setSessionIndex(nextIndex);
+              const nextId = sessionQueue[nextIndex];
+              if (nextId) {
+                setActiveId(nextId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+              } else {
+                setActiveId(null);
+                setSessionActive(false);
+                setSessionPaused(false);
+                if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                toast.success("Session complete — great work!");
+              }
+              return;
+            }
             if (pendingLeadId) {
               const id = pendingLeadId;
               setPendingLeadId(null);
