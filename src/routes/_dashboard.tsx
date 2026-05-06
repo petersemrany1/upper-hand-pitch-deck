@@ -10,23 +10,10 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
-import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
 });
-
-// Boot the Twilio Device once at the dashboard shell — as soon as the user is
-// signed in and any dashboard route mounts. The Device is a module-level
-// singleton, so this is cheap on subsequent route changes and guarantees the
-// dialler is "Ready" no matter which page Peter lands on (Clinics, Dashboard,
-// Clients, etc.). Previously it was opt-in per route, which meant landing
-// directly on /clinics never booted the SDK and calls would silently fail.
-function DeviceBootstrap() {
-  useTwilioDevice(true);
-  return null;
-}
-
 
 function DashboardLayout() {
   const location = useLocation();
@@ -90,7 +77,6 @@ function DashboardLayout() {
   if (isFullscreen) {
     return (
       <NotificationsProvider>
-        <DeviceBootstrap />
         {/* PROTECTED — pitch-deck-root scope restores original dark theme tokens */}
         <div className="pitch-deck-root">
           <Outlet />
@@ -104,7 +90,6 @@ function DashboardLayout() {
   return (
     <NotificationsProvider>
       <SidebarProvider defaultOpen={false}>
-        <DeviceBootstrap />
         <DashboardShell>
           <AppSidebar />
           <div className="flex-1 flex flex-col overflow-hidden">
