@@ -14,6 +14,7 @@ import {
 
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
+import { supabase } from "@/integrations/supabase/client";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
 type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
@@ -48,14 +49,51 @@ const ALL_FOLDERS: NavFolder[] = [
 
 const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
+function initialsFromName(name: string | null | undefined, fallbackEmail?: string | null): string {
+  const cleaned = (name ?? "").trim();
+  const parts = cleaned.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  const emailName = (fallbackEmail ?? "").split("@")[0]?.replace(/[._-]+/g, " ").trim();
+  if (emailName) return initialsFromName(emailName);
+  return "U";
+}
+
 export function AppSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { isMobile, setOpenMobile } = useSidebar();
-  const { signOut, role } = useAuth();
+  const { signOut, role, user } = useAuth();
   const { unreadSmsCount, missedCount } = useNotifications();
   const unreadSms = unreadSmsCount;
+  const [repName, setRepName] = useState<string | null>(null);
+  const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
+  const metadataName = [
+    meta.first_name as string | undefined,
+    meta.last_name as string | undefined,
+  ].filter(Boolean).join(" ") || (meta.full_name as string | undefined) || null;
+  const avatarInitials = initialsFromName(repName || metadataName, user?.email);
+
+  useEffect(() => {
+    const email = user?.email ?? null;
+    if (!email) {
+      setRepName(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("sales_reps")
+        .select("first_name, last_name, name")
+        .ilike("email", email)
+        .maybeSingle();
+      if (cancelled) return;
+      const name = [data?.first_name, data?.last_name].filter(Boolean).join(" ") || data?.name || null;
+      setRepName(name);
+    })();
+    return () => { cancelled = true; };
+  }, [user?.email]);
 
   // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
   const folders: NavFolder[] = role === "admin"
@@ -274,7 +312,7 @@ export function AppSidebar() {
               letterSpacing: "0.05em",
             }}
           >
-            PS
+            {avatarInitials}
           </div>
         </div>
       </SidebarContent>
