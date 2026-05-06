@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { inviteRep, getLeaderboard, ensureRepForEmail } from "@/utils/sales-call.functions";
 import { analyseCallPatterns } from "@/utils/resend.functions";
+import { NotificationBell } from "@/components/NotificationBell";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_dashboard/leaderboard")({
@@ -133,6 +134,7 @@ function LeaderboardPage() {
             <h1 className="text-2xl font-bold">Leaderboard</h1>
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <button onClick={() => void analysePatterns()} disabled={patternLoading}
               className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-60"
               style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6", border: "1px solid #8b5cf6" }}>
