@@ -39,6 +39,15 @@ type Lead = {
   pipeline_summary?: string | null; pipeline_summary_updated_at?: string | null;
 };
 
+const SALES_CALL_LEAD_LIMIT = 200;
+const SALES_CALL_LEAD_SELECT = `
+  id, first_name, last_name, email, phone, funding_preference,
+  ad_name, ad_set_name, campaign_name, status, call_notes, created_at,
+  callback_scheduled_at, day_number, finance_eligible, booking_date,
+  booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
+  pipeline_summary_updated_at
+`;
+
 type Clinic = {
   id: string; clinic_name: string; address: string | null;
   city: string | null; state: string | null;
@@ -121,6 +130,7 @@ function SalesCallPortal() {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem("salesCall.activeId") || null;
   });
+  const loadedLeadIdsKey = useMemo(() => leads.map((l) => l.id).sort().join(","), [leads]);
   const resolvingLeadIdRef = useRef<string | null>(null);
   const [step, setStep] = useState<StepKey>(() => {
     if (typeof window === "undefined") return "mindset";
@@ -270,7 +280,7 @@ function SalesCallPortal() {
       const fiveMinAgo = new Date(now.getTime() - 5 * 60000);
       const { data } = await supabase
         .from("meta_leads")
-        .select("*")
+        .select(SALES_CALL_LEAD_SELECT)
         .in("status", ["Callback Scheduled", "callback_scheduled"])
         .lte("callback_scheduled_at", now.toISOString())
         .gte("callback_scheduled_at", fiveMinAgo.toISOString());
@@ -285,6 +295,9 @@ function SalesCallPortal() {
   }, []);
 
   useEffect(() => {
+    const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
+    if (leadIds.length === 0) return;
+
     const load = async () => {
       // Last 3 days of call attempts so we can show "no answer yesterday",
       // count today's attempts (auto-bump after 3), etc.
@@ -294,6 +307,7 @@ function SalesCallPortal() {
       const { data } = await supabase
         .from("call_records")
         .select("lead_id, called_at, outcome, status")
+        .in("lead_id", leadIds)
         .gte("called_at", since.toISOString())
         .order("called_at", { ascending: true });
 
@@ -323,6 +337,7 @@ function SalesCallPortal() {
       const { data: firstRows } = await supabase
         .from("call_records")
         .select("lead_id, called_at")
+        .in("lead_id", leadIds)
         .order("called_at", { ascending: true })
         .limit(5000);
       const firsts: Record<string, string> = {};
@@ -337,7 +352,7 @@ function SalesCallPortal() {
       .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
-  }, []);
+  }, [loadedLeadIdsKey]);
 
   // Resolve rep from auth email
   useEffect(() => {
@@ -357,7 +372,11 @@ function SalesCallPortal() {
   // Load leads + realtime
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("meta_leads").select("*").order("created_at", { ascending: false }).limit(500);
+      const { data } = await supabase
+        .from("meta_leads")
+        .select(SALES_CALL_LEAD_SELECT)
+        .order("created_at", { ascending: false })
+        .limit(SALES_CALL_LEAD_LIMIT);
       setLeads((data ?? []) as Lead[]);
     };
     void load();
@@ -367,7 +386,22 @@ function SalesCallPortal() {
           const newId = (payload.new as { id?: string } | null)?.id;
           if (newId) setSessionQueue((prev) => (prev.includes(newId) ? prev : [newId, ...prev]));
         }
-        void load();
+        if (payload.eventType === "DELETE") {
+          const oldId = (payload.old as { id?: string } | null)?.id;
+          if (oldId) setLeads((prev) => prev.filter((l) => l.id !== oldId));
+          return;
+        }
+        const nextLead = payload.new as Lead | null;
+        if (!nextLead?.id) return;
+        setLeads((prev) => {
+          const idx = prev.findIndex((l) => l.id === nextLead.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = { ...next[idx], ...nextLead };
+            return next;
+          }
+          return [nextLead, ...prev].slice(0, SALES_CALL_LEAD_LIMIT);
+        });
       }).subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
@@ -391,7 +425,7 @@ function SalesCallPortal() {
       resolvingLeadIdRef.current = wantedId;
       void supabase
         .from("meta_leads")
-        .select("*")
+        .select(SALES_CALL_LEAD_SELECT)
         .eq("id", wantedId)
         .maybeSingle()
         .then(({ data }) => {
