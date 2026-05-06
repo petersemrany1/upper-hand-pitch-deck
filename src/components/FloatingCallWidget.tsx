@@ -116,6 +116,23 @@ export function FloatingCallWidget() {
     return () => { cancelled = true; };
   }, [incomingFrom]);
 
+  useEffect(() => {
+    const id = activeLeadId || leadId;
+    if (!id || matchedLead?.id === id) return;
+    let cancelled = false;
+    void supabase
+      .from("meta_leads")
+      .select("id, first_name, last_name")
+      .eq("id", id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setMatchedLead({ id: data.id, first_name: data.first_name, last_name: data.last_name });
+      })
+      .catch(() => { /* noop */ });
+    return () => { cancelled = true; };
+  }, [activeLeadId, leadId, matchedLead?.id]);
+
   // Outbound fallback: if we know the dialled phone but the call_records row
   // hasn't surfaced a lead_id (e.g. the call was placed from a screen that
   // didn't pass leadId, or the row hasn't been upserted yet), match by phone
