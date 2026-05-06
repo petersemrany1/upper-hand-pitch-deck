@@ -5848,6 +5848,7 @@ function RightPanel({
                     const firstSentence = rawSummary.split(/(?<=[.!?])\s/)[0];
                     shortSummary = firstSentence.length > 160 ? firstSentence.slice(0, 160).trimEnd() + "…" : firstSentence;
                   }
+                  const fullDetail = rawSummary || transcript;
                   const inbound = c.direction === "inbound";
                   const accent = looksLikeVoicemail ? "#9ca3af" : inbound ? "#22c55e" : "#3b82f6";
                   const icon = looksLikeVoicemail ? "📭" : inbound ? "📞" : "📱";
@@ -5865,6 +5866,28 @@ function RightPanel({
                             {durStr && <span style={{ color: "#9ca3af", fontSize: 11 }}>{durStr}</span>}
                           </div>
                           {shortSummary && <div style={{ fontSize: 12.5, marginTop: 2, color: "#374151", lineHeight: 1.4 }}>{shortSummary}</div>}
+                          {fullDetail && (
+                            <details style={{ marginTop: 6 }}>
+                              <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#2563eb" }}>
+                                Full call detail
+                              </summary>
+                              {rawSummary && (
+                                <div style={{ marginTop: 6, fontSize: 12.5, color: "#1f2937", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                                  {rawSummary}
+                                </div>
+                              )}
+                              {transcript && (
+                                <details style={{ marginTop: 8 }}>
+                                  <summary style={{ cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#64748b" }}>
+                                    Full transcript
+                                  </summary>
+                                  <div style={{ marginTop: 6, maxHeight: 260, overflowY: "auto", fontSize: 11.5, color: "#475569", lineHeight: 1.55, whiteSpace: "pre-wrap", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 6, padding: 8 }}>
+                                    {transcript}
+                                  </div>
+                                </details>
+                              )}
+                            </details>
+                          )}
                         </div>
                       </div>
                     ),

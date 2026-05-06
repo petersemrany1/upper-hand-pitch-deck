@@ -84,7 +84,6 @@ serve(async (req) => {
         | { summary?: string; notes?: string; patient_summary?: string; transcript?: string }
         | null;
       const transcript = (ca?.transcript ?? "").trim();
-      const truncated = transcript.length > 4000 ? transcript.slice(0, 4000) + "…" : transcript;
       return {
         when: c.called_at,
         direction: c.direction,
@@ -92,7 +91,7 @@ serve(async (req) => {
         duration_seconds: c.duration,
         summary: ca?.summary ?? ca?.patient_summary ?? null,
         notes: ca?.notes ?? null,
-        transcript: truncated || null,
+        transcript: transcript || null,
       };
     });
 
