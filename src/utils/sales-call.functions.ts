@@ -664,6 +664,11 @@ export const getLeaderboard = createServerFn({ method: "POST" })
         .in("id", relevantLeadIds)
       : { data: [] };
     const leadRep = new Map((leadRows ?? []).map((l) => [l.id as string, l.rep_id as string | null]));
+    const leadCallRep = new Map<string, string>();
+    for (const c of calls ?? []) {
+      if (c.lead_id && c.rep_id) leadCallRep.set(c.lead_id as string, c.rep_id as string);
+    }
+    const repIdForLead = (leadId: string) => leadRep.get(leadId) || leadCallRep.get(leadId) || null;
 
     // HARD RULE — exclude any lead whose name is "Peter Test" from every leaderboard metric.
     const excludedLeadIds = new Set(
@@ -774,7 +779,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     for (const leadId of bookedLeadIds) {
       if (excludedLeadIds.has(leadId)) continue; // skip Peter Test
-      const repId = leadRep.get(leadId);
+      const repId = repIdForLead(leadId);
       if (!repId) continue;
       const s = byRep.get(repId) ?? blank();
       s.bookings += 1;
