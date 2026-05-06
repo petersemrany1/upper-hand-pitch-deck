@@ -19,6 +19,12 @@ Return only valid JSON, no preamble.`;
 
 const TRANSCRIPT = `Hey this is Peter from Upper Hand Digital, just calling to see if you guys are interested in more hair transplant patients. The receptionist said the owner wasn't available but to call back Monday morning between 9 and 12.`;
 
+type ClaudeResponse = {
+  content?: Array<{ text?: string }>;
+  usage?: unknown;
+  model?: unknown;
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
 
@@ -71,7 +77,8 @@ serve(async (req) => {
   }
 
   // Extract Claude's text content
-  const claudeText = (json as any)?.content?.[0]?.text ?? "";
+  const claudeJson = json as ClaudeResponse | null;
+  const claudeText = claudeJson?.content?.[0]?.text ?? "";
   let parsed: unknown = null;
   let raw = claudeText.trim();
   if (raw.startsWith("```")) raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
@@ -81,7 +88,7 @@ serve(async (req) => {
     ok: true, status: resp.status, ms, keyMeta,
     raw_claude_text: claudeText,
     parsed,
-    usage: (json as any)?.usage,
-    model: (json as any)?.model,
+    usage: claudeJson?.usage,
+    model: claudeJson?.model,
   }, null, 2), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 });

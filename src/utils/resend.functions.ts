@@ -18,6 +18,28 @@ function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
 }
 
+type DocusealSubmitter = {
+  role?: string;
+  slug?: string;
+};
+
+type DocusealResult = DocusealSubmitter[] | {
+  submitters?: DocusealSubmitter[];
+};
+
+type ResendApiResponse = {
+  id?: string;
+  message?: string;
+};
+
+function getClientSigningUrl(docusealResult: DocusealResult): string | null {
+  const submitters = Array.isArray(docusealResult)
+    ? docusealResult
+    : docusealResult.submitters;
+  const clientSub = submitters?.find((s) => s.role?.toLowerCase() === "client");
+  return clientSub?.slug ? `https://docuseal.com/s/${clientSub.slug}` : null;
+}
+
 /**
  * Find or create an sms_threads row for the given phone so outbound messages
  * are visible in the Inbox. Mirrors the logic used by the sms-inbound edge function.
@@ -90,7 +112,7 @@ async function sendViaResend(
       body: JSON.stringify(body),
     });
 
-    const result = await response.json();
+    const result = await response.json() as ResendApiResponse;
 
     if (!response.ok) {
       console.error("Resend error:", JSON.stringify(result));
@@ -179,7 +201,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
         body: JSON.stringify(docusealPayload),
       });
 
-      const docusealResult = await docusealResponse.json();
+      const docusealResult = await docusealResponse.json() as DocusealResult;
       console.log("DocuSeal full response:", JSON.stringify(docusealResult, null, 2));
 
       if (!docusealResponse.ok) {
@@ -195,14 +217,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       }
 
       // Step 2 — Extract the client signing URL from DocuSeal response
-      let signingUrl: string | null = null;
-      if (Array.isArray(docusealResult)) {
-        const clientSub = docusealResult.find((s: any) => s.role?.toLowerCase() === "client");
-        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-      } else if (docusealResult?.submitters) {
-        const clientSub = docusealResult.submitters.find((s: any) => s.role?.toLowerCase() === "client");
-        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-      }
+      const signingUrl = getClientSigningUrl(docusealResult);
       if (!signingUrl) {
         console.error("Could not extract signing URL. Full DocuSeal response:", JSON.stringify(docusealResult));
         await logError("sendContractEmail", "Could not extract signing URL from DocuSeal response", {
@@ -397,7 +412,7 @@ export const sendContractSMS = createServerFn({ method: "POST" })
         }),
       });
 
-      const docusealResult = await docusealResponse.json();
+      const docusealResult = await docusealResponse.json() as DocusealResult;
       if (!docusealResponse.ok) {
         await logError("sendContractSMS", "DocuSeal API returned error", {
           phone: data.to,
@@ -408,13 +423,7 @@ export const sendContractSMS = createServerFn({ method: "POST" })
         return { success: false as const, error: "Failed to prepare contract" };
       }
 
-      if (Array.isArray(docusealResult)) {
-        const clientSub = docusealResult.find((s: any) => s.role?.toLowerCase() === "client");
-        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-      } else if (docusealResult?.submitters) {
-        const clientSub = docusealResult.submitters.find((s: any) => s.role?.toLowerCase() === "client");
-        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-      }
+      signingUrl = getClientSigningUrl(docusealResult);
 
       if (!signingUrl) {
         await logError("sendContractSMS", "Could not extract signing URL from DocuSeal response", {
@@ -563,7 +572,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
         email: data.to,
         clinicName: data.clinicName,
         packageName: data.packageName,
-        rawResponse: (result as any).rawResponse,
+        rawResponse: "rawResponse" in result ? result.rawResponse : undefined,
         stepsToReproduce: `Sending payment link to ${data.to} for ${data.packageName} pack (${data.amount})`,
       });
     }
@@ -1251,4 +1260,3 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: msg };
     }
   });
-

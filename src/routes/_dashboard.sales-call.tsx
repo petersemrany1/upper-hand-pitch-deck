@@ -1475,7 +1475,13 @@ function DiscoveryChecklist() {
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggle = (k: string) => setChecked((s) => {
-    const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
+    const n = new Set(s);
+    if (n.has(k)) {
+      n.delete(k);
+    } else {
+      n.add(k);
+    }
+    return n;
   });
 
   return (

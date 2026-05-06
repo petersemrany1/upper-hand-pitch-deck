@@ -67,7 +67,9 @@ function getStoredPhones(): SavedPhone[] {
   try {
     const stored = localStorage.getItem("saved_caller_phones");
     if (stored) return JSON.parse(stored);
-  } catch {}
+  } catch {
+    // Ignore malformed saved phone data and use defaults.
+  }
   return DEFAULT_PHONES;
 }
 

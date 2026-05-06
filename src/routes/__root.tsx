@@ -28,7 +28,9 @@ if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatc
           return origFetch(input, { ...init, headers });
         }
       }
-    } catch {}
+    } catch {
+      // Fall through to the original fetch when session lookup fails.
+    }
     return origFetch(input, init);
   };
 }
