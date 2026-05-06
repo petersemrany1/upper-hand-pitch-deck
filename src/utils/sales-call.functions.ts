@@ -631,30 +631,46 @@ export const getLeaderboard = createServerFn({ method: "POST" })
         from = startOfDay(now); to = new Date(now);
     }
 
-    // HARD RULE — exclude any lead whose name is "Peter Test" from every leaderboard metric.
-    const { data: peterRows } = await supabaseAdmin
-      .from("meta_leads")
-      .select("id")
-      .ilike("first_name", "peter")
-      .ilike("last_name", "test");
-    const excludedLeadIds = new Set((peterRows ?? []).map((p) => p.id as string));
-
     const { data: reps } = await supabaseAdmin.from("sales_reps").select("*");
-    // NOTE: real call duration lives in `duration` (seconds, populated by Twilio
-    // status callback). `duration_seconds` is a legacy column and is NULL for
-    // every recent call, which is why convos/holds/hours all read 0.
-    // `outcome` is also unused at the moment, so we infer "connected" from
-    // status = 'completed' AND a non-trivial duration.
+
+    // Call metrics come from Twilio-derived call_records. The Twilio status
+    // callback writes `duration` in seconds; `duration_seconds` is legacy.
     const { data: calls } = await supabaseAdmin.from("call_records")
       .select("id, rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
-    // Bookings = leads with status = 'booked_deposit_paid' confirmed in the
-    // period. callback_scheduled / no_answer with a future booking_date are
-    // tentative and must NOT count as bookings.
-    const { data: bookings } = await supabaseAdmin.from("meta_leads")
+
+    // Booking metrics come from internal booking state. appointment_reminders is
+    // created/refreshed when a deposit-paid booking is confirmed; meta_leads is
+    // kept as a fallback for older rows without a reminder record.
+    const { data: appointmentBookings } = await supabaseAdmin.from("appointment_reminders")
+      .select("id, lead_id, status, updated_at")
+      .neq("status", "cancelled")
+      .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
+    const { data: metaBookings } = await supabaseAdmin.from("meta_leads")
       .select("id, rep_id, status, booking_date, updated_at")
       .eq("status", "booked_deposit_paid")
       .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
+
+    const relevantLeadIds = Array.from(new Set([
+      ...((calls ?? []).map((c) => c.lead_id).filter(Boolean) as string[]),
+      ...((appointmentBookings ?? []).map((b) => b.lead_id).filter(Boolean) as string[]),
+      ...((metaBookings ?? []).map((b) => b.id).filter(Boolean) as string[]),
+    ]));
+
+    const { data: leadRows } = relevantLeadIds.length > 0
+      ? await supabaseAdmin
+        .from("meta_leads")
+        .select("id, rep_id, first_name, last_name")
+        .in("id", relevantLeadIds)
+      : { data: [] };
+    const leadRep = new Map((leadRows ?? []).map((l) => [l.id as string, l.rep_id as string | null]));
+
+    // HARD RULE — exclude any lead whose name is "Peter Test" from every leaderboard metric.
+    const excludedLeadIds = new Set(
+      (leadRows ?? [])
+        .filter((l) => (l.first_name ?? "").trim().toLowerCase() === "peter" && (l.last_name ?? "").trim().toLowerCase() === "test")
+        .map((l) => l.id as string),
+    );
 
     // Dedupe reps by email (keeps the row with an email so calls attribute correctly).
     // Reps with no email get kept under their id only.
@@ -667,49 +683,42 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       return true;
     });
 
-    // NOTE: previously we fell back to "first rep with an email" for any call
-    // with rep_id IS NULL. That hack masked the real bug (call_records rows
-    // being saved without rep_id) by silently misattributing every orphan
-    // call to a single rep. Now that the dialer + voice-outbound both write
-    // rep_id correctly, we DROP unattributed calls instead — surfacing any
-    // future regression instead of hiding it behind a plausible-looking number.
+    const repIdForCall = (c: { rep_id: string | null; lead_id: string | null }) =>
+      c.rep_id || (c.lead_id ? leadRep.get(c.lead_id) ?? null : null);
 
     const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
-    // Group calls by (rep, lead) so multiple dials to the same person count as
-    // ONE "call" / "convo" / "hold" / "connected". The longest dial's duration
-    // decides whether that lead was a convo/hold; all dial seconds still
-    // accumulate into hours (real talk time = real work).
-    type LeadAgg = { repId: string; maxDur: number; totalDur: number; anyConnected: boolean };
-    const byLead = new Map<string, LeadAgg>(); // key = `${repId}::${leadIdOrCallId}`
-
     for (const c of calls ?? []) {
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       // Skip in-flight calls (no real duration yet) so they don't pollute the count
-      if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id;
+      if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
+      const repId = repIdForCall(c);
       if (!repId) continue;
       const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
-      const connected = c.outcome === "connected" || (c.status === "completed" && dur > 0);
-      // If lead_id is missing, treat each row as its own "lead" so it still counts once.
-      const leadKey = `${repId}::${c.lead_id ?? `nolead-${(c as { id?: string }).id ?? Math.random()}`}`;
-      const prev = byLead.get(leadKey);
-      if (prev) {
-        prev.maxDur = Math.max(prev.maxDur, dur);
-        prev.totalDur += dur;
-        prev.anyConnected = prev.anyConnected || connected;
+      const reached = dur > 0 || c.outcome === "connected";
+      const s = byRep.get(repId) ?? blank();
+      s.calls += 1;
+      s.attempted += 1;
+      if (!reached) {
+        s.notReached += 1;
       } else {
-        byLead.set(leadKey, { repId, maxDur: dur, totalDur: dur, anyConnected: connected });
+        s.connected += 1;
+        if (dur < 120) s.short += 1;
+        if (dur >= 120) {
+          s.convos += 1;
+          s.holds += 1;
+        }
       }
+      byRep.set(repId, s);
     }
 
     // Break time = sum of gaps between consecutive calls per rep
     const callsByRep = new Map<string, number[]>();
     for (const c of calls ?? []) {
-      if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id;
+      if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
+      const repId = repIdForCall(c);
       if (!repId) continue;
       const ts = new Date(c.called_at).getTime();
       if (!callsByRep.has(repId)) callsByRep.set(repId, []);
@@ -737,8 +746,8 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     // Work = shift duration: time from first call to last call of the day per rep
     const shiftByRep = new Map<string, { first: number; last: number }>();
     for (const c of calls ?? []) {
-      if (c.status === "ringing" || c.status === "initiated") continue;
-      const repId = c.rep_id;
+      if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
+      const repId = repIdForCall(c);
       if (!repId) continue;
       const ts = new Date(c.called_at).getTime();
       const existing = shiftByRep.get(repId);
@@ -755,23 +764,17 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       byRep.set(repId, s);
     }
 
-    for (const agg of byLead.values()) {
-      const s = byRep.get(agg.repId) ?? blank();
-      s.calls += 1;
-      s.attempted += 1;
-      if (!agg.anyConnected) {
-        s.notReached += 1;
-      } else {
-        s.connected += 1;
-        if (agg.maxDur < 120) s.short += 1;
-        if (agg.maxDur >= 120) s.convos += 1;
-        if (agg.maxDur >= 120) s.holds += 1;
-      }
-      byRep.set(agg.repId, s);
+    const bookedLeadIds = new Set<string>();
+    for (const b of appointmentBookings ?? []) {
+      if (b.lead_id) bookedLeadIds.add(b.lead_id as string);
     }
-    for (const b of bookings ?? []) {
-      if (excludedLeadIds.has(b.id as string)) continue; // skip Peter Test
-      const repId = b.rep_id;
+    for (const b of metaBookings ?? []) {
+      bookedLeadIds.add(b.id as string);
+    }
+
+    for (const leadId of bookedLeadIds) {
+      if (excludedLeadIds.has(leadId)) continue; // skip Peter Test
+      const repId = leadRep.get(leadId);
       if (!repId) continue;
       const s = byRep.get(repId) ?? blank();
       s.bookings += 1;

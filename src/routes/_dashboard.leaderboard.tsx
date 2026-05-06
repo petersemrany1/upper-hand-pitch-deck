@@ -167,13 +167,13 @@ function LeaderboardPage() {
                 <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
                   <Th>Rank</Th>
                   <Th>Rep</Th>
-                  <Th info="Unique people dialled. Calling the same person 5 times = 1 call.">Calls</Th>
-                  <Th info="No answer, voicemail, or hung up before connecting.">Not Reached</Th>
-                  <Th info="Picked up but under 2 minutes — too short for a real conversation.">Short</Th>
-                  <Th info="Calls that lasted 2 minutes or more.">Convos</Th>
+                  <Th info="Twilio call attempts recorded in this period.">Calls</Th>
+                  <Th info="Twilio calls with no connected duration.">Not Reached</Th>
+                  <Th info="Connected Twilio calls under 2 minutes.">Short</Th>
+                  <Th info="Connected Twilio calls lasting 2 minutes or more.">Convos</Th>
                   <Th info="Of everyone who picked up, % that stayed for a real conversation (2min+).">Hold %</Th>
                   <Th info="Bookings as a percentage of real conversations (Booked ÷ Convos).">Conv %</Th>
-                  <Th info="Leads marked as deposit paid in this period.">Booked</Th>
+                  <Th info="Internal deposit-paid bookings confirmed in this period.">Booked</Th>
                   <Th info="Total shift time from first call to last call of the day.">Work</Th>
                   <Th info="Average time between calls during the shift. Green = under 1 min, amber = 1–3 min, red = 3+ min.">Break</Th>
                   <Th info="Bookings × $50.">Bonus</Th>
