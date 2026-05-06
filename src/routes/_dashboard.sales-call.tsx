@@ -5648,7 +5648,7 @@ function RightPanel({
               </button>
             </div>
 
-            <div style={{ overflowY: "auto", padding: "14px 18px", color: "#111" }}>
+            <div style={{ overflowY: "auto", flex: "1 1 auto", minHeight: 0, padding: "14px 18px", color: "#111" }}>
               {/* Snapshot chips */}
               {(() => {
                 const chips: { label: string; bg: string; fg: string }[] = [];
