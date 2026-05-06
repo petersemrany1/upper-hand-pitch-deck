@@ -13,7 +13,7 @@ const corsHeaders = {
     "Content-Type, Authorization, apikey, x-client-info",
 };
 
-const ANTHROPIC_MODEL = "claude-3-5-haiku-latest";
+const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 
 const SYSTEM_PROMPT = `You are a sales assistant. Based on the call history and current status of this lead, write exactly ONE sentence (maximum 15 words) summarising where things are at with this person. Be specific and practical. Examples: 'Called twice, was at the shops — asked for a callback this afternoon.' or 'Had a 4 min convo, interested but wants to think about it.' or 'Booked for May 8 with Dr Singh, deposit paid.' Never mention technical details like call IDs or durations.`;
 
