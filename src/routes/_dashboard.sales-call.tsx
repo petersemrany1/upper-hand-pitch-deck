@@ -211,35 +211,61 @@ function SalesCallPortal() {
   }, [sessionActive, sessionPaused]);
 
   useEffect(() => {
-    if (!sessionActive || !sessionStartedAt || leads.length === 0) return;
-    const leadIds = new Set(leads.map((l) => l.id));
-    const phones = new Set(leads.map((l) => normalisePhoneDigits(l.phone)).filter(Boolean));
+    if (!sessionActive || !sessionStartedAt || !repId) return;
+    const sessionLeadIds = new Set(sessionQueue);
+    const repLeadIds = new Set(leads.filter((l) => l.rep_id === repId).map((l) => l.id));
+    const phones = new Set(
+      leads
+        .filter((l) => l.rep_id === repId || sessionLeadIds.has(l.id))
+        .map((l) => normalisePhoneDigits(l.phone))
+        .filter(Boolean),
+    );
 
-    const loadSessionCallCount = async () => {
-      const { data, error } = await supabase
-        .from("call_records")
-        .select("id, lead_id, phone, called_at")
-        .gte("called_at", sessionStartedAt);
-      if (error) {
-        console.error("session call count backfill failed", error);
+    const ownsLead = (leadId: string | null) =>
+      Boolean(leadId && (repLeadIds.has(leadId) || sessionLeadIds.has(leadId)));
+    const ownsCall = (row: { rep_id: string | null; lead_id: string | null; phone?: string | null }) => {
+      if (row.rep_id === repId) return true;
+      if (ownsLead(row.lead_id)) return true;
+      const digits = normalisePhoneDigits(row.phone);
+      return Boolean(!row.rep_id && digits && phones.has(digits));
+    };
+
+    const loadSessionStats = async () => {
+      const [callsRes, bookingsRes] = await Promise.all([
+        supabase
+          .from("call_records")
+          .select("id, rep_id, lead_id, phone, called_at")
+          .gte("called_at", sessionStartedAt),
+        supabase
+          .from("meta_leads")
+          .select("id, rep_id, status, updated_at")
+          .eq("status", "booked_deposit_paid")
+          .gte("updated_at", sessionStartedAt),
+      ]);
+      if (callsRes.error || bookingsRes.error) {
+        console.error("session stat backfill failed", callsRes.error ?? bookingsRes.error);
         return;
       }
 
-      const count = (data ?? []).filter((row) => {
-        if (row.lead_id && leadIds.has(row.lead_id)) return true;
-        const digits = normalisePhoneDigits(row.phone);
-        return Boolean(digits && phones.has(digits));
-      }).length;
+      const ownedCalls = (callsRes.data ?? []).filter(ownsCall);
+      const callOwnedLeadIds = new Set(ownedCalls.map((row) => row.lead_id).filter(Boolean) as string[]);
+      const bookedLeadIds = new Set(
+        (bookingsRes.data ?? [])
+          .filter((row) => row.rep_id === repId || sessionLeadIds.has(row.id) || callOwnedLeadIds.has(row.id))
+          .map((row) => row.id),
+      );
 
-      setSessionCalls((current) => Math.max(current, count));
+      setSessionCalls(ownedCalls.length);
+      setSessionBookings(bookedLeadIds.size);
     };
 
-    void loadSessionCallCount();
-    const ch = supabase.channel("session-call-count")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionCallCount())
+    void loadSessionStats();
+    const ch = supabase.channel("session-stats")
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void loadSessionStats())
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
-  }, [sessionActive, sessionStartedAt, leads]);
+  }, [sessionActive, sessionStartedAt, repId, leads, sessionQueue]);
 
   useEffect(() => {
     if (!sessionActive) return;
