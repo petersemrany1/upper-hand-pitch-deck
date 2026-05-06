@@ -1,6 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
 
+type StripeCheckoutResponse = {
+  id?: string;
+  url?: string;
+  error?: {
+    message?: string;
+  };
+};
+
 // Creates a fresh Stripe Checkout Session for the given package + amount.
 // The amount is the TOTAL inc GST in AUD dollars (e.g. 8000 for $8,000).
 // Returns the hosted Checkout URL the client can be sent to.
@@ -60,7 +68,7 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = await response.json() as StripeCheckoutResponse;
 
       if (!response.ok) {
         const errMsg =
@@ -170,7 +178,7 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = await response.json() as StripeCheckoutResponse;
 
       if (!response.ok) {
         const errMsg =

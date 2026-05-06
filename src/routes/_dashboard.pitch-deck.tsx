@@ -504,7 +504,9 @@ function PitchDeck() {
         pricePerShow: parseInt(setupPricePerShow, 10) || DEFAULT_SETTINGS.pricePerShow,
         convertRate: setupConvertRate,
       };
-      try { window.localStorage.setItem("pitch-deck-settings", JSON.stringify(payload)); } catch {}
+      try { window.localStorage.setItem("pitch-deck-settings", JSON.stringify(payload)); } catch {
+        // Ignore local persistence failures.
+      }
       setCaseValue(payload.caseValue);
       setPricePerShow(payload.pricePerShow);
       setConvertRate(payload.convertRate);

@@ -175,7 +175,9 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
           sendMethod: "email",
         },
       });
-    } catch {}
+    } catch {
+      // Ignore local persistence failures.
+    }
   };
 
   const handleRequestInvoice = async () => {

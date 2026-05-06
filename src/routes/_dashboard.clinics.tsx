@@ -151,7 +151,9 @@ function getStoredPhones(): SavedPhone[] {
   try {
     const stored = localStorage.getItem("saved_caller_phones");
     if (stored) return JSON.parse(stored);
-  } catch {}
+  } catch {
+    // Ignore malformed saved phone data and use defaults.
+  }
   return DEFAULT_PHONES;
 }
 
@@ -603,10 +605,11 @@ function ClinicsPage() {
 
   const updateClinicField = async (field: keyof Clinic, value: string | boolean) => {
     if (!selectedClinic) return;
-    const updateData = { [field]: value === "" ? null : value } as any;
+    const normalizedValue = value === "" ? null : value;
+    const updateData: Partial<Clinic> = { [field]: normalizedValue };
     await supabase.from("clinics").update(updateData).eq("id", selectedClinic.id);
-    setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: value === "" ? null : value } as any : c));
-    setSelectedClinic((prev) => prev ? { ...prev, [field]: value === "" ? null : value } as any : prev);
+    setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: normalizedValue } : c));
+    setSelectedClinic((prev) => prev ? { ...prev, [field]: normalizedValue } : prev);
   };
 
   const handleNotesChange = (val: string) => {

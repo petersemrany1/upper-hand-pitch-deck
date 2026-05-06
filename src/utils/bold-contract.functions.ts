@@ -18,6 +18,23 @@ function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
 }
 
+type DocusealSubmitter = {
+  role?: string;
+  slug?: string;
+};
+
+type DocusealResult = DocusealSubmitter[] | {
+  submitters?: DocusealSubmitter[];
+};
+
+function getClientSigningUrl(docusealResult: DocusealResult): string | null {
+  const submitters = Array.isArray(docusealResult)
+    ? docusealResult
+    : docusealResult.submitters;
+  const clientSub = submitters?.find((s) => s.role?.toLowerCase() === "client");
+  return clientSub?.slug ? `https://docuseal.com/s/${clientSub.slug}` : null;
+}
+
 export const sendBoldContractEmail = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
@@ -75,7 +92,7 @@ export const sendBoldContractEmail = createServerFn({ method: "POST" })
         }),
       });
 
-      const docusealResult = await docusealResponse.json();
+      const docusealResult = await docusealResponse.json() as DocusealResult;
 
       if (!docusealResponse.ok) {
         await logError("sendBoldContractEmail", "DocuSeal API returned error", {
@@ -88,14 +105,7 @@ export const sendBoldContractEmail = createServerFn({ method: "POST" })
       }
 
       // Step 2 — Extract client signing URL
-      let signingUrl: string | null = null;
-      if (Array.isArray(docusealResult)) {
-        const clientSub = docusealResult.find((s: any) => s.role?.toLowerCase() === "client");
-        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-      } else if (docusealResult?.submitters) {
-        const clientSub = docusealResult.submitters.find((s: any) => s.role?.toLowerCase() === "client");
-        if (clientSub?.slug) signingUrl = `https://docuseal.com/s/${clientSub.slug}`;
-      }
+      const signingUrl = getClientSigningUrl(docusealResult);
       if (!signingUrl) {
         await logError("sendBoldContractEmail", "Could not extract signing URL", {
           email: data.to,
