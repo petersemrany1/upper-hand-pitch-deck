@@ -487,6 +487,7 @@ function SalesCallPortal() {
   }, [search.phone, search.leadId, navigate]);
 
   const active = useMemo(() => leads.find((l) => l.id === activeId) ?? null, [leads, activeId]);
+  const activeLeadIndex = useMemo(() => leads.findIndex((l) => l.id === activeId), [leads, activeId]);
 
   const updateLocalLead = useCallback((id: string, patch: Partial<Lead>) => {
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
@@ -838,6 +839,28 @@ function SalesCallPortal() {
               setActiveId(null);
             }
           }}
+          onPreviousLead={() => {
+            if (sessionActive) {
+              const previousIndex = sessionIndex - 1;
+              const previousId = sessionQueue[previousIndex];
+              if (previousId) {
+                setSessionIndex(previousIndex);
+                setActiveId(previousId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+              }
+              return;
+            }
+            const previous = activeLeadIndex > 0 ? leads[activeLeadIndex - 1] : null;
+            if (previous) {
+              setActiveId(previous.id);
+              setStep("mindset");
+              setCompleted(new Set());
+              setAmpPrefill(""); setAudioPrefill("");
+            }
+          }}
+          hasPreviousLead={sessionActive ? sessionIndex > 0 : activeLeadIndex > 0}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onCallStarted={() => {}}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
@@ -4576,7 +4599,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 ];
 
 function RightPanel({
-  active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead,
+  active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onAfterOutcomeApplied, onCallStarted,
 }: {
   active: Lead;
@@ -4586,6 +4609,8 @@ function RightPanel({
   firstCallAt: string | null;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onChangeLead: () => void;
+  onPreviousLead: () => void;
+  hasPreviousLead: boolean;
   onOutcomeRequiredChange?: (val: boolean) => void;
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
   onCallStarted?: () => void;
@@ -4811,8 +4836,37 @@ function RightPanel({
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* Next lead — top of right column */}
-      <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end" }}>
+      {/* Lead navigation — top of right column */}
+      <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "space-between", gap: 12 }}>
+        <button
+          disabled={!hasPreviousLead}
+          onClick={() => {
+            if (inCall) {
+              toast.error("End the call first");
+              return;
+            }
+            if (callDurationAtHangup > 0) {
+              setOutcomeRequired(true);
+              onOutcomeRequiredChange?.(true);
+              return;
+            }
+            if (outcomeRequired) {
+              toast.error("Please set a call outcome first");
+              return;
+            }
+            if (!hasPreviousLead) return;
+            onPreviousLead();
+          }}
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: hasPreviousLead ? "#111" : "#aaa",
+            background: "transparent",
+            cursor: hasPreviousLead ? "pointer" : "default",
+          }}
+        >
+          ← Previous Lead
+        </button>
         <button
           onClick={() => {
             if (inCall) {
