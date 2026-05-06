@@ -33,6 +33,7 @@ function DashboardLayout() {
   const navigate = useNavigate();
   const { session, ready, role } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
+  const pageOwnsNotificationBell = ["/sales-call", "/leaderboard"].includes(location.pathname);
   // Floating call widget is rendered globally so the dialler/hangup button
   // follows the user across pages. It only renders when a call is actually
   // active, so it doesn't clutter the UI otherwise.
@@ -112,7 +113,7 @@ function DashboardLayout() {
               style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
               aria-label="Open navigation"
             />
-            {location.pathname !== "/sales-call" && (
+            {!pageOwnsNotificationBell && (
               <div className="fixed top-3 right-3 z-50">
                 <NotificationBell />
               </div>
