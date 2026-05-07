@@ -61,7 +61,7 @@ async function sendSms(
   authToken: string,
   to: string,
   body: string,
-): Promise<{ ok: boolean; error?: string; sid?: string }> {
+): Promise<{ ok: boolean; error?: string; sid?: string; status?: string }> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const auth = btoa(`${accountSid}:${authToken}`);
   const res = await fetch(url, {
@@ -74,7 +74,50 @@ async function sendSms(
   });
   const data = await res.json();
   if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
-  return { ok: true, sid: data.sid };
+  return { ok: true, sid: data.sid, status: data.status };
+}
+
+// deno-lint-ignore no-explicit-any
+async function logToInbox(sb: any, opts: {
+  to: string;
+  body: string;
+  sid?: string;
+  status?: string;
+  displayName?: string;
+  leadId?: string | null;
+}) {
+  try {
+    let threadId: string | null = null;
+    const { data: existing } = await sb
+      .from("sms_threads")
+      .select("id")
+      .eq("phone", opts.to)
+      .maybeSingle();
+    if (existing?.id) {
+      threadId = existing.id;
+    } else {
+      const { data: created } = await sb
+        .from("sms_threads")
+        .insert({ phone: opts.to, display_name: opts.displayName ?? null })
+        .select("id")
+        .single();
+      threadId = created?.id ?? null;
+    }
+    if (!threadId) return;
+    await sb.from("sms_messages").insert({
+      thread_id: threadId,
+      direction: "outbound",
+      body: opts.body,
+      twilio_message_sid: opts.sid ?? null,
+      status: opts.status ?? "queued",
+      from_number: TWILIO_FROM,
+      to_number: opts.to,
+      lead_id: opts.leadId ?? null,
+      sent_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("[send-appointment-reminders] logToInbox failed", e);
+  }
 }
 
 serve(async (req) => {
