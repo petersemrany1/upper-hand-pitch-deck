@@ -117,7 +117,7 @@ serve(async (req) => {
     const timeStr = "2:00 PM";
 
     const body3 = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${formatDateLong(threeDayDate)} at ${timeStr}. We look forward to seeing you. [TEST]`;
-    const body1 = `Hi ${firstName}, a reminder that your consultation ${doctorPhrase}is tomorrow at ${timeStr}. Please reply if you have any questions. We look forward to seeing you. [TEST]`;
+    const body1 = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${formatDateLong(oneDayDate)} at ${timeStr}. We look forward to seeing you. [TEST]`;
 
     const r3 = await sendSms(accountSid, authToken, phone, body3);
     const r1 = await sendSms(accountSid, authToken, phone, body1);
