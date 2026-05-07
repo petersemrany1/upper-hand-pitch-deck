@@ -140,6 +140,8 @@ serve(async (req) => {
     try { body = await req.json(); } catch { body = {}; }
   }
 
+  const supabase = createClient(supabaseUrl, serviceKey);
+
   // ---- TEST MODE ----
   const testPhoneRaw = typeof body.test_phone === "string" ? body.test_phone : null;
   if (testPhoneRaw) {
@@ -165,6 +167,9 @@ serve(async (req) => {
     const r3 = await sendSms(accountSid, authToken, phone, body3);
     const r1 = await sendSms(accountSid, authToken, phone, body1);
 
+    if (r3.ok) await logToInbox(supabase, { to: phone, body: body3, sid: r3.sid, status: r3.status, displayName: firstName });
+    if (r1.ok) await logToInbox(supabase, { to: phone, body: body1, sid: r1.sid, status: r1.status, displayName: firstName });
+
     console.log("[send-appointment-reminders] TEST results", { r3, r1 });
 
     return new Response(JSON.stringify({
@@ -179,7 +184,6 @@ serve(async (req) => {
   }
 
   // ---- REAL MODE ----
-  const supabase = createClient(supabaseUrl, serviceKey);
   const now = new Date();
 
   const { data: rows, error } = await supabase
@@ -210,6 +214,7 @@ serve(async (req) => {
     const doctorName = (row.doctor_name || "").toString().trim();
     const dateLong = formatDateLong(row.booking_date);
     const timeStr = formatTime(row.booking_time);
+    const fullName = [row.patient_first_name, row.patient_last_name].filter(Boolean).join(" ").trim() || firstName;
 
     const doctorPhrase = doctorName ? `with Dr ${doctorName} ` : "";
 
@@ -221,6 +226,7 @@ serve(async (req) => {
           three_day_sms_sent: true,
           three_day_sms_sent_at: new Date().toISOString(),
         }).eq("id", row.id);
+        await logToInbox(supabase, { to: phone, body: msg, sid: r.sid, status: r.status, displayName: fullName, leadId: row.lead_id });
         results.push({ id: row.id, sent: "3day", sid: r.sid });
       } else {
         results.push({ id: row.id, error: r.error, kind: "3day" });
@@ -233,6 +239,7 @@ serve(async (req) => {
           twentyfour_hour_sms_sent: true,
           twentyfour_hour_sms_sent_at: new Date().toISOString(),
         }).eq("id", row.id);
+        await logToInbox(supabase, { to: phone, body: msg, sid: r.sid, status: r.status, displayName: fullName, leadId: row.lead_id });
         results.push({ id: row.id, sent: "24h", sid: r.sid });
       } else {
         results.push({ id: row.id, error: r.error, kind: "24h" });
