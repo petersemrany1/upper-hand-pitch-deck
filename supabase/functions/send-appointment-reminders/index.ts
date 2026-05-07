@@ -110,13 +110,14 @@ serve(async (req) => {
 
     const now = new Date();
     const firstName = (typeof body.first_name === "string" && body.first_name.trim()) || "Peter";
-    const doctorName = (typeof body.doctor_name === "string" && body.doctor_name.trim()) || "Dr. Test";
+    const doctorName = typeof body.doctor_name === "string" ? body.doctor_name.trim() : "";
+    const doctorPhrase = doctorName ? `with Dr ${doctorName} ` : "";
     const threeDayDate = addDaysISO(now, 3);
     const oneDayDate = addDaysISO(now, 1);
     const timeStr = "2:00 PM";
 
-    const body3 = `Hi ${firstName}, this is a reminder that your hair restoration consultation with Dr ${doctorName} is scheduled for ${formatDateLong(threeDayDate)} at ${timeStr}. We look forward to seeing you. [TEST]`;
-    const body1 = `Hi ${firstName}, a reminder that your consultation with Dr ${doctorName} is tomorrow at ${timeStr}. Please reply if you have any questions. We look forward to seeing you. [TEST]`;
+    const body3 = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${formatDateLong(threeDayDate)} at ${timeStr}. We look forward to seeing you. [TEST]`;
+    const body1 = `Hi ${firstName}, a reminder that your consultation ${doctorPhrase}is tomorrow at ${timeStr}. Please reply if you have any questions. We look forward to seeing you. [TEST]`;
 
     const r3 = await sendSms(accountSid, authToken, phone, body3);
     const r1 = await sendSms(accountSid, authToken, phone, body1);
