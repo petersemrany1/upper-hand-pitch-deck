@@ -167,8 +167,10 @@ serve(async (req) => {
     const dateLong = formatDateLong(row.booking_date);
     const timeStr = formatTime(row.booking_time);
 
+    const doctorPhrase = doctorName ? `with Dr ${doctorName} ` : "";
+
     if (days === 3 && !row.three_day_sms_sent) {
-      const msg = `Hi ${firstName}, this is a reminder that your hair restoration consultation with Dr ${doctorName} is scheduled for ${dateLong} at ${timeStr}. We look forward to seeing you.`;
+      const msg = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${dateLong} at ${timeStr}. We look forward to seeing you.`;
       const r = await sendSms(accountSid, authToken, phone, msg);
       if (r.ok) {
         await supabase.from("appointment_reminders").update({
