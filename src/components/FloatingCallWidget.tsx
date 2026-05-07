@@ -125,11 +125,13 @@ export function FloatingCallWidget() {
       .select("id, first_name, last_name")
       .eq("id", id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled || !data) return;
-        setMatchedLead({ id: data.id, first_name: data.first_name, last_name: data.last_name });
-      })
-      .catch(() => { /* noop */ });
+      .then(
+        ({ data }) => {
+          if (cancelled || !data) return;
+          setMatchedLead({ id: data.id, first_name: data.first_name, last_name: data.last_name });
+        },
+        () => { /* noop */ },
+      );
     return () => { cancelled = true; };
   }, [activeLeadId, leadId, matchedLead?.id]);
 
