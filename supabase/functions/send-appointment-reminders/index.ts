@@ -183,7 +183,7 @@ serve(async (req) => {
         results.push({ id: row.id, error: r.error, kind: "3day" });
       }
     } else if (days === 1 && !row.twentyfour_hour_sms_sent) {
-      const msg = `Hi ${firstName}, a reminder that your consultation ${doctorPhrase}is tomorrow at ${timeStr}. Please reply if you have any questions. We look forward to seeing you.`;
+      const msg = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${dateLong} at ${timeStr}. We look forward to seeing you.`;
       const r = await sendSms(accountSid, authToken, phone, msg);
       if (r.ok) {
         await supabase.from("appointment_reminders").update({
