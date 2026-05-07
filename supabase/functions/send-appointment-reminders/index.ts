@@ -61,7 +61,7 @@ async function sendSms(
   authToken: string,
   to: string,
   body: string,
-): Promise<{ ok: boolean; error?: string; sid?: string }> {
+): Promise<{ ok: boolean; error?: string; sid?: string; status?: string }> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const auth = btoa(`${accountSid}:${authToken}`);
   const res = await fetch(url, {
@@ -74,7 +74,50 @@ async function sendSms(
   });
   const data = await res.json();
   if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
-  return { ok: true, sid: data.sid };
+  return { ok: true, sid: data.sid, status: data.status };
+}
+
+// deno-lint-ignore no-explicit-any
+async function logToInbox(sb: any, opts: {
+  to: string;
+  body: string;
+  sid?: string;
+  status?: string;
+  displayName?: string;
+  leadId?: string | null;
+}) {
+  try {
+    let threadId: string | null = null;
+    const { data: existing } = await sb
+      .from("sms_threads")
+      .select("id")
+      .eq("phone", opts.to)
+      .maybeSingle();
+    if (existing?.id) {
+      threadId = existing.id;
+    } else {
+      const { data: created } = await sb
+        .from("sms_threads")
+        .insert({ phone: opts.to, display_name: opts.displayName ?? null })
+        .select("id")
+        .single();
+      threadId = created?.id ?? null;
+    }
+    if (!threadId) return;
+    await sb.from("sms_messages").insert({
+      thread_id: threadId,
+      direction: "outbound",
+      body: opts.body,
+      twilio_message_sid: opts.sid ?? null,
+      status: opts.status ?? "queued",
+      from_number: TWILIO_FROM,
+      to_number: opts.to,
+      lead_id: opts.leadId ?? null,
+      sent_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("[send-appointment-reminders] logToInbox failed", e);
+  }
 }
 
 serve(async (req) => {
@@ -96,6 +139,8 @@ serve(async (req) => {
   if (req.method === "POST" || req.method === "PUT") {
     try { body = await req.json(); } catch { body = {}; }
   }
+
+  const supabase = createClient(supabaseUrl, serviceKey);
 
   // ---- TEST MODE ----
   const testPhoneRaw = typeof body.test_phone === "string" ? body.test_phone : null;
@@ -122,6 +167,9 @@ serve(async (req) => {
     const r3 = await sendSms(accountSid, authToken, phone, body3);
     const r1 = await sendSms(accountSid, authToken, phone, body1);
 
+    if (r3.ok) await logToInbox(supabase, { to: phone, body: body3, sid: r3.sid, status: r3.status, displayName: firstName });
+    if (r1.ok) await logToInbox(supabase, { to: phone, body: body1, sid: r1.sid, status: r1.status, displayName: firstName });
+
     console.log("[send-appointment-reminders] TEST results", { r3, r1 });
 
     return new Response(JSON.stringify({
@@ -136,7 +184,6 @@ serve(async (req) => {
   }
 
   // ---- REAL MODE ----
-  const supabase = createClient(supabaseUrl, serviceKey);
   const now = new Date();
 
   const { data: rows, error } = await supabase
@@ -167,6 +214,7 @@ serve(async (req) => {
     const doctorName = (row.doctor_name || "").toString().trim();
     const dateLong = formatDateLong(row.booking_date);
     const timeStr = formatTime(row.booking_time);
+    const fullName = [row.patient_first_name, row.patient_last_name].filter(Boolean).join(" ").trim() || firstName;
 
     const doctorPhrase = doctorName ? `with Dr ${doctorName} ` : "";
 
@@ -178,6 +226,7 @@ serve(async (req) => {
           three_day_sms_sent: true,
           three_day_sms_sent_at: new Date().toISOString(),
         }).eq("id", row.id);
+        await logToInbox(supabase, { to: phone, body: msg, sid: r.sid, status: r.status, displayName: fullName, leadId: row.lead_id });
         results.push({ id: row.id, sent: "3day", sid: r.sid });
       } else {
         results.push({ id: row.id, error: r.error, kind: "3day" });
@@ -190,6 +239,7 @@ serve(async (req) => {
           twentyfour_hour_sms_sent: true,
           twentyfour_hour_sms_sent_at: new Date().toISOString(),
         }).eq("id", row.id);
+        await logToInbox(supabase, { to: phone, body: msg, sid: r.sid, status: r.status, displayName: fullName, leadId: row.lead_id });
         results.push({ id: row.id, sent: "24h", sid: r.sid });
       } else {
         results.push({ id: row.id, error: r.error, kind: "24h" });
