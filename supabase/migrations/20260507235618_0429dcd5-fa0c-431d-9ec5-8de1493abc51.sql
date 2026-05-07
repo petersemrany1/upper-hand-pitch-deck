@@ -1,0 +1,1 @@
+DELETE FROM public.appointment_reminders WHERE id='1e046a9d-c857-4340-b5c4-734df4c76fce';
