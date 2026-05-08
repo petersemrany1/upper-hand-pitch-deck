@@ -29,32 +29,49 @@ const STRUCTURED_PATIENT_PROMPT = `You are analysing a sales call between a rep 
 }
 Return only valid JSON, no preamble.`;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function callClaude(apiKey: string, system: string, userContent: string): Promise<string> {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1500,
-      system,
-      messages: [{ role: "user", content: userContent }],
-    }),
-  });
-  if (!resp.ok) {
+  // Retry on 429 / 529 with backoff
+  const maxAttempts = 5;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1500,
+        system,
+        messages: [{ role: "user", content: userContent }],
+      }),
+    });
+
+    if (resp.ok) {
+      const j = await resp.json();
+      let raw: string = j?.content?.[0]?.text || "";
+      raw = raw.trim();
+      if (raw.startsWith("```")) {
+        raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+      }
+      return raw;
+    }
+
+    if ((resp.status === 429 || resp.status === 529 || resp.status >= 500) && attempt < maxAttempts) {
+      const retryAfter = parseFloat(resp.headers.get("retry-after") || "0");
+      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(30000, 5000 * attempt);
+      console.log(`[claude] ${resp.status} attempt ${attempt}, waiting ${waitMs}ms`);
+      await sleep(waitMs);
+      continue;
+    }
+
     const t = await resp.text();
     throw new Error(`Claude failed (${resp.status}): ${t.slice(0, 300)}`);
   }
-  const j = await resp.json();
-  let raw: string = j?.content?.[0]?.text || "";
-  raw = raw.trim();
-  if (raw.startsWith("```")) {
-    raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  }
-  return raw;
+  throw new Error("Claude failed: exhausted retries");
 }
 
 serve(async (req) => {
@@ -70,6 +87,10 @@ serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
+    let body: { max?: number } = {};
+    try { body = await req.json(); } catch { /* no body */ }
+    const MAX_PER_RUN = Math.max(1, Math.min(40, body.max ?? 20));
+
     const { data: rows, error } = await supabase
       .from("call_records")
       .select("id, lead_id, call_analysis")
@@ -79,85 +100,91 @@ serve(async (req) => {
 
     if (error) throw new Error(`Lookup failed: ${error.message}`);
 
+    // Only rows with a real transcript AND not already analysed
     const candidates = (rows ?? []).filter((r) => {
-      const a = r.call_analysis as { transcript?: string } | null;
-      return a?.transcript && a.transcript.trim().length > 30;
+      const a = r.call_analysis as { transcript?: string; patient_summary?: string } | null;
+      const hasTranscript = !!a?.transcript && a.transcript.trim().length > 30;
+      const alreadyDone = !!a?.patient_summary && (a.patient_summary as string).trim().length > 0;
+      return hasTranscript && !alreadyDone;
     });
+
+    const remainingBefore = candidates.length;
+    const work = candidates.slice(0, MAX_PER_RUN);
 
     let processed = 0;
     let failed = 0;
     const errors: Array<{ id: string; error: string }> = [];
 
-    const BATCH_SIZE = 5;
-    for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
-      const batch = candidates.slice(i, i + BATCH_SIZE);
-      await Promise.all(batch.map(async (row) => {
+    // Sequential processing — Anthropic org limit is 50 RPM.
+    // Each row = 2 Claude calls. ~1.6s spacing between calls keeps us under the limit.
+    for (const row of work) {
+      try {
+        const analysis = (row.call_analysis ?? {}) as Record<string, unknown>;
+        const transcript = (analysis.transcript as string) || "";
+        const userContent = `Transcript:\n\n${transcript}`;
+
+        const summaryRaw = await callClaude(ANTHROPIC_API_KEY, PATIENT_SYSTEM_PROMPT, userContent);
+        await sleep(1600);
+        const structRaw = await callClaude(ANTHROPIC_API_KEY, STRUCTURED_PATIENT_PROMPT, userContent);
+
+        const patientSummary = summaryRaw.trim();
+        let structured: Record<string, unknown> = {
+          no_sale_reasons: [],
+          pain_points: [],
+          dream_outcomes: [],
+          recurring_phrases: [],
+          engagement_hooks: [],
+          call_outcome: null,
+        };
         try {
-          const analysis = row.call_analysis as Record<string, unknown>;
-          const transcript = (analysis.transcript as string) || "";
-          const userContent = `Transcript:\n\n${transcript}`;
-
-          const [summaryRaw, structRaw] = await Promise.all([
-            callClaude(ANTHROPIC_API_KEY, PATIENT_SYSTEM_PROMPT, userContent),
-            callClaude(ANTHROPIC_API_KEY, STRUCTURED_PATIENT_PROMPT, userContent),
-          ]);
-
-          const patientSummary = summaryRaw.trim();
-          let structured: Record<string, unknown> = {
-            no_sale_reasons: [],
-            pain_points: [],
-            dream_outcomes: [],
-            recurring_phrases: [],
-            engagement_hooks: [],
-            call_outcome: null,
-          };
-          try {
-            structured = { ...structured, ...JSON.parse(structRaw) };
-          } catch (_e) {
-            // keep defaults if Claude returned non-JSON
-          }
-
-          const newAnalysis = {
-            ...analysis,
-            transcript,
-            patient_summary: patientSummary,
-            ...structured,
-            analysed_at: new Date().toISOString(),
-          };
-
-          const { error: updErr } = await supabase
-            .from("call_records")
-            .update({ call_analysis: newAnalysis, analysis_stage: "complete" })
-            .eq("id", row.id);
-          if (updErr) throw new Error(`update call_records: ${updErr.message}`);
-
-          if (row.lead_id) {
-            await supabase
-              .from("meta_leads")
-              .update({ call_notes: patientSummary, updated_at: new Date().toISOString() })
-              .eq("id", row.lead_id);
-          }
-
-          processed += 1;
-        } catch (e) {
-          failed += 1;
-          const msg = (e as Error).message;
-          console.error(`[backfill] row ${row.id} failed:`, msg);
-          errors.push({ id: row.id, error: msg });
+          structured = { ...structured, ...JSON.parse(structRaw) };
+        } catch (_e) {
+          // keep defaults if Claude returned non-JSON
         }
-      }));
 
-      if (i + BATCH_SIZE < candidates.length) {
-        await new Promise((r) => setTimeout(r, 2000));
+        const newAnalysis = {
+          ...analysis,
+          transcript,
+          patient_summary: patientSummary,
+          ...structured,
+          analysed_at: new Date().toISOString(),
+        };
+
+        const { error: updErr } = await supabase
+          .from("call_records")
+          .update({ call_analysis: newAnalysis, analysis_stage: "complete" })
+          .eq("id", row.id);
+        if (updErr) throw new Error(`update call_records: ${updErr.message}`);
+
+        if (row.lead_id) {
+          await supabase
+            .from("meta_leads")
+            .update({ call_notes: patientSummary, updated_at: new Date().toISOString() })
+            .eq("id", row.lead_id);
+        }
+
+        processed += 1;
+      } catch (e) {
+        failed += 1;
+        const msg = (e as Error).message;
+        console.error(`[backfill] row ${row.id} failed:`, msg);
+        errors.push({ id: row.id, error: msg });
       }
+
+      // Pace between rows too
+      await sleep(1600);
     }
+
+    const remainingAfter = remainingBefore - processed;
 
     return new Response(
       JSON.stringify({
         ok: true,
-        total_candidates: candidates.length,
+        total_remaining_before: remainingBefore,
+        total_remaining_after: remainingAfter,
         processed,
         failed,
+        done: remainingAfter === 0,
         errors: errors.slice(0, 20),
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
