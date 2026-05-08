@@ -144,13 +144,28 @@ function AnalyticsPage() {
     "the","a","an","and","or","but","to","of","with","for","in","on","at","by","from","as","is","be","been","being","that","this","than","then","so","if","when","while","about","into","over","up","down","out","off","because","my","your","their","our","his","her","its",
   ]);
 
-  const cleanItemBase = (s: string, maxWords: number): string => {
+  const FILLER_WORDS = new Set([
+    "really","very","just","actually","quite","pretty","somewhat","maybe","perhaps","probably","basically","literally","honestly","obviously","definitely","totally","completely","extremely","like","also","too","still","even","ever","always","often","sometimes","much","many","lot","lots","bit","little","whole","entire","general","generally","mostly","particular","particularly","specifically","overall","essentially",
+  ]);
+
+  const LEADING_FILLER = new Set([
+    "they","he","she","it","we","i","patient","client","customer","caller","person","the","a","an","this","that","there","here","well","so","ok","okay","um","uh","also","and","but","because","since","as","when","while","really","just","very",
+  ]);
+
+  const trimTrailingFragments = (v: string): string => {
+    const parts = v.split(" ").filter(Boolean);
+    while (parts.length > 0 && TRAILING_FRAGMENT_WORDS.has(parts[parts.length - 1])) {
+      parts.pop();
+    }
+    return parts.join(" ");
+  };
+
+  // Summarise to a one-line label: keep meaning, drop filler, end on a real word.
+  const summariseItem = (s: string, maxWords = 7): string => {
     let v = s.toLowerCase().trim();
-    // normalise common before/after variants so they merge
     v = v.replace(/b\s*[\/&]\s*a\b/g, "before and after");
     v = v.replace(/before\s*[\/&]\s*after/g, "before and after");
     v = v.replace(/\bbefores?\s+and\s+afters?\b/g, "before and after");
-    v = v.replace(/\bafter\s+photos?\b/g, "after photos");
     v = v.replace(/\bafter\s+pic(?:ture|s)?s?\b/g, "after photos");
     v = v.replace(/\bafter\s+images?\b/g, "after photos");
     v = v.replace(/\bphotos?\b/g, "photos");
@@ -162,20 +177,28 @@ function AnalyticsPage() {
     v = v.replace(TIME_TOKENS, " ");
     v = v.replace(/[^\w\s'-]/g, " ");
     v = v.replace(/\s+/g, " ").trim();
-    return v.split(" ").filter(Boolean).slice(0, maxWords).join(" ");
-  };
 
-  const cleanItem = (s: string): string => cleanItemBase(s, 4);
+    let parts = v.split(" ").filter(Boolean);
+    while (parts.length > 0 && LEADING_FILLER.has(parts[0])) parts.shift();
+    parts = parts.filter((w) => !FILLER_WORDS.has(w));
 
-  const cleanItemDream = (s: string): string => {
-    let v = cleanItemBase(s, 8);
-    // strip trailing fragment words to avoid cut-off mid-thought
-    let parts = v.split(" ");
-    while (parts.length > 0 && TRAILING_FRAGMENT_WORDS.has(parts[parts.length - 1])) {
-      parts.pop();
+    if (parts.length <= maxWords) {
+      return trimTrailingFragments(parts.join(" "));
     }
-    return parts.join(" ");
+    let kept = parts.slice(0, maxWords);
+    // If trimming would leave a connector at the end, extend by one meaningful word.
+    while (
+      kept.length < parts.length &&
+      kept.length < maxWords + 2 &&
+      TRAILING_FRAGMENT_WORDS.has(kept[kept.length - 1])
+    ) {
+      kept.push(parts[kept.length]);
+    }
+    return trimTrailingFragments(kept.join(" "));
   };
+
+  const cleanItem = (s: string): string => summariseItem(s, 6);
+  const cleanItemDream = (s: string): string => summariseItem(s, 7);
 
   const aggregate = (
     field: keyof CallAnalysis,
@@ -197,31 +220,35 @@ function AnalyticsPage() {
       });
     });
 
-    // Group by shared key (e.g. first N words). Display label = shortest variant in group.
-    const groups = new Map<string, { count: number; shortest: string }>();
+    const score = (s: string) => {
+      const w = s.split(" ").length;
+      if (w >= 3 && w <= 6) return w;
+      return 100 + Math.abs(w - 5);
+    };
+    const groups = new Map<string, { count: number; best: string }>();
     items.forEach((it) => {
       const key = opts?.groupByFirstWords
         ? it.split(" ").slice(0, opts.groupByFirstWords).join(" ")
         : it;
       const existing = groups.get(key);
       if (!existing) {
-        groups.set(key, { count: 1, shortest: it });
+        groups.set(key, { count: 1, best: it });
       } else {
         existing.count += 1;
-        if (it.length < existing.shortest.length) existing.shortest = it;
+        if (score(it) < score(existing.best)) existing.best = it;
       }
     });
 
     const min = opts?.minCount ?? 1;
     return Array.from(groups.values())
       .filter((g) => g.count >= min)
-      .map((g) => ({ label: g.shortest, count: g.count }))
+      .map((g) => ({ label: g.best, count: g.count }))
       .sort((a, b) => b.count - a.count);
   };
 
   const noReasons = useMemo(() => aggregate("no_sale_reasons", { blocklist: NO_SALE_BLOCKLIST, groupByFirstWords: 2 }), [rows]);
   const pains = useMemo(() => aggregate("pain_points", { groupByFirstWords: 2 }), [rows]);
-  const dreams = useMemo(() => aggregate("dream_outcomes", { cleaner: cleanItemDream, groupByFirstWords: 3 }), [rows]);
+  const dreams = useMemo(() => aggregate("dream_outcomes", { cleaner: cleanItemDream, groupByFirstWords: 2 }), [rows]);
   const hooks = useMemo(() => aggregate("engagement_hooks", { minCount: 2, groupByFirstWords: 2 }), [rows]);
   const phrases = useMemo(() => aggregate("recurring_phrases", { blocklist: PHRASES_BLOCKLIST }), [rows]);
 
