@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -33,6 +33,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar },
       { title: "Leads", url: "/leads", icon: Users },
+      { title: "Analytics", url: "/analytics", icon: BarChart3 },
       { title: "Phone", url: "/inbox", icon: Phone },
     ],
   },
@@ -103,7 +104,7 @@ export function AppSidebar() {
         .filter((f) => f.title !== "Clinic Acquisition")
         .map((f) =>
           f.title === "Sales"
-            ? { ...f, items: f.items.filter((i) => i.title !== "Leads") }
+            ? { ...f, items: f.items.filter((i) => i.title !== "Leads" && i.title !== "Analytics") }
             : f
         );
 
