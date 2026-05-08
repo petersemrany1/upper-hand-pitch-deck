@@ -91,10 +91,18 @@ function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-async function callClaude(apiKey: string, system: string, userContent: string): Promise<string> {
+async function callClaude(
+  apiKey: string,
+  system: string,
+  userContent: string,
+  opts: { deadlineMs?: number } = {},
+): Promise<string> {
   // Retry on 429 / 529 with backoff
-  const maxAttempts = 5;
+  const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (opts.deadlineMs && Date.now() > opts.deadlineMs - 15000) {
+      throw new Error("Backfill time budget reached; retry next batch.");
+    }
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -122,7 +130,10 @@ async function callClaude(apiKey: string, system: string, userContent: string): 
 
     if ((resp.status === 429 || resp.status === 529 || resp.status >= 500) && attempt < maxAttempts) {
       const retryAfter = parseFloat(resp.headers.get("retry-after") || "0");
-      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(30000, 5000 * attempt);
+      const baseWaitMs = retryAfter > 0 ? retryAfter * 1000 : 5000 * attempt;
+      const deadlineWaitMs = opts.deadlineMs ? Math.max(0, opts.deadlineMs - Date.now() - 15000) : 15000;
+      const waitMs = Math.min(baseWaitMs, 15000, deadlineWaitMs);
+      if (waitMs < 1000) throw new Error("Backfill time budget reached; retry next batch.");
       console.log(`[claude] ${resp.status} attempt ${attempt}, waiting ${waitMs}ms`);
       await sleep(waitMs);
       continue;
