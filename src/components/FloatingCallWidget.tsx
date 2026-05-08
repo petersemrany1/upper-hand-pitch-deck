@@ -307,13 +307,8 @@ export function FloatingCallWidget() {
     const previousStatus = prevStatusForEndRef.current;
     const wasActive = previousStatus === "in-call" || previousStatus === "connecting";
     if (wasActive && !isActive) {
-      // Capture sid + from for the outcome prompt before clearing internal state
-      const sidForOutcome = prevSidRef.current;
-      const fromForOutcome = incomingFrom || activePhone || phone || null;
-      setEndedSid(sidForOutcome);
-      setEndedFrom(fromForOutcome);
-      setShowOutcome(true);
-
+      // Outcome popup is handled by the "Next Lead" button on the sales-call page,
+      // not auto-shown here. Just reset internal call state.
       prevSidRef.current = null;
       startedAtRef.current = null;
       setExpanded(false);
