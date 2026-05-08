@@ -140,21 +140,48 @@ function AnalyticsPage() {
 
   const TIME_TOKENS = /\b(am|pm|a\.m\.|p\.m\.|o'clock|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|yesterday|morning|afternoon|evening|tonight|next|last|this)\b/g;
 
-  const cleanItem = (s: string): string => {
+  const TRAILING_FRAGMENT_WORDS = new Set([
+    "the","a","an","and","or","but","to","of","with","for","in","on","at","by","from","as","is","be","been","being","that","this","than","then","so","if","when","while","about","into","over","up","down","out","off","because","my","your","their","our","his","her","its",
+  ]);
+
+  const cleanItemBase = (s: string, maxWords: number): string => {
     let v = s.toLowerCase().trim();
+    // normalise common before/after variants so they merge
+    v = v.replace(/b\s*[\/&]\s*a\b/g, "before and after");
+    v = v.replace(/before\s*[\/&]\s*after/g, "before and after");
+    v = v.replace(/\bbefores?\s+and\s+afters?\b/g, "before and after");
+    v = v.replace(/\bafter\s+photos?\b/g, "after photos");
+    v = v.replace(/\bafter\s+pic(?:ture|s)?s?\b/g, "after photos");
+    v = v.replace(/\bafter\s+images?\b/g, "after photos");
+    v = v.replace(/\bphotos?\b/g, "photos");
+    v = v.replace(/\bpic(?:ture)?s?\b/g, "photos");
+    v = v.replace(/\bimages?\b/g, "photos");
     v = v.replace(/\([^)]*\)/g, " ");
     v = v.replace(/\$[\d,.]+(?:k|m)?/g, " ");
     v = v.replace(/[\d]+[\d,.\-:]*/g, " ");
     v = v.replace(TIME_TOKENS, " ");
     v = v.replace(/[^\w\s'-]/g, " ");
     v = v.replace(/\s+/g, " ").trim();
-    return v.split(" ").filter(Boolean).slice(0, 4).join(" ");
+    return v.split(" ").filter(Boolean).slice(0, maxWords).join(" ");
+  };
+
+  const cleanItem = (s: string): string => cleanItemBase(s, 4);
+
+  const cleanItemDream = (s: string): string => {
+    let v = cleanItemBase(s, 8);
+    // strip trailing fragment words to avoid cut-off mid-thought
+    let parts = v.split(" ");
+    while (parts.length > 0 && TRAILING_FRAGMENT_WORDS.has(parts[parts.length - 1])) {
+      parts.pop();
+    }
+    return parts.join(" ");
   };
 
   const aggregate = (
     field: keyof CallAnalysis,
-    opts?: { blocklist?: string[]; minCount?: number; groupByFirstWords?: number },
+    opts?: { blocklist?: string[]; minCount?: number; groupByFirstWords?: number; cleaner?: (s: string) => string },
   ): { label: string; count: number }[] => {
+    const cleaner = opts?.cleaner ?? cleanItem;
     const items: string[] = [];
     rows.forEach((r) => {
       const arr = r.call_analysis?.[field];
@@ -162,7 +189,7 @@ function AnalyticsPage() {
       arr.forEach((v) => {
         if (typeof v !== "string") return;
         const original = v.toLowerCase();
-        const normalized = cleanItem(v);
+        const normalized = cleaner(v);
         if (!normalized) return;
         if (normalized.split(" ").length < 2) return;
         if (opts?.blocklist && opts.blocklist.some((b) => normalized.includes(b) || original.includes(b))) return;
@@ -194,8 +221,8 @@ function AnalyticsPage() {
 
   const noReasons = useMemo(() => aggregate("no_sale_reasons", { blocklist: NO_SALE_BLOCKLIST, groupByFirstWords: 2 }), [rows]);
   const pains = useMemo(() => aggregate("pain_points", { groupByFirstWords: 2 }), [rows]);
-  const dreams = useMemo(() => aggregate("dream_outcomes"), [rows]);
-  const hooks = useMemo(() => aggregate("engagement_hooks", { minCount: 2 }), [rows]);
+  const dreams = useMemo(() => aggregate("dream_outcomes", { cleaner: cleanItemDream, groupByFirstWords: 3 }), [rows]);
+  const hooks = useMemo(() => aggregate("engagement_hooks", { minCount: 2, groupByFirstWords: 2 }), [rows]);
   const phrases = useMemo(() => aggregate("recurring_phrases", { blocklist: PHRASES_BLOCKLIST }), [rows]);
 
   const hourBuckets = (filter: (r: Row) => boolean) => {
