@@ -107,6 +107,7 @@ function SettingsPage() {
           <AccountSection user={user} />
           <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
+          {isAdmin && <BackfillSection />}
           <LogsSection />
         </div>
       </div>
@@ -784,6 +785,54 @@ function BookingPricesSection() {
             </tbody>
           </table>
         </div>
+      )}
+    </section>
+  );
+}
+
+function BackfillSection() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const run = async () => {
+    setRunning(true);
+    setResult("Running backfill — this may take several minutes…");
+    try {
+      const { data, error } = await supabase.functions.invoke("backfill-patient-analysis", { body: {} });
+      if (error) throw error;
+      const r = data as { total_candidates?: number; processed?: number; failed?: number };
+      setResult(`Done. Processed ${r.processed ?? 0} of ${r.total_candidates ?? 0}. Failed: ${r.failed ?? 0}.`);
+      toast.success("Backfill complete");
+    } catch (e) {
+      const msg = (e as Error).message;
+      setResult(`Failed: ${msg}`);
+      toast.error(msg);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
+      <div className="flex items-center gap-3 mb-3">
+        <FileText className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Patient Call Analysis Backfill</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Re-runs the two-pass Claude analysis on every existing patient call transcript.
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={() => void run()}
+        disabled={running}
+        className="px-4 py-2 rounded-md text-sm font-bold disabled:opacity-50"
+        style={{ background: "#f4522d", color: "#fff" }}
+      >
+        {running ? "Running…" : "Backfill patient call analysis"}
+      </button>
+      {result && (
+        <div className="mt-3 text-sm text-muted-foreground">{result}</div>
       )}
     </section>
   );
