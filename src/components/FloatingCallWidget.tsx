@@ -27,12 +27,12 @@ const OUTCOME_LABELS: Record<Outcome, string> = {
 };
 
 const OUTCOME_DOT: Record<Outcome, string> = {
-  no_answer: "#eab308",
-  callback_scheduled: "#f59e0b",
-  had_convo_chase_up: "#92400e",
-  not_interested: "#ef4444",
-  booked_deposit_paid: "#22c55e",
-  dropped: "#111111",
+  no_answer: "#eab308",          // yellow
+  callback_scheduled: "#f97316", // orange
+  had_convo_chase_up: "#a16207", // brown
+  not_interested: "#ef4444",     // red
+  booked_deposit_paid: "#22c55e",// green
+  dropped: "#374151",            // dark grey
 };
 
 function formatDuration(sec: number): string {
