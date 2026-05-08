@@ -90,7 +90,7 @@ function AnalyticsPage() {
     const conversations = rows.filter((r) => (r.duration ?? 0) > 120).length;
     const bookings = rows.filter((r) => r.call_analysis?.call_outcome === "Booked").length;
     const analysed = rows.filter((r) => !!r.call_analysis).length;
-    const conv = total > 0 ? Math.round((bookings / total) * 100) : 0;
+    const conv = conversations > 0 ? Math.round((bookings / conversations) * 100) : 0;
     return { total, conversations, bookings, analysed, conv };
   }, [rows]);
 
@@ -310,7 +310,7 @@ function AnalyticsPage() {
           <StatCard icon={<Phone className="w-4 h-4" />} label="Total Calls" value={stats.total} />
           <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Conversations" value={stats.conversations} hint=">2 min" />
           <StatCard icon={<Calendar className="w-4 h-4" />} label="Bookings" value={stats.bookings} />
-          <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Conversion" value={`${stats.conv}%`} />
+          <StatCard icon={<TrendingUp className="w-4 h-4" />} label="Conv. rate" value={`${stats.conv}%`} hint="of answered calls" />
           <StatCard icon={<Sparkles className="w-4 h-4" />} label="Analysed" value={stats.analysed} />
         </div>
 
