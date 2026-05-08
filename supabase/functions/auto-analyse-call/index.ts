@@ -386,6 +386,8 @@ IMPORTANT:
         await logErr(`Patient structured pass exception: ${(e as Error).message}`);
       }
 
+      structured = cleanStructured(structured);
+
       // Save transcript + summary + structured intel to call_records
       const analysis = {
         transcript,
