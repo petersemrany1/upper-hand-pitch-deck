@@ -282,10 +282,66 @@ serve(async (req) => {
       // For patient calls — raw is just a plain text summary paragraph, not JSON
       const patientSummary = raw.trim();
 
-      // Save transcript + summary to call_records
+      // Pass 2 — structured intel extraction
+      const STRUCTURED_PATIENT_PROMPT = `You are analysing a sales call between a rep and a patient enquiring about a hair transplant. Return a JSON object with exactly these fields:
+{
+  "no_sale_reasons": ["array of specific reasons the person said no, got off the phone, or showed resistance — e.g. 'price too high', 'needs to think about it', 'partner not on board'"],
+  "pain_points": ["array of problems or frustrations the patient mentioned about their hair loss — e.g. 'avoiding social situations', 'affecting confidence at work'"],
+  "dream_outcomes": ["array of things the patient said they want or are excited about — e.g. 'look natural', 'feel confident again', 'want it done before wedding'"],
+  "recurring_phrases": ["array of exact phrases or topics the patient repeated or emphasised"],
+  "engagement_hooks": ["what kept the patient engaged or talking — e.g. 'responded well to before/after photos', 'got excited about recovery timeline'"],
+  "call_outcome": one of ["Booked", "Not Interested", "No Answer", "Needs Follow Up", "Callback Scheduled"]
+}
+Return only valid JSON, no preamble.`;
+
+      let structured: Record<string, unknown> = {
+        no_sale_reasons: [],
+        pain_points: [],
+        dream_outcomes: [],
+        recurring_phrases: [],
+        engagement_hooks: [],
+        call_outcome: null,
+      };
+      try {
+        const structResp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 1200,
+            system: STRUCTURED_PATIENT_PROMPT,
+            messages: [{ role: "user", content: claudeUserContent }],
+          }),
+        });
+        if (structResp.ok) {
+          const sj = await structResp.json();
+          let sraw: string = sj?.content?.[0]?.text || "";
+          sraw = sraw.trim();
+          if (sraw.startsWith("```")) {
+            sraw = sraw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+          }
+          try {
+            structured = { ...structured, ...JSON.parse(sraw) };
+          } catch (e) {
+            await logErr(`Patient structured pass non-JSON: ${sraw.slice(0, 200)}`);
+          }
+        } else {
+          const t = await structResp.text();
+          await logErr(`Patient structured pass failed (${structResp.status}): ${t.slice(0, 200)}`);
+        }
+      } catch (e) {
+        await logErr(`Patient structured pass exception: ${(e as Error).message}`);
+      }
+
+      // Save transcript + summary + structured intel to call_records
       const analysis = {
         transcript,
         patient_summary: patientSummary,
+        ...structured,
         analysed_at: new Date().toISOString(),
       };
       await supabase
