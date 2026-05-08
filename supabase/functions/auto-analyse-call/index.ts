@@ -326,29 +326,29 @@ serve(async (req) => {
       const patientSummary = raw.trim();
 
       // Pass 2 — structured intel extraction
-      const STRUCTURED_PATIENT_PROMPT = `You are analysing a sales call between a rep and a patient enquiring about a hair transplant. Return a JSON object with exactly these fields. For every field you must ONLY use items from the fixed lists provided below. Do not invent your own wording. Pick the closest matching items from the list. Return only valid JSON, no preamble.
+      const STRUCTURED_PATIENT_PROMPT = `You are analysing a sales call between a rep and a patient enquiring about a hair transplant. Return a JSON object with exactly these fields. For every field you must ONLY use items from the fixed lists provided below — copy the exact strings, no paraphrasing, no new items. Return only valid JSON, no preamble.
 
 {
   "no_sale_reasons": pick any that apply from this list only — if the call was not answered or lasted under 30 seconds return an empty array:
-  ["price too high", "didn't expect the cost", "needs payment plan", "payment plan terms don't work", "wants to save up first", "spent money on other treatments", "partner controls finances", "financial difficulty", "recent big expense", "comparing prices with other clinics", "cheaper overseas", "called at bad time", "too busy with work", "going on holiday soon", "big event coming up", "wants to lose weight first", "waiting for life event", "not ready mentally", "needs more time to think", "needs more research", "wasn't expecting a call", "needs to discuss with partner", "partner doesn't know they enquired", "partner is against it", "partner wants to attend consultation", "family thinks it's unnecessary", "worried what others will think", "doesn't want anyone to know", "booked with another clinic", "had consultation elsewhere", "going overseas for it", "knows someone with a clinic", "already on a waiting list", "considering second procedure elsewhere", "doesn't know who we are", "wants more before and after photos", "wants to read more reviews", "had bad experience at another clinic", "worried results won't look natural", "doesn't trust recommended clinic", "wants to speak to someone who has had it done", "seen bad results on someone they know", "worried about scams", "wants to verify surgeon credentials", "not sure if they're a candidate", "not enough donor hair", "health condition may prevent it", "on medication affecting eligibility", "worried about pain", "worried about scarring", "concerned about recovery period", "can't take time off work to recover", "worried it will be obvious", "anxious about medical procedures", "wants doctor consultation first", "bad reaction to anaesthetic before", "health condition affecting healing", "clinic too far away", "can't drive after procedure", "no one to take them", "can't get time off work", "public facing job", "works outdoors", "has young kids", "recovery clashes with event", "can't make appointment times", "lives interstate", "doesn't understand how it works", "confused about technique", "worried about graft count", "doesn't believe it's permanent", "thinks it will look fake", "seen bad transplants on others", "thinks too young or too old", "wants to try medication first", "doesn't want to shave head", "worried about shock loss"],
+  ${JSON.stringify(ALLOWED_NO_SALE_REASONS)},
 
   "pain_points": pick any that apply from this list only:
-  ["too embarrassed to go out", "avoiding social events", "won't go swimming or to beach", "avoids photos and camera", "doesn't want to be in videos", "affecting romantic relationships", "struggling with dating", "lost confidence at work", "feels older than their age", "feels like a different person", "depressed or anxious about hair loss", "obsessing over it daily", "comparing themselves to others", "avoiding mirrors", "crown thinning", "hairline receding at temples", "overall thinning on top", "bald spot visible from behind", "hair loss getting worse every year", "hiding it with styling but can't anymore", "wearing hats every day", "previous transplant has faded", "lost hair after illness or medication", "patchy or uneven hair loss", "scalp visible in sunlight", "used rogaine no results", "tried finasteride stopped due to side effects", "had prp minimal improvement", "tried hair fibres and concealers", "spent thousands on failed treatments", "dealing with it for over 5 years", "started losing hair very young", "family history of severe baldness", "bad results from overseas treatment"],
+  ${JSON.stringify(ALLOWED_PAIN_POINTS)},
 
   "dream_outcomes": pick any that apply from this list only:
-  ["natural looking result", "undetectable result", "full coverage on top", "hairline restored", "temples filled in", "crown covered", "dense enough to style freely", "can get haircut without anyone noticing", "looks good wet and dry", "regain confidence socially", "go to beach without a hat", "be in photos without anxiety", "feel comfortable dating again", "stop thinking about hair loss", "feel like themselves again", "look younger", "go to barber without embarrassment", "permanent solution", "quick recovery", "no one notices during recovery", "done in one day", "minimal scarring", "good graft survival", "before a specific event", "while still young", "partner is supportive", "payment plan fits budget"],
+  ${JSON.stringify(ALLOWED_DREAM_OUTCOMES)},
 
   "engagement_hooks": pick any that apply from this list only:
-  ["before after photos", "natural looking results on similar hair type", "surgeon credentials", "graft count explanation", "graft survival rate", "done in one day", "recovery shorter than expected", "quick return to work", "no full shave required", "free consultation", "guarantee mentioned", "fue vs dhi explanation", "relatable success story", "rep acknowledged their struggle", "validated how it affects their life", "partner got involved", "patient asked detailed questions", "patient mentioned specific event", "patient compared us to overseas", "been thinking about it for years", "trusts the process after explanation", "excited about free consultation", "responded well to pay per show explanation"],
+  ${JSON.stringify(ALLOWED_ENGAGEMENT_HOOKS)},
 
   "recurring_phrases": pick any that apply from this list only — only include if the patient clearly repeated or emphasised this topic:
-  ["natural looking", "payment plan", "crown area", "confidence", "hat every day", "overseas option", "too expensive", "needs to think", "partner approval", "recovery time", "looks fake", "been years", "want it permanent", "not sure if candidate", "wants proof", "before after photos", "free consultation", "one day procedure"],
+  ${JSON.stringify(ALLOWED_RECURRING_PHRASES)},
 
-  "call_outcome": pick exactly one: "Booked" | "Not Interested" | "No Answer" | "Needs Follow Up" | "Callback Scheduled"
+  "call_outcome": pick exactly one: ${ALLOWED_CALL_OUTCOMES.map((s) => `"${s}"`).join(" | ")}
 }
 
 IMPORTANT RULES:
-- You MUST only use the exact wording from the lists above. No paraphrasing. No new items.
+- You MUST only use the exact wording from the lists above. No paraphrasing. No new items. No combining items.
 - If the call was not answered or lasted under 30 seconds, no_sale_reasons must be an empty array.
 - Pick as many items as genuinely apply. Do not force items that were not mentioned.
 - Return only valid JSON. No preamble.`;
