@@ -803,7 +803,7 @@ function BackfillSection() {
       for (let chunk = 0; chunk < 30; chunk++) {
         setResult(`Working… processed ${totalProcessed}, failed ${totalFailed} so far.`);
         const { data, error } = await supabase.functions.invoke("backfill-patient-analysis", {
-          body: { max: 20 },
+          body: { max: 20, force: true },
         });
         if (error) throw error;
         const r = data as {
