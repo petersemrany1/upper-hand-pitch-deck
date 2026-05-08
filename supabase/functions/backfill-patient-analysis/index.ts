@@ -193,7 +193,8 @@ serve(async (req) => {
           structured = { ...structured, ...JSON.parse(structRaw) };
         } catch (_e) {
           // keep defaults if Claude returned non-JSON
-        }
+
+        structured = cleanStructured(structured);
 
         const newAnalysis = {
           ...analysis,
