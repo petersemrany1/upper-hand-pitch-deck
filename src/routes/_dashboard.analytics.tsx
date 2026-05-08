@@ -118,32 +118,46 @@ function AnalyticsPage() {
 
   const aggregate = (
     field: keyof CallAnalysis,
-    opts?: { blocklist?: string[]; minCount?: number; truncateOver?: number },
+    opts?: { blocklist?: string[]; minCount?: number; groupByFirstWords?: number },
   ): { label: string; count: number }[] => {
-    const map = new Map<string, number>();
+    // Collect normalised items first
+    const items: string[] = [];
     rows.forEach((r) => {
       const arr = r.call_analysis?.[field];
       if (!Array.isArray(arr)) return;
       arr.forEach((v) => {
         if (typeof v !== "string") return;
-        let normalized = v.trim().toLowerCase();
+        const normalized = v.trim().toLowerCase().replace(/\s+/g, " ");
         if (!normalized) return;
         if (opts?.blocklist && opts.blocklist.some((b) => normalized.includes(b))) return;
-        if (opts?.truncateOver && normalized.length > opts.truncateOver) {
-          normalized = normalized.split(/\s+/).slice(0, 3).join(" ");
-        }
-        map.set(normalized, (map.get(normalized) ?? 0) + 1);
+        items.push(normalized);
       });
     });
+
+    // Group by shared key (e.g. first N words). Display label = shortest variant in group.
+    const groups = new Map<string, { count: number; shortest: string }>();
+    items.forEach((it) => {
+      const key = opts?.groupByFirstWords
+        ? it.split(" ").slice(0, opts.groupByFirstWords).join(" ")
+        : it;
+      const existing = groups.get(key);
+      if (!existing) {
+        groups.set(key, { count: 1, shortest: it });
+      } else {
+        existing.count += 1;
+        if (it.length < existing.shortest.length) existing.shortest = it;
+      }
+    });
+
     const min = opts?.minCount ?? 1;
-    return Array.from(map.entries())
-      .filter(([, count]) => count >= min)
-      .map(([label, count]) => ({ label, count }))
+    return Array.from(groups.values())
+      .filter((g) => g.count >= min)
+      .map((g) => ({ label: g.shortest, count: g.count }))
       .sort((a, b) => b.count - a.count);
   };
 
-  const noReasons = useMemo(() => aggregate("no_sale_reasons", { blocklist: NO_SALE_BLOCKLIST }), [rows]);
-  const pains = useMemo(() => aggregate("pain_points", { truncateOver: 30 }), [rows]);
+  const noReasons = useMemo(() => aggregate("no_sale_reasons", { blocklist: NO_SALE_BLOCKLIST, groupByFirstWords: 2 }), [rows]);
+  const pains = useMemo(() => aggregate("pain_points", { groupByFirstWords: 2 }), [rows]);
   const dreams = useMemo(() => aggregate("dream_outcomes"), [rows]);
   const hooks = useMemo(() => aggregate("engagement_hooks", { minCount: 2 }), [rows]);
   const phrases = useMemo(() => aggregate("recurring_phrases", { blocklist: PHRASES_BLOCKLIST }), [rows]);
