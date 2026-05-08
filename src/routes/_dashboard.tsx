@@ -103,7 +103,7 @@ function DashboardLayout() {
                 <NotificationBell />
               </div>
             )}
-            <main className="flex-1 overflow-y-auto md:overflow-hidden pt-14 md:pt-0">
+            <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
               <Outlet />
             </main>
           </div>
