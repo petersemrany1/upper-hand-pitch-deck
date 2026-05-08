@@ -4837,36 +4837,7 @@ function RightPanel({
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Lead navigation — top of right column */}
-      <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <button
-          disabled={!hasPreviousLead}
-          onClick={() => {
-            if (inCall) {
-              toast.error("End the call first");
-              return;
-            }
-            if (callDurationAtHangup > 0) {
-              setOutcomeRequired(true);
-              onOutcomeRequiredChange?.(true);
-              return;
-            }
-            if (outcomeRequired) {
-              toast.error("Please set a call outcome first");
-              return;
-            }
-            if (!hasPreviousLead) return;
-            onPreviousLead();
-          }}
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: hasPreviousLead ? "#111" : "#aaa",
-            background: "transparent",
-            cursor: hasPreviousLead ? "pointer" : "default",
-          }}
-        >
-          ← Previous Lead
-        </button>
+      <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
         <button
           onClick={() => {
             if (inCall) {
