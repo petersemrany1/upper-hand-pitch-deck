@@ -284,15 +284,20 @@ serve(async (req) => {
 
       // Pass 2 — structured intel extraction
       const STRUCTURED_PATIENT_PROMPT = `You are analysing a sales call between a rep and a patient enquiring about a hair transplant. Return a JSON object with exactly these fields:
+
 {
-  "no_sale_reasons": ["array of specific reasons the person said no, got off the phone, or showed resistance — e.g. 'price too high', 'needs to think about it', 'partner not on board'"],
-  "pain_points": ["array of problems or frustrations the patient mentioned about their hair loss — e.g. 'avoiding social situations', 'affecting confidence at work'"],
-  "dream_outcomes": ["array of things the patient said they want or are excited about — e.g. 'look natural', 'feel confident again', 'want it done before wedding'"],
-  "recurring_phrases": ["array of exact phrases or topics the patient repeated or emphasised"],
-  "engagement_hooks": ["what kept the patient engaged or talking — e.g. 'responded well to before/after photos', 'got excited about recovery timeline'"],
+  "no_sale_reasons": ["short 2-4 word themes describing why the person resisted or ended the call — only include if they actually spoke to someone. Do not include 'no answer', 'voicemail', 'not available' or any variation of those. Examples: 'price concern', 'needs more time', 'partner not on board', 'already has clinic', 'bad timing'"],
+  "pain_points": ["short 2-4 word themes describing the patient's hair loss frustrations. Examples: 'social confidence', 'avoiding going out', 'affecting relationships', 'work appearance', 'wearing hats daily'"],
+  "dream_outcomes": ["short 2-4 word themes for what they want. Examples: 'natural looking result', 'regain confidence', 'full coverage', 'before wedding', 'permanent solution'"],
+  "recurring_phrases": ["only meaningful phrases the patient repeated or emphasised — exclude filler words like 'yeah yeah', 'sort of', 'kind of', 'you know'. Only include phrases that reveal something about their mindset or concerns"],
+  "engagement_hooks": ["short 2-4 word themes for what kept them talking. Examples: 'before after photos', 'payment plan discussion', 'natural results explanation', 'recovery timeline', 'guarantee mentioned'"],
   "call_outcome": one of ["Booked", "Not Interested", "No Answer", "Needs Follow Up", "Callback Scheduled"]
 }
-Return only valid JSON, no preamble.`;
+
+IMPORTANT:
+- Use consistent short theme labels so similar ideas group together across calls
+- no_sale_reasons must be empty array if the call was not answered or went to voicemail
+- Return only valid JSON, no preamble`;
 
       let structured: Record<string, unknown> = {
         no_sale_reasons: [],

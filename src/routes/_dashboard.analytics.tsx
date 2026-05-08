@@ -94,7 +94,19 @@ function AnalyticsPage() {
     return { total, conversations, bookings, analysed, conv };
   }, [rows]);
 
-  const aggregate = (field: keyof CallAnalysis): { label: string; count: number }[] => {
+  const NO_SALE_BLOCKLIST = [
+    "no answer",
+    "voicemail",
+    "not available",
+    "not reached",
+    "unanswered",
+    "missed",
+  ];
+
+  const aggregate = (
+    field: keyof CallAnalysis,
+    blocklist?: string[],
+  ): { label: string; count: number }[] => {
     const map = new Map<string, number>();
     rows.forEach((r) => {
       const arr = r.call_analysis?.[field];
@@ -103,6 +115,10 @@ function AnalyticsPage() {
         if (typeof v !== "string") return;
         const k = v.trim();
         if (!k) return;
+        if (blocklist) {
+          const lower = k.toLowerCase();
+          if (blocklist.some((b) => lower.includes(b))) return;
+        }
         map.set(k, (map.get(k) ?? 0) + 1);
       });
     });
@@ -111,7 +127,7 @@ function AnalyticsPage() {
       .sort((a, b) => b.count - a.count);
   };
 
-  const noReasons = useMemo(() => aggregate("no_sale_reasons"), [rows]);
+  const noReasons = useMemo(() => aggregate("no_sale_reasons", NO_SALE_BLOCKLIST), [rows]);
   const pains = useMemo(() => aggregate("pain_points"), [rows]);
   const dreams = useMemo(() => aggregate("dream_outcomes"), [rows]);
   const hooks = useMemo(() => aggregate("engagement_hooks"), [rows]);
@@ -304,21 +320,25 @@ function HourSection({ title, data, accent }: { title: string; data: { label: st
       {!hasData ? (
         <EmptyState />
       ) : (
-        <div className="flex items-end gap-1 h-32">
-          {data.map((d) => (
-            <div key={d.label} className="flex-1 flex flex-col items-center justify-end gap-1">
-              <div
-                className="w-full rounded-t"
-                style={{
-                  height: `${(d.count / max) * 100}%`,
-                  background: accent,
-                  minHeight: d.count > 0 ? 2 : 0,
-                }}
-                title={`${d.label}: ${d.count}`}
-              />
-              <span className="text-[9px] text-muted-foreground">{d.label}</span>
-            </div>
-          ))}
+        <div className="flex items-end gap-1" style={{ height: 140 }}>
+          {data.map((d) => {
+            const pct = (d.count / max) * 100;
+            return (
+              <div key={d.label} className="flex-1 flex flex-col items-center gap-1 h-full">
+                <div className="flex-1 w-full flex items-end">
+                  <div
+                    className="w-full rounded-t"
+                    style={{
+                      height: d.count > 0 ? `${Math.max(pct, 4)}%` : 0,
+                      background: accent,
+                    }}
+                    title={`${d.label}: ${d.count}`}
+                  />
+                </div>
+                <span className="text-[9px] text-muted-foreground">{d.label}</span>
+              </div>
+            );
+          })}
         </div>
       )}
     </SectionShell>
