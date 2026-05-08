@@ -513,6 +513,23 @@ function SalesCallPortal() {
 
   const callbackBanner = null;
 
+  // Today's callbacks (overdue + scheduled-for-today) for the at-a-glance panel
+  const todaysCallbacks = useMemo(() => {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end = new Date(start); end.setDate(end.getDate() + 1);
+    const list = leads.filter((l) => {
+      if (!l.callback_scheduled_at) return false;
+      const s = normaliseStatus(l.status, l);
+      if (s === "not_interested" || s === "booked_deposit_paid") return false;
+      const raw = (l.status ?? "").toLowerCase();
+      if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
+      const t = new Date(l.callback_scheduled_at).getTime();
+      return !Number.isNaN(t) && t < end.getTime();
+    });
+    return list.sort((a, b) =>
+      new Date(a.callback_scheduled_at!).getTime() - new Date(b.callback_scheduled_at!).getTime()
+    );
+  }, [leads]);
 
   // Build the ordered session queue from the same buckets as LeadChooser
   const buildSessionQueue = useCallback((): string[] => {
