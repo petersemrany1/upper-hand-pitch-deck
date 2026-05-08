@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 
 import { useAuth } from "@/hooks/useAuth";
+import htgLogo from "@/assets/hair-transplant-group-logo.png";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -194,12 +195,12 @@ export function AppSidebar() {
           style={{ borderBottom: "0.5px solid #f5f5f5" }}
         >
           <div className="flex items-center gap-2">
-            <span
-              className="inline-flex items-center justify-center rounded-md flex-shrink-0"
-              style={{ width: 26, height: 26, background: "#fff1ee", color: "#f4522d", fontSize: 12, fontWeight: 600 }}
-            >
-              U
-            </span>
+            <img
+              src={htgLogo}
+              alt="Hair Transplant Group"
+              className="flex-shrink-0 rounded-md object-cover"
+              style={{ width: 26, height: 26 }}
+            />
             <span
               className="group-data-[collapsible=icon]:hidden"
               style={{ fontSize: 13, fontWeight: 500, color: "#111", letterSpacing: "-0.01em" }}
