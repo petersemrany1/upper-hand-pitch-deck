@@ -798,6 +798,7 @@ function BackfillSection() {
     setRunning(true);
     let totalProcessed = 0;
     let totalFailed = 0;
+    let totalCandidates = 0;
     let lastError = "";
     try {
       for (let chunk = 0; chunk < 30; chunk++) {
@@ -809,18 +810,23 @@ function BackfillSection() {
         const r = data as {
           processed?: number;
           failed?: number;
+          total_remaining_before?: number;
           total_remaining_after?: number;
           done?: boolean;
           errors?: Array<{ id: string; error: string }>;
         };
+        if (chunk === 0) totalCandidates = r.total_remaining_before ?? 0;
         totalProcessed += r.processed ?? 0;
         totalFailed += r.failed ?? 0;
         if (r.errors?.[0]?.error) lastError = r.errors[0].error;
         console.log("[backfill] chunk result", r);
         if (r.done || (r.processed ?? 0) + (r.failed ?? 0) === 0) break;
       }
+      const skipped = Math.max(0, totalCandidates - totalProcessed - totalFailed);
       const tail = lastError ? ` Last error: ${lastError}` : "";
-      setResult(`Done. Processed ${totalProcessed}. Failed: ${totalFailed}.${tail}`);
+      setResult(
+        `Done. Candidates: ${totalCandidates}. Processed: ${totalProcessed}. Failed: ${totalFailed}. Skipped: ${skipped}.${tail}`,
+      );
       toast.success("Backfill complete");
     } catch (e) {
       const msg = (e as Error).message;
