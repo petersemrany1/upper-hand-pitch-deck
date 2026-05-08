@@ -158,12 +158,13 @@ serve(async (req) => {
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
     if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
 
-    let body: { max?: number; force?: boolean } = {};
+    let body: { max?: number; force?: boolean; olderThan?: string } = {};
     try { body = await req.json(); } catch { /* no body */ }
     const startedAt = Date.now();
     const deadlineMs = startedAt + 115000;
     const MAX_PER_RUN = Math.max(1, Math.min(5, body.max ?? 3));
     const FORCE = body.force === true;
+    const OLDER_THAN = body.olderThan ? new Date(body.olderThan).getTime() : null;
 
     const { data: rows, error } = await supabase
       .from("call_records")
@@ -175,10 +176,15 @@ serve(async (req) => {
     if (error) throw new Error(`Lookup failed: ${error.message}`);
 
     // Rows with a real transcript. When force=true, re-run on every analysed row.
+    // When olderThan is set, only re-run rows whose analysed_at is before that timestamp (or missing).
     const candidates = (rows ?? []).filter((r) => {
-      const a = r.call_analysis as { transcript?: string; patient_summary?: string } | null;
+      const a = r.call_analysis as { transcript?: string; patient_summary?: string; analysed_at?: string } | null;
       const hasTranscript = !!a?.transcript && a.transcript.trim().length > 30;
       if (!hasTranscript) return false;
+      if (OLDER_THAN !== null) {
+        const ts = a?.analysed_at ? new Date(a.analysed_at).getTime() : 0;
+        return !ts || ts < OLDER_THAN;
+      }
       if (FORCE) return true;
       const alreadyDone = !!a?.patient_summary && (a.patient_summary as string).trim().length > 0;
       return !alreadyDone;
