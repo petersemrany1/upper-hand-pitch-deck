@@ -796,18 +796,35 @@ function BackfillSection() {
 
   const run = async () => {
     setRunning(true);
-    setResult("Running backfill — this may take several minutes…");
+    let totalProcessed = 0;
+    let totalFailed = 0;
+    let lastError = "";
     try {
-      const { data, error } = await supabase.functions.invoke("backfill-patient-analysis", { body: {} });
-      if (error) throw error;
-      const r = data as { total_candidates?: number; processed?: number; failed?: number; errors?: Array<{ id: string; error: string }> };
-      const sample = r.errors?.[0]?.error ? ` First error: ${r.errors[0].error}` : "";
-      setResult(`Done. Processed ${r.processed ?? 0} of ${r.total_candidates ?? 0}. Failed: ${r.failed ?? 0}.${sample}`);
-      console.log("[backfill] errors", r.errors);
+      for (let chunk = 0; chunk < 30; chunk++) {
+        setResult(`Working… processed ${totalProcessed}, failed ${totalFailed} so far.`);
+        const { data, error } = await supabase.functions.invoke("backfill-patient-analysis", {
+          body: { max: 20 },
+        });
+        if (error) throw error;
+        const r = data as {
+          processed?: number;
+          failed?: number;
+          total_remaining_after?: number;
+          done?: boolean;
+          errors?: Array<{ id: string; error: string }>;
+        };
+        totalProcessed += r.processed ?? 0;
+        totalFailed += r.failed ?? 0;
+        if (r.errors?.[0]?.error) lastError = r.errors[0].error;
+        console.log("[backfill] chunk result", r);
+        if (r.done || (r.processed ?? 0) + (r.failed ?? 0) === 0) break;
+      }
+      const tail = lastError ? ` Last error: ${lastError}` : "";
+      setResult(`Done. Processed ${totalProcessed}. Failed: ${totalFailed}.${tail}`);
       toast.success("Backfill complete");
     } catch (e) {
       const msg = (e as Error).message;
-      setResult(`Failed: ${msg}`);
+      setResult(`Failed after processing ${totalProcessed}: ${msg}`);
       toast.error(msg);
     } finally {
       setRunning(false);
