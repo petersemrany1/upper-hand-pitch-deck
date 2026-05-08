@@ -160,7 +160,9 @@ serve(async (req) => {
 
     let body: { max?: number; force?: boolean } = {};
     try { body = await req.json(); } catch { /* no body */ }
-    const MAX_PER_RUN = Math.max(1, Math.min(40, body.max ?? 20));
+    const startedAt = Date.now();
+    const deadlineMs = startedAt + 115000;
+    const MAX_PER_RUN = Math.max(1, Math.min(5, body.max ?? 3));
     const FORCE = body.force === true;
 
     const { data: rows, error } = await supabase
@@ -189,17 +191,17 @@ serve(async (req) => {
     let failed = 0;
     const errors: Array<{ id: string; error: string }> = [];
 
-    // Sequential processing — Anthropic org limit is 50 RPM.
-    // Each row = 2 Claude calls. ~1.6s spacing between calls keeps us under the limit.
+    // Sequential, time-budgeted processing keeps each HTTP invocation well below the 150s edge limit.
     for (const row of work) {
+      if (Date.now() > deadlineMs - 30000) break;
       try {
         const analysis = (row.call_analysis ?? {}) as Record<string, unknown>;
         const transcript = (analysis.transcript as string) || "";
         const userContent = `Transcript:\n\n${transcript}`;
 
-        const summaryRaw = await callClaude(ANTHROPIC_API_KEY, PATIENT_SYSTEM_PROMPT, userContent);
+        const summaryRaw = await callClaude(ANTHROPIC_API_KEY, PATIENT_SYSTEM_PROMPT, userContent, { deadlineMs });
         await sleep(1600);
-        const structRaw = await callClaude(ANTHROPIC_API_KEY, STRUCTURED_PATIENT_PROMPT, userContent);
+        const structRaw = await callClaude(ANTHROPIC_API_KEY, STRUCTURED_PATIENT_PROMPT, userContent, { deadlineMs });
 
         const patientSummary = summaryRaw.trim();
         let structured: Record<string, unknown> = {
