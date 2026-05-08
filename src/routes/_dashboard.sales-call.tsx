@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
   HandshakeIcon, DollarSign, ShieldCheck, Calendar as CalendarIcon,
-  Check, AlertTriangle, Send, Search, X, ChevronDown,
+  Check, AlertTriangle, Send, Search, X, ChevronDown, PhoneCall,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
@@ -753,6 +753,18 @@ function SalesCallPortal() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <CallbacksTodayButton
+              callbacks={todaysCallbacks}
+              onPick={(id) => {
+                if (outcomeRequiredRef.current) {
+                  setPendingLeadId(id);
+                  toast.error("Please set a call outcome first");
+                  return;
+                }
+                setActiveId(id); setStep("mindset"); setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+              }}
+            />
             <NotificationBell />
             <button
               onClick={() => setSessionPaused(p => !p)}
@@ -6301,3 +6313,62 @@ const OBJECTIONS = [
     note: "Swap [Clinic Name], [Dr Name] and XYZ with the lead's actual details from discovery.",
   },
 ];
+
+function CallbacksTodayButton({ callbacks, onPick }: { callbacks: Lead[]; onPick: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+  const count = callbacks.length;
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        title="Scheduled callbacks today"
+        style={{ position: "relative", background: "transparent", border: "1px solid #555", borderRadius: 6, padding: "8px 10px", cursor: "pointer", color: "#e8e8e8", display: "flex", alignItems: "center", gap: 6, fontFamily: "inherit" }}
+      >
+        <PhoneCall size={16} />
+        {count > 0 && (
+          <span style={{ position: "absolute", top: -6, right: -6, minWidth: 18, height: 18, padding: "0 5px", borderRadius: 9, background: "#f4522d", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>{count}</span>
+        )}
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 8px)", right: 0, width: 320, maxHeight: 360, overflow: "auto", background: "#fff", color: "#111", border: "0.5px solid #e8e8e6", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.18)", zIndex: 50 }}>
+          <div style={{ padding: "10px 14px", borderBottom: "0.5px solid #f0f0ee", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>Callbacks today</div>
+            <div style={{ fontSize: 11, color: "#888" }}>{count} scheduled</div>
+          </div>
+          {count === 0 ? (
+            <div style={{ padding: "18px 14px", fontSize: 13, color: "#888", textAlign: "center" }}>No callbacks scheduled for today.</div>
+          ) : (
+            callbacks.map((l) => {
+              const t = new Date(l.callback_scheduled_at!);
+              const overdue = t.getTime() <= Date.now();
+              const time = t.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
+              const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "(no name)";
+              return (
+                <button
+                  key={l.id}
+                  onClick={() => { onPick(l.id); setOpen(false); }}
+                  style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 14px", background: "transparent", border: "none", borderBottom: "0.5px solid #f4f4f2", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: overdue ? "#b91c1c" : "#c2410c", background: overdue ? "#fee2e2" : "#ffedd5", padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap" }}>{overdue ? "Overdue" : time}</span>
+                    <span style={{ fontSize: 13, color: "#111", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: "#aaa" }}>{overdue ? time : ""} ›</span>
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
