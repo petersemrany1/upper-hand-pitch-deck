@@ -27,12 +27,12 @@ const OUTCOME_LABELS: Record<Outcome, string> = {
 };
 
 const OUTCOME_DOT: Record<Outcome, string> = {
-  no_answer: "#eab308",
-  callback_scheduled: "#f59e0b",
-  had_convo_chase_up: "#92400e",
-  not_interested: "#ef4444",
-  booked_deposit_paid: "#22c55e",
-  dropped: "#111111",
+  no_answer: "#eab308",          // yellow
+  callback_scheduled: "#f97316", // orange
+  had_convo_chase_up: "#a16207", // brown
+  not_interested: "#ef4444",     // red
+  booked_deposit_paid: "#22c55e",// green
+  dropped: "#374151",            // dark grey
 };
 
 function formatDuration(sec: number): string {
@@ -307,10 +307,15 @@ export function FloatingCallWidget() {
     const previousStatus = prevStatusForEndRef.current;
     const wasActive = previousStatus === "in-call" || previousStatus === "connecting";
     if (wasActive && !isActive) {
-      // reset internal state — outcome popup removed; outcomes are logged manually from the right panel
+      // Capture sid + from for the outcome prompt before clearing internal state
+      const sidForOutcome = prevSidRef.current;
+      const fromForOutcome = incomingFrom || activePhone || phone || null;
+      setEndedSid(sidForOutcome);
+      setEndedFrom(fromForOutcome);
+      setShowOutcome(true);
+
       prevSidRef.current = null;
       startedAtRef.current = null;
-      setSeconds(0);
       setExpanded(false);
       setShowKeypad(false);
       setMuted(false);
@@ -357,7 +362,7 @@ export function FloatingCallWidget() {
         callSid={endedSid}
         from={endedFrom}
         durationSec={seconds}
-        onClose={() => setShowOutcome(false)}
+        onClose={() => { setShowOutcome(false); setSeconds(0); setEndedSid(null); setEndedFrom(null); }}
       />
     );
   }
