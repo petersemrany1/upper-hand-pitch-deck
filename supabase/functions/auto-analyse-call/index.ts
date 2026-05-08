@@ -20,46 +20,46 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 
-const TIME_TOKENS = /\b(am|pm|a\.m\.|p\.m\.|o'clock|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|yesterday|morning|afternoon|evening|tonight|next|last|this)\b/g;
-const NO_SALE_OUTCOME_BLOCK = ["not available", "call back", "no answer", "voicemail", "not reachable", "couldn't talk", "couldnt talk"];
+const ALLOWED_NO_SALE_REASONS = ["price too high", "didn't expect the cost", "needs payment plan", "payment plan terms don't work", "wants to save up first", "spent money on other treatments", "partner controls finances", "financial difficulty", "recent big expense", "comparing prices with other clinics", "cheaper overseas", "called at bad time", "too busy with work", "going on holiday soon", "big event coming up", "wants to lose weight first", "waiting for life event", "not ready mentally", "needs more time to think", "needs more research", "wasn't expecting a call", "needs to discuss with partner", "partner doesn't know they enquired", "partner is against it", "partner wants to attend consultation", "family thinks it's unnecessary", "worried what others will think", "doesn't want anyone to know", "booked with another clinic", "had consultation elsewhere", "going overseas for it", "knows someone with a clinic", "already on a waiting list", "considering second procedure elsewhere", "doesn't know who we are", "wants more before and after photos", "wants to read more reviews", "had bad experience at another clinic", "worried results won't look natural", "doesn't trust recommended clinic", "wants to speak to someone who has had it done", "seen bad results on someone they know", "worried about scams", "wants to verify surgeon credentials", "not sure if they're a candidate", "not enough donor hair", "health condition may prevent it", "on medication affecting eligibility", "worried about pain", "worried about scarring", "concerned about recovery period", "can't take time off work to recover", "worried it will be obvious", "anxious about medical procedures", "wants doctor consultation first", "bad reaction to anaesthetic before", "health condition affecting healing", "clinic too far away", "can't drive after procedure", "no one to take them", "can't get time off work", "public facing job", "works outdoors", "has young kids", "recovery clashes with event", "can't make appointment times", "lives interstate", "doesn't understand how it works", "confused about technique", "worried about graft count", "doesn't believe it's permanent", "thinks it will look fake", "seen bad transplants on others", "thinks too young or too old", "wants to try medication first", "doesn't want to shave head", "worried about shock loss"];
 
-function cleanString(s: string): string {
-  let v = String(s || "").toLowerCase().trim();
-  v = v.replace(/\([^)]*\)/g, " ");
-  v = v.replace(/\$[\d,.]+(?:k|m)?/g, " ");
-  v = v.replace(/[\d]+[\d,.\-:]*/g, " ");
-  v = v.replace(TIME_TOKENS, " ");
-  v = v.replace(/[^\w\s'-]/g, " ");
-  v = v.replace(/\s+/g, " ").trim();
-  return v.split(" ").filter(Boolean).slice(0, 4).join(" ");
-}
+const ALLOWED_PAIN_POINTS = ["too embarrassed to go out", "avoiding social events", "won't go swimming or to beach", "avoids photos and camera", "doesn't want to be in videos", "affecting romantic relationships", "struggling with dating", "lost confidence at work", "feels older than their age", "feels like a different person", "depressed or anxious about hair loss", "obsessing over it daily", "comparing themselves to others", "avoiding mirrors", "crown thinning", "hairline receding at temples", "overall thinning on top", "bald spot visible from behind", "hair loss getting worse every year", "hiding it with styling but can't anymore", "wearing hats every day", "previous transplant has faded", "lost hair after illness or medication", "patchy or uneven hair loss", "scalp visible in sunlight", "used rogaine no results", "tried finasteride stopped due to side effects", "had prp minimal improvement", "tried hair fibres and concealers", "spent thousands on failed treatments", "dealing with it for over 5 years", "started losing hair very young", "family history of severe baldness", "bad results from overseas treatment"];
 
-function cleanArray(arr: unknown, opts?: { extraBlocklist?: string[] }): string[] {
+const ALLOWED_DREAM_OUTCOMES = ["natural looking result", "undetectable result", "full coverage on top", "hairline restored", "temples filled in", "crown covered", "dense enough to style freely", "can get haircut without anyone noticing", "looks good wet and dry", "regain confidence socially", "go to beach without a hat", "be in photos without anxiety", "feel comfortable dating again", "stop thinking about hair loss", "feel like themselves again", "look younger", "go to barber without embarrassment", "permanent solution", "quick recovery", "no one notices during recovery", "done in one day", "minimal scarring", "good graft survival", "before a specific event", "while still young", "partner is supportive", "payment plan fits budget"];
+
+const ALLOWED_ENGAGEMENT_HOOKS = ["before after photos", "natural looking results on similar hair type", "surgeon credentials", "graft count explanation", "graft survival rate", "done in one day", "recovery shorter than expected", "quick return to work", "no full shave required", "free consultation", "guarantee mentioned", "fue vs dhi explanation", "relatable success story", "rep acknowledged their struggle", "validated how it affects their life", "partner got involved", "patient asked detailed questions", "patient mentioned specific event", "patient compared us to overseas", "been thinking about it for years", "trusts the process after explanation", "excited about free consultation", "responded well to pay per show explanation", "excited about meeting shalandra", "shalandra success story shared", "super fund payment option explained", "interested in using super to fund", "payment plan explanation", "scarcity of appointment slots", "pricing discussion engaged", "partner enthusiastic about procedure", "willing to pay deposit immediately", "interested in additional services", "responded to visualization exercise", "asked who performs the surgery"];
+
+const ALLOWED_RECURRING_PHRASES = ["natural looking", "payment plan", "crown area", "confidence", "hat every day", "overseas option", "too expensive", "needs to think", "partner approval", "recovery time", "looks fake", "been years", "want it permanent", "not sure if candidate", "wants proof", "before after photos", "free consultation", "one day procedure"];
+
+const ALLOWED_CALL_OUTCOMES = ["Booked", "Not Interested", "No Answer", "Needs Follow Up", "Callback Scheduled"];
+
+function whitelistArray(arr: unknown, allowed: string[]): string[] {
   if (!Array.isArray(arr)) return [];
+  const set = new Set(allowed.map((a) => a.toLowerCase()));
   const out: string[] = [];
+  const seen = new Set<string>();
   for (const item of arr) {
     if (typeof item !== "string") continue;
-    const cleaned = cleanString(item);
-    if (!cleaned) continue;
-    if (cleaned.split(" ").length < 2) continue;
-    if (opts?.extraBlocklist) {
-      const lc = cleaned.toLowerCase();
-      const original = item.toLowerCase();
-      if (opts.extraBlocklist.some((b) => lc.includes(b) || original.includes(b))) continue;
-    }
-    out.push(cleaned);
+    const lc = item.trim().toLowerCase();
+    if (!set.has(lc)) continue;
+    if (seen.has(lc)) continue;
+    seen.add(lc);
+    out.push(lc);
   }
   return out;
 }
 
 function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
+  const outcome = typeof s.call_outcome === "string" && ALLOWED_CALL_OUTCOMES.includes(s.call_outcome as string)
+    ? s.call_outcome
+    : null;
   return {
     ...s,
-    no_sale_reasons: cleanArray(s.no_sale_reasons, { extraBlocklist: NO_SALE_OUTCOME_BLOCK }),
-    pain_points: cleanArray(s.pain_points),
-    dream_outcomes: cleanArray(s.dream_outcomes),
-    recurring_phrases: cleanArray(s.recurring_phrases),
-    engagement_hooks: cleanArray(s.engagement_hooks),
+    no_sale_reasons: whitelistArray(s.no_sale_reasons, ALLOWED_NO_SALE_REASONS),
+    pain_points: whitelistArray(s.pain_points, ALLOWED_PAIN_POINTS),
+    dream_outcomes: whitelistArray(s.dream_outcomes, ALLOWED_DREAM_OUTCOMES),
+    recurring_phrases: whitelistArray(s.recurring_phrases, ALLOWED_RECURRING_PHRASES),
+    engagement_hooks: whitelistArray(s.engagement_hooks, ALLOWED_ENGAGEMENT_HOOKS),
+    call_outcome: outcome,
   };
 }
 
