@@ -143,7 +143,26 @@ export function IncomingCallDialog() {
             "Hi, I'm just on the phone at the moment — I'll call you back shortly.",
         },
       });
-      if (r.success) setSmsSent(true);
+      if (r.success) {
+        setSmsSent(true);
+        // Auto-schedule callback for 15 min from now and reject the call so
+        // it falls to voicemail. The lead will pop back into the
+        // "Callbacks today" queue.
+        if (matched?.id) {
+          const callbackAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+          try {
+            await supabase
+              .from("meta_leads")
+              .update({
+                status: "callback_scheduled",
+                callback_scheduled_at: callbackAt,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", matched.id);
+          } catch { /* noop */ }
+        }
+        try { reject(); } catch { /* noop */ }
+      }
     } catch { /* noop */ }
     setSmsBusy(false);
   };
