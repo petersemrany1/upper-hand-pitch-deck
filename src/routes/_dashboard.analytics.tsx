@@ -103,9 +103,22 @@ function AnalyticsPage() {
     "missed",
   ];
 
+  const PHRASES_BLOCKLIST = [
+    "yeah",
+    "sort of",
+    "kind of",
+    "you know",
+    "deposit payment",
+    "address",
+    "location",
+    "bank",
+    "stripe",
+    "payment link",
+  ];
+
   const aggregate = (
     field: keyof CallAnalysis,
-    blocklist?: string[],
+    opts?: { blocklist?: string[]; minCount?: number },
   ): { label: string; count: number }[] => {
     const map = new Map<string, number>();
     rows.forEach((r) => {
@@ -113,25 +126,24 @@ function AnalyticsPage() {
       if (!Array.isArray(arr)) return;
       arr.forEach((v) => {
         if (typeof v !== "string") return;
-        const k = v.trim();
-        if (!k) return;
-        if (blocklist) {
-          const lower = k.toLowerCase();
-          if (blocklist.some((b) => lower.includes(b))) return;
-        }
-        map.set(k, (map.get(k) ?? 0) + 1);
+        const normalized = v.trim().toLowerCase();
+        if (!normalized) return;
+        if (opts?.blocklist && opts.blocklist.some((b) => normalized.includes(b))) return;
+        map.set(normalized, (map.get(normalized) ?? 0) + 1);
       });
     });
+    const min = opts?.minCount ?? 1;
     return Array.from(map.entries())
+      .filter(([, count]) => count >= min)
       .map(([label, count]) => ({ label, count }))
       .sort((a, b) => b.count - a.count);
   };
 
-  const noReasons = useMemo(() => aggregate("no_sale_reasons", NO_SALE_BLOCKLIST), [rows]);
+  const noReasons = useMemo(() => aggregate("no_sale_reasons", { blocklist: NO_SALE_BLOCKLIST }), [rows]);
   const pains = useMemo(() => aggregate("pain_points"), [rows]);
   const dreams = useMemo(() => aggregate("dream_outcomes"), [rows]);
-  const hooks = useMemo(() => aggregate("engagement_hooks"), [rows]);
-  const phrases = useMemo(() => aggregate("recurring_phrases"), [rows]);
+  const hooks = useMemo(() => aggregate("engagement_hooks", { minCount: 2 }), [rows]);
+  const phrases = useMemo(() => aggregate("recurring_phrases", { blocklist: PHRASES_BLOCKLIST }), [rows]);
 
   const hourBuckets = (filter: (r: Row) => boolean) => {
     const buckets = new Array(24).fill(0) as number[];
