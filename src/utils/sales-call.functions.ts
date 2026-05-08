@@ -433,7 +433,7 @@ export const inviteRep = createServerFn({ method: "POST" })
     // 3. Send branded invite email through the same verified sender domain used by the working email system.
     const html = `
       <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
-        <h2 style="margin:0 0 12px">You've been invited to Upper Hand</h2>
+        <h2 style="margin:0 0 12px">You've been invited to Hair Transplant Group Portal</h2>
         <p>Hi ${data.firstName},</p>
         <p>You've been added as a sales rep. Click the button below to set your password and sign in.</p>
         <p style="margin:24px 0">
@@ -453,7 +453,7 @@ export const inviteRep = createServerFn({ method: "POST" })
         body: JSON.stringify({
           from,
           to: [to],
-          subject: "You've been invited to Upper Hand",
+          subject: "You've been invited to Hair Transplant Group Portal",
           reply_to: "admin@bold-patients.com",
           html,
         }),
@@ -477,7 +477,7 @@ export const inviteRep = createServerFn({ method: "POST" })
 
     let sendResult: { ok: boolean; status: number; body: string };
     try {
-      sendResult = await sendVia("Upper Hand <admin@bold-patients.com>", data.email);
+      sendResult = await sendVia("Hair Transplant Group Portal <admin@bold-patients.com>", data.email);
     } catch (e) {
       await rollbackAuthUser(newUserId);
       await logError("inviteRep:resend", (e as Error).message, { email: data.email });
