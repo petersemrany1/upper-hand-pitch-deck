@@ -32,6 +32,7 @@ const STRUCTURED_PATIENT_PROMPT = `You are analysing a sales call between a rep 
 IMPORTANT:
 - Use consistent short theme labels so similar ideas group together across calls
 - no_sale_reasons must be empty array if the call was not answered or went to voicemail
+- Each no_sale_reason must be a generic theme of 2-4 words maximum. Never include specific times, dates, clinic names, dollar amounts, or one-off details. Wrong: 'Cannot commit to next Saturday 10:45am slot'. Right: 'scheduling conflict'. Wrong: 'Previous negative experience with Advanced Hair Clinic spending $6-7k'. Right: 'previous bad experience'.
 - Return only valid JSON, no preamble`;
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
