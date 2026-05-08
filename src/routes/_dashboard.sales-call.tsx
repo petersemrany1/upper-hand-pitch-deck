@@ -6088,7 +6088,18 @@ function ForcedOutcomeModal({
     cursor: "pointer",
     marginBottom: 8,
     transition: "border-color 120ms ease",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
   };
+  const dotStyle = (color: string): CSSProperties => ({
+    display: "inline-block",
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+    background: color,
+    flexShrink: 0,
+  });
   const onHover = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#f4522d"; };
   const onLeave = (e: ReactMouseEvent<HTMLButtonElement>) => { e.currentTarget.style.borderColor = "#e8e8e6"; };
 
@@ -6103,11 +6114,24 @@ function ForcedOutcomeModal({
 
         {view === "menu" && (
           <>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("callback")}>📞 Callback</button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>🤝 Had Convo — Chase Up</button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>📵 No Answer / Voicemail</button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>❌ Not Interested</button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>⛔ Dropped</button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>
+              <span style={dotStyle("#eab308")} /> No Answer
+            </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("callback")}>
+              <span style={dotStyle("#f97316")} /> Callback Scheduled
+            </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>
+              <span style={dotStyle("#5b3a13")} /> Had Convo — Chase Up
+            </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>
+              <span style={dotStyle("#ef4444")} /> Not Interested
+            </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("booked_deposit_paid")}>
+              <span style={dotStyle("#22c55e")} /> Booked — Deposit Paid
+            </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>
+              <span style={dotStyle("#000000")} /> Dropped
+            </button>
           </>
         )}
 
