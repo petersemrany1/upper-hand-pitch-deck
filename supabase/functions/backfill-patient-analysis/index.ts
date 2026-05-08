@@ -141,7 +141,9 @@ serve(async (req) => {
           processed += 1;
         } catch (e) {
           failed += 1;
-          errors.push({ id: row.id, error: (e as Error).message });
+          const msg = (e as Error).message;
+          console.error(`[backfill] row ${row.id} failed:`, msg);
+          errors.push({ id: row.id, error: msg });
         }
       }));
 
