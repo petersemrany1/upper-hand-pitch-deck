@@ -204,7 +204,7 @@ export function AppSidebar() {
               className="group-data-[collapsible=icon]:hidden"
               style={{ fontSize: 13, fontWeight: 500, color: "#111", letterSpacing: "-0.01em" }}
             >
-              Upper Hand
+              Hair Transplant Group Portal
             </span>
           </div>
         </div>

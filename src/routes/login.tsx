@@ -53,7 +53,7 @@ function LoginPage() {
           >
             <Lock className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold text-[#111111]">Upper Hand Portal</h1>
+          <h1 className="text-xl font-bold text-[#111111]">Hair Transplant Group Portal</h1>
           <p className="mt-1 text-sm text-[#111111]">Sign in to continue</p>
         </div>
 

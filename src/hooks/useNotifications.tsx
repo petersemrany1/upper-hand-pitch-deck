@@ -287,7 +287,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   // Tab title + favicon dot show only new notifications since the bell was last opened.
   useEffect(() => {
-    const baseTitle = "Upperhand Dashboard";
+    const baseTitle = "Hair Transplant Group Portal";
     document.title = unseenCount > 0 ? `(${unseenCount}) ${baseTitle}` : baseTitle;
   }, [unseenCount]);
 
