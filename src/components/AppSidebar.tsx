@@ -33,6 +33,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar },
       { title: "Leads", url: "/leads", icon: Users },
+      { title: "Analytics", url: "/analytics", icon: BarChart3 },
       { title: "Phone", url: "/inbox", icon: Phone },
     ],
   },
