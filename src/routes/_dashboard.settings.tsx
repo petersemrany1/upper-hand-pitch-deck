@@ -79,6 +79,8 @@ type Rep = {
   created_at: string;
 };
 
+const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
 function SettingsPage() {
   const { role, user } = useAuth();
   const isAdmin = role === "admin";
@@ -801,10 +803,10 @@ function BackfillSection() {
     let totalCandidates = 0;
     let lastError = "";
     try {
-      for (let chunk = 0; chunk < 30; chunk++) {
+      for (let chunk = 0; chunk < 80; chunk++) {
         setResult(`Working… processed ${totalProcessed}, failed ${totalFailed} so far.`);
         const { data, error } = await supabase.functions.invoke("backfill-patient-analysis", {
-          body: { max: 20, force: true },
+          body: { max: 3, force: true },
         });
         if (error) throw error;
         const r = data as {
@@ -821,6 +823,7 @@ function BackfillSection() {
         if (r.errors?.[0]?.error) lastError = r.errors[0].error;
         console.log("[backfill] chunk result", r);
         if (r.done || (r.processed ?? 0) + (r.failed ?? 0) === 0) break;
+        await sleep(12000);
       }
       const skipped = Math.max(0, totalCandidates - totalProcessed - totalFailed);
       const tail = lastError ? ` Last error: ${lastError}` : "";
