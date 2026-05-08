@@ -800,8 +800,10 @@ function BackfillSection() {
     try {
       const { data, error } = await supabase.functions.invoke("backfill-patient-analysis", { body: {} });
       if (error) throw error;
-      const r = data as { total_candidates?: number; processed?: number; failed?: number };
-      setResult(`Done. Processed ${r.processed ?? 0} of ${r.total_candidates ?? 0}. Failed: ${r.failed ?? 0}.`);
+      const r = data as { total_candidates?: number; processed?: number; failed?: number; errors?: Array<{ id: string; error: string }> };
+      const sample = r.errors?.[0]?.error ? ` First error: ${r.errors[0].error}` : "";
+      setResult(`Done. Processed ${r.processed ?? 0} of ${r.total_candidates ?? 0}. Failed: ${r.failed ?? 0}.${sample}`);
+      console.log("[backfill] errors", r.errors);
       toast.success("Backfill complete");
     } catch (e) {
       const msg = (e as Error).message;
