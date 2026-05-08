@@ -362,7 +362,7 @@ export function FloatingCallWidget() {
         callSid={endedSid}
         from={endedFrom}
         durationSec={seconds}
-        onClose={() => setShowOutcome(false)}
+        onClose={() => { setShowOutcome(false); setSeconds(0); setEndedSid(null); setEndedFrom(null); }}
       />
     );
   }
