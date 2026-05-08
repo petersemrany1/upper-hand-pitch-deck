@@ -162,7 +162,7 @@ serve(async (req) => {
     const timeStr = "2:00 PM";
 
     const body3 = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${formatDateLong(threeDayDate)} at ${timeStr}. We look forward to seeing you. [TEST]`;
-    const body1 = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${formatDateLong(oneDayDate)} at ${timeStr}. We look forward to seeing you. [TEST]`;
+    const body1 = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for tomorrow at ${timeStr}. We look forward to seeing you. [TEST]`;
 
     const r3 = await sendSms(accountSid, authToken, phone, body3);
     const r1 = await sendSms(accountSid, authToken, phone, body1);
@@ -232,7 +232,7 @@ serve(async (req) => {
         results.push({ id: row.id, error: r.error, kind: "3day" });
       }
     } else if (days === 1 && !row.twentyfour_hour_sms_sent) {
-      const msg = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${dateLong} at ${timeStr}. We look forward to seeing you.`;
+      const msg = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for tomorrow at ${timeStr}. We look forward to seeing you.`;
       const r = await sendSms(accountSid, authToken, phone, msg);
       if (r.ok) {
         await supabase.from("appointment_reminders").update({
