@@ -29,10 +29,10 @@ const OUTCOME_LABELS: Record<Outcome, string> = {
 const OUTCOME_DOT: Record<Outcome, string> = {
   no_answer: "#eab308",          // yellow
   callback_scheduled: "#f97316", // orange
-  had_convo_chase_up: "#a16207", // brown
+  had_convo_chase_up: "#5b3a13", // dark brown
   not_interested: "#ef4444",     // red
   booked_deposit_paid: "#22c55e",// green
-  dropped: "#374151",            // dark grey
+  dropped: "#000000",            // black
 };
 
 function formatDuration(sec: number): string {
@@ -651,12 +651,10 @@ function CallOutcomePrompt({
       role="dialog"
       aria-label="Log call outcome"
     >
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-emerald-500" />
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600">
-            Log call outcome
-          </span>
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <div className="text-base font-semibold text-[#111111]">How did that go?</div>
+          <div className="text-xs text-[#666] mt-0.5">Set the outcome to keep your pipeline accurate.</div>
         </div>
         <button
           type="button"
@@ -667,18 +665,6 @@ function CallOutcomePrompt({
           <X className="h-4 w-4" />
         </button>
       </div>
-
-      <div className="text-sm text-[#111111] truncate">{from || "Call ended"}</div>
-      <div className="font-mono text-xs text-[#666] mb-3">Duration {formatDuration(durationSec)}</div>
-
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        placeholder="Quick notes (optional)…"
-        rows={2}
-        className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#999] mb-3 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
-      />
 
       <div className="flex flex-col gap-2">
         {outcomes.map((o) => (
