@@ -99,8 +99,12 @@ function AnalyticsPage() {
     "voicemail",
     "not available",
     "not reached",
+    "not reachable",
     "unanswered",
     "missed",
+    "call back",
+    "couldn't talk",
+    "couldnt talk",
   ];
 
   const PHRASES_BLOCKLIST = [
