@@ -595,31 +595,6 @@ function SalesCallPortal() {
       return (
         <>
           {callbackBanner}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5" }}>
-            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6, color: "#111" }}>Ready to dial?</div>
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
-            <button
-              onClick={() => {
-                const q = buildSessionQueue();
-                const startedAt = new Date().toISOString();
-                setSessionQueue(q);
-                setSessionIndex(0);
-                setSessionCalls(0);
-                setSessionBookings(0);
-                setSessionSeconds(0);
-                setSessionStartedAt(startedAt);
-                setSessionPaused(false);
-                setSessionActive(true);
-                if (q.length > 0) {
-                  if (outcomeRequiredRef.current) {
-                    setPendingLeadId(q[0]);
-                    toast.error("Please set a call outcome first");
-                    return;
-                  }
-                  setActiveId(q[0]);
-                  setStep("mindset");
-                  setCompleted(new Set());
-          {callbackBanner}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", overflow: "auto" }}>
             {todaysCallbacks.length > 0 && (
               <div style={{ width: "100%", maxWidth: 520, marginBottom: 28, background: "#fff", border: "0.5px solid #e8e8e6", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
@@ -698,6 +673,7 @@ function SalesCallPortal() {
               Browse leads manually instead
             </button>
           </div>
+        </>
       );
     }
     if (manualMode && !sessionActive) {
