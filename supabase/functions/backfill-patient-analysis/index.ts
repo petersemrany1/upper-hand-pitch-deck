@@ -37,6 +37,50 @@ IMPORTANT:
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const TIME_TOKENS = /\b(am|pm|a\.m\.|p\.m\.|o'clock|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|yesterday|morning|afternoon|evening|tonight|next|last|this)\b/g;
+const NO_SALE_OUTCOME_BLOCK = ["not available", "call back", "no answer", "voicemail", "not reachable", "couldn't talk", "couldnt talk"];
+
+function cleanString(s: string): string {
+  let v = String(s || "").toLowerCase().trim();
+  v = v.replace(/\([^)]*\)/g, " "); // strip parentheses content
+  v = v.replace(/\$[\d,.]+(?:k|m)?/g, " "); // dollar amounts
+  v = v.replace(/[\d]+[\d,.\-:]*/g, " "); // any remaining numbers / ranges / times
+  v = v.replace(TIME_TOKENS, " ");
+  v = v.replace(/[^\w\s'-]/g, " "); // strip punctuation except apostrophes/hyphens
+  v = v.replace(/\s+/g, " ").trim();
+  const words = v.split(" ").filter(Boolean).slice(0, 4);
+  return words.join(" ");
+}
+
+function cleanArray(arr: unknown, opts?: { extraBlocklist?: string[] }): string[] {
+  if (!Array.isArray(arr)) return [];
+  const out: string[] = [];
+  for (const item of arr) {
+    if (typeof item !== "string") continue;
+    const cleaned = cleanString(item);
+    if (!cleaned) continue;
+    if (cleaned.split(" ").length < 2) continue; // drop single-word
+    if (opts?.extraBlocklist) {
+      const lc = cleaned.toLowerCase();
+      const original = item.toLowerCase();
+      if (opts.extraBlocklist.some((b) => lc.includes(b) || original.includes(b))) continue;
+    }
+    out.push(cleaned);
+  }
+  return out;
+}
+
+function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...s,
+    no_sale_reasons: cleanArray(s.no_sale_reasons, { extraBlocklist: NO_SALE_OUTCOME_BLOCK }),
+    pain_points: cleanArray(s.pain_points),
+    dream_outcomes: cleanArray(s.dream_outcomes),
+    recurring_phrases: cleanArray(s.recurring_phrases),
+    engagement_hooks: cleanArray(s.engagement_hooks),
+  };
+}
+
 async function callClaude(apiKey: string, system: string, userContent: string): Promise<string> {
   // Retry on 429 / 529 with backoff
   const maxAttempts = 5;
@@ -150,6 +194,8 @@ serve(async (req) => {
         } catch (_e) {
           // keep defaults if Claude returned non-JSON
         }
+
+        structured = cleanStructured(structured);
 
         const newAnalysis = {
           ...analysis,

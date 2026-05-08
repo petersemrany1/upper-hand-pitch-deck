@@ -20,6 +20,49 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 
+const TIME_TOKENS = /\b(am|pm|a\.m\.|p\.m\.|o'clock|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|yesterday|morning|afternoon|evening|tonight|next|last|this)\b/g;
+const NO_SALE_OUTCOME_BLOCK = ["not available", "call back", "no answer", "voicemail", "not reachable", "couldn't talk", "couldnt talk"];
+
+function cleanString(s: string): string {
+  let v = String(s || "").toLowerCase().trim();
+  v = v.replace(/\([^)]*\)/g, " ");
+  v = v.replace(/\$[\d,.]+(?:k|m)?/g, " ");
+  v = v.replace(/[\d]+[\d,.\-:]*/g, " ");
+  v = v.replace(TIME_TOKENS, " ");
+  v = v.replace(/[^\w\s'-]/g, " ");
+  v = v.replace(/\s+/g, " ").trim();
+  return v.split(" ").filter(Boolean).slice(0, 4).join(" ");
+}
+
+function cleanArray(arr: unknown, opts?: { extraBlocklist?: string[] }): string[] {
+  if (!Array.isArray(arr)) return [];
+  const out: string[] = [];
+  for (const item of arr) {
+    if (typeof item !== "string") continue;
+    const cleaned = cleanString(item);
+    if (!cleaned) continue;
+    if (cleaned.split(" ").length < 2) continue;
+    if (opts?.extraBlocklist) {
+      const lc = cleaned.toLowerCase();
+      const original = item.toLowerCase();
+      if (opts.extraBlocklist.some((b) => lc.includes(b) || original.includes(b))) continue;
+    }
+    out.push(cleaned);
+  }
+  return out;
+}
+
+function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...s,
+    no_sale_reasons: cleanArray(s.no_sale_reasons, { extraBlocklist: NO_SALE_OUTCOME_BLOCK }),
+    pain_points: cleanArray(s.pain_points),
+    dream_outcomes: cleanArray(s.dream_outcomes),
+    recurring_phrases: cleanArray(s.recurring_phrases),
+    engagement_hooks: cleanArray(s.engagement_hooks),
+  };
+}
+
 const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Upper Hand Digital and a hair transplant clinic. Today's date is ${new Date().toISOString().slice(0, 10)} (UTC). Based on the transcript, return a JSON object with exactly these fields:
 {
   "outcome": one of ["Not Interested", "No Answer", "Left Voicemail", "Gatekeeper", "Call Me Back", "Zoom Set", "Spoke - Interested"],
@@ -342,6 +385,8 @@ IMPORTANT:
       } catch (e) {
         await logErr(`Patient structured pass exception: ${(e as Error).message}`);
       }
+
+      structured = cleanStructured(structured);
 
       // Save transcript + summary + structured intel to call_records
       const analysis = {

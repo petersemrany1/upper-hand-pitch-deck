@@ -99,8 +99,12 @@ function AnalyticsPage() {
     "voicemail",
     "not available",
     "not reached",
+    "not reachable",
     "unanswered",
     "missed",
+    "call back",
+    "couldn't talk",
+    "couldnt talk",
   ];
 
   const PHRASES_BLOCKLIST = [
@@ -116,20 +120,34 @@ function AnalyticsPage() {
     "payment link",
   ];
 
+  const TIME_TOKENS = /\b(am|pm|a\.m\.|p\.m\.|o'clock|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december|today|tomorrow|yesterday|morning|afternoon|evening|tonight|next|last|this)\b/g;
+
+  const cleanItem = (s: string): string => {
+    let v = s.toLowerCase().trim();
+    v = v.replace(/\([^)]*\)/g, " ");
+    v = v.replace(/\$[\d,.]+(?:k|m)?/g, " ");
+    v = v.replace(/[\d]+[\d,.\-:]*/g, " ");
+    v = v.replace(TIME_TOKENS, " ");
+    v = v.replace(/[^\w\s'-]/g, " ");
+    v = v.replace(/\s+/g, " ").trim();
+    return v.split(" ").filter(Boolean).slice(0, 4).join(" ");
+  };
+
   const aggregate = (
     field: keyof CallAnalysis,
     opts?: { blocklist?: string[]; minCount?: number; groupByFirstWords?: number },
   ): { label: string; count: number }[] => {
-    // Collect normalised items first
     const items: string[] = [];
     rows.forEach((r) => {
       const arr = r.call_analysis?.[field];
       if (!Array.isArray(arr)) return;
       arr.forEach((v) => {
         if (typeof v !== "string") return;
-        const normalized = v.trim().toLowerCase().replace(/\s+/g, " ");
+        const original = v.toLowerCase();
+        const normalized = cleanItem(v);
         if (!normalized) return;
-        if (opts?.blocklist && opts.blocklist.some((b) => normalized.includes(b))) return;
+        if (normalized.split(" ").length < 2) return;
+        if (opts?.blocklist && opts.blocklist.some((b) => normalized.includes(b) || original.includes(b))) return;
         items.push(normalized);
       });
     });
