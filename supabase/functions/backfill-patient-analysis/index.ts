@@ -91,10 +91,18 @@ function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
   };
 }
 
-async function callClaude(apiKey: string, system: string, userContent: string): Promise<string> {
+async function callClaude(
+  apiKey: string,
+  system: string,
+  userContent: string,
+  opts: { deadlineMs?: number } = {},
+): Promise<string> {
   // Retry on 429 / 529 with backoff
-  const maxAttempts = 5;
+  const maxAttempts = 3;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (opts.deadlineMs && Date.now() > opts.deadlineMs - 15000) {
+      throw new Error("Backfill time budget reached; retry next batch.");
+    }
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -122,7 +130,10 @@ async function callClaude(apiKey: string, system: string, userContent: string): 
 
     if ((resp.status === 429 || resp.status === 529 || resp.status >= 500) && attempt < maxAttempts) {
       const retryAfter = parseFloat(resp.headers.get("retry-after") || "0");
-      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.min(30000, 5000 * attempt);
+      const baseWaitMs = retryAfter > 0 ? retryAfter * 1000 : 5000 * attempt;
+      const deadlineWaitMs = opts.deadlineMs ? Math.max(0, opts.deadlineMs - Date.now() - 15000) : 15000;
+      const waitMs = Math.min(baseWaitMs, 15000, deadlineWaitMs);
+      if (waitMs < 1000) throw new Error("Backfill time budget reached; retry next batch.");
       console.log(`[claude] ${resp.status} attempt ${attempt}, waiting ${waitMs}ms`);
       await sleep(waitMs);
       continue;
@@ -149,7 +160,9 @@ serve(async (req) => {
 
     let body: { max?: number; force?: boolean } = {};
     try { body = await req.json(); } catch { /* no body */ }
-    const MAX_PER_RUN = Math.max(1, Math.min(40, body.max ?? 20));
+    const startedAt = Date.now();
+    const deadlineMs = startedAt + 115000;
+    const MAX_PER_RUN = Math.max(1, Math.min(5, body.max ?? 3));
     const FORCE = body.force === true;
 
     const { data: rows, error } = await supabase
@@ -178,17 +191,17 @@ serve(async (req) => {
     let failed = 0;
     const errors: Array<{ id: string; error: string }> = [];
 
-    // Sequential processing — Anthropic org limit is 50 RPM.
-    // Each row = 2 Claude calls. ~1.6s spacing between calls keeps us under the limit.
+    // Sequential, time-budgeted processing keeps each HTTP invocation well below the 150s edge limit.
     for (const row of work) {
+      if (Date.now() > deadlineMs - 30000) break;
       try {
         const analysis = (row.call_analysis ?? {}) as Record<string, unknown>;
         const transcript = (analysis.transcript as string) || "";
         const userContent = `Transcript:\n\n${transcript}`;
 
-        const summaryRaw = await callClaude(ANTHROPIC_API_KEY, PATIENT_SYSTEM_PROMPT, userContent);
+        const summaryRaw = await callClaude(ANTHROPIC_API_KEY, PATIENT_SYSTEM_PROMPT, userContent, { deadlineMs });
         await sleep(1600);
-        const structRaw = await callClaude(ANTHROPIC_API_KEY, STRUCTURED_PATIENT_PROMPT, userContent);
+        const structRaw = await callClaude(ANTHROPIC_API_KEY, STRUCTURED_PATIENT_PROMPT, userContent, { deadlineMs });
 
         const patientSummary = summaryRaw.trim();
         let structured: Record<string, unknown> = {
