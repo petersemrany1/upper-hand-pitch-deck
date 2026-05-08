@@ -307,10 +307,15 @@ export function FloatingCallWidget() {
     const previousStatus = prevStatusForEndRef.current;
     const wasActive = previousStatus === "in-call" || previousStatus === "connecting";
     if (wasActive && !isActive) {
-      // reset internal state — outcome popup removed; outcomes are logged manually from the right panel
+      // Capture sid + from for the outcome prompt before clearing internal state
+      const sidForOutcome = prevSidRef.current;
+      const fromForOutcome = incomingFrom || activePhone || phone || null;
+      setEndedSid(sidForOutcome);
+      setEndedFrom(fromForOutcome);
+      setShowOutcome(true);
+
       prevSidRef.current = null;
       startedAtRef.current = null;
-      setSeconds(0);
       setExpanded(false);
       setShowKeypad(false);
       setMuted(false);
