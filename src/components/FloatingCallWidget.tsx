@@ -15,7 +15,25 @@ import { toast } from "sonner";
 //   - keypad overlay inside the expanded panel (DTMF tones)
 // After the call ends, prompts the user to log the outcome.
 
-type Outcome = "interested" | "not_interested" | "callback" | "voicemail" | "no_answer";
+type Outcome = "no_answer" | "callback_scheduled" | "had_convo_chase_up" | "not_interested" | "booked_deposit_paid" | "dropped";
+
+const OUTCOME_LABELS: Record<Outcome, string> = {
+  no_answer: "No Answer",
+  callback_scheduled: "Callback Scheduled",
+  had_convo_chase_up: "Had Convo — Chase Up",
+  not_interested: "Not Interested",
+  booked_deposit_paid: "Booked — Deposit Paid",
+  dropped: "Dropped",
+};
+
+const OUTCOME_DOT: Record<Outcome, string> = {
+  no_answer: "#eab308",
+  callback_scheduled: "#f59e0b",
+  had_convo_chase_up: "#92400e",
+  not_interested: "#ef4444",
+  booked_deposit_paid: "#22c55e",
+  dropped: "#111111",
+};
 
 function formatDuration(sec: number): string {
   const m = Math.floor(sec / 60).toString().padStart(2, "0");
@@ -533,6 +551,7 @@ function CallOutcomePrompt({
 }: { callSid: string | null; from: string | null; durationSec: number; onClose: () => void }) {
   const [saving, setSaving] = useState(false);
   const [notes, setNotes] = useState("");
+  const [pending, setPending] = useState<Outcome | null>(null);
 
   const save = async (outcome: Outcome) => {
     setSaving(true);
@@ -548,11 +567,6 @@ function CallOutcomePrompt({
           .eq("twilio_call_sid", callSid);
         if (error) throw error;
       } else {
-        // No callSid available (call was never tracked or SID was lost).
-        // Instead of creating a blank orphan row, try to find the most recent
-        // call_records row for this phone number within the last 5 minutes
-        // and update IT — that row already has lead_id / rep_id / clinic_id
-        // attached from the original insert.
         const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
         let attached = false;
         if (from) {
@@ -582,8 +596,6 @@ function CallOutcomePrompt({
         }
 
         if (!attached) {
-          // Last-resort insert. At minimum stamp the current rep so the row
-          // is attributable instead of becoming a pure orphan.
           const { data: sessionData } = await supabase.auth.getUser();
           const userEmail = sessionData.user?.email;
           let repId: string | null = null;
@@ -614,8 +626,18 @@ function CallOutcomePrompt({
       toast.error("Could not log call");
     } finally {
       setSaving(false);
+      setPending(null);
     }
   };
+
+  const outcomes: Outcome[] = [
+    "no_answer",
+    "callback_scheduled",
+    "had_convo_chase_up",
+    "not_interested",
+    "booked_deposit_paid",
+    "dropped",
+  ];
 
   return (
     <div
@@ -626,15 +648,15 @@ function CallOutcomePrompt({
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <FileText className="h-4 w-4 text-emerald-400" />
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-400">
+          <FileText className="h-4 w-4 text-emerald-500" />
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-emerald-600">
             Log call outcome
           </span>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] hover:text-[#111111] hover:bg-[#f9f9f9]"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] hover:bg-[#f9f9f9]"
           aria-label="Skip logging"
         >
           <X className="h-4 w-4" />
@@ -642,7 +664,7 @@ function CallOutcomePrompt({
       </div>
 
       <div className="text-sm text-[#111111] truncate">{from || "Call ended"}</div>
-      <div className="font-mono text-xs text-[#111111] mb-3">Duration {formatDuration(durationSec)}</div>
+      <div className="font-mono text-xs text-[#666] mb-3">Duration {formatDuration(durationSec)}</div>
 
       <textarea
         value={notes}
@@ -653,39 +675,76 @@ function CallOutcomePrompt({
         style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
       />
 
-      <div className="grid grid-cols-2 gap-2">
-        <OutcomeButton onClick={() => save("interested")} disabled={saving} label="Interested" tone="emerald" />
-        <OutcomeButton onClick={() => save("callback")} disabled={saving} label="Callback" tone="blue" />
-        <OutcomeButton onClick={() => save("voicemail")} disabled={saving} label="Voicemail" tone="zinc" />
-        <OutcomeButton onClick={() => save("no_answer")} disabled={saving} label="No answer" tone="zinc" />
-        <button
-          type="button"
-          onClick={() => save("not_interested")}
-          disabled={saving}
-          className="col-span-2 h-10 rounded-md text-sm font-semibold text-[#111111] active:scale-95 transition disabled:opacity-50"
-          style={{ background: "#fef2f2", border: "1px solid #fef2f2" }}
-        >
-          Not interested
-        </button>
+      <div className="flex flex-col gap-2">
+        {outcomes.map((o) => (
+          <button
+            key={o}
+            type="button"
+            onClick={() => setPending(o)}
+            disabled={saving}
+            className="flex items-center gap-2.5 h-10 px-3 rounded-md text-sm font-semibold text-[#111111] active:scale-[0.98] transition disabled:opacity-50 text-left"
+            style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
+          >
+            <span
+              className="inline-block h-3 w-3 rounded-full flex-shrink-0"
+              style={{ background: OUTCOME_DOT[o] }}
+            />
+            <span className="uppercase tracking-wide text-[12px]">{OUTCOME_LABELS[o]}</span>
+          </button>
+        ))}
       </div>
-    </div>
-  );
-}
 
-function OutcomeButton({
-  onClick, disabled, label, tone,
-}: { onClick: () => void; disabled: boolean; label: string; tone: "emerald" | "blue" | "zinc" }) {
-  const bg = tone === "emerald" ? "#0f3a25" : tone === "blue" ? "#142a4d" : "#f9f9f9";
-  const border = tone === "emerald" ? "#1c5a3a" : tone === "blue" ? "#f4522d" : "#ebebeb";
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="h-10 rounded-md text-sm font-semibold text-[#111111] active:scale-95 transition disabled:opacity-50"
-      style={{ background: bg, border: `1px solid ${border}` }}
-    >
-      {label}
-    </button>
+      {pending && (
+        <div
+          className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+          style={{ background: "rgba(0,0,0,0.5)" }}
+          onClick={() => !saving && setPending(null)}
+          role="dialog"
+          aria-label="Confirm outcome"
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-5 shadow-2xl"
+            style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2.5 mb-2">
+              <span
+                className="inline-block h-3 w-3 rounded-full"
+                style={{ background: OUTCOME_DOT[pending] }}
+              />
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#666]">
+                Confirm outcome
+              </span>
+            </div>
+            <div className="text-base font-semibold text-[#111111] mb-1">
+              {OUTCOME_LABELS[pending]}
+            </div>
+            <div className="text-sm text-[#666] mb-4">
+              Are you sure? Tap outside to pick a different outcome.
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPending(null)}
+                disabled={saving}
+                className="flex-1 h-10 rounded-md text-sm font-semibold text-[#111111] disabled:opacity-50"
+                style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => save(pending)}
+                disabled={saving}
+                className="flex-1 h-10 rounded-md text-sm font-semibold text-white disabled:opacity-50"
+                style={{ background: "#111111", border: "1px solid #111111" }}
+              >
+                {saving ? "Saving…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
