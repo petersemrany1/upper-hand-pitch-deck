@@ -118,7 +118,7 @@ function AnalyticsPage() {
 
   const aggregate = (
     field: keyof CallAnalysis,
-    opts?: { blocklist?: string[]; minCount?: number },
+    opts?: { blocklist?: string[]; minCount?: number; truncateOver?: number },
   ): { label: string; count: number }[] => {
     const map = new Map<string, number>();
     rows.forEach((r) => {
@@ -126,9 +126,12 @@ function AnalyticsPage() {
       if (!Array.isArray(arr)) return;
       arr.forEach((v) => {
         if (typeof v !== "string") return;
-        const normalized = v.trim().toLowerCase();
+        let normalized = v.trim().toLowerCase();
         if (!normalized) return;
         if (opts?.blocklist && opts.blocklist.some((b) => normalized.includes(b))) return;
+        if (opts?.truncateOver && normalized.length > opts.truncateOver) {
+          normalized = normalized.split(/\s+/).slice(0, 3).join(" ");
+        }
         map.set(normalized, (map.get(normalized) ?? 0) + 1);
       });
     });
@@ -140,7 +143,7 @@ function AnalyticsPage() {
   };
 
   const noReasons = useMemo(() => aggregate("no_sale_reasons", { blocklist: NO_SALE_BLOCKLIST }), [rows]);
-  const pains = useMemo(() => aggregate("pain_points"), [rows]);
+  const pains = useMemo(() => aggregate("pain_points", { truncateOver: 30 }), [rows]);
   const dreams = useMemo(() => aggregate("dream_outcomes"), [rows]);
   const hooks = useMemo(() => aggregate("engagement_hooks", { minCount: 2 }), [rows]);
   const phrases = useMemo(() => aggregate("recurring_phrases", { blocklist: PHRASES_BLOCKLIST }), [rows]);
