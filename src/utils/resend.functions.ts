@@ -575,6 +575,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       leadId: string;
+      clinicId?: string | null;
       firstName: string;
       lastName: string;
       email: string | null;
@@ -746,13 +747,37 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     } else {
       // Snapshot the EXACT intel that was emailed onto the clinic appointment,
       // so the partner clinic portal shows the same patient intel that the
-      // clinic received via email at booking time.
+      // clinic received via email at booking time. If the appointment card
+      // does not exist yet, create it immediately from this booking email.
       try {
         const supabase = getAdminClient();
-        await supabase
+        const patientName = fullName || "Patient";
+        const snapshotPayload = {
+          lead_id: data.leadId,
+          patient_name: patientName,
+          patient_phone: data.phone ?? null,
+          appointment_date: data.bookingDate,
+          appointment_time: data.bookingTime,
+          intel_notes: rawNotes || null,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { data: existingAppointment } = await supabase
           .from("clinic_appointments")
-          .update({ intel_notes: rawNotes || null, updated_at: new Date().toISOString() })
-          .eq("lead_id", data.leadId);
+          .select("id")
+          .eq("lead_id", data.leadId)
+          .limit(1);
+
+        if (existingAppointment && existingAppointment.length > 0) {
+          await supabase
+            .from("clinic_appointments")
+            .update(snapshotPayload)
+            .eq("id", existingAppointment[0].id);
+        } else if (data.clinicId) {
+          await supabase
+            .from("clinic_appointments")
+            .insert({ ...snapshotPayload, clinic_id: data.clinicId });
+        }
       } catch (snapErr) {
         await logError("sendClinicHandoverEmail", `intel snapshot failed: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`, {
           leadId: data.leadId,
