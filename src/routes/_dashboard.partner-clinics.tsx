@@ -241,16 +241,18 @@ function PartnerClinicsPage() {
                     <IconBtn label="Edit" onClick={() => setClinicPanel({ mode: "edit", data: clinic })}>
                       <Pencil className="h-3.5 w-3.5" />
                     </IconBtn>
+                    <IconBtn label="Invite clinic login" onClick={() => setInvitePanel(clinic)}>
+                      <KeyRound className="h-3.5 w-3.5" />
+                    </IconBtn>
+                    <button
+                      onClick={() => setSelectedClinic(clinic)}
+                      style={{ fontSize: 12, fontWeight: 500, background: "#1a3a6b", color: "#fff", padding: "6px 12px", borderRadius: 6, border: "none", cursor: "pointer" }}
+                    >
+                      View Portal →
+                    </button>
                     <button
                       onClick={() => void toggleClinicActive(clinic)}
-                      style={{
-                        fontSize: 11,
-                        color: "#111",
-                        opacity: 0.6,
-                        background: "transparent",
-                        textDecoration: "underline",
-                        padding: "4px 8px",
-                      }}
+                      style={{ fontSize: 11, color: "#111", opacity: 0.6, background: "transparent", textDecoration: "underline", padding: "4px 8px" }}
                     >
                       {clinic.is_active ? "Deactivate" : "Activate"}
                     </button>
