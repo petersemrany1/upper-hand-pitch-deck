@@ -21,7 +21,50 @@ export type ClinicAvailability = {
   clinic_id: string;
   override_date: string;
   override_type: "blocked" | "open";
+  /** HH:MM:SS — when null together with end_time, it's a whole-day block/open */
+  start_time: string | null;
+  end_time: string | null;
 };
+
+/** 15-min slots from 8:00am up to (but not including) 9:00pm. */
+export const SLOT_MINUTES = 15;
+export const DAY_START_MIN = 8 * 60;
+export const DAY_END_MIN = 21 * 60;
+export const ALL_SLOTS: { start: string; end: string; label: string }[] = (() => {
+  const out: { start: string; end: string; label: string }[] = [];
+  for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MINUTES) {
+    out.push({ start: minToHHMM(m), end: minToHHMM(m + SLOT_MINUTES), label: minToLabel(m) });
+  }
+  return out;
+})();
+function minToHHMM(m: number) { const h = Math.floor(m / 60), mm = m % 60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00`; }
+function minToLabel(m: number) { let h = Math.floor(m / 60); const mm = m % 60; const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return `${h}:${String(mm).padStart(2,"0")}${ap}`; }
+function hhmmToMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+
+/** Returns true if (date, HH:MM[:SS]) falls inside any blocked range for the clinic. */
+export function isTimeBlocked(dateYMD: string, time: string, avails: ClinicAvailability[]): boolean {
+  const t = hhmmToMin(time);
+  for (const a of avails) {
+    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
+    if (!a.start_time || !a.end_time) return true; // whole day blocked
+    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
+    if (t >= s && t < e) return true;
+  }
+  return false;
+}
+
+/** Buckets blocks for a given date into { fullDay, blockedSlotStarts:Set<HH:MM:SS> }. */
+function bucketBlocksForDate(dateYMD: string, avails: ClinicAvailability[]) {
+  let fullDay = false;
+  const blockedSlots = new Set<string>();
+  for (const a of avails) {
+    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
+    if (!a.start_time || !a.end_time) { fullDay = true; continue; }
+    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
+    for (let m = s; m < e; m += SLOT_MINUTES) blockedSlots.add(minToHHMM(m));
+  }
+  return { fullDay, blockedSlots };
+}
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
