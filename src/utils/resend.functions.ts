@@ -24,6 +24,7 @@ function isBadPatientIntel(value: string | null | undefined) {
   return [
     /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript\b/i,
     /\bplease (?:provide|paste|share)\b.*\btranscript\b/i,
+    /\b(?:no|without|missing)\b.*\btranscript\b/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
