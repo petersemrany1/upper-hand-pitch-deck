@@ -2525,6 +2525,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       // the restore-effect sees the booking and skips the form.
       (lead as { booking_date: string | null }).booking_date = form.date;
       (lead as { booking_time: string | null }).booking_time = form.time;
+      (lead as { clinic_id: string | null }).clinic_id = form.clinicId || null;
       onBooked();
       toast.success("Appointment booked!");
 
@@ -2644,7 +2645,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           }
 
           // Mirror into clinic_appointments so the partner clinic portal sees it.
-          if (lead.clinic_id) {
+          const appointmentClinicId = form.clinicId || lead.clinic_id;
+          if (appointmentClinicId) {
             const patientName = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Patient";
             const { data: existingClinicAppt } = await supabase
               .from("clinic_appointments")
@@ -2652,7 +2654,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
               .eq("lead_id", lead.id)
               .limit(1);
             const clinicPayloadBase = {
-              clinic_id: lead.clinic_id,
+              clinic_id: appointmentClinicId,
               lead_id: lead.id,
               patient_name: patientName,
               patient_phone: lead.phone ?? null,
