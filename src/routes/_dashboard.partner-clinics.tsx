@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Pencil, UserPlus, Building2 } from "lucide-react";
+import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ClinicPortalView } from "@/components/ClinicPortalView";
 
 export const Route = createFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
