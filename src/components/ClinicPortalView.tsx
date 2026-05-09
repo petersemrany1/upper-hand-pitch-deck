@@ -455,8 +455,8 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
 
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={() => setShowSummary(true)} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
-          <button onClick={() => setOutcome("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
+          <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
+          <button onClick={() => setSummaryMode("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
           <button onClick={() => setOutcome("noshow")} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
         </div>
       )}
