@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
@@ -37,6 +38,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClinicPortalRoute = ClinicPortalRouteImport.update({
+  id: '/clinic-portal',
+  path: '/clinic-portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -127,6 +133,7 @@ const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/analytics': typeof DashboardAnalyticsRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
 export interface FileRoutesByTo {
+  '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/analytics': typeof DashboardAnalyticsRoute
@@ -168,6 +176,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
@@ -191,6 +200,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/clinic-portal'
     | '/login'
     | '/reset-password'
     | '/analytics'
@@ -210,6 +220,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/clinic-portal'
     | '/login'
     | '/reset-password'
     | '/analytics'
@@ -231,6 +242,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_dashboard'
+    | '/clinic-portal'
     | '/login'
     | '/reset-password'
     | '/_dashboard/analytics'
@@ -253,6 +265,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
@@ -273,6 +286,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clinic-portal': {
+      id: '/clinic-portal'
+      path: '/clinic-portal'
+      fullPath: '/clinic-portal'
+      preLoaderRoute: typeof ClinicPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard': {
@@ -437,6 +457,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
