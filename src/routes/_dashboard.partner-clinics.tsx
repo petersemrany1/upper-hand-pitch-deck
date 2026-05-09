@@ -119,6 +119,24 @@ function PartnerClinicsPage() {
   };
 
   return (
+  if (selectedClinic) {
+    return (
+      <div style={{ background: "#fafafa", minHeight: "100vh" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px" }}>
+          <button onClick={() => setSelectedClinic(null)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#111", background: "transparent", marginBottom: 12, cursor: "pointer" }}>
+            <ArrowLeft className="h-4 w-4" /> Back to Partner Clinics
+          </button>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>{selectedClinic.clinic_name}</h1>
+          <div style={{ background: "#1a3a6b", color: "#fff", padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16 }}>
+            Admin view — you are viewing {selectedClinic.clinic_name}'s portal. Changes here are real.
+          </div>
+        </div>
+        <ClinicPortalView clinicId={selectedClinic.id} clinicName={selectedClinic.clinic_name} isAdmin={true} />
+      </div>
+    );
+  }
+
+  return (
     <div style={{ background: "#fafafa", minHeight: "100vh" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 28px 80px" }}>
         {/* Header */}
