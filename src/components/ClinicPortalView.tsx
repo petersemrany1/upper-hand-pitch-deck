@@ -474,11 +474,12 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Close</button>
       </div>
 
-      {showSummary && (
+      {summaryMode && (
         <ConsultSummaryModal
           appt={appt}
-          onClose={() => setShowSummary(false)}
-          onSaved={() => { setShowSummary(false); onChange(); onClose(); }}
+          defaultProceeded={summaryMode === "proceeded"}
+          onClose={() => setSummaryMode(null)}
+          onSaved={() => { setSummaryMode(null); onChange(); onClose(); }}
         />
       )}
     </ModalShell>
