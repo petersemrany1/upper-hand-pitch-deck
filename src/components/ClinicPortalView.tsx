@@ -332,8 +332,12 @@ function CalendarView({ appts, avails, onSelect }: {
   }, [appts]);
 
   const availByDate = useMemo(() => {
-    const m = new Map<string, ClinicAvailability>();
-    for (const a of avails) m.set(a.override_date, a);
+    const m = new Map<string, ClinicAvailability[]>();
+    for (const a of avails) {
+      const arr = m.get(a.override_date) ?? [];
+      arr.push(a);
+      m.set(a.override_date, arr);
+    }
     return m;
   }, [avails]);
 
@@ -357,12 +361,15 @@ function CalendarView({ appts, avails, onSelect }: {
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const av = availByDate.get(dateStr);
+          const dayAvails = availByDate.get(dateStr) ?? [];
+          const { fullDay, blockedSlots } = bucketBlocksForDate(dateStr, dayAvails);
+          const partialBlocks = !fullDay && blockedSlots.size > 0;
+          const hasOpenOverride = dayAvails.some((a) => a.override_type === "open");
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
-          if (av?.override_type === "blocked") { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
-          else if (av?.override_type === "open") { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
+          if (fullDay) { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
+          else if (hasOpenOverride) { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
           else if (isToday) { bg = NAVY_PALE; border = `1.5px solid ${NAVY}`; }
           return (
             <div
@@ -372,10 +379,11 @@ function CalendarView({ appts, avails, onSelect }: {
                 display: "flex", flexDirection: "column", gap: 4,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{d.getDate()}</span>
-                {av?.override_type === "blocked" && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Blocked</span>}
-                {av?.override_type === "open" && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
+                {fullDay && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Closed</span>}
+                {!fullDay && partialBlocks && <span style={{ fontSize: 9, color: "#b85c00", fontWeight: 600 }}>{blockedSlots.size} blocked</span>}
+                {!fullDay && hasOpenOverride && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
               </div>
               {dayAppts.map((a) => {
                 const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
