@@ -682,7 +682,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const rawNotes: string = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
     const isBulletList =
       rawNotes.length > 0 &&
-      rawNotes.split(/\r?\n/).filter((l) => l.trim().length > 0).every((l) => /^\s*[-•]\s+/.test(l));
+      rawNotes.split(/\r?\n/).filter((l: string) => l.trim().length > 0).every((l: string) => /^\s*[-•]\s+/.test(l));
 
     let intelBody: string;
     if (!rawNotes) {
@@ -690,10 +690,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     } else if (isBulletList) {
       const items = rawNotes
         .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0)
-        .map((l) => l.replace(/^\s*[-•]\s+/, ""))
-        .map((l) => `<li style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(l)}</li>`)
+        .map((l: string) => l.trim())
+        .filter((l: string) => l.length > 0)
+        .map((l: string) => l.replace(/^\s*[-•]\s+/, ""))
+        .map((l: string) => `<li style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(l)}</li>`)
         .join("");
       intelBody = `<ul style="margin:0;padding:0 0 0 20px;">${items}</ul>`;
     } else {
