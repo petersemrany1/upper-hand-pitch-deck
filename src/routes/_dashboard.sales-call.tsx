@@ -2805,6 +2805,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           .update({ status: "cancelled" })
           .eq("lead_id", lead.id)
           .eq("status", "confirmed");
+        await supabase.from("clinic_appointments").delete().eq("lead_id", lead.id);
       } catch (e) { console.error("[appointment_reminders] cancel failed", e); }
       // Mutate the lead prop so the restore-effect doesn't re-trigger when
       // the rep navigates away and comes back to this lead.
