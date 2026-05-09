@@ -423,14 +423,6 @@ const navBtn: React.CSSProperties = {
   fontSize: 14, color: "#111", cursor: "pointer",
 };
 
-function ModeBtn({ active, color, bg, onClick, children }: { active: boolean; color: string; bg: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} style={{
-      background: active ? bg : "#fff", border: `1px solid ${active ? color : "#e2e6ec"}`,
-      color: active ? color : "#111", padding: "8px 12px", fontSize: 12, borderRadius: 6, cursor: "pointer", fontWeight: active ? 600 : 500,
-    }}>{children}</button>
-  );
-}
 
 function buildMonthGrid(monthStart: Date): (Date | null)[] {
   const first = new Date(monthStart);
