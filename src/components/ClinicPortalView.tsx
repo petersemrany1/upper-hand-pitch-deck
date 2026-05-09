@@ -441,7 +441,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
 
       {appt.intel_notes && (
         <div style={{ background: NAVY_PALE, padding: 12, borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 10, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Patient notes</div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Patient Intel</div>
           <div style={{ fontSize: 12, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{appt.intel_notes}</div>
         </div>
       )}
