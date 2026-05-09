@@ -88,6 +88,25 @@ serve(async (req) => {
     const condensed: string = (aiJson?.choices?.[0]?.message?.content || "").trim();
     if (!condensed) throw new Error("Empty AI response");
 
+    // Reject AI refusals / non-answers — never overwrite real notes with junk like
+    // "I can't process this transcript" or "Please provide a transcript".
+    const refusalPatterns = [
+      /\bi (?:can'?t|cannot|am unable to|won'?t be able to|don'?t have)\b/i,
+      /\b(?:no|without|missing|provide|paste|share)\b.*\btranscript\b/i,
+      /\btranscript\b.*\b(?:to analyze|to process|wasn'?t provided|not provided|isn'?t (?:included|provided))\b/i,
+      /\bplaceholder text\b/i,
+      /\bcorrupted audio\b/i,
+      /\bvoicemail notification\b/i,
+      /\bdoesn'?t contain (?:intelligible|a sales call|patient information|any (?:dialogue|conversation))\b/i,
+    ];
+    const isRefusal = refusalPatterns.some((re) => re.test(condensed));
+    if (isRefusal) {
+      return new Response(
+        JSON.stringify({ ok: false, skipped: true, reason: "AI returned a refusal — keeping existing call_notes" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await supabase.from("meta_leads").update({ call_notes: condensed, updated_at: new Date().toISOString() }).eq("id", leadId);
 
