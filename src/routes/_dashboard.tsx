@@ -18,12 +18,9 @@ export const Route = createFileRoute("/_dashboard")({
 function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, ready, role } = useAuth();
+  const { session, ready, role, userType } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
   const pageOwnsNotificationBell = ["/sales-call", "/leaderboard"].includes(location.pathname);
-  // Floating call widget is rendered globally so the dialler/hangup button
-  // follows the user across pages. It only renders when a call is actually
-  // active, so it doesn't clutter the UI otherwise.
 
   // Redirect unauthenticated users once the session check has resolved.
   useEffect(() => {
@@ -35,6 +32,14 @@ function DashboardLayout() {
       });
     }
   }, [ready, session, navigate, location.pathname]);
+
+  // Clinic-portal users have no business in the admin dashboard.
+  useEffect(() => {
+    if (!ready || !session) return;
+    if (userType === "clinic") {
+      navigate({ to: "/clinic-portal", replace: true });
+    }
+  }, [ready, session, userType, navigate]);
 
   // Reps cannot access admin-only routes — bounce to dashboard.
   useEffect(() => {
