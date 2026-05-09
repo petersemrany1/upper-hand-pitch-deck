@@ -37,7 +37,7 @@ async function resolveHandoverPatientIntel(
   supabase: ReturnType<typeof getAdminClient>,
   leadId: string,
   suppliedNotes: string,
-) {
+): Promise<string> {
   const direct = suppliedNotes.trim();
   if (!isBadPatientIntel(direct)) return direct;
 
@@ -679,7 +679,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // in the "Review before sending" step, so we must NOT truncate or rewrite it.
     // If the notes are a dot-point list (lines starting with "- "), render as <ul>
     // for nicer formatting; otherwise render as a pre-wrapped paragraph.
-    const rawNotes = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
+    const rawNotes: string = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
     const isBulletList =
       rawNotes.length > 0 &&
       rawNotes.split(/\r?\n/).filter((l) => l.trim().length > 0).every((l) => /^\s*[-•]\s+/.test(l));
