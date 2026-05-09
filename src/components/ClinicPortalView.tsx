@@ -398,7 +398,7 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
 function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void;
 }) {
-  const [showSummary, setShowSummary] = useState(false);
+  const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
   const setOutcome = async (outcome: "noshow" | "proceeded") => {
@@ -455,8 +455,8 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
 
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={() => setShowSummary(true)} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
-          <button onClick={() => setOutcome("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
+          <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
+          <button onClick={() => setSummaryMode("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
           <button onClick={() => setOutcome("noshow")} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
         </div>
       )}
@@ -474,11 +474,12 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Close</button>
       </div>
 
-      {showSummary && (
+      {summaryMode && (
         <ConsultSummaryModal
           appt={appt}
-          onClose={() => setShowSummary(false)}
-          onSaved={() => { setShowSummary(false); onChange(); onClose(); }}
+          defaultProceeded={summaryMode === "proceeded"}
+          onClose={() => setSummaryMode(null)}
+          onSaved={() => { setSummaryMode(null); onChange(); onClose(); }}
         />
       )}
     </ModalShell>
@@ -607,9 +608,9 @@ function OverrideList({ title, color, items, onRemove }: { title: string; color:
 
 /* ============== MODALS ============== */
 
-function ConsultSummaryModal({ appt, onClose, onSaved }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void }) {
+function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean }) {
   const [notes, setNotes] = useState("");
-  const [proceeded, setProceeded] = useState(false);
+  const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
