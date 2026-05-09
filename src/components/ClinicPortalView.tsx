@@ -424,7 +424,6 @@ function outcomeBtn(color: string, bg: string): React.CSSProperties {
 function AppointmentsTab({ appts, clinicId, isAdmin, onChange }: { appts: ClinicAppointment[]; clinicId: string; isAdmin: boolean; onChange: () => void }) {
   const [showAdd, setShowAdd] = useState(false);
   const [setOutcomeFor, setSetOutcomeFor] = useState<ClinicAppointment | null>(null);
-  const [setOutcomeFor, setSetOutcomeFor] = useState<ClinicAppointment | null>(null);
 
   const now = new Date();
   const month = now.getMonth(), year = now.getFullYear();
@@ -495,7 +494,7 @@ function AppointmentsTab({ appts, clinicId, isAdmin, onChange }: { appts: Clinic
           onSaved={() => { setSetOutcomeFor(null); onChange(); }}
         />
       )}
-      {logFor && null}
+      
     </div>
   );
 }
