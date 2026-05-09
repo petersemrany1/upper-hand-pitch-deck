@@ -21,7 +21,50 @@ export type ClinicAvailability = {
   clinic_id: string;
   override_date: string;
   override_type: "blocked" | "open";
+  /** HH:MM:SS — when null together with end_time, it's a whole-day block/open */
+  start_time: string | null;
+  end_time: string | null;
 };
+
+/** 15-min slots from 8:00am up to (but not including) 9:00pm. */
+export const SLOT_MINUTES = 15;
+export const DAY_START_MIN = 8 * 60;
+export const DAY_END_MIN = 21 * 60;
+export const ALL_SLOTS: { start: string; end: string; label: string }[] = (() => {
+  const out: { start: string; end: string; label: string }[] = [];
+  for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MINUTES) {
+    out.push({ start: minToHHMM(m), end: minToHHMM(m + SLOT_MINUTES), label: minToLabel(m) });
+  }
+  return out;
+})();
+function minToHHMM(m: number) { const h = Math.floor(m / 60), mm = m % 60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00`; }
+function minToLabel(m: number) { let h = Math.floor(m / 60); const mm = m % 60; const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return `${h}:${String(mm).padStart(2,"0")}${ap}`; }
+function hhmmToMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
+
+/** Returns true if (date, HH:MM[:SS]) falls inside any blocked range for the clinic. */
+export function isTimeBlocked(dateYMD: string, time: string, avails: ClinicAvailability[]): boolean {
+  const t = hhmmToMin(time);
+  for (const a of avails) {
+    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
+    if (!a.start_time || !a.end_time) return true; // whole day blocked
+    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
+    if (t >= s && t < e) return true;
+  }
+  return false;
+}
+
+/** Buckets blocks for a given date into { fullDay, blockedSlotStarts:Set<HH:MM:SS> }. */
+function bucketBlocksForDate(dateYMD: string, avails: ClinicAvailability[]) {
+  let fullDay = false;
+  const blockedSlots = new Set<string>();
+  for (const a of avails) {
+    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
+    if (!a.start_time || !a.end_time) { fullDay = true; continue; }
+    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
+    for (let m = s; m < e; m += SLOT_MINUTES) blockedSlots.add(minToHHMM(m));
+  }
+  return { fullDay, blockedSlots };
+}
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
@@ -289,8 +332,12 @@ function CalendarView({ appts, avails, onSelect }: {
   }, [appts]);
 
   const availByDate = useMemo(() => {
-    const m = new Map<string, ClinicAvailability>();
-    for (const a of avails) m.set(a.override_date, a);
+    const m = new Map<string, ClinicAvailability[]>();
+    for (const a of avails) {
+      const arr = m.get(a.override_date) ?? [];
+      arr.push(a);
+      m.set(a.override_date, arr);
+    }
     return m;
   }, [avails]);
 
@@ -314,12 +361,15 @@ function CalendarView({ appts, avails, onSelect }: {
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const av = availByDate.get(dateStr);
+          const dayAvails = availByDate.get(dateStr) ?? [];
+          const { fullDay, blockedSlots } = bucketBlocksForDate(dateStr, dayAvails);
+          const partialBlocks = !fullDay && blockedSlots.size > 0;
+          const hasOpenOverride = dayAvails.some((a) => a.override_type === "open");
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
-          if (av?.override_type === "blocked") { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
-          else if (av?.override_type === "open") { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
+          if (fullDay) { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
+          else if (hasOpenOverride) { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
           else if (isToday) { bg = NAVY_PALE; border = `1.5px solid ${NAVY}`; }
           return (
             <div
@@ -329,10 +379,11 @@ function CalendarView({ appts, avails, onSelect }: {
                 display: "flex", flexDirection: "column", gap: 4,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{d.getDate()}</span>
-                {av?.override_type === "blocked" && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Blocked</span>}
-                {av?.override_type === "open" && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
+                {fullDay && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Closed</span>}
+                {!fullDay && partialBlocks && <span style={{ fontSize: 9, color: "#b85c00", fontWeight: 600 }}>{blockedSlots.size} blocked</span>}
+                {!fullDay && hasOpenOverride && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
               </div>
               {dayAppts.map((a) => {
                 const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
@@ -372,14 +423,6 @@ const navBtn: React.CSSProperties = {
   fontSize: 14, color: "#111", cursor: "pointer",
 };
 
-function ModeBtn({ active, color, bg, onClick, children }: { active: boolean; color: string; bg: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} style={{
-      background: active ? bg : "#fff", border: `1px solid ${active ? color : "#e2e6ec"}`,
-      color: active ? color : "#111", padding: "8px 12px", fontSize: 12, borderRadius: 6, cursor: "pointer", fontWeight: active ? 600 : 500,
-    }}>{children}</button>
-  );
-}
 
 function buildMonthGrid(monthStart: Date): (Date | null)[] {
   const first = new Date(monthStart);
@@ -507,106 +550,202 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 /* ============== AVAILABILITY TAB ============== */
 
 function AvailabilityTab({ avails, clinicId, onChange }: { avails: ClinicAvailability[]; clinicId: string; onChange: () => void }) {
-  const [mode, setMode] = useState<"none" | "block" | "open">("none");
-  const now = new Date();
-  const month = now.getMonth(), year = now.getFullYear();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = ymd(new Date());
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  const [viewMonth, setViewMonth] = useState<Date>(new Date());
 
-  const byDate = useMemo(() => {
-    const m = new Map<string, ClinicAvailability>();
-    for (const a of avails) m.set(a.override_date, a);
+  const month = viewMonth.getMonth(), year = viewMonth.getFullYear();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
+  const offset = (firstWeekday + 6) % 7; // shift so Mon=0
+
+  const dayBuckets = useMemo(() => {
+    const m = new Map<string, { fullDay: boolean; blockedSlots: Set<string>; openOverride: boolean }>();
+    const dates = new Set(avails.map((a) => a.override_date));
+    for (const d of dates) {
+      const list = avails.filter((a) => a.override_date === d);
+      const { fullDay, blockedSlots } = bucketBlocksForDate(d, list);
+      m.set(d, { fullDay, blockedSlots, openOverride: list.some((a) => a.override_type === "open") });
+    }
     return m;
   }, [avails]);
 
-  const handleClick = async (day: number) => {
-    if (mode === "none") return;
-    const date = ymd(new Date(year, month, day));
-    const existing = byDate.get(date);
-    const desired = mode === "block" ? "blocked" : "open";
-    if (existing && existing.override_type === desired) {
+  const selectedAvails = useMemo(() => avails.filter((a) => a.override_date === selectedDate), [avails, selectedDate]);
+  const selectedBucket = useMemo(() => bucketBlocksForDate(selectedDate, selectedAvails), [selectedDate, selectedAvails]);
+
+  const fullDayRow = selectedAvails.find((a) => a.override_type === "blocked" && !a.start_time && !a.end_time) ?? null;
+
+  const toggleSlot = async (slotStart: string, slotEnd: string) => {
+    if (selectedBucket.fullDay) {
+      toast.error("Whole day is blocked — un-block it first to edit individual slots.");
+      return;
+    }
+    // Find a row that exactly covers this slot
+    const existing = selectedAvails.find((a) => a.override_type === "blocked" && a.start_time === slotStart && a.end_time === slotEnd);
+    if (existing) {
       await supabase.from("clinic_availability").delete().eq("id", existing.id);
-    } else if (existing) {
-      await supabase.from("clinic_availability").update({ override_type: desired }).eq("id", existing.id);
     } else {
-      await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: date, override_type: desired });
+      // Check if slot is inside a wider blocked range — if so, we need to split that range
+      const wider = selectedAvails.find((a) => a.override_type === "blocked" && a.start_time && a.end_time && hhmmToMin(a.start_time) <= hhmmToMin(slotStart) && hhmmToMin(a.end_time) >= hhmmToMin(slotEnd));
+      if (wider) {
+        // Split wider into [start..slotStart] and [slotEnd..end]
+        const ws = wider.start_time!, we = wider.end_time!;
+        await supabase.from("clinic_availability").delete().eq("id", wider.id);
+        if (hhmmToMin(ws) < hhmmToMin(slotStart)) {
+          await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: ws, end_time: slotStart });
+        }
+        if (hhmmToMin(slotEnd) < hhmmToMin(we)) {
+          await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: slotEnd, end_time: we });
+        }
+      } else {
+        await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: slotStart, end_time: slotEnd });
+      }
     }
     onChange();
   };
 
-  const removeAvail = async (id: string) => {
-    await supabase.from("clinic_availability").delete().eq("id", id);
+  const toggleFullDay = async () => {
+    if (fullDayRow) {
+      await supabase.from("clinic_availability").delete().eq("id", fullDayRow.id);
+    } else {
+      // Clear any partial blocks first so we don't double-store
+      const partials = selectedAvails.filter((a) => a.override_type === "blocked" && (a.start_time || a.end_time));
+      if (partials.length) {
+        await supabase.from("clinic_availability").delete().in("id", partials.map((p) => p.id));
+      }
+      await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: null, end_time: null });
+    }
     onChange();
   };
 
-  const blocked = avails.filter((a) => a.override_type === "blocked");
-  const opens = avails.filter((a) => a.override_type === "open");
+  const clearAllForDay = async () => {
+    const ids = selectedAvails.map((a) => a.id);
+    if (!ids.length) return;
+    await supabase.from("clinic_availability").delete().in("id", ids);
+    onChange();
+  };
 
   return (
-    <div style={{ padding: 24, maxWidth: 760, margin: "0 auto" }}>
-      <div style={{ display: "flex", gap: 10, marginBottom: 18 }}>
-        <ModeBtn active={mode === "block"} color="#b83232" bg="#fdf0f0" onClick={() => setMode((m) => m === "block" ? "none" : "block")}>🔴 Block a day (clinic closed)</ModeBtn>
-        <ModeBtn active={mode === "open"} color="#1a7a4a" bg="#e8f5ef" onClick={() => setMode((m) => m === "open" ? "none" : "open")}>🟢 Open a day (one-off override)</ModeBtn>
-      </div>
-      {mode !== "none" && <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 12 }}>Select dates below to toggle them ↓</div>}
-
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 18, marginBottom: 20 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: NAVY, marginBottom: 12 }}>{MONTHS[month]} {year}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 8 }}>
+    <div style={{ padding: 24, maxWidth: 920, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 20 }}>
+      {/* LEFT — month picker */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <button onClick={() => setViewMonth((d) => { const n = new Date(d); n.setMonth(n.getMonth() - 1); return n; })} style={navBtn}>‹</button>
+          <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{MONTHS[month]} {year}</div>
+          <button onClick={() => setViewMonth((d) => { const n = new Date(d); n.setMonth(n.getMonth() + 1); return n; })} style={navBtn}>›</button>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
+          {["M","T","W","T","F","S","S"].map((d, i) => (
+            <div key={i} style={{ fontSize: 10, fontWeight: 600, color: "#6b7785", textAlign: "center", padding: 2 }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+          {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const date = ymd(new Date(year, month, day));
-            const av = byDate.get(date);
-            let bg = "#f0f2f5", color = "#111", border = "1px solid transparent";
-            if (av?.override_type === "blocked") { bg = "#fdf0f0"; color = "#b83232"; border = "1px solid #f0b8b8"; }
-            else if (av?.override_type === "open") { bg = "#e8f5ef"; color = "#1a7a4a"; border = "1px solid #9ed4b5"; }
+            const b = dayBuckets.get(date);
+            const isSelected = date === selectedDate;
+            const isToday = date === todayStr;
+            let bg = "#f7f8fa", color = "#111", border = "1px solid transparent";
+            if (b?.fullDay) { bg = "#fdf0f0"; color = "#b83232"; border = "1px solid #f0b8b8"; }
+            else if (b && b.blockedSlots.size > 0) { bg = "#fff4e6"; color = "#b85c00"; border = "1px solid #f0c896"; }
+            else if (b?.openOverride) { bg = "#e8f5ef"; color = "#1a7a4a"; border = "1px solid #9ed4b5"; }
+            if (isSelected) { border = `2px solid ${NAVY}`; }
+            else if (isToday) { border = `1.5px solid ${NAVY}`; }
             return (
-              <button key={day} onClick={() => handleClick(day)} disabled={mode === "none"}
-                style={{
-                  background: bg, color, border, padding: "10px 0", borderRadius: 8, fontWeight: 600,
-                  fontSize: 13, cursor: mode === "none" ? "default" : "pointer",
-                }}>{day}</button>
+              <button key={day} onClick={() => setSelectedDate(date)}
+                style={{ background: bg, color, border, padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                {day}
+              </button>
             );
           })}
         </div>
+        <div style={{ marginTop: 14, fontSize: 10, color: "#6b7785", display: "flex", flexDirection: "column", gap: 4 }}>
+          <LegendDot color="#b83232" bg="#fdf0f0" label="Closed all day" />
+          <LegendDot color="#b85c00" bg="#fff4e6" label="Some times blocked" />
+          <LegendDot color="#1a7a4a" bg="#e8f5ef" label="One-off open day" />
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 18 }}>
-        <OverrideList title="Blocked days" color="#b83232" items={blocked} onRemove={removeAvail} />
-        <OverrideList title="Open overrides" color="#1a7a4a" items={opens} onRemove={removeAvail} />
-      </div>
+      {/* RIGHT — slot editor for selected day */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5 }}>Editing</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: NAVY }}>{formatPrettyDate(selectedDate)}</div>
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => void toggleFullDay()}
+              style={{ background: selectedBucket.fullDay ? "#b83232" : "#fdf0f0", color: selectedBucket.fullDay ? "#fff" : "#b83232",
+                border: "1px solid #f0b8b8", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              {selectedBucket.fullDay ? "Closed all day ✓" : "Close whole day"}
+            </button>
+            {selectedAvails.length > 0 && (
+              <button onClick={() => void clearAllForDay()} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Clear</button>
+            )}
+          </div>
+        </div>
 
-      <div style={{ background: NAVY_PALE, padding: 16, borderRadius: 10, fontSize: 12, color: "#111", lineHeight: 1.6 }}>
-        <strong style={{ color: NAVY }}>How this works —</strong> Upper Hand will only book patients into your available days.
-        Blocked days mean no new appointments will be sent. Open overrides add extra days on top of your regular schedule.
-        Changes take effect immediately.
+        {selectedBucket.fullDay ? (
+          <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 8, padding: 16, fontSize: 13, color: "#b83232", textAlign: "center" }}>
+            Clinic is closed all day. No appointments will be booked for this date.
+          </div>
+        ) : (
+          <>
+            <div style={{ fontSize: 11, color: "#6b7785", marginBottom: 8 }}>
+              Tap any 15-min slot to block it. Blocked slots are hidden from sales reps when booking.
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, maxHeight: 460, overflowY: "auto", paddingRight: 4 }}>
+              {ALL_SLOTS.map((s) => {
+                const isBlocked = selectedBucket.blockedSlots.has(s.start);
+                return (
+                  <button key={s.start} onClick={() => void toggleSlot(s.start, s.end)}
+                    style={{
+                      background: isBlocked ? "#fdf0f0" : "#f7f8fa",
+                      color: isBlocked ? "#b83232" : "#111",
+                      border: isBlocked ? "1px solid #f0b8b8" : "1px solid #e2e6ec",
+                      borderRadius: 6, padding: "8px 4px", fontSize: 11, fontWeight: 600, cursor: "pointer",
+                      textDecoration: isBlocked ? "line-through" : "none",
+                    }}>
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+            {selectedBucket.blockedSlots.size > 0 && (
+              <div style={{ marginTop: 12, fontSize: 11, color: "#b85c00", fontWeight: 600 }}>
+                {selectedBucket.blockedSlots.size} × 15-min slot{selectedBucket.blockedSlots.size === 1 ? "" : "s"} blocked
+              </div>
+            )}
+          </>
+        )}
+
+        <div style={{ marginTop: 18, background: NAVY_PALE, padding: 12, borderRadius: 8, fontSize: 11, color: "#111", lineHeight: 1.5 }}>
+          <strong style={{ color: NAVY }}>How this works —</strong> Hours run 8am–9pm in 15-minute slots.
+          Block any slots the clinic can't take patients (lunch, doctor away, surgery time, etc.).
+          Sales reps can't book patients into blocked times. Changes save instantly.
+        </div>
       </div>
     </div>
   );
 }
 
-function OverrideList({ title, color, items, onRemove }: { title: string; color: string; items: ClinicAvailability[]; onRemove: (id: string) => void }) {
+function LegendDot({ color, bg, label }: { color: string; bg: string; label: string }) {
   return (
-    <div style={{ background: "#fff", border: "1px solid #e2e6ec", borderRadius: 10, padding: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>{title} ({items.length})</div>
-      {items.length === 0 ? (
-        <div style={{ fontSize: 12, color: "#6b7785" }}>None</div>
-      ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-          {items.map((a) => {
-            const d = new Date(a.override_date);
-            return (
-              <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0f2f5", padding: "4px 8px", borderRadius: 12, fontSize: 12 }}>
-                {MONTHS[d.getMonth()].slice(0,3)} {d.getDate()}
-                <button onClick={() => onRemove(a.id)} style={{ background: "transparent", padding: 0, color: "#6b7785", cursor: "pointer", display: "flex" }}>
-                  <X size={12} />
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
+    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+      <span style={{ width: 12, height: 12, borderRadius: 3, background: bg, border: `1px solid ${color}55` }} />
+      <span>{label}</span>
     </div>
   );
 }
+
+function formatPrettyDate(ymdStr: string) {
+  const [y, m, d] = ymdStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const wd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()];
+  return `${wd} ${d} ${MONTHS[m - 1]} ${y}`;
+}
+
 
 /* ============== MODALS ============== */
 

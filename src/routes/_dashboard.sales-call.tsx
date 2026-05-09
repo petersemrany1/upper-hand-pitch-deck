@@ -2513,6 +2513,24 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
+    if (form.clinicId) {
+      const { data: avs } = await supabase
+        .from("clinic_availability")
+        .select("override_date, override_type, start_time, end_time")
+        .eq("clinic_id", form.clinicId)
+        .eq("override_date", form.date);
+      const blocked = (avs ?? []).some((a) => {
+        if (a.override_type !== "blocked") return false;
+        if (!a.start_time || !a.end_time) return true;
+        const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+        const tm = toMin(form.time);
+        return tm >= toMin(a.start_time) && tm < toMin(a.end_time);
+      });
+      if (blocked) {
+        toast.error("That time is blocked by the clinic — pick another slot.");
+        return;
+      }
+    }
     const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);

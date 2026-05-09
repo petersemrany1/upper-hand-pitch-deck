@@ -266,23 +266,29 @@ export type Database = {
         Row: {
           clinic_id: string
           created_at: string
+          end_time: string | null
           id: string
           override_date: string
           override_type: string
+          start_time: string | null
         }
         Insert: {
           clinic_id: string
           created_at?: string
+          end_time?: string | null
           id?: string
           override_date: string
           override_type: string
+          start_time?: string | null
         }
         Update: {
           clinic_id?: string
           created_at?: string
+          end_time?: string | null
           id?: string
           override_date?: string
           override_type?: string
+          start_time?: string | null
         }
         Relationships: [
           {
