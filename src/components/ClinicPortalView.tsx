@@ -608,9 +608,9 @@ function OverrideList({ title, color, items, onRemove }: { title: string; color:
 
 /* ============== MODALS ============== */
 
-function ConsultSummaryModal({ appt, onClose, onSaved }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void }) {
+function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean }) {
   const [notes, setNotes] = useState("");
-  const [proceeded, setProceeded] = useState(false);
+  const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
