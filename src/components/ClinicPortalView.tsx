@@ -461,12 +461,14 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         </div>
       )}
 
-      {isAdmin && (
+      {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
           {appt.outcome && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
-          <button onClick={deleteAppt} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", color: "#b83232", borderColor: "#f0b8b8" }}>Delete appointment</button>
+          {isAdmin && (
+            <button onClick={deleteAppt} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", color: "#b83232", borderColor: "#f0b8b8" }}>Delete appointment</button>
+          )}
         </div>
       )}
 
