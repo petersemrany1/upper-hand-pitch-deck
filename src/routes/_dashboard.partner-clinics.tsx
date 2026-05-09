@@ -118,7 +118,6 @@ function PartnerClinicsPage() {
     void load();
   };
 
-  return (
   if (selectedClinic) {
     return (
       <div style={{ background: "#fafafa", minHeight: "100vh" }}>
