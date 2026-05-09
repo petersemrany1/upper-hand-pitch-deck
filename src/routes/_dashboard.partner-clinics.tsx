@@ -370,6 +370,9 @@ function PartnerClinicsPage() {
           onSaved={() => { setDoctorPanel(null); void load(); }}
         />
       )}
+      {invitePanel && (
+        <InviteClinicLoginPanel clinic={invitePanel} onClose={() => setInvitePanel(null)} />
+      )}
     </div>
   );
 }
