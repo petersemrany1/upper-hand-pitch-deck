@@ -18,6 +18,57 @@ function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
 }
 
+function isBadPatientIntel(value: string | null | undefined) {
+  const text = (value ?? "").trim();
+  if (!text) return true;
+  return [
+    /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript\b/i,
+    /\bplease (?:provide|paste|share)\b.*\btranscript\b/i,
+    /\b(?:no|without|missing)\b.*\btranscript\b/i,
+    /\bplaceholder text\b/i,
+    /\bcorrupted audio\b/i,
+    /\bvoicemail notification\b/i,
+    /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
+    /^no data yet$/i,
+    /^no call notes recorded\.?$/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+async function resolveHandoverPatientIntel(
+  supabase: ReturnType<typeof getAdminClient>,
+  leadId: string,
+  suppliedNotes: string,
+): Promise<string> {
+  const direct = suppliedNotes.trim();
+  if (!isBadPatientIntel(direct)) return direct;
+
+  const { data: lead } = await supabase
+    .from("meta_leads")
+    .select("call_notes,pipeline_summary")
+    .eq("id", leadId)
+    .maybeSingle();
+  for (const candidate of [lead?.call_notes, lead?.pipeline_summary]) {
+    const text = (candidate ?? "").trim();
+    if (!isBadPatientIntel(text)) return text;
+  }
+
+  const { data: calls } = await supabase
+    .from("call_records")
+    .select("call_analysis,called_at")
+    .eq("lead_id", leadId)
+    .order("called_at", { ascending: false })
+    .limit(10);
+  for (const call of calls ?? []) {
+    const analysis = (call as { call_analysis?: { patient_summary?: string; summary?: string; notes?: string } | null }).call_analysis;
+    for (const candidate of [analysis?.patient_summary, analysis?.summary, analysis?.notes]) {
+      const text = (candidate ?? "").trim();
+      if (!isBadPatientIntel(text)) return text;
+    }
+  }
+
+  return "No call notes recorded.";
+}
+
 /**
  * Find or create an sms_threads row for the given phone so outbound messages
  * are visible in the Inbox. Mirrors the logic used by the sms-inbound edge function.
@@ -593,6 +644,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
+    const supabase = getAdminClient();
 
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ");
     const bookingDisplay = (() => {
@@ -628,10 +680,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // in the "Review before sending" step, so we must NOT truncate or rewrite it.
     // If the notes are a dot-point list (lines starting with "- "), render as <ul>
     // for nicer formatting; otherwise render as a pre-wrapped paragraph.
-    const rawNotes = (data.callNotes ?? "").trim();
+    const rawNotes: string = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
     const isBulletList =
       rawNotes.length > 0 &&
-      rawNotes.split(/\r?\n/).filter((l) => l.trim().length > 0).every((l) => /^\s*[-•]\s+/.test(l));
+      rawNotes.split(/\r?\n/).filter((l: string) => l.trim().length > 0).every((l: string) => /^\s*[-•]\s+/.test(l));
 
     let intelBody: string;
     if (!rawNotes) {
@@ -639,10 +691,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     } else if (isBulletList) {
       const items = rawNotes
         .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0)
-        .map((l) => l.replace(/^\s*[-•]\s+/, ""))
-        .map((l) => `<li style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(l)}</li>`)
+        .map((l: string) => l.trim())
+        .filter((l: string) => l.length > 0)
+        .map((l: string) => l.replace(/^\s*[-•]\s+/, ""))
+        .map((l: string) => `<li style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#2a2a2a;">${esc(l)}</li>`)
         .join("");
       intelBody = `<ul style="margin:0;padding:0 0 0 20px;">${items}</ul>`;
     } else {
@@ -737,7 +789,6 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
     try {
-      const supabase = getAdminClient();
       const patientName = fullName || "Patient";
       const snapshotPayload = {
         lead_id: data.leadId,
