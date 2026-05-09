@@ -661,3 +661,68 @@ function DoctorPanel({ mode, clinicId, initial, onClose, onSaved }: {
     </SlideOver>
   );
 }
+
+function InviteClinicLoginPanel({ clinic, onClose }: { clinic: PartnerClinic; onClose: () => void }) {
+  const [email, setEmail] = useState(clinic.email ?? "");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ email: string; password: string } | null>(null);
+
+  const submit = async () => {
+    if (!email.trim()) { toast.error("Email required"); return; }
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-clinic-user", {
+        body: { email: email.trim(), clinicId: clinic.id, password: password.trim() || undefined },
+      });
+      if (error || !data?.success) {
+        toast.error(error?.message || data?.error || "Failed to invite");
+      } else {
+        setResult({ email: data.email, password: data.password });
+        toast.success("Login created");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <SlideOver
+      title="Invite clinic login"
+      subtitle={clinic.clinic_name}
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} style={{ fontSize: 13, color: "#111", padding: "8px 14px", background: "transparent" }}>Close</button>
+          {!result && (
+            <button onClick={() => void submit()} disabled={submitting}
+              style={{ background: COLORS.coral, color: "#fff", fontSize: 13, fontWeight: 500, padding: "8px 18px", borderRadius: 6, opacity: submitting ? 0.6 : 1 }}>
+              {submitting ? "Creating…" : "Create login"}
+            </button>
+          )}
+        </>
+      }
+    >
+      {result ? (
+        <div>
+          <div style={{ background: "#e8f5ef", color: "#1a7a4a", padding: 12, borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
+            Login created. Share these credentials with the clinic — they can log in at <code>/login</code>.
+          </div>
+          <Field label="Email"><TextInput readOnly value={result.email} /></Field>
+          <Field label="Temporary password"><TextInput readOnly value={result.password} /></Field>
+          <div style={{ fontSize: 12, color: "#666" }}>They'll be taken straight to the Clinic Partner Portal after sign-in.</div>
+        </div>
+      ) : (
+        <div>
+          <Field label="Clinic login email">
+            <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Set password (optional — leave blank to auto-generate)">
+            <TextInput type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Auto-generate" />
+          </Field>
+          <div style={{ fontSize: 12, color: "#666" }}>This creates a Supabase Auth user and links it to {clinic.clinic_name}. They'll only see this clinic's appointments.</div>
+        </div>
+      )}
+    </SlideOver>
+  );
+}
