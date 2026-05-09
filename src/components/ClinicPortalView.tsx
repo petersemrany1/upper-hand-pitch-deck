@@ -398,7 +398,7 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
 function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void;
 }) {
-  const [showSummary, setShowSummary] = useState(false);
+  const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
   const setOutcome = async (outcome: "noshow" | "proceeded") => {
