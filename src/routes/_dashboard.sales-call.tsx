@@ -2666,8 +2666,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
               // intel must stay exactly as sent in the handover email.
               await supabase.from("clinic_appointments").update(clinicPayloadBase).eq("id", existingClinicAppt[0].id);
             } else {
-              const fallbackIntel = previewIntel.trim() || discoveryNotes.trim() || lead.call_notes?.trim() || null;
-              await supabase.from("clinic_appointments").insert({ ...clinicPayloadBase, intel_notes: fallbackIntel });
+              await supabase.from("clinic_appointments").insert({ ...clinicPayloadBase, intel_notes: null });
             }
           }
         }
