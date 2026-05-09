@@ -18,6 +18,56 @@ function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
 }
 
+function isBadPatientIntel(value: string | null | undefined) {
+  const text = (value ?? "").trim();
+  if (!text) return true;
+  return [
+    /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript\b/i,
+    /\bplease (?:provide|paste|share)\b.*\btranscript\b/i,
+    /\bplaceholder text\b/i,
+    /\bcorrupted audio\b/i,
+    /\bvoicemail notification\b/i,
+    /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
+    /^no data yet$/i,
+    /^no call notes recorded\.?$/i,
+  ].some((pattern) => pattern.test(text));
+}
+
+async function resolveHandoverPatientIntel(
+  supabase: ReturnType<typeof getAdminClient>,
+  leadId: string,
+  suppliedNotes: string,
+) {
+  const direct = suppliedNotes.trim();
+  if (!isBadPatientIntel(direct)) return direct;
+
+  const { data: lead } = await supabase
+    .from("meta_leads")
+    .select("call_notes,pipeline_summary")
+    .eq("id", leadId)
+    .maybeSingle();
+  for (const candidate of [lead?.call_notes, lead?.pipeline_summary]) {
+    const text = (candidate ?? "").trim();
+    if (!isBadPatientIntel(text)) return text;
+  }
+
+  const { data: calls } = await supabase
+    .from("call_records")
+    .select("call_analysis,called_at")
+    .eq("lead_id", leadId)
+    .order("called_at", { ascending: false })
+    .limit(10);
+  for (const call of calls ?? []) {
+    const analysis = (call as { call_analysis?: { patient_summary?: string; summary?: string; notes?: string } | null }).call_analysis;
+    for (const candidate of [analysis?.patient_summary, analysis?.summary, analysis?.notes]) {
+      const text = (candidate ?? "").trim();
+      if (!isBadPatientIntel(text)) return text;
+    }
+  }
+
+  return "No call notes recorded.";
+}
+
 /**
  * Find or create an sms_threads row for the given phone so outbound messages
  * are visible in the Inbox. Mirrors the logic used by the sms-inbound edge function.
