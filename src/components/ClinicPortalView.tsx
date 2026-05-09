@@ -634,7 +634,8 @@ function ConsultSummaryModal({ appt, onClose, onSaved }: { appt: ClinicAppointme
         onChange={(e) => setNotes(e.target.value)}
         placeholder="What was discussed? How did the patient seem? Any follow-up needed?"
         rows={5}
-        style={{ width: "100%", padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8, resize: "vertical", outline: "none", marginBottom: 12 }}
+        style={{ width: "100%", padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8, resize: "vertical", outline: "none", marginBottom: 12, color: "#111" }}
+        className="clinic-consult-textarea"
       />
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#111", marginBottom: 18, cursor: "pointer" }}>
         <input type="checkbox" checked={proceeded} onChange={(e) => setProceeded(e.target.checked)} />

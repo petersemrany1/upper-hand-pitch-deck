@@ -350,3 +350,8 @@ button:disabled,
 [role="button"][aria-disabled="true"] {
   cursor: not-allowed;
 }
+
+.clinic-consult-textarea::placeholder {
+  color: #9aa5b1 !important;
+  opacity: 1;
+}
