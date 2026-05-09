@@ -85,6 +85,8 @@ function PartnerClinicsPage() {
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
+  const [selectedClinic, setSelectedClinic] = useState<PartnerClinic | null>(null);
+  const [invitePanel, setInvitePanel] = useState<PartnerClinic | null>(null);
 
   const [clinicPanel, setClinicPanel] = useState<{ mode: "create" | "edit"; data: Partial<PartnerClinic> } | null>(null);
   const [doctorPanel, setDoctorPanel] = useState<{ mode: "create" | "edit"; clinicId: string; data: Partial<PartnerDoctor> } | null>(null);
