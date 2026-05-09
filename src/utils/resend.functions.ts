@@ -748,7 +748,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       // so the partner clinic portal shows the same patient intel that the
       // clinic received via email at booking time.
       try {
-        const supabase = getSupabaseAdmin();
+        const supabase = getAdminClient();
         await supabase
           .from("clinic_appointments")
           .update({ intel_notes: rawNotes || null, updated_at: new Date().toISOString() })
