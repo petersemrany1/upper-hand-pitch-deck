@@ -743,6 +743,21 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         leadId: data.leadId,
         clinicName: data.clinicName,
       });
+    } else {
+      // Snapshot the EXACT intel that was emailed onto the clinic appointment,
+      // so the partner clinic portal shows the same patient intel that the
+      // clinic received via email at booking time.
+      try {
+        const supabase = getAdminClient();
+        await supabase
+          .from("clinic_appointments")
+          .update({ intel_notes: rawNotes || null, updated_at: new Date().toISOString() })
+          .eq("lead_id", data.leadId);
+      } catch (snapErr) {
+        await logError("sendClinicHandoverEmail", `intel snapshot failed: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`, {
+          leadId: data.leadId,
+        });
+      }
     }
 
     return result;
