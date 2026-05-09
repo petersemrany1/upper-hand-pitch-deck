@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, ArrowLeft, X, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -43,7 +43,6 @@ function ymd(d: Date) {
 }
 
 function fmtTime(t: string) {
-  // Accept "HH:MM" or "HH:MM:SS" or already-formatted
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
   if (!m) return t;
   let h = parseInt(m[1], 10);
@@ -62,11 +61,12 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
-  const [tab, setTab] = useState<"calendar" | "appointments" | "availability">("calendar");
+  const [tab, setTab] = useState<"appointments" | "availability">("appointments");
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
   const [avails, setAvails] = useState<ClinicAvailability[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
+  const [selected, setSelected] = useState<ClinicAppointment | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -86,12 +86,18 @@ export function ClinicPortalView({
 
   const reload = () => setRefresh((n) => n + 1);
 
+  // Keep selected appt fresh after reload
+  useEffect(() => {
+    if (selected) {
+      const fresh = appts.find((a) => a.id === selected.id);
+      if (fresh && fresh !== selected) setSelected(fresh);
+    }
+  }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div style={{ background: "#f0f2f5", minHeight: "100vh" }}>
-      {/* Tabs */}
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
         <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
-          <TabBtn active={tab === "calendar"} onClick={() => setTab("calendar")} icon={<CalendarIcon size={16} />}>Calendar</TabBtn>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
           <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
         </div>
@@ -99,16 +105,31 @@ export function ClinicPortalView({
 
       {loading ? (
         <div style={{ padding: 40, color: "#6b7785", fontSize: 14 }}>Loading…</div>
-      ) : tab === "calendar" ? (
-        <CalendarTab appts={appts} avails={avails} clinicId={clinicId} isAdmin={isAdmin} onChange={reload} />
       ) : tab === "appointments" ? (
-        <AppointmentsTab appts={appts} clinicId={clinicId} isAdmin={isAdmin} onChange={reload} />
+        <AppointmentsTab
+          appts={appts}
+          avails={avails}
+          clinicId={clinicId}
+          isAdmin={isAdmin}
+          onChange={reload}
+          onSelect={setSelected}
+        />
       ) : (
         <AvailabilityTab avails={avails} clinicId={clinicId} onChange={reload} />
       )}
+
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
         {clinicName} · Clinic Partner Portal
       </div>
+
+      {selected && (
+        <AppointmentDetailModal
+          appt={selected}
+          isAdmin={isAdmin}
+          onClose={() => setSelected(null)}
+          onChange={() => { reload(); }}
+        />
+      )}
     </div>
   );
 }
@@ -133,16 +154,127 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
   );
 }
 
-/* ============== CALENDAR TAB ============== */
+/* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function CalendarTab({ appts, avails, clinicId, isAdmin, onChange }: {
-  appts: ClinicAppointment[]; avails: ClinicAvailability[]; clinicId: string; isAdmin: boolean; onChange: () => void;
+function AppointmentsTab({ appts, avails, clinicId, isAdmin, onChange, onSelect }: {
+  appts: ClinicAppointment[];
+  avails: ClinicAvailability[];
+  clinicId: string;
+  isAdmin: boolean;
+  onChange: () => void;
+  onSelect: (a: ClinicAppointment) => void;
 }) {
-  const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
-  const [mode, setMode] = useState<"none" | "block" | "open">("none");
-  const [selected, setSelected] = useState<ClinicAppointment | null>(null);
+  const [view, setView] = useState<"list" | "calendar">("list");
   const [showAdd, setShowAdd] = useState(false);
 
+  const now = new Date();
+  const month = now.getMonth(), year = now.getFullYear();
+  const monthAppts = appts.filter((a) => {
+    const d = new Date(a.appointment_date);
+    return d.getMonth() === month && d.getFullYear() === year;
+  });
+  const counts = {
+    upcoming: monthAppts.filter((a) => !a.outcome).length,
+    show: monthAppts.filter((a) => a.outcome === "show").length,
+    proceeded: monthAppts.filter((a) => a.outcome === "proceeded").length,
+    noshow: monthAppts.filter((a) => a.outcome === "noshow").length,
+  };
+
+  return (
+    <div style={{ padding: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
+        <Stat label="Upcoming" value={counts.upcoming} color="#2d5fa0" />
+        <Stat label="Showed up" value={counts.show} color="#1a7a4a" />
+        <Stat label="Booked" value={counts.proceeded} color="#6b3fa0" />
+        <Stat label="No shows" value={counts.noshow} color="#b83232" />
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
+          <ViewToggleBtn active={view === "list"} onClick={() => setView("list")} icon={<ListIcon size={14} />}>List</ViewToggleBtn>
+          <ViewToggleBtn active={view === "calendar"} onClick={() => setView("calendar")} icon={<CalendarIcon size={14} />}>Calendar</ViewToggleBtn>
+        </div>
+        {isAdmin && (
+          <button onClick={() => setShowAdd(true)} style={{ ...navBtn, background: NAVY, color: "#fff", borderColor: NAVY, display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Plus size={14} /> Add appointment
+          </button>
+        )}
+      </div>
+
+      {view === "list" ? (
+        <ListView appts={appts} onSelect={onSelect} />
+      ) : (
+        <CalendarView appts={appts} avails={avails} onSelect={onSelect} />
+      )}
+
+      {showAdd && isAdmin && (
+        <AddAppointmentModal clinicId={clinicId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); onChange(); }} />
+      )}
+    </div>
+  );
+}
+
+function ViewToggleBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: "6px 12px", border: "none",
+        background: active ? NAVY : "transparent",
+        color: active ? "#fff" : "#6b7785",
+        fontSize: 12, fontWeight: 600, borderRadius: 6, cursor: "pointer",
+      }}
+    >
+      {icon} {children}
+    </button>
+  );
+}
+
+/* ---------- LIST VIEW ---------- */
+
+function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void }) {
+  const sorted = [...appts].sort((a, b) => a.appointment_date.localeCompare(b.appointment_date));
+  return (
+    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
+      {sorted.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center", color: "#6b7785" }}>No appointments yet.</div>
+      ) : sorted.map((a) => {
+        const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
+        const d = new Date(a.appointment_date);
+        return (
+          <button
+            key={a.id}
+            onClick={() => onSelect(a)}
+            style={{
+              display: "flex", alignItems: "center", gap: 16, padding: 14,
+              borderBottom: "1px solid #f0f2f5", width: "100%", background: "#fff",
+              border: "none", borderTop: "none", borderLeft: "none", borderRight: "none",
+              cursor: "pointer", textAlign: "left",
+            }}
+          >
+            <div style={{ background: c.bg, color: c.fg, padding: "8px 12px", borderRadius: 8, textAlign: "center", minWidth: 64 }}>
+              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{d.getDate()}</div>
+              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
+              <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
+            </div>
+            <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- CALENDAR VIEW ---------- */
+
+function CalendarView({ appts, avails, onSelect }: {
+  appts: ClinicAppointment[]; avails: ClinicAvailability[]; onSelect: (a: ClinicAppointment) => void;
+}) {
+  const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const monthLabel = `${MONTHS[view.getMonth()]} ${view.getFullYear()}`;
   const days = useMemo(() => buildMonthGrid(view), [view]);
 
@@ -164,134 +296,73 @@ function CalendarTab({ appts, avails, clinicId, isAdmin, onChange }: {
 
   const todayStr = ymd(new Date());
 
-  const handleDayClick = async (date: string) => {
-    if (mode === "none") return;
-    const existing = availByDate.get(date);
-    const desired = mode === "block" ? "blocked" : "open";
-    if (existing && existing.override_type === desired) {
-      await supabase.from("clinic_availability").delete().eq("id", existing.id);
-    } else if (existing) {
-      await supabase.from("clinic_availability").update({ override_type: desired }).eq("id", existing.id);
-    } else {
-      await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: date, override_type: desired });
-    }
-    onChange();
-  };
-
   return (
-    <div style={{ display: "flex", gap: 0, alignItems: "stretch" }}>
-      <div style={{ flex: 1, padding: 24 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={() => setView((d) => { const n = new Date(d); n.setMonth(n.getMonth() - 1); return n; })} style={navBtn}>‹</button>
-            <div style={{ fontSize: 18, fontWeight: 600, color: NAVY, minWidth: 180, textAlign: "center" }}>{monthLabel}</div>
-            <button onClick={() => setView((d) => { const n = new Date(d); n.setMonth(n.getMonth() + 1); return n; })} style={navBtn}>›</button>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <ModeBtn active={mode === "block"} color="#b83232" bg="#fdf0f0" onClick={() => setMode((m) => m === "block" ? "none" : "block")}>🔴 Block a day</ModeBtn>
-            <ModeBtn active={mode === "open"} color="#1a7a4a" bg="#e8f5ef" onClick={() => setMode((m) => m === "open" ? "none" : "open")}>🟢 Open a day</ModeBtn>
-            {mode !== "none" && <span style={{ fontSize: 12, color: "#6b7785" }}>← tap a date</span>}
-            {isAdmin && (
-              <button onClick={() => setShowAdd(true)} style={{ ...navBtn, background: NAVY, color: "#fff", borderColor: NAVY, display: "flex", alignItems: "center", gap: 6 }}>
-                <Plus size={14} /> Add appointment
-              </button>
-            )}
-          </div>
-        </div>
+    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 18 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <button onClick={() => setView((d) => { const n = new Date(d); n.setMonth(n.getMonth() - 1); return n; })} style={navBtn}>‹</button>
+        <div style={{ fontSize: 16, fontWeight: 600, color: NAVY }}>{monthLabel}</div>
+        <button onClick={() => setView((d) => { const n = new Date(d); n.setMonth(n.getMonth() + 1); return n; })} style={navBtn}>›</button>
+      </div>
 
-        {/* Day-of-week headers */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
-          {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
-            <div key={d} style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 8px" }}>{d}</div>
-          ))}
-        </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
+        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
+          <div key={d} style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 8px" }}>{d}</div>
+        ))}
+      </div>
 
-        {/* Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-          {days.map((d, i) => {
-            if (!d) return <div key={i} />;
-            const dateStr = ymd(d);
-            const av = availByDate.get(dateStr);
-            const isToday = dateStr === todayStr;
-            const dayAppts = apptsByDate.get(dateStr) ?? [];
-            let bg = "#fff", border = "1.5px solid #e2e6ec";
-            if (av?.override_type === "blocked") { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
-            else if (av?.override_type === "open") { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
-            else if (isToday) { bg = NAVY_PALE; border = `1.5px solid ${NAVY}`; }
-            return (
-              <div
-                key={dateStr}
-                onClick={() => handleDayClick(dateStr)}
-                style={{
-                  background: bg, border, borderRadius: 10, minHeight: 82, padding: 6,
-                  cursor: mode !== "none" ? "pointer" : "default",
-                  display: "flex", flexDirection: "column", gap: 4,
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{d.getDate()}</span>
-                  {av?.override_type === "blocked" && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Blocked</span>}
-                  {av?.override_type === "open" && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
-                </div>
-                {dayAppts.map((a) => {
-                  const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={(e) => { e.stopPropagation(); setSelected(a); }}
-                      style={{
-                        background: c.bg, color: c.fg, fontSize: 10, padding: "3px 6px",
-                        borderRadius: 4, border: "none", textAlign: "left", overflow: "hidden",
-                        textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer",
-                      }}
-                      title={`${a.patient_name} · ${fmtTime(a.appointment_time)}`}
-                    >
-                      {fmtTime(a.appointment_time)} {a.patient_name}
-                    </button>
-                  );
-                })}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+        {days.map((d, i) => {
+          if (!d) return <div key={i} />;
+          const dateStr = ymd(d);
+          const av = availByDate.get(dateStr);
+          const isToday = dateStr === todayStr;
+          const dayAppts = apptsByDate.get(dateStr) ?? [];
+          let bg = "#fff", border = "1.5px solid #e2e6ec";
+          if (av?.override_type === "blocked") { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
+          else if (av?.override_type === "open") { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
+          else if (isToday) { bg = NAVY_PALE; border = `1.5px solid ${NAVY}`; }
+          return (
+            <div
+              key={dateStr}
+              style={{
+                background: bg, border, borderRadius: 10, minHeight: 82, padding: 6,
+                display: "flex", flexDirection: "column", gap: 4,
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{d.getDate()}</span>
+                {av?.override_type === "blocked" && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Blocked</span>}
+                {av?.override_type === "open" && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
               </div>
-            );
-          })}
-        </div>
-
-        {/* Legend */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 18, fontSize: 11, color: "#6b7785" }}>
-          {Object.entries(OUTCOME_COLORS).map(([k, v]) => (
-            <div key={k} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ width: 10, height: 10, borderRadius: 5, background: v.fg }} /> {v.label}
+              {dayAppts.map((a) => {
+                const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
+                return (
+                  <button
+                    key={a.id}
+                    onClick={() => onSelect(a)}
+                    style={{
+                      background: c.bg, color: c.fg, fontSize: 10, padding: "3px 6px",
+                      borderRadius: 4, border: "none", textAlign: "left", overflow: "hidden",
+                      textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer",
+                    }}
+                    title={`${a.patient_name} · ${fmtTime(a.appointment_time)}`}
+                  >
+                    {fmtTime(a.appointment_time)} {a.patient_name}
+                  </button>
+                );
+              })}
             </div>
-          ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 5, background: "#b83232" }} /> Blocked
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ width: 10, height: 10, borderRadius: 5, background: "#1a7a4a" }} /> Open override
-          </div>
-        </div>
+          );
+        })}
       </div>
 
-      {/* Side panel */}
-      <div style={{ width: 310, background: "#fff", borderLeft: "1px solid #e2e6ec", padding: 20, minHeight: "calc(100vh - 60px)" }}>
-        {selected ? (
-          <AppointmentDetail
-            appt={selected}
-            isAdmin={isAdmin}
-            onBack={() => setSelected(null)}
-            onChange={() => { onChange(); setSelected(null); }}
-          />
-        ) : (
-          <div style={{ textAlign: "center", paddingTop: 60, color: "#6b7785" }}>
-            <CalendarIcon size={32} style={{ margin: "0 auto 12px", opacity: 0.4 }} />
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#111", marginBottom: 6 }}>Select an appointment</div>
-            <div style={{ fontSize: 12, lineHeight: 1.5 }}>Tap any appointment to view patient details and update the outcome.</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 16, fontSize: 11, color: "#6b7785" }}>
+        {Object.entries(OUTCOME_COLORS).map(([k, v]) => (
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ width: 10, height: 10, borderRadius: 5, background: v.fg }} /> {v.label}
           </div>
-        )}
+        ))}
       </div>
-
-      {showAdd && isAdmin && (
-        <AddAppointmentModal clinicId={clinicId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); onChange(); }} />
-      )}
     </div>
   );
 }
@@ -313,7 +384,6 @@ function ModeBtn({ active, color, bg, onClick, children }: { active: boolean; co
 function buildMonthGrid(monthStart: Date): (Date | null)[] {
   const first = new Date(monthStart);
   first.setDate(1);
-  // Mon=0..Sun=6
   const dow = (first.getDay() + 6) % 7;
   const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   const cells: (Date | null)[] = [];
@@ -323,10 +393,10 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
   return cells;
 }
 
-/* ============== APPOINTMENT DETAIL PANEL ============== */
+/* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
-function AppointmentDetail({ appt, isAdmin, onBack, onChange }: {
-  appt: ClinicAppointment; isAdmin: boolean; onBack: () => void; onChange: () => void;
+function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
+  appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void;
 }) {
   const [showSummary, setShowSummary] = useState(false);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
@@ -336,6 +406,7 @@ function AppointmentDetail({ appt, isAdmin, onBack, onChange }: {
     if (error) { toast.error(error.message); return; }
     toast.success("Outcome saved");
     onChange();
+    onClose();
   };
 
   const resetOutcome = async () => {
@@ -351,14 +422,12 @@ function AppointmentDetail({ appt, isAdmin, onBack, onChange }: {
     if (error) { toast.error(error.message); return; }
     toast.success("Appointment deleted");
     onChange();
+    onClose();
   };
 
   return (
-    <div>
-      <button onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 4, color: NAVY, fontSize: 12, background: "transparent", marginBottom: 14, cursor: "pointer" }}>
-        <ArrowLeft size={14} /> Back
-      </button>
-      <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
+    <ModalShell onClose={onClose}>
+      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 8 }}>
         {new Date(appt.appointment_date).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(appt.appointment_time)}
       </div>
@@ -401,14 +470,18 @@ function AppointmentDetail({ appt, isAdmin, onBack, onChange }: {
         </div>
       )}
 
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+        <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Close</button>
+      </div>
+
       {showSummary && (
         <ConsultSummaryModal
           appt={appt}
           onClose={() => setShowSummary(false)}
-          onSaved={() => { setShowSummary(false); onChange(); }}
+          onSaved={() => { setShowSummary(false); onChange(); onClose(); }}
         />
       )}
-    </div>
+    </ModalShell>
   );
 }
 
@@ -417,86 +490,6 @@ function outcomeBtn(color: string, bg: string): React.CSSProperties {
     background: bg, color, border: `1px solid ${color}33`, padding: "10px 12px",
     borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left",
   };
-}
-
-/* ============== APPOINTMENTS TAB ============== */
-
-function AppointmentsTab({ appts, clinicId, isAdmin, onChange }: { appts: ClinicAppointment[]; clinicId: string; isAdmin: boolean; onChange: () => void }) {
-  const [showAdd, setShowAdd] = useState(false);
-  const [setOutcomeFor, setSetOutcomeFor] = useState<ClinicAppointment | null>(null);
-
-  const now = new Date();
-  const month = now.getMonth(), year = now.getFullYear();
-  const monthAppts = appts.filter((a) => {
-    const d = new Date(a.appointment_date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
-  const counts = {
-    upcoming: monthAppts.filter((a) => !a.outcome).length,
-    show: monthAppts.filter((a) => a.outcome === "show").length,
-    proceeded: monthAppts.filter((a) => a.outcome === "proceeded").length,
-    noshow: monthAppts.filter((a) => a.outcome === "noshow").length,
-  };
-
-  const sorted = [...appts].sort((a, b) => a.appointment_date.localeCompare(b.appointment_date));
-
-  return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        <Stat label="Upcoming" value={counts.upcoming} color="#2d5fa0" />
-        <Stat label="Showed up" value={counts.show} color="#1a7a4a" />
-        <Stat label="Booked" value={counts.proceeded} color="#6b3fa0" />
-        <Stat label="No shows" value={counts.noshow} color="#b83232" />
-      </div>
-
-      {isAdmin && (
-        <div style={{ marginBottom: 12 }}>
-          <button onClick={() => setShowAdd(true)} style={{ ...navBtn, background: NAVY, color: "#fff", borderColor: NAVY, display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Plus size={14} /> Add appointment
-          </button>
-        </div>
-      )}
-
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
-        {sorted.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#6b7785" }}>No appointments yet.</div>
-        ) : sorted.map((a) => {
-          const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
-          const d = new Date(a.appointment_date);
-          return (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 16, padding: 14, borderBottom: "1px solid #f0f2f5" }}>
-              <div style={{ background: c.bg, color: c.fg, padding: "8px 12px", borderRadius: 8, textAlign: "center", minWidth: 64 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{d.getDate()}</div>
-                <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
-                <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
-              </div>
-              <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
-              {!a.outcome && (
-                <button onClick={() => setSetOutcomeFor(a)} style={{ background: NAVY, color: "#fff", padding: "6px 12px", fontSize: 12, borderRadius: 6, fontWeight: 500, cursor: "pointer", border: "none" }}>
-                  Log outcome
-                </button>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      {showAdd && isAdmin && (
-        <AddAppointmentModal clinicId={clinicId} onClose={() => setShowAdd(false)} onSaved={() => { setShowAdd(false); onChange(); }} />
-      )}
-      {setOutcomeFor && (
-        <ConsultSummaryModal
-          appt={setOutcomeFor}
-          onClose={() => setSetOutcomeFor(null)}
-          onSaved={() => { setSetOutcomeFor(null); onChange(); }}
-        />
-      )}
-      
-    </div>
-  );
 }
 
 function Stat({ label, value, color }: { label: string; value: number; color: string }) {
@@ -707,7 +700,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
 function ModalShell({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   return (
     <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
         {children}
       </div>
     </div>
