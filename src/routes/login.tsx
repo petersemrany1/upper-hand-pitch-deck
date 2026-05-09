@@ -11,20 +11,24 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, session, loading } = useAuth();
+  const { signIn, session, loading, userType, ready } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // Redirect if already signed in
+  // Redirect once auth is ready and user type is resolved.
   useEffect(() => {
-    if (!loading && session) {
-      const search = new URLSearchParams(location.search);
-      const next = search.get("redirect") || "/";
-      navigate({ to: next, replace: true });
+    if (loading || !ready || !session) return;
+    if (userType === "unknown") return; // wait for type resolution
+    const search = new URLSearchParams(location.search);
+    const next = search.get("redirect");
+    if (userType === "clinic") {
+      navigate({ to: "/clinic-portal", replace: true });
+    } else {
+      navigate({ to: next || "/", replace: true });
     }
-  }, [loading, session, navigate, location.search]);
+  }, [loading, ready, session, userType, navigate, location.search]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -36,9 +40,7 @@ function LoginPage() {
       setError(err);
       return;
     }
-    const search = new URLSearchParams(location.search);
-    const next = search.get("redirect") || "/";
-    navigate({ to: next, replace: true });
+    // Redirect handled by the effect once userType resolves.
   };
 
   return (

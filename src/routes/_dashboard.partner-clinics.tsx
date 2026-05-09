@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Pencil, UserPlus, Building2 } from "lucide-react";
+import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ClinicPortalView } from "@/components/ClinicPortalView";
 
 export const Route = createFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
@@ -84,6 +85,8 @@ function PartnerClinicsPage() {
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [showInactive, setShowInactive] = useState(false);
+  const [selectedClinic, setSelectedClinic] = useState<PartnerClinic | null>(null);
+  const [invitePanel, setInvitePanel] = useState<PartnerClinic | null>(null);
 
   const [clinicPanel, setClinicPanel] = useState<{ mode: "create" | "edit"; data: Partial<PartnerClinic> } | null>(null);
   const [doctorPanel, setDoctorPanel] = useState<{ mode: "create" | "edit"; clinicId: string; data: Partial<PartnerDoctor> } | null>(null);
@@ -114,6 +117,23 @@ function PartnerClinicsPage() {
     toast.success(d.is_active ? "Doctor marked inactive" : "Doctor activated");
     void load();
   };
+
+  if (selectedClinic) {
+    return (
+      <div style={{ background: "#fafafa", minHeight: "100vh" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 24px" }}>
+          <button onClick={() => setSelectedClinic(null)} style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#111", background: "transparent", marginBottom: 12, cursor: "pointer" }}>
+            <ArrowLeft className="h-4 w-4" /> Back to Partner Clinics
+          </button>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: COLORS.text, marginBottom: 6 }}>{selectedClinic.clinic_name}</h1>
+          <div style={{ background: "#1a3a6b", color: "#fff", padding: "10px 14px", borderRadius: 8, fontSize: 12, marginBottom: 16 }}>
+            Admin view — you are viewing {selectedClinic.clinic_name}'s portal. Changes here are real.
+          </div>
+        </div>
+        <ClinicPortalView clinicId={selectedClinic.id} clinicName={selectedClinic.clinic_name} isAdmin={true} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: "#fafafa", minHeight: "100vh" }}>
@@ -221,16 +241,18 @@ function PartnerClinicsPage() {
                     <IconBtn label="Edit" onClick={() => setClinicPanel({ mode: "edit", data: clinic })}>
                       <Pencil className="h-3.5 w-3.5" />
                     </IconBtn>
+                    <IconBtn label="Invite clinic login" onClick={() => setInvitePanel(clinic)}>
+                      <KeyRound className="h-3.5 w-3.5" />
+                    </IconBtn>
+                    <button
+                      onClick={() => setSelectedClinic(clinic)}
+                      style={{ fontSize: 12, fontWeight: 500, background: "#1a3a6b", color: "#fff", padding: "6px 12px", borderRadius: 6, border: "none", cursor: "pointer" }}
+                    >
+                      View Portal →
+                    </button>
                     <button
                       onClick={() => void toggleClinicActive(clinic)}
-                      style={{
-                        fontSize: 11,
-                        color: "#111",
-                        opacity: 0.6,
-                        background: "transparent",
-                        textDecoration: "underline",
-                        padding: "4px 8px",
-                      }}
+                      style={{ fontSize: 11, color: "#111", opacity: 0.6, background: "transparent", textDecoration: "underline", padding: "4px 8px" }}
                     >
                       {clinic.is_active ? "Deactivate" : "Activate"}
                     </button>
@@ -347,6 +369,9 @@ function PartnerClinicsPage() {
           onClose={() => setDoctorPanel(null)}
           onSaved={() => { setDoctorPanel(null); void load(); }}
         />
+      )}
+      {invitePanel && (
+        <InviteClinicLoginPanel clinic={invitePanel} onClose={() => setInvitePanel(null)} />
       )}
     </div>
   );
@@ -633,6 +658,71 @@ function DoctorPanel({ mode, clinicId, initial, onClose, onSaved }: {
       <Field label="Aftercare Included">
         <TextArea rows={2} value={form.aftercare_included ?? ""} onChange={(e) => set("aftercare_included", e.target.value)} />
       </Field>
+    </SlideOver>
+  );
+}
+
+function InviteClinicLoginPanel({ clinic, onClose }: { clinic: PartnerClinic; onClose: () => void }) {
+  const [email, setEmail] = useState(clinic.email ?? "");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ email: string; password: string } | null>(null);
+
+  const submit = async () => {
+    if (!email.trim()) { toast.error("Email required"); return; }
+    setSubmitting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("invite-clinic-user", {
+        body: { email: email.trim(), clinicId: clinic.id, password: password.trim() || undefined },
+      });
+      if (error || !data?.success) {
+        toast.error(error?.message || data?.error || "Failed to invite");
+      } else {
+        setResult({ email: data.email, password: data.password });
+        toast.success("Login created");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <SlideOver
+      title="Invite clinic login"
+      subtitle={clinic.clinic_name}
+      onClose={onClose}
+      footer={
+        <>
+          <button onClick={onClose} style={{ fontSize: 13, color: "#111", padding: "8px 14px", background: "transparent" }}>Close</button>
+          {!result && (
+            <button onClick={() => void submit()} disabled={submitting}
+              style={{ background: COLORS.coral, color: "#fff", fontSize: 13, fontWeight: 500, padding: "8px 18px", borderRadius: 6, opacity: submitting ? 0.6 : 1 }}>
+              {submitting ? "Creating…" : "Create login"}
+            </button>
+          )}
+        </>
+      }
+    >
+      {result ? (
+        <div>
+          <div style={{ background: "#e8f5ef", color: "#1a7a4a", padding: 12, borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
+            Login created. Share these credentials with the clinic — they can log in at <code>/login</code>.
+          </div>
+          <Field label="Email"><TextInput readOnly value={result.email} /></Field>
+          <Field label="Temporary password"><TextInput readOnly value={result.password} /></Field>
+          <div style={{ fontSize: 12, color: "#666" }}>They'll be taken straight to the Clinic Partner Portal after sign-in.</div>
+        </div>
+      ) : (
+        <div>
+          <Field label="Clinic login email">
+            <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="Set password (optional — leave blank to auto-generate)">
+            <TextInput type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Auto-generate" />
+          </Field>
+          <div style={{ fontSize: 12, color: "#666" }}>This creates a Supabase Auth user and links it to {clinic.clinic_name}. They'll only see this clinic's appointments.</div>
+        </div>
+      )}
     </SlideOver>
   );
 }

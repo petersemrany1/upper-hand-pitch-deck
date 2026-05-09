@@ -2641,6 +2641,31 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           } else {
             await supabase.from("appointment_reminders").insert(payload);
           }
+
+          // Mirror into clinic_appointments so the partner clinic portal sees it.
+          if (lead.clinic_id) {
+            const patientName = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Patient";
+            const intel = (lead as { call_notes?: string | null }).call_notes ?? null;
+            const { data: existingClinicAppt } = await supabase
+              .from("clinic_appointments")
+              .select("id")
+              .eq("lead_id", lead.id)
+              .limit(1);
+            const clinicPayload = {
+              clinic_id: lead.clinic_id,
+              lead_id: lead.id,
+              patient_name: patientName,
+              patient_phone: lead.phone ?? null,
+              appointment_date: date,
+              appointment_time: time,
+              intel_notes: intel,
+            };
+            if (existingClinicAppt && existingClinicAppt.length > 0) {
+              await supabase.from("clinic_appointments").update(clinicPayload).eq("id", existingClinicAppt[0].id);
+            } else {
+              await supabase.from("clinic_appointments").insert(clinicPayload);
+            }
+          }
         }
       } catch (e) {
         console.error("[appointment_reminders] insert failed", e);
@@ -2669,6 +2694,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           .update({ status: "cancelled" })
           .eq("lead_id", lead.id)
           .eq("status", "confirmed");
+        await supabase.from("clinic_appointments").delete().eq("lead_id", lead.id);
       } catch (e) {
         console.error("[appointment_reminders] undo-cancel failed", e);
       }
@@ -2780,6 +2806,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           .update({ status: "cancelled" })
           .eq("lead_id", lead.id)
           .eq("status", "confirmed");
+        await supabase.from("clinic_appointments").delete().eq("lead_id", lead.id);
       } catch (e) { console.error("[appointment_reminders] cancel failed", e); }
       // Mutate the lead prop so the restore-effect doesn't re-trigger when
       // the rep navigates away and comes back to this lead.

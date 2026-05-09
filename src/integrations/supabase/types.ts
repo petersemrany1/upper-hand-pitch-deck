@@ -209,6 +209,91 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_appointments: {
+        Row: {
+          appointment_date: string
+          appointment_time: string
+          clinic_id: string
+          consult_summary: string | null
+          created_at: string
+          id: string
+          intel_notes: string | null
+          lead_id: string | null
+          outcome: string | null
+          patient_name: string
+          patient_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_date: string
+          appointment_time: string
+          clinic_id: string
+          consult_summary?: string | null
+          created_at?: string
+          id?: string
+          intel_notes?: string | null
+          lead_id?: string | null
+          outcome?: string | null
+          patient_name: string
+          patient_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_date?: string
+          appointment_time?: string
+          clinic_id?: string
+          consult_summary?: string | null
+          created_at?: string
+          id?: string
+          intel_notes?: string | null
+          lead_id?: string | null
+          outcome?: string | null
+          patient_name?: string
+          patient_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_appointments_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_availability: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          override_date: string
+          override_type: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          override_date: string
+          override_type: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          override_date?: string
+          override_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_availability_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_contacts: {
         Row: {
           clinic_id: string
@@ -252,6 +337,35 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_portal_users: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          email: string
+          id: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_portal_users_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
             referencedColumns: ["id"]
           },
         ]
@@ -819,7 +933,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_clinic_id: { Args: never; Returns: string }
       get_dashboard_stats: { Args: never; Returns: Json }
+      is_admin_user: { Args: never; Returns: boolean }
+      is_clinic_user_for: { Args: { _clinic_id: string }; Returns: boolean }
       normalize_phone: { Args: { p: string }; Returns: string }
     }
     Enums: {
