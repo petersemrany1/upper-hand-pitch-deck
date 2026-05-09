@@ -643,6 +643,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
+    const supabase = getAdminClient();
 
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ");
     const bookingDisplay = (() => {
@@ -678,7 +679,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // in the "Review before sending" step, so we must NOT truncate or rewrite it.
     // If the notes are a dot-point list (lines starting with "- "), render as <ul>
     // for nicer formatting; otherwise render as a pre-wrapped paragraph.
-    const rawNotes = (data.callNotes ?? "").trim();
+    const rawNotes = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
     const isBulletList =
       rawNotes.length > 0 &&
       rawNotes.split(/\r?\n/).filter((l) => l.trim().length > 0).every((l) => /^\s*[-•]\s+/.test(l));
@@ -787,7 +788,6 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
     try {
-      const supabase = getAdminClient();
       const patientName = fullName || "Patient";
       const snapshotPayload = {
         lead_id: data.leadId,
