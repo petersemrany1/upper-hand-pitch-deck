@@ -575,6 +575,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       leadId: string;
+      clinicId?: string | null;
       firstName: string;
       lastName: string;
       email: string | null;
@@ -732,6 +733,49 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       await logError("sendClinicHandoverEmail", err, { leadId: data.leadId, clinicName: data.clinicName });
       return { success: false, error: err };
     }
+    // Save the EXACT same Patient Intel to the clinic portal before sending.
+    // If this fails, do not send the email — we never want a clinic email whose
+    // patient-card intel wasn't captured.
+    try {
+      const supabase = getAdminClient();
+      const patientName = fullName || "Patient";
+      const snapshotPayload = {
+        lead_id: data.leadId,
+        patient_name: patientName,
+        patient_phone: data.phone ?? null,
+        appointment_date: data.bookingDate,
+        appointment_time: data.bookingTime,
+        intel_notes: rawNotes || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data: existingAppointment, error: findErr } = await supabase
+        .from("clinic_appointments")
+        .select("id")
+        .eq("lead_id", data.leadId)
+        .limit(1);
+      if (findErr) throw findErr;
+
+      if (existingAppointment && existingAppointment.length > 0) {
+        const { error: updateErr } = await supabase
+          .from("clinic_appointments")
+          .update(snapshotPayload)
+          .eq("id", existingAppointment[0].id);
+        if (updateErr) throw updateErr;
+      } else if (data.clinicId) {
+        const { error: insertErr } = await supabase
+          .from("clinic_appointments")
+          .insert({ ...snapshotPayload, clinic_id: data.clinicId });
+        if (insertErr) throw insertErr;
+      } else {
+        throw new Error("No clinic appointment exists and no clinicId was provided");
+      }
+    } catch (snapErr) {
+      const message = `Could not save patient intel to the clinic portal: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`;
+      await logError("sendClinicHandoverEmail", message, { leadId: data.leadId, clinicName: data.clinicName });
+      return { success: false, error: message };
+    }
+
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
@@ -743,21 +787,6 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         leadId: data.leadId,
         clinicName: data.clinicName,
       });
-    } else {
-      // Snapshot the EXACT intel that was emailed onto the clinic appointment,
-      // so the partner clinic portal shows the same patient intel that the
-      // clinic received via email at booking time.
-      try {
-        const supabase = getAdminClient();
-        await supabase
-          .from("clinic_appointments")
-          .update({ intel_notes: rawNotes || null, updated_at: new Date().toISOString() })
-          .eq("lead_id", data.leadId);
-      } catch (snapErr) {
-        await logError("sendClinicHandoverEmail", `intel snapshot failed: ${snapErr instanceof Error ? snapErr.message : String(snapErr)}`, {
-          leadId: data.leadId,
-        });
-      }
     }
 
     return result;

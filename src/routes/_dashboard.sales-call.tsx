@@ -2525,6 +2525,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       // the restore-effect sees the booking and skips the form.
       (lead as { booking_date: string | null }).booking_date = form.date;
       (lead as { booking_time: string | null }).booking_time = form.time;
+      (lead as { clinic_id: string | null }).clinic_id = form.clinicId || null;
       onBooked();
       toast.success("Appointment booked!");
 
@@ -2553,6 +2554,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     const r = await sendClinicHandoverEmail({
       data: {
         leadId: lead.id,
+        clinicId: form.clinicId || lead.clinic_id || null,
         firstName: lead.first_name ?? "",
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
@@ -2643,27 +2645,29 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           }
 
           // Mirror into clinic_appointments so the partner clinic portal sees it.
-          if (lead.clinic_id) {
+          const appointmentClinicId = form.clinicId || lead.clinic_id;
+          if (appointmentClinicId) {
             const patientName = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Patient";
-            const intel = (lead as { call_notes?: string | null }).call_notes ?? null;
             const { data: existingClinicAppt } = await supabase
               .from("clinic_appointments")
-              .select("id")
+              .select("id, intel_notes")
               .eq("lead_id", lead.id)
               .limit(1);
-            const clinicPayload = {
-              clinic_id: lead.clinic_id,
+            const clinicPayloadBase = {
+              clinic_id: appointmentClinicId,
               lead_id: lead.id,
               patient_name: patientName,
               patient_phone: lead.phone ?? null,
               appointment_date: date,
               appointment_time: time,
-              intel_notes: intel,
             };
             if (existingClinicAppt && existingClinicAppt.length > 0) {
-              await supabase.from("clinic_appointments").update(clinicPayload).eq("id", existingClinicAppt[0].id);
+              // Do not overwrite the handover email snapshot. The clinic portal
+              // intel must stay exactly as sent in the handover email.
+              await supabase.from("clinic_appointments").update(clinicPayloadBase).eq("id", existingClinicAppt[0].id);
             } else {
-              await supabase.from("clinic_appointments").insert(clinicPayload);
+              const fallbackIntel = previewIntel.trim() || discoveryNotes.trim() || lead.call_notes?.trim() || null;
+              await supabase.from("clinic_appointments").insert({ ...clinicPayloadBase, intel_notes: fallbackIntel });
             }
           }
         }
@@ -2757,6 +2761,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       const r = await sendClinicHandoverEmail({
         data: {
           leadId: lead.id,
+          clinicId: form.clinicId || lead.clinic_id || null,
           firstName: lead.first_name ?? "",
           lastName: lead.last_name ?? "",
           email: previewEmail || null,
