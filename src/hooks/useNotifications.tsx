@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 // Global "sticky until acknowledged" notifications: unread SMS threads and
 // missed inbound calls. State lives at the dashboard root so badges in the
@@ -44,27 +45,41 @@ const NotificationsContext = createContext<Ctx | null>(null);
 const ACK_KEY = "uh.missedCallsAcked.v1";
 const SEEN_AT_KEY = "uh.notificationsSeenAt.v1";
 const THREAD_ACK_KEY = "uh.threadsAcked.v1";
+const MISSED_ACK_TYPE = "missed_call";
+const THREAD_ACK_TYPE = "sms_thread";
 
-function loadSeenAt(): number {
+type NotificationAckRow = {
+  user_id: string;
+  notification_type: string;
+  notification_key: string;
+  acknowledged_at: string;
+  metadata?: Record<string, unknown> | null;
+};
+
+function scopedKey(base: string, userId: string | null | undefined): string {
+  return userId ? `${base}.${userId}` : base;
+}
+
+function loadSeenAt(userId?: string | null): number {
   try {
-    return Number(localStorage.getItem(SEEN_AT_KEY) || "0") || 0;
+    return Number(localStorage.getItem(scopedKey(SEEN_AT_KEY, userId)) || localStorage.getItem(SEEN_AT_KEY) || "0") || 0;
   } catch {
     return 0;
   }
 }
 
-function saveSeenAt(value: number) {
+function saveSeenAt(value: number, userId?: string | null) {
   try {
-    localStorage.setItem(SEEN_AT_KEY, String(value));
+    localStorage.setItem(scopedKey(SEEN_AT_KEY, userId), String(value));
   } catch {
     // ignore
   }
 }
 
-function loadAcked(): Set<string> {
+function loadAcked(userId?: string | null): Set<string> {
   try {
-    const raw = localStorage.getItem(ACK_KEY);
-    if (!raw) return new Set();
+    const raw = localStorage.getItem(scopedKey(ACK_KEY, userId)) || localStorage.getItem(ACK_KEY);
+    if (!raw) return new Set<string>();
     const arr = JSON.parse(raw) as string[];
     return new Set(arr);
   } catch {
@@ -72,11 +87,11 @@ function loadAcked(): Set<string> {
   }
 }
 
-function saveAcked(set: Set<string>) {
+function saveAcked(set: Set<string>, userId?: string | null) {
   try {
     // Keep only most recent 500 to avoid unbounded growth.
     const arr = Array.from(set).slice(-500);
-    localStorage.setItem(ACK_KEY, JSON.stringify(arr));
+    localStorage.setItem(scopedKey(ACK_KEY, userId), JSON.stringify(arr));
   } catch {
     // ignore
   }
@@ -84,9 +99,9 @@ function saveAcked(set: Set<string>) {
 
 // Per-thread ack: maps thread_id -> ISO timestamp of the last message that was
 // dismissed. The thread reappears only if a STRICTLY NEWER message arrives.
-function loadThreadAcks(): Record<string, string> {
+function loadThreadAcks(userId?: string | null): Record<string, string> {
   try {
-    const raw = localStorage.getItem(THREAD_ACK_KEY);
+    const raw = localStorage.getItem(scopedKey(THREAD_ACK_KEY, userId)) || localStorage.getItem(THREAD_ACK_KEY);
     if (!raw) return {};
     return JSON.parse(raw) as Record<string, string>;
   } catch {
@@ -94,11 +109,11 @@ function loadThreadAcks(): Record<string, string> {
   }
 }
 
-function saveThreadAcks(map: Record<string, string>) {
+function saveThreadAcks(map: Record<string, string>, userId?: string | null) {
   try {
     // Cap to most-recent 500 entries to bound growth.
     const entries = Object.entries(map).slice(-500);
-    localStorage.setItem(THREAD_ACK_KEY, JSON.stringify(Object.fromEntries(entries)));
+    localStorage.setItem(scopedKey(THREAD_ACK_KEY, userId), JSON.stringify(Object.fromEntries(entries)));
   } catch {
     // ignore
   }
