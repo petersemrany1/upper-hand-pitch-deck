@@ -978,7 +978,19 @@ function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: Blocked
   const save = async () => {
     if (start >= end) { toast.error("End time must be after start time"); return; }
 
-    const row = {
+    const row: {
+      clinic_id: string;
+      slot_date: null;
+      slot_start: string;
+      slot_end: string;
+      is_recurring: true;
+      recur_pattern: AddPattern;
+      recur_until: string | null;
+      recur_day_of_week: number | null;
+      recur_days_of_week: number[] | null;
+      recur_day_of_month: number | null;
+      recur_nth_week: number | null;
+    } = {
       clinic_id: clinicId,
       slot_date: null,
       slot_start: `${start}:00`,
