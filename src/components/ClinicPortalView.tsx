@@ -3,7 +3,7 @@ import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal, effectiveHoursFor,
+  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal, effectiveHoursFor, holidayLabelFor,
   DAY_NAMES, DAY_SHORT,
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
