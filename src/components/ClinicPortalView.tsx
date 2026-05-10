@@ -1387,7 +1387,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         </button>
       </div>
       {/* Reference for unused-prop linter */}
-      <span style={{ display: "none" }}>{showRefundButton ? "" : ""}</span>
+      
     </ModalShell>
   );
 }
