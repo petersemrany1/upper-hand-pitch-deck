@@ -124,11 +124,57 @@ function digitsOnly(s: string | null | undefined): string {
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [unreadThreads, setUnreadThreads] = useState<UnreadThread[]>([]);
   const [missedCalls, setMissedCalls] = useState<MissedCall[]>([]);
-  const [seenAt, setSeenAt] = useState<number>(loadSeenAt());
-  const ackedRef = useRef<Set<string>>(loadAcked());
-  const threadAcksRef = useRef<Record<string, string>>(loadThreadAcks());
+  const [seenAt, setSeenAt] = useState<number>(() => loadSeenAt(userId));
+  const ackedRef = useRef<Set<string>>(loadAcked(userId));
+  const threadAcksRef = useRef<Record<string, string>>(loadThreadAcks(userId));
+  const [acksReady, setAcksReady] = useState(false);
+
+  useEffect(() => {
+    setAcksReady(false);
+    ackedRef.current = loadAcked(userId);
+    threadAcksRef.current = loadThreadAcks(userId);
+    setSeenAt(loadSeenAt(userId));
+
+    if (!userId) {
+      setAcksReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("notification_acknowledgements")
+        .select("notification_type, notification_key, acknowledged_at, metadata")
+        .eq("user_id", userId)
+        .in("notification_type", [MISSED_ACK_TYPE, THREAD_ACK_TYPE])
+        .limit(1000);
+      if (cancelled) return;
+
+      if (data) {
+        const missed = loadAcked(userId);
+        const threads = loadThreadAcks(userId);
+        for (const row of data as Pick<NotificationAckRow, "notification_type" | "notification_key" | "acknowledged_at" | "metadata">[]) {
+          if (row.notification_type === MISSED_ACK_TYPE) {
+            missed.add(row.notification_key);
+          } else if (row.notification_type === THREAD_ACK_TYPE) {
+            const lastMessageAt = typeof row.metadata?.last_message_at === "string" ? row.metadata.last_message_at : row.acknowledged_at;
+            threads[row.notification_key] = lastMessageAt;
+          }
+        }
+        ackedRef.current = missed;
+        threadAcksRef.current = threads;
+        saveAcked(missed, userId);
+        saveThreadAcks(threads, userId);
+      }
+      setAcksReady(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId]);
 
   const fetchThreads = useCallback(async () => {
     const { data } = await supabase
