@@ -3577,18 +3577,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <div>
-            <Label>Booking date</Label>
-            <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-          </div>
-          <div>
-            <Label>Time slot</Label>
-            <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-          </div>
-        </div>
+        <BookingSlotPicker
+          clinicId={form.clinicId}
+          date={form.date}
+          time={form.time}
+          onDate={(v) => set("date", v)}
+          onTime={(v) => set("time", v)}
+        />
 
         <button
           onClick={() => void book()}
