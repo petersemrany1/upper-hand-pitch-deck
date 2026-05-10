@@ -880,6 +880,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           startDate={selectedDateStr}
           alreadyBlocked={pending.alreadyBlocked}
           tradingHours={tradingHours}
+          overrides={overrides}
           clinicId={clinicId}
           onClose={() => setPending(null)}
           onUnblock={async () => { await unblockRange(pending.startTime, pending.endTime); setPending(null); }}
@@ -907,11 +908,11 @@ function hhmmToMinLocal(t: string): number {
 }
 
 function BlockRangeModal({
-  startTime, endTime, startDate, alreadyBlocked, tradingHours, clinicId,
+  startTime, endTime, startDate, alreadyBlocked, tradingHours, overrides, clinicId,
   onClose, onUnblock, onSaved,
 }: {
   startTime: string; endTime: string; startDate: string; alreadyBlocked: boolean;
-  tradingHours: TradingHours[]; clinicId: string;
+  tradingHours: TradingHours[]; overrides: AvailabilityOverride[]; clinicId: string;
   onClose: () => void; onUnblock: () => void; onSaved: () => void;
 }) {
   type Repeat = "none" | "daily" | "weekly" | "monthly";
@@ -946,11 +947,12 @@ function BlockRangeModal({
   const save = async () => {
     setSaving(true);
     const dates = buildDates();
+    // Honour per-date "open" overrides — a normally-closed weekday that's been
+    // opened for this specific date should still allow blocks.
     const filtered = dates.filter((dstr) => {
       const [yy, mm, dd] = dstr.split("-").map(Number);
       const dt = new Date(yy, mm - 1, dd);
-      const dow = dayOfWeekMonFirst(dt);
-      const th = tradingHours.find((t) => t.day_of_week === dow);
+      const th = effectiveHoursFor(dt, tradingHours, overrides);
       return th && !th.is_closed;
     });
     if (filtered.length === 0) {
@@ -1490,13 +1492,15 @@ function OpenDayModal({
   const save = async () => {
     if (start >= end) { toast.error("End time must be after start time"); return; }
     setSaving(true);
-    const { error } = await supabase.from("clinic_availability").insert({
+    // Upsert so any pre-existing override row for this date is replaced
+    // (the table has UNIQUE (clinic_id, override_date)).
+    const { error } = await supabase.from("clinic_availability").upsert({
       clinic_id: clinicId,
       override_date: dateStr,
       override_type: "open",
       start_time: `${start}:00`,
       end_time: `${end}:00`,
-    });
+    }, { onConflict: "clinic_id,override_date" });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Day opened");
