@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal,
+  DAY_NAMES, DAY_SHORT,
+  type TradingHours, type BlockedSlot, type Slot,
+} from "@/lib/slot-generation";
 
 export type ClinicAppointment = {
   id: string;
@@ -16,56 +21,6 @@ export type ClinicAppointment = {
   consult_summary: string | null;
 };
 
-export type ClinicAvailability = {
-  id: string;
-  clinic_id: string;
-  override_date: string;
-  override_type: "blocked" | "open";
-  /** HH:MM:SS — when null together with end_time, it's a whole-day block/open */
-  start_time: string | null;
-  end_time: string | null;
-};
-
-/** 15-min slots from 8:00am up to (but not including) 9:00pm. */
-export const SLOT_MINUTES = 15;
-export const DAY_START_MIN = 8 * 60;
-export const DAY_END_MIN = 21 * 60;
-export const ALL_SLOTS: { start: string; end: string; label: string }[] = (() => {
-  const out: { start: string; end: string; label: string }[] = [];
-  for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MINUTES) {
-    out.push({ start: minToHHMM(m), end: minToHHMM(m + SLOT_MINUTES), label: minToLabel(m) });
-  }
-  return out;
-})();
-function minToHHMM(m: number) { const h = Math.floor(m / 60), mm = m % 60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00`; }
-function minToLabel(m: number) { let h = Math.floor(m / 60); const mm = m % 60; const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return `${h}:${String(mm).padStart(2,"0")}${ap}`; }
-function hhmmToMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
-
-/** Returns true if (date, HH:MM[:SS]) falls inside any blocked range for the clinic. */
-export function isTimeBlocked(dateYMD: string, time: string, avails: ClinicAvailability[]): boolean {
-  const t = hhmmToMin(time);
-  for (const a of avails) {
-    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
-    if (!a.start_time || !a.end_time) return true; // whole day blocked
-    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
-    if (t >= s && t < e) return true;
-  }
-  return false;
-}
-
-/** Buckets blocks for a given date into { fullDay, blockedSlotStarts:Set<HH:MM:SS> }. */
-function bucketBlocksForDate(dateYMD: string, avails: ClinicAvailability[]) {
-  let fullDay = false;
-  const blockedSlots = new Set<string>();
-  for (const a of avails) {
-    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
-    if (!a.start_time || !a.end_time) { fullDay = true; continue; }
-    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
-    for (let m = s; m < e; m += SLOT_MINUTES) blockedSlots.add(minToHHMM(m));
-  }
-  return { fullDay, blockedSlots };
-}
-
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
 
@@ -78,12 +33,7 @@ const OUTCOME_COLORS: Record<string, { bg: string; fg: string; border: string; l
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-function ymd(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+function ymd(d: Date) { return ymdLocal(d); }
 
 function fmtTime(t: string) {
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
@@ -106,7 +56,8 @@ export function ClinicPortalView({
 }) {
   const [tab, setTab] = useState<"appointments" | "availability">("appointments");
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
-  const [avails, setAvails] = useState<ClinicAvailability[]>([]);
+  const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
@@ -115,13 +66,15 @@ export function ClinicPortalView({
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: a }, { data: v }] = await Promise.all([
+      const [{ data: a }, { data: th }, { data: bs }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
-        supabase.from("clinic_availability").select("*").eq("clinic_id", clinicId),
+        supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", clinicId),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
-      setAvails((v ?? []) as ClinicAvailability[]);
+      setTradingHours((th ?? []) as TradingHours[]);
+      setBlockedSlots((bs ?? []) as BlockedSlot[]);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -129,7 +82,6 @@ export function ClinicPortalView({
 
   const reload = () => setRefresh((n) => n + 1);
 
-  // Keep selected appt fresh after reload
   useEffect(() => {
     if (selected) {
       const fresh = appts.find((a) => a.id === selected.id);
@@ -138,7 +90,7 @@ export function ClinicPortalView({
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh" }}>
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
         <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
@@ -151,14 +103,21 @@ export function ClinicPortalView({
       ) : tab === "appointments" ? (
         <AppointmentsTab
           appts={appts}
-          avails={avails}
+          tradingHours={tradingHours}
+          blockedSlots={blockedSlots}
           clinicId={clinicId}
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
         />
       ) : (
-        <AvailabilityTab avails={avails} clinicId={clinicId} onChange={reload} />
+        <AvailabilityTab
+          tradingHours={tradingHours}
+          blockedSlots={blockedSlots}
+          appts={appts}
+          clinicId={clinicId}
+          onChange={reload}
+        />
       )}
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
@@ -199,9 +158,10 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, avails, clinicId, isAdmin, onChange, onSelect }: {
+function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
-  avails: ClinicAvailability[];
+  tradingHours: TradingHours[];
+  blockedSlots: BlockedSlot[];
   clinicId: string;
   isAdmin: boolean;
   onChange: () => void;
@@ -247,7 +207,7 @@ function AppointmentsTab({ appts, avails, clinicId, isAdmin, onChange, onSelect 
       {view === "list" ? (
         <ListView appts={appts} onSelect={onSelect} />
       ) : (
-        <CalendarView appts={appts} avails={avails} onSelect={onSelect} />
+        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} onSelect={onSelect} />
       )}
 
       {showAdd && isAdmin && (
@@ -314,8 +274,11 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
 /* ---------- CALENDAR VIEW ---------- */
 
-function CalendarView({ appts, avails, onSelect }: {
-  appts: ClinicAppointment[]; avails: ClinicAvailability[]; onSelect: (a: ClinicAppointment) => void;
+function CalendarView({ appts, tradingHours, blockedSlots, onSelect }: {
+  appts: ClinicAppointment[];
+  tradingHours: TradingHours[];
+  blockedSlots: BlockedSlot[];
+  onSelect: (a: ClinicAppointment) => void;
 }) {
   const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const monthLabel = `${MONTHS[view.getMonth()]} ${view.getFullYear()}`;
@@ -331,16 +294,6 @@ function CalendarView({ appts, avails, onSelect }: {
     return map;
   }, [appts]);
 
-  const availByDate = useMemo(() => {
-    const m = new Map<string, ClinicAvailability[]>();
-    for (const a of avails) {
-      const arr = m.get(a.override_date) ?? [];
-      arr.push(a);
-      m.set(a.override_date, arr);
-    }
-    return m;
-  }, [avails]);
-
   const todayStr = ymd(new Date());
 
   return (
@@ -352,7 +305,7 @@ function CalendarView({ appts, avails, onSelect }: {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
-        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
+        {DAY_SHORT.map((d) => (
           <div key={d} style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 8px" }}>{d}</div>
         ))}
       </div>
@@ -361,16 +314,13 @@ function CalendarView({ appts, avails, onSelect }: {
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const dayAvails = availByDate.get(dateStr) ?? [];
-          const { fullDay, blockedSlots } = bucketBlocksForDate(dateStr, dayAvails);
-          const partialBlocks = !fullDay && blockedSlots.size > 0;
-          const hasOpenOverride = dayAvails.some((a) => a.override_type === "open");
+          const summary = summarizeDay(d, tradingHours, blockedSlots, []);
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
-          if (fullDay) { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
-          else if (hasOpenOverride) { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
-          else if (isToday) { bg = NAVY_PALE; border = `1.5px solid ${NAVY}`; }
+          if (summary.closed || summary.allBlocked) { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
+          else if (summary.someBlocked) { bg = "#fef3c7"; border = "1.5px solid #d97706"; }
+          if (isToday) { border = `1.5px solid ${NAVY}`; }
           return (
             <div
               key={dateStr}
@@ -381,9 +331,9 @@ function CalendarView({ appts, avails, onSelect }: {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{d.getDate()}</span>
-                {fullDay && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Closed</span>}
-                {!fullDay && partialBlocks && <span style={{ fontSize: 9, color: "#b85c00", fontWeight: 600 }}>{blockedSlots.size} blocked</span>}
-                {!fullDay && hasOpenOverride && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
+                {summary.closed && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Closed</span>}
+                {!summary.closed && summary.allBlocked && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Full</span>}
+                {!summary.closed && summary.someBlocked && <span style={{ fontSize: 9, color: "#b85c00", fontWeight: 600 }}>Partial</span>}
               </div>
               {dayAppts.map((a) => {
                 const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
@@ -549,201 +499,318 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 
 /* ============== AVAILABILITY TAB ============== */
 
-function AvailabilityTab({ avails, clinicId, onChange }: { avails: ClinicAvailability[]; clinicId: string; onChange: () => void }) {
-  const todayStr = ymd(new Date());
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange }: {
+  tradingHours: TradingHours[];
+  blockedSlots: BlockedSlot[];
+  appts: ClinicAppointment[];
+  clinicId: string;
+  onChange: () => void;
+}) {
+  const today = new Date();
+  const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
 
   const month = viewMonth.getMonth(), year = viewMonth.getFullYear();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
-  const offset = (firstWeekday + 6) % 7; // shift so Mon=0
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const offset = (firstWeekday + 6) % 7;
 
-  const dayBuckets = useMemo(() => {
-    const m = new Map<string, { fullDay: boolean; blockedSlots: Set<string>; openOverride: boolean }>();
-    const dates = new Set(avails.map((a) => a.override_date));
-    for (const d of dates) {
-      const list = avails.filter((a) => a.override_date === d);
-      const { fullDay, blockedSlots } = bucketBlocksForDate(d, list);
-      m.set(d, { fullDay, blockedSlots, openOverride: list.some((a) => a.override_type === "open") });
-    }
-    return m;
-  }, [avails]);
+  const selectedDow = dayOfWeekMonFirst(selectedDate);
+  const selectedTH = tradingHours.find((t) => t.day_of_week === selectedDow);
+  const selectedDateStr = ymd(selectedDate);
+  const slots: Slot[] = useMemo(
+    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts),
+    [selectedDate, tradingHours, blockedSlots, appts],
+  );
 
-  const selectedAvails = useMemo(() => avails.filter((a) => a.override_date === selectedDate), [avails, selectedDate]);
-  const selectedBucket = useMemo(() => bucketBlocksForDate(selectedDate, selectedAvails), [selectedDate, selectedAvails]);
+  const recurring = useMemo(
+    () => blockedSlots.filter((b) => b.is_recurring).sort((a, b) => {
+      const ad = a.recur_day_of_week ?? 0, bd = b.recur_day_of_week ?? 0;
+      if (ad !== bd) return ad - bd;
+      return a.slot_start.localeCompare(b.slot_start);
+    }),
+    [blockedSlots],
+  );
 
-  const fullDayRow = selectedAvails.find((a) => a.override_type === "blocked" && !a.start_time && !a.end_time) ?? null;
+  const blockSlot = async (slotTime: string) => {
+    const start = slotTime.length === 5 ? `${slotTime}:00` : slotTime;
+    const dur = selectedTH?.consult_duration_mins ?? 30;
+    const [h, m] = slotTime.split(":").map(Number);
+    const endMin = h * 60 + m + dur;
+    const end = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}:00`;
+    const { error } = await supabase.from("clinic_blocked_slots").insert({
+      clinic_id: clinicId,
+      slot_date: selectedDateStr,
+      slot_start: start,
+      slot_end: end,
+      is_recurring: false,
+    });
+    if (error) { toast.error(error.message); return; }
+    onChange();
+  };
 
-  const toggleSlot = async (slotStart: string, slotEnd: string) => {
-    if (selectedBucket.fullDay) {
-      toast.error("Whole day is blocked — un-block it first to edit individual slots.");
+  const unblockSlot = async (slotTime: string) => {
+    // Delete any non-recurring blocked rows for this date that overlap this slot.
+    // Recurring blocks cannot be removed from this slot grid (they're managed below).
+    const dur = selectedTH?.consult_duration_mins ?? 30;
+    const [h, m] = slotTime.split(":").map(Number);
+    const startMin = h * 60 + m, endMin = startMin + dur;
+    const matches = blockedSlots.filter((b) => {
+      if (b.is_recurring) return false;
+      if (b.slot_date !== selectedDateStr) return false;
+      const bs = parseInt(b.slot_start.split(":")[0]) * 60 + parseInt(b.slot_start.split(":")[1]);
+      const be = parseInt(b.slot_end.split(":")[0]) * 60 + parseInt(b.slot_end.split(":")[1]);
+      return bs < endMin && be > startMin;
+    });
+    if (matches.length === 0) {
+      toast.error("This slot is blocked by a recurring rule. Remove it from 'Recurring blocks' below.");
       return;
     }
-    // Find a row that exactly covers this slot
-    const existing = selectedAvails.find((a) => a.override_type === "blocked" && a.start_time === slotStart && a.end_time === slotEnd);
-    if (existing) {
-      await supabase.from("clinic_availability").delete().eq("id", existing.id);
+    const ids = matches.map((b) => b.id!).filter(Boolean);
+    const { error } = await supabase.from("clinic_blocked_slots").delete().in("id", ids);
+    if (error) { toast.error(error.message); return; }
+    onChange();
+  };
+
+  const closeWholeDay = async () => {
+    if (!selectedTH || selectedTH.is_closed) return;
+    const allBlocked = slots.length > 0 && slots.every((s) => s.blocked);
+    if (allBlocked) {
+      // remove all date-specific blocks
+      const ids = blockedSlots.filter((b) => !b.is_recurring && b.slot_date === selectedDateStr).map((b) => b.id!).filter(Boolean);
+      if (ids.length) await supabase.from("clinic_blocked_slots").delete().in("id", ids);
     } else {
-      // Check if slot is inside a wider blocked range — if so, we need to split that range
-      const wider = selectedAvails.find((a) => a.override_type === "blocked" && a.start_time && a.end_time && hhmmToMin(a.start_time) <= hhmmToMin(slotStart) && hhmmToMin(a.end_time) >= hhmmToMin(slotEnd));
-      if (wider) {
-        // Split wider into [start..slotStart] and [slotEnd..end]
-        const ws = wider.start_time!, we = wider.end_time!;
-        await supabase.from("clinic_availability").delete().eq("id", wider.id);
-        if (hhmmToMin(ws) < hhmmToMin(slotStart)) {
-          await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: ws, end_time: slotStart });
-        }
-        if (hhmmToMin(slotEnd) < hhmmToMin(we)) {
-          await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: slotEnd, end_time: we });
-        }
-      } else {
-        await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: slotStart, end_time: slotEnd });
-      }
+      await supabase.from("clinic_blocked_slots").insert({
+        clinic_id: clinicId,
+        slot_date: selectedDateStr,
+        slot_start: selectedTH.open_time.slice(0, 8).length === 5 ? `${selectedTH.open_time}:00` : selectedTH.open_time,
+        slot_end: selectedTH.close_time.slice(0, 8).length === 5 ? `${selectedTH.close_time}:00` : selectedTH.close_time,
+        is_recurring: false,
+      });
     }
     onChange();
   };
 
-  const toggleFullDay = async () => {
-    if (fullDayRow) {
-      await supabase.from("clinic_availability").delete().eq("id", fullDayRow.id);
-    } else {
-      // Clear any partial blocks first so we don't double-store
-      const partials = selectedAvails.filter((a) => a.override_type === "blocked" && (a.start_time || a.end_time));
-      if (partials.length) {
-        await supabase.from("clinic_availability").delete().in("id", partials.map((p) => p.id));
-      }
-      await supabase.from("clinic_availability").insert({ clinic_id: clinicId, override_date: selectedDate, override_type: "blocked", start_time: null, end_time: null });
-    }
-    onChange();
-  };
-
-  const clearAllForDay = async () => {
-    const ids = selectedAvails.map((a) => a.id);
-    if (!ids.length) return;
-    await supabase.from("clinic_availability").delete().in("id", ids);
-    onChange();
-  };
+  const isClosedDay = !selectedTH || selectedTH.is_closed;
+  const allBlocked = !isClosedDay && slots.length > 0 && slots.every((s) => s.blocked);
 
   return (
-    <div style={{ padding: 24, maxWidth: 920, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1.2fr", gap: 20 }}>
-      {/* LEFT — month picker */}
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16 }}>
+    <div style={{ padding: 24, display: "grid", gridTemplateColumns: "420px 1fr", gap: 20, maxWidth: 1200, margin: "0 auto" }}>
+      {/* LEFT — calendar */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <button onClick={() => setViewMonth((d) => { const n = new Date(d); n.setMonth(n.getMonth() - 1); return n; })} style={navBtn}>‹</button>
-          <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>{MONTHS[month]} {year}</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>{MONTHS[month]} {year}</div>
           <button onClick={() => setViewMonth((d) => { const n = new Date(d); n.setMonth(n.getMonth() + 1); return n; })} style={navBtn}>›</button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginBottom: 4 }}>
-          {["M","T","W","T","F","S","S"].map((d, i) => (
-            <div key={i} style={{ fontSize: 10, fontWeight: 600, color: "#6b7785", textAlign: "center", padding: 2 }}>{d}</div>
+          {DAY_SHORT.map((d) => (
+            <div key={d} style={{ fontSize: 10, fontWeight: 600, color: "#6b7785", textAlign: "center", padding: 4 }}>{d}</div>
           ))}
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
           {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
-            const date = ymd(new Date(year, month, day));
-            const b = dayBuckets.get(date);
-            const isSelected = date === selectedDate;
-            const isToday = date === todayStr;
-            let bg = "#f7f8fa", color = "#111", border = "1px solid transparent";
-            if (b?.fullDay) { bg = "#fdf0f0"; color = "#b83232"; border = "1px solid #f0b8b8"; }
-            else if (b && b.blockedSlots.size > 0) { bg = "#fff4e6"; color = "#b85c00"; border = "1px solid #f0c896"; }
-            else if (b?.openOverride) { bg = "#e8f5ef"; color = "#1a7a4a"; border = "1px solid #9ed4b5"; }
+            const date = new Date(year, month, day);
+            const summary = summarizeDay(date, tradingHours, blockedSlots, appts);
+            const dateStr = ymd(date);
+            const isSelected = dateStr === ymd(selectedDate);
+            const isToday = dateStr === ymd(today);
+            let bg = "#fff", color = "#111", border = "1px solid #e6e6e6";
+            if (summary.closed) { bg = "#f3f4f6"; color = "#9ca3af"; border = "1px solid #e5e7eb"; }
+            else if (summary.allBlocked) { bg = "#fdf0f0"; color = "#b83232"; border = "1px solid #b83232"; }
+            else if (summary.someBlocked) { bg = "#fef3c7"; color = "#92400e"; border = "1px solid #d97706"; }
             if (isSelected) { border = `2px solid ${NAVY}`; }
-            else if (isToday) { border = `1.5px solid ${NAVY}`; }
+            else if (isToday) { border = `2px solid ${NAVY}`; }
             return (
               <button key={day} onClick={() => setSelectedDate(date)}
-                style={{ background: bg, color, border, padding: "8px 0", borderRadius: 6, fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                style={{ background: bg, color, border, padding: "10px 0", borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
                 {day}
               </button>
             );
           })}
         </div>
-        <div style={{ marginTop: 14, fontSize: 10, color: "#6b7785", display: "flex", flexDirection: "column", gap: 4 }}>
-          <LegendDot color="#b83232" bg="#fdf0f0" label="Closed all day" />
-          <LegendDot color="#b85c00" bg="#fff4e6" label="Some times blocked" />
-          <LegendDot color="#1a7a4a" bg="#e8f5ef" label="One-off open day" />
+        <div style={{ marginTop: 16, fontSize: 11, color: "#6b7785", display: "flex", flexDirection: "column", gap: 6 }}>
+          <LegendDot color="#9ca3af" bg="#f3f4f6" label="Clinic closed" />
+          <LegendDot color="#d97706" bg="#fef3c7" label="Some slots blocked" />
+          <LegendDot color="#b83232" bg="#fdf0f0" label="Fully closed" />
+          <LegendDot color={NAVY} bg="#fff" label="Today" />
         </div>
       </div>
 
-      {/* RIGHT — slot editor for selected day */}
-      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+      {/* RIGHT — slot editor */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 20, boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5 }}>Editing</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: NAVY }}>{formatPrettyDate(selectedDate)}</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 4 }}>Editing</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: NAVY }}>
+              {DAY_SHORT[selectedDow]} {selectedDate.getDate()} {MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={() => void toggleFullDay()}
-              style={{ background: selectedBucket.fullDay ? "#b83232" : "#fdf0f0", color: selectedBucket.fullDay ? "#fff" : "#b83232",
-                border: "1px solid #f0b8b8", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              {selectedBucket.fullDay ? "Closed all day ✓" : "Close whole day"}
+          {!isClosedDay && (
+            <button
+              onClick={() => void closeWholeDay()}
+              style={{
+                background: "#fff", color: "#b83232", border: "1.5px solid #b83232",
+                borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#b83232"; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#b83232"; }}
+            >
+              {allBlocked ? "Reopen day" : "Close whole day"}
             </button>
-            {selectedAvails.length > 0 && (
-              <button onClick={() => void clearAllForDay()} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Clear</button>
-            )}
-          </div>
+          )}
         </div>
 
-        {selectedBucket.fullDay ? (
-          <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 8, padding: 16, fontSize: 13, color: "#b83232", textAlign: "center" }}>
-            Clinic is closed all day. No appointments will be booked for this date.
+        {isClosedDay ? (
+          <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 14, color: "#6b7785" }}>
+              Your clinic is closed on <strong>{DAY_NAMES[selectedDow]}s</strong>. Contact Upper Hand to change your trading hours.
+            </div>
           </div>
         ) : (
           <>
-            <div style={{ fontSize: 11, color: "#6b7785", marginBottom: 8 }}>
-              Tap any 15-min slot to block it. Blocked slots are hidden from sales reps when booking.
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4, maxHeight: 460, overflowY: "auto", paddingRight: 4 }}>
-              {ALL_SLOTS.map((s) => {
-                const isBlocked = selectedBucket.blockedSlots.has(s.start);
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              {slots.map((s) => {
+                const onClick = s.booked
+                  ? undefined
+                  : s.blocked ? () => void unblockSlot(s.time) : () => void blockSlot(s.time);
+                let bg = "#fff", color = "#111", border = "1px solid #e6e6e6";
+                if (s.booked) { bg = "#edf2f9"; color = NAVY; border = "1px solid #cfdcef"; }
+                else if (s.blocked) { bg = "#fdf0f0"; color = "#b83232"; border = "1px solid #f0b8b8"; }
                 return (
-                  <button key={s.start} onClick={() => void toggleSlot(s.start, s.end)}
+                  <button
+                    key={s.time}
+                    onClick={onClick}
+                    disabled={s.booked}
                     style={{
-                      background: isBlocked ? "#fdf0f0" : "#f7f8fa",
-                      color: isBlocked ? "#b83232" : "#111",
-                      border: isBlocked ? "1px solid #f0b8b8" : "1px solid #e2e6ec",
-                      borderRadius: 6, padding: "8px 4px", fontSize: 11, fontWeight: 600, cursor: "pointer",
-                      textDecoration: isBlocked ? "line-through" : "none",
-                    }}>
-                    {s.label}
+                      background: bg, color, border, borderRadius: 8,
+                      padding: "10px 6px", fontSize: 14, fontWeight: 600,
+                      cursor: s.booked ? "default" : "pointer",
+                      opacity: s.booked ? 0.85 : 1, fontFamily: "inherit",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                    }}
+                  >
+                    <span>{s.label}</span>
+                    {s.booked && s.patientName && (
+                      <span style={{ fontSize: 10, fontWeight: 500, opacity: 0.8 }}>{s.patientName.split(" ")[0]}</span>
+                    )}
                   </button>
                 );
               })}
             </div>
-            {selectedBucket.blockedSlots.size > 0 && (
-              <div style={{ marginTop: 12, fontSize: 11, color: "#b85c00", fontWeight: 600 }}>
-                {selectedBucket.blockedSlots.size} × 15-min slot{selectedBucket.blockedSlots.size === 1 ? "" : "s"} blocked
-              </div>
-            )}
+
+            <div style={{ marginTop: 18, background: NAVY_PALE, padding: 14, borderRadius: 10, fontSize: 12, color: "#111", lineHeight: 1.55 }}>
+              <strong style={{ color: NAVY }}>How this works —</strong> Hours run {fmtTime(selectedTH!.open_time)}–{fmtTime(selectedTH!.close_time)} in 30-minute slots.
+              Block any slots the clinic can't take patients. Sales reps can't book patients into blocked times. Changes save instantly.
+            </div>
           </>
         )}
 
-        <div style={{ marginTop: 18, background: NAVY_PALE, padding: 12, borderRadius: 8, fontSize: 11, color: "#111", lineHeight: 1.5 }}>
-          <strong style={{ color: NAVY }}>How this works —</strong> Hours run 8am–9pm in 15-minute slots.
-          Block any slots the clinic can't take patients (lunch, doctor away, surgery time, etc.).
-          Sales reps can't book patients into blocked times. Changes save instantly.
-        </div>
+        {/* Recurring blocks */}
+        <RecurringBlocks
+          recurring={recurring}
+          clinicId={clinicId}
+          onChange={onChange}
+        />
       </div>
+    </div>
+  );
+}
+
+function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: BlockedSlot[]; clinicId: string; onChange: () => void }) {
+  const [adding, setAdding] = useState(false);
+  const [dow, setDow] = useState(0);
+  const [start, setStart] = useState("12:00");
+  const [end, setEnd] = useState("13:00");
+
+  const remove = async (id: string) => {
+    const { error } = await supabase.from("clinic_blocked_slots").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    onChange();
+  };
+
+  const save = async () => {
+    if (start >= end) { toast.error("End time must be after start time"); return; }
+    const { error } = await supabase.from("clinic_blocked_slots").insert({
+      clinic_id: clinicId,
+      slot_date: null,
+      slot_start: `${start}:00`,
+      slot_end: `${end}:00`,
+      is_recurring: true,
+      recur_day_of_week: dow,
+    });
+    if (error) { toast.error(error.message); return; }
+    setAdding(false);
+    onChange();
+  };
+
+  return (
+    <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e2e6ec" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: NAVY }}>Recurring blocks</div>
+        {!adding && (
+          <button onClick={() => setAdding(true)} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", color: NAVY, borderColor: "#cfdcef" }}>
+            + Add recurring block
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize: 11, color: "#6b7785", marginBottom: 10 }}>
+        Apply automatically every week (e.g. weekly lunch break, surgery day).
+      </div>
+
+      {recurring.length === 0 && !adding && (
+        <div style={{ fontSize: 12, color: "#9aa5b1", fontStyle: "italic", padding: "6px 0" }}>None yet.</div>
+      )}
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {recurring.map((r) => (
+          <div key={r.id} style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 8, padding: "8px 12px",
+          }}>
+            <div style={{ fontSize: 13, color: "#b83232", fontWeight: 600 }}>
+              Every {DAY_NAMES[r.recur_day_of_week ?? 0]} · {fmtTime(r.slot_start)}–{fmtTime(r.slot_end)}
+            </div>
+            <button onClick={() => void remove(r.id!)}
+              style={{ background: "transparent", border: "none", color: "#b83232", cursor: "pointer", padding: 4 }}
+              title="Remove">
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {adding && (
+        <div style={{
+          marginTop: 10, background: "#f7f8fa", border: "1px solid #e2e6ec",
+          borderRadius: 10, padding: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+        }}>
+          <select value={dow} onChange={(e) => setDow(Number(e.target.value))}
+            style={{ padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" }}>
+            {DAY_NAMES.map((n, i) => <option key={i} value={i}>{n}</option>)}
+          </select>
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)}
+            style={{ padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" }} />
+          <span style={{ color: "#6b7785" }}>–</span>
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)}
+            style={{ padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" }} />
+          <button onClick={() => void save()} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
+          <button onClick={() => setAdding(false)} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Cancel</button>
+        </div>
+      )}
     </div>
   );
 }
 
 function LegendDot({ color, bg, label }: { color: string; bg: string; label: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ width: 12, height: 12, borderRadius: 3, background: bg, border: `1px solid ${color}55` }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ width: 14, height: 14, borderRadius: 4, background: bg, border: `1.5px solid ${color}` }} />
       <span>{label}</span>
     </div>
   );
-}
-
-function formatPrettyDate(ymdStr: string) {
-  const [y, m, d] = ymdStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  const wd = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dt.getDay()];
-  return `${wd} ${d} ${MONTHS[m - 1]} ${y}`;
 }
 
 

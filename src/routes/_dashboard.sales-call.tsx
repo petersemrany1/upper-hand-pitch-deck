@@ -18,6 +18,7 @@ import {
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
+import { generateSlots, type TradingHours, type BlockedSlot, type ExistingAppt } from "@/lib/slot-generation";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
@@ -2514,20 +2515,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     if (form.clinicId) {
-      const { data: avs } = await supabase
-        .from("clinic_availability")
-        .select("override_date, override_type, start_time, end_time")
-        .eq("clinic_id", form.clinicId)
-        .eq("override_date", form.date);
-      const blocked = (avs ?? []).some((a) => {
-        if (a.override_type !== "blocked") return false;
-        if (!a.start_time || !a.end_time) return true;
-        const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-        const tm = toMin(form.time);
-        return tm >= toMin(a.start_time) && tm < toMin(a.end_time);
-      });
-      if (blocked) {
-        toast.error("That time is blocked by the clinic — pick another slot.");
+      // Validate against new trading hours + blocked slots system
+      const [{ data: th }, { data: bs }, { data: ex }] = await Promise.all([
+        supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", form.clinicId),
+        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", form.clinicId),
+        supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", form.clinicId).eq("appointment_date", form.date),
+      ]);
+      const [yy, mm, dd] = form.date.split("-").map(Number);
+      const dateObj = new Date(yy, mm - 1, dd);
+      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[]);
+      const target = slots.find((s) => s.time === form.time || s.time === form.time.slice(0, 5));
+      if (!target || !target.available) {
+        toast.error("That time is not available — pick another slot.");
         return;
       }
     }
@@ -3578,18 +3577,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5">
-          <div>
-            <Label>Booking date</Label>
-            <input type="date" value={form.date} onChange={(e) => set("date", e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-          </div>
-          <div>
-            <Label>Time slot</Label>
-            <input type="time" value={form.time} onChange={(e) => set("time", e.target.value)}
-              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
-          </div>
-        </div>
+        <BookingSlotPicker
+          clinicId={form.clinicId}
+          date={form.date}
+          time={form.time}
+          onDate={(v) => set("date", v)}
+          onTime={(v) => set("time", v)}
+        />
 
         <button
           onClick={() => void book()}
@@ -6418,6 +6412,70 @@ function CallbacksTodayButton({ callbacks, onPick }: { callbacks: Lead[]; onPick
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
+  clinicId: string;
+  date: string;
+  time: string;
+  onDate: (v: string) => void;
+  onTime: (v: string) => void;
+}) {
+  const [trading, setTrading] = useState<TradingHours[]>([]);
+  const [blocks, setBlocks] = useState<BlockedSlot[]>([]);
+  const [appts, setAppts] = useState<ExistingAppt[]>([]);
+
+  useEffect(() => {
+    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); return; }
+    void Promise.all([
+      supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+      supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", clinicId),
+      supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
+    ]).then(([a, b, c]) => {
+      setTrading((a.data ?? []) as TradingHours[]);
+      setBlocks((b.data ?? []) as BlockedSlot[]);
+      setAppts((c.data ?? []) as ExistingAppt[]);
+    });
+  }, [clinicId]);
+
+  const slots = useMemo(() => {
+    if (!date) return [];
+    const [y, m, d] = date.split("-").map(Number);
+    if (!y || !m || !d) return [];
+    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts);
+  }, [date, trading, blocks, appts]);
+
+  const available = slots.filter((s) => s.available);
+
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      <div>
+        <Label>Booking date</Label>
+        <input type="date" value={date} onChange={(e) => { onDate(e.target.value); onTime(""); }}
+          className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
+          style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+      </div>
+      <div>
+        <Label>Time slot</Label>
+        {!clinicId ? (
+          <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>Pick a clinic first</div>
+        ) : !date ? (
+          <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>Pick a date first</div>
+        ) : available.length === 0 ? (
+          <div className="text-[12px] mt-2" style={{ color: "#b83232" }}>No slots available — try another date</div>
+        ) : (
+          <select value={time} onChange={(e) => onTime(e.target.value)}
+            className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
+            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
+            <option value="">Choose…</option>
+            {available.map((s) => (
+              <option key={s.time} value={s.time}>{s.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
     </div>
   );
 }

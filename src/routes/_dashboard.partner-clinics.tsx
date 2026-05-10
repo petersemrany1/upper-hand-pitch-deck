@@ -4,6 +4,7 @@ import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound } from "lucid
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
+import { DAY_NAMES } from "@/lib/slot-generation";
 
 export const Route = createFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
@@ -478,6 +479,34 @@ function TextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 
 /* ─────────────── Clinic panel ─────────────── */
 
+type TradingHourRow = {
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+};
+
+const DEFAULT_TRADING: TradingHourRow[] = [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
+  day_of_week: dow,
+  open_time: "09:00",
+  close_time: "17:00",
+  is_closed: dow >= 5, // Sat & Sun closed by default
+}));
+
+// 30-minute time options from 6:00am to 10:00pm
+const TIME_OPTIONS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [];
+  for (let m = 6 * 60; m <= 22 * 60; m += 30) {
+    const h24 = Math.floor(m / 60);
+    const mm = m % 60;
+    const value = `${String(h24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+    let h = h24 % 12 || 12;
+    const ap = h24 >= 12 ? "pm" : "am";
+    out.push({ value, label: `${h}:${String(mm).padStart(2, "0")}${ap}` });
+  }
+  return out;
+})();
+
 function ClinicPanel({ mode, initial, onClose, onSaved }: {
   mode: "create" | "edit";
   initial: Partial<PartnerClinic>;
@@ -486,7 +515,36 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
 }) {
   const [form, setForm] = useState<Partial<PartnerClinic>>(initial);
   const [saving, setSaving] = useState(false);
+  const [trading, setTrading] = useState<TradingHourRow[]>(DEFAULT_TRADING);
   const set = <K extends keyof PartnerClinic>(k: K, v: PartnerClinic[K] | null | string) => setForm((f) => ({ ...f, [k]: v }));
+
+  // Load existing trading hours when editing
+  useEffect(() => {
+    if (mode !== "edit" || !form.id) return;
+    void supabase.from("clinic_trading_hours")
+      .select("day_of_week, open_time, close_time, is_closed")
+      .eq("clinic_id", form.id)
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          const merged = DEFAULT_TRADING.map((d) => {
+            const existing = data.find((r) => r.day_of_week === d.day_of_week);
+            if (!existing) return d;
+            return {
+              day_of_week: d.day_of_week,
+              open_time: (existing.open_time || "09:00").slice(0, 5),
+              close_time: (existing.close_time || "17:00").slice(0, 5),
+              is_closed: !!existing.is_closed,
+            };
+          });
+          setTrading(merged);
+        }
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, form.id]);
+
+  const updateRow = (dow: number, patch: Partial<TradingHourRow>) => {
+    setTrading((rows) => rows.map((r) => (r.day_of_week === dow ? { ...r, ...patch } : r)));
+  };
 
   const save = async () => {
     if (!form.clinic_name?.trim()) { toast.error("Clinic name is required"); return; }
@@ -504,11 +562,33 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       parking_info: form.parking_info || null,
       nearby_landmarks: form.nearby_landmarks || null,
     };
-    const { error } = mode === "edit" && form.id
-      ? await supabase.from("partner_clinics").update(payload).eq("id", form.id)
-      : await supabase.from("partner_clinics").insert(payload);
+    let clinicId = form.id;
+    if (mode === "edit" && clinicId) {
+      const { error } = await supabase.from("partner_clinics").update(payload).eq("id", clinicId);
+      if (error) { setSaving(false); toast.error(error.message); return; }
+    } else {
+      const { data, error } = await supabase.from("partner_clinics").insert(payload).select("id").single();
+      if (error) { setSaving(false); toast.error(error.message); return; }
+      clinicId = data.id;
+    }
+
+    // Upsert trading hours for all 7 days
+    if (clinicId) {
+      const rows = trading.map((r) => ({
+        clinic_id: clinicId,
+        day_of_week: r.day_of_week,
+        open_time: r.open_time,
+        close_time: r.close_time,
+        is_closed: r.is_closed,
+        consult_duration_mins: 30,
+      }));
+      const { error: thErr } = await supabase
+        .from("clinic_trading_hours")
+        .upsert(rows, { onConflict: "clinic_id,day_of_week" });
+      if (thErr) { setSaving(false); toast.error(`Trading hours: ${thErr.message}`); return; }
+    }
+
     setSaving(false);
-    if (error) { toast.error(error.message); return; }
     toast.success(mode === "edit" ? "Clinic updated" : "Clinic added");
     onSaved();
   };
@@ -562,6 +642,53 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       <Field label="Nearby Landmarks">
         <TextArea rows={3} value={form.nearby_landmarks ?? ""} onChange={(e) => set("nearby_landmarks", e.target.value)} placeholder="e.g. Near Lincoln Park · 5 mins DFO · 10 mins Airport" />
       </Field>
+
+      {/* Trading Hours */}
+      <div style={{ marginTop: 18, marginBottom: 8, paddingTop: 14, borderTop: `0.5px solid ${COLORS.line}` }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 4 }}>Trading Hours</div>
+        <div style={{ fontSize: 11, color: "#111", opacity: 0.6, marginBottom: 12 }}>
+          Base weekly schedule. Clinic can block individual slots from their portal. 30-min consult slots.
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {trading.map((row) => (
+            <div key={row.day_of_week} style={{
+              display: "grid", gridTemplateColumns: "100px 1fr auto", gap: 10, alignItems: "center",
+              background: COLORS.inputBg, border: `0.5px solid ${COLORS.line}`, borderRadius: 6, padding: "8px 10px",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.text }}>{DAY_NAMES[row.day_of_week]}</div>
+              {row.is_closed ? (
+                <div style={{ fontSize: 12, color: "#111", opacity: 0.5, fontStyle: "italic" }}>Closed</div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <select
+                    value={row.open_time}
+                    onChange={(e) => updateRow(row.day_of_week, { open_time: e.target.value })}
+                    style={{ ...inputStyle, padding: "5px 6px", fontSize: 12, width: "auto" }}
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <span style={{ fontSize: 12, color: "#666" }}>–</span>
+                  <select
+                    value={row.close_time}
+                    onChange={(e) => updateRow(row.day_of_week, { close_time: e.target.value })}
+                    style={{ ...inputStyle, padding: "5px 6px", fontSize: 12, width: "auto" }}
+                  >
+                    {TIME_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+              )}
+              <label className="flex items-center gap-1.5" style={{ fontSize: 11, color: "#111", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={row.is_closed}
+                  onChange={(e) => updateRow(row.day_of_week, { is_closed: e.target.checked })}
+                />
+                Closed
+              </label>
+            </div>
+          ))}
+        </div>
+      </div>
     </SlideOver>
   );
 }
