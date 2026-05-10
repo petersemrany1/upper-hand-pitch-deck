@@ -6,12 +6,13 @@ import { logError } from "./error-logger.functions";
 // outbound traffic isn't concentrated on one DID (helps reduce spam flagging).
 
 export const provisionNumber = createServerFn({ method: "POST" }).handler(async () => {
-  const accountSid = process.env.TWILIO_ACCOUNT_SID;
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  const supabaseUrl = process.env.SUPABASE_URL;
-  if (!accountSid || !authToken) {
-    return { success: false as const, error: "Twilio credentials not configured" };
-  }
+  try {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const supabaseUrl = process.env.SUPABASE_URL;
+    if (!accountSid || !authToken) {
+      return { success: false as const, error: "Twilio credentials not configured" };
+    }
 
   const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
@@ -68,7 +69,12 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     await logError("provisionNumber", error.message, { phoneNumber, sid });
     return { success: false as const, error: error.message };
   }
-  return { success: true as const, number: phoneNumber };
+    return { success: true as const, number: phoneNumber };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await logError("provisionNumber", `Unhandled: ${msg}`, {});
+    return { success: false as const, error: msg || "Failed to provision number" };
+  }
 });
 
 export const getNextNumber = createServerFn({ method: "POST" }).handler(async () => {
