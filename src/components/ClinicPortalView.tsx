@@ -812,6 +812,16 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           onSaved={() => { setPending(null); onChange(); }}
         />
       )}
+
+      {openDayModal && (
+        <OpenDayModal
+          dateStr={selectedDateStr}
+          dayName={DAY_NAMES[selectedDow]}
+          clinicId={clinicId}
+          onClose={() => setOpenDayModal(false)}
+          onSaved={() => { setOpenDayModal(false); onChange(); }}
+        />
+      )}
     </div>
   );
 }
