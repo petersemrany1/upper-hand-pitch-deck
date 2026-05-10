@@ -924,12 +924,22 @@ function PhoneNumbersSection() {
   };
 
   const onRetire = async (id: string) => {
-    if (!confirm("Retire this number? It will stop being used for outbound calls.")) return;
+    if (!confirm("Retire this number?\n\nIt stays in your Twilio account (still billed) but stops being used for outbound calls.")) return;
     setRetiring(id);
-    const r = await retireNumberFn({ data: { id } });
+    const r = await retireNumberFn({ data: { id, release: false } });
     setRetiring(null);
     if (r.success) { toast.success("Number retired"); await load(); }
     else toast.error(r.error || "Failed to retire");
+  };
+
+  const onRelease = async (id: string, number: string) => {
+    if (!confirm(`Release ${number} from Twilio?\n\nThis PERMANENTLY deletes the number from your Twilio account and stops billing. You cannot get this exact number back.`)) return;
+    if (!confirm("Are you absolutely sure? This cannot be undone.")) return;
+    setRetiring(id);
+    const r = await retireNumberFn({ data: { id, release: true } });
+    setRetiring(null);
+    if (r.success) { toast.success("Number released from Twilio"); await load(); }
+    else toast.error(r.error || "Failed to release");
   };
 
   const fmtDate = (s: string | null) => s ? new Date(s).toLocaleString() : "Never";
