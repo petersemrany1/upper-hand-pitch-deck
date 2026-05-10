@@ -5658,6 +5658,18 @@ function RightPanel({
         defaultAmount={Number(panelClinic?.consult_price_deposit ?? 75)}
         patientName={[active.first_name, active.last_name].filter(Boolean).join(" ") || "Patient"}
         leadId={active.id}
+        onSuccess={async (payment) => {
+          await supabase
+            .from("clinic_appointments")
+            .update({
+              stripe_payment_intent_id: payment.paymentIntentId,
+              deposit_amount: payment.amount,
+              refund_status: null,
+              refund_processed_at: null,
+              stripe_refund_id: null,
+            })
+            .eq("lead_id", active.id);
+        }}
       />
 
 
