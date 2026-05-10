@@ -1311,7 +1311,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         data: {
           appointmentId: appt.id,
           summary: notes,
-          proceeded: proceeded || alreadyRefunded || noPaymentIntent ? proceeded : false,
+          proceeded,
         },
       });
       if (!result.success) {
