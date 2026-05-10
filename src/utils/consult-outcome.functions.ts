@@ -8,8 +8,74 @@ type ProcessInput = {
   proceeded: boolean;
 };
 
+function normalizePhone(p: string | null | undefined): string {
+  return (p || "").replace(/[^0-9]/g, "");
+}
+
+async function searchStripeByContact(stripeKey: string, email: string | null, phone: string | null, appointmentId: string): Promise<string | null> {
+  // Use Stripe Search API to find paid PaymentIntents for this contact (last 90 days).
+  const queries: string[] = [];
+  if (email) queries.push(`status:"succeeded" AND metadata["lead_id"]:"${email}"`); // unlikely but cheap
+  if (email) queries.push(`status:"succeeded" AND customer.email:"${email}"`);
+
+  for (const q of queries) {
+    const url = "https://api.stripe.com/v1/payment_intents/search?" + new URLSearchParams({ query: q, limit: "10" }).toString();
+    const resp = await fetch(url, { headers: { Authorization: "Bearer " + stripeKey } });
+    const json = (await resp.json()) as { data?: Array<{ id: string; amount?: number; created?: number }>; error?: { message?: string } };
+    if (!resp.ok) {
+      await logError("processConsultOutcome", json.error?.message || "Stripe PI search failed", { appointmentId, query: q });
+      continue;
+    }
+    if (json.data && json.data.length > 0) {
+      // Prefer most recent.
+      const sorted = [...json.data].sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+      return sorted[0].id;
+    }
+  }
+
+  // Fallback: search Customers by email, then list their PaymentIntents.
+  if (email) {
+    const custUrl = "https://api.stripe.com/v1/customers/search?" + new URLSearchParams({ query: `email:"${email}"`, limit: "5" }).toString();
+    const custResp = await fetch(custUrl, { headers: { Authorization: "Bearer " + stripeKey } });
+    const custJson = (await custResp.json()) as { data?: Array<{ id: string }>; error?: { message?: string } };
+    if (custResp.ok && custJson.data && custJson.data.length > 0) {
+      for (const cust of custJson.data) {
+        const piUrl = "https://api.stripe.com/v1/payment_intents?" + new URLSearchParams({ customer: cust.id, limit: "10" }).toString();
+        const piResp = await fetch(piUrl, { headers: { Authorization: "Bearer " + stripeKey } });
+        const piJson = (await piResp.json()) as { data?: Array<{ id: string; status?: string; created?: number }>; error?: { message?: string } };
+        if (piResp.ok && piJson.data) {
+          const succeeded = piJson.data.filter((pi) => pi.status === "succeeded").sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+          if (succeeded.length > 0) return succeeded[0].id;
+        }
+      }
+    }
+  }
+
+  // Last resort: list recent charges and match by billing phone.
+  if (phone) {
+    const targetPhone = normalizePhone(phone);
+    const chUrl = "https://api.stripe.com/v1/charges?" + new URLSearchParams({ limit: "100" }).toString();
+    const chResp = await fetch(chUrl, { headers: { Authorization: "Bearer " + stripeKey } });
+    const chJson = (await chResp.json()) as { data?: Array<{ id: string; status?: string; payment_intent?: string | null; billing_details?: { phone?: string | null; email?: string | null } }>; error?: { message?: string } };
+    if (chResp.ok && chJson.data) {
+      for (const ch of chJson.data) {
+        if (ch.status !== "succeeded" || !ch.payment_intent) continue;
+        const chPhone = normalizePhone(ch.billing_details?.phone ?? "");
+        const chEmail = (ch.billing_details?.email ?? "").toLowerCase();
+        if ((chPhone && chPhone.endsWith(targetPhone.slice(-9))) || (email && chEmail === email.toLowerCase())) {
+          return typeof ch.payment_intent === "string" ? ch.payment_intent : null;
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
 async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | null, appointmentId: string) {
-  if (!leadId) return null;
+  if (!leadId) {
+    return null;
+  }
 
   const { data: smsRows } = await supabaseAdmin
     .from("sms_messages")
@@ -62,7 +128,17 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
 
   const session = result.data?.find((s) => s.payment_status === "paid" && s.metadata?.lead_id === leadId && s.payment_intent);
   const intent = session?.payment_intent;
-  return typeof intent === "string" ? intent : intent?.id || null;
+  const fromSession = typeof intent === "string" ? intent : intent?.id || null;
+  if (fromSession) return fromSession;
+
+  // Final fallback: search Stripe directly by the lead's email/phone.
+  const { data: lead } = await supabaseAdmin
+    .from("meta_leads")
+    .select("email, phone")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  return await searchStripeByContact(stripeKey, lead?.email ?? null, lead?.phone ?? null, appointmentId);
 }
 
 // Marks a clinic appointment as "show" or "proceeded" and, when not proceeded,
