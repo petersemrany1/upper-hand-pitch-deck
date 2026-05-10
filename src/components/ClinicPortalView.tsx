@@ -906,11 +906,64 @@ function BlockRangeModal({
   );
 }
 
+function describeRecurring(r: BlockedSlot): string {
+  const time = `${fmtTime(r.slot_start)}–${fmtTime(r.slot_end)}`;
+  const pattern = r.recur_pattern ?? "weekly";
+  const until = r.recur_until ? ` (until ${r.recur_until})` : "";
+
+  if (pattern === "daily") return `Every day · ${time}${until}`;
+
+  if (pattern === "weekly") {
+    const days = (r.recur_days_of_week && r.recur_days_of_week.length > 0)
+      ? r.recur_days_of_week
+      : (r.recur_day_of_week != null ? [r.recur_day_of_week] : []);
+    const sorted = [...days].sort((a, b) => a - b);
+    const label = sorted.length === 7 ? "Every day"
+      : sorted.length === 5 && sorted.every((d) => d < 5) ? "Weekdays"
+      : sorted.length === 2 && sorted.includes(5) && sorted.includes(6) ? "Weekends"
+      : `Every ${sorted.map((d) => DAY_SHORT[d]).join(", ")}`;
+    return `${label} · ${time}${until}`;
+  }
+
+  if (pattern === "monthly_date") {
+    const d = r.recur_day_of_month ?? 1;
+    const suf = d % 10 === 1 && d !== 11 ? "st" : d % 10 === 2 && d !== 12 ? "nd" : d % 10 === 3 && d !== 13 ? "rd" : "th";
+    return `Monthly on the ${d}${suf} · ${time}${until}`;
+  }
+
+  if (pattern === "monthly_nth_dow") {
+    const nth = r.recur_nth_week ?? 1;
+    const nthLabel = nth === 5 ? "last" : ["1st", "2nd", "3rd", "4th"][nth - 1] ?? `${nth}th`;
+    const dayName = DAY_NAMES[r.recur_day_of_week ?? 0];
+    return `Monthly on the ${nthLabel} ${dayName} · ${time}${until}`;
+  }
+
+  return `${time}${until}`;
+}
+
+type AddPattern = "daily" | "weekly" | "monthly_date" | "monthly_nth_dow";
+
 function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: BlockedSlot[]; clinicId: string; onChange: () => void }) {
   const [adding, setAdding] = useState(false);
-  const [dow, setDow] = useState(0);
+  const [pattern, setPattern] = useState<AddPattern>("weekly");
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([0]);
+  const [dayOfMonth, setDayOfMonth] = useState<number>(1);
+  const [nthWeek, setNthWeek] = useState<number>(1); // 1-4, 5 = last
+  const [nthDow, setNthDow] = useState<number>(0);
   const [start, setStart] = useState("12:00");
   const [end, setEnd] = useState("13:00");
+  const [until, setUntil] = useState<string>("");
+
+  const resetForm = () => {
+    setPattern("weekly");
+    setWeeklyDays([0]);
+    setDayOfMonth(1);
+    setNthWeek(1);
+    setNthDow(0);
+    setStart("12:00");
+    setEnd("13:00");
+    setUntil("");
+  };
 
   const remove = async (id: string) => {
     const { error } = await supabase.from("clinic_blocked_slots").delete().eq("id", id);
@@ -918,20 +971,60 @@ function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: Blocked
     onChange();
   };
 
+  const toggleDay = (d: number) => {
+    setWeeklyDays((cur) => cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d].sort((a, b) => a - b));
+  };
+
   const save = async () => {
     if (start >= end) { toast.error("End time must be after start time"); return; }
-    const { error } = await supabase.from("clinic_blocked_slots").insert({
+
+    const row: Record<string, unknown> = {
       clinic_id: clinicId,
       slot_date: null,
       slot_start: `${start}:00`,
       slot_end: `${end}:00`,
       is_recurring: true,
-      recur_day_of_week: dow,
-    });
+      recur_pattern: pattern,
+      recur_until: until || null,
+      recur_day_of_week: null,
+      recur_days_of_week: null,
+      recur_day_of_month: null,
+      recur_nth_week: null,
+    };
+
+    if (pattern === "weekly") {
+      if (weeklyDays.length === 0) { toast.error("Pick at least one weekday"); return; }
+      row.recur_days_of_week = weeklyDays;
+      row.recur_day_of_week = weeklyDays[0]; // back-compat
+    } else if (pattern === "monthly_date") {
+      if (dayOfMonth < 1 || dayOfMonth > 31) { toast.error("Day of month must be 1–31"); return; }
+      row.recur_day_of_month = dayOfMonth;
+    } else if (pattern === "monthly_nth_dow") {
+      row.recur_nth_week = nthWeek;
+      row.recur_day_of_week = nthDow;
+    }
+    // daily: no extra fields
+
+    const { error } = await supabase.from("clinic_blocked_slots").insert(row);
     if (error) { toast.error(error.message); return; }
     setAdding(false);
+    resetForm();
     onChange();
   };
+
+  const sortedRecurring = [...recurring].sort((a, b) => {
+    const pa = a.recur_pattern ?? "weekly";
+    const pb = b.recur_pattern ?? "weekly";
+    if (pa !== pb) return pa.localeCompare(pb);
+    return a.slot_start.localeCompare(b.slot_start);
+  });
+
+  const inputStyle: React.CSSProperties = { padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" };
+  const dayChip = (active: boolean): React.CSSProperties => ({
+    padding: "6px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: "pointer",
+    border: `1px solid ${active ? NAVY : "#cfdcef"}`, background: active ? NAVY : "#fff",
+    color: active ? "#fff" : NAVY, fontFamily: "inherit",
+  });
 
   return (
     <div style={{ marginTop: 24, paddingTop: 18, borderTop: "1px solid #e2e6ec" }}>
@@ -944,21 +1037,21 @@ function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: Blocked
         )}
       </div>
       <div style={{ fontSize: 11, color: "#6b7785", marginBottom: 10 }}>
-        Apply automatically every week (e.g. weekly lunch break, surgery day).
+        Apply automatically on a schedule (e.g. lunch every day, surgery on the 1st Monday of each month).
       </div>
 
-      {recurring.length === 0 && !adding && (
+      {sortedRecurring.length === 0 && !adding && (
         <div style={{ fontSize: 12, color: "#9aa5b1", fontStyle: "italic", padding: "6px 0" }}>None yet.</div>
       )}
 
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {recurring.map((r) => (
+        {sortedRecurring.map((r) => (
           <div key={r.id} style={{
             display: "flex", justifyContent: "space-between", alignItems: "center",
             background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 8, padding: "8px 12px",
           }}>
             <div style={{ fontSize: 13, color: "#b83232", fontWeight: 600 }}>
-              Every {DAY_NAMES[r.recur_day_of_week ?? 0]} · {fmtTime(r.slot_start)}–{fmtTime(r.slot_end)}
+              {describeRecurring(r)}
             </div>
             <button onClick={() => void remove(r.id!)}
               style={{ background: "transparent", border: "none", color: "#b83232", cursor: "pointer", padding: 4 }}
@@ -972,19 +1065,91 @@ function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: Blocked
       {adding && (
         <div style={{
           marginTop: 10, background: "#f7f8fa", border: "1px solid #e2e6ec",
-          borderRadius: 10, padding: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+          borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 12,
         }}>
-          <select value={dow} onChange={(e) => setDow(Number(e.target.value))}
-            style={{ padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" }}>
-            {DAY_NAMES.map((n, i) => <option key={i} value={i}>{n}</option>)}
-          </select>
-          <input type="time" value={start} onChange={(e) => setStart(e.target.value)}
-            style={{ padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" }} />
-          <span style={{ color: "#6b7785" }}>–</span>
-          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)}
-            style={{ padding: "6px 8px", border: "1px solid #e2e6ec", borderRadius: 6, fontSize: 12, fontFamily: "inherit" }} />
-          <button onClick={() => void save()} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
-          <button onClick={() => setAdding(false)} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Cancel</button>
+          {/* Repeat pattern */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>Repeat</label>
+            <select value={pattern} onChange={(e) => setPattern(e.target.value as AddPattern)} style={inputStyle}>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly (pick days)</option>
+              <option value="monthly_date">Monthly on a date (e.g. 15th)</option>
+              <option value="monthly_nth_dow">Monthly on Nth weekday (e.g. 1st Monday)</option>
+            </select>
+          </div>
+
+          {/* Pattern-specific controls */}
+          {pattern === "weekly" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>Days of week</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {DAY_SHORT.map((n, i) => (
+                  <button key={i} type="button" onClick={() => toggleDay(i)} style={dayChip(weeklyDays.includes(i))}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button type="button" onClick={() => setWeeklyDays([0,1,2,3,4])} style={{ ...navBtn, fontSize: 11, padding: "4px 8px" }}>Weekdays</button>
+                <button type="button" onClick={() => setWeeklyDays([5,6])} style={{ ...navBtn, fontSize: 11, padding: "4px 8px" }}>Weekends</button>
+                <button type="button" onClick={() => setWeeklyDays([0,1,2,3,4,5,6])} style={{ ...navBtn, fontSize: 11, padding: "4px 8px" }}>All</button>
+              </div>
+            </div>
+          )}
+
+          {pattern === "monthly_date" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>Day of month (1–31)</label>
+              <input type="number" min={1} max={31} value={dayOfMonth}
+                onChange={(e) => setDayOfMonth(Math.max(1, Math.min(31, Number(e.target.value) || 1)))}
+                style={{ ...inputStyle, width: 100 }} />
+              <div style={{ fontSize: 11, color: "#6b7785" }}>Skipped in months that don't have this day.</div>
+            </div>
+          )}
+
+          {pattern === "monthly_nth_dow" && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>Which</label>
+                <select value={nthWeek} onChange={(e) => setNthWeek(Number(e.target.value))} style={inputStyle}>
+                  <option value={1}>1st</option>
+                  <option value={2}>2nd</option>
+                  <option value={3}>3rd</option>
+                  <option value={4}>4th</option>
+                  <option value={5}>Last</option>
+                </select>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>Weekday</label>
+                <select value={nthDow} onChange={(e) => setNthDow(Number(e.target.value))} style={inputStyle}>
+                  {DAY_NAMES.map((n, i) => <option key={i} value={i}>{n}</option>)}
+                </select>
+              </div>
+              <div style={{ fontSize: 11, color: "#6b7785", paddingBottom: 8 }}>of every month</div>
+            </div>
+          )}
+
+          {/* Time range */}
+          <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>From</label>
+              <input type="time" value={start} onChange={(e) => setStart(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>To</label>
+              <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 11, color: "#6b7785", fontWeight: 600 }}>Until (optional)</label>
+              <input type="date" value={until} onChange={(e) => setUntil(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button onClick={() => { setAdding(false); resetForm(); }} style={{ ...navBtn, fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+            <button onClick={() => void save()} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>Save</button>
+          </div>
         </div>
       )}
     </div>
