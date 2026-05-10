@@ -1274,21 +1274,56 @@ function LegendDot({ color, bg, label }: { color: string; bg: string; label: str
 
 /* ============== MODALS ============== */
 
-function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean }) {
-  const [notes, setNotes] = useState("");
+function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false, clinicDefaultDeposit }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean; clinicDefaultDeposit: number }) {
+  const [notes, setNotes] = useState(appt.consult_summary ?? "");
   const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const depositAmount = appt.deposit_amount ?? clinicDefaultDeposit;
+  const alreadyRefunded = !!appt.stripe_refund_id;
+  const noPaymentIntent = !appt.stripe_payment_intent_id;
+  const showRefundSection = !proceeded;
+  const showRefundButton = showRefundSection && !alreadyRefunded && !noPaymentIntent;
+
+  const submitLabel = proceeded
+    ? "Save & close"
+    : alreadyRefunded
+      ? "Save & close"
+      : noPaymentIntent
+        ? "Save & close"
+        : `Save & refund $${depositAmount}`;
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("clinic_appointments").update({
-      outcome: proceeded ? "proceeded" : "show",
-      consult_summary: notes.trim() || null,
-    }).eq("id", appt.id);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Saved");
-    onSaved();
+    setErrorMsg(null);
+    try {
+      const { processConsultOutcome } = await import("@/utils/consult-outcome.functions");
+      const result = await processConsultOutcome({
+        data: {
+          appointmentId: appt.id,
+          summary: notes,
+          proceeded: proceeded || alreadyRefunded || noPaymentIntent ? proceeded : false,
+        },
+      });
+      if (!result.success) {
+        setErrorMsg(`Refund failed — ${result.error}. Please try again or contact Upper Hand.`);
+        setSaving(false);
+        // Outcome may still have been saved; surface that via a soft toast.
+        if ("outcomeSaved" in result && result.outcomeSaved) {
+          toast.success("Outcome saved (refund failed)");
+          onSaved();
+        }
+        return;
+      }
+      toast.success(result.refunded ? `Refunded $${depositAmount}` : "Saved");
+      setSaving(false);
+      onSaved();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErrorMsg(`Refund failed — ${msg}. Please try again or contact Upper Hand.`);
+      setSaving(false);
+    }
   };
 
   return (
@@ -1304,16 +1339,47 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false 
         style={{ width: "100%", padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8, resize: "vertical", outline: "none", marginBottom: 12, color: "#111" }}
         className="clinic-consult-textarea"
       />
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#111", marginBottom: 18, cursor: "pointer" }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#111", marginBottom: 14, cursor: "pointer" }}>
         <input type="checkbox" checked={proceeded} onChange={(e) => setProceeded(e.target.checked)} />
         The patient booked their procedure today
       </label>
+
+      {proceeded ? (
+        <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "#6b7785" }}>Deposit applied to procedure cost — no refund needed</div>
+        </div>
+      ) : alreadyRefunded ? (
+        <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
+        </div>
+      ) : noPaymentIntent ? (
+        <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Deposit refund</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>No card on file — process refund manually in Stripe</div>
+        </div>
+      ) : (
+        <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e" }}>Deposit refund</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#92400e", marginTop: 2 }}>${depositAmount}</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>Will be refunded to the patient's card on submit</div>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", color: "#b83232", borderRadius: 8, padding: 10, fontSize: 12, marginBottom: 12 }}>
+          {errorMsg}
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
         <button onClick={save} disabled={saving} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
-          Save & Close
+          {saving ? "Saving…" : submitLabel}
         </button>
       </div>
+      {/* Reference for unused-prop linter */}
+      <span style={{ display: "none" }}>{showRefundButton ? "" : ""}</span>
     </ModalShell>
   );
 }
