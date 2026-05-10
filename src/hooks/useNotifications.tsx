@@ -176,7 +176,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [userId]);
 
+  const persistAcknowledgements = useCallback(async (rows: NotificationAckRow[]) => {
+    if (!userId || rows.length === 0) return;
+    await (supabase as any)
+      .from("notification_acknowledgements")
+      .upsert(rows, { onConflict: "user_id,notification_type,notification_key" });
+  }, [userId]);
+
   const fetchThreads = useCallback(async () => {
+    if (!acksReady) return;
     const { data } = await supabase
       .from("sms_threads")
       .select("id, phone, display_name, unread_count, last_message_preview, last_message_at, clinic:clinics(clinic_name)")
@@ -213,9 +221,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           last_message_at: t.last_message_at,
         }))
     );
-  }, []);
+  }, [acksReady]);
 
   const fetchMissed = useCallback(async () => {
+    if (!acksReady) return;
     // Pull recent inbound calls; consider missed when duration is null/0 and
     // status is not in-progress / completed.
     const { data } = await supabase
@@ -276,7 +285,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         called_at: r.called_at,
       }))
     );
-  }, []);
+  }, [acksReady]);
 
   const refresh = useCallback(() => {
     void fetchThreads();
