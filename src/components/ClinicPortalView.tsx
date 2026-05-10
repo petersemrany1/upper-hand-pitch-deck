@@ -702,7 +702,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
         {isClosedDay ? (
           <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
             <div style={{ fontSize: 14, color: "#6b7785" }}>
-              Your clinic is closed on <strong>{DAY_NAMES[selectedDow]}s</strong>. Contact Upper Hand to change your trading hours.
+              Your clinic is closed on <strong>{DAY_NAMES[selectedDow]}s</strong>. Contact admin to change your trading hours.
             </div>
           </div>
         ) : (
