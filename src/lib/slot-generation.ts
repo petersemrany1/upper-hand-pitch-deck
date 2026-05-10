@@ -192,10 +192,11 @@ export function generateSlots(
   blockedSlots: BlockedSlot[],
   existingAppts: ExistingAppt[] = [],
   overrides: AvailabilityOverride[] = [],
+  clinicState?: string | null,
 ): Slot[] {
   const dow = dayOfWeekMonFirst(date);
   const dateStr = ymdLocal(date);
-  const th = effectiveHoursFor(date, tradingHours, overrides);
+  const th = effectiveHoursFor(date, tradingHours, overrides, clinicState);
   if (!th || th.is_closed) return [];
 
   const openMin = hhmmToMin(th.open_time);
