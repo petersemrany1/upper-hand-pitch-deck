@@ -585,10 +585,10 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
   const selectedDateStr = ymd(selectedDate);
   const baseTH = tradingHours.find((t) => t.day_of_week === selectedDow);
   const selectedOverride = overrides.find((o) => o.override_date === selectedDateStr);
-  const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides);
+  const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides, clinicState);
   const slots: Slot[] = useMemo(
-    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides),
-    [selectedDate, tradingHours, blockedSlots, appts, overrides],
+    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState),
+    [selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState],
   );
 
   // "Open this day" modal state — for opening a normally-closed day
