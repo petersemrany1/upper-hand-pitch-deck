@@ -703,7 +703,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
               {DAY_SHORT[selectedDow]} {selectedDate.getDate()} {MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
             </div>
           </div>
-          {!isClosedDay && (
+          {!isClosedDay && !selectedOverride && (
             <button
               onClick={() => void closeWholeDay()}
               style={{
@@ -717,13 +717,41 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
               {allBlocked ? "Reopen day" : "Close whole day"}
             </button>
           )}
+          {selectedOverride?.override_type === "open" && (
+            <button
+              onClick={() => void removeOpenOverride()}
+              style={{
+                background: "#fff", color: "#b83232", border: "1.5px solid #b83232",
+                borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Close again
+            </button>
+          )}
         </div>
 
         {isClosedDay ? (
           <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 14, color: "#6b7785" }}>
-              Your clinic is closed on <strong>{DAY_NAMES[selectedDow]}s</strong>. Contact admin to change your trading hours.
+            <div style={{ fontSize: 14, color: "#6b7785", marginBottom: 14 }}>
+              Your clinic is normally closed on <strong>{DAY_NAMES[selectedDow]}s</strong>.
             </div>
+            {baseClosed && (
+              <button
+                onClick={() => setOpenDayModal(true)}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8,
+                  padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                Open this day
+              </button>
+            )}
+            {!baseClosed && (
+              <div style={{ fontSize: 12, color: "#9aa5b1", marginTop: 6 }}>
+                Contact admin to change your weekly trading hours.
+              </div>
+            )}
           </div>
         ) : (
           <>
