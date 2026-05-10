@@ -102,7 +102,7 @@ export function generateSlots(
   const blocks: Array<[number, number]> = [];
   for (const b of blockedSlots) {
     if (b.is_recurring) {
-      if (b.recur_day_of_week === dow) {
+      if (recurrenceMatches(b, date, dow)) {
         blocks.push([hhmmToMin(b.slot_start), hhmmToMin(b.slot_end)]);
       }
     } else if (b.slot_date === dateStr) {
