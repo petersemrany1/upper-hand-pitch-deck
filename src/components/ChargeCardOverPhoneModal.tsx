@@ -27,7 +27,7 @@ type Props = {
   defaultAmount: number; // dollars
   patientName: string;
   leadId?: string;
-  onSuccess?: () => void;
+  onSuccess?: (payment: { paymentIntentId: string; amount: number }) => void;
 };
 
 let _stripePromise: Promise<Stripe | null> | null = null;
@@ -155,7 +155,7 @@ function ChargeForm({ onClose, defaultAmount, patientName, leadId, onSuccess }: 
     if (r.success) {
       setSuccess({ amount: amt });
       toast.success("Deposit collected successfully");
-      onSuccess?.();
+      onSuccess?.({ paymentIntentId: r.paymentIntentId, amount: r.amountCents / 100 });
     } else {
       setError(r.error || "Payment failed");
     }
