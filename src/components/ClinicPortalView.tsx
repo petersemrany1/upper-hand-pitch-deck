@@ -68,6 +68,7 @@ export function ClinicPortalView({
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
+  const [clinicState, setClinicState] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +80,7 @@ export function ClinicPortalView({
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
         supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-        supabase.from("partner_clinics").select("consult_price_deposit").eq("id", clinicId).maybeSingle(),
+        supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
@@ -87,6 +88,7 @@ export function ClinicPortalView({
       setBlockedSlots((bs ?? []) as BlockedSlot[]);
       setOverrides((ov ?? []) as AvailabilityOverride[]);
       if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
+      setClinicState((pc as { state?: string | null } | null)?.state ?? null);
       setLoading(false);
     })();
     return () => { cancelled = true; };
