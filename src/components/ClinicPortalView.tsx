@@ -3,7 +3,7 @@ import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal, effectiveHoursFor,
+  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal, effectiveHoursFor, holidayLabelFor,
   DAY_NAMES, DAY_SHORT,
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
@@ -68,6 +68,7 @@ export function ClinicPortalView({
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
+  const [clinicState, setClinicState] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,7 +80,7 @@ export function ClinicPortalView({
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
         supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-        supabase.from("partner_clinics").select("consult_price_deposit").eq("id", clinicId).maybeSingle(),
+        supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
@@ -87,6 +88,7 @@ export function ClinicPortalView({
       setBlockedSlots((bs ?? []) as BlockedSlot[]);
       setOverrides((ov ?? []) as AvailabilityOverride[]);
       if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
+      setClinicState((pc as { state?: string | null } | null)?.state ?? null);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -118,6 +120,7 @@ export function ClinicPortalView({
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
           clinicId={clinicId}
+          clinicState={clinicState}
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
@@ -129,6 +132,7 @@ export function ClinicPortalView({
           overrides={overrides}
           appts={appts}
           clinicId={clinicId}
+          clinicState={clinicState}
           onChange={reload}
         />
       )}
@@ -172,11 +176,12 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin, onChange, onSelect }: {
+function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicState, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   clinicId: string;
+  clinicState: string | null;
   isAdmin: boolean;
   onChange: () => void;
   onSelect: (a: ClinicAppointment) => void;
@@ -221,7 +226,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin,
       {view === "list" ? (
         <ListView appts={appts} onSelect={onSelect} />
       ) : (
-        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} onSelect={onSelect} />
+        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} clinicState={clinicState} onSelect={onSelect} />
       )}
 
       {showAdd && isAdmin && (
@@ -296,10 +301,11 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
 /* ---------- CALENDAR VIEW ---------- */
 
-function CalendarView({ appts, tradingHours, blockedSlots, onSelect }: {
+function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
+  clinicState: string | null;
   onSelect: (a: ClinicAppointment) => void;
 }) {
   const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
@@ -336,7 +342,7 @@ function CalendarView({ appts, tradingHours, blockedSlots, onSelect }: {
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const summary = summarizeDay(d, tradingHours, blockedSlots, []);
+          const summary = summarizeDay(d, tradingHours, blockedSlots, [], [], clinicState);
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
@@ -552,12 +558,13 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 
 type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
 
-function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, onChange }: {
+function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, clinicState, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   overrides: AvailabilityOverride[];
   appts: ClinicAppointment[];
   clinicId: string;
+  clinicState: string | null;
   onChange: () => void;
 }) {
   const today = new Date();
@@ -578,10 +585,10 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
   const selectedDateStr = ymd(selectedDate);
   const baseTH = tradingHours.find((t) => t.day_of_week === selectedDow);
   const selectedOverride = overrides.find((o) => o.override_date === selectedDateStr);
-  const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides);
+  const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides, clinicState);
   const slots: Slot[] = useMemo(
-    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides),
-    [selectedDate, tradingHours, blockedSlots, appts, overrides],
+    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState),
+    [selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState],
   );
 
   // "Open this day" modal state — for opening a normally-closed day
@@ -712,7 +719,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const date = new Date(year, month, day);
-            const summary = summarizeDay(date, tradingHours, blockedSlots, appts, overrides);
+            const summary = summarizeDay(date, tradingHours, blockedSlots, appts, overrides, clinicState);
             const dateStr = ymd(date);
             const isSelected = dateStr === ymd(selectedDate);
             const isToday = dateStr === ymd(today);
@@ -775,29 +782,52 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           )}
         </div>
 
-        {isClosedDay ? (
-          <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 14, color: "#6b7785", marginBottom: 14 }}>
-              Your clinic is normally closed on <strong>{DAY_NAMES[selectedDow]}s</strong>.
-            </div>
-            {baseClosed && (
-              <button
-                onClick={() => setOpenDayModal(true)}
-                style={{
-                  background: NAVY, color: "#fff", border: "none", borderRadius: 8,
-                  padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                }}
-              >
-                Open this day
-              </button>
-            )}
-            {!baseClosed && (
-              <div style={{ fontSize: 12, color: "#9aa5b1", marginTop: 6 }}>
-                Contact admin to change your weekly trading hours.
-              </div>
+        {isClosedDay ? (() => {
+          const holidayName = holidayLabelFor(selectedDate, overrides, clinicState);
+          return (
+          <div style={{ background: holidayName ? "#fff8e6" : "#f3f4f6", border: holidayName ? "1px solid #f5d77a" : "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
+            {holidayName ? (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#8a6500", marginBottom: 6 }}>Public holiday — {holidayName}</div>
+                <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 14 }}>
+                  Your clinic is closed by default on public holidays. You can choose to open this day if you'll be trading.
+                </div>
+                <button
+                  onClick={() => setOpenDayModal(true)}
+                  style={{
+                    background: NAVY, color: "#fff", border: "none", borderRadius: 8,
+                    padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  Open this day
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, color: "#6b7785", marginBottom: 14 }}>
+                  Your clinic is normally closed on <strong>{DAY_NAMES[selectedDow]}s</strong>.
+                </div>
+                {baseClosed && (
+                  <button
+                    onClick={() => setOpenDayModal(true)}
+                    style={{
+                      background: NAVY, color: "#fff", border: "none", borderRadius: 8,
+                      padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    Open this day
+                  </button>
+                )}
+                {!baseClosed && (
+                  <div style={{ fontSize: 12, color: "#9aa5b1", marginTop: 6 }}>
+                    Contact admin to change your weekly trading hours.
+                  </div>
+                )}
+              </>
             )}
           </div>
-        ) : (
+          );
+        })() : (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, userSelect: "none", touchAction: "none" }}>
               {slots.map((s, i) => {

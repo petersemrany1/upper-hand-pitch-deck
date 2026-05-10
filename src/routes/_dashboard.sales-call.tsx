@@ -18,7 +18,7 @@ import {
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
-import { generateSlots, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
+import { generateSlots, holidayLabelFor, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
@@ -2517,15 +2517,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     if (form.clinicId) {
       // Validate against new trading hours + blocked slots system
-      const [{ data: th }, { data: bs }, { data: ex }, { data: ov }] = await Promise.all([
+      const [{ data: th }, { data: bs }, { data: ex }, { data: ov }, { data: pc }] = await Promise.all([
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", form.clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", form.clinicId),
         supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", form.clinicId).eq("appointment_date", form.date),
         supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", form.clinicId),
+        supabase.from("partner_clinics").select("state").eq("id", form.clinicId).maybeSingle(),
       ]);
       const [yy, mm, dd] = form.date.split("-").map(Number);
       const dateObj = new Date(yy, mm - 1, dd);
-      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[], (ov ?? []) as AvailabilityOverride[]);
+      const clinicState = (pc as { state?: string | null } | null)?.state ?? null;
+      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[], (ov ?? []) as AvailabilityOverride[], clinicState);
       const target = slots.find((s) => s.time === form.time || s.time === form.time.slice(0, 5));
       if (!target || !target.available) {
         toast.error("That time is not available — pick another slot.");
@@ -6463,19 +6465,22 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
   const [blocks, setBlocks] = useState<BlockedSlot[]>([]);
   const [appts, setAppts] = useState<ExistingAppt[]>([]);
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
+  const [clinicState, setClinicState] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); return; }
+    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); setClinicState(null); return; }
     void Promise.all([
       supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
       supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
       supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
       supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-    ]).then(([a, b, c, d]) => {
+      supabase.from("partner_clinics").select("state").eq("id", clinicId).maybeSingle(),
+    ]).then(([a, b, c, d, e]) => {
       setTrading((a.data ?? []) as TradingHours[]);
       setBlocks((b.data ?? []) as BlockedSlot[]);
       setAppts((c.data ?? []) as ExistingAppt[]);
       setOverrides((d.data ?? []) as AvailabilityOverride[]);
+      setClinicState((e.data as { state?: string | null } | null)?.state ?? null);
     });
   }, [clinicId]);
 
@@ -6483,10 +6488,17 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     if (!date) return [];
     const [y, m, d] = date.split("-").map(Number);
     if (!y || !m || !d) return [];
-    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides);
-  }, [date, trading, blocks, appts, overrides]);
+    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides, clinicState);
+  }, [date, trading, blocks, appts, overrides, clinicState]);
 
   const available = slots.filter((s) => s.available);
+
+  const holidayName = useMemo(() => {
+    if (!date) return null;
+    const [y, m, d] = date.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return holidayLabelFor(new Date(y, m - 1, d), overrides, clinicState);
+  }, [date, overrides, clinicState]);
 
   return (
     <div className="grid grid-cols-2 gap-2.5">
@@ -6495,6 +6507,9 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
         <input type="date" value={date} onChange={(e) => { onDate(e.target.value); onTime(""); }}
           className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
           style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+        {holidayName && (
+          <div className="text-[11px] mt-1" style={{ color: "#8a6500" }}>Public holiday — {holidayName}. Clinic closed.</div>
+        )}
       </div>
       <div>
         <Label>Time slot</Label>
@@ -6503,7 +6518,7 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
         ) : !date ? (
           <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>Pick a date first</div>
         ) : available.length === 0 ? (
-          <div className="text-[12px] mt-2" style={{ color: "#b83232" }}>No slots available — try another date</div>
+          <div className="text-[12px] mt-2" style={{ color: "#b83232" }}>{holidayName ? `Closed for ${holidayName}` : "No slots available — try another date"}</div>
         ) : (
           <select value={time} onChange={(e) => onTime(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
