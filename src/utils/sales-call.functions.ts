@@ -267,6 +267,37 @@ export const saveBooking = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     }).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
+
+    // Mirror into clinic_appointments immediately so the slot is reserved
+    // in the clinic portal availability view (and prevents double-booking
+    // by other reps). Intel notes are NOT written here — they are snapshotted
+    // only when the handover email is sent.
+    if (data.clinicId) {
+      const { data: leadRow } = await supabaseAdmin
+        .from("meta_leads")
+        .select("first_name, last_name, phone")
+        .eq("id", data.leadId)
+        .maybeSingle();
+      const patientName = `${leadRow?.first_name ?? ""} ${leadRow?.last_name ?? ""}`.trim() || "Patient";
+      const { data: existing } = await supabaseAdmin
+        .from("clinic_appointments")
+        .select("id")
+        .eq("lead_id", data.leadId)
+        .limit(1);
+      const payload = {
+        clinic_id: data.clinicId,
+        lead_id: data.leadId,
+        patient_name: patientName,
+        patient_phone: leadRow?.phone ?? null,
+        appointment_date: data.date,
+        appointment_time: data.time,
+      };
+      if (existing && existing.length > 0) {
+        await supabaseAdmin.from("clinic_appointments").update(payload).eq("id", existing[0].id);
+      } else {
+        await supabaseAdmin.from("clinic_appointments").insert({ ...payload, intel_notes: null });
+      }
+    }
     return { success: true as const };
   });
 
