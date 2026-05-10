@@ -499,6 +499,8 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 
 /* ============== AVAILABILITY TAB ============== */
 
+type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
+
 function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
@@ -509,6 +511,11 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
+
+  // drag-select state
+  const [dragStart, setDragStart] = useState<number | null>(null);
+  const [dragEnd, setDragEnd] = useState<number | null>(null);
+  const [pending, setPending] = useState<PendingRange | null>(null);
 
   const month = viewMonth.getMonth(), year = viewMonth.getFullYear();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -532,43 +539,70 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
     [blockedSlots],
   );
 
-  const blockSlot = async (slotTime: string) => {
-    const start = slotTime.length === 5 ? `${slotTime}:00` : slotTime;
-    const dur = selectedTH?.consult_duration_mins ?? 30;
-    const [h, m] = slotTime.split(":").map(Number);
-    const endMin = h * 60 + m + dur;
-    const end = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}:00`;
-    const { error } = await supabase.from("clinic_blocked_slots").insert({
-      clinic_id: clinicId,
-      slot_date: selectedDateStr,
-      slot_start: start,
-      slot_end: end,
-      is_recurring: false,
-    });
-    if (error) { toast.error(error.message); return; }
-    onChange();
+  const rangeIndices = (): [number, number] | null => {
+    if (dragStart == null || dragEnd == null) return null;
+    return [Math.min(dragStart, dragEnd), Math.max(dragStart, dragEnd)];
+  };
+  const inDragRange = (i: number) => {
+    const r = rangeIndices(); return !!r && i >= r[0] && i <= r[1];
   };
 
-  const unblockSlot = async (slotTime: string) => {
-    // Delete any non-recurring blocked rows for this date that overlap this slot.
-    // Recurring blocks cannot be removed from this slot grid (they're managed below).
-    const dur = selectedTH?.consult_duration_mins ?? 30;
-    const [h, m] = slotTime.split(":").map(Number);
-    const startMin = h * 60 + m, endMin = startMin + dur;
+  const onSlotPointerDown = (i: number, slot: Slot) => {
+    if (slot.booked) return;
+    setDragStart(i); setDragEnd(i);
+  };
+  const onSlotPointerEnter = (i: number) => {
+    if (dragStart == null) return;
+    setDragEnd(i);
+  };
+
+  // Finalise on global pointerup
+  useEffect(() => {
+    if (dragStart == null) return;
+    const handler = () => {
+      const r = rangeIndices();
+      if (!r) { setDragStart(null); setDragEnd(null); return; }
+      const [a, b] = r;
+      const first = slots[a], last = slots[b];
+      if (!first || !last) { setDragStart(null); setDragEnd(null); return; }
+      for (let i = a; i <= b; i++) {
+        if (slots[i].booked) {
+          setDragStart(null); setDragEnd(null);
+          toast.error("Selection includes a booked appointment");
+          return;
+        }
+      }
+      const dur = selectedTH?.consult_duration_mins ?? 30;
+      const [lh, lm] = last.time.split(":").map(Number);
+      const endMin = lh * 60 + lm + dur;
+      const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+      const allBlocked = slots.slice(a, b + 1).every((s) => s.blocked);
+      setPending({ startTime: first.time, endTime, alreadyBlocked: allBlocked });
+      setDragStart(null); setDragEnd(null);
+    };
+    window.addEventListener("pointerup", handler);
+    return () => window.removeEventListener("pointerup", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragStart, dragEnd, slots, selectedTH]);
+
+  const unblockRange = async (startTime: string, endTime: string) => {
+    const sMin = hhmmToMinLocal(startTime);
+    const eMin = hhmmToMinLocal(endTime);
     const matches = blockedSlots.filter((b) => {
       if (b.is_recurring) return false;
       if (b.slot_date !== selectedDateStr) return false;
-      const bs = parseInt(b.slot_start.split(":")[0]) * 60 + parseInt(b.slot_start.split(":")[1]);
-      const be = parseInt(b.slot_end.split(":")[0]) * 60 + parseInt(b.slot_end.split(":")[1]);
-      return bs < endMin && be > startMin;
+      const bs = hhmmToMinLocal(b.slot_start);
+      const be = hhmmToMinLocal(b.slot_end);
+      return bs < eMin && be > sMin;
     });
     if (matches.length === 0) {
-      toast.error("This slot is blocked by a recurring rule. Remove it from 'Recurring blocks' below.");
+      toast.error("Those slots are blocked by a recurring rule. Remove it from 'Recurring blocks' below.");
       return;
     }
     const ids = matches.map((b) => b.id!).filter(Boolean);
     const { error } = await supabase.from("clinic_blocked_slots").delete().in("id", ids);
     if (error) { toast.error(error.message); return; }
+    toast.success("Slots unblocked");
     onChange();
   };
 
@@ -576,7 +610,6 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
     if (!selectedTH || selectedTH.is_closed) return;
     const allBlocked = slots.length > 0 && slots.every((s) => s.blocked);
     if (allBlocked) {
-      // remove all date-specific blocks
       const ids = blockedSlots.filter((b) => !b.is_recurring && b.slot_date === selectedDateStr).map((b) => b.id!).filter(Boolean);
       if (ids.length) await supabase.from("clinic_blocked_slots").delete().in("id", ids);
     } else {
@@ -671,18 +704,18 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
           </div>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-              {slots.map((s) => {
-                const onClick = s.booked
-                  ? undefined
-                  : s.blocked ? () => void unblockSlot(s.time) : () => void blockSlot(s.time);
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, userSelect: "none", touchAction: "none" }}>
+              {slots.map((s, i) => {
+                const dragging = inDragRange(i);
                 let bg = "#fff", color = "#111", border = "1px solid #e6e6e6";
                 if (s.booked) { bg = "#edf2f9"; color = NAVY; border = "1px solid #cfdcef"; }
                 else if (s.blocked) { bg = "#fdf0f0"; color = "#b83232"; border = "1px solid #f0b8b8"; }
+                if (dragging && !s.booked) { bg = "#fde2e2"; border = "2px solid #b83232"; color = "#b83232"; }
                 return (
                   <button
                     key={s.time}
-                    onClick={onClick}
+                    onPointerDown={(e) => { e.preventDefault(); onSlotPointerDown(i, s); }}
+                    onPointerEnter={() => onSlotPointerEnter(i)}
                     disabled={s.booked}
                     style={{
                       background: bg, color, border, borderRadius: 8,
@@ -702,8 +735,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
             </div>
 
             <div style={{ marginTop: 18, background: NAVY_PALE, padding: 14, borderRadius: 10, fontSize: 12, color: "#111", lineHeight: 1.55 }}>
-              <strong style={{ color: NAVY }}>How this works —</strong> Hours run {fmtTime(selectedTH!.open_time)}–{fmtTime(selectedTH!.close_time)} in 30-minute slots.
-              Block any slots the clinic can't take patients. Sales reps can't book patients into blocked times. Changes save instantly.
+              <strong style={{ color: NAVY }}>Tip —</strong> Click and drag across slots to block a range ({fmtTime(selectedTH!.open_time)}–{fmtTime(selectedTH!.close_time)}, {selectedTH?.consult_duration_mins ?? 30}-min slots). You can choose to repeat the block daily, weekly or monthly.
             </div>
           </>
         )}
@@ -715,7 +747,159 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
           onChange={onChange}
         />
       </div>
+
+      {pending && (
+        <BlockRangeModal
+          startTime={pending.startTime}
+          endTime={pending.endTime}
+          startDate={selectedDateStr}
+          alreadyBlocked={pending.alreadyBlocked}
+          tradingHours={tradingHours}
+          clinicId={clinicId}
+          onClose={() => setPending(null)}
+          onUnblock={async () => { await unblockRange(pending.startTime, pending.endTime); setPending(null); }}
+          onSaved={() => { setPending(null); onChange(); }}
+        />
+      )}
     </div>
+  );
+}
+
+function hhmmToMinLocal(t: string): number {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return 0;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function BlockRangeModal({
+  startTime, endTime, startDate, alreadyBlocked, tradingHours, clinicId,
+  onClose, onUnblock, onSaved,
+}: {
+  startTime: string; endTime: string; startDate: string; alreadyBlocked: boolean;
+  tradingHours: TradingHours[]; clinicId: string;
+  onClose: () => void; onUnblock: () => void; onSaved: () => void;
+}) {
+  type Repeat = "none" | "daily" | "weekly" | "monthly";
+  const [repeat, setRepeat] = useState<Repeat>("none");
+  const defaultUntil = useMemo(() => {
+    const [y, m, d] = startDate.split("-").map(Number);
+    const dt = new Date(y, m - 1, d);
+    dt.setMonth(dt.getMonth() + 3);
+    return ymdLocal(dt);
+  }, [startDate]);
+  const [until, setUntil] = useState<string>(defaultUntil);
+  const [saving, setSaving] = useState(false);
+
+  const buildDates = (): string[] => {
+    const [y, m, d] = startDate.split("-").map(Number);
+    const start = new Date(y, m - 1, d);
+    const [uy, um, ud] = until.split("-").map(Number);
+    const end = new Date(uy, um - 1, ud);
+    const out = new Set<string>([ymdLocal(start)]);
+    if (repeat === "none") return Array.from(out);
+    const cursor = new Date(start);
+    for (let i = 0; i < 1000; i++) {
+      if (repeat === "daily") cursor.setDate(cursor.getDate() + 1);
+      else if (repeat === "weekly") cursor.setDate(cursor.getDate() + 7);
+      else if (repeat === "monthly") cursor.setMonth(cursor.getMonth() + 1);
+      if (cursor > end) break;
+      out.add(ymdLocal(cursor));
+    }
+    return Array.from(out);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const dates = buildDates();
+    const filtered = dates.filter((dstr) => {
+      const [yy, mm, dd] = dstr.split("-").map(Number);
+      const dt = new Date(yy, mm - 1, dd);
+      const dow = dayOfWeekMonFirst(dt);
+      const th = tradingHours.find((t) => t.day_of_week === dow);
+      return th && !th.is_closed;
+    });
+    if (filtered.length === 0) {
+      setSaving(false); toast.error("No open trading days in that range"); return;
+    }
+    const rows = filtered.map((dstr) => ({
+      clinic_id: clinicId,
+      slot_date: dstr,
+      slot_start: `${startTime}:00`,
+      slot_end: `${endTime}:00`,
+      is_recurring: false,
+    }));
+    const { error } = await supabase.from("clinic_blocked_slots").insert(rows);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Blocked ${filtered.length} ${filtered.length === 1 ? "day" : "days"}`);
+    onSaved();
+  };
+
+  const fmt = (t: string) => {
+    const [h, m] = t.split(":").map(Number);
+    const ap = h >= 12 ? "pm" : "am";
+    const hh = h % 12 || 12;
+    return `${hh}:${String(m).padStart(2, "0")}${ap}`;
+  };
+
+  return (
+    <ModalShell onClose={onClose}>
+      {alreadyBlocked ? (
+        <>
+          <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>Unblock this range?</div>
+          <div style={{ fontSize: 13, color: "#6b7785", marginBottom: 18 }}>
+            {fmt(startTime)}–{fmt(endTime)} on this day will be reopened.
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
+            <button onClick={onUnblock} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              Unblock
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>Block time off</div>
+          <div style={{ fontSize: 13, color: "#6b7785", marginBottom: 18 }}>
+            <strong style={{ color: "#111" }}>{fmt(startTime)} – {fmt(endTime)}</strong> on {startDate}
+          </div>
+
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 8 }}>Repeat</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 14 }}>
+            {(["none","daily","weekly","monthly"] as Repeat[]).map((r) => (
+              <button key={r} onClick={() => setRepeat(r)}
+                style={{
+                  padding: "8px 4px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  background: repeat === r ? NAVY : "#fff",
+                  color: repeat === r ? "#fff" : "#111",
+                  border: `1.5px solid ${repeat === r ? NAVY : "#e2e6ec"}`,
+                  fontFamily: "inherit", textTransform: "capitalize",
+                }}>
+                {r === "none" ? "Just once" : r}
+              </button>
+            ))}
+          </div>
+
+          {repeat !== "none" && (
+            <>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 6 }}>Until</div>
+              <input type="date" value={until} min={startDate} onChange={(e) => setUntil(e.target.value)}
+                style={{ width: "100%", padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8, marginBottom: 10, color: "#111" }} />
+              <div style={{ fontSize: 11, color: "#6b7785", marginBottom: 14 }}>
+                One block per {repeat === "daily" ? "day" : repeat === "weekly" ? "week" : "month"} until {until}. Days the clinic is closed are skipped.
+              </div>
+            </>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ background: "#b83232", color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+              Block time
+            </button>
+          </div>
+        </>
+      )}
+    </ModalShell>
   );
 }
 
