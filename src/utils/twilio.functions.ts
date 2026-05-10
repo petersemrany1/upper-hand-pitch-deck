@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
+import { getNextNumber } from "./phone-pool.functions";
 
 // Sends the Stripe payment-link SMS via Twilio. Credentials come from server
 // env vars only — never hard-coded.
@@ -9,7 +10,7 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
+    const { number: from } = await getNextNumber();
 
     if (!accountSid || !authToken) {
       const msg = "TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN must be configured";
