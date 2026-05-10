@@ -1297,7 +1297,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     : alreadyRefunded
       ? "Save & close"
       : noPaymentIntent
-        ? "Save & close"
+        ? "Save & check Stripe"
         : `Save & refund $${depositAmount}`;
 
   const save = async () => {
@@ -1362,7 +1362,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
       ) : noPaymentIntent ? (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Deposit refund</div>
-          <div style={{ fontSize: 11, color: "#92400e" }}>No card on file — process refund manually in Stripe</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>No saved Stripe ID — we’ll look up the paid deposit link and refund it if found. If not, process manually in Stripe.</div>
         </div>
       ) : (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
