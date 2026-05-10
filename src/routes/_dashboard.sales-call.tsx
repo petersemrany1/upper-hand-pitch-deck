@@ -2514,20 +2514,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     if (form.clinicId) {
-      const { data: avs } = await supabase
-        .from("clinic_availability")
-        .select("override_date, override_type, start_time, end_time")
-        .eq("clinic_id", form.clinicId)
-        .eq("override_date", form.date);
-      const blocked = (avs ?? []).some((a) => {
-        if (a.override_type !== "blocked") return false;
-        if (!a.start_time || !a.end_time) return true;
-        const toMin = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-        const tm = toMin(form.time);
-        return tm >= toMin(a.start_time) && tm < toMin(a.end_time);
-      });
-      if (blocked) {
-        toast.error("That time is blocked by the clinic — pick another slot.");
+      // Validate against new trading hours + blocked slots system
+      const [{ data: th }, { data: bs }, { data: ex }] = await Promise.all([
+        supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", form.clinicId),
+        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", form.clinicId),
+        supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", form.clinicId).eq("appointment_date", form.date),
+      ]);
+      const [yy, mm, dd] = form.date.split("-").map(Number);
+      const dateObj = new Date(yy, mm - 1, dd);
+      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[]);
+      const target = slots.find((s) => s.time === form.time || s.time === form.time.slice(0, 5));
+      if (!target || !target.available) {
+        toast.error("That time is not available — pick another slot.");
         return;
       }
     }
