@@ -121,6 +121,7 @@ export function ClinicPortalView({
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
+          clinicDefaultDeposit={clinicDefaultDeposit}
         />
       ) : (
         <AvailabilityTab
@@ -143,6 +144,7 @@ export function ClinicPortalView({
           isAdmin={isAdmin}
           onClose={() => setSelected(null)}
           onChange={() => { reload(); }}
+          clinicDefaultDeposit={clinicDefaultDeposit}
         />
       )}
     </div>
