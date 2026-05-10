@@ -405,6 +405,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
             lead_id: leadId,
             rep_id: repId,
             phone,
+            from_number: callerId,
             status: "initiated",
             called_at: new Date().toISOString(),
           },
