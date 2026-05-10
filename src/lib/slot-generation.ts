@@ -130,15 +130,49 @@ export function recurrenceMatches(b: BlockedSlot, date: Date, dow?: number): boo
   return false;
 }
 
+export type AvailabilityOverride = {
+  override_date: string;     // YYYY-MM-DD
+  override_type: string;     // 'open' | 'closed' (other values ignored)
+  start_time: string | null; // HH:MM[:SS] (used when override_type = 'open')
+  end_time: string | null;
+};
+
+/** Returns the effective trading hours for a given date, applying any overrides. */
+export function effectiveHoursFor(
+  date: Date,
+  tradingHours: TradingHours[],
+  overrides: AvailabilityOverride[] = [],
+): TradingHours | null {
+  const dateStr = ymdLocal(date);
+  const dow = dayOfWeekMonFirst(date);
+  const baseTh = tradingHours.find((t) => t.day_of_week === dow);
+  const ov = overrides.find((o) => o.override_date === dateStr);
+
+  if (ov?.override_type === "open" && ov.start_time && ov.end_time) {
+    return {
+      day_of_week: dow,
+      open_time: ov.start_time,
+      close_time: ov.end_time,
+      is_closed: false,
+      consult_duration_mins: baseTh?.consult_duration_mins || 30,
+    };
+  }
+  if (ov?.override_type === "closed") {
+    return baseTh ? { ...baseTh, is_closed: true } : null;
+  }
+  return baseTh ?? null;
+}
+
 export function generateSlots(
   date: Date,
   tradingHours: TradingHours[],
   blockedSlots: BlockedSlot[],
   existingAppts: ExistingAppt[] = [],
+  overrides: AvailabilityOverride[] = [],
 ): Slot[] {
   const dow = dayOfWeekMonFirst(date);
   const dateStr = ymdLocal(date);
-  const th = tradingHours.find((t) => t.day_of_week === dow);
+  const th = effectiveHoursFor(date, tradingHours, overrides);
   if (!th || th.is_closed) return [];
 
   const openMin = hhmmToMin(th.open_time);
@@ -188,11 +222,14 @@ export function summarizeDay(
   tradingHours: TradingHours[],
   blockedSlots: BlockedSlot[],
   existingAppts: ExistingAppt[] = [],
-): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number } {
-  const dow = dayOfWeekMonFirst(date);
-  const th = tradingHours.find((t) => t.day_of_week === dow);
-  if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0 };
-  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts);
+  overrides: AvailabilityOverride[] = [],
+): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; openedOverride: boolean } {
+  const th = effectiveHoursFor(date, tradingHours, overrides);
+  const dateStr = ymdLocal(date);
+  const ov = overrides.find((o) => o.override_date === dateStr);
+  const openedOverride = ov?.override_type === "open";
+  if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, openedOverride: false };
+  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides);
   const blockedCount = slots.filter((s) => s.blocked).length;
   const bookedCount = slots.filter((s) => s.booked).length;
   return {
@@ -201,6 +238,7 @@ export function summarizeDay(
     someBlocked: blockedCount > 0 && blockedCount < slots.length,
     total: slots.length,
     bookedCount,
+    openedOverride,
   };
 }
 

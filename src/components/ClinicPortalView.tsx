@@ -3,9 +3,9 @@ import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal,
+  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal, effectiveHoursFor,
   DAY_NAMES, DAY_SHORT,
-  type TradingHours, type BlockedSlot, type Slot,
+  type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
 
 export type ClinicAppointment = {
@@ -58,6 +58,7 @@ export function ClinicPortalView({
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
   const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
+  const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
@@ -69,15 +70,17 @@ export function ClinicPortalView({
       // Subsequent reloads keep the current view mounted (so things like
       // the selected date in Availability don't reset to today).
       if (refresh === 0) setLoading(true);
-      const [{ data: a }, { data: th }, { data: bs }] = await Promise.all([
+      const [{ data: a }, { data: th }, { data: bs }, { data: ov }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
+        supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
       setTradingHours((th ?? []) as TradingHours[]);
       setBlockedSlots((bs ?? []) as BlockedSlot[]);
+      setOverrides((ov ?? []) as AvailabilityOverride[]);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -117,6 +120,7 @@ export function ClinicPortalView({
         <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
+          overrides={overrides}
           appts={appts}
           clinicId={clinicId}
           onChange={reload}
@@ -504,9 +508,10 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 
 type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
 
-function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange }: {
+function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
+  overrides: AvailabilityOverride[];
   appts: ClinicAppointment[];
   clinicId: string;
   onChange: () => void;
@@ -526,12 +531,17 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
   const offset = (firstWeekday + 6) % 7;
 
   const selectedDow = dayOfWeekMonFirst(selectedDate);
-  const selectedTH = tradingHours.find((t) => t.day_of_week === selectedDow);
   const selectedDateStr = ymd(selectedDate);
+  const baseTH = tradingHours.find((t) => t.day_of_week === selectedDow);
+  const selectedOverride = overrides.find((o) => o.override_date === selectedDateStr);
+  const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides);
   const slots: Slot[] = useMemo(
-    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts),
-    [selectedDate, tradingHours, blockedSlots, appts],
+    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides),
+    [selectedDate, tradingHours, blockedSlots, appts, overrides],
   );
+
+  // "Open this day" modal state — for opening a normally-closed day
+  const [openDayModal, setOpenDayModal] = useState(false);
 
   const recurring = useMemo(
     () => blockedSlots.filter((b) => b.is_recurring).sort((a, b) => {
@@ -627,6 +637,16 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
     onChange();
   };
 
+  // Remove an "open" override → day reverts to normally closed
+  const removeOpenOverride = async () => {
+    if (!selectedOverride) return;
+    const { error } = await supabase.from("clinic_availability").delete().eq("override_date", selectedDateStr).eq("clinic_id", clinicId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Day closed again");
+    onChange();
+  };
+
+  const baseClosed = !baseTH || baseTH.is_closed;
   const isClosedDay = !selectedTH || selectedTH.is_closed;
   const allBlocked = !isClosedDay && slots.length > 0 && slots.every((s) => s.blocked);
 
@@ -648,7 +668,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
           {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const date = new Date(year, month, day);
-            const summary = summarizeDay(date, tradingHours, blockedSlots, appts);
+            const summary = summarizeDay(date, tradingHours, blockedSlots, appts, overrides);
             const dateStr = ymd(date);
             const isSelected = dateStr === ymd(selectedDate);
             const isToday = dateStr === ymd(today);
@@ -683,7 +703,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
               {DAY_SHORT[selectedDow]} {selectedDate.getDate()} {MONTHS[selectedDate.getMonth()]} {selectedDate.getFullYear()}
             </div>
           </div>
-          {!isClosedDay && (
+          {!isClosedDay && !selectedOverride && (
             <button
               onClick={() => void closeWholeDay()}
               style={{
@@ -697,13 +717,41 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
               {allBlocked ? "Reopen day" : "Close whole day"}
             </button>
           )}
+          {selectedOverride?.override_type === "open" && (
+            <button
+              onClick={() => void removeOpenOverride()}
+              style={{
+                background: "#fff", color: "#b83232", border: "1.5px solid #b83232",
+                borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Close again
+            </button>
+          )}
         </div>
 
         {isClosedDay ? (
           <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 14, color: "#6b7785" }}>
-              Your clinic is closed on <strong>{DAY_NAMES[selectedDow]}s</strong>. Contact admin to change your trading hours.
+            <div style={{ fontSize: 14, color: "#6b7785", marginBottom: 14 }}>
+              Your clinic is normally closed on <strong>{DAY_NAMES[selectedDow]}s</strong>.
             </div>
+            {baseClosed && (
+              <button
+                onClick={() => setOpenDayModal(true)}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8,
+                  padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                Open this day
+              </button>
+            )}
+            {!baseClosed && (
+              <div style={{ fontSize: 12, color: "#9aa5b1", marginTop: 6 }}>
+                Contact admin to change your weekly trading hours.
+              </div>
+            )}
           </div>
         ) : (
           <>
@@ -762,6 +810,16 @@ function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange
           onClose={() => setPending(null)}
           onUnblock={async () => { await unblockRange(pending.startTime, pending.endTime); setPending(null); }}
           onSaved={() => { setPending(null); onChange(); }}
+        />
+      )}
+
+      {openDayModal && (
+        <OpenDayModal
+          dateStr={selectedDateStr}
+          dayName={DAY_NAMES[selectedDow]}
+          clinicId={clinicId}
+          onClose={() => setOpenDayModal(false)}
+          onSaved={() => { setOpenDayModal(false); onChange(); }}
         />
       )}
     </div>
@@ -1278,5 +1336,65 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
         {children}
       </div>
     </div>
+  );
+}
+
+function OpenDayModal({
+  dateStr, dayName, clinicId, onClose, onSaved,
+}: {
+  dateStr: string; dayName: string; clinicId: string;
+  onClose: () => void; onSaved: () => void;
+}) {
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("17:00");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (start >= end) { toast.error("End time must be after start time"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("clinic_availability").insert({
+      clinic_id: clinicId,
+      override_date: dateStr,
+      override_type: "open",
+      start_time: `${start}:00`,
+      end_time: `${end}:00`,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Day opened");
+    onSaved();
+  };
+
+  const inputStyle: React.CSSProperties = {
+    padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8,
+    color: "#111", fontFamily: "inherit", width: "100%",
+  };
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>Open this day</div>
+      <div style={{ fontSize: 13, color: "#6b7785", marginBottom: 18 }}>
+        {dayName} {dateStr} — normally closed. Pick the hours you'll be open.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 6 }}>From</div>
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 6 }}>To</div>
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} style={inputStyle} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
+        <button onClick={() => void save()} disabled={saving}
+          style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+          Open day
+        </button>
+      </div>
+    </ModalShell>
   );
 }
