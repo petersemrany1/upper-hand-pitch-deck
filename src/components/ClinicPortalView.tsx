@@ -637,6 +637,16 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
     onChange();
   };
 
+  // Remove an "open" override → day reverts to normally closed
+  const removeOpenOverride = async () => {
+    if (!selectedOverride) return;
+    const { error } = await supabase.from("clinic_availability").delete().eq("override_date", selectedDateStr).eq("clinic_id", clinicId);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Day closed again");
+    onChange();
+  };
+
+  const baseClosed = !baseTH || baseTH.is_closed;
   const isClosedDay = !selectedTH || selectedTH.is_closed;
   const allBlocked = !isClosedDay && slots.length > 0 && slots.every((s) => s.blocked);
 
