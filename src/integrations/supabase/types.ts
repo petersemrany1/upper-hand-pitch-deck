@@ -100,6 +100,7 @@ export type Database = {
           direction: string
           duration: number | null
           duration_seconds: number | null
+          from_number: string | null
           id: string
           lead_id: string | null
           needs_review: boolean
@@ -126,6 +127,7 @@ export type Database = {
           direction?: string
           duration?: number | null
           duration_seconds?: number | null
+          from_number?: string | null
           id?: string
           lead_id?: string | null
           needs_review?: boolean
@@ -152,6 +154,7 @@ export type Database = {
           direction?: string
           duration?: number | null
           duration_seconds?: number | null
+          from_number?: string | null
           id?: string
           lead_id?: string | null
           needs_review?: boolean
@@ -855,6 +858,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      phone_numbers: {
+        Row: {
+          call_count: number
+          created_at: string
+          friendly_name: string | null
+          id: string
+          last_used_at: string | null
+          number: string
+          status: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          call_count?: number
+          created_at?: string
+          friendly_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          number: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          call_count?: number
+          created_at?: string
+          friendly_name?: string | null
+          id?: string
+          last_used_at?: string | null
+          number?: string
+          status?: string
+          twilio_sid?: string | null
+        }
+        Relationships: []
       }
       sales_reps: {
         Row: {
