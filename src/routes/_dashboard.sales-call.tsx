@@ -6415,3 +6415,67 @@ function CallbacksTodayButton({ callbacks, onPick }: { callbacks: Lead[]; onPick
     </div>
   );
 }
+
+function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
+  clinicId: string;
+  date: string;
+  time: string;
+  onDate: (v: string) => void;
+  onTime: (v: string) => void;
+}) {
+  const [trading, setTrading] = useState<TradingHours[]>([]);
+  const [blocks, setBlocks] = useState<BlockedSlot[]>([]);
+  const [appts, setAppts] = useState<ExistingAppt[]>([]);
+
+  useEffect(() => {
+    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); return; }
+    void Promise.all([
+      supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+      supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", clinicId),
+      supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
+    ]).then(([a, b, c]) => {
+      setTrading((a.data ?? []) as TradingHours[]);
+      setBlocks((b.data ?? []) as BlockedSlot[]);
+      setAppts((c.data ?? []) as ExistingAppt[]);
+    });
+  }, [clinicId]);
+
+  const slots = useMemo(() => {
+    if (!date) return [];
+    const [y, m, d] = date.split("-").map(Number);
+    if (!y || !m || !d) return [];
+    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts);
+  }, [date, trading, blocks, appts]);
+
+  const available = slots.filter((s) => s.available);
+
+  return (
+    <div className="grid grid-cols-2 gap-2.5">
+      <div>
+        <Label>Booking date</Label>
+        <input type="date" value={date} onChange={(e) => { onDate(e.target.value); onTime(""); }}
+          className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
+          style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+      </div>
+      <div>
+        <Label>Time slot</Label>
+        {!clinicId ? (
+          <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>Pick a clinic first</div>
+        ) : !date ? (
+          <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>Pick a date first</div>
+        ) : available.length === 0 ? (
+          <div className="text-[12px] mt-2" style={{ color: "#b83232" }}>No slots available — try another date</div>
+        ) : (
+          <select value={time} onChange={(e) => onTime(e.target.value)}
+            className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
+            style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
+            <option value="">Choose…</option>
+            {available.map((s) => (
+              <option key={s.time} value={s.time}>{s.label}</option>
+            ))}
+          </select>
+        )}
+      </div>
+    </div>
+  );
+}
