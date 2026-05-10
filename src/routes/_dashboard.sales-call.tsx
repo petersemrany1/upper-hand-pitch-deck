@@ -19,6 +19,7 @@ import {
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
+import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
