@@ -1019,9 +1019,16 @@ function PhoneNumbersSection() {
                           disabled={retiring === n.id}
                           className="px-3 py-1 rounded-md text-xs font-semibold border border-border hover:bg-muted transition-colors disabled:opacity-60"
                         >
-                          {retiring === n.id ? "Retiring…" : "Retire"}
+                          {retiring === n.id ? "Working…" : "Retire"}
                         </button>
                       )}
+                      <button
+                        onClick={() => void onRelease(n.id, n.number)}
+                        disabled={retiring === n.id}
+                        className="px-3 py-1 rounded-md text-xs font-semibold border border-destructive/40 text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-60"
+                      >
+                        Release
+                      </button>
                     </div>
                   </td>
                 </tr>
