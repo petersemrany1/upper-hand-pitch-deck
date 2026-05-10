@@ -83,6 +83,53 @@ export const ymdLocal = (d: Date): string => {
  * and existing appointments. Returns ALL slots in the day with metadata —
  * filter by `.available` for the booking flow.
  */
+/**
+ * Does this recurring blocked-slot rule fire on the given date?
+ * Backwards-compatible: if recur_pattern is null, treats it as legacy "weekly"
+ * using recur_day_of_week.
+ */
+export function recurrenceMatches(b: BlockedSlot, date: Date, dow?: number): boolean {
+  if (!b.is_recurring) return false;
+  const d = dow ?? dayOfWeekMonFirst(date);
+
+  // Optional end date
+  if (b.recur_until) {
+    const dateStr = ymdLocal(date);
+    if (dateStr > b.recur_until) return false;
+  }
+
+  const pattern: RecurPattern = b.recur_pattern ?? "weekly";
+
+  if (pattern === "daily") return true;
+
+  if (pattern === "weekly") {
+    const days = (b.recur_days_of_week && b.recur_days_of_week.length > 0)
+      ? b.recur_days_of_week
+      : (b.recur_day_of_week != null ? [b.recur_day_of_week] : []);
+    return days.includes(d);
+  }
+
+  if (pattern === "monthly_date") {
+    return b.recur_day_of_month != null && date.getDate() === b.recur_day_of_month;
+  }
+
+  if (pattern === "monthly_nth_dow") {
+    if (b.recur_day_of_week == null || b.recur_nth_week == null) return false;
+    if (b.recur_day_of_week !== d) return false;
+    // Which occurrence of this weekday in the month is `date`?
+    const occurrence = Math.floor((date.getDate() - 1) / 7) + 1;
+    if (b.recur_nth_week === 5) {
+      // "Last" — check there's no later same-weekday in this month
+      const next = new Date(date);
+      next.setDate(date.getDate() + 7);
+      return next.getMonth() !== date.getMonth();
+    }
+    return occurrence === b.recur_nth_week;
+  }
+
+  return false;
+}
+
 export function generateSlots(
   date: Date,
   tradingHours: TradingHours[],
