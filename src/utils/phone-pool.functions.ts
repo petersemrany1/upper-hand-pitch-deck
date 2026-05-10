@@ -33,27 +33,7 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
   }
   const phoneNumber: string = available[0].phone_number;
 
-  // AU mobile numbers require regulatory compliance on purchase. Use the first
-  // validated AU address and approved AU mobile bundle already present on the
-  // Twilio account.
-  const addressesUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Addresses.json?IsoCountry=AU&PageSize=20`;
-  const addressesRes = await fetch(addressesUrl, {
-    method: "GET",
-    headers: { Authorization: authHeader },
-  });
-  const addressesData = await addressesRes.json();
-  if (!addressesRes.ok) {
-    await logError("provisionNumber", addressesData.message || "Twilio address lookup failed", { rawResponse: addressesData });
-    return { success: false as const, error: addressesData.message || "Failed to find AU regulatory address" };
-  }
-  const addressSid: string | undefined = (addressesData.addresses ?? []).find(
-    (address: { sid?: string; iso_country?: string; validated?: boolean }) =>
-      address.sid && address.iso_country === "AU" && address.validated !== false
-  )?.sid;
-  if (!addressSid) {
-    return { success: false as const, error: "No validated AU regulatory address found in Twilio" };
-  }
-
+  // AU mobile numbers require an approved regulatory bundle on purchase.
   const bundlesUrl = "https://numbers.twilio.com/v2/RegulatoryCompliance/Bundles?" + new URLSearchParams({
     IsoCountry: "AU",
     NumberType: "mobile",
