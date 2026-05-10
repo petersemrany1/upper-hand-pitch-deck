@@ -1,6 +1,8 @@
 // Shared slot generation utility used by the clinic portal availability tab
 // AND the rep booking flow. Both must agree on what's available.
 
+import { isPublicHoliday, getHolidayName } from "@/data/au-public-holidays";
+
 export type TradingHours = {
   day_of_week: number; // 0=Mon, 6=Sun
   open_time: string;   // "HH:MM" or "HH:MM:SS"
