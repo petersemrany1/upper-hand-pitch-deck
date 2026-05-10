@@ -880,6 +880,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           startDate={selectedDateStr}
           alreadyBlocked={pending.alreadyBlocked}
           tradingHours={tradingHours}
+          overrides={overrides}
           clinicId={clinicId}
           onClose={() => setPending(null)}
           onUnblock={async () => { await unblockRange(pending.startTime, pending.endTime); setPending(null); }}
