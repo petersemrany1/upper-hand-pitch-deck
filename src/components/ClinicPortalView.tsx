@@ -158,9 +158,10 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, avails, clinicId, isAdmin, onChange, onSelect }: {
+function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
-  avails: ClinicAvailability[];
+  tradingHours: TradingHours[];
+  blockedSlots: BlockedSlot[];
   clinicId: string;
   isAdmin: boolean;
   onChange: () => void;
@@ -206,7 +207,7 @@ function AppointmentsTab({ appts, avails, clinicId, isAdmin, onChange, onSelect 
       {view === "list" ? (
         <ListView appts={appts} onSelect={onSelect} />
       ) : (
-        <CalendarView appts={appts} avails={avails} onSelect={onSelect} />
+        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} onSelect={onSelect} />
       )}
 
       {showAdd && isAdmin && (
