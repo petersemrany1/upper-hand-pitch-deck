@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
+import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 type StripeApiResponse = {
   id?: string;
@@ -167,6 +168,9 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     params.append("line_items[0][price_data][unit_amount]", String(amountCents));
     params.append("line_items[0][price_data][product_data][name]", productName);
     params.append("payment_intent_data[statement_descriptor_suffix]", "HTG DEPOSIT");
+    if (data.leadId) params.append("payment_intent_data[metadata][lead_id]", data.leadId);
+    params.append("payment_intent_data[metadata][deposit_amount]", String(data.amount));
+    params.append("payment_intent_data[metadata][source]", "htg_deposit_checkout");
     params.append("metadata[patient_name]", fullName);
     if (data.leadId) params.append("metadata[lead_id]", data.leadId);
     params.append("metadata[deposit_amount]", String(data.amount));
@@ -287,6 +291,19 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
       if (result.status !== "succeeded") {
         const errMsg = `Payment ${result.status}` + (result.last_payment_error?.message ? `: ${result.last_payment_error.message}` : "");
         return { success: false as const, error: errMsg };
+      }
+
+      if (data.leadId && result.id) {
+        await supabaseAdmin
+          .from("clinic_appointments")
+          .update({
+            stripe_payment_intent_id: result.id,
+            deposit_amount: (result.amount ?? data.amountCents) / 100,
+            refund_status: null,
+            refund_processed_at: null,
+            stripe_refund_id: null,
+          })
+          .eq("lead_id", data.leadId);
       }
 
       return {
