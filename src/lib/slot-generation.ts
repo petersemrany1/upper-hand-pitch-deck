@@ -9,6 +9,8 @@ export type TradingHours = {
   consult_duration_mins: number;
 };
 
+export type RecurPattern = "weekly" | "daily" | "monthly_date" | "monthly_nth_dow" | null;
+
 export type BlockedSlot = {
   id?: string;
   slot_date: string | null;     // YYYY-MM-DD
@@ -16,6 +18,11 @@ export type BlockedSlot = {
   slot_end: string;              // HH:MM[:SS]
   is_recurring: boolean;
   recur_day_of_week: number | null;
+  recur_pattern?: RecurPattern;
+  recur_days_of_week?: number[] | null; // for weekly multi-day
+  recur_day_of_month?: number | null;   // for monthly_date (1-31)
+  recur_nth_week?: number | null;       // for monthly_nth_dow (1-4, or 5 = last)
+  recur_until?: string | null;          // YYYY-MM-DD optional end date
 };
 
 export type ExistingAppt = {
@@ -76,6 +83,53 @@ export const ymdLocal = (d: Date): string => {
  * and existing appointments. Returns ALL slots in the day with metadata —
  * filter by `.available` for the booking flow.
  */
+/**
+ * Does this recurring blocked-slot rule fire on the given date?
+ * Backwards-compatible: if recur_pattern is null, treats it as legacy "weekly"
+ * using recur_day_of_week.
+ */
+export function recurrenceMatches(b: BlockedSlot, date: Date, dow?: number): boolean {
+  if (!b.is_recurring) return false;
+  const d = dow ?? dayOfWeekMonFirst(date);
+
+  // Optional end date
+  if (b.recur_until) {
+    const dateStr = ymdLocal(date);
+    if (dateStr > b.recur_until) return false;
+  }
+
+  const pattern: RecurPattern = b.recur_pattern ?? "weekly";
+
+  if (pattern === "daily") return true;
+
+  if (pattern === "weekly") {
+    const days = (b.recur_days_of_week && b.recur_days_of_week.length > 0)
+      ? b.recur_days_of_week
+      : (b.recur_day_of_week != null ? [b.recur_day_of_week] : []);
+    return days.includes(d);
+  }
+
+  if (pattern === "monthly_date") {
+    return b.recur_day_of_month != null && date.getDate() === b.recur_day_of_month;
+  }
+
+  if (pattern === "monthly_nth_dow") {
+    if (b.recur_day_of_week == null || b.recur_nth_week == null) return false;
+    if (b.recur_day_of_week !== d) return false;
+    // Which occurrence of this weekday in the month is `date`?
+    const occurrence = Math.floor((date.getDate() - 1) / 7) + 1;
+    if (b.recur_nth_week === 5) {
+      // "Last" — check there's no later same-weekday in this month
+      const next = new Date(date);
+      next.setDate(date.getDate() + 7);
+      return next.getMonth() !== date.getMonth();
+    }
+    return occurrence === b.recur_nth_week;
+  }
+
+  return false;
+}
+
 export function generateSlots(
   date: Date,
   tradingHours: TradingHours[],
@@ -95,7 +149,7 @@ export function generateSlots(
   const blocks: Array<[number, number]> = [];
   for (const b of blockedSlots) {
     if (b.is_recurring) {
-      if (b.recur_day_of_week === dow) {
+      if (recurrenceMatches(b, date, dow)) {
         blocks.push([hhmmToMin(b.slot_start), hhmmToMin(b.slot_end)]);
       }
     } else if (b.slot_date === dateStr) {

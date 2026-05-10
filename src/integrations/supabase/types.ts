@@ -306,7 +306,12 @@ export type Database = {
           created_at: string
           id: string
           is_recurring: boolean
+          recur_day_of_month: number | null
           recur_day_of_week: number | null
+          recur_days_of_week: number[] | null
+          recur_nth_week: number | null
+          recur_pattern: string | null
+          recur_until: string | null
           slot_date: string | null
           slot_end: string
           slot_start: string
@@ -316,7 +321,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_recurring?: boolean
+          recur_day_of_month?: number | null
           recur_day_of_week?: number | null
+          recur_days_of_week?: number[] | null
+          recur_nth_week?: number | null
+          recur_pattern?: string | null
+          recur_until?: string | null
           slot_date?: string | null
           slot_end: string
           slot_start: string
@@ -326,7 +336,12 @@ export type Database = {
           created_at?: string
           id?: string
           is_recurring?: boolean
+          recur_day_of_month?: number | null
           recur_day_of_week?: number | null
+          recur_days_of_week?: number[] | null
+          recur_nth_week?: number | null
+          recur_pattern?: string | null
+          recur_until?: string | null
           slot_date?: string | null
           slot_end?: string
           slot_start?: string

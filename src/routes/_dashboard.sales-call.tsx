@@ -2518,7 +2518,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       // Validate against new trading hours + blocked slots system
       const [{ data: th }, { data: bs }, { data: ex }] = await Promise.all([
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", form.clinicId),
-        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", form.clinicId),
+        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", form.clinicId),
         supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", form.clinicId).eq("appointment_date", form.date),
       ]);
       const [yy, mm, dd] = form.date.split("-").map(Number);
@@ -6431,7 +6431,7 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); return; }
     void Promise.all([
       supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
-      supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", clinicId),
+      supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
       supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
     ]).then(([a, b, c]) => {
       setTrading((a.data ?? []) as TradingHours[]);
