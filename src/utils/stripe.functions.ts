@@ -205,3 +205,87 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       return { success: false as const, error: "Request failed" };
     }
   });
+
+// Returns the HTG Stripe publishable key for client-side Stripe.js initialisation.
+// Publishable keys are safe to expose to the browser.
+export const getHtgStripePublishableKey = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const key = process.env.STRIPE_HTG_PUBLISHABLE_KEY || "";
+    return { publishableKey: key };
+  });
+
+// Charges a card directly using a Stripe PaymentMethod ID created on the client
+// via Stripe Elements. The raw card details never touch the server.
+export const chargeCardOverPhone = createServerFn({ method: "POST" })
+  .inputValidator(
+    (data: {
+      paymentMethodId: string;
+      amountCents: number;
+      patientName: string;
+      leadId?: string;
+    }) => data
+  )
+  .handler(async ({ data }) => {
+    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+      const msg = "STRIPE_HTG_SECRET_KEY / STRIPE_SECRET_KEY is not configured";
+      await logError("chargeCardOverPhone", msg, { leadId: data.leadId, patientName: data.patientName });
+      return { success: false as const, error: msg };
+    }
+
+    if (!Number.isFinite(data.amountCents) || data.amountCents < 50) {
+      return { success: false as const, error: "Invalid amount — must be at least $0.50 AUD." };
+    }
+    if (!data.paymentMethodId) {
+      return { success: false as const, error: "Missing payment method." };
+    }
+
+    const params = new URLSearchParams();
+    params.append("amount", String(Math.round(data.amountCents)));
+    params.append("currency", "aud");
+    params.append("payment_method", data.paymentMethodId);
+    params.append("confirm", "true");
+    params.append("description", `Deposit — ${data.patientName}`);
+    params.append("payment_method_types[]", "card");
+    params.append("metadata[patient_name]", data.patientName);
+    if (data.leadId) params.append("metadata[lead_id]", data.leadId);
+    params.append("metadata[source]", "charge_card_over_phone");
+
+    try {
+      const response = await fetch("https://api.stripe.com/v1/payment_intents", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + stripeKey,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+
+      const result: any = await response.json();
+
+      if (!response.ok) {
+        const errMsg = (result && result.error && (result.error.message as string)) || "Stripe API error";
+        console.error("Stripe charge error:", JSON.stringify(result));
+        await logError("chargeCardOverPhone", errMsg, {
+          leadId: data.leadId, patientName: data.patientName, rawResponse: result,
+        });
+        return { success: false as const, error: errMsg };
+      }
+
+      if (result.status !== "succeeded") {
+        const errMsg = `Payment ${result.status}` + (result.last_payment_error?.message ? `: ${result.last_payment_error.message}` : "");
+        return { success: false as const, error: errMsg };
+      }
+
+      return {
+        success: true as const,
+        paymentIntentId: result.id as string,
+        amountCents: result.amount as number,
+      };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      console.error("Stripe charge request failed:", err);
+      await logError("chargeCardOverPhone", errMsg, { leadId: data.leadId, patientName: data.patientName });
+      return { success: false as const, error: "Request failed" };
+    }
+  });
