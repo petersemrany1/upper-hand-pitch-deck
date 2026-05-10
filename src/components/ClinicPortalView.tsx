@@ -120,6 +120,7 @@ export function ClinicPortalView({
         <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
+          overrides={overrides}
           appts={appts}
           clinicId={clinicId}
           onChange={reload}
