@@ -312,6 +312,8 @@ export const clearBooking = createServerFn({ method: "POST" })
       updated_at: new Date().toISOString(),
     }).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
+    // Free the slot in the clinic portal availability view.
+    await supabaseAdmin.from("clinic_appointments").delete().eq("lead_id", data.leadId);
     return { success: true as const };
   });
 
