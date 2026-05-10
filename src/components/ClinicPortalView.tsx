@@ -72,7 +72,7 @@ export function ClinicPortalView({
       const [{ data: a }, { data: th }, { data: bs }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
-        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", clinicId),
+        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
