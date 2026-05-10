@@ -8,6 +8,33 @@ type ProcessInput = {
   proceeded: boolean;
 };
 
+async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | null, appointmentId: string) {
+  if (!leadId) return null;
+
+  const params = new URLSearchParams();
+  params.append("limit", "20");
+
+  const response = await fetch("https://api.stripe.com/v1/checkout/sessions?" + params.toString(), {
+    method: "GET",
+    headers: { Authorization: "Bearer " + stripeKey },
+  });
+
+  const result = (await response.json()) as {
+    data?: Array<{ id: string; payment_status?: string; payment_intent?: string | { id?: string }; metadata?: Record<string, string> }>;
+    error?: { message?: string };
+  };
+
+  if (!response.ok) {
+    const errMsg = result?.error?.message || "Stripe session lookup failed";
+    await logError("processConsultOutcome", errMsg, { appointmentId, leadId, rawResponse: result });
+    return null;
+  }
+
+  const session = result.data?.find((s) => s.payment_status === "paid" && s.metadata?.lead_id === leadId && s.payment_intent);
+  const intent = session?.payment_intent;
+  return typeof intent === "string" ? intent : intent?.id || null;
+}
+
 // Marks a clinic appointment as "show" or "proceeded" and, when not proceeded,
 // refunds the patient's deposit on the HTG Stripe account.
 //
@@ -25,7 +52,7 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     // 1. Re-fetch authoritative appointment state.
     const { data: appt, error: fetchErr } = await supabaseAdmin
       .from("clinic_appointments")
-      .select("id, clinic_id, stripe_payment_intent_id, stripe_refund_id, refund_status, deposit_amount")
+      .select("id, clinic_id, lead_id, stripe_payment_intent_id, stripe_refund_id, refund_status, deposit_amount")
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -55,12 +82,8 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: true as const, refunded: false as const };
     }
 
-    // 4. If no payment intent on file, can't auto-refund — clinic handles manually.
-    if (!appt.stripe_payment_intent_id) {
-      return { success: true as const, refunded: false as const, manual: true as const };
-    }
-
-    // 5. Fire Stripe refund.
+    // 4. Fire Stripe refund. If older bookings don't have the payment ID saved,
+    // recover it from the latest paid HTG Checkout Sessions using the lead ID.
     const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
     if (!stripeKey) {
       await supabaseAdmin
@@ -71,9 +94,25 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: false as const, error: "Stripe is not configured — contact admin", outcomeSaved: true as const };
     }
 
+    let paymentIntentId = appt.stripe_payment_intent_id;
+    if (!paymentIntentId) {
+      paymentIntentId = await findPaidDepositPaymentIntent(stripeKey, appt.lead_id, appointmentId);
+      if (paymentIntentId) {
+        await supabaseAdmin
+          .from("clinic_appointments")
+          .update({ stripe_payment_intent_id: paymentIntentId })
+          .eq("id", appointmentId)
+          .is("stripe_refund_id", null);
+      }
+    }
+
+    if (!paymentIntentId) {
+      return { success: true as const, refunded: false as const, manual: true as const };
+    }
+
     try {
       const params = new URLSearchParams();
-      params.append("payment_intent", appt.stripe_payment_intent_id);
+      params.append("payment_intent", paymentIntentId);
       params.append("metadata[appointment_id]", appointmentId);
 
       const response = await fetch("https://api.stripe.com/v1/refunds", {
