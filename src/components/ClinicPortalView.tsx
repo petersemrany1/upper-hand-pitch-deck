@@ -278,7 +278,15 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
               <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
               <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
             </div>
-            <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
+              {a.refund_status === "refunded" && (
+                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Deposit refunded</span>
+              )}
+              {a.refund_status === "failed" && (
+                <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
+              )}
+            </div>
           </button>
         );
       })}
