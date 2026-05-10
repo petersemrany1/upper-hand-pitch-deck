@@ -172,7 +172,7 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin, onChange, onSelect, clinicDefaultDeposit }: {
+function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
@@ -180,7 +180,6 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin,
   isAdmin: boolean;
   onChange: () => void;
   onSelect: (a: ClinicAppointment) => void;
-  clinicDefaultDeposit: number;
 }) {
   const [view, setView] = useState<"list" | "calendar">("list");
   const [showAdd, setShowAdd] = useState(false);
