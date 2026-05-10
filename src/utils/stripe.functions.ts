@@ -1,6 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
 
+type StripeApiResponse = {
+  id?: string;
+  url?: string;
+  amount?: number;
+  status?: string;
+  error?: { message?: string };
+  last_payment_error?: { message?: string };
+};
+
 // Creates a fresh Stripe Checkout Session for the given package + amount.
 // The amount is the TOTAL inc GST in AUD dollars (e.g. 8000 for $8,000).
 // Returns the hosted Checkout URL the client can be sent to.
@@ -60,7 +69,7 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as StripeApiResponse;
 
       if (!response.ok) {
         const errMsg =
@@ -101,7 +110,8 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
 
 // Creates a Stripe Checkout Session against the Hair Transplant Group (HTG)
 // Stripe account for patient consultation deposits ($75 refundable).
-// Falls back to STRIPE_SECRET_KEY if the HTG-specific key isn't configured.
+// Intentionally never falls back to STRIPE_SECRET_KEY — that key belongs to the
+// separate Bold Patients account.
 export const createHtgDepositSession = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
@@ -113,9 +123,9 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
     if (!stripeKey) {
-      const msg = "STRIPE_HTG_SECRET_KEY / STRIPE_SECRET_KEY is not configured";
+      const msg = "STRIPE_HTG_SECRET_KEY is not configured";
       await logError("createHtgDepositSession", msg, {
         email: data.email,
         leadId: data.leadId,
@@ -156,6 +166,7 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     params.append("line_items[0][price_data][currency]", "aud");
     params.append("line_items[0][price_data][unit_amount]", String(amountCents));
     params.append("line_items[0][price_data][product_data][name]", productName);
+    params.append("payment_intent_data[statement_descriptor_suffix]", "HTG DEPOSIT");
     params.append("metadata[patient_name]", fullName);
     if (data.leadId) params.append("metadata[lead_id]", data.leadId);
     params.append("metadata[deposit_amount]", String(data.amount));
@@ -170,7 +181,7 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as StripeApiResponse;
 
       if (!response.ok) {
         const errMsg =
@@ -226,9 +237,9 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY || process.env.STRIPE_SECRET_KEY;
+    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
     if (!stripeKey) {
-      const msg = "STRIPE_HTG_SECRET_KEY / STRIPE_SECRET_KEY is not configured";
+      const msg = "STRIPE_HTG_SECRET_KEY is not configured";
       await logError("chargeCardOverPhone", msg, { leadId: data.leadId, patientName: data.patientName });
       return { success: false as const, error: msg };
     }
@@ -246,6 +257,7 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
     params.append("payment_method", data.paymentMethodId);
     params.append("confirm", "true");
     params.append("description", `Deposit — ${data.patientName}`);
+    params.append("statement_descriptor_suffix", "HTG DEPOSIT");
     params.append("payment_method_types[]", "card");
     params.append("metadata[patient_name]", data.patientName);
     if (data.leadId) params.append("metadata[lead_id]", data.leadId);
@@ -261,7 +273,7 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as StripeApiResponse;
 
       if (!response.ok) {
         const errMsg = (result && result.error && (result.error.message as string)) || "Stripe API error";
