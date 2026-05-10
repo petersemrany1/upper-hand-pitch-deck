@@ -668,7 +668,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const date = new Date(year, month, day);
-            const summary = summarizeDay(date, tradingHours, blockedSlots, appts);
+            const summary = summarizeDay(date, tradingHours, blockedSlots, appts, overrides);
             const dateStr = ymd(date);
             const isSelected = dateStr === ymd(selectedDate);
             const isToday = dateStr === ymd(today);
