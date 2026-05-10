@@ -56,6 +56,46 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     return { success: false as const, error: "No approved AU mobile regulatory bundle found in Twilio" };
   }
 
+  // Twilio requires the purchase AddressSid to be the exact address attached to
+  // the approved bundle. Pull it from the bundle's supporting document instead
+  // of guessing from the account-wide address list.
+  const assignmentsUrl = `https://numbers.twilio.com/v2/RegulatoryCompliance/Bundles/${bundleSid}/ItemAssignments?PageSize=50`;
+  const assignmentsRes = await fetch(assignmentsUrl, {
+    method: "GET",
+    headers: { Authorization: authHeader },
+  });
+  const assignmentsData = await assignmentsRes.json();
+  if (!assignmentsRes.ok) {
+    await logError("provisionNumber", assignmentsData.message || "Twilio bundle item lookup failed", { rawResponse: assignmentsData, bundleSid });
+    return { success: false as const, error: assignmentsData.message || "Failed to inspect AU mobile regulatory bundle" };
+  }
+
+  let addressSid: string | undefined;
+  const supportingDocumentSids = (assignmentsData.results ?? [])
+    .map((assignment: { object_sid?: string }) => assignment.object_sid)
+    .filter((objectSid: string | undefined): objectSid is string => Boolean(objectSid?.startsWith("RD")));
+
+  for (const supportingDocumentSid of supportingDocumentSids) {
+    const documentRes = await fetch(`https://numbers.twilio.com/v2/RegulatoryCompliance/SupportingDocuments/${supportingDocumentSid}`, {
+      method: "GET",
+      headers: { Authorization: authHeader },
+    });
+    const documentData = await documentRes.json();
+    if (!documentRes.ok) {
+      await logError("provisionNumber", documentData.message || "Twilio supporting document lookup failed", { rawResponse: documentData, bundleSid, supportingDocumentSid });
+      continue;
+    }
+    const addressSids = documentData.attributes?.address_sids;
+    if (Array.isArray(addressSids) && typeof addressSids[0] === "string") {
+      addressSid = addressSids[0];
+      break;
+    }
+  }
+
+  if (!addressSid) {
+    return { success: false as const, error: "Approved AU mobile bundle has no linked address. Add an address to the approved Twilio bundle, then try again." };
+  }
+
   // Step 2: purchase it
   const purchaseUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers.json`;
   const purchaseRes = await fetch(purchaseUrl, {
@@ -66,8 +106,8 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     },
     body: new URLSearchParams({
       PhoneNumber: phoneNumber,
-      
       BundleSid: bundleSid,
+      AddressSid: addressSid,
       FriendlyName: `UpperHand-Pool-${Date.now()}`,
       VoiceUrl: `${supabaseUrl}/functions/v1/voice-inbound`,
       VoiceMethod: "POST",
