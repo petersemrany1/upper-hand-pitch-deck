@@ -67,25 +67,26 @@ export function ClinicPortalView({
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
+  const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       // Only show the full-screen loader on the very first fetch.
-      // Subsequent reloads keep the current view mounted (so things like
-      // the selected date in Availability don't reset to today).
       if (refresh === 0) setLoading(true);
-      const [{ data: a }, { data: th }, { data: bs }, { data: ov }] = await Promise.all([
+      const [{ data: a }, { data: th }, { data: bs }, { data: ov }, { data: pc }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
         supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
+        supabase.from("partner_clinics").select("consult_price_deposit").eq("id", clinicId).maybeSingle(),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
       setTradingHours((th ?? []) as TradingHours[]);
       setBlockedSlots((bs ?? []) as BlockedSlot[]);
       setOverrides((ov ?? []) as AvailabilityOverride[]);
+      if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
       setLoading(false);
     })();
     return () => { cancelled = true; };
