@@ -120,6 +120,7 @@ export function ClinicPortalView({
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
           clinicId={clinicId}
+          clinicState={clinicState}
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
@@ -131,6 +132,7 @@ export function ClinicPortalView({
           overrides={overrides}
           appts={appts}
           clinicId={clinicId}
+          clinicState={clinicState}
           onChange={reload}
         />
       )}
