@@ -176,11 +176,12 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, isAdmin, onChange, onSelect }: {
+function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicState, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   clinicId: string;
+  clinicState: string | null;
   isAdmin: boolean;
   onChange: () => void;
   onSelect: (a: ClinicAppointment) => void;
