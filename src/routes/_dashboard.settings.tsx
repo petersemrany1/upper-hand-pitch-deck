@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Settings as SettingsIcon,
   Users,
@@ -882,6 +883,9 @@ type PhoneNumberRow = {
 };
 
 function PhoneNumbersSection() {
+  const provisionNumberFn = useServerFn(provisionNumber);
+  const listPhoneNumbersFn = useServerFn(listPhoneNumbers);
+  const retireNumberFn = useServerFn(retireNumber);
   const [numbers, setNumbers] = useState<PhoneNumberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -889,7 +893,7 @@ function PhoneNumbersSection() {
 
   const load = async () => {
     setLoading(true);
-    const r = await listPhoneNumbers();
+    const r = await listPhoneNumbersFn();
     if (r.success) setNumbers(r.numbers as PhoneNumberRow[]);
     else toast.error(r.error || "Failed to load numbers");
     setLoading(false);
@@ -899,7 +903,7 @@ function PhoneNumbersSection() {
   const onAdd = async () => {
     setAdding(true);
     try {
-      const r = await provisionNumber();
+      const r = await provisionNumberFn();
       if (r.success) {
         toast.success("Number added successfully");
         await load();
@@ -916,7 +920,7 @@ function PhoneNumbersSection() {
   const onRetire = async (id: string) => {
     if (!confirm("Retire this number? It will stop being used for outbound calls.")) return;
     setRetiring(id);
-    const r = await retireNumber({ data: { id } });
+    const r = await retireNumberFn({ data: { id } });
     setRetiring(null);
     if (r.success) { toast.success("Number retired"); await load(); }
     else toast.error(r.error || "Failed to retire");
