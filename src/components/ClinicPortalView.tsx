@@ -121,7 +121,6 @@ export function ClinicPortalView({
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
-          clinicDefaultDeposit={clinicDefaultDeposit}
         />
       ) : (
         <AvailabilityTab
