@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
+import { Route as ApiDebugStripeAccountRouteImport } from './routes/api/debug-stripe-account'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
@@ -53,6 +54,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardRoute,
+} as any)
+const ApiDebugStripeAccountRoute = ApiDebugStripeAccountRouteImport.update({
+  id: '/api/debug-stripe-account',
+  path: '/api/debug-stripe-account',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
   id: '/api/coach-stream',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
+  '/api/debug-stripe-account': typeof ApiDebugStripeAccountRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
 export interface FileRoutesByTo {
@@ -170,6 +177,7 @@ export interface FileRoutesByTo {
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
+  '/api/debug-stripe-account': typeof ApiDebugStripeAccountRoute
   '/': typeof DashboardIndexRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
+  '/api/debug-stripe-account': typeof ApiDebugStripeAccountRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
 }
@@ -217,6 +226,7 @@ export interface FileRouteTypes {
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
+    | '/api/debug-stripe-account'
     | '/api/public/meta-leads'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
+    | '/api/debug-stripe-account'
     | '/'
     | '/api/public/meta-leads'
   id:
@@ -259,6 +270,7 @@ export interface FileRouteTypes {
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/api/coach-stream'
+    | '/api/debug-stripe-account'
     | '/_dashboard/'
     | '/api/public/meta-leads'
   fileRoutesById: FileRoutesById
@@ -269,6 +281,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
+  ApiDebugStripeAccountRoute: typeof ApiDebugStripeAccountRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
 }
 
@@ -308,6 +321,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/api/debug-stripe-account': {
+      id: '/api/debug-stripe-account'
+      path: '/api/debug-stripe-account'
+      fullPath: '/api/debug-stripe-account'
+      preLoaderRoute: typeof ApiDebugStripeAccountRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/coach-stream': {
       id: '/api/coach-stream'
@@ -461,8 +481,18 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
+  ApiDebugStripeAccountRoute: ApiDebugStripeAccountRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
