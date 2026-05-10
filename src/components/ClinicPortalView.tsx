@@ -508,9 +508,10 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 
 type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
 
-function AvailabilityTab({ tradingHours, blockedSlots, appts, clinicId, onChange }: {
+function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
+  overrides: AvailabilityOverride[];
   appts: ClinicAppointment[];
   clinicId: string;
   onChange: () => void;
