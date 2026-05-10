@@ -247,13 +247,15 @@ export function summarizeDay(
   blockedSlots: BlockedSlot[],
   existingAppts: ExistingAppt[] = [],
   overrides: AvailabilityOverride[] = [],
-): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; openedOverride: boolean } {
-  const th = effectiveHoursFor(date, tradingHours, overrides);
+  clinicState?: string | null,
+): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; openedOverride: boolean; holidayName: string | null } {
+  const th = effectiveHoursFor(date, tradingHours, overrides, clinicState);
   const dateStr = ymdLocal(date);
   const ov = overrides.find((o) => o.override_date === dateStr);
   const openedOverride = ov?.override_type === "open";
-  if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, openedOverride: false };
-  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides);
+  const holidayName = holidayLabelFor(date, overrides, clinicState);
+  if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, openedOverride: false, holidayName };
+  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState);
   const blockedCount = slots.filter((s) => s.blocked).length;
   const bookedCount = slots.filter((s) => s.booked).length;
   return {
@@ -263,6 +265,7 @@ export function summarizeDay(
     total: slots.length,
     bookedCount,
     openedOverride,
+    holidayName,
   };
 }
 
