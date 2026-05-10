@@ -557,12 +557,13 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
 
 type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
 
-function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, onChange }: {
+function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, clinicState, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   overrides: AvailabilityOverride[];
   appts: ClinicAppointment[];
   clinicId: string;
+  clinicState: string | null;
   onChange: () => void;
 }) {
   const today = new Date();
