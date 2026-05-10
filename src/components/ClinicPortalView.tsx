@@ -978,7 +978,7 @@ function RecurringBlocks({ recurring, clinicId, onChange }: { recurring: Blocked
   const save = async () => {
     if (start >= end) { toast.error("End time must be after start time"); return; }
 
-    const row: Record<string, unknown> = {
+    const row = {
       clinic_id: clinicId,
       slot_date: null,
       slot_start: `${start}:00`,
