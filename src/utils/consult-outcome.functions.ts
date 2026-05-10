@@ -11,6 +11,36 @@ type ProcessInput = {
 async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | null, appointmentId: string) {
   if (!leadId) return null;
 
+  const { data: smsRows } = await supabaseAdmin
+    .from("sms_messages")
+    .select("body")
+    .eq("lead_id", leadId)
+    .ilike("body", "%checkout.stripe.com%")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  const sessionIds = Array.from(new Set(
+    (smsRows ?? [])
+      .map((row) => row.body?.match(/cs_(?:live|test)_[A-Za-z0-9]+/)?.[0])
+      .filter((id): id is string => Boolean(id))
+  ));
+
+  for (const sessionId of sessionIds) {
+    const sessionResponse = await fetch(`https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "GET",
+      headers: { Authorization: "Bearer " + stripeKey },
+    });
+    const session = (await sessionResponse.json()) as { payment_status?: string; payment_intent?: string | { id?: string }; error?: { message?: string } };
+    if (!sessionResponse.ok) {
+      await logError("processConsultOutcome", session.error?.message || "Stripe session retrieve failed", { appointmentId, leadId, sessionId });
+      continue;
+    }
+    if (session.payment_status === "paid" && session.payment_intent) {
+      const intent = session.payment_intent;
+      return typeof intent === "string" ? intent : intent.id || null;
+    }
+  }
+
   const params = new URLSearchParams();
   params.append("limit", "20");
 
