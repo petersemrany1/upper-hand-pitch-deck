@@ -13,31 +13,48 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     return { success: false as const, error: "Twilio credentials not configured" };
   }
 
-  const voiceUrl = `${supabaseUrl}/functions/v1/voice-inbound`;
-  const smsUrl = `${supabaseUrl}/functions/v1/sms-inbound`;
+  const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers.json`;
-  const response = await fetch(url, {
+  // Step 1: search for an available AU mobile number
+  const searchUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/AvailablePhoneNumbers/AU/Mobile.json?SmsEnabled=true&VoiceEnabled=true&Limit=1`;
+  const searchRes = await fetch(searchUrl, {
+    method: "GET",
+    headers: { Authorization: authHeader },
+  });
+  const searchData = await searchRes.json();
+  if (!searchRes.ok) {
+    await logError("provisionNumber", searchData.message || "Twilio search failed", { rawResponse: searchData });
+    return { success: false as const, error: searchData.message || "Failed to search for numbers" };
+  }
+  const available = searchData.available_phone_numbers ?? [];
+  if (available.length === 0) {
+    return { success: false as const, error: "No AU mobile numbers available in Twilio inventory" };
+  }
+  const phoneNumber: string = available[0].phone_number;
+
+  // Step 2: purchase it
+  const purchaseUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers.json`;
+  const purchaseRes = await fetch(purchaseUrl, {
     method: "POST",
     headers: {
-      Authorization: "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64"),
+      Authorization: authHeader,
       "Content-Type": "application/x-www-form-urlencoded",
     },
     body: new URLSearchParams({
-      AreaCode: "02",
-      VoiceUrl: voiceUrl,
+      PhoneNumber: phoneNumber,
+      FriendlyName: `UpperHand-Pool-${Date.now()}`,
+      VoiceUrl: `${supabaseUrl}/functions/v1/handle-inbound-call`,
       VoiceMethod: "POST",
-      SmsUrl: smsUrl,
+      SmsUrl: `${supabaseUrl}/functions/v1/handle-inbound-sms`,
       SmsMethod: "POST",
     }),
   });
-  const result = await response.json();
-  if (!response.ok) {
-    await logError("provisionNumber", result.message || "Twilio provisioning failed", { rawResponse: result });
+  const result = await purchaseRes.json();
+  if (!purchaseRes.ok) {
+    await logError("provisionNumber", result.message || "Twilio purchase failed", { rawResponse: result });
     return { success: false as const, error: result.message || "Failed to provision number" };
   }
 
-  const phoneNumber: string = result.phone_number;
   const sid: string = result.sid;
   const friendly: string | null = result.friendly_name ?? null;
 
