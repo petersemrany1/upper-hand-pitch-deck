@@ -5620,7 +5620,7 @@ function RightPanel({
       </div>
 
       {/* Section 5b — Send standalone $75 deposit link */}
-      <div style={{ padding: "14px 18px 0" }}>
+      <div style={{ padding: "14px 18px 0", display: "flex", gap: 8 }}>
         <button
           onClick={() => {
             if (!active.phone) { toast.error("No phone number on this lead"); return; }
@@ -5629,16 +5629,37 @@ function RightPanel({
           }}
           disabled={sendingDepositLink || !active.phone}
           style={{
-            width: "100%", background: "#ffffff", color: "#111",
-            border: `1px solid #111`, borderRadius: 8,
-            fontSize: 13, fontWeight: 500, padding: "8px 12px",
+            flex: 1, background: COLORS.coral, color: "#fff",
+            border: "none", borderRadius: 8,
+            fontSize: 13, fontWeight: 600, padding: "8px 12px",
             cursor: sendingDepositLink || !active.phone ? "not-allowed" : "pointer",
             opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
+            boxShadow: `0 4px 14px ${COLORS.coral}55`,
           }}
         >
-          {sendingDepositLink ? "Sending…" : "💳 Send $75 deposit link to patient"}
+          {sendingDepositLink ? "Sending…" : "💳 Send payment link"}
+        </button>
+        <button
+          onClick={() => setChargeCardOpen(true)}
+          style={{
+            flex: 1, background: "#ffffff", color: "#111",
+            border: `1px solid #111`, borderRadius: 8,
+            fontSize: 13, fontWeight: 500, padding: "8px 12px",
+            cursor: "pointer",
+          }}
+        >
+          📞 Charge card over the phone
         </button>
       </div>
+
+      <ChargeCardOverPhoneModal
+        open={chargeCardOpen}
+        onClose={() => setChargeCardOpen(false)}
+        defaultAmount={Number(panelClinic?.consult_price_deposit ?? 75)}
+        patientName={[active.first_name, active.last_name].filter(Boolean).join(" ") || "Patient"}
+        leadId={active.id}
+      />
+
 
       {/* Branded confirm modal for deposit-link send */}
       {confirmDepositOpen && (
