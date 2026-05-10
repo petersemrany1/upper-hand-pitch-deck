@@ -128,7 +128,17 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
 
   const session = result.data?.find((s) => s.payment_status === "paid" && s.metadata?.lead_id === leadId && s.payment_intent);
   const intent = session?.payment_intent;
-  return typeof intent === "string" ? intent : intent?.id || null;
+  const fromSession = typeof intent === "string" ? intent : intent?.id || null;
+  if (fromSession) return fromSession;
+
+  // Final fallback: search Stripe directly by the lead's email/phone.
+  const { data: lead } = await supabaseAdmin
+    .from("meta_leads")
+    .select("email, phone")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  return await searchStripeByContact(stripeKey, lead?.email ?? null, lead?.phone ?? null, appointmentId);
 }
 
 // Marks a clinic appointment as "show" or "proceeded" and, when not proceeded,
