@@ -19,6 +19,11 @@ export type ClinicAppointment = {
   intel_notes: string | null;
   outcome: "show" | "noshow" | "proceeded" | null;
   consult_summary: string | null;
+  deposit_amount: number | null;
+  stripe_payment_intent_id: string | null;
+  refund_status: "refunded" | "failed" | null;
+  refund_processed_at: string | null;
+  stripe_refund_id: string | null;
 };
 
 const NAVY = "#1a3a6b";
