@@ -1338,3 +1338,63 @@ function ModalShell({ onClose, children }: { onClose: () => void; children: Reac
     </div>
   );
 }
+
+function OpenDayModal({
+  dateStr, dayName, clinicId, onClose, onSaved,
+}: {
+  dateStr: string; dayName: string; clinicId: string;
+  onClose: () => void; onSaved: () => void;
+}) {
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("17:00");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (start >= end) { toast.error("End time must be after start time"); return; }
+    setSaving(true);
+    const { error } = await supabase.from("clinic_availability").insert({
+      clinic_id: clinicId,
+      override_date: dateStr,
+      override_type: "open",
+      start_time: `${start}:00`,
+      end_time: `${end}:00`,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Day opened");
+    onSaved();
+  };
+
+  const inputStyle: React.CSSProperties = {
+    padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8,
+    color: "#111", fontFamily: "inherit", width: "100%",
+  };
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>Open this day</div>
+      <div style={{ fontSize: 13, color: "#6b7785", marginBottom: 18 }}>
+        {dayName} {dateStr} — normally closed. Pick the hours you'll be open.
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 6 }}>From</div>
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7785", textTransform: "uppercase", marginBottom: 6 }}>To</div>
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} style={inputStyle} />
+        </div>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
+        <button onClick={() => void save()} disabled={saving}
+          style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+          Open day
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
