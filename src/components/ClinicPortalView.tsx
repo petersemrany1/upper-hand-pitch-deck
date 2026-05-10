@@ -301,10 +301,11 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
 /* ---------- CALENDAR VIEW ---------- */
 
-function CalendarView({ appts, tradingHours, blockedSlots, onSelect }: {
+function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
+  clinicState: string | null;
   onSelect: (a: ClinicAppointment) => void;
 }) {
   const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
