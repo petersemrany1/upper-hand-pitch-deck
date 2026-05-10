@@ -19,6 +19,11 @@ export type ClinicAppointment = {
   intel_notes: string | null;
   outcome: "show" | "noshow" | "proceeded" | null;
   consult_summary: string | null;
+  deposit_amount: number | null;
+  stripe_payment_intent_id: string | null;
+  refund_status: "refunded" | "failed" | null;
+  refund_processed_at: string | null;
+  stripe_refund_id: string | null;
 };
 
 const NAVY = "#1a3a6b";
@@ -62,25 +67,26 @@ export function ClinicPortalView({
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
+  const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       // Only show the full-screen loader on the very first fetch.
-      // Subsequent reloads keep the current view mounted (so things like
-      // the selected date in Availability don't reset to today).
       if (refresh === 0) setLoading(true);
-      const [{ data: a }, { data: th }, { data: bs }, { data: ov }] = await Promise.all([
+      const [{ data: a }, { data: th }, { data: bs }, { data: ov }, { data: pc }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
         supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
+        supabase.from("partner_clinics").select("consult_price_deposit").eq("id", clinicId).maybeSingle(),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
       setTradingHours((th ?? []) as TradingHours[]);
       setBlockedSlots((bs ?? []) as BlockedSlot[]);
       setOverrides((ov ?? []) as AvailabilityOverride[]);
+      if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -137,6 +143,7 @@ export function ClinicPortalView({
           isAdmin={isAdmin}
           onClose={() => setSelected(null)}
           onChange={() => { reload(); }}
+          clinicDefaultDeposit={clinicDefaultDeposit}
         />
       )}
     </div>
@@ -271,7 +278,15 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
               <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
               <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
             </div>
-            <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
+              {a.refund_status === "refunded" && (
+                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Deposit refunded</span>
+              )}
+              {a.refund_status === "failed" && (
+                <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
+              )}
+            </div>
           </button>
         );
       })}
@@ -395,8 +410,8 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
 
 /* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
-function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
-  appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void;
+function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
+  appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
@@ -424,6 +439,11 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
     onChange();
     onClose();
   };
+
+  const depositAmount = appt.deposit_amount ?? clinicDefaultDeposit;
+  const refundDate = appt.refund_processed_at
+    ? new Date(appt.refund_processed_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
   return (
     <ModalShell onClose={onClose}>
@@ -453,6 +473,29 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         </div>
       )}
 
+      {/* Refund status cards (replace outcome buttons when applicable) */}
+      {appt.outcome === "show" && appt.refund_status === "refunded" && appt.stripe_refund_id && (
+        <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>✓</span> ${depositAmount} deposit refunded
+          </div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>
+            Processed {refundDate} · Stripe ref {appt.stripe_refund_id}
+          </div>
+          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Refund complete — no further action needed</div>
+        </div>
+      )}
+
+      {appt.outcome === "show" && appt.refund_status === "failed" && !appt.stripe_refund_id && (
+        <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#b83232", marginBottom: 6 }}>Refund failed</div>
+          <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The deposit refund did not go through. Try again or process it manually in Stripe.</div>
+          <button onClick={() => setSummaryMode("show")} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#b83232", color: "#fff", borderColor: "#b83232" }}>
+            Retry refund
+          </button>
+        </div>
+      )}
+
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
@@ -463,7 +506,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
 
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
-          {appt.outcome && (
+          {appt.outcome && !appt.stripe_refund_id && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && (
@@ -480,6 +523,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         <ConsultSummaryModal
           appt={appt}
           defaultProceeded={summaryMode === "proceeded"}
+          clinicDefaultDeposit={clinicDefaultDeposit}
           onClose={() => setSummaryMode(null)}
           onSaved={() => { setSummaryMode(null); onChange(); onClose(); }}
         />
@@ -1238,21 +1282,54 @@ function LegendDot({ color, bg, label }: { color: string; bg: string; label: str
 
 /* ============== MODALS ============== */
 
-function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean }) {
-  const [notes, setNotes] = useState("");
+function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false, clinicDefaultDeposit }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean; clinicDefaultDeposit: number }) {
+  const [notes, setNotes] = useState(appt.consult_summary ?? "");
   const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const depositAmount = appt.deposit_amount ?? clinicDefaultDeposit;
+  const alreadyRefunded = !!appt.stripe_refund_id;
+  const noPaymentIntent = !appt.stripe_payment_intent_id;
+
+  const submitLabel = proceeded
+    ? "Save & close"
+    : alreadyRefunded
+      ? "Save & close"
+      : noPaymentIntent
+        ? "Save & close"
+        : `Save & refund $${depositAmount}`;
 
   const save = async () => {
     setSaving(true);
-    const { error } = await supabase.from("clinic_appointments").update({
-      outcome: proceeded ? "proceeded" : "show",
-      consult_summary: notes.trim() || null,
-    }).eq("id", appt.id);
-    setSaving(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Saved");
-    onSaved();
+    setErrorMsg(null);
+    try {
+      const { processConsultOutcome } = await import("@/utils/consult-outcome.functions");
+      const result = await processConsultOutcome({
+        data: {
+          appointmentId: appt.id,
+          summary: notes,
+          proceeded,
+        },
+      });
+      if (!result.success) {
+        setErrorMsg(`Refund failed — ${result.error}. Please try again or contact Upper Hand.`);
+        setSaving(false);
+        // Outcome may still have been saved; surface that via a soft toast.
+        if ("outcomeSaved" in result && result.outcomeSaved) {
+          toast.success("Outcome saved (refund failed)");
+          onSaved();
+        }
+        return;
+      }
+      toast.success(result.refunded ? `Refunded $${depositAmount}` : "Saved");
+      setSaving(false);
+      onSaved();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setErrorMsg(`Refund failed — ${msg}. Please try again or contact Upper Hand.`);
+      setSaving(false);
+    }
   };
 
   return (
@@ -1268,16 +1345,47 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false 
         style={{ width: "100%", padding: 10, fontSize: 13, border: "1px solid #e2e6ec", borderRadius: 8, resize: "vertical", outline: "none", marginBottom: 12, color: "#111" }}
         className="clinic-consult-textarea"
       />
-      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#111", marginBottom: 18, cursor: "pointer" }}>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#111", marginBottom: 14, cursor: "pointer" }}>
         <input type="checkbox" checked={proceeded} onChange={(e) => setProceeded(e.target.checked)} />
         The patient booked their procedure today
       </label>
+
+      {proceeded ? (
+        <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "#6b7785" }}>Deposit applied to procedure cost — no refund needed</div>
+        </div>
+      ) : alreadyRefunded ? (
+        <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
+        </div>
+      ) : noPaymentIntent ? (
+        <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Deposit refund</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>No card on file — process refund manually in Stripe</div>
+        </div>
+      ) : (
+        <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e" }}>Deposit refund</div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: "#92400e", marginTop: 2 }}>${depositAmount}</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>Will be refunded to the patient's card on submit</div>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", color: "#b83232", borderRadius: 8, padding: 10, fontSize: 12, marginBottom: 12 }}>
+          {errorMsg}
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
         <button onClick={save} disabled={saving} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
-          Save & Close
+          {saving ? "Saving…" : submitLabel}
         </button>
       </div>
+      {/* Reference for unused-prop linter */}
+      
     </ModalShell>
   );
 }

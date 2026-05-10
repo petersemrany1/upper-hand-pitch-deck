@@ -216,12 +216,17 @@ export type Database = {
           clinic_id: string
           consult_summary: string | null
           created_at: string
+          deposit_amount: number | null
           id: string
           intel_notes: string | null
           lead_id: string | null
           outcome: string | null
           patient_name: string
           patient_phone: string | null
+          refund_processed_at: string | null
+          refund_status: string | null
+          stripe_payment_intent_id: string | null
+          stripe_refund_id: string | null
           updated_at: string
         }
         Insert: {
@@ -230,12 +235,17 @@ export type Database = {
           clinic_id: string
           consult_summary?: string | null
           created_at?: string
+          deposit_amount?: number | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
           outcome?: string | null
           patient_name: string
           patient_phone?: string | null
+          refund_processed_at?: string | null
+          refund_status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -244,12 +254,17 @@ export type Database = {
           clinic_id?: string
           consult_summary?: string | null
           created_at?: string
+          deposit_amount?: number | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
           outcome?: string | null
           patient_name?: string
           patient_phone?: string | null
+          refund_processed_at?: string | null
+          refund_status?: string | null
+          stripe_payment_intent_id?: string | null
+          stripe_refund_id?: string | null
           updated_at?: string
         }
         Relationships: [
