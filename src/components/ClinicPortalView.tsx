@@ -402,8 +402,8 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
 
 /* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
-function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
-  appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void;
+function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
+  appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
@@ -431,6 +431,11 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
     onChange();
     onClose();
   };
+
+  const depositAmount = appt.deposit_amount ?? clinicDefaultDeposit;
+  const refundDate = appt.refund_processed_at
+    ? new Date(appt.refund_processed_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
   return (
     <ModalShell onClose={onClose}>
@@ -460,6 +465,29 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         </div>
       )}
 
+      {/* Refund status cards (replace outcome buttons when applicable) */}
+      {appt.outcome === "show" && appt.refund_status === "refunded" && appt.stripe_refund_id && (
+        <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>✓</span> ${depositAmount} deposit refunded
+          </div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>
+            Processed {refundDate} · Stripe ref {appt.stripe_refund_id}
+          </div>
+          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Refund complete — no further action needed</div>
+        </div>
+      )}
+
+      {appt.outcome === "show" && appt.refund_status === "failed" && !appt.stripe_refund_id && (
+        <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#b83232", marginBottom: 6 }}>Refund failed</div>
+          <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The deposit refund did not go through. Try again or process it manually in Stripe.</div>
+          <button onClick={() => setSummaryMode("show")} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#b83232", color: "#fff", borderColor: "#b83232" }}>
+            Retry refund
+          </button>
+        </div>
+      )}
+
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
@@ -470,7 +498,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
 
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
-          {appt.outcome && (
+          {appt.outcome && !appt.stripe_refund_id && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && (
@@ -487,6 +515,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange }: {
         <ConsultSummaryModal
           appt={appt}
           defaultProceeded={summaryMode === "proceeded"}
+          clinicDefaultDeposit={clinicDefaultDeposit}
           onClose={() => setSummaryMode(null)}
           onSaved={() => { setSummaryMode(null); onChange(); onClose(); }}
         />
