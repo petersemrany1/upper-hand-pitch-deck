@@ -174,12 +174,43 @@ export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const retireNumber = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => data)
+  .inputValidator((data: { id: string; release?: boolean }) => data)
   .handler(async ({ data }) => {
+    const { data: row, error: fetchErr } = await supabaseAdmin
+      .from("phone_numbers")
+      .select("id, twilio_sid")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (fetchErr || !row) {
+      return { success: false as const, error: fetchErr?.message || "Number not found" };
+    }
+
+    // Release from Twilio (stops billing) when requested.
+    if (data.release && row.twilio_sid) {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      if (!accountSid || !authToken) {
+        return { success: false as const, error: "Twilio credentials not configured" };
+      }
+      const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+      const releaseUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers/${row.twilio_sid}.json`;
+      const res = await fetch(releaseUrl, { method: "DELETE", headers: { Authorization: authHeader } });
+      if (!res.ok && res.status !== 404) {
+        const body = await res.text();
+        await logError("retireNumber", `Twilio release failed: ${res.status}`, { body });
+        return { success: false as const, error: `Failed to release from Twilio: ${body}` };
+      }
+      // Remove the row entirely once released.
+      const { error: delErr } = await supabaseAdmin.from("phone_numbers").delete().eq("id", data.id);
+      if (delErr) return { success: false as const, error: delErr.message };
+      return { success: true as const, released: true };
+    }
+
+    // Soft retire: keep the number in Twilio, just stop using it in rotation.
     const { error } = await supabaseAdmin
       .from("phone_numbers")
       .update({ status: "retired" })
       .eq("id", data.id);
     if (error) return { success: false as const, error: error.message };
-    return { success: true as const };
+    return { success: true as const, released: false };
   });
