@@ -33,8 +33,9 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
   }
   const phoneNumber: string = available[0].phone_number;
 
-  // AU mobile numbers require a regulatory address on purchase. Use the first
-  // validated AU address already present on the Twilio account.
+  // AU mobile numbers require regulatory compliance on purchase. Use the first
+  // validated AU address and approved AU mobile bundle already present on the
+  // Twilio account.
   const addressesUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Addresses.json?IsoCountry=AU&PageSize=20`;
   const addressesRes = await fetch(addressesUrl, {
     method: "GET",
@@ -53,6 +54,28 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     return { success: false as const, error: "No validated AU regulatory address found in Twilio" };
   }
 
+  const bundlesUrl = "https://numbers.twilio.com/v2/RegulatoryCompliance/Bundles?" + new URLSearchParams({
+    IsoCountry: "AU",
+    NumberType: "mobile",
+    Status: "twilio-approved",
+    PageSize: "20",
+  }).toString();
+  const bundlesRes = await fetch(bundlesUrl, {
+    method: "GET",
+    headers: { Authorization: authHeader },
+  });
+  const bundlesData = await bundlesRes.json();
+  if (!bundlesRes.ok) {
+    await logError("provisionNumber", bundlesData.message || "Twilio bundle lookup failed", { rawResponse: bundlesData });
+    return { success: false as const, error: bundlesData.message || "Failed to find AU mobile regulatory bundle" };
+  }
+  const bundleSid: string | undefined = (bundlesData.results ?? []).find(
+    (bundle: { sid?: string; status?: string }) => bundle.sid && bundle.status === "twilio-approved"
+  )?.sid;
+  if (!bundleSid) {
+    return { success: false as const, error: "No approved AU mobile regulatory bundle found in Twilio" };
+  }
+
   // Step 2: purchase it
   const purchaseUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/IncomingPhoneNumbers.json`;
   const purchaseRes = await fetch(purchaseUrl, {
@@ -64,6 +87,7 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     body: new URLSearchParams({
       PhoneNumber: phoneNumber,
       AddressSid: addressSid,
+      BundleSid: bundleSid,
       FriendlyName: `UpperHand-Pool-${Date.now()}`,
       VoiceUrl: `${supabaseUrl}/functions/v1/voice-inbound`,
       VoiceMethod: "POST",
