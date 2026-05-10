@@ -782,29 +782,52 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           )}
         </div>
 
-        {isClosedDay ? (
-          <div style={{ background: "#f3f4f6", border: "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 14, color: "#6b7785", marginBottom: 14 }}>
-              Your clinic is normally closed on <strong>{DAY_NAMES[selectedDow]}s</strong>.
-            </div>
-            {baseClosed && (
-              <button
-                onClick={() => setOpenDayModal(true)}
-                style={{
-                  background: NAVY, color: "#fff", border: "none", borderRadius: 8,
-                  padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                }}
-              >
-                Open this day
-              </button>
-            )}
-            {!baseClosed && (
-              <div style={{ fontSize: 12, color: "#9aa5b1", marginTop: 6 }}>
-                Contact admin to change your weekly trading hours.
-              </div>
+        {isClosedDay ? (() => {
+          const holidayName = holidayLabelFor(selectedDate, overrides, clinicState);
+          return (
+          <div style={{ background: holidayName ? "#fff8e6" : "#f3f4f6", border: holidayName ? "1px solid #f5d77a" : "1px solid #e5e7eb", borderRadius: 10, padding: 24, textAlign: "center" }}>
+            {holidayName ? (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#8a6500", marginBottom: 6 }}>Public holiday — {holidayName}</div>
+                <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 14 }}>
+                  Your clinic is closed by default on public holidays. You can choose to open this day if you'll be trading.
+                </div>
+                <button
+                  onClick={() => setOpenDayModal(true)}
+                  style={{
+                    background: NAVY, color: "#fff", border: "none", borderRadius: 8,
+                    padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  }}
+                >
+                  Open this day
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 14, color: "#6b7785", marginBottom: 14 }}>
+                  Your clinic is normally closed on <strong>{DAY_NAMES[selectedDow]}s</strong>.
+                </div>
+                {baseClosed && (
+                  <button
+                    onClick={() => setOpenDayModal(true)}
+                    style={{
+                      background: NAVY, color: "#fff", border: "none", borderRadius: 8,
+                      padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    Open this day
+                  </button>
+                )}
+                {!baseClosed && (
+                  <div style={{ fontSize: 12, color: "#9aa5b1", marginTop: 6 }}>
+                    Contact admin to change your weekly trading hours.
+                  </div>
+                )}
+              </>
             )}
           </div>
-        ) : (
+          );
+        })() : (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, userSelect: "none", touchAction: "none" }}>
               {slots.map((s, i) => {
