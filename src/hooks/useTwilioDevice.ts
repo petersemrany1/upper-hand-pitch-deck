@@ -3,6 +3,7 @@ import { Device, type Call } from "@twilio/voice-sdk";
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
+import { getNextNumber } from "@/utils/phone-pool.functions";
 
 // Browser-based Twilio softphone — module-level singleton.
 //
@@ -365,7 +366,17 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null, activeCallInstanceId: instanceId });
   notifySalesSessionCallStarted();
   try {
+    // Pull the next available outbound number from the rotation pool so we
+    // spread call traffic across DIDs (reduces spam flagging).
+    let callerId: string | null = null;
+    try {
+      const r = await getNextNumber();
+      callerId = r?.number ?? null;
+    } catch (e) {
+      console.error("[placeCall] getNextNumber failed", e);
+    }
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
+    if (callerId) params.callerId = callerId;
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
 
