@@ -1490,13 +1490,15 @@ function OpenDayModal({
   const save = async () => {
     if (start >= end) { toast.error("End time must be after start time"); return; }
     setSaving(true);
-    const { error } = await supabase.from("clinic_availability").insert({
+    // Upsert so any pre-existing override row for this date is replaced
+    // (the table has UNIQUE (clinic_id, override_date)).
+    const { error } = await supabase.from("clinic_availability").upsert({
       clinic_id: clinicId,
       override_date: dateStr,
       override_type: "open",
       start_time: `${start}:00`,
       end_time: `${end}:00`,
-    });
+    }, { onConflict: "clinic_id,override_date" });
     setSaving(false);
     if (error) { toast.error(error.message); return; }
     toast.success("Day opened");
