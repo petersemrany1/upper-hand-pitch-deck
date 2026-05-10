@@ -66,7 +66,7 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     },
     body: new URLSearchParams({
       PhoneNumber: phoneNumber,
-      AddressSid: addressSid,
+      
       BundleSid: bundleSid,
       FriendlyName: `UpperHand-Pool-${Date.now()}`,
       VoiceUrl: `${supabaseUrl}/functions/v1/voice-inbound`,
