@@ -300,6 +300,47 @@ export type Database = {
           },
         ]
       }
+      clinic_blocked_slots: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          is_recurring: boolean
+          recur_day_of_week: number | null
+          slot_date: string | null
+          slot_end: string
+          slot_start: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          is_recurring?: boolean
+          recur_day_of_week?: number | null
+          slot_date?: string | null
+          slot_end: string
+          slot_start: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          is_recurring?: boolean
+          recur_day_of_week?: number | null
+          slot_date?: string | null
+          slot_end?: string
+          slot_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_blocked_slots_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_contacts: {
         Row: {
           clinic_id: string
@@ -369,6 +410,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "clinic_portal_users_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinic_trading_hours: {
+        Row: {
+          clinic_id: string
+          close_time: string
+          consult_duration_mins: number
+          created_at: string
+          day_of_week: number
+          id: string
+          is_closed: boolean
+          open_time: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          close_time?: string
+          consult_duration_mins?: number
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_closed?: boolean
+          open_time?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          close_time?: string
+          consult_duration_mins?: number
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_closed?: boolean
+          open_time?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_trading_hours_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "partner_clinics"
