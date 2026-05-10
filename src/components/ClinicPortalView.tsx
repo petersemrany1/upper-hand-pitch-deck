@@ -1292,7 +1292,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
   const alreadyRefunded = !!appt.stripe_refund_id;
   const noPaymentIntent = !appt.stripe_payment_intent_id;
   const showRefundSection = !proceeded;
-  const showRefundButton = showRefundSection && !alreadyRefunded && !noPaymentIntent;
+  // showRefundButton kept implicit — refund only fires when none of the disabling states are true.
 
   const submitLabel = proceeded
     ? "Save & close"
