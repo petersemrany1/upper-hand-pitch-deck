@@ -65,7 +65,10 @@ export function ClinicPortalView({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      setLoading(true);
+      // Only show the full-screen loader on the very first fetch.
+      // Subsequent reloads keep the current view mounted (so things like
+      // the selected date in Availability don't reset to today).
+      if (refresh === 0) setLoading(true);
       const [{ data: a }, { data: th }, { data: bs }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
         supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
