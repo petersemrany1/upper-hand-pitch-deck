@@ -6465,19 +6465,22 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
   const [blocks, setBlocks] = useState<BlockedSlot[]>([]);
   const [appts, setAppts] = useState<ExistingAppt[]>([]);
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
+  const [clinicState, setClinicState] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); return; }
+    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); setClinicState(null); return; }
     void Promise.all([
       supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
       supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
       supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
       supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-    ]).then(([a, b, c, d]) => {
+      supabase.from("partner_clinics").select("state").eq("id", clinicId).maybeSingle(),
+    ]).then(([a, b, c, d, e]) => {
       setTrading((a.data ?? []) as TradingHours[]);
       setBlocks((b.data ?? []) as BlockedSlot[]);
       setAppts((c.data ?? []) as ExistingAppt[]);
       setOverrides((d.data ?? []) as AvailabilityOverride[]);
+      setClinicState((e.data as { state?: string | null } | null)?.state ?? null);
     });
   }, [clinicId]);
 
@@ -6485,8 +6488,8 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     if (!date) return [];
     const [y, m, d] = date.split("-").map(Number);
     if (!y || !m || !d) return [];
-    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides);
-  }, [date, trading, blocks, appts, overrides]);
+    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides, clinicState);
+  }, [date, trading, blocks, appts, overrides, clinicState]);
 
   const available = slots.filter((s) => s.available);
 
