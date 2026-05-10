@@ -274,8 +274,11 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
 /* ---------- CALENDAR VIEW ---------- */
 
-function CalendarView({ appts, avails, onSelect }: {
-  appts: ClinicAppointment[]; avails: ClinicAvailability[]; onSelect: (a: ClinicAppointment) => void;
+function CalendarView({ appts, tradingHours, blockedSlots, onSelect }: {
+  appts: ClinicAppointment[];
+  tradingHours: TradingHours[];
+  blockedSlots: BlockedSlot[];
+  onSelect: (a: ClinicAppointment) => void;
 }) {
   const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const monthLabel = `${MONTHS[view.getMonth()]} ${view.getFullYear()}`;
@@ -291,16 +294,6 @@ function CalendarView({ appts, avails, onSelect }: {
     return map;
   }, [appts]);
 
-  const availByDate = useMemo(() => {
-    const m = new Map<string, ClinicAvailability[]>();
-    for (const a of avails) {
-      const arr = m.get(a.override_date) ?? [];
-      arr.push(a);
-      m.set(a.override_date, arr);
-    }
-    return m;
-  }, [avails]);
-
   const todayStr = ymd(new Date());
 
   return (
@@ -312,7 +305,7 @@ function CalendarView({ appts, avails, onSelect }: {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, marginBottom: 6 }}>
-        {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((d) => (
+        {DAY_SHORT.map((d) => (
           <div key={d} style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, padding: "4px 8px" }}>{d}</div>
         ))}
       </div>
@@ -321,16 +314,13 @@ function CalendarView({ appts, avails, onSelect }: {
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const dayAvails = availByDate.get(dateStr) ?? [];
-          const { fullDay, blockedSlots } = bucketBlocksForDate(dateStr, dayAvails);
-          const partialBlocks = !fullDay && blockedSlots.size > 0;
-          const hasOpenOverride = dayAvails.some((a) => a.override_type === "open");
+          const summary = summarizeDay(d, tradingHours, blockedSlots, []);
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
-          if (fullDay) { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
-          else if (hasOpenOverride) { bg = "#e8f5ef"; border = "1.5px solid #9ed4b5"; }
-          else if (isToday) { bg = NAVY_PALE; border = `1.5px solid ${NAVY}`; }
+          if (summary.closed || summary.allBlocked) { bg = "#fdf0f0"; border = "1.5px solid #f0b8b8"; }
+          else if (summary.someBlocked) { bg = "#fef3c7"; border = "1.5px solid #d97706"; }
+          if (isToday) { border = `1.5px solid ${NAVY}`; }
           return (
             <div
               key={dateStr}
@@ -341,9 +331,9 @@ function CalendarView({ appts, avails, onSelect }: {
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#111" }}>{d.getDate()}</span>
-                {fullDay && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Closed</span>}
-                {!fullDay && partialBlocks && <span style={{ fontSize: 9, color: "#b85c00", fontWeight: 600 }}>{blockedSlots.size} blocked</span>}
-                {!fullDay && hasOpenOverride && <span style={{ fontSize: 9, color: "#1a7a4a", fontWeight: 600 }}>Open</span>}
+                {summary.closed && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Closed</span>}
+                {!summary.closed && summary.allBlocked && <span style={{ fontSize: 9, color: "#b83232", fontWeight: 600 }}>Full</span>}
+                {!summary.closed && summary.someBlocked && <span style={{ fontSize: 9, color: "#b85c00", fontWeight: 600 }}>Partial</span>}
               </div>
               {dayAppts.map((a) => {
                 const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
