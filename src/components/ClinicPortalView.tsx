@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  generateSlots, summarizeDay, dayOfWeekMonFirst, ymdLocal,
+  DAY_NAMES, DAY_SHORT,
+  type TradingHours, type BlockedSlot, type Slot,
+} from "@/lib/slot-generation";
 
 export type ClinicAppointment = {
   id: string;
@@ -16,56 +21,6 @@ export type ClinicAppointment = {
   consult_summary: string | null;
 };
 
-export type ClinicAvailability = {
-  id: string;
-  clinic_id: string;
-  override_date: string;
-  override_type: "blocked" | "open";
-  /** HH:MM:SS — when null together with end_time, it's a whole-day block/open */
-  start_time: string | null;
-  end_time: string | null;
-};
-
-/** 15-min slots from 8:00am up to (but not including) 9:00pm. */
-export const SLOT_MINUTES = 15;
-export const DAY_START_MIN = 8 * 60;
-export const DAY_END_MIN = 21 * 60;
-export const ALL_SLOTS: { start: string; end: string; label: string }[] = (() => {
-  const out: { start: string; end: string; label: string }[] = [];
-  for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MINUTES) {
-    out.push({ start: minToHHMM(m), end: minToHHMM(m + SLOT_MINUTES), label: minToLabel(m) });
-  }
-  return out;
-})();
-function minToHHMM(m: number) { const h = Math.floor(m / 60), mm = m % 60; return `${String(h).padStart(2,"0")}:${String(mm).padStart(2,"0")}:00`; }
-function minToLabel(m: number) { let h = Math.floor(m / 60); const mm = m % 60; const ap = h >= 12 ? "pm" : "am"; h = h % 12 || 12; return `${h}:${String(mm).padStart(2,"0")}${ap}`; }
-function hhmmToMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
-
-/** Returns true if (date, HH:MM[:SS]) falls inside any blocked range for the clinic. */
-export function isTimeBlocked(dateYMD: string, time: string, avails: ClinicAvailability[]): boolean {
-  const t = hhmmToMin(time);
-  for (const a of avails) {
-    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
-    if (!a.start_time || !a.end_time) return true; // whole day blocked
-    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
-    if (t >= s && t < e) return true;
-  }
-  return false;
-}
-
-/** Buckets blocks for a given date into { fullDay, blockedSlotStarts:Set<HH:MM:SS> }. */
-function bucketBlocksForDate(dateYMD: string, avails: ClinicAvailability[]) {
-  let fullDay = false;
-  const blockedSlots = new Set<string>();
-  for (const a of avails) {
-    if (a.override_date !== dateYMD || a.override_type !== "blocked") continue;
-    if (!a.start_time || !a.end_time) { fullDay = true; continue; }
-    const s = hhmmToMin(a.start_time), e = hhmmToMin(a.end_time);
-    for (let m = s; m < e; m += SLOT_MINUTES) blockedSlots.add(minToHHMM(m));
-  }
-  return { fullDay, blockedSlots };
-}
-
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
 
@@ -78,12 +33,7 @@ const OUTCOME_COLORS: Record<string, { bg: string; fg: string; border: string; l
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-function ymd(d: Date) {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+function ymd(d: Date) { return ymdLocal(d); }
 
 function fmtTime(t: string) {
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
@@ -106,7 +56,8 @@ export function ClinicPortalView({
 }) {
   const [tab, setTab] = useState<"appointments" | "availability">("appointments");
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
-  const [avails, setAvails] = useState<ClinicAvailability[]>([]);
+  const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
+  const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
@@ -115,13 +66,15 @@ export function ClinicPortalView({
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: a }, { data: v }] = await Promise.all([
+      const [{ data: a }, { data: th }, { data: bs }] = await Promise.all([
         supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).order("appointment_date"),
-        supabase.from("clinic_availability").select("*").eq("clinic_id", clinicId),
+        supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week").eq("clinic_id", clinicId),
       ]);
       if (cancelled) return;
       setAppts((a ?? []) as ClinicAppointment[]);
-      setAvails((v ?? []) as ClinicAvailability[]);
+      setTradingHours((th ?? []) as TradingHours[]);
+      setBlockedSlots((bs ?? []) as BlockedSlot[]);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -129,7 +82,6 @@ export function ClinicPortalView({
 
   const reload = () => setRefresh((n) => n + 1);
 
-  // Keep selected appt fresh after reload
   useEffect(() => {
     if (selected) {
       const fresh = appts.find((a) => a.id === selected.id);
@@ -138,7 +90,7 @@ export function ClinicPortalView({
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh" }}>
+    <div style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
         <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
@@ -151,14 +103,21 @@ export function ClinicPortalView({
       ) : tab === "appointments" ? (
         <AppointmentsTab
           appts={appts}
-          avails={avails}
+          tradingHours={tradingHours}
+          blockedSlots={blockedSlots}
           clinicId={clinicId}
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
         />
       ) : (
-        <AvailabilityTab avails={avails} clinicId={clinicId} onChange={reload} />
+        <AvailabilityTab
+          tradingHours={tradingHours}
+          blockedSlots={blockedSlots}
+          appts={appts}
+          clinicId={clinicId}
+          onChange={reload}
+        />
       )}
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
