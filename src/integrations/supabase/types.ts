@@ -710,6 +710,30 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_acknowledgements: {
+        Row: {
+          acknowledged_at: string
+          metadata: Json
+          notification_key: string
+          notification_type: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          metadata?: Json
+          notification_key: string
+          notification_type: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          metadata?: Json
+          notification_key?: string
+          notification_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       partner_clinics: {
         Row: {
           address: string | null

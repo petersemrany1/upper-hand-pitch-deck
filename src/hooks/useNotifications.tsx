@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 // Global "sticky until acknowledged" notifications: unread SMS threads and
 // missed inbound calls. State lives at the dashboard root so badges in the
@@ -44,27 +45,41 @@ const NotificationsContext = createContext<Ctx | null>(null);
 const ACK_KEY = "uh.missedCallsAcked.v1";
 const SEEN_AT_KEY = "uh.notificationsSeenAt.v1";
 const THREAD_ACK_KEY = "uh.threadsAcked.v1";
+const MISSED_ACK_TYPE = "missed_call";
+const THREAD_ACK_TYPE = "sms_thread";
 
-function loadSeenAt(): number {
+type NotificationAckRow = {
+  user_id: string;
+  notification_type: string;
+  notification_key: string;
+  acknowledged_at: string;
+  metadata?: Record<string, unknown> | null;
+};
+
+function scopedKey(base: string, userId: string | null | undefined): string {
+  return userId ? `${base}.${userId}` : base;
+}
+
+function loadSeenAt(userId?: string | null): number {
   try {
-    return Number(localStorage.getItem(SEEN_AT_KEY) || "0") || 0;
+    return Number(localStorage.getItem(scopedKey(SEEN_AT_KEY, userId)) || localStorage.getItem(SEEN_AT_KEY) || "0") || 0;
   } catch {
     return 0;
   }
 }
 
-function saveSeenAt(value: number) {
+function saveSeenAt(value: number, userId?: string | null) {
   try {
-    localStorage.setItem(SEEN_AT_KEY, String(value));
+    localStorage.setItem(scopedKey(SEEN_AT_KEY, userId), String(value));
   } catch {
     // ignore
   }
 }
 
-function loadAcked(): Set<string> {
+function loadAcked(userId?: string | null): Set<string> {
   try {
-    const raw = localStorage.getItem(ACK_KEY);
-    if (!raw) return new Set();
+    const raw = localStorage.getItem(scopedKey(ACK_KEY, userId)) || localStorage.getItem(ACK_KEY);
+    if (!raw) return new Set<string>();
     const arr = JSON.parse(raw) as string[];
     return new Set(arr);
   } catch {
@@ -72,11 +87,11 @@ function loadAcked(): Set<string> {
   }
 }
 
-function saveAcked(set: Set<string>) {
+function saveAcked(set: Set<string>, userId?: string | null) {
   try {
     // Keep only most recent 500 to avoid unbounded growth.
     const arr = Array.from(set).slice(-500);
-    localStorage.setItem(ACK_KEY, JSON.stringify(arr));
+    localStorage.setItem(scopedKey(ACK_KEY, userId), JSON.stringify(arr));
   } catch {
     // ignore
   }
@@ -84,9 +99,9 @@ function saveAcked(set: Set<string>) {
 
 // Per-thread ack: maps thread_id -> ISO timestamp of the last message that was
 // dismissed. The thread reappears only if a STRICTLY NEWER message arrives.
-function loadThreadAcks(): Record<string, string> {
+function loadThreadAcks(userId?: string | null): Record<string, string> {
   try {
-    const raw = localStorage.getItem(THREAD_ACK_KEY);
+    const raw = localStorage.getItem(scopedKey(THREAD_ACK_KEY, userId)) || localStorage.getItem(THREAD_ACK_KEY);
     if (!raw) return {};
     return JSON.parse(raw) as Record<string, string>;
   } catch {
@@ -94,11 +109,11 @@ function loadThreadAcks(): Record<string, string> {
   }
 }
 
-function saveThreadAcks(map: Record<string, string>) {
+function saveThreadAcks(map: Record<string, string>, userId?: string | null) {
   try {
     // Cap to most-recent 500 entries to bound growth.
     const entries = Object.entries(map).slice(-500);
-    localStorage.setItem(THREAD_ACK_KEY, JSON.stringify(Object.fromEntries(entries)));
+    localStorage.setItem(scopedKey(THREAD_ACK_KEY, userId), JSON.stringify(Object.fromEntries(entries)));
   } catch {
     // ignore
   }
@@ -109,13 +124,67 @@ function digitsOnly(s: string | null | undefined): string {
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [unreadThreads, setUnreadThreads] = useState<UnreadThread[]>([]);
   const [missedCalls, setMissedCalls] = useState<MissedCall[]>([]);
-  const [seenAt, setSeenAt] = useState<number>(loadSeenAt());
-  const ackedRef = useRef<Set<string>>(loadAcked());
-  const threadAcksRef = useRef<Record<string, string>>(loadThreadAcks());
+  const [seenAt, setSeenAt] = useState<number>(() => loadSeenAt(userId));
+  const ackedRef = useRef<Set<string>>(loadAcked(userId));
+  const threadAcksRef = useRef<Record<string, string>>(loadThreadAcks(userId));
+  const [acksReady, setAcksReady] = useState(false);
+
+  useEffect(() => {
+    setAcksReady(false);
+    ackedRef.current = loadAcked(userId);
+    threadAcksRef.current = loadThreadAcks(userId);
+    setSeenAt(loadSeenAt(userId));
+
+    if (!userId) {
+      setAcksReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("notification_acknowledgements")
+        .select("notification_type, notification_key, acknowledged_at, metadata")
+        .eq("user_id", userId)
+        .in("notification_type", [MISSED_ACK_TYPE, THREAD_ACK_TYPE])
+        .limit(1000);
+      if (cancelled) return;
+
+      if (data) {
+        const missed = loadAcked(userId);
+        const threads = loadThreadAcks(userId);
+        for (const row of data as Pick<NotificationAckRow, "notification_type" | "notification_key" | "acknowledged_at" | "metadata">[]) {
+          if (row.notification_type === MISSED_ACK_TYPE) {
+            missed.add(row.notification_key);
+          } else if (row.notification_type === THREAD_ACK_TYPE) {
+            const lastMessageAt = typeof row.metadata?.last_message_at === "string" ? row.metadata.last_message_at : row.acknowledged_at;
+            threads[row.notification_key] = lastMessageAt;
+          }
+        }
+        ackedRef.current = missed;
+        threadAcksRef.current = threads;
+        saveAcked(missed, userId);
+        saveThreadAcks(threads, userId);
+      }
+      setAcksReady(true);
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  const persistAcknowledgements = useCallback(async (rows: NotificationAckRow[]) => {
+    if (!userId || rows.length === 0) return;
+    await (supabase as any)
+      .from("notification_acknowledgements")
+      .upsert(rows, { onConflict: "user_id,notification_type,notification_key" });
+  }, [userId]);
 
   const fetchThreads = useCallback(async () => {
+    if (!acksReady) return;
     const { data } = await supabase
       .from("sms_threads")
       .select("id, phone, display_name, unread_count, last_message_preview, last_message_at, clinic:clinics(clinic_name)")
@@ -152,9 +221,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           last_message_at: t.last_message_at,
         }))
     );
-  }, []);
+  }, [acksReady]);
 
   const fetchMissed = useCallback(async () => {
+    if (!acksReady) return;
     // Pull recent inbound calls; consider missed when duration is null/0 and
     // status is not in-progress / completed.
     const { data } = await supabase
@@ -215,7 +285,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         called_at: r.called_at,
       }))
     );
-  }, []);
+  }, [acksReady]);
 
   const refresh = useCallback(() => {
     void fetchThreads();
@@ -242,32 +312,45 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const acknowledgeMissed = useCallback((id: string) => {
     ackedRef.current.add(id);
-    saveAcked(ackedRef.current);
+    saveAcked(ackedRef.current, userId);
+    void persistAcknowledgements([{ user_id: userId || "", notification_type: MISSED_ACK_TYPE, notification_key: id, acknowledged_at: new Date().toISOString() }]);
     setMissedCalls((prev) => prev.filter((m) => m.id !== id));
-  }, []);
+  }, [persistAcknowledgements, userId]);
 
   const acknowledgeAllMissed = useCallback(() => {
+    const now = new Date().toISOString();
+    const rows: NotificationAckRow[] = [];
     for (const m of missedCalls) ackedRef.current.add(m.id);
-    saveAcked(ackedRef.current);
+    for (const m of missedCalls) rows.push({ user_id: userId || "", notification_type: MISSED_ACK_TYPE, notification_key: m.id, acknowledged_at: now });
+    saveAcked(ackedRef.current, userId);
+    void persistAcknowledgements(rows);
     setMissedCalls([]);
-  }, [missedCalls]);
+  }, [missedCalls, persistAcknowledgements, userId]);
 
   const acknowledgeThread = useCallback((threadId: string, lastMessageAt: string | null) => {
-    threadAcksRef.current[threadId] = lastMessageAt || new Date().toISOString();
-    saveThreadAcks(threadAcksRef.current);
+    const ackAt = lastMessageAt || new Date().toISOString();
+    threadAcksRef.current[threadId] = ackAt;
+    saveThreadAcks(threadAcksRef.current, userId);
+    void persistAcknowledgements([{ user_id: userId || "", notification_type: THREAD_ACK_TYPE, notification_key: threadId, acknowledged_at: new Date().toISOString(), metadata: { last_message_at: ackAt } }]);
     setUnreadThreads((prev) => prev.filter((t) => t.thread_id !== threadId));
-  }, []);
+  }, [persistAcknowledgements, userId]);
 
   const acknowledgeAll = useCallback(() => {
+    const now = new Date().toISOString();
+    const rows: NotificationAckRow[] = [];
     for (const m of missedCalls) ackedRef.current.add(m.id);
-    saveAcked(ackedRef.current);
+    for (const m of missedCalls) rows.push({ user_id: userId || "", notification_type: MISSED_ACK_TYPE, notification_key: m.id, acknowledged_at: now });
     for (const t of unreadThreads) {
-      threadAcksRef.current[t.thread_id] = t.last_message_at || new Date().toISOString();
+      const ackAt = t.last_message_at || now;
+      threadAcksRef.current[t.thread_id] = ackAt;
+      rows.push({ user_id: userId || "", notification_type: THREAD_ACK_TYPE, notification_key: t.thread_id, acknowledged_at: now, metadata: { last_message_at: ackAt } });
     }
-    saveThreadAcks(threadAcksRef.current);
+    saveAcked(ackedRef.current, userId);
+    saveThreadAcks(threadAcksRef.current, userId);
+    void persistAcknowledgements(rows);
     setMissedCalls([]);
     setUnreadThreads([]);
-  }, [missedCalls, unreadThreads]);
+  }, [missedCalls, persistAcknowledgements, unreadThreads, userId]);
 
   const unreadSmsCount = unreadThreads.reduce((s, t) => s + (t.unread_count || 0), 0);
   const missedCount = missedCalls.length;
@@ -282,8 +365,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const markNotificationsSeen = useCallback(() => {
     const next = Date.now();
     setSeenAt(next);
-    saveSeenAt(next);
-  }, []);
+    saveSeenAt(next, userId);
+  }, [userId]);
 
   // Tab title + favicon dot show only new notifications since the bell was last opened.
   useEffect(() => {
