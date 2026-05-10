@@ -9,6 +9,8 @@ export type TradingHours = {
   consult_duration_mins: number;
 };
 
+export type RecurPattern = "weekly" | "daily" | "monthly_date" | "monthly_nth_dow" | null;
+
 export type BlockedSlot = {
   id?: string;
   slot_date: string | null;     // YYYY-MM-DD
@@ -16,6 +18,11 @@ export type BlockedSlot = {
   slot_end: string;              // HH:MM[:SS]
   is_recurring: boolean;
   recur_day_of_week: number | null;
+  recur_pattern?: RecurPattern;
+  recur_days_of_week?: number[] | null; // for weekly multi-day
+  recur_day_of_month?: number | null;   // for monthly_date (1-31)
+  recur_nth_week?: number | null;       // for monthly_nth_dow (1-4, or 5 = last)
+  recur_until?: string | null;          // YYYY-MM-DD optional end date
 };
 
 export type ExistingAppt = {
