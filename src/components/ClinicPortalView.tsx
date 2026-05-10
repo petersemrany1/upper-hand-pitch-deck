@@ -226,7 +226,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
       {view === "list" ? (
         <ListView appts={appts} onSelect={onSelect} />
       ) : (
-        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} onSelect={onSelect} />
+        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} clinicState={clinicState} onSelect={onSelect} />
       )}
 
       {showAdd && isAdmin && (
