@@ -1,6 +1,15 @@
 import { createServerFn } from "@tanstack/react-start";
 import { logError } from "./error-logger.functions";
 
+type StripeApiResponse = {
+  id?: string;
+  url?: string;
+  amount?: number;
+  status?: string;
+  error?: { message?: string };
+  last_payment_error?: { message?: string };
+};
+
 // Creates a fresh Stripe Checkout Session for the given package + amount.
 // The amount is the TOTAL inc GST in AUD dollars (e.g. 8000 for $8,000).
 // Returns the hosted Checkout URL the client can be sent to.
@@ -60,7 +69,7 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as StripeApiResponse;
 
       if (!response.ok) {
         const errMsg =
@@ -172,7 +181,7 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as StripeApiResponse;
 
       if (!response.ok) {
         const errMsg =
@@ -264,7 +273,7 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
         body: params.toString(),
       });
 
-      const result: any = await response.json();
+      const result = (await response.json()) as StripeApiResponse;
 
       if (!response.ok) {
         const errMsg = (result && result.error && (result.error.message as string)) || "Stripe API error";
