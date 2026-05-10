@@ -889,6 +889,7 @@ function PhoneNumbersSection() {
   const [numbers, setNumbers] = useState<PhoneNumberRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [addResult, setAddResult] = useState<string | null>(null);
   const [retiring, setRetiring] = useState<string | null>(null);
 
   const load = async () => {
@@ -902,16 +903,21 @@ function PhoneNumbersSection() {
 
   const onAdd = async () => {
     setAdding(true);
+    setAddResult(null);
     try {
       const r = await provisionNumberFn();
       if (r.success) {
+        setAddResult(`Added ${r.number}`);
         toast.success("Number added successfully");
         await load();
       } else {
+        setAddResult(r.error || "Failed to add number");
         toast.error(r.error || "Failed to add number");
       }
     } catch (e) {
-      toast.error((e as Error)?.message || "Failed to add number");
+      const message = (e as Error)?.message || "Failed to add number";
+      setAddResult(message);
+      toast.error(message);
     } finally {
       setAdding(false);
     }
@@ -953,6 +959,11 @@ function PhoneNumbersSection() {
       <p className="text-xs text-muted-foreground mb-5">
         Calls rotate across active numbers automatically. Add more numbers to reduce spam flagging.
       </p>
+      {addResult && (
+        <div className="mb-4 rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          {addResult}
+        </div>
+      )}
 
       {loading ? (
         <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
