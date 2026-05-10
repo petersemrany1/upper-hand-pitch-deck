@@ -6493,6 +6493,13 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
 
   const available = slots.filter((s) => s.available);
 
+  const holidayName = useMemo(() => {
+    if (!date) return null;
+    const [y, m, d] = date.split("-").map(Number);
+    if (!y || !m || !d) return null;
+    return holidayLabelFor(new Date(y, m - 1, d), overrides, clinicState);
+  }, [date, overrides, clinicState]);
+
   return (
     <div className="grid grid-cols-2 gap-2.5">
       <div>
@@ -6500,6 +6507,9 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
         <input type="date" value={date} onChange={(e) => { onDate(e.target.value); onTime(""); }}
           className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
           style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+        {holidayName && (
+          <div className="text-[11px] mt-1" style={{ color: "#8a6500" }}>Public holiday — {holidayName}. Clinic closed.</div>
+        )}
       </div>
       <div>
         <Label>Time slot</Label>
@@ -6508,7 +6518,7 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
         ) : !date ? (
           <div className="text-[12px] mt-2" style={{ color: COLORS.muted }}>Pick a date first</div>
         ) : available.length === 0 ? (
-          <div className="text-[12px] mt-2" style={{ color: "#b83232" }}>No slots available — try another date</div>
+          <div className="text-[12px] mt-2" style={{ color: "#b83232" }}>{holidayName ? `Closed for ${holidayName}` : "No slots available — try another date"}</div>
         ) : (
           <select value={time} onChange={(e) => onTime(e.target.value)}
             className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
