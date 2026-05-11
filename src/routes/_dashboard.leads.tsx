@@ -143,6 +143,16 @@ function LeadsPage() {
   const repNameById = (id: string | null | undefined) =>
     reps.find((r) => r.id === id)?.name ?? "—";
 
+  // Collapsed status groups (folder-style)
+  const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
+  const toggleStatusGroup = (s: string) => {
+    setCollapsedStatuses((prev) => {
+      const next = new Set(prev);
+      if (next.has(s)) next.delete(s); else next.add(s);
+      return next;
+    });
+  };
+
   const allStatuses = [...DEFAULT_STATUSES, ...customStatuses];
 
   const addCustomStatus = () => {
