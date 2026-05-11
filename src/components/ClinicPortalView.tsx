@@ -1329,7 +1329,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     : alreadyRefunded
       ? "Save & close"
       : noPaymentIntent
-        ? "Save & check Stripe"
+        ? "Save & notify Upper Hand"
         : `Save & refund $${depositAmount}`;
 
   const save = async () => {
