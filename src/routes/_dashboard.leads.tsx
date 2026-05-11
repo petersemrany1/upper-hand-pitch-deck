@@ -22,7 +22,10 @@ type Lead = {
   created_at: string;
   status?: string | null;
   call_notes?: string | null;
+  rep_id?: string | null;
 };
+
+type RepOption = { id: string; name: string };
 
 const DEFAULT_STATUSES = [
   "New",
