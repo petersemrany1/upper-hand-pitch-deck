@@ -1329,7 +1329,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     : alreadyRefunded
       ? "Save & close"
       : noPaymentIntent
-        ? "Save & check Stripe"
+        ? "Save & notify Upper Hand"
         : `Save & refund $${depositAmount}`;
 
   const save = async () => {
@@ -1393,8 +1393,8 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         </div>
       ) : noPaymentIntent ? (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Deposit refund</div>
-          <div style={{ fontSize: 11, color: "#92400e" }}>No saved Stripe ID — we’ll look up the paid deposit link and refund it if found. If not, process manually in Stripe.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Patient didn't pay via Stripe</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through our payment system (likely paid by direct deposit or another method). No refund will be processed from here — the Upper Hand team will be in contact with the patient to arrange the refund directly.</div>
         </div>
       ) : (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
