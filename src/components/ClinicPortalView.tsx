@@ -452,6 +452,26 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
     ? new Date(appt.refund_processed_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
     : "";
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isPastOrToday = appt.appointment_date <= todayStr;
+  const needsManualRefund =
+    appt.outcome === "show" &&
+    !appt.stripe_payment_intent_id &&
+    !appt.refund_status &&
+    isPastOrToday;
+
+  const markRefundedManually = async () => {
+    if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
+    const { error } = await supabase
+      .from("clinic_appointments")
+      .update({ refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() })
+      .eq("id", appt.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Marked as refunded");
+    onChange();
+    onClose();
+  };
+
   return (
     <ModalShell onClose={onClose}>
       <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
