@@ -285,8 +285,10 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
-              {a.refund_status === "refunded" && (
-                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Deposit refunded</span>
+              {(a.refund_status === "refunded" || a.refund_status === "refunded_manual") && (
+                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
+                  Deposit refunded{a.refund_status === "refunded_manual" ? " (manual)" : ""}
+                </span>
               )}
               {a.refund_status === "failed" && (
                 <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
