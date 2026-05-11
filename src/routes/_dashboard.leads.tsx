@@ -103,7 +103,10 @@ function saveCustomStatuses(list: string[]) {
 }
 
 function LeadsPage() {
+  const { user, role, ready } = useAuth();
+  const isAdmin = role === "admin";
   const [rows, setRows] = useState<Lead[]>([]);
+  const [reps, setReps] = useState<RepOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -118,7 +121,27 @@ function LeadsPage() {
   const [addingStatus, setAddingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState("");
 
+  // Bulk selection + assign (admin only)
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkRepId, setBulkRepId] = useState<string>("");
+  const [assigning, setAssigning] = useState(false);
+
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
+
+  // Load reps list (for admin bulk-assign + name lookup)
+  useEffect(() => {
+    if (!ready) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("sales_reps")
+        .select("id, name")
+        .order("name", { ascending: true });
+      setReps((data ?? []) as RepOption[]);
+    })();
+  }, [ready]);
+
+  const repNameById = (id: string | null | undefined) =>
+    reps.find((r) => r.id === id)?.name ?? "—";
 
   const allStatuses = [...DEFAULT_STATUSES, ...customStatuses];
 
