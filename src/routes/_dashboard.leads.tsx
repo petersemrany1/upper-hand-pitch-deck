@@ -404,6 +404,16 @@ function LeadsPage() {
                         className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
                         style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
                       >
+                        {isAdmin && (
+                          <td className="px-3 py-3 w-8">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(r.id)}
+                              onChange={() => toggleSelect(r.id)}
+                              className="accent-[#f4522d] cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
                         <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -427,6 +437,17 @@ function LeadsPage() {
                             {(r.status ?? "").trim() || "New"}
                           </span>
                         </td>
+                        {isAdmin && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {r.rep_id ? (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
+                                {repNameById(r.rep_id)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[#999]">Unassigned</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
                             {r.email && (
