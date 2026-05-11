@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus } from "lucide-react";
+import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_dashboard/leads")({
   component: LeadsPage,
