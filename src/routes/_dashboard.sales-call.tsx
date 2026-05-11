@@ -2227,7 +2227,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
     name: autoName, dob: "", price: "", citizen: "", earning: "", bankrupt: "", homeowner: "",
   });
   const [result, setResult] = useState<null | { eligible: boolean }>(null);
-  const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
+  const set = (k: keyof typeof form, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
 
   const check = async () => {
     const eligible =
@@ -2241,7 +2241,10 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
   const YN = ({ k }: { k: keyof typeof form }) => (
     <div className="flex gap-2">
       {["yes", "no"].map((v) => (
-        <button key={v} onClick={() => set(k, v)}
+        <button
+          key={v}
+          type="button"
+          onClick={(e) => { e.preventDefault(); set(k, v); }}
           className="px-3 py-1 rounded-md text-[12px] font-medium capitalize"
           style={{
             background: form[k] === v ? COLORS.coral : "#f9f9f9",
