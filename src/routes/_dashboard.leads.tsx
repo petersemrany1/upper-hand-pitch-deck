@@ -128,13 +128,13 @@ function LeadsPage() {
 
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
 
-  // Load reps list (for admin bulk-assign + name lookup)
+  // Load reps list (for admin bulk-assign + name lookup + current-user mapping)
   useEffect(() => {
     if (!ready) return;
     void (async () => {
       const { data } = await supabase
         .from("sales_reps")
-        .select("id, name")
+        .select("id, name, email")
         .order("name", { ascending: true });
       setReps((data ?? []) as RepOption[]);
     })();
@@ -142,6 +142,11 @@ function LeadsPage() {
 
   const repNameById = (id: string | null | undefined) =>
     reps.find((r) => r.id === id)?.name ?? "—";
+
+  // Map the currently signed-in auth user → their sales_reps.id
+  // (sales_reps.id is what gets stored in meta_leads.rep_id, NOT auth.uid)
+  const myEmail = (user?.email ?? "").toLowerCase();
+  const mySalesRepId = reps.find((r) => (r.email ?? "").toLowerCase() === myEmail)?.id ?? null;
 
   // Collapsed status groups (folder-style)
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
