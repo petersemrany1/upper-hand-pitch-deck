@@ -318,15 +318,47 @@ function LeadsPage() {
           </p>
         </div>
 
-        <div className="mb-4 relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#111111]" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, email, phone, status, campaign…"
-            className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#111111]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, email, phone, status, rep, campaign…"
+              className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
+            />
+          </div>
+
+          {isAdmin && selected.size > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#fff5f3] border border-[#f4522d]/30">
+              <UserCheck className="h-4 w-4 text-[#f4522d]" />
+              <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
+              <select
+                value={bulkRepId}
+                onChange={(e) => setBulkRepId(e.target.value)}
+                className="px-2 py-1.5 rounded bg-white border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+              >
+                <option value="">— Unassigned —</option>
+                {reps.map((rep) => (
+                  <option key={rep.id} value={rep.id}>{rep.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={bulkAssign}
+                disabled={assigning}
+                className="px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+              >
+                {assigning ? "Assigning…" : "Assign"}
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="px-2 py-1.5 rounded text-xs text-[#666] hover:text-[#111111]"
+              >
+                Clear
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg border border-[#ebebeb]/10 overflow-hidden" style={{ background: "#f9f9f9" }}>
@@ -341,9 +373,20 @@ function LeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
+                    {isAdmin && (
+                      <th className="px-3 py-3 w-8">
+                        <input
+                          type="checkbox"
+                          checked={filtered.length > 0 && selected.size === filtered.length}
+                          onChange={toggleSelectAll}
+                          className="accent-[#f4522d] cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="text-left px-4 py-3 font-medium">Received</th>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
+                    {isAdmin && <th className="text-left px-4 py-3 font-medium">Assigned</th>}
                     <th className="text-left px-4 py-3 font-medium">Contact</th>
                     <th className="text-left px-4 py-3 font-medium">Funding</th>
                     <th className="text-left px-4 py-3 font-medium">Campaign / Ad Set / Ad</th>
