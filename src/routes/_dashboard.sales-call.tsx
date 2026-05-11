@@ -2227,7 +2227,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
     name: autoName, dob: "", price: "", citizen: "", earning: "", bankrupt: "", homeowner: "",
   });
   const [result, setResult] = useState<null | { eligible: boolean }>(null);
-  const set = (k: keyof typeof form, v: string) => setForm({ ...form, [k]: v });
+  const set = (k: keyof typeof form, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
 
   const check = async () => {
     const eligible =
