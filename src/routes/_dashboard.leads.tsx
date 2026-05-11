@@ -404,7 +404,46 @@ function LeadsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((r) => {
+                  {(() => {
+                    const colSpan = isAdmin ? 9 : 7;
+                    // Group filtered rows by status preserving DEFAULT_STATUSES order, then any extras.
+                    const groups = new Map<string, Lead[]>();
+                    for (const r of filtered) {
+                      const key = (r.status ?? "").trim() || "New";
+                      const arr = groups.get(key) ?? [];
+                      arr.push(r);
+                      groups.set(key, arr);
+                    }
+                    const orderedKeys: string[] = [];
+                    for (const s of allStatuses) if (groups.has(s)) orderedKeys.push(s);
+                    for (const k of groups.keys()) if (!orderedKeys.includes(k)) orderedKeys.push(k);
+
+                    return orderedKeys.flatMap((statusKey) => {
+                      const groupRows = groups.get(statusKey)!;
+                      const collapsed = collapsedStatuses.has(statusKey);
+                      const headBadge = statusBadge(statusKey);
+                      const headerRow = (
+                        <tr key={`hdr-${statusKey}`} className="bg-[#f3f3f3] border-b border-[#ebebeb]">
+                          <td colSpan={colSpan} className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleStatusGroup(statusKey)}
+                              className="flex items-center gap-2 w-full text-left text-[#111111]"
+                            >
+                              {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                              <span
+                                className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                                style={{ background: headBadge.bg, color: headBadge.fg }}
+                              >
+                                {statusKey}
+                              </span>
+                              <span className="text-xs text-[#666]">{groupRows.length} lead{groupRows.length === 1 ? "" : "s"}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                      if (collapsed) return [headerRow];
+                      return [headerRow, ...groupRows.map((r) => {
                     const fullName = [r.first_name, r.last_name].filter(Boolean).join(" ") || "—";
                     const dup = isDuplicate(r);
                     const badge = statusBadge(r.status);
