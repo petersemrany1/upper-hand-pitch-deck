@@ -1,0 +1,2 @@
+ALTER TABLE public.clinic_appointments DROP CONSTRAINT IF EXISTS clinic_appointments_refund_status_check;
+ALTER TABLE public.clinic_appointments ADD CONSTRAINT clinic_appointments_refund_status_check CHECK (refund_status IS NULL OR refund_status IN ('refunded', 'refunded_manual', 'failed'));
