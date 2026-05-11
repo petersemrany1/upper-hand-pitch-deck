@@ -21,7 +21,7 @@ export type ClinicAppointment = {
   consult_summary: string | null;
   deposit_amount: number | null;
   stripe_payment_intent_id: string | null;
-  refund_status: "refunded" | "failed" | null;
+  refund_status: "refunded" | "refunded_manual" | "failed" | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
 };
@@ -285,8 +285,10 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
-              {a.refund_status === "refunded" && (
-                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Deposit refunded</span>
+              {(a.refund_status === "refunded" || a.refund_status === "refunded_manual") && (
+                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
+                  Deposit refunded{a.refund_status === "refunded_manual" ? " (manual)" : ""}
+                </span>
               )}
               {a.refund_status === "failed" && (
                 <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
@@ -401,7 +403,6 @@ const navBtn: React.CSSProperties = {
   fontSize: 14, color: "#111", cursor: "pointer",
 };
 
-
 function buildMonthGrid(monthStart: Date): (Date | null)[] {
   const first = new Date(monthStart);
   first.setDate(1);
@@ -451,6 +452,26 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
     ? new Date(appt.refund_processed_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })
     : "";
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isPastOrToday = appt.appointment_date <= todayStr;
+  const needsManualRefund =
+    appt.outcome === "show" &&
+    !appt.stripe_payment_intent_id &&
+    !appt.refund_status &&
+    isPastOrToday;
+
+  const markRefundedManually = async () => {
+    if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
+    const { error } = await supabase
+      .from("clinic_appointments")
+      .update({ refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() })
+      .eq("id", appt.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Marked as refunded");
+    onChange();
+    onClose();
+  };
+
   return (
     <ModalShell onClose={onClose}>
       <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
@@ -498,6 +519,26 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The deposit refund did not go through. Try again or process it manually in Stripe.</div>
           <button onClick={() => setSummaryMode("show")} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#b83232", color: "#fff", borderColor: "#b83232" }}>
             Retry refund
+          </button>
+        </div>
+      )}
+
+      {appt.outcome === "show" && appt.refund_status === "refunded_manual" && (
+        <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>✓</span> ${depositAmount} deposit refunded (manual)
+          </div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Marked refunded on {refundDate}</div>
+          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Patient was refunded outside Stripe (e.g. bank transfer)</div>
+        </div>
+      )}
+
+      {needsManualRefund && isAdmin && (
+        <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Refund pending — paid outside Stripe</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginBottom: 10 }}>No Stripe payment on file. Once you've refunded ${depositAmount} to {appt.patient_name} directly, mark it here.</div>
+          <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#92400e", color: "#fff", borderColor: "#92400e" }}>
+            Mark deposit refunded
           </button>
         </div>
       )}
