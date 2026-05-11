@@ -21,7 +21,7 @@ export type ClinicAppointment = {
   consult_summary: string | null;
   deposit_amount: number | null;
   stripe_payment_intent_id: string | null;
-  refund_status: "refunded" | "failed" | null;
+  refund_status: "refunded" | "refunded_manual" | "failed" | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
 };
