@@ -25,7 +25,7 @@ type Lead = {
   rep_id?: string | null;
 };
 
-type RepOption = { id: string; name: string };
+type RepOption = { id: string; name: string; email: string | null };
 
 const DEFAULT_STATUSES = [
   "New",
