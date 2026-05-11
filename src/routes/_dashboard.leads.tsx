@@ -201,7 +201,10 @@ function LeadsPage() {
   };
   const duplicateCount = rows.filter(isDuplicate).length;
 
-  const filtered = rows.filter((r) => {
+  // Reps see only their own assigned leads; admins see everything.
+  const visibleRows = isAdmin ? rows : rows.filter((r) => r.rep_id === user?.id);
+
+  const filtered = visibleRows.filter((r) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -214,9 +217,37 @@ function LeadsPage() {
       (r.ad_set_name ?? "").toLowerCase().includes(q) ||
       (r.funding_preference ?? "").toLowerCase().includes(q) ||
       (r.status ?? "").toLowerCase().includes(q) ||
+      repNameById(r.rep_id).toLowerCase().includes(q) ||
       (q === "duplicate" && isDuplicate(r))
     );
   });
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map((r) => r.id)));
+  };
+  const bulkAssign = async () => {
+    if (!isAdmin || selected.size === 0) return;
+    setAssigning(true);
+    const ids = Array.from(selected);
+    const newRepId = bulkRepId === "" ? null : bulkRepId;
+    const { error } = await supabase
+      .from("meta_leads")
+      .update({ rep_id: newRepId })
+      .in("id", ids);
+    if (!error) {
+      setRows((prev) => prev.map((r) => (selected.has(r.id) ? { ...r, rep_id: newRepId } : r)));
+      setSelected(new Set());
+    }
+    setAssigning(false);
+  };
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
