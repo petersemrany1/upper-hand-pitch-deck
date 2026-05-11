@@ -25,7 +25,7 @@ type Lead = {
   rep_id?: string | null;
 };
 
-type RepOption = { id: string; name: string };
+type RepOption = { id: string; name: string; email: string | null };
 
 const DEFAULT_STATUSES = [
   "New",
@@ -128,13 +128,13 @@ function LeadsPage() {
 
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
 
-  // Load reps list (for admin bulk-assign + name lookup)
+  // Load reps list (for admin bulk-assign + name lookup + current-user mapping)
   useEffect(() => {
     if (!ready) return;
     void (async () => {
       const { data } = await supabase
         .from("sales_reps")
-        .select("id, name")
+        .select("id, name, email")
         .order("name", { ascending: true });
       setReps((data ?? []) as RepOption[]);
     })();
@@ -142,6 +142,11 @@ function LeadsPage() {
 
   const repNameById = (id: string | null | undefined) =>
     reps.find((r) => r.id === id)?.name ?? "—";
+
+  // Map the currently signed-in auth user → their sales_reps.id
+  // (sales_reps.id is what gets stored in meta_leads.rep_id, NOT auth.uid)
+  const myEmail = (user?.email ?? "").toLowerCase();
+  const mySalesRepId = reps.find((r) => (r.email ?? "").toLowerCase() === myEmail)?.id ?? null;
 
   // Collapsed status groups (folder-style)
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
@@ -212,7 +217,11 @@ function LeadsPage() {
   const duplicateCount = rows.filter(isDuplicate).length;
 
   // Reps see only their own assigned leads; admins see everything.
-  const visibleRows = isAdmin ? rows : rows.filter((r) => r.rep_id === user?.id);
+  const visibleRows = isAdmin
+    ? rows
+    : mySalesRepId
+      ? rows.filter((r) => r.rep_id === mySalesRepId)
+      : [];
 
   const filtered = visibleRows.filter((r) => {
     if (!search.trim()) return true;
