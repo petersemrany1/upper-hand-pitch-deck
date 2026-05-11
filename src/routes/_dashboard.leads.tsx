@@ -217,7 +217,11 @@ function LeadsPage() {
   const duplicateCount = rows.filter(isDuplicate).length;
 
   // Reps see only their own assigned leads; admins see everything.
-  const visibleRows = isAdmin ? rows : rows.filter((r) => r.rep_id === user?.id);
+  const visibleRows = isAdmin
+    ? rows
+    : mySalesRepId
+      ? rows.filter((r) => r.rep_id === mySalesRepId)
+      : [];
 
   const filtered = visibleRows.filter((r) => {
     if (!search.trim()) return true;
