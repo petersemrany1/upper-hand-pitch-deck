@@ -564,7 +564,9 @@ function LeadsPage() {
                         </td>
                       </tr>
                     );
-                  })}
+                  })];
+                    });
+                  })()}
                 </tbody>
               </table>
             </div>
