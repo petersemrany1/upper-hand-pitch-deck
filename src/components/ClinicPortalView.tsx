@@ -523,6 +523,26 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
+      {appt.outcome === "show" && appt.refund_status === "refunded_manual" && (
+        <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>✓</span> ${depositAmount} deposit refunded (manual)
+          </div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Marked refunded on {refundDate}</div>
+          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Patient was refunded outside Stripe (e.g. bank transfer)</div>
+        </div>
+      )}
+
+      {needsManualRefund && isAdmin && (
+        <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Refund pending — paid outside Stripe</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginBottom: 10 }}>No Stripe payment on file. Once you've refunded ${depositAmount} to {appt.patient_name} directly, mark it here.</div>
+          <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#92400e", color: "#fff", borderColor: "#92400e" }}>
+            Mark deposit refunded
+          </button>
+        </div>
+      )}
+
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
