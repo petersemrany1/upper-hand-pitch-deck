@@ -401,19 +401,8 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect
 const navBtn: React.CSSProperties = {
   background: "#fff", border: "1px solid #e2e6ec", borderRadius: 6, padding: "8px 14px",
   fontSize: 14, color: "#111", cursor: "pointer",
-  };
+};
 
-  const markRefundedManually = async () => {
-    if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
-    const { error } = await supabase
-      .from("clinic_appointments")
-      .update({ refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() })
-      .eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Marked as refunded");
-    onChange();
-    onClose();
-  };
 function buildMonthGrid(monthStart: Date): (Date | null)[] {
   const first = new Date(monthStart);
   first.setDate(1);
