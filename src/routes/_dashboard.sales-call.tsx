@@ -2464,11 +2464,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.clinicId]);
   const set = (k: keyof typeof form, v: string) => {
-    const next = { ...form, [k]: v };
-    setForm(next);
-    try {
-      if (typeof window !== "undefined") window.localStorage.setItem(FORM_KEY, JSON.stringify(next));
-    } catch { /* ignore */ }
+    setForm((prev) => {
+      const next = { ...prev, [k]: v };
+      try {
+        if (typeof window !== "undefined") window.localStorage.setItem(FORM_KEY, JSON.stringify(next));
+      } catch { /* ignore */ }
+      return next;
+    });
   };
 
   // Restore booked state if this lead already has a saved booking (rep navigated away and came back)
