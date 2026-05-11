@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus } from "lucide-react";
+import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 export const Route = createFileRoute("/_dashboard/leads")({
   component: LeadsPage,
@@ -21,7 +22,10 @@ type Lead = {
   created_at: string;
   status?: string | null;
   call_notes?: string | null;
+  rep_id?: string | null;
 };
+
+type RepOption = { id: string; name: string };
 
 const DEFAULT_STATUSES = [
   "New",
@@ -99,7 +103,10 @@ function saveCustomStatuses(list: string[]) {
 }
 
 function LeadsPage() {
+  const { user, role, ready } = useAuth();
+  const isAdmin = role === "admin";
   const [rows, setRows] = useState<Lead[]>([]);
+  const [reps, setReps] = useState<RepOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -114,7 +121,27 @@ function LeadsPage() {
   const [addingStatus, setAddingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState("");
 
+  // Bulk selection + assign (admin only)
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkRepId, setBulkRepId] = useState<string>("");
+  const [assigning, setAssigning] = useState(false);
+
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
+
+  // Load reps list (for admin bulk-assign + name lookup)
+  useEffect(() => {
+    if (!ready) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("sales_reps")
+        .select("id, name")
+        .order("name", { ascending: true });
+      setReps((data ?? []) as RepOption[]);
+    })();
+  }, [ready]);
+
+  const repNameById = (id: string | null | undefined) =>
+    reps.find((r) => r.id === id)?.name ?? "—";
 
   const allStatuses = [...DEFAULT_STATUSES, ...customStatuses];
 
@@ -174,7 +201,10 @@ function LeadsPage() {
   };
   const duplicateCount = rows.filter(isDuplicate).length;
 
-  const filtered = rows.filter((r) => {
+  // Reps see only their own assigned leads; admins see everything.
+  const visibleRows = isAdmin ? rows : rows.filter((r) => r.rep_id === user?.id);
+
+  const filtered = visibleRows.filter((r) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -187,9 +217,37 @@ function LeadsPage() {
       (r.ad_set_name ?? "").toLowerCase().includes(q) ||
       (r.funding_preference ?? "").toLowerCase().includes(q) ||
       (r.status ?? "").toLowerCase().includes(q) ||
+      repNameById(r.rep_id).toLowerCase().includes(q) ||
       (q === "duplicate" && isDuplicate(r))
     );
   });
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    if (selected.size === filtered.length) setSelected(new Set());
+    else setSelected(new Set(filtered.map((r) => r.id)));
+  };
+  const bulkAssign = async () => {
+    if (!isAdmin || selected.size === 0) return;
+    setAssigning(true);
+    const ids = Array.from(selected);
+    const newRepId = bulkRepId === "" ? null : bulkRepId;
+    const { error } = await supabase
+      .from("meta_leads")
+      .update({ rep_id: newRepId })
+      .in("id", ids);
+    if (!error) {
+      setRows((prev) => prev.map((r) => (selected.has(r.id) ? { ...r, rep_id: newRepId } : r)));
+      setSelected(new Set());
+    }
+    setAssigning(false);
+  };
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
@@ -256,19 +314,51 @@ function LeadsPage() {
           <p className="text-sm text-[#111111] mt-1">
             {loading
               ? "Loading…"
-              : `${filtered.length} of ${rows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
+              : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}${isAdmin ? "" : " assigned to you"}`}
           </p>
         </div>
 
-        <div className="mb-4 relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#111111]" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, email, phone, status, campaign…"
-            className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
-          />
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#111111]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, email, phone, status, rep, campaign…"
+              className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
+            />
+          </div>
+
+          {isAdmin && selected.size > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#fff5f3] border border-[#f4522d]/30">
+              <UserCheck className="h-4 w-4 text-[#f4522d]" />
+              <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
+              <select
+                value={bulkRepId}
+                onChange={(e) => setBulkRepId(e.target.value)}
+                className="px-2 py-1.5 rounded bg-white border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+              >
+                <option value="">— Unassigned —</option>
+                {reps.map((rep) => (
+                  <option key={rep.id} value={rep.id}>{rep.name}</option>
+                ))}
+              </select>
+              <button
+                onClick={bulkAssign}
+                disabled={assigning}
+                className="px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+              >
+                {assigning ? "Assigning…" : "Assign"}
+              </button>
+              <button
+                onClick={() => setSelected(new Set())}
+                className="px-2 py-1.5 rounded text-xs text-[#666] hover:text-[#111111]"
+              >
+                Clear
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg border border-[#ebebeb]/10 overflow-hidden" style={{ background: "#f9f9f9" }}>
@@ -283,9 +373,20 @@ function LeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
+                    {isAdmin && (
+                      <th className="px-3 py-3 w-8">
+                        <input
+                          type="checkbox"
+                          checked={filtered.length > 0 && selected.size === filtered.length}
+                          onChange={toggleSelectAll}
+                          className="accent-[#f4522d] cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th className="text-left px-4 py-3 font-medium">Received</th>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
+                    {isAdmin && <th className="text-left px-4 py-3 font-medium">Assigned</th>}
                     <th className="text-left px-4 py-3 font-medium">Contact</th>
                     <th className="text-left px-4 py-3 font-medium">Funding</th>
                     <th className="text-left px-4 py-3 font-medium">Campaign / Ad Set / Ad</th>
@@ -303,6 +404,16 @@ function LeadsPage() {
                         className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
                         style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
                       >
+                        {isAdmin && (
+                          <td className="px-3 py-3 w-8">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(r.id)}
+                              onChange={() => toggleSelect(r.id)}
+                              className="accent-[#f4522d] cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
                         <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -326,6 +437,17 @@ function LeadsPage() {
                             {(r.status ?? "").trim() || "New"}
                           </span>
                         </td>
+                        {isAdmin && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {r.rep_id ? (
+                              <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
+                                {repNameById(r.rep_id)}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[#999]">Unassigned</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
                             {r.email && (
