@@ -1459,6 +1459,10 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
         </div>
+      ) : resolving ? (
+        <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
+          <div style={{ fontSize: 12, color: "#6b7785" }}>Checking payment details…</div>
+        </div>
       ) : noPaymentIntent ? (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Patient didn't pay via Stripe</div>
