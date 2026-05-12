@@ -782,25 +782,37 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
+    // Dedupe per lead: 5 dials to the same lead = 1 "call". Aggregate across
+    // all dial rows for that lead+rep, then classify once using the MAX duration.
+    const perRepLead = new Map<string, Map<string, { maxDur: number; reached: boolean }>>();
     for (const c of calls ?? []) {
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
-      // Skip in-flight calls (no real duration yet) so they don't pollute the count
       if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
       const repId = repIdForCall(c);
       if (!repId) continue;
+      // Group key: lead_id when present, otherwise fall back to the call's own id
+      // so anonymous one-off calls still count individually.
+      const groupKey = (c.lead_id as string) || (c.id as string);
       const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
       const reached = dur > 0 || c.outcome === "connected";
+      const inner = perRepLead.get(repId) ?? new Map();
+      const existing = inner.get(groupKey) ?? { maxDur: 0, reached: false };
+      existing.maxDur = Math.max(existing.maxDur, dur);
+      existing.reached = existing.reached || reached;
+      inner.set(groupKey, existing);
+      perRepLead.set(repId, inner);
+    }
+    for (const [repId, leads] of perRepLead.entries()) {
       const s = byRep.get(repId) ?? blank();
-      s.calls += 1;
-      s.attempted += 1;
-      if (!reached) {
-        s.notReached += 1;
-      } else {
-        s.connected += 1;
-        if (dur < 120) s.short += 1;
-        if (dur >= 120) {
-          s.convos += 1;
-          s.holds += 1;
+      for (const { maxDur, reached } of leads.values()) {
+        s.calls += 1;
+        s.attempted += 1;
+        if (!reached) {
+          s.notReached += 1;
+        } else {
+          s.connected += 1;
+          if (maxDur < 120) s.short += 1;
+          else { s.convos += 1; s.holds += 1; }
         }
       }
       byRep.set(repId, s);
