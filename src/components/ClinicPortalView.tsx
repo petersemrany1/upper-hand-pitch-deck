@@ -1484,7 +1484,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onClose} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
-        <button onClick={save} disabled={saving} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: saving ? 0.5 : 1 }}>
+        <button onClick={save} disabled={saving || resolving} style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 6, padding: "8px 18px", fontSize: 13, fontWeight: 600, cursor: (saving || resolving) ? "not-allowed" : "pointer", opacity: (saving || resolving) ? 0.5 : 1 }}>
           {saving ? "Saving…" : submitLabel}
         </button>
       </div>
