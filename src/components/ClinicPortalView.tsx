@@ -256,47 +256,161 @@ function ViewToggleBtn({ active, onClick, icon, children }: { active: boolean; o
 /* ---------- LIST VIEW ---------- */
 
 function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void }) {
-  const sorted = [...appts].sort((a, b) => a.appointment_date.localeCompare(b.appointment_date));
+  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [query, setQuery] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  // Helper: start of today + helpers for grouping
+  const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+  const today = startOfDay(new Date());
+  const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+  // End of *this* week = upcoming Sunday (treat Mon-Sun week ending Sun).
+  const dow = today.getDay(); // 0 Sun..6 Sat
+  const daysToEndOfWeek = dow === 0 ? 0 : 7 - dow;
+  const endOfThisWeek = new Date(today); endOfThisWeek.setDate(today.getDate() + daysToEndOfWeek);
+  const endOfNextWeek = new Date(endOfThisWeek); endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
+
+  // Filter by tab + search + date range first.
+  const q = query.trim().toLowerCase();
+  const filtered = appts.filter((a) => {
+    const isPast = a.appointment_date < todayStr;
+    if (tab === "upcoming" && isPast) return false;
+    if (tab === "past" && !isPast) return false;
+    if (fromDate && a.appointment_date < fromDate) return false;
+    if (toDate && a.appointment_date > toDate) return false;
+    if (q) {
+      const hay = `${a.patient_name ?? ""} ${a.patient_phone ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // Sort: upcoming = ascending (soonest first), past = descending (most recent first).
+  const sorted = [...filtered].sort((a, b) => {
+    const cmp = a.appointment_date.localeCompare(b.appointment_date);
+    if (cmp !== 0) return tab === "past" ? -cmp : cmp;
+    return (a.appointment_time || "").localeCompare(b.appointment_time || "");
+  });
+
+  // Group into buckets.
+  type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past";
+  const bucketOf = (dateStr: string): Bucket => {
+    const d = startOfDay(new Date(dateStr));
+    if (d < today) return "Past";
+    if (d.getTime() === today.getTime()) return "Today";
+    if (d.getTime() === tomorrow.getTime()) return "Tomorrow";
+    if (d <= endOfThisWeek) return "This week";
+    if (d <= endOfNextWeek) return "Next week";
+    return "Later";
+  };
+  const order: Bucket[] = tab === "past"
+    ? ["Past"]
+    : ["Today", "Tomorrow", "This week", "Next week", "Later"];
+  const groups = new Map<Bucket, ClinicAppointment[]>();
+  for (const a of sorted) {
+    const b = bucketOf(a.appointment_date);
+    if (!groups.has(b)) groups.set(b, []);
+    groups.get(b)!.push(a);
+  }
+
+  const upcomingCount = appts.filter((a) => a.appointment_date >= todayStr).length;
+  const pastCount = appts.length - upcomingCount;
+
+  const inputStyle: React.CSSProperties = {
+    padding: "7px 10px", fontSize: 12, border: "1px solid #e2e6ec", borderRadius: 8,
+    color: "#111", fontFamily: "inherit", outline: "none", background: "#fff",
+  };
+
   return (
-    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
-      {sorted.length === 0 ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#6b7785" }}>No appointments yet.</div>
-      ) : sorted.map((a) => {
-        const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
-        const d = new Date(a.appointment_date);
-        return (
-          <button
-            key={a.id}
-            onClick={() => onSelect(a)}
-            style={{
-              display: "flex", alignItems: "center", gap: 16, padding: 14,
-              borderBottom: "1px solid #f0f2f5", width: "100%", background: "#fff",
-              border: "none", borderTop: "none", borderLeft: "none", borderRight: "none",
-              cursor: "pointer", textAlign: "left",
-            }}
-          >
-            <div style={{ background: c.bg, color: c.fg, padding: "8px 12px", borderRadius: 8, textAlign: "center", minWidth: 64 }}>
-              <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{d.getDate()}</div>
-              <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
-              <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
-              {(a.refund_status === "refunded" || a.refund_status === "refunded_manual") && (
-                <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
-                  Deposit refunded{a.refund_status === "refunded_manual" ? " (manual)" : ""}
-                </span>
-              )}
-              {a.refund_status === "failed" && (
-                <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
-              )}
-            </div>
-          </button>
-        );
-      })}
+    <div>
+      {/* Toolbar: tabs + search + date range */}
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
+          <ViewToggleBtn active={tab === "upcoming"} onClick={() => setTab("upcoming")} icon={null}>Upcoming ({upcomingCount})</ViewToggleBtn>
+          <ViewToggleBtn active={tab === "past"} onClick={() => setTab("past")} icon={null}>Past ({pastCount})</ViewToggleBtn>
+        </div>
+        <input
+          type="text"
+          placeholder="Search name or phone…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          style={{ ...inputStyle, flex: "1 1 200px", minWidth: 160 }}
+        />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} style={inputStyle} aria-label="From date" />
+          <span style={{ fontSize: 12, color: "#6b7785" }}>→</span>
+          <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} style={inputStyle} aria-label="To date" />
+          {(fromDate || toDate) && (
+            <button
+              onClick={() => { setFromDate(""); setToDate(""); }}
+              style={{ ...inputStyle, cursor: "pointer", color: "#6b7785", padding: "7px 10px" }}
+            >Clear</button>
+          )}
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
+        {sorted.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center", color: "#6b7785" }}>
+            {appts.length === 0 ? "No appointments yet." : "No appointments match your filters."}
+          </div>
+        ) : (
+          order.filter((b) => groups.has(b)).map((bucket) => {
+            const rows = groups.get(bucket)!;
+            return (
+              <div key={bucket}>
+                <div style={{
+                  padding: "8px 14px", background: "#f7f9fc", borderBottom: "1px solid #e2e6ec",
+                  fontSize: 11, fontWeight: 700, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5,
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}>
+                  <span>{bucket}</span>
+                  <span style={{ color: "#6b7785", fontWeight: 600 }}>{rows.length}</span>
+                </div>
+                {rows.map((a) => {
+                  const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
+                  const d = new Date(a.appointment_date);
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => onSelect(a)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 16, padding: 14,
+                        borderBottom: "1px solid #f0f2f5", width: "100%", background: "#fff",
+                        border: "none", borderTop: "none", borderLeft: "none", borderRight: "none",
+                        cursor: "pointer", textAlign: "left",
+                      }}
+                    >
+                      <div style={{ background: c.bg, color: c.fg, padding: "8px 12px", borderRadius: 8, textAlign: "center", minWidth: 64 }}>
+                        <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1 }}>{d.getDate()}</div>
+                        <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
+                        <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ background: c.bg, color: c.fg, padding: "3px 10px", fontSize: 11, fontWeight: 600, borderRadius: 12 }}>{c.label}</span>
+                        {(a.refund_status === "refunded" || a.refund_status === "refunded_manual") && (
+                          <span style={{ background: "#e8f5ef", color: "#1a7a4a", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
+                            Deposit refunded{a.refund_status === "refunded_manual" ? " (manual)" : ""}
+                          </span>
+                        )}
+                        {a.refund_status === "failed" && (
+                          <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
+      </div>
     </div>
   );
 }
