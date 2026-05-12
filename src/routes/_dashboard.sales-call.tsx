@@ -2230,6 +2230,14 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
   const set = (k: keyof typeof form, v: string) => setForm((prev) => ({ ...prev, [k]: v }));
 
   const check = async () => {
+    const missing: string[] = [];
+    if (form.citizen !== "yes" && form.citizen !== "no") missing.push("Australian citizen or PR");
+    if (form.earning !== "yes" && form.earning !== "no") missing.push("Employed and earning $50,000+");
+    if (form.bankrupt !== "yes" && form.bankrupt !== "no") missing.push("Bankrupt or in a debt agreement");
+    if (missing.length > 0) {
+      toast.error(`Please answer: ${missing.join(", ")}`);
+      return;
+    }
     const eligible =
       form.citizen === "yes" && form.earning === "yes" && form.bankrupt === "no";
     setResult({ eligible });
