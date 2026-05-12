@@ -6259,9 +6259,9 @@ function ForcedOutcomeModal({
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>
               <span style={dotStyle("#ef4444")} /> Not Interested
             </button>
-            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("booked_deposit_paid")}>
-              <span style={dotStyle("#22c55e")} /> Booked — Deposit Paid
-            </button>
+            <div style={{ marginTop: 4, padding: "10px 12px", borderRadius: 10, background: "#f9f9f9", border: "1px dashed #d4d4d2", fontSize: 12, color: "#666", lineHeight: 1.4 }}>
+              <span style={{ fontWeight: 600, color: "#111" }}>Booked a consult?</span> Close this and complete Step 10 to lock in the date, take the deposit and create the appointment. Marking it here would skip the booking and the clinic wouldn't see it.
+            </div>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>
               <span style={dotStyle("#000000")} /> Dropped
             </button>
