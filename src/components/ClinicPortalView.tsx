@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -1370,7 +1370,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
     : alreadyRefunded
       ? "Save & close"
       : noPaymentIntent
-        ? "Save & notify Upper Hand"
+        ? "Save & notify Admin"
         : `Save & refund $${depositAmount}`;
 
   const save = async () => {
@@ -1386,7 +1386,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         },
       });
       if (!result.success) {
-        setErrorMsg(`Refund failed — ${result.error}. Please try again or contact Upper Hand.`);
+        setErrorMsg(`Refund failed — ${result.error}. Please try again or contact Admin.`);
         setSaving(false);
         // Outcome may still have been saved; surface that via a soft toast.
         if ("outcomeSaved" in result && result.outcomeSaved) {
@@ -1400,7 +1400,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
       onSaved();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      setErrorMsg(`Refund failed — ${msg}. Please try again or contact Upper Hand.`);
+      setErrorMsg(`Refund failed — ${msg}. Please try again or contact Admin.`);
       setSaving(false);
     }
   };
@@ -1435,7 +1435,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
       ) : noPaymentIntent ? (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Patient didn't pay via Stripe</div>
-          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through our payment system (likely paid by direct deposit or another method). No refund will be processed from here — the Upper Hand team will be in contact with the patient to arrange the refund directly.</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through our payment system (likely paid by direct deposit or another method). No refund will be processed from here — the Admin team will be in contact with the patient to arrange the refund directly.</div>
         </div>
       ) : (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
@@ -1511,9 +1511,19 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
 }
 
 function ModalShell({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  // Track where the mousedown started so a text selection that ends outside
+  // the modal (drag-release on backdrop) does NOT close the modal.
+  const downOnBackdropRef = useRef(false);
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
+    <div
+      onMouseDown={(e) => { downOnBackdropRef.current = e.target === e.currentTarget; }}
+      onMouseUp={(e) => {
+        if (downOnBackdropRef.current && e.target === e.currentTarget) onClose();
+        downOnBackdropRef.current = false;
+      }}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+    >
+      <div onMouseDown={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 480, width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
         {children}
       </div>
     </div>
