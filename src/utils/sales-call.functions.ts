@@ -755,7 +755,13 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
 
     const repIdForCall = (c: { rep_id: string | null; lead_id: string | null }) => {
-      const raw = c.rep_id || (c.lead_id ? leadRep.get(c.lead_id) ?? null : null);
+      // Priority: 1) call's own rep_id, 2) lead's owner, 3) sibling-call rep on
+      // same lead. (3) catches the case where Twilio's recording webhook
+      // creates a duplicate row without rep_id while another row for the same
+      // call DOES have it (e.g. Ahmed Hassoun's 933s recording row).
+      const raw = c.rep_id
+        || (c.lead_id ? leadRep.get(c.lead_id) ?? null : null)
+        || (c.lead_id ? leadCallRep.get(c.lead_id) ?? null : null);
       if (!raw) return null;
       // If the call's rep_id points to a deleted rep, remap to the current one.
       if (!knownRepIds.has(raw)) return orphanToCurrentRep.get(raw) ?? null;
