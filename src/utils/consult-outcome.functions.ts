@@ -268,3 +268,50 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: false as const, error: errMsg, outcomeSaved: true as const };
     }
   });
+
+// Lazy-resolve the Stripe payment intent + deposit amount for an existing
+// clinic appointment that was booked before we started saving them on the row
+// (e.g. deposit paid via Stripe Checkout link, then "Confirm deposit paid"
+// flow created the appointment without the PI). The clinic-portal "show"
+// modal calls this when it opens so the refund button shows correctly
+// instead of the misleading "Patient didn't pay via Stripe" notice.
+export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
+  .inputValidator((data: { appointmentId: string }) => data)
+  .handler(async ({ data }) => {
+    const { appointmentId } = data;
+    const { data: appt } = await supabaseAdmin
+      .from("clinic_appointments")
+      .select("id, lead_id, stripe_payment_intent_id, deposit_amount, stripe_refund_id")
+      .eq("id", appointmentId)
+      .maybeSingle();
+    if (!appt) return { success: false as const, error: "Appointment not found" };
+    if (appt.stripe_payment_intent_id) {
+      return { success: true as const, paymentIntentId: appt.stripe_payment_intent_id, depositAmount: appt.deposit_amount };
+    }
+    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
+    if (!stripeKey) return { success: false as const, error: "Stripe not configured" };
+
+    const paymentIntentId = await findPaidDepositPaymentIntent(stripeKey, appt.lead_id, appointmentId);
+    if (!paymentIntentId) return { success: true as const, paymentIntentId: null, depositAmount: null };
+
+    // Fetch the PI to also capture the deposit amount.
+    let depositAmount: number | null = appt.deposit_amount;
+    try {
+      const piResp = await fetch(`https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`, {
+        headers: { Authorization: "Bearer " + stripeKey },
+      });
+      const pi = (await piResp.json()) as { amount_received?: number; amount?: number };
+      if (piResp.ok) {
+        const cents = pi.amount_received ?? pi.amount ?? null;
+        if (typeof cents === "number") depositAmount = cents / 100;
+      }
+    } catch { /* ignore — amount stays null and UI falls back to clinic default */ }
+
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update({ stripe_payment_intent_id: paymentIntentId, ...(depositAmount != null ? { deposit_amount: depositAmount } : {}) })
+      .eq("id", appointmentId)
+      .is("stripe_refund_id", null);
+
+    return { success: true as const, paymentIntentId, depositAmount };
+  });
