@@ -703,10 +703,18 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
     const repIdForLead = (leadId: string) => leadRep.get(leadId) || leadCallRep.get(leadId) || null;
 
-    // HARD RULE — exclude any lead whose name is "Peter Test" from every leaderboard metric.
+    // HARD RULE — exclude any test lead. Matches first="peter" + last starting with "test"
+    // (so "Peter Test", "Peter Test 2", "Peter Test 3", etc. are all skipped),
+    // and any lead whose first OR last name is literally "test".
     const excludedLeadIds = new Set(
       (leadRows ?? [])
-        .filter((l) => (l.first_name ?? "").trim().toLowerCase() === "peter" && (l.last_name ?? "").trim().toLowerCase() === "test")
+        .filter((l) => {
+          const fn = (l.first_name ?? "").trim().toLowerCase();
+          const ln = (l.last_name ?? "").trim().toLowerCase();
+          if (fn === "peter" && ln.startsWith("test")) return true;
+          if (fn === "test" || ln === "test") return true;
+          return false;
+        })
         .map((l) => l.id as string),
     );
 
