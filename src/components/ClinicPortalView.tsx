@@ -1361,17 +1361,44 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const depositAmount = appt.deposit_amount ?? clinicDefaultDeposit;
+  // Lazy-resolved Stripe info for legacy appointments where the payment intent
+  // wasn't saved on the row at booking time. Starts with whatever's on the row;
+  // gets filled in on mount via Stripe lookup.
+  const [resolvedPiId, setResolvedPiId] = useState<string | null>(appt.stripe_payment_intent_id);
+  const [resolvedDeposit, setResolvedDeposit] = useState<number | null>(appt.deposit_amount);
+  const [resolving, setResolving] = useState(!appt.stripe_payment_intent_id && !appt.stripe_refund_id);
+
+  useEffect(() => {
+    if (appt.stripe_payment_intent_id || appt.stripe_refund_id) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { resolveAppointmentDeposit } = await import("@/utils/consult-outcome.functions");
+        const r = await resolveAppointmentDeposit({ data: { appointmentId: appt.id } });
+        if (cancelled) return;
+        if (r.success) {
+          setResolvedPiId(r.paymentIntentId ?? null);
+          if (r.depositAmount != null) setResolvedDeposit(r.depositAmount);
+        }
+      } catch { /* keep falling back to "no payment intent" copy */ }
+      finally { if (!cancelled) setResolving(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [appt.id, appt.stripe_payment_intent_id, appt.stripe_refund_id]);
+
+  const depositAmount = resolvedDeposit ?? clinicDefaultDeposit;
   const alreadyRefunded = !!appt.stripe_refund_id;
-  const noPaymentIntent = !appt.stripe_payment_intent_id;
+  const noPaymentIntent = !resolvedPiId;
 
   const submitLabel = proceeded
     ? "Save & close"
     : alreadyRefunded
       ? "Save & close"
-      : noPaymentIntent
-        ? "Save & notify Admin"
-        : `Save & refund $${depositAmount}`;
+      : resolving
+        ? "Checking payment…"
+        : noPaymentIntent
+          ? "Save & notify Admin"
+          : `Save & refund $${depositAmount}`;
 
   const save = async () => {
     setSaving(true);
