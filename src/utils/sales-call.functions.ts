@@ -765,15 +765,15 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     }
 
     const repIdForCall = (c: { rep_id: string | null; lead_id: string | null; called_at: string | null }) => {
-      // Priority: 1) call's own rep_id, 2) lead's owner, 3) sibling-call rep on
-      // same lead. (3) catches the case where Twilio's recording webhook
-      // creates a duplicate row without rep_id while another row for the same
-      // call DOES have it (e.g. Ahmed Hassoun's 933s recording row).
+      // Attribution rule: credit ONLY the rep who actually clicked dial on this
+      // call (rep_id stamped on the call_record). Do NOT fall back to the lead's
+      // assigned owner — assignment ≠ who called.
+      // Exception: sibling-call lookup on the same lead is still allowed because
+      // it recovers the rep_id for Twilio's duplicate recording row (same
+      // physical dial, just a second row without rep_id).
       const raw = (repCanOwnAt(c.rep_id, c.called_at) ? c.rep_id : null)
-        || (c.lead_id ? repIdForLead(c.lead_id, c.called_at) : null)
         || (c.lead_id ? leadCallRep.get(c.lead_id) ?? null : null);
       if (!raw) return null;
-      // If the call's rep_id points to a deleted rep, remap to the current one.
       if (!knownRepIds.has(raw)) return orphanToCurrentRep.get(raw) ?? null;
       return raw;
     };
