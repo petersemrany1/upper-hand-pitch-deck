@@ -696,12 +696,22 @@ export const getLeaderboard = createServerFn({ method: "POST" })
         .select("id, rep_id, first_name, last_name")
         .in("id", relevantLeadIds)
       : { data: [] };
+    const repCreatedAt = new Map((reps ?? []).map((r) => [r.id as string, new Date(r.created_at as string).getTime()]));
+    const repCanOwnAt = (repId: string | null | undefined, at: string | null | undefined) => {
+      if (!repId || !at) return false;
+      const created = repCreatedAt.get(repId);
+      return created === undefined || new Date(at).getTime() >= created;
+    };
     const leadRep = new Map((leadRows ?? []).map((l) => [l.id as string, l.rep_id as string | null]));
     const leadCallRep = new Map<string, string>();
     for (const c of calls ?? []) {
-      if (c.lead_id && c.rep_id) leadCallRep.set(c.lead_id as string, c.rep_id as string);
+      if (c.lead_id && c.rep_id && repCanOwnAt(c.rep_id as string, c.called_at as string)) leadCallRep.set(c.lead_id as string, c.rep_id as string);
     }
-    const repIdForLead = (leadId: string) => leadRep.get(leadId) || leadCallRep.get(leadId) || null;
+    const repIdForLead = (leadId: string, at?: string | null) => {
+      const owner = leadRep.get(leadId) ?? null;
+      if (owner && (!at || repCanOwnAt(owner, at))) return owner;
+      return leadCallRep.get(leadId) || null;
+    };
 
     // HARD RULE — exclude any test lead. Matches first="peter" + last starting with "test"
     // (so "Peter Test", "Peter Test 2", "Peter Test 3", etc. are all skipped),
@@ -754,13 +764,13 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       if (bestId) orphanToCurrentRep.set(orphanId, bestId);
     }
 
-    const repIdForCall = (c: { rep_id: string | null; lead_id: string | null }) => {
+    const repIdForCall = (c: { rep_id: string | null; lead_id: string | null; called_at: string | null }) => {
       // Priority: 1) call's own rep_id, 2) lead's owner, 3) sibling-call rep on
       // same lead. (3) catches the case where Twilio's recording webhook
       // creates a duplicate row without rep_id while another row for the same
       // call DOES have it (e.g. Ahmed Hassoun's 933s recording row).
-      const raw = c.rep_id
-        || (c.lead_id ? leadRep.get(c.lead_id) ?? null : null)
+      const raw = (repCanOwnAt(c.rep_id, c.called_at) ? c.rep_id : null)
+        || (c.lead_id ? repIdForLead(c.lead_id, c.called_at) : null)
         || (c.lead_id ? leadCallRep.get(c.lead_id) ?? null : null);
       if (!raw) return null;
       // If the call's rep_id points to a deleted rep, remap to the current one.
