@@ -635,7 +635,6 @@ function CallOutcomePrompt({
     "callback_scheduled",
     "had_convo_chase_up",
     "not_interested",
-    "booked_deposit_paid",
     "dropped",
   ];
 
