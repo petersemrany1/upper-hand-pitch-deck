@@ -1513,7 +1513,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
 function ModalShell({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   // Track where the mousedown started so a text selection that ends outside
   // the modal (drag-release on backdrop) does NOT close the modal.
-  const downOnBackdropRef = React.useRef(false);
+  const downOnBackdropRef = useRef(false);
   return (
     <div
       onMouseDown={(e) => { downOnBackdropRef.current = e.target === e.currentTarget; }}
