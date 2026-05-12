@@ -749,7 +749,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     for (const c of calls ?? []) {
       if (!c.rep_id || knownRepIds.has(c.rep_id as string)) continue;
       const leadOwner = c.lead_id ? leadRep.get(c.lead_id as string) : null;
-      if (!leadOwner || !knownRepIds.has(leadOwner)) continue;
+      if (!leadOwner || !knownRepIds.has(leadOwner) || !repCanOwnAt(leadOwner, c.called_at as string)) continue;
       const inner = orphanRepLeadCounts.get(c.rep_id as string) ?? new Map<string, number>();
       inner.set(leadOwner, (inner.get(leadOwner) ?? 0) + 1);
       orphanRepLeadCounts.set(c.rep_id as string, inner);
