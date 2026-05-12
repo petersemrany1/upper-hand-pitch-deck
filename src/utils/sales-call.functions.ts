@@ -729,8 +729,38 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       return true;
     });
 
-    const repIdForCall = (c: { rep_id: string | null; lead_id: string | null }) =>
-      c.rep_id || (c.lead_id ? leadRep.get(c.lead_id) ?? null : null);
+    // Orphan rep_id reconciliation: when a rep gets re-invited, their sales_reps
+    // row gets a new id but historical call_records still reference the old id.
+    // We can't recover the original email from a deleted rep row, so as a safety
+    // net we map ANY orphan rep_id (one that isn't in sales_reps anymore) to the
+    // single surviving rep that owns most of the leads those orphan calls were on.
+    const knownRepIds = new Set((reps ?? []).map((r) => r.id as string));
+    const orphanRepLeadCounts = new Map<string, Map<string, number>>(); // orphanRepId -> (currentRepId -> count)
+    for (const c of calls ?? []) {
+      if (!c.rep_id || knownRepIds.has(c.rep_id as string)) continue;
+      const leadOwner = c.lead_id ? leadRep.get(c.lead_id as string) : null;
+      if (!leadOwner || !knownRepIds.has(leadOwner)) continue;
+      const inner = orphanRepLeadCounts.get(c.rep_id as string) ?? new Map<string, number>();
+      inner.set(leadOwner, (inner.get(leadOwner) ?? 0) + 1);
+      orphanRepLeadCounts.set(c.rep_id as string, inner);
+    }
+    const orphanToCurrentRep = new Map<string, string>();
+    for (const [orphanId, ownerCounts] of orphanRepLeadCounts.entries()) {
+      let bestId: string | null = null;
+      let bestCount = 0;
+      for (const [ownerId, n] of ownerCounts.entries()) {
+        if (n > bestCount) { bestCount = n; bestId = ownerId; }
+      }
+      if (bestId) orphanToCurrentRep.set(orphanId, bestId);
+    }
+
+    const repIdForCall = (c: { rep_id: string | null; lead_id: string | null }) => {
+      const raw = c.rep_id || (c.lead_id ? leadRep.get(c.lead_id) ?? null : null);
+      if (!raw) return null;
+      // If the call's rep_id points to a deleted rep, remap to the current one.
+      if (!knownRepIds.has(raw)) return orphanToCurrentRep.get(raw) ?? null;
+      return raw;
+    };
 
     const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
