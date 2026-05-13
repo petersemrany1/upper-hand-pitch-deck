@@ -11,8 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 // gate Supabase queries on `ready` so we don't fire requests before the JWT
 // is attached to the client.
 
-export type Role = "admin" | "rep";
-export type UserType = "admin" | "rep" | "clinic" | "unknown";
+export type Role = "admin" | "rep" | "caller";
+export type UserType = "admin" | "rep" | "caller" | "clinic" | "unknown";
 
 type AuthState = {
   session: Session | null;
@@ -67,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       if (cancelled) return;
       if (rep) {
-        const r: Role = rep.role === "admin" ? "admin" : "rep";
+        const r: Role = rep.role === "admin" ? "admin" : rep.role === "caller" ? "caller" : "rep";
         setRole(r);
         setUserType(r);
         setClinicId(null);

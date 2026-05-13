@@ -97,16 +97,27 @@ export function AppSidebar() {
     return () => { cancelled = true; };
   }, [user?.email]);
 
+  // Cold callers see ONLY Clinics + Phone (SMS inbox).
   // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
   const folders: NavFolder[] = role === "admin"
     ? ALL_FOLDERS
-    : ALL_FOLDERS
-        .filter((f) => f.title !== "Clinic Acquisition")
-        .map((f) =>
-          f.title === "Sales"
-            ? { ...f, items: f.items.filter((i) => i.title !== "Leads" && i.title !== "Analytics") }
-            : f
-        );
+    : role === "caller"
+      ? [{
+          title: "Clinic Acquisition",
+          repIcon: Building2,
+          repUrl: "/clinics",
+          items: [
+            { title: "Clinics", url: "/clinics", icon: Building2 },
+            { title: "Phone", url: "/inbox", icon: Phone },
+          ],
+        }]
+      : ALL_FOLDERS
+          .filter((f) => f.title !== "Clinic Acquisition")
+          .map((f) =>
+            f.title === "Sales"
+              ? { ...f, items: f.items.filter((i) => i.title !== "Leads" && i.title !== "Analytics") }
+              : f
+          );
 
   const isActive = (path: string) => currentPath === path;
 
@@ -214,7 +225,7 @@ export function AppSidebar() {
         <SidebarGroup className="pt-2">
           <SidebarGroupContent>
             <SidebarMenu>
-              {renderItem(topItem)}
+              {role !== "caller" && renderItem(topItem)}
 
               {folders.map((folder) => {
                 const open = openFolders[folder.title];
