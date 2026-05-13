@@ -836,7 +836,7 @@ function ClinicsPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#f7f7f5" }}>
       {/* Today's Actions Panel */}
-      {todayActions.length > 0 && (
+      {!isClinicSetter && todayActions.length > 0 && (
         <div style={{ borderBottom: "1px solid #f9f9f9" }}>
           <button
             onClick={() => setTodayExpanded(!todayExpanded)}
