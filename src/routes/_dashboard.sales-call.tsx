@@ -4776,6 +4776,7 @@ function RightPanel({
   // Forced-outcome modal: shown after a non-booked call >= 10s ends
   const [outcomeRequired, setOutcomeRequired] = useState(false);
   const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
+  const [outcomePending, setOutcomePending] = useState(false);
   const wasInCallRef = useRef(false);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
   const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
@@ -4925,6 +4926,9 @@ function RightPanel({
     const prev = prevDeviceStatusRef.current;
     if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call") {
       onCallStarted?.();
+      // Mark that a dial happened — even if the call never connects, the rep
+      // must log an outcome (e.g. No Answer) before moving to the next lead.
+      wasInCallRef.current = true;
     }
     prevDeviceStatusRef.current = deviceStatus;
   }, [deviceStatus, onCallStarted]);
@@ -4947,6 +4951,7 @@ function RightPanel({
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
         setCallDurationAtHangup(callTimerRef.current);
+        setOutcomePending(true);
       }
       setCallTimer(0);
       callTimerRef.current = 0;
@@ -4997,8 +5002,8 @@ function RightPanel({
               toast.error("End the call first");
               return;
             }
-            // If a call was just completed, force an outcome before moving on
-            if (callDurationAtHangup > 0) {
+            // If a call was just dialled, force an outcome before moving on
+            if (outcomePending) {
               setOutcomeRequired(true);
               onOutcomeRequiredChange?.(true);
               return;
@@ -6154,6 +6159,7 @@ function RightPanel({
           onClosed={(status?: string) => {
             setOutcomeRequired(false);
             setCallDurationAtHangup(0);
+            setOutcomePending(false);
             setOutcomeView("menu");
             setOutcomeCallbackDate("");
             setOutcomeCallbackTime("");
