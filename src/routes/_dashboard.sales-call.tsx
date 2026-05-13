@@ -327,6 +327,12 @@ function SalesCallPortal() {
   // InCallPanel surfaces a modal and sets this ref to true so the parent
   // can block lead navigation until an outcome is selected.
   const outcomeRequiredRef = useRef(false);
+  // Mirrors RightPanel's `outcomePending` (set the moment a dial fires).
+  // We check this on every "jump to lead" shortcut (missed-call popups,
+  // ?leadId= deeplinks, callbacks list, manual lead pick) so a click that
+  // would whisk us away from a just-dialled lead is intercepted instead.
+  const outcomePendingRef = useRef(false);
+  const gateActive = () => outcomeRequiredRef.current || outcomePendingRef.current;
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
   useEffect(() => {
     // Reset the inner column scroll AND every scrollable ancestor (the
