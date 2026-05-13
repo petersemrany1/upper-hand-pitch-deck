@@ -278,7 +278,28 @@ function SalesCallPortal() {
           .map((row) => row.id),
       );
 
-      setSessionCalls(ownedCalls.length);
+      // Dedupe double-dials: collapse consecutive calls to the same lead/phone
+      // within 60 seconds into a single attempt. A "double dial" (hang up
+      // immediately, redial) shouldn't count as two calls.
+      const DOUBLE_DIAL_WINDOW_MS = 60_000;
+      const sorted = [...ownedCalls].sort((a, b) => {
+        const at = new Date(a.called_at as string).getTime();
+        const bt = new Date(b.called_at as string).getTime();
+        return at - bt;
+      });
+      const lastByKey = new Map<string, number>();
+      let uniqueCalls = 0;
+      for (const row of sorted) {
+        const key = row.lead_id || normalisePhoneDigits(row.phone) || row.id;
+        const t = new Date(row.called_at as string).getTime();
+        const prev = lastByKey.get(key);
+        if (prev === undefined || t - prev > DOUBLE_DIAL_WINDOW_MS) {
+          uniqueCalls += 1;
+        }
+        lastByKey.set(key, t);
+      }
+
+      setSessionCalls(uniqueCalls);
       setSessionBookings(bookedLeadIds.size);
     };
 
