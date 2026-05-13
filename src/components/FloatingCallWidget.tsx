@@ -15,12 +15,13 @@ import { toast } from "sonner";
 //   - keypad overlay inside the expanded panel (DTMF tones)
 // After the call ends, prompts the user to log the outcome.
 
-type Outcome = "no_answer" | "callback_scheduled" | "had_convo_chase_up" | "not_interested" | "booked_deposit_paid" | "dropped";
+type Outcome = "no_answer" | "callback_scheduled" | "had_convo_chase_up" | "had_convo_no_sale" | "not_interested" | "booked_deposit_paid" | "dropped";
 
 const OUTCOME_LABELS: Record<Outcome, string> = {
   no_answer: "No Answer",
   callback_scheduled: "Callback Scheduled",
   had_convo_chase_up: "Had Convo — Chase Up",
+  had_convo_no_sale: "Had Convo — No Sale",
   not_interested: "Not Interested",
   booked_deposit_paid: "Booked — Deposit Paid",
   dropped: "Dropped",
@@ -30,6 +31,7 @@ const OUTCOME_DOT: Record<Outcome, string> = {
   no_answer: "#eab308",          // yellow
   callback_scheduled: "#f97316", // orange
   had_convo_chase_up: "#5b3a13", // dark brown
+  had_convo_no_sale: "#be185d",  // rose
   not_interested: "#ef4444",     // red
   booked_deposit_paid: "#22c55e",// green
   dropped: "#000000",            // black
