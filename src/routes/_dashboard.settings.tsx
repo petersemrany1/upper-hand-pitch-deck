@@ -597,7 +597,13 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
             <Field label="First name" value={firstName} onChange={setFirstName} placeholder="First name" />
             <Field label="Last name" value={lastName} onChange={setLastName} placeholder="Last name" />
           </div>
-          <Field label="Email" value={email} onChange={setEmail} placeholder="user@company.com" type="email" />
+          <Field
+            label={mode === "password" ? "Username or email" : "Email"}
+            value={email}
+            onChange={setEmail}
+            placeholder={mode === "password" ? "e.g. john or john@company.com" : "user@company.com"}
+            type="text"
+          />
 
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Access level</label>

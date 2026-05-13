@@ -414,13 +414,23 @@ export const inviteRep = createServerFn({ method: "POST" })
     }
     if (!data.firstName) return { success: false as const, error: "First name required" };
     if (!data.lastName) return { success: false as const, error: "Last name required" };
-    if (!data.email || !data.email.includes("@")) return { success: false as const, error: "Valid email required" };
-    if (data.password !== undefined && data.password.length < 8) {
+    if (!data.email) return { success: false as const, error: "Username or email required" };
+    const manualPassword = data.password;
+    // In invite-link mode we MUST have a real email. In manual-password mode, allow a username
+    // (no @) and synthesize an internal email so Supabase auth accepts it.
+    if (!manualPassword && !data.email.includes("@")) {
+      return { success: false as const, error: "A real email is required to send an invite link. Switch to 'I'll set a password' to use a username." };
+    }
+    if (manualPassword && manualPassword.length < 8) {
       return { success: false as const, error: "Password must be at least 8 characters" };
+    }
+    if (!data.email.includes("@")) {
+      const safe = data.email.replace(/[^a-z0-9._-]/g, "");
+      if (!safe) return { success: false as const, error: "Username must contain letters or numbers" };
+      data.email = `${safe}@team.local`;
     }
 
     const fullName = `${data.firstName} ${data.lastName}`.trim();
-    const manualPassword = data.password;
 
     const { data: existing } = await supabaseAdmin.from("sales_reps")
       .select("*").ilike("email", data.email).maybeSingle();
