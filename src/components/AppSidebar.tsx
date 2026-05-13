@@ -225,7 +225,7 @@ export function AppSidebar() {
         <SidebarGroup className="pt-2">
           <SidebarGroupContent>
             <SidebarMenu>
-              {renderItem(topItem)}
+              {role !== "caller" && renderItem(topItem)}
 
               {folders.map((folder) => {
                 const open = openFolders[folder.title];
