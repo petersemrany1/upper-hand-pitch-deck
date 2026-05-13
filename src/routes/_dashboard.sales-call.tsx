@@ -222,6 +222,7 @@ function SalesCallPortal() {
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
       startedAt: sessionStartedAt,
+      lastTickAt: new Date().toISOString(),
     }));
   }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
