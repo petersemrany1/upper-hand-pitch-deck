@@ -124,7 +124,8 @@ function digitsOnly(s: string | null | undefined): string {
 }
 
 export function NotificationsProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isClinicSetter = role === "caller";
   const userId = user?.id ?? null;
   const [unreadThreads, setUnreadThreads] = useState<UnreadThread[]>([]);
   const [missedCalls, setMissedCalls] = useState<MissedCall[]>([]);
@@ -184,6 +185,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   }, [userId]);
 
   const fetchThreads = useCallback(async () => {
+    if (isClinicSetter) {
+      setUnreadThreads([]);
+      return;
+    }
     if (!acksReady) return;
     const { data } = await supabase
       .from("sms_threads")
@@ -221,9 +226,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           last_message_at: t.last_message_at,
         }))
     );
-  }, [acksReady]);
+  }, [acksReady, isClinicSetter]);
 
   const fetchMissed = useCallback(async () => {
+    if (isClinicSetter) {
+      setMissedCalls([]);
+      return;
+    }
     if (!acksReady) return;
     // Pull recent inbound calls; consider missed when duration is null/0 and
     // status is not in-progress / completed.
@@ -285,7 +294,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         called_at: r.called_at,
       }))
     );
-  }, [acksReady]);
+  }, [acksReady, isClinicSetter]);
 
   const refresh = useCallback(() => {
     void fetchThreads();
