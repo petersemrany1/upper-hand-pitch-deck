@@ -597,6 +597,37 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
             <Field label="Last name" value={lastName} onChange={setLastName} placeholder="Last name" />
           </div>
           <Field label="Email" value={email} onChange={setEmail} placeholder="rep@company.com" type="email" />
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Access level</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["rep", "admin", "caller"] as const).map((opt) => {
+                const active = inviteRole === opt;
+                const label = opt === "caller" ? "Clinic Setter" : opt === "admin" ? "Admin" : "Sales Rep";
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setInviteRole(opt)}
+                    className="px-3 py-2 rounded-md text-xs font-medium border transition-colors"
+                    style={{
+                      borderColor: active ? "#f4522d" : "#e5e5e3",
+                      background: active ? "#fff1ee" : "#fff",
+                      color: active ? "#f4522d" : "#111",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              {inviteRole === "caller"
+                ? "Locked to the Clinics page + SMS inbox. Cold-calls clinics with your Twilio numbers."
+                : inviteRole === "admin"
+                ? "Full access to everything including team and pricing settings."
+                : "Standard sales rep — Sales Portal, Appointments, Leaderboard."}
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
