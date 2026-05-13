@@ -3706,6 +3706,7 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
   { key: "no_answer",            label: "No Answer",            emoji: "🟡", color: "#a16207", bg: "#fef9c3" },
   { key: "callback_scheduled",   label: "Callback Scheduled",   emoji: "🟠", color: "#c2410c", bg: "#ffedd5" },
   { key: "had_convo_chase_up",   label: "Had Convo — Chase Up", emoji: "🟤", color: "#92400e", bg: "#fde68a" },
+  { key: "had_convo_no_sale",    label: "Had Convo — No Sale",  emoji: "🩷", color: "#be185d", bg: "#fce7f3" },
   { key: "not_interested",       label: "Not Interested",       emoji: "🔴", color: "#b91c1c", bg: "#fee2e2" },
   { key: "booked_no_deposit",    label: "Booked — No Deposit",  emoji: "🟣", color: "#7e22ce", bg: "#f3e8ff" },
   { key: "booked_deposit_paid",  label: "Booked — Deposit Paid",emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
