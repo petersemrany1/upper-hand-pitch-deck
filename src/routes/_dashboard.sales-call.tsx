@@ -6280,6 +6280,9 @@ function ForcedOutcomeModal({
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>
               <span style={dotStyle("#5b3a13")} /> Had Convo — Chase Up
             </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_no_sale")}>
+              <span style={dotStyle("#be185d")} /> Had Convo — No Sale
+            </button>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>
               <span style={dotStyle("#ef4444")} /> Not Interested
             </button>
