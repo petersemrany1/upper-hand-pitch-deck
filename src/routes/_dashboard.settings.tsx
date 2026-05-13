@@ -550,6 +550,8 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<"rep" | "admin" | "caller">("rep");
+  const [mode, setMode] = useState<"invite" | "password">("invite");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -557,17 +559,21 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
       toast.error("All fields required");
       return;
     }
+    if (mode === "password" && password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
     setLoading(true);
     try {
-      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole } });
+      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? password : undefined } });
       if (r.success) {
-        toast.success(`Invite sent to ${email}`);
+        toast.success(mode === "password" ? `${email} created — share their password securely` : `Invite sent to ${email}`);
         onDone();
       } else {
-        toast.error(r.error || "Failed to send invite");
+        toast.error(r.error || "Failed to create user");
       }
     } catch (err) {
-      toast.error((err as Error)?.message || "Failed to send invite");
+      toast.error((err as Error)?.message || "Failed to create user");
     } finally {
       setLoading(false);
     }
@@ -579,24 +585,20 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <Mail className="h-4 w-4 text-primary" />
-            <h3 className="text-base font-bold">Invite a new rep</h3>
+            <h3 className="text-base font-bold">Add a new user</h3>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted">
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
 
-        <p className="text-xs text-muted-foreground mb-4 leading-relaxed">
-          We'll send them an email invite. They click the link, set their own password,
-          and they're added to the team automatically.
-        </p>
-
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name" value={firstName} onChange={setFirstName} placeholder="First name" />
             <Field label="Last name" value={lastName} onChange={setLastName} placeholder="Last name" />
           </div>
-          <Field label="Email" value={email} onChange={setEmail} placeholder="rep@company.com" type="email" />
+          <Field label="Email" value={email} onChange={setEmail} placeholder="user@company.com" type="email" />
+
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Access level</label>
             <div className="grid grid-cols-3 gap-2">
@@ -628,6 +630,42 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
                 : "Standard sales rep — Sales Portal, Appointments, Leaderboard."}
             </p>
           </div>
+
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">How they'll log in</label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["invite", "password"] as const).map((opt) => {
+                const active = mode === opt;
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setMode(opt)}
+                    className="px-3 py-2 rounded-md text-xs font-medium border transition-colors"
+                    style={{
+                      borderColor: active ? "#f4522d" : "#e5e5e3",
+                      background: active ? "#fff1ee" : "#fff",
+                      color: active ? "#f4522d" : "#111",
+                    }}
+                  >
+                    {opt === "invite" ? "Email invite link" : "I'll set a password"}
+                  </button>
+                );
+              })}
+            </div>
+            {mode === "password" ? (
+              <div className="mt-3">
+                <Field label="Password (min 8 chars)" value={password} onChange={setPassword} placeholder="Type a password to give them" type="text" />
+                <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                  Account is created instantly. Share the email + password with them — they can change it later from the login page.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                We'll email them a link to set their own password.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
@@ -643,7 +681,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
             className="px-4 py-2 rounded-md text-sm font-bold transition-opacity disabled:opacity-60"
             style={{ background: "#f4522d", color: "#fff" }}
           >
-            {loading ? "Sending…" : "Send Invite"}
+            {loading ? "Saving…" : mode === "password" ? "Create User" : "Send Invite"}
           </button>
         </div>
       </div>
