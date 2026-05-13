@@ -4776,7 +4776,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
-  onOutcomeRequiredChange, onAfterOutcomeApplied, onCallStarted,
+  onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted,
 }: {
   active: Lead;
   repId: string | null;
@@ -4788,6 +4788,7 @@ function RightPanel({
   onPreviousLead: () => void;
   hasPreviousLead: boolean;
   onOutcomeRequiredChange?: (val: boolean) => void;
+  onOutcomePendingChange?: (val: boolean) => void;
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
   onCallStarted?: () => void;
 }) {
