@@ -4822,8 +4822,16 @@ function RightPanel({
     setOutcomePending(g.pending);
     setOutcomeRequired(g.required);
     onOutcomeRequiredChange?.(g.required);
+    onOutcomePendingChange?.(g.pending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
+
+  // Mirror outcomePending up to the parent so jump-to-lead shortcuts
+  // (missed-call popup, ?leadId= deeplink, callbacks list) can also gate.
+  useEffect(() => {
+    onOutcomePendingChange?.(outcomePending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomePending]);
 
   // Persist gate to sessionStorage whenever it changes for the active lead.
   useEffect(() => {
