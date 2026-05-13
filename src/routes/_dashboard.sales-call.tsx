@@ -2613,7 +2613,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       const [yy, mm, dd] = form.date.split("-").map(Number);
       const dateObj = new Date(yy, mm - 1, dd);
       const clinicState = (pc as { state?: string | null } | null)?.state ?? null;
-      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[], (ov ?? []) as AvailabilityOverride[], clinicState);
+      const thFifteen = ((th ?? []) as TradingHours[]).map((t) => ({ ...t, consult_duration_mins: 15 }));
+      const slots = generateSlots(dateObj, thFifteen, (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[], (ov ?? []) as AvailabilityOverride[], clinicState);
       const target = slots.find((s) => s.time === form.time || s.time === form.time.slice(0, 5));
       if (!target || !target.available) {
         toast.error("That time is not available — pick another slot.");
