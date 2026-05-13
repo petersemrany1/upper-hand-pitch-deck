@@ -3695,6 +3695,7 @@ type StatusKey =
   | "no_answer"
   | "callback_scheduled"
   | "had_convo_chase_up"
+  | "had_convo_no_sale"
   | "not_interested"
   | "booked_no_deposit"
   | "booked_deposit_paid"
