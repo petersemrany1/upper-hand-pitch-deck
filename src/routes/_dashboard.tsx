@@ -21,6 +21,7 @@ function DashboardLayout() {
   const { session, ready, role, userType } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
   const pageOwnsNotificationBell = ["/sales-call", "/leaderboard"].includes(location.pathname);
+  const isClinicSetter = role === "caller";
 
   // Redirect unauthenticated users once the session check has resolved.
   useEffect(() => {
@@ -50,12 +51,11 @@ function DashboardLayout() {
     }
   }, [ready, session, role, location.pathname, navigate]);
 
-  // Cold callers (clinic acquisition) are locked to /clinics + /inbox + /settings.
+  // Clinic setters are locked to the clinic CRM only.
   useEffect(() => {
     if (!ready || !session) return;
     if (role !== "caller") return;
-    const allowed = ["/clinics", "/inbox", "/settings"];
-    if (!allowed.includes(location.pathname)) {
+    if (location.pathname !== "/clinics") {
       navigate({ to: "/clinics", replace: true });
     }
   }, [ready, session, role, location.pathname, navigate]);
@@ -113,7 +113,7 @@ function DashboardLayout() {
               style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
               aria-label="Open navigation"
             />
-            {!pageOwnsNotificationBell && (
+            {!isClinicSetter && !pageOwnsNotificationBell && (
               <div className="fixed top-3 right-3 z-50">
                 <NotificationBell />
               </div>
