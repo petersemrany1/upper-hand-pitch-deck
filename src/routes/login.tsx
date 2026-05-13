@@ -12,7 +12,7 @@ function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn, session, loading, userType, ready } = useAuth();
-  const [email, setEmail] = useState("");
+  const [usernameOrEmail, setUsernameOrEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -34,7 +34,7 @@ function LoginPage() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const { error: err } = await signIn(email.trim(), password);
+    const { error: err } = await signIn(usernameOrEmail.trim(), password);
     setSubmitting(false);
     if (err) {
       setError(err);
@@ -62,14 +62,14 @@ function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
-              Email
+              Username or email
             </label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              value={usernameOrEmail}
+              onChange={(e) => setUsernameOrEmail(e.target.value)}
+              autoComplete="username"
               className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
               style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
             />
