@@ -494,7 +494,7 @@ function TeamSection() {
                   <td className="px-4 py-3 text-muted-foreground">{r.email || "—"}</td>
                   <td className="px-4 py-3">
                     <select
-                      value={r.role === "admin" ? "admin" : r.role === "caller" ? "caller" : "rep"}
+                      value={r.role === "admin" ? "admin" : ["caller", "clinic_setter"].includes(r.role) ? "caller" : "rep"}
                       onChange={(e) => void onRoleChange(r, e.target.value as "admin" | "rep" | "caller")}
                       className="px-2 py-1 rounded-md text-xs border border-border bg-background focus:outline-none focus:border-primary"
                     >
