@@ -670,7 +670,7 @@ function SalesCallPortal() {
                       <button
                         key={l.id}
                         onClick={() => {
-                          if (outcomeRequiredRef.current) {
+                          if (gateActive()) {
                             setPendingLeadId(l.id);
                             toast.error("Please set a call outcome first");
                             return;
@@ -708,7 +708,7 @@ function SalesCallPortal() {
                 setSessionPaused(false);
                 setSessionActive(true);
                 if (q.length > 0) {
-                  if (outcomeRequiredRef.current) {
+                  if (gateActive()) {
                     setPendingLeadId(q[0]);
                     toast.error("Please set a call outcome first");
                     return;
@@ -756,7 +756,7 @@ function SalesCallPortal() {
                 firstCallByLead={firstCallByLead}
                 onLocalLeadUpdate={updateLocalLead}
                 onPick={(id) => {
-                  if (outcomeRequiredRef.current) {
+                  if (gateActive()) {
                     setPendingLeadId(id);
                     toast.error("Please set a call outcome first");
                     return;
