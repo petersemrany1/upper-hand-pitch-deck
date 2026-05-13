@@ -4926,6 +4926,9 @@ function RightPanel({
     const prev = prevDeviceStatusRef.current;
     if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call") {
       onCallStarted?.();
+      // Mark that a dial happened — even if the call never connects, the rep
+      // must log an outcome (e.g. No Answer) before moving to the next lead.
+      wasInCallRef.current = true;
     }
     prevDeviceStatusRef.current = deviceStatus;
   }, [deviceStatus, onCallStarted]);
