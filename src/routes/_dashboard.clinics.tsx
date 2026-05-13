@@ -227,6 +227,8 @@ function truncateNote(text: string | null | undefined, max = 40): string {
 }
 
 function ClinicsPage() {
+  const { role } = useAuth();
+  const isClinicSetter = role === "caller";
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
