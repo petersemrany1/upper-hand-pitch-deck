@@ -427,7 +427,7 @@ export const inviteRep = createServerFn({ method: "POST" })
     if (!data.email.includes("@")) {
       const safe = data.email.replace(/[^a-z0-9._-]/g, "");
       if (!safe) return { success: false as const, error: "Username must contain letters or numbers" };
-      data.email = `${safe}@team.local`;
+      data.email = `${safe}@team.hairtransplantgroup.app`;
     }
 
     const fullName = `${data.firstName} ${data.lastName}`.trim();
