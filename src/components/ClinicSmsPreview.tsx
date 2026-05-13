@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { MessageSquare, ArrowRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 // Shows the most recent SMS preview for a clinic and a link to open the full
 // thread in the Inbox. Falls back to a "Send first SMS" CTA when there's no
@@ -29,6 +30,8 @@ function fmtTime(iso: string): string {
 }
 
 export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
+  const { role } = useAuth();
+  const isClinicSetter = role === "caller";
   const [latest, setLatest] = useState<LatestMsg | null>(null);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +76,7 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
     <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
       <div className="flex items-center justify-between mb-3">
         <div className="text-[10px] uppercase font-bold" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>LATEST SMS</div>
-        {(threadId || clinicPhone) && (
+        {!isClinicSetter && (threadId || clinicPhone) && (
           <Link
             to="/inbox"
             search={threadId ? { thread: threadId } : { phone: clinicPhone ?? undefined }}
@@ -91,7 +94,7 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
         <p className="text-xs" style={{ color: "#111111" }}>No phone on file.</p>
       )}
 
-      {!loading && !latest && clinicPhone && (
+      {!loading && !latest && clinicPhone && !isClinicSetter && (
         <Link
           to="/inbox"
           search={{ phone: clinicPhone }}
@@ -101,6 +104,10 @@ export function ClinicSmsPreview({ clinicId, clinicPhone }: Props) {
           <MessageSquare className="w-3.5 h-3.5" />
           Send first SMS to {clinicPhone}
         </Link>
+      )}
+
+      {!loading && !latest && clinicPhone && isClinicSetter && (
+        <p className="text-xs" style={{ color: "#111111" }}>No SMS thread yet.</p>
       )}
 
       {!loading && latest && (

@@ -97,18 +97,17 @@ export function AppSidebar() {
     return () => { cancelled = true; };
   }, [user?.email]);
 
-  // Cold callers see ONLY Clinics + Phone (SMS inbox).
+  // Clinic setters see ONLY the clinic CRM.
   // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
   const folders: NavFolder[] = role === "admin"
     ? ALL_FOLDERS
     : role === "caller"
       ? [{
-          title: "Clinic Acquisition",
+          title: "Clinic CRM",
           repIcon: Building2,
           repUrl: "/clinics",
           items: [
             { title: "Clinics", url: "/clinics", icon: Building2 },
-            { title: "Phone", url: "/inbox", icon: Phone },
           ],
         }]
       : ALL_FOLDERS
@@ -277,7 +276,7 @@ export function AppSidebar() {
 
         {/* Settings (icon only) + Sign out + avatar at bottom */}
         <div className="mt-auto px-3 pb-4 flex flex-col items-center gap-2" style={{ borderTop: "0.5px solid #f5f5f5", paddingTop: 10 }}>
-          {(() => {
+          {role !== "caller" && (() => {
             const active = isActive(settingsItem.url);
             return (
               <Link

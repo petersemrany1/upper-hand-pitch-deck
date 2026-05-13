@@ -25,8 +25,10 @@ function LoginPage() {
     const next = search.get("redirect");
     if (userType === "clinic") {
       navigate({ to: "/clinic-portal", replace: true });
+    } else if (userType === "caller") {
+      navigate({ to: "/clinics", replace: true });
     } else {
-      navigate({ to: next || "/", replace: true });
+      navigate({ to: next && next !== "/login" ? next : "/", replace: true });
     }
   }, [loading, ready, session, userType, navigate, location.search]);
 

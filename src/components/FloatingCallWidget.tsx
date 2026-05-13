@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { toast } from "sonner";
@@ -108,6 +109,8 @@ function useCallContext(callSid: string | null) {
 
 export function FloatingCallWidget() {
   const { status, activeCallSid, activeLeadId, activePhone, activeCallStartedAt, activeCallInstanceId, incomingFrom, hangup, sendDtmf, mute } = useTwilioDevice();
+  const { role } = useAuth();
+  const isClinicSetter = role === "caller";
   const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
 
@@ -125,7 +128,7 @@ export function FloatingCallWidget() {
   }, [activeCallInstanceId, activeCallSid, activePhone, incomingFrom]);
 
   useEffect(() => {
-    if (!incomingFrom) { setMatchedLead(null); return; }
+    if (isClinicSetter || !incomingFrom) { setMatchedLead(null); return; }
     let cancelled = false;
     void findLeadByPhone({ data: { phone: incomingFrom } }).then((r) => {
       if (cancelled) return;
@@ -134,11 +137,11 @@ export function FloatingCallWidget() {
       }
     }).catch(() => { /* noop */ });
     return () => { cancelled = true; };
-  }, [incomingFrom]);
+  }, [incomingFrom, isClinicSetter]);
 
   useEffect(() => {
     const id = activeLeadId || leadId;
-    if (!id || matchedLead?.id === id) return;
+    if (isClinicSetter || !id || matchedLead?.id === id) return;
     let cancelled = false;
     void supabase
       .from("meta_leads")
@@ -153,7 +156,7 @@ export function FloatingCallWidget() {
         () => { /* noop */ },
       );
     return () => { cancelled = true; };
-  }, [activeLeadId, leadId, matchedLead?.id]);
+  }, [activeLeadId, leadId, matchedLead?.id, isClinicSetter]);
 
   // Outbound fallback: if we know the dialled phone but the call_records row
   // hasn't surfaced a lead_id (e.g. the call was placed from a screen that
@@ -161,7 +164,7 @@ export function FloatingCallWidget() {
   // so the "Open in Sales Call" button still appears.
   useEffect(() => {
     const phoneToMatch = phone || activePhone;
-    if (leadId || activeLeadId || !phoneToMatch || incomingFrom) return;
+    if (isClinicSetter || leadId || activeLeadId || !phoneToMatch || incomingFrom) return;
     let cancelled = false;
     void findLeadByPhone({ data: { phone: phoneToMatch } }).then((r) => {
       if (cancelled) return;
@@ -170,7 +173,7 @@ export function FloatingCallWidget() {
       }
     }).catch(() => { /* noop */ });
     return () => { cancelled = true; };
-  }, [leadId, activeLeadId, phone, activePhone, incomingFrom]);
+  }, [leadId, activeLeadId, phone, activePhone, incomingFrom, isClinicSetter]);
 
   const [expanded, setExpanded] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
@@ -466,32 +469,29 @@ export function FloatingCallWidget() {
         </div>
       )}
 
-      {/* Open in Sales Call — always visible during an active call so the rep
-          can jump to the lead profile in one tap. Falls back to opening the
-          sales-call screen with the phone number when no lead match exists yet. */}
-      <div className="px-4 pb-3">
-        <button
-          type="button"
-          onClick={() => {
-            const id = activeLeadId || leadId || matchedLead?.id;
-            if (id) {
-              navigate({ to: "/sales-call", search: { leadId: id } });
-            } else {
-              // If the async lead lookup hasn't finished yet, pass the live phone
-              // so the Sales Call route can resolve the exact lead itself.
-              navigate({ to: "/sales-call", search: { phone: phone || activePhone || incomingFrom || undefined } });
-            }
-          }}
-          className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
-        >
-          {(activeLeadId || leadId || matchedLead) ? (
-            <>Open {contactName || [matchedLead?.first_name, matchedLead?.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call</>
-          ) : (
-            <>Open Sales Call</>
-          )}
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
+      {!isClinicSetter && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              const id = activeLeadId || leadId || matchedLead?.id;
+              if (id) {
+                navigate({ to: "/sales-call", search: { leadId: id } });
+              } else {
+                navigate({ to: "/sales-call", search: { phone: phone || activePhone || incomingFrom || undefined } });
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
+          >
+            {(activeLeadId || leadId || matchedLead) ? (
+              <>Open {contactName || [matchedLead?.first_name, matchedLead?.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call</>
+            ) : (
+              <>Open Sales Call</>
+            )}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Action row */}
       <div className="px-4 pb-4 grid grid-cols-4 gap-2">
