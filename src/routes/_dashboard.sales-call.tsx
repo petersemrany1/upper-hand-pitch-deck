@@ -166,7 +166,28 @@ function SalesCallPortal() {
   // Session mode
   const sessionRestored = (() => {
     if (typeof window === "undefined") return null;
-    try { return JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
+    let raw: any = null;
+    try { raw = JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
+    if (!raw) return null;
+    // Discard stale sessions: started on a different day, or no activity in >30 min.
+    // We treat (now - startedAt) - seconds as "idle gap" — if the wall clock has
+    // advanced far beyond the counted seconds, the tab was abandoned.
+    const STALE_IDLE_MS = 30 * 60 * 1000;
+    try {
+      const startedAt = typeof raw.startedAt === "string" ? new Date(raw.startedAt) : null;
+      const seconds = typeof raw.seconds === "number" ? raw.seconds : 0;
+      if (raw.active && startedAt && !isNaN(startedAt.getTime())) {
+        const now = new Date();
+        const sameDay = startedAt.toDateString() === now.toDateString();
+        const idleGapMs = (now.getTime() - startedAt.getTime()) - (seconds * 1000);
+        if (!sameDay || idleGapMs > STALE_IDLE_MS) {
+          sessionStorage.removeItem("salesCall.session");
+          sessionStorage.removeItem("salesCall.activeId");
+          return null;
+        }
+      }
+    } catch { /* fall through */ }
+    return raw;
   })();
   const inferredSessionStartedAt = (() => {
     const restoredStartedAt = typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null;
