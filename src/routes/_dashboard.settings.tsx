@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
+import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPassword } from "@/utils/sales-call.functions";
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -715,7 +715,9 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
 function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void; onDone: () => void }) {
   const [firstName, setFirstName] = useState(rep.first_name ?? "");
   const [lastName, setLastName] = useState(rep.last_name ?? "");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pwLoading, setPwLoading] = useState(false);
 
   const submit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -726,6 +728,15 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
     const r = await updateRep({ data: { id: rep.id, firstName, lastName } });
     setLoading(false);
     if (r.success) { toast.success("Rep updated"); onDone(); }
+    else toast.error(r.error);
+  };
+
+  const submitPassword = async () => {
+    if (password.length < 6) { toast.error("Password must be at least 6 characters"); return; }
+    setPwLoading(true);
+    const r = await setRepPassword({ data: { id: rep.id, password } });
+    setPwLoading(false);
+    if (r.success) { toast.success("Password updated"); setPassword(""); }
     else toast.error(r.error);
   };
 
@@ -760,6 +771,28 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
           >
             {loading ? "Saving…" : "Save"}
           </button>
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-border">
+          <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Set / reset password</label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="New password (min 6 chars)"
+              className="flex-1 px-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary transition-colors"
+            />
+            <button
+              onClick={() => void submitPassword()}
+              disabled={pwLoading || password.length < 6}
+              className="px-3 py-2 rounded-md text-sm font-bold transition-opacity disabled:opacity-60"
+              style={{ background: "#111", color: "#fff" }}
+            >
+              {pwLoading ? "Setting…" : "Set password"}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">The rep can sign in immediately with this password.</p>
         </div>
       </div>
     </div>
