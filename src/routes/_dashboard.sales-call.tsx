@@ -4782,10 +4782,43 @@ function RightPanel({
 
   const [callTimer, setCallTimer] = useState(0);
 
-  // Forced-outcome modal: shown after a non-booked call >= 10s ends
-  const [outcomeRequired, setOutcomeRequired] = useState(false);
+  // Forced-outcome modal: shown after a non-booked call >= 10s ends.
+  // Persisted per-lead in sessionStorage so navigating away mid-call
+  // (e.g. flicking to Inbox) does NOT wipe the outcome gate when we return.
+  const gateStorageKey = (id: string) => `salescall.gate.${id}`;
+  const readGate = (id: string): { pending: boolean; required: boolean } => {
+    if (typeof window === "undefined") return { pending: false, required: false };
+    try {
+      const raw = window.sessionStorage.getItem(gateStorageKey(id));
+      if (!raw) return { pending: false, required: false };
+      const parsed = JSON.parse(raw);
+      return { pending: !!parsed.pending, required: !!parsed.required };
+    } catch { return { pending: false, required: false }; }
+  };
+  const [outcomeRequired, setOutcomeRequired] = useState(() => readGate(active.id).required);
   const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
-  const [outcomePending, setOutcomePending] = useState(false);
+  const [outcomePending, setOutcomePending] = useState(() => readGate(active.id).pending);
+
+  // Re-hydrate gate when the active lead changes (e.g. session advanced
+  // while we were on another page, or we returned to a different lead).
+  useEffect(() => {
+    const g = readGate(active.id);
+    setOutcomePending(g.pending);
+    setOutcomeRequired(g.required);
+    onOutcomeRequiredChange?.(g.required);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id]);
+
+  // Persist gate to sessionStorage whenever it changes for the active lead.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = gateStorageKey(active.id);
+    if (outcomePending || outcomeRequired) {
+      window.sessionStorage.setItem(key, JSON.stringify({ pending: outcomePending, required: outcomeRequired }));
+    } else {
+      window.sessionStorage.removeItem(key);
+    }
+  }, [active.id, outcomePending, outcomeRequired]);
   const wasInCallRef = useRef(false);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
   const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
