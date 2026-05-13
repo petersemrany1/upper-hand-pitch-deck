@@ -6386,6 +6386,50 @@ function ForcedOutcomeModal({
         {view === "callback" && (
           <div>
             <div style={{ fontSize: 13, color: "#666", marginBottom: 10 }}>Pick a date and time for the callback:</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+              {([
+                { label: "+30 min", mins: 30 },
+                { label: "+1 hr", mins: 60 },
+                { label: "+2 hrs", mins: 120 },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.label}
+                  disabled={busy}
+                  onClick={() => {
+                    const d = new Date(Date.now() + opt.mins * 60_000);
+                    const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, "0"); const dd = String(d.getDate()).padStart(2, "0");
+                    const hh = String(d.getHours()).padStart(2, "0"); const mi = String(d.getMinutes()).padStart(2, "0");
+                    setCallbackDate(`${yyyy}-${mm}-${dd}`);
+                    setCallbackTime(`${hh}:${mi}`);
+                  }}
+                  style={{ flex: 1, fontSize: 12, padding: "8px 10px", borderRadius: 8, border: "1.5px solid #e8e8e6", background: "#fff", color: "#111", cursor: busy ? "not-allowed" : "pointer", fontWeight: 600 }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
+              {([
+                { label: "Tomorrow 9am", time: "09:00" },
+                { label: "Tomorrow 12pm", time: "12:00" },
+                { label: "Tomorrow 3pm", time: "15:00" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.label}
+                  disabled={busy}
+                  onClick={() => {
+                    const d = new Date(); d.setDate(d.getDate() + 1);
+                    const yyyy = d.getFullYear(); const mm = String(d.getMonth() + 1).padStart(2, "0"); const dd = String(d.getDate()).padStart(2, "0");
+                    setCallbackDate(`${yyyy}-${mm}-${dd}`);
+                    setCallbackTime(opt.time);
+                  }}
+                  style={{ flex: 1, fontSize: 11, padding: "8px 6px", borderRadius: 8, border: "1.5px solid #e8e8e6", background: "#fff", color: "#111", cursor: busy ? "not-allowed" : "pointer", fontWeight: 600 }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: "#999", marginBottom: 6, fontStyle: "italic" }}>Or pick custom:</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               <input
                 type="date"
@@ -6400,6 +6444,11 @@ function ForcedOutcomeModal({
                 style={{ flex: 1, padding: "10px 12px", border: "1.5px solid #e8e8e6", borderRadius: 10, fontSize: 14 }}
               />
             </div>
+            {callbackDate && callbackTime && (
+              <div style={{ fontSize: 12, color: "#15803d", background: "#dcfce7", padding: "8px 12px", borderRadius: 8, marginBottom: 10, fontWeight: 600 }}>
+                Will call back: {new Date(`${callbackDate}T${callbackTime}:00`).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", hour12: true })}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => setView("menu")}
