@@ -4956,7 +4956,10 @@ function RightPanel({
 
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
+    // Any time we reach in-call (outbound OR inbound answered), force an
+    // outcome before the rep can move on.
     wasInCallRef.current = true;
+    setOutcomePending(true);
     const i = setInterval(() => setCallTimer((t) => {
       const next = t + 1;
       callTimerRef.current = next;
@@ -4987,6 +4990,12 @@ function RightPanel({
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (!active.phone) { toast.error("No phone number"); return; }
+    // Mark outcome as pending the INSTANT the rep initiates a dial.
+    // Don't wait for device-status transitions — they can be missed if the
+    // call connects/disconnects faster than React subscribes, or if the call
+    // was inbound (e.g. callback from the lead).
+    wasInCallRef.current = true;
+    setOutcomePending(true);
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
