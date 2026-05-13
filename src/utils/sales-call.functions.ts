@@ -626,7 +626,37 @@ export const updateRep = createServerFn({ method: "POST" })
     return { success: true as const, rep: updated };
   });
 
-/* Update a rep's role (admin/rep) — admin only */
+/* Set/reset a rep's password — admin only */
+export const setRepPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; password: string }) => ({
+    id: String(data.id ?? ""),
+    password: String(data.password ?? ""),
+  }))
+  .handler(async ({ data, context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+    if (!data.id) return { success: false as const, error: "id required" };
+    if (!data.password || data.password.length < 6) {
+      return { success: false as const, error: "Password must be at least 6 characters" };
+    }
+    const { data: rep } = await supabaseAdmin.from("sales_reps")
+      .select("email").eq("id", data.id).maybeSingle();
+    if (!rep?.email) return { success: false as const, error: "Rep email not found" };
+    try {
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const match = list?.users.find((u) => u.email?.toLowerCase() === rep.email!.toLowerCase());
+      if (!match) return { success: false as const, error: "Auth user not found" };
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(match.id, { password: data.password });
+      if (error) return { success: false as const, error: error.message };
+      return { success: true as const };
+    } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+  });
+
+
 export const updateRepRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string; role: "admin" | "rep" | "caller" }) => ({
