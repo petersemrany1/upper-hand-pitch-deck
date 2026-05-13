@@ -182,7 +182,7 @@ function LeaderboardPage() {
               <tbody>
                 {rows.map((r, i) => {
                   const holdColor = r.holdRate === 0 ? "#111" : r.holdRate >= 60 ? C.green : r.holdRate >= 40 ? C.amber : C.red;
-                  const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : "#111";
+                  const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : C.red;
                   const avgBreakMin = r.breakGaps > 0 ? r.breakMinutes / r.breakGaps : 0;
                   const breakColor = avgBreakMin === 0 ? "#111" : avgBreakMin <= 1 ? C.green : avgBreakMin <= 3 ? C.amber : C.red;
                   // Peter Semrany develops the app, so his Work/Break aren't real shift data — hide them.

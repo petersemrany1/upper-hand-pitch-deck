@@ -637,31 +637,33 @@ export const getLeaderboard = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const now = new Date();
     let from: Date, to: Date;
-    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    // BUG 2 FIX: compute day boundaries in Australia/Sydney rather than UTC,
+    // so "today" on the leaderboard matches what the reps experience locally.
+    const AU_TZ = "Australia/Sydney";
+    const dayStartAU = (d: Date): Date => {
+      const ymd = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: AU_TZ, year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(d); // e.g. "2026-05-13"
+      const offPart = new Intl.DateTimeFormat("en-US", {
+        timeZone: AU_TZ, timeZoneName: "longOffset",
+      }).formatToParts(d).find((p) => p.type === "timeZoneName")?.value ?? "GMT+10:00";
+      const m = offPart.match(/GMT([+-])(\d{1,2}):?(\d{2})?/);
+      const sign = m?.[1] ?? "+";
+      const hh = String(parseInt(m?.[2] ?? "10")).padStart(2, "0");
+      const mm = (m?.[3] ?? "00").padStart(2, "0");
+      return new Date(`${ymd}T00:00:00${sign}${hh}:${mm}`);
+    };
+    const todayStart = dayStartAU(now);
+    // Subtract n days using noon-of-today as a DST-safe anchor, then snap to AU midnight.
+    const auNoon = new Date(todayStart.getTime() + 12 * 3600 * 1000);
+    const auDayBefore = (n: number) => dayStartAU(new Date(auNoon.getTime() - n * 24 * 3600 * 1000));
     switch (data.range) {
-      case "yesterday": {
-        const y = new Date(now); y.setDate(now.getDate() - 1);
-        from = startOfDay(y); to = startOfDay(now); break;
-      }
-      case "today_yesterday": {
-        const y = new Date(now); y.setDate(now.getDate() - 1);
-        from = startOfDay(y); to = new Date(now); break;
-      }
-      case "week": {
-        const w = new Date(now); w.setDate(now.getDate() - 7);
-        from = startOfDay(w); to = new Date(now); break;
-      }
-      case "lastweek": {
-        const e = new Date(now); e.setDate(now.getDate() - 7);
-        const s = new Date(now); s.setDate(now.getDate() - 14);
-        from = startOfDay(s); to = startOfDay(e); break;
-      }
-      case "30d": {
-        const w = new Date(now); w.setDate(now.getDate() - 30);
-        from = startOfDay(w); to = new Date(now); break;
-      }
-      default:
-        from = startOfDay(now); to = new Date(now);
+      case "yesterday":         { from = auDayBefore(1);  to = todayStart; break; }
+      case "today_yesterday":   { from = auDayBefore(1);  to = new Date(now); break; }
+      case "week":              { from = auDayBefore(7);  to = new Date(now); break; }
+      case "lastweek":          { from = auDayBefore(14); to = auDayBefore(7); break; }
+      case "30d":               { from = auDayBefore(30); to = new Date(now); break; }
+      default:                  { from = todayStart;      to = new Date(now); }
     }
 
     const { data: reps } = await supabaseAdmin.from("sales_reps").select("*");
@@ -672,17 +674,22 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       .select("id, rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
 
-    // Booking metrics come from internal booking state. appointment_reminders is
-    // created/refreshed when a deposit-paid booking is confirmed; meta_leads is
-    // kept as a fallback for older rows without a reminder record.
+    // BUG 1 FIX: filter on created_at, not updated_at. updated_at gets bumped
+    // every time a 3-day or 24-hour reminder SMS fires, which would re-surface
+    // bookings made weeks ago into today's leaderboard. created_at is set once
+    // when the deposit-paid booking is confirmed.
     const { data: appointmentBookings } = await supabaseAdmin.from("appointment_reminders")
-      .select("id, lead_id, status, updated_at")
+      .select("id, lead_id, status, created_at")
       .neq("status", "cancelled")
-      .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
+      .gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
+    // meta_leads has no booking timestamp, so we use booking_date (the appointment
+    // date) as a coarse fallback for legacy rows without an appointment_reminder.
+    const fromDateStr = from.toISOString().slice(0, 10);
+    const toDateStr = to.toISOString().slice(0, 10);
     const { data: metaBookings } = await supabaseAdmin.from("meta_leads")
-      .select("id, rep_id, status, booking_date, updated_at")
+      .select("id, rep_id, status, booking_date")
       .eq("status", "booked_deposit_paid")
-      .gte("updated_at", from.toISOString()).lte("updated_at", to.toISOString());
+      .gte("booking_date", fromDateStr).lte("booking_date", toDateStr);
 
     const relevantLeadIds = Array.from(new Set([
       ...((calls ?? []).map((c) => c.lead_id).filter(Boolean) as string[]),
@@ -707,10 +714,16 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     for (const c of calls ?? []) {
       if (c.lead_id && c.rep_id && repCanOwnAt(c.rep_id as string, c.called_at as string)) leadCallRep.set(c.lead_id as string, c.rep_id as string);
     }
+    // BUG 3 FIX: credit the rep who actually called the lead in this window first;
+    // only fall back to the lead's current owner if no in-window call exists.
+    // This prevents a reassignment from stealing booking credit from the rep who
+    // actually closed it.
     const repIdForLead = (leadId: string, at?: string | null) => {
+      const caller = leadCallRep.get(leadId);
+      if (caller) return caller;
       const owner = leadRep.get(leadId) ?? null;
       if (owner && (!at || repCanOwnAt(owner, at))) return owner;
-      return leadCallRep.get(leadId) || null;
+      return null;
     };
 
     // HARD RULE — exclude any test lead. Matches first="peter" + last starting with "test"
