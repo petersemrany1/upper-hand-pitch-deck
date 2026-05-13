@@ -89,6 +89,10 @@ function DashboardLayout() {
     return <div className="min-h-screen" style={{ background: "#f7f7f5" }} />;
   }
 
+  if (isClinicSetter && location.pathname !== "/clinics") {
+    return <div className="min-h-screen" style={{ background: "#f7f7f5" }} />;
+  }
+
   if (isFullscreen) {
     return (
       <NotificationsProvider>
