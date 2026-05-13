@@ -6687,7 +6687,8 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     if (!date) return [];
     const [y, m, d] = date.split("-").map(Number);
     if (!y || !m || !d) return [];
-    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides, clinicState);
+    const trading15 = trading.map((t) => ({ ...t, consult_duration_mins: 15 }));
+    return generateSlots(new Date(y, m - 1, d), trading15, blocks, appts, overrides, clinicState);
   }, [date, trading, blocks, appts, overrides, clinicState]);
 
   const available = slots.filter((s) => s.available);
