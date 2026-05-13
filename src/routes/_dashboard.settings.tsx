@@ -430,7 +430,7 @@ function TeamSection() {
     else toast.error(r.error);
   };
 
-  const onRoleChange = async (rep: Rep, nextRole: "admin" | "rep") => {
+  const onRoleChange = async (rep: Rep, nextRole: "admin" | "rep" | "caller") => {
     const prev = reps;
     setReps((rs) => rs.map((x) => x.id === rep.id ? { ...x, role: nextRole } : x));
     const r = await updateRepRole({ data: { id: rep.id, role: nextRole } });
@@ -438,7 +438,8 @@ function TeamSection() {
       setReps(prev);
       toast.error(r.error);
     } else {
-      toast.success(`${rep.name} is now ${nextRole}`);
+      const label = nextRole === "caller" ? "Clinic Appointment Setter" : nextRole;
+      toast.success(`${rep.name} is now ${label}`);
     }
   };
 
@@ -493,12 +494,13 @@ function TeamSection() {
                   <td className="px-4 py-3 text-muted-foreground">{r.email || "—"}</td>
                   <td className="px-4 py-3">
                     <select
-                      value={r.role === "admin" ? "admin" : "rep"}
-                      onChange={(e) => void onRoleChange(r, e.target.value as "admin" | "rep")}
+                      value={r.role === "admin" ? "admin" : r.role === "caller" ? "caller" : "rep"}
+                      onChange={(e) => void onRoleChange(r, e.target.value as "admin" | "rep" | "caller")}
                       className="px-2 py-1 rounded-md text-xs border border-border bg-background focus:outline-none focus:border-primary"
                     >
                       <option value="rep">rep</option>
                       <option value="admin">admin</option>
+                      <option value="caller">clinic setter</option>
                     </select>
                   </td>
                   <td className="px-4 py-3">
@@ -547,6 +549,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"rep" | "admin" | "caller">("rep");
   const [loading, setLoading] = useState(false);
 
   const submit = async () => {
@@ -556,7 +559,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
     }
     setLoading(true);
     try {
-      const r = await inviteRep({ data: { firstName, lastName, email } });
+      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole } });
       if (r.success) {
         toast.success(`Invite sent to ${email}`);
         onDone();
@@ -594,6 +597,37 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
             <Field label="Last name" value={lastName} onChange={setLastName} placeholder="Last name" />
           </div>
           <Field label="Email" value={email} onChange={setEmail} placeholder="rep@company.com" type="email" />
+          <div>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Access level</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(["rep", "admin", "caller"] as const).map((opt) => {
+                const active = inviteRole === opt;
+                const label = opt === "caller" ? "Clinic Setter" : opt === "admin" ? "Admin" : "Sales Rep";
+                return (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => setInviteRole(opt)}
+                    className="px-3 py-2 rounded-md text-xs font-medium border transition-colors"
+                    style={{
+                      borderColor: active ? "#f4522d" : "#e5e5e3",
+                      background: active ? "#fff1ee" : "#fff",
+                      color: active ? "#f4522d" : "#111",
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+              {inviteRole === "caller"
+                ? "Locked to the Clinics page + SMS inbox. Cold-calls clinics with your Twilio numbers."
+                : inviteRole === "admin"
+                ? "Full access to everything including team and pricing settings."
+                : "Standard sales rep — Sales Portal, Appointments, Leaderboard."}
+            </p>
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
