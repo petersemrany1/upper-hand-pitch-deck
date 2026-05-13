@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, updateRepRole, deleteRep } from "@/utils/sales-call.functions";
+import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPassword } from "@/utils/sales-call.functions";
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
