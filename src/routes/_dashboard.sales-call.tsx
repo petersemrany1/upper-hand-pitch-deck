@@ -5002,8 +5002,8 @@ function RightPanel({
               toast.error("End the call first");
               return;
             }
-            // If a call was just completed, force an outcome before moving on
-            if (callDurationAtHangup > 0) {
+            // If a call was just dialled, force an outcome before moving on
+            if (outcomePending) {
               setOutcomeRequired(true);
               onOutcomeRequiredChange?.(true);
               return;
