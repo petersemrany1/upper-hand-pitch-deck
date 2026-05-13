@@ -976,6 +976,7 @@ function SalesCallPortal() {
           }}
           hasPreviousLead={sessionActive ? sessionIndex > 0 : activeLeadIndex > 0}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
+          onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             if (sessionActive) {
