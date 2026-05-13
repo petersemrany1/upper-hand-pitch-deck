@@ -1,0 +1,2 @@
+ALTER TABLE public.sales_reps DROP CONSTRAINT sales_reps_role_check;
+ALTER TABLE public.sales_reps ADD CONSTRAINT sales_reps_role_check CHECK (role = ANY (ARRAY['admin'::text, 'rep'::text, 'clinic_setter'::text]));
