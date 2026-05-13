@@ -469,32 +469,29 @@ export function FloatingCallWidget() {
         </div>
       )}
 
-      {/* Open in Sales Call — always visible during an active call so the rep
-          can jump to the lead profile in one tap. Falls back to opening the
-          sales-call screen with the phone number when no lead match exists yet. */}
-      <div className="px-4 pb-3">
-        <button
-          type="button"
-          onClick={() => {
-            const id = activeLeadId || leadId || matchedLead?.id;
-            if (id) {
-              navigate({ to: "/sales-call", search: { leadId: id } });
-            } else {
-              // If the async lead lookup hasn't finished yet, pass the live phone
-              // so the Sales Call route can resolve the exact lead itself.
-              navigate({ to: "/sales-call", search: { phone: phone || activePhone || incomingFrom || undefined } });
-            }
-          }}
-          className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
-        >
-          {(activeLeadId || leadId || matchedLead) ? (
-            <>Open {contactName || [matchedLead?.first_name, matchedLead?.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call</>
-          ) : (
-            <>Open Sales Call</>
-          )}
-          <ArrowRight className="h-4 w-4" />
-        </button>
-      </div>
+      {!isClinicSetter && (
+        <div className="px-4 pb-3">
+          <button
+            type="button"
+            onClick={() => {
+              const id = activeLeadId || leadId || matchedLead?.id;
+              if (id) {
+                navigate({ to: "/sales-call", search: { leadId: id } });
+              } else {
+                navigate({ to: "/sales-call", search: { phone: phone || activePhone || incomingFrom || undefined } });
+              }
+            }}
+            className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
+          >
+            {(activeLeadId || leadId || matchedLead) ? (
+              <>Open {contactName || [matchedLead?.first_name, matchedLead?.last_name].filter(Boolean).join(" ") || "lead"} in Sales Call</>
+            ) : (
+              <>Open Sales Call</>
+            )}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Action row */}
       <div className="px-4 pb-4 grid grid-cols-4 gap-2">
