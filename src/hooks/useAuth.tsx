@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
       if (cancelled) return;
       if (rep) {
-        const r: Role = rep.role === "admin" ? "admin" : rep.role === "caller" ? "caller" : "rep";
+        const r: Role = rep.role === "admin" ? "admin" : ["caller", "clinic_setter"].includes(rep.role) ? "caller" : "rep";
         setRole(r);
         setUserType(r);
         setClinicId(null);
