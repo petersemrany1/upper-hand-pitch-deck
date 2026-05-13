@@ -559,13 +559,14 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
       toast.error("All fields required");
       return;
     }
-    if (mode === "password" && password.length < 8) {
+    const trimmedPassword = password.trim();
+    if (mode === "password" && trimmedPassword.length < 8) {
       toast.error("Password must be at least 8 characters");
       return;
     }
     setLoading(true);
     try {
-      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? password : undefined } });
+      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? trimmedPassword : undefined } });
       if (r.success) {
         toast.success(mode === "password" ? `${email} created — share their password securely` : `Invite sent to ${email}`);
         onDone();
