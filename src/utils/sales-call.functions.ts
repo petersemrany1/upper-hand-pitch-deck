@@ -401,10 +401,11 @@ export const addRep = createServerFn({ method: "POST" })
 /* Invite a new rep: sends Supabase auth invite email + creates sales_reps row */
 export const inviteRep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { firstName: string; lastName: string; email: string }) => ({
+  .inputValidator((data: { firstName: string; lastName: string; email: string; role?: "rep" | "admin" | "caller" }) => ({
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
     email: String(data.email ?? "").toLowerCase().trim(),
+    role: data.role === "admin" ? ("admin" as const) : data.role === "caller" ? ("caller" as const) : ("rep" as const),
   }))
   .handler(async ({ data, context }) => {
     try { await assertAdmin(context.userId); } catch (e) {
@@ -531,7 +532,7 @@ export const inviteRep = createServerFn({ method: "POST" })
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
-        role: "rep",
+        role: data.role,
       } as never).select("*").single();
     if (insertErr) {
       // Email already went out — keep the auth user but report the DB error so the
@@ -579,9 +580,9 @@ export const updateRep = createServerFn({ method: "POST" })
 /* Update a rep's role (admin/rep) — admin only */
 export const updateRepRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string; role: "admin" | "rep" }) => ({
+  .inputValidator((data: { id: string; role: "admin" | "rep" | "caller" }) => ({
     id: String(data.id ?? ""),
-    role: data.role === "admin" ? ("admin" as const) : ("rep" as const),
+    role: data.role === "admin" ? ("admin" as const) : data.role === "caller" ? ("caller" as const) : ("rep" as const),
   }))
   .handler(async ({ data, context }) => {
     try { await assertAdmin(context.userId); } catch (e) {
