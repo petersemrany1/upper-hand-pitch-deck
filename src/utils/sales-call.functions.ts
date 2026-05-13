@@ -807,7 +807,12 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       // so anonymous one-off calls still count individually.
       const groupKey = (c.lead_id as string) || (c.id as string);
       const dur = (c.duration ?? c.duration_seconds ?? 0) as number;
-      const reached = dur > 0 || c.outcome === "connected";
+      // Twilio "completed" includes voicemails. Treat as Not Reached when:
+      //  - status is no-answer / busy / failed / canceled, OR
+      //  - duration is under 15s (too short to be a real human pickup; mostly voicemails).
+      // Override: outcome === "connected" is a manual confirmation a human picked up.
+      const failedStatus = c.status === "no-answer" || c.status === "busy" || c.status === "failed" || c.status === "canceled";
+      const reached = c.outcome === "connected" || (!failedStatus && dur >= 15);
       const inner = perRepLead.get(repId) ?? new Map();
       const existing = inner.get(groupKey) ?? { maxDur: 0, reached: false };
       existing.maxDur = Math.max(existing.maxDur, dur);
