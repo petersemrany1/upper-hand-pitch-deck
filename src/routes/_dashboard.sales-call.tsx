@@ -797,18 +797,6 @@ function SalesCallPortal() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <CallbacksTodayButton
-              callbacks={todaysCallbacks}
-              onPick={(id) => {
-                if (outcomeRequiredRef.current) {
-                  setPendingLeadId(id);
-                  toast.error("Please set a call outcome first");
-                  return;
-                }
-                setActiveId(id); setStep("mindset"); setCompleted(new Set());
-                setAmpPrefill(""); setAudioPrefill("");
-              }}
-            />
             <NotificationBell />
             <button
               onClick={() => setSessionPaused(p => !p)}
