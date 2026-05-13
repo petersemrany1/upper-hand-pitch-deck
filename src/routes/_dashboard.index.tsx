@@ -898,6 +898,8 @@ function statusBadge(status: string | null): { label: string; bg: string; fg: st
       return { label: "Callback", bg: "#fef3c7", fg: "#a16207" };
     case "had_convo_chase_up":
       return { label: "Chase", bg: "#f3e8ff", fg: "#7e22ce" };
+    case "had_convo_no_sale":
+      return { label: "No Sale", bg: "#fce7f3", fg: "#be185d" };
     case "no_answer":
       return { label: "Retry", bg: "#fef3c7", fg: "#a16207" };
     case "new":
