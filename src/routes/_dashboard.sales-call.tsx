@@ -238,6 +238,21 @@ function SalesCallPortal() {
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
   }, [sessionActive, sessionPaused]);
+  // Heartbeat: keep lastTickAt fresh even while on break, so a refresh
+  // mid-break doesn't look like an abandoned session and wipe state.
+  useEffect(() => {
+    if (!sessionActive) return;
+    const id = setInterval(() => {
+      try {
+        const raw = sessionStorage.getItem("salesCall.session");
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        parsed.lastTickAt = new Date().toISOString();
+        sessionStorage.setItem("salesCall.session", JSON.stringify(parsed));
+      } catch { /* ignore */ }
+    }, 30 * 1000);
+    return () => clearInterval(id);
+  }, [sessionActive]);
 
   useEffect(() => {
     if (!sessionActive || !sessionStartedAt || !repId) return;
