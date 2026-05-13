@@ -4776,6 +4776,7 @@ function RightPanel({
   // Forced-outcome modal: shown after a non-booked call >= 10s ends
   const [outcomeRequired, setOutcomeRequired] = useState(false);
   const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
+  const [outcomePending, setOutcomePending] = useState(false);
   const wasInCallRef = useRef(false);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
   const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
