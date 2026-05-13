@@ -6159,6 +6159,7 @@ function RightPanel({
           onClosed={(status?: string) => {
             setOutcomeRequired(false);
             setCallDurationAtHangup(0);
+            setOutcomePending(false);
             setOutcomeView("menu");
             setOutcomeCallbackDate("");
             setOutcomeCallbackTime("");
