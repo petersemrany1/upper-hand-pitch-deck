@@ -17,6 +17,7 @@ import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
 import type { AppliedReview } from "@/components/CallReviewPopup";
+import { useAuth } from "@/hooks/useAuth";
 
 
 export const Route = createFileRoute("/_dashboard/clinics")({
@@ -226,6 +227,8 @@ function truncateNote(text: string | null | undefined, max = 40): string {
 }
 
 function ClinicsPage() {
+  const { role } = useAuth();
+  const isClinicSetter = role === "caller";
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -833,7 +836,7 @@ function ClinicsPage() {
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#f7f7f5" }}>
       {/* Today's Actions Panel */}
-      {todayActions.length > 0 && (
+      {!isClinicSetter && todayActions.length > 0 && (
         <div style={{ borderBottom: "1px solid #f9f9f9" }}>
           <button
             onClick={() => setTodayExpanded(!todayExpanded)}
