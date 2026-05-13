@@ -17,6 +17,7 @@ import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
 import type { AppliedReview } from "@/components/CallReviewPopup";
+import { useAuth } from "@/hooks/useAuth";
 
 
 export const Route = createFileRoute("/_dashboard/clinics")({
