@@ -4951,6 +4951,7 @@ function RightPanel({
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
         setCallDurationAtHangup(callTimerRef.current);
+        setOutcomePending(true);
       }
       setCallTimer(0);
       callTimerRef.current = 0;
