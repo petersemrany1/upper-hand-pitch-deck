@@ -452,18 +452,55 @@ export const inviteRep = createServerFn({ method: "POST" })
       }
     };
 
-    // 1. Create the auth user. If a manual password was provided, set it now.
+    const findAuthUserByEmail = async (email: string) => {
+      const needle = email.toLowerCase().trim();
+      for (let page = 1; page <= 10; page += 1) {
+        const { data: list, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+        if (error) throw error;
+        const match = list?.users.find((u) => u.email?.toLowerCase().trim() === needle);
+        if (match) return match;
+        if (!list?.users.length || list.users.length < 200) return null;
+      }
+      return null;
+    };
+
+    // 1. Create the auth user. If a previous attempt created the auth account
+    // but failed before the sales_reps row, reuse it and finish the team row.
     const { data: createdUser, error: createUserErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       email_confirm: true,
       password: manualPassword,
       user_metadata: { first_name: data.firstName, last_name: data.lastName, full_name: fullName },
     });
+    let newUserId = createdUser.user?.id;
+    let createdNewAuthUser = Boolean(newUserId);
     if (createUserErr) {
-      await logError("inviteRep", createUserErr.message, { email: data.email });
-      return { success: false as const, error: createUserErr.message };
+      const alreadyExists = /already\s+(registered|exists)|user.*already/i.test(createUserErr.message);
+      if (!alreadyExists) {
+        await logError("inviteRep", createUserErr.message, { email: data.email });
+        return { success: false as const, error: createUserErr.message };
+      }
+      try {
+        const existingAuthUser = await findAuthUserByEmail(data.email);
+        if (!existingAuthUser?.id) {
+          await logError("inviteRep", createUserErr.message, { email: data.email, recovery: "auth user exists but could not be found" });
+          return { success: false as const, error: createUserErr.message };
+        }
+        newUserId = existingAuthUser.id;
+        createdNewAuthUser = false;
+        if (manualPassword) {
+          const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(existingAuthUser.id, {
+            password: manualPassword,
+            email_confirm: true,
+            user_metadata: { first_name: data.firstName, last_name: data.lastName, full_name: fullName },
+          });
+          if (updateErr) return { success: false as const, error: updateErr.message };
+        }
+      } catch (e) {
+        await logError("inviteRep.recoverAuthUser", (e as Error).message, { email: data.email });
+        return { success: false as const, error: `Account exists, but failed to recover it: ${(e as Error).message}` };
+      }
     }
-    const newUserId = createdUser.user?.id;
 
     // If manual password mode: skip the email + link generation entirely.
     if (!manualPassword) {
@@ -548,7 +585,8 @@ export const inviteRep = createServerFn({ method: "POST" })
         role: data.role,
       } as never).select("*").single();
     if (insertErr) {
-      await logError("inviteRep.insert", insertErr.message, { email: data.email });
+      if (createdNewAuthUser) await rollbackAuthUser(newUserId);
+      await logError("inviteRep.insert", insertErr.message, { email: data.email, role: data.role });
       return { success: false as const, error: `Account created, but failed to save rep row: ${insertErr.message}` };
     }
     return { success: true as const, rep: created, userId: newUserId ?? null, mode: manualPassword ? ("password" as const) : ("invite" as const) };
