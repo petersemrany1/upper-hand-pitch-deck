@@ -401,11 +401,12 @@ export const addRep = createServerFn({ method: "POST" })
 /* Invite a new rep: sends Supabase auth invite email + creates sales_reps row */
 export const inviteRep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { firstName: string; lastName: string; email: string; role?: "rep" | "admin" | "caller" }) => ({
+  .inputValidator((data: { firstName: string; lastName: string; email: string; role?: "rep" | "admin" | "caller"; password?: string }) => ({
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
     email: String(data.email ?? "").toLowerCase().trim(),
     role: data.role === "admin" ? ("admin" as const) : data.role === "caller" ? ("caller" as const) : ("rep" as const),
+    password: typeof data.password === "string" && data.password.length > 0 ? data.password : undefined,
   }))
   .handler(async ({ data, context }) => {
     try { await assertAdmin(context.userId); } catch (e) {
@@ -414,8 +415,12 @@ export const inviteRep = createServerFn({ method: "POST" })
     if (!data.firstName) return { success: false as const, error: "First name required" };
     if (!data.lastName) return { success: false as const, error: "Last name required" };
     if (!data.email || !data.email.includes("@")) return { success: false as const, error: "Valid email required" };
+    if (data.password !== undefined && data.password.length < 8) {
+      return { success: false as const, error: "Password must be at least 8 characters" };
+    }
 
     const fullName = `${data.firstName} ${data.lastName}`.trim();
+    const manualPassword = data.password;
 
     const { data: existing } = await supabaseAdmin.from("sales_reps")
       .select("*").ilike("email", data.email).maybeSingle();
@@ -423,14 +428,13 @@ export const inviteRep = createServerFn({ method: "POST" })
 
     const siteUrl = process.env.SITE_URL || "https://upperhanddashboard.lovable.app";
 
+    // Email is only required when we're sending an invite link (no manual password).
     const resendKey = process.env.RESEND_API_KEY;
     const lovableKey = process.env.LOVABLE_API_KEY;
-    if (!resendKey || !lovableKey) {
+    if (!manualPassword && (!resendKey || !lovableKey)) {
       return { success: false as const, error: "Email service not configured (missing RESEND_API_KEY or LOVABLE_API_KEY)" };
     }
 
-    // Helper: roll back the auth user we created if a later step fails, so the
-    // invite can be retried without "user already exists" errors.
     const rollbackAuthUser = async (userId: string | undefined) => {
       if (!userId) return;
       try { await supabaseAdmin.auth.admin.deleteUser(userId); } catch (e) {
@@ -438,10 +442,11 @@ export const inviteRep = createServerFn({ method: "POST" })
       }
     };
 
-    // 1. Create the auth user (no email sent by Supabase).
+    // 1. Create the auth user. If a manual password was provided, set it now.
     const { data: createdUser, error: createUserErr } = await supabaseAdmin.auth.admin.createUser({
       email: data.email,
       email_confirm: true,
+      password: manualPassword,
       user_metadata: { first_name: data.firstName, last_name: data.lastName, full_name: fullName },
     });
     if (createUserErr) {
@@ -450,82 +455,80 @@ export const inviteRep = createServerFn({ method: "POST" })
     }
     const newUserId = createdUser.user?.id;
 
-    // 2. Generate the password-set link.
-    const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
-      type: "recovery",
-      email: data.email,
-      options: { redirectTo: `${siteUrl}/reset-password` },
-    });
-    if (linkErr || !linkData.properties?.action_link) {
-      await rollbackAuthUser(newUserId);
-      const msg = linkErr?.message || "Failed to generate invite link";
-      await logError("inviteRep", msg, { email: data.email });
-      return { success: false as const, error: msg };
-    }
-    const actionLink = linkData.properties.action_link;
-
-    // 3. Send branded invite email through the same verified sender domain used by the working email system.
-    const html = `
-      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
-        <h2 style="margin:0 0 12px">You've been invited to Hair Transplant Group Portal</h2>
-        <p>Hi ${data.firstName},</p>
-        <p>You've been added as a sales rep. Click the button below to set your password and sign in.</p>
-        <p style="margin:24px 0">
-          <a href="${actionLink}" style="background:#111;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block">Set your password</a>
-        </p>
-        <p style="font-size:12px;color:#666">Or paste this link in your browser:<br>${actionLink}</p>
-      </div>`;
-
-    const sendVia = async (from: string, to: string) => {
-      const resp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${lovableKey}`,
-          "X-Connection-Api-Key": resendKey,
-        },
-        body: JSON.stringify({
-          from,
-          to: [to],
-          subject: "You've been invited to Hair Transplant Group Portal",
-          reply_to: "admin@bold-patients.com",
-          html,
-        }),
+    // If manual password mode: skip the email + link generation entirely.
+    if (!manualPassword) {
+      const { data: linkData, error: linkErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: "recovery",
+        email: data.email,
+        options: { redirectTo: `${siteUrl}/reset-password` },
       });
-      const body = await resp.text();
-      return { ok: resp.ok, status: resp.status, body };
-    };
-
-    // Translate Resend's raw error JSON into a human-actionable message.
-    const explainResendError = (status: number, body: string): string => {
-      let parsed: { message?: string; name?: string } = {};
-      try { parsed = JSON.parse(body); } catch { /* ignore */ }
-      const msg = parsed.message || body || "Unknown error";
-      if (/domain is not verified/i.test(msg)) return "The verified sender domain rejected this invite email.";
-      if (/can only send testing emails to your own email/i.test(msg)) return "The email provider rejected this recipient while in testing mode.";
-      if (status === 429) {
-        return "Email rate limit hit. Try again in a few seconds.";
+      if (linkErr || !linkData.properties?.action_link) {
+        await rollbackAuthUser(newUserId);
+        const msg = linkErr?.message || "Failed to generate invite link";
+        await logError("inviteRep", msg, { email: data.email });
+        return { success: false as const, error: msg };
       }
-      return `Email send failed (${status}): ${msg}`;
-    };
+      const actionLink = linkData.properties.action_link;
 
-    let sendResult: { ok: boolean; status: number; body: string };
-    try {
-      sendResult = await sendVia("Hair Transplant Group Portal <admin@bold-patients.com>", data.email);
-    } catch (e) {
-      await rollbackAuthUser(newUserId);
-      await logError("inviteRep:resend", (e as Error).message, { email: data.email });
-      return { success: false as const, error: `Email send threw: ${(e as Error).message}` };
+      const html = `
+        <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#111">
+          <h2 style="margin:0 0 12px">You've been invited to Hair Transplant Group Portal</h2>
+          <p>Hi ${data.firstName},</p>
+          <p>You've been added as a sales rep. Click the button below to set your password and sign in.</p>
+          <p style="margin:24px 0">
+            <a href="${actionLink}" style="background:#111;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;display:inline-block">Set your password</a>
+          </p>
+          <p style="font-size:12px;color:#666">Or paste this link in your browser:<br>${actionLink}</p>
+        </div>`;
+
+      const sendVia = async (from: string, to: string) => {
+        const resp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${lovableKey}`,
+            "X-Connection-Api-Key": resendKey!,
+          },
+          body: JSON.stringify({
+            from,
+            to: [to],
+            subject: "You've been invited to Hair Transplant Group Portal",
+            reply_to: "admin@bold-patients.com",
+            html,
+          }),
+        });
+        const body = await resp.text();
+        return { ok: resp.ok, status: resp.status, body };
+      };
+
+      const explainResendError = (status: number, body: string): string => {
+        let parsed: { message?: string; name?: string } = {};
+        try { parsed = JSON.parse(body); } catch { /* ignore */ }
+        const msg = parsed.message || body || "Unknown error";
+        if (/domain is not verified/i.test(msg)) return "The verified sender domain rejected this invite email.";
+        if (/can only send testing emails to your own email/i.test(msg)) return "The email provider rejected this recipient while in testing mode.";
+        if (status === 429) return "Email rate limit hit. Try again in a few seconds.";
+        return `Email send failed (${status}): ${msg}`;
+      };
+
+      let sendResult: { ok: boolean; status: number; body: string };
+      try {
+        sendResult = await sendVia("Hair Transplant Group Portal <admin@bold-patients.com>", data.email);
+      } catch (e) {
+        await rollbackAuthUser(newUserId);
+        await logError("inviteRep:resend", (e as Error).message, { email: data.email });
+        return { success: false as const, error: `Email send threw: ${(e as Error).message}` };
+      }
+
+      if (!sendResult.ok) {
+        await rollbackAuthUser(newUserId);
+        const friendly = explainResendError(sendResult.status, sendResult.body);
+        await logError("inviteRep:resend", `Resend send failed [${sendResult.status}]: ${sendResult.body}`, { email: data.email });
+        return { success: false as const, error: friendly };
+      }
     }
 
-    if (!sendResult.ok) {
-      await rollbackAuthUser(newUserId);
-      const friendly = explainResendError(sendResult.status, sendResult.body);
-      await logError("inviteRep:resend", `Resend send failed [${sendResult.status}]: ${sendResult.body}`, { email: data.email });
-      return { success: false as const, error: friendly };
-    }
-
-    // 4. Insert the sales_reps row only after the email is actually sent.
+    // Insert the sales_reps row.
     const { data: created, error: insertErr } = await supabaseAdmin.from("sales_reps")
       .insert({
         name: fullName,
@@ -535,12 +538,10 @@ export const inviteRep = createServerFn({ method: "POST" })
         role: data.role,
       } as never).select("*").single();
     if (insertErr) {
-      // Email already went out — keep the auth user but report the DB error so the
-      // user can manually add the row or retry. Don't roll back: the recipient has the link.
       await logError("inviteRep.insert", insertErr.message, { email: data.email });
-      return { success: false as const, error: `Invite email sent, but failed to save rep row: ${insertErr.message}` };
+      return { success: false as const, error: `Account created, but failed to save rep row: ${insertErr.message}` };
     }
-    return { success: true as const, rep: created, userId: newUserId ?? null };
+    return { success: true as const, rep: created, userId: newUserId ?? null, mode: manualPassword ? ("password" as const) : ("invite" as const) };
   });
 
 /* List reps for the team management screen — admin only */
