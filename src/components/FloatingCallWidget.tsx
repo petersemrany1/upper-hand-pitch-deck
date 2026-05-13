@@ -636,6 +636,7 @@ function CallOutcomePrompt({
     "no_answer",
     "callback_scheduled",
     "had_convo_chase_up",
+    "had_convo_no_sale",
     "not_interested",
     "dropped",
   ];
