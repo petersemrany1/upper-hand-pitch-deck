@@ -22,8 +22,15 @@ type AuthState = {
   clinicId: string | null;
   loading: boolean;
   ready: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signIn: (usernameOrEmail: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+};
+
+const usernameToInternalEmail = (value: string) => {
+  const trimmed = value.toLowerCase().trim();
+  if (trimmed.includes("@")) return trimmed;
+  const safe = trimmed.replace(/[^a-z0-9._-]/g, "");
+  return safe ? `${safe}@team.hairtransplantgroup.app` : trimmed;
 };
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
@@ -101,7 +108,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clinicId,
     loading: !ready,
     ready,
-    signIn: async (email, password) => {
+    signIn: async (usernameOrEmail, password) => {
+      const email = usernameToInternalEmail(usernameOrEmail);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error: error?.message ?? null };
     },
