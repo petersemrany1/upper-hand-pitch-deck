@@ -175,11 +175,16 @@ function SalesCallPortal() {
     const STALE_IDLE_MS = 30 * 60 * 1000;
     try {
       const startedAt = typeof raw.startedAt === "string" ? new Date(raw.startedAt) : null;
-      const seconds = typeof raw.seconds === "number" ? raw.seconds : 0;
+      const lastTickAt = typeof raw.lastTickAt === "string" ? new Date(raw.lastTickAt) : null;
       if (raw.active && startedAt && !isNaN(startedAt.getTime())) {
         const now = new Date();
         const sameDay = startedAt.toDateString() === now.toDateString();
-        const idleGapMs = (now.getTime() - startedAt.getTime()) - (seconds * 1000);
+        // Idle gap is measured from the last persisted tick (updated whether
+        // active or on break) so taking a break doesn't look like abandonment.
+        const referenceMs = lastTickAt && !isNaN(lastTickAt.getTime())
+          ? lastTickAt.getTime()
+          : startedAt.getTime() + ((typeof raw.seconds === "number" ? raw.seconds : 0) * 1000);
+        const idleGapMs = now.getTime() - referenceMs;
         if (!sameDay || idleGapMs > STALE_IDLE_MS) {
           sessionStorage.removeItem("salesCall.session");
           sessionStorage.removeItem("salesCall.activeId");
