@@ -511,6 +511,14 @@ function SalesCallPortal() {
       return;
     }
     if (activeId !== found.id) {
+      // If we still owe an outcome on the current lead (dial fired or call
+      // just ended), DON'T jump — queue the new lead and prompt instead.
+      if (gateActive()) {
+        setPendingLeadId(found.id);
+        toast.error("Please set a call outcome first");
+        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
+        return;
+      }
       setActiveId(found.id);
       setStep("mindset");
       setCompleted(new Set());
