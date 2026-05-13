@@ -50,6 +50,16 @@ function DashboardLayout() {
     }
   }, [ready, session, role, location.pathname, navigate]);
 
+  // Cold callers (clinic acquisition) are locked to /clinics + /inbox + /settings.
+  useEffect(() => {
+    if (!ready || !session) return;
+    if (role !== "caller") return;
+    const allowed = ["/clinics", "/inbox", "/settings"];
+    if (!allowed.includes(location.pathname)) {
+      navigate({ to: "/clinics", replace: true });
+    }
+  }, [ready, session, role, location.pathname, navigate]);
+
   // While the session restores from localStorage, render the dashboard chrome
   // immediately with skeleton placeholders instead of a blank spinner.
   if (!ready) {
