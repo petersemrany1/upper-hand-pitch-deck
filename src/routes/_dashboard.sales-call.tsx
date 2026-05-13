@@ -327,6 +327,12 @@ function SalesCallPortal() {
   // InCallPanel surfaces a modal and sets this ref to true so the parent
   // can block lead navigation until an outcome is selected.
   const outcomeRequiredRef = useRef(false);
+  // Mirrors RightPanel's `outcomePending` (set the moment a dial fires).
+  // We check this on every "jump to lead" shortcut (missed-call popups,
+  // ?leadId= deeplinks, callbacks list, manual lead pick) so a click that
+  // would whisk us away from a just-dialled lead is intercepted instead.
+  const outcomePendingRef = useRef(false);
+  const gateActive = () => outcomeRequiredRef.current || outcomePendingRef.current;
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
   useEffect(() => {
     // Reset the inner column scroll AND every scrollable ancestor (the
@@ -505,6 +511,14 @@ function SalesCallPortal() {
       return;
     }
     if (activeId !== found.id) {
+      // If we still owe an outcome on the current lead (dial fired or call
+      // just ended), DON'T jump — queue the new lead and prompt instead.
+      if (gateActive()) {
+        setPendingLeadId(found.id);
+        toast.error("Please set a call outcome first");
+        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
+        return;
+      }
       setActiveId(found.id);
       setStep("mindset");
       setCompleted(new Set());
@@ -656,7 +670,7 @@ function SalesCallPortal() {
                       <button
                         key={l.id}
                         onClick={() => {
-                          if (outcomeRequiredRef.current) {
+                          if (gateActive()) {
                             setPendingLeadId(l.id);
                             toast.error("Please set a call outcome first");
                             return;
@@ -694,7 +708,7 @@ function SalesCallPortal() {
                 setSessionPaused(false);
                 setSessionActive(true);
                 if (q.length > 0) {
-                  if (outcomeRequiredRef.current) {
+                  if (gateActive()) {
                     setPendingLeadId(q[0]);
                     toast.error("Please set a call outcome first");
                     return;
@@ -742,7 +756,7 @@ function SalesCallPortal() {
                 firstCallByLead={firstCallByLead}
                 onLocalLeadUpdate={updateLocalLead}
                 onPick={(id) => {
-                  if (outcomeRequiredRef.current) {
+                  if (gateActive()) {
                     setPendingLeadId(id);
                     toast.error("Please set a call outcome first");
                     return;
@@ -962,6 +976,7 @@ function SalesCallPortal() {
           }}
           hasPreviousLead={sessionActive ? sessionIndex > 0 : activeLeadIndex > 0}
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
+          onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             if (sessionActive) {
@@ -4761,7 +4776,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
-  onOutcomeRequiredChange, onAfterOutcomeApplied, onCallStarted,
+  onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted,
 }: {
   active: Lead;
   repId: string | null;
@@ -4773,6 +4788,7 @@ function RightPanel({
   onPreviousLead: () => void;
   hasPreviousLead: boolean;
   onOutcomeRequiredChange?: (val: boolean) => void;
+  onOutcomePendingChange?: (val: boolean) => void;
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
   onCallStarted?: () => void;
 }) {
@@ -4806,8 +4822,16 @@ function RightPanel({
     setOutcomePending(g.pending);
     setOutcomeRequired(g.required);
     onOutcomeRequiredChange?.(g.required);
+    onOutcomePendingChange?.(g.pending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
+
+  // Mirror outcomePending up to the parent so jump-to-lead shortcuts
+  // (missed-call popup, ?leadId= deeplink, callbacks list) can also gate.
+  useEffect(() => {
+    onOutcomePendingChange?.(outcomePending);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomePending]);
 
   // Persist gate to sessionStorage whenever it changes for the active lead.
   useEffect(() => {
