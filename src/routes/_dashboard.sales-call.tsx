@@ -3695,6 +3695,7 @@ type StatusKey =
   | "no_answer"
   | "callback_scheduled"
   | "had_convo_chase_up"
+  | "had_convo_no_sale"
   | "not_interested"
   | "booked_no_deposit"
   | "booked_deposit_paid"
@@ -3705,6 +3706,7 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
   { key: "no_answer",            label: "No Answer",            emoji: "🟡", color: "#a16207", bg: "#fef9c3" },
   { key: "callback_scheduled",   label: "Callback Scheduled",   emoji: "🟠", color: "#c2410c", bg: "#ffedd5" },
   { key: "had_convo_chase_up",   label: "Had Convo — Chase Up", emoji: "🟤", color: "#92400e", bg: "#fde68a" },
+  { key: "had_convo_no_sale",    label: "Had Convo — No Sale",  emoji: "🩷", color: "#be185d", bg: "#fce7f3" },
   { key: "not_interested",       label: "Not Interested",       emoji: "🔴", color: "#b91c1c", bg: "#fee2e2" },
   { key: "booked_no_deposit",    label: "Booked — No Deposit",  emoji: "🟣", color: "#7e22ce", bg: "#f3e8ff" },
   { key: "booked_deposit_paid",  label: "Booked — Deposit Paid",emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
@@ -3720,6 +3722,7 @@ function normaliseStatus(s: string | null | undefined, l?: Lead): StatusKey {
     return "booked_no_deposit";
   }
   if (raw.includes("callback")) return "callback_scheduled";
+  if (raw.includes("no_sale") || raw.includes("did_not_get_the_sale") || raw.includes("did_not_sale")) return "had_convo_no_sale";
   if (raw.includes("chase") || raw.includes("had_convo")) return "had_convo_chase_up";
   if (raw.includes("not_interested") || raw === "ineligible") return "not_interested";
   if (raw.includes("no_answer") || raw === "contacted") return "no_answer";
@@ -6276,6 +6279,9 @@ function ForcedOutcomeModal({
             </button>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_chase_up")}>
               <span style={dotStyle("#5b3a13")} /> Had Convo — Chase Up
+            </button>
+            <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("had_convo_no_sale")}>
+              <span style={dotStyle("#be185d")} /> Had Convo — No Sale
             </button>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>
               <span style={dotStyle("#ef4444")} /> Not Interested
