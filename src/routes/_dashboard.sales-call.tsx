@@ -3722,6 +3722,7 @@ function normaliseStatus(s: string | null | undefined, l?: Lead): StatusKey {
     return "booked_no_deposit";
   }
   if (raw.includes("callback")) return "callback_scheduled";
+  if (raw.includes("no_sale") || raw.includes("did_not_get_the_sale") || raw.includes("did_not_sale")) return "had_convo_no_sale";
   if (raw.includes("chase") || raw.includes("had_convo")) return "had_convo_chase_up";
   if (raw.includes("not_interested") || raw === "ineligible") return "not_interested";
   if (raw.includes("no_answer") || raw === "contacted") return "no_answer";
