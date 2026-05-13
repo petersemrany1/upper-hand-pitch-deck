@@ -4956,7 +4956,10 @@ function RightPanel({
 
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
+    // Any time we reach in-call (outbound OR inbound answered), force an
+    // outcome before the rep can move on.
     wasInCallRef.current = true;
+    setOutcomePending(true);
     const i = setInterval(() => setCallTimer((t) => {
       const next = t + 1;
       callTimerRef.current = next;
