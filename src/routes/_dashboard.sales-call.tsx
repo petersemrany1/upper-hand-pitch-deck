@@ -175,11 +175,16 @@ function SalesCallPortal() {
     const STALE_IDLE_MS = 30 * 60 * 1000;
     try {
       const startedAt = typeof raw.startedAt === "string" ? new Date(raw.startedAt) : null;
-      const seconds = typeof raw.seconds === "number" ? raw.seconds : 0;
+      const lastTickAt = typeof raw.lastTickAt === "string" ? new Date(raw.lastTickAt) : null;
       if (raw.active && startedAt && !isNaN(startedAt.getTime())) {
         const now = new Date();
         const sameDay = startedAt.toDateString() === now.toDateString();
-        const idleGapMs = (now.getTime() - startedAt.getTime()) - (seconds * 1000);
+        // Idle gap is measured from the last persisted tick (updated whether
+        // active or on break) so taking a break doesn't look like abandonment.
+        const referenceMs = lastTickAt && !isNaN(lastTickAt.getTime())
+          ? lastTickAt.getTime()
+          : startedAt.getTime() + ((typeof raw.seconds === "number" ? raw.seconds : 0) * 1000);
+        const idleGapMs = now.getTime() - referenceMs;
         if (!sameDay || idleGapMs > STALE_IDLE_MS) {
           sessionStorage.removeItem("salesCall.session");
           sessionStorage.removeItem("salesCall.activeId");
@@ -217,6 +222,7 @@ function SalesCallPortal() {
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
       startedAt: sessionStartedAt,
+      lastTickAt: new Date().toISOString(),
     }));
   }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -232,6 +238,21 @@ function SalesCallPortal() {
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
   }, [sessionActive, sessionPaused]);
+  // Heartbeat: keep lastTickAt fresh even while on break, so a refresh
+  // mid-break doesn't look like an abandoned session and wipe state.
+  useEffect(() => {
+    if (!sessionActive) return;
+    const id = setInterval(() => {
+      try {
+        const raw = sessionStorage.getItem("salesCall.session");
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        parsed.lastTickAt = new Date().toISOString();
+        sessionStorage.setItem("salesCall.session", JSON.stringify(parsed));
+      } catch { /* ignore */ }
+    }, 30 * 1000);
+    return () => clearInterval(id);
+  }, [sessionActive]);
 
   useEffect(() => {
     if (!sessionActive || !sessionStartedAt || !repId) return;
