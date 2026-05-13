@@ -553,15 +553,21 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [mode, setMode] = useState<"invite" | "password">("invite");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const submit = async () => {
+    setFormError(null);
     if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error("All fields required");
+      const message = "All fields required";
+      setFormError(message);
+      toast.error(message);
       return;
     }
     const trimmedPassword = password.trim();
     if (mode === "password" && trimmedPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
+      const message = "Password must be at least 8 characters";
+      setFormError(message);
+      toast.error(message);
       return;
     }
     setLoading(true);
@@ -571,10 +577,14 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
         toast.success(mode === "password" ? `${email} created — share their password securely` : `Invite sent to ${email}`);
         onDone();
       } else {
-        toast.error(r.error || "Failed to create user");
+        const message = r.error || "Failed to create user";
+        setFormError(message);
+        toast.error(message);
       }
     } catch (err) {
-      toast.error((err as Error)?.message || "Failed to create user");
+      const message = (err as Error)?.message || "Failed to create user";
+      setFormError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -673,6 +683,12 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
               </p>
             )}
           </div>
+
+          {formError && (
+            <div className="rounded-md border px-3 py-2 text-sm font-medium" style={{ background: "#fef2f2", borderColor: "#fecaca", color: "#991b1b" }} role="alert">
+              {formError}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 mt-6">
