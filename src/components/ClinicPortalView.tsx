@@ -45,6 +45,13 @@ function parseDateOnly(dateStr: string) {
   return new Date(year, (month || 1) - 1, day || 1);
 }
 
+function parseAppointmentDateTime(dateStr: string, timeStr: string | null | undefined) {
+  const base = parseDateOnly(dateStr);
+  const match = /^(\d{1,2}):(\d{2})/.exec(timeStr ?? "");
+  if (match) base.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return base;
+}
+
 function fmtTime(t: string) {
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
   if (!m) return t;
@@ -201,7 +208,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
     return d.getMonth() === month && d.getFullYear() === year;
   });
   const counts = {
-    upcoming: monthAppts.filter((a) => !a.outcome).length,
+    upcoming: monthAppts.filter((a) => !a.outcome && parseAppointmentDateTime(a.appointment_date, a.appointment_time) >= now).length,
     show: monthAppts.filter((a) => a.outcome === "show").length,
     proceeded: monthAppts.filter((a) => a.outcome === "proceeded").length,
     noshow: monthAppts.filter((a) => a.outcome === "noshow").length,
@@ -279,12 +286,15 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   const endOfThisWeek = new Date(today); endOfThisWeek.setDate(today.getDate() + daysToEndOfWeek);
   const endOfNextWeek = new Date(endOfThisWeek); endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
 
+  const now = new Date();
+  const isPastAppointment = (a: ClinicAppointment) => Boolean(a.outcome) || parseAppointmentDateTime(a.appointment_date, a.appointment_time) < now;
+
   // Filter by tab + search + date range first.
   const q = query.trim().toLowerCase();
   const filtered = appts.filter((a) => {
-    const hasOutcome = Boolean(a.outcome);
-    if (tab === "upcoming" && hasOutcome) return false;
-    if (tab === "past" && !hasOutcome) return false;
+    const isPast = isPastAppointment(a);
+    if (tab === "upcoming" && isPast) return false;
+    if (tab === "past" && !isPast) return false;
     if (fromDate && a.appointment_date < fromDate) return false;
     if (toDate && a.appointment_date > toDate) return false;
     if (q) {
@@ -314,7 +324,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   };
   const order: Bucket[] = tab === "past"
     ? ["Past"]
-    : ["Past", "Today", "Tomorrow", "This week", "Next week", "Later"];
+    : ["Today", "Tomorrow", "This week", "Next week", "Later"];
   const groups = new Map<Bucket, ClinicAppointment[]>();
   for (const a of sorted) {
     const b = bucketOf(a.appointment_date);
@@ -322,7 +332,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
     groups.get(b)!.push(a);
   }
 
-  const upcomingCount = appts.filter((a) => !a.outcome).length;
+  const upcomingCount = appts.filter((a) => !isPastAppointment(a)).length;
   const pastCount = appts.length - upcomingCount;
 
   const inputStyle: React.CSSProperties = {
