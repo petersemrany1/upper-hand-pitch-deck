@@ -599,7 +599,7 @@ function SalesCallPortal() {
     const list = leads.filter((l) => {
       if (!l.callback_scheduled_at) return false;
       const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid") return false;
+      if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       const t = new Date(l.callback_scheduled_at).getTime();
@@ -636,7 +636,7 @@ function SalesCallPortal() {
 
     const eligible = leads.filter((l) => {
       const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid") return false;
+      if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       return true;
@@ -3884,8 +3884,9 @@ function LeadChooser({
 
   const filtered = useMemo(() => {
     const list = leads.filter((l) => {
-      // Hide leads marked as not interested from the main pipeline.
-      if (normaliseStatus(l.status, l) === "not_interested") return false;
+      // Hide closed-out leads (not interested / had convo no sale) from the main pipeline.
+      const ns = normaliseStatus(l.status, l);
+      if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
       return (
