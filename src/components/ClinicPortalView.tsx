@@ -261,7 +261,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Use local date (not UTC) so AEST/AEDT users don't see today's appts as "past".
+  const _now = new Date();
+  const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
 
   // Helper: start of today + helpers for grouping
   const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
