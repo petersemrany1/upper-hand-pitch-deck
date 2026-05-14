@@ -599,7 +599,7 @@ function SalesCallPortal() {
     const list = leads.filter((l) => {
       if (!l.callback_scheduled_at) return false;
       const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid") return false;
+      if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       const t = new Date(l.callback_scheduled_at).getTime();
