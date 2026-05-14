@@ -3884,8 +3884,9 @@ function LeadChooser({
 
   const filtered = useMemo(() => {
     const list = leads.filter((l) => {
-      // Hide leads marked as not interested from the main pipeline.
-      if (normaliseStatus(l.status, l) === "not_interested") return false;
+      // Hide closed-out leads (not interested / had convo no sale) from the main pipeline.
+      const ns = normaliseStatus(l.status, l);
+      if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
       return (
