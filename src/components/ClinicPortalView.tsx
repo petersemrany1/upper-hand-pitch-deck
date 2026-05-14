@@ -40,6 +40,11 @@ const MONTHS = ["January","February","March","April","May","June","July","August
 
 function ymd(d: Date) { return ymdLocal(d); }
 
+function parseDateOnly(dateStr: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, (month || 1) - 1, day || 1);
+}
+
 function fmtTime(t: string) {
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
   if (!m) return t;
@@ -192,7 +197,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
   const now = new Date();
   const month = now.getMonth(), year = now.getFullYear();
   const monthAppts = appts.filter((a) => {
-    const d = new Date(a.appointment_date);
+    const d = parseDateOnly(a.appointment_date);
     return d.getMonth() === month && d.getFullYear() === year;
   });
   const counts = {
@@ -262,8 +267,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   const [toDate, setToDate] = useState("");
 
   // Use local date (not UTC) so AEST/AEDT users don't see today's appts as "past".
-  const _now = new Date();
-  const todayStr = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const todayStr = ymd(new Date());
 
   // Helper: start of today + helpers for grouping
   const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
@@ -278,9 +282,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   // Filter by tab + search + date range first.
   const q = query.trim().toLowerCase();
   const filtered = appts.filter((a) => {
-    const isPast = a.appointment_date < todayStr;
-    if (tab === "upcoming" && isPast) return false;
-    if (tab === "past" && !isPast) return false;
+    const hasOutcome = Boolean(a.outcome);
+    if (tab === "upcoming" && hasOutcome) return false;
+    if (tab === "past" && !hasOutcome) return false;
     if (fromDate && a.appointment_date < fromDate) return false;
     if (toDate && a.appointment_date > toDate) return false;
     if (q) {
@@ -300,7 +304,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   // Group into buckets.
   type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past";
   const bucketOf = (dateStr: string): Bucket => {
-    const d = startOfDay(new Date(dateStr));
+    const d = startOfDay(parseDateOnly(dateStr));
     if (d < today) return "Past";
     if (d.getTime() === today.getTime()) return "Today";
     if (d.getTime() === tomorrow.getTime()) return "Tomorrow";
@@ -310,7 +314,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   };
   const order: Bucket[] = tab === "past"
     ? ["Past"]
-    : ["Today", "Tomorrow", "This week", "Next week", "Later"];
+    : ["Past", "Today", "Tomorrow", "This week", "Next week", "Later"];
   const groups = new Map<Bucket, ClinicAppointment[]>();
   for (const a of sorted) {
     const b = bucketOf(a.appointment_date);
@@ -318,7 +322,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
     groups.get(b)!.push(a);
   }
 
-  const upcomingCount = appts.filter((a) => a.appointment_date >= todayStr).length;
+  const upcomingCount = appts.filter((a) => !a.outcome).length;
   const pastCount = appts.length - upcomingCount;
 
   const inputStyle: React.CSSProperties = {
@@ -374,7 +378,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
                 </div>
                 {rows.map((a) => {
                   const c = OUTCOME_COLORS[a.outcome ?? "upcoming"];
-                  const d = new Date(a.appointment_date);
+                  const d = parseDateOnly(a.appointment_date);
                   return (
                     <button
                       key={a.id}
