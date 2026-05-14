@@ -45,6 +45,13 @@ function parseDateOnly(dateStr: string) {
   return new Date(year, (month || 1) - 1, day || 1);
 }
 
+function parseAppointmentDateTime(dateStr: string, timeStr: string | null | undefined) {
+  const base = parseDateOnly(dateStr);
+  const match = /^(\d{1,2}):(\d{2})/.exec(timeStr ?? "");
+  if (match) base.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return base;
+}
+
 function fmtTime(t: string) {
   const m = /^(\d{1,2}):(\d{2})/.exec(t);
   if (!m) return t;
@@ -201,7 +208,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
     return d.getMonth() === month && d.getFullYear() === year;
   });
   const counts = {
-    upcoming: monthAppts.filter((a) => !a.outcome).length,
+    upcoming: monthAppts.filter((a) => !a.outcome && parseAppointmentDateTime(a.appointment_date, a.appointment_time) >= now).length,
     show: monthAppts.filter((a) => a.outcome === "show").length,
     proceeded: monthAppts.filter((a) => a.outcome === "proceeded").length,
     noshow: monthAppts.filter((a) => a.outcome === "noshow").length,
