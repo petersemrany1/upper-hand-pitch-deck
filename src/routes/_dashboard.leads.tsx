@@ -217,10 +217,16 @@ function LeadsPage() {
   const duplicateCount = rows.filter(isDuplicate).length;
 
   // Reps see only their own assigned leads; admins see everything.
+  // Reps are also hidden from "closed" statuses so they focus on active leads.
+  const HIDDEN_REP_STATUSES = new Set(["not interested", "dropped", "had convo no sale"]);
   const visibleRows = isAdmin
     ? rows
     : mySalesRepId
-      ? rows.filter((r) => r.rep_id === mySalesRepId)
+      ? rows.filter(
+          (r) =>
+            r.rep_id === mySalesRepId &&
+            !HIDDEN_REP_STATUSES.has((r.status ?? "").trim().toLowerCase()),
+        )
       : [];
 
   const filtered = visibleRows.filter((r) => {
