@@ -313,7 +313,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
   // Group into buckets.
   type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past";
-  const bucketOf = (dateStr: string): Bucket => {
+  const bucketOf = (appt: ClinicAppointment): Bucket => {
+    if (tab === "past" || isPastAppointment(appt)) return "Past";
+    const dateStr = appt.appointment_date;
     const d = startOfDay(parseDateOnly(dateStr));
     if (d < today) return "Past";
     if (d.getTime() === today.getTime()) return "Today";
@@ -327,7 +329,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
     : ["Today", "Tomorrow", "This week", "Next week", "Later"];
   const groups = new Map<Bucket, ClinicAppointment[]>();
   for (const a of sorted) {
-    const b = bucketOf(a.appointment_date);
+    const b = bucketOf(a);
     if (!groups.has(b)) groups.set(b, []);
     groups.get(b)!.push(a);
   }
