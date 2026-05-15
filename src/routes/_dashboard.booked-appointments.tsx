@@ -447,7 +447,7 @@ function Section({ title, rows, renderCard }: { title: string; rows: Reminder[];
 }
 
 function Card({
-  r, today, onCall, onCancel, onNoShow, onShowedUp, busy,
+  r, today, onCall, onCancel, onNoShow, onShowedUp, onEditHandover, busy,
 }: {
   r: Reminder;
   today: Date;
@@ -455,6 +455,7 @@ function Card({
   onCancel: () => void;
   onNoShow: (r: Reminder) => void;
   onShowedUp: (r: Reminder) => void;
+  onEditHandover: () => void;
   busy: boolean;
 }) {
   const d = r.booking_date ? parseBookingDate(r.booking_date) : null;
