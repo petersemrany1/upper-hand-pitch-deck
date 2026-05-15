@@ -415,6 +415,14 @@ function BookedAppointmentsPage() {
           </div>
         </div>
       )}
+
+      {editHandover && (
+        <EditHandoverModal
+          reminder={editHandover}
+          onClose={() => setEditHandover(null)}
+          onSent={() => { setEditHandover(null); void load(); }}
+        />
+      )}
     </div>
   );
 }
