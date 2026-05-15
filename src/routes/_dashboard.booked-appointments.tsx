@@ -601,6 +601,17 @@ function Card({
               <X size={11} /> Cancel
             </button>
           ) : null}
+
+          <button
+            onClick={onEditHandover}
+            style={{
+              fontSize: 11, color: COLOR.grey,
+              background: COLOR.card, border: `0.5px solid ${COLOR.border}`, borderRadius: 8,
+              padding: "6px 12px", cursor: "pointer",
+            }}
+          >
+            ✎ Edit handover
+          </button>
         </div>
       </div>
 
