@@ -333,11 +333,11 @@ function BookedAppointmentsPage() {
         ) : (
           <>
             <Section title="Today & Tomorrow" rows={grouped.todayTomorrow} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} busy={busy === r.id} />
             )} />
 
             <Section title="Upcoming" rows={grouped.upcoming} renderCard={(r) => (
-              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} busy={busy === r.id} />
+              <Card key={r.id} r={r} today={today} onCall={onCall} onCancel={() => setConfirmCancel(r)} onNoShow={onNoShow} onShowedUp={onShowedUp} onEditHandover={() => setEditHandover(r)} busy={busy === r.id} />
             )} />
 
             {/* Past & Cancelled — collapsible */}
