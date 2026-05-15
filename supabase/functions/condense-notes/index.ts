@@ -21,23 +21,19 @@ Write ONE flowing narrative paragraph (4-8 sentences) weaving together everythin
 - Personal context that helps the consult feel personal (work, travel ability, motivation, deadline, secondary concerns)
 - Price/objection handling — what price they're comfortable with, any pushback resolved
 - Booking details — date, time, doctor, clinic location
-
-Then on a NEW LINE add EXACTLY this final bullet:
-- Where they are now: <one tight sentence summarising deal status — booking date/time + doctor + clinic, deposit status, finance status, funding method, and that they're ready to attend>
+- Deal status — deposit status, finance status, funding method, and that they're ready to attend (weave these naturally into the narrative, not as a separate bullet)
 
 CRITICAL RULES:
 - IGNORE entirely any call that was voicemail, no answer, hangup, didn't connect, or had no useful patient intel. Do NOT mention them at all.
-- If NO calls had useful intel, skip the narrative paragraph and output ONLY the "- Where they are now:" line built from the structured deal facts.
-- The "Where they are now:" line MUST always include deposit status, finance status, and funding method when those facts are provided.
+- If NO calls had useful intel, output a single paragraph built ONLY from the structured deal facts — still covering booking details and deal status naturally in the prose.
 - NEVER invent facts — only use what's in the call summaries and deal facts.
 - Be SPECIFIC with names, places, $ amounts, dates, times, doctors, clinics — these details build trust with the consultant.
-- Third person. Natural prose, not bullet points (except the final "Where they are now" line).
-- No preamble, no sign-off, no headings — just the paragraph then the final bullet.
+- Third person. Natural prose only — no bullet points, no separate summary lines.
+- No preamble, no sign-off, no headings — just the single flowing paragraph.
 
 EXAMPLE OUTPUT:
 
-Steve revealed he had a complete hair transplant in Turkey 10 years ago; the front was done but he kept it shaved and never grew it out fully. The transplant held up well but the front is "still not full enough" and he wants "full" density in the crown area as well. He won't take medications, tried creams post-op but didn't stick with them. He's motivated to get a second transplant to restore his hairline and crown density. Confirmed he can travel to the clinic location (Essendon, Lincoln Road). Also mentioned he has a broken nose and wants that assessed during the consult if possible.
-- Where they are now: Locked in for 9am consult tomorrow at NITAI Medical with Dr. Shobna Singh; $75 deposit paid via Apple Pay; finance-checked; ready to attend.`;
+Steve revealed he had a complete hair transplant in Turkey 10 years ago; the front was done but he kept it shaved and never grew it out fully. The transplant held up well but the front is "still not full enough" and he wants "full" density in the crown area as well. He won't take medications, tried creams post-op but didn't stick with them. He's motivated to get a second transplant to restore his hairline and crown density. Confirmed he can travel to the clinic location (Essendon, Lincoln Road). Also mentioned he has a broken nose and wants that assessed during the consult if possible. He's locked in for a 9am consult tomorrow at NITAI Medical with Dr. Shobna Singh, his $75 deposit has been paid via Apple Pay, he's been finance-checked, and he's ready to attend.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
