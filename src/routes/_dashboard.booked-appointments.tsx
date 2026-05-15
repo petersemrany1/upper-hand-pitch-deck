@@ -690,3 +690,214 @@ function ReminderPill({
     </span>
   );
 }
+
+function EditHandoverModal({
+  reminder,
+  onClose,
+  onSent,
+}: {
+  reminder: Reminder;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [depositPaid, setDepositPaid] = useState(false);
+  const [clinicEmail, setClinicEmail] = useState<string | null>(null);
+  const [clinicName, setClinicName] = useState<string>("");
+  const [clinicId, setClinicId] = useState<string | null>(null);
+  const [leadInfo, setLeadInfo] = useState<{
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    phone: string | null;
+    funding_preference: string | null;
+    finance_eligible: boolean | null;
+    call_notes: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      try {
+        if (!reminder.lead_id) {
+          toast.error("This appointment isn't linked to a lead — can't resend.");
+          onClose();
+          return;
+        }
+
+        // Lead details
+        const { data: lead } = await supabase
+          .from("meta_leads")
+          .select("first_name,last_name,email,phone,funding_preference,finance_eligible,call_notes,clinic_id,status")
+          .eq("id", reminder.lead_id)
+          .maybeSingle();
+
+        // Clinic appointment snapshot (intel_notes is the exact text sent last time)
+        const { data: appt } = await supabase
+          .from("clinic_appointments")
+          .select("id, clinic_id, intel_notes")
+          .eq("lead_id", reminder.lead_id)
+          .maybeSingle();
+
+        const cId = (appt?.clinic_id as string | null) ?? (lead?.clinic_id as string | null) ?? null;
+
+        let cName = "";
+        let cEmail: string | null = null;
+        if (cId) {
+          const { data: clinic } = await supabase
+            .from("partner_clinics")
+            .select("clinic_name,email")
+            .eq("id", cId)
+            .maybeSingle();
+          cName = (clinic?.clinic_name as string | null) ?? "";
+          cEmail = (clinic?.email as string | null) ?? null;
+        }
+
+        if (!alive) return;
+        setClinicId(cId);
+        setClinicName(cName);
+        setClinicEmail(cEmail);
+        setLeadInfo({
+          first_name: lead?.first_name ?? null,
+          last_name: lead?.last_name ?? null,
+          email: lead?.email ?? null,
+          phone: lead?.phone ?? null,
+          funding_preference: lead?.funding_preference ?? null,
+          finance_eligible: lead?.finance_eligible ?? null,
+          call_notes: lead?.call_notes ?? null,
+        });
+        setNotes((appt?.intel_notes as string | null) ?? lead?.call_notes ?? "");
+        const status = ((lead?.status as string | null) ?? "").toLowerCase();
+        setDepositPaid(status.includes("deposit_paid"));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [reminder.lead_id, onClose]);
+
+  const onResend = async () => {
+    if (!reminder.lead_id || !leadInfo) return;
+    if (!clinicEmail) {
+      toast.error("No clinic email on file — add one in Partner Clinics first.");
+      return;
+    }
+    if (!notes.trim()) {
+      toast.error("Patient Intel can't be empty.");
+      return;
+    }
+    setSending(true);
+    const r = await sendClinicHandoverEmail({
+      data: {
+        leadId: reminder.lead_id,
+        clinicId,
+        firstName: leadInfo.first_name ?? "",
+        lastName: leadInfo.last_name ?? "",
+        email: leadInfo.email,
+        phone: leadInfo.phone,
+        callNotes: notes,
+        fundingPreference: leadInfo.funding_preference,
+        financeEligible: leadInfo.finance_eligible,
+        bookingDate: reminder.booking_date ?? "",
+        bookingTime: reminder.booking_time ?? "",
+        clinicName,
+        clinicEmail,
+        doctorName: reminder.doctor_name,
+        depositPaid,
+      },
+    });
+    setSending(false);
+    if (r.success) {
+      toast.success("Handover email re-sent ✓");
+      onSent();
+    } else {
+      toast.error(`Resend failed: ${r.error ?? "unknown error"}`);
+    }
+  };
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+        padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ ...cardStyle, padding: 24, maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto" }}
+      >
+        <h3 style={{ fontSize: 18, fontWeight: 600, marginBottom: 4 }}>Edit & resend handover email</h3>
+        <p style={{ fontSize: 12, color: COLOR.grey, marginBottom: 18 }}>
+          Edits to Patient Intel will overwrite the saved snapshot and the clinic will receive a new email.
+        </p>
+
+        {loading ? (
+          <div style={{ padding: 24, textAlign: "center", color: COLOR.muted }}>Loading…</div>
+        ) : (
+          <>
+            <div style={{ fontSize: 12, color: COLOR.grey, marginBottom: 14, lineHeight: 1.6 }}>
+              <div><b>To:</b> {clinicEmail ?? <span style={{ color: COLOR.red }}>No clinic email on file</span>} {clinicName ? `(${clinicName})` : ""}</div>
+              <div><b>Patient:</b> {[leadInfo?.first_name, leadInfo?.last_name].filter(Boolean).join(" ") || "—"}</div>
+              <div><b>Appointment:</b> {reminder.booking_date} {reminder.booking_time} {reminder.doctor_name ? `— Dr ${reminder.doctor_name}` : ""}</div>
+            </div>
+
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: COLOR.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              Patient Intel
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={12}
+              style={{
+                width: "100%", padding: 12, fontSize: 14, lineHeight: 1.5,
+                border: `0.5px solid ${COLOR.border}`, borderRadius: 8,
+                background: "#fafafa", color: COLOR.text, resize: "vertical",
+                fontFamily: "inherit",
+              }}
+            />
+
+            <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16, fontSize: 14, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={depositPaid}
+                onChange={(e) => setDepositPaid(e.target.checked)}
+              />
+              <span>Deposit paid ($75)</span>
+            </label>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 24 }}>
+              <button
+                onClick={onClose}
+                disabled={sending}
+                style={{
+                  fontSize: 13, padding: "8px 14px", borderRadius: 8,
+                  background: COLOR.card, border: `0.5px solid ${COLOR.border}`,
+                  cursor: sending ? "wait" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onResend}
+                disabled={sending || !clinicEmail}
+                style={{
+                  fontSize: 13, fontWeight: 500, padding: "8px 14px", borderRadius: 8,
+                  background: COLOR.coral, color: "#fff", border: "none",
+                  cursor: sending || !clinicEmail ? "wait" : "pointer",
+                  opacity: sending || !clinicEmail ? 0.6 : 1,
+                }}
+              >
+                {sending ? "Sending…" : "Resend handover email"}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
