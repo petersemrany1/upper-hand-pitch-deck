@@ -106,6 +106,7 @@ function BookedAppointmentsPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [pastOpen, setPastOpen] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState<Reminder | null>(null);
+  const [editHandover, setEditHandover] = useState<Reminder | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [enabled, setEnabled] = useState<boolean>(() => {
     if (typeof window === "undefined") return true;
