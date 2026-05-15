@@ -60,7 +60,7 @@ serve(async (req) => {
       const factLines: string[] = [];
       const df = dealFacts as Record<string, unknown>;
       if (df.deposit_paid !== undefined) factLines.push(`- Deposit paid: ${df.deposit_paid ? "YES" : "NO"}`);
-      if (df.finance_eligible !== undefined && df.finance_eligible !== null) factLines.push(`- Finance approved: ${df.finance_eligible ? "YES" : "NO"}`);
+      if (df.finance_eligible !== undefined && df.finance_eligible !== null) factLines.push(`- Finance checked: ${df.finance_eligible ? "YES" : "NO"}`);
       if (df.funding_preference) factLines.push(`- Funding method: ${String(df.funding_preference).replaceAll("_", " ")}`);
       if (df.booking_date) factLines.push(`- Booking: ${df.booking_date}${df.booking_time ? ` at ${df.booking_time}` : ""}`);
       if (df.status) factLines.push(`- Lead status: ${String(df.status).replaceAll("_", " ")}`);
