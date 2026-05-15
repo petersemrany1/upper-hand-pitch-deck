@@ -704,7 +704,7 @@ function EditHandoverModal({
   const [sending, setSending] = useState(false);
   const [notes, setNotes] = useState("");
   const [depositPaid, setDepositPaid] = useState(false);
-  const [clinicEmail, setClinicEmail] = useState<string | null>(null);
+  const [clinicEmail, setClinicEmail] = useState<string>("");
   const [clinicName, setClinicName] = useState<string>("");
   const [clinicId, setClinicId] = useState<string | null>(null);
   const [leadInfo, setLeadInfo] = useState<{
@@ -759,7 +759,7 @@ function EditHandoverModal({
         if (!alive) return;
         setClinicId(cId);
         setClinicName(cName);
-        setClinicEmail(cEmail);
+        setClinicEmail(cEmail ?? "");
         setLeadInfo({
           first_name: lead?.first_name ?? null,
           last_name: lead?.last_name ?? null,
@@ -781,15 +781,32 @@ function EditHandoverModal({
 
   const onResend = async () => {
     if (!reminder.lead_id || !leadInfo) return;
-    if (!clinicEmail) {
-      toast.error("No clinic email on file — add one in Partner Clinics first.");
+    if (!clinicEmail || !clinicEmail.trim()) {
+      toast.error("Add a clinic email before resending.");
       return;
     }
     if (!notes.trim()) {
       toast.error("Patient Intel can't be empty.");
       return;
     }
+    const emailTrim = clinicEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      toast.error("That doesn't look like a valid clinic email.");
+      return;
+    }
     setSending(true);
+    // Persist the clinic email back to partner_clinics so it's saved for next time.
+    if (clinicId) {
+      const { error: updErr } = await supabase
+        .from("partner_clinics")
+        .update({ email: emailTrim })
+        .eq("id", clinicId);
+      if (updErr) {
+        setSending(false);
+        toast.error(`Couldn't save clinic email: ${updErr.message}`);
+        return;
+      }
+    }
     const r = await sendClinicHandoverEmail({
       data: {
         leadId: reminder.lead_id,
@@ -841,9 +858,28 @@ function EditHandoverModal({
         ) : (
           <>
             <div style={{ fontSize: 12, color: COLOR.grey, marginBottom: 14, lineHeight: 1.6 }}>
-              <div><b>To:</b> {clinicEmail ?? <span style={{ color: COLOR.red }}>No clinic email on file</span>} {clinicName ? `(${clinicName})` : ""}</div>
               <div><b>Patient:</b> {[leadInfo?.first_name, leadInfo?.last_name].filter(Boolean).join(" ") || "—"}</div>
               <div><b>Appointment:</b> {reminder.booking_date} {reminder.booking_time} {reminder.doctor_name ? `— Dr ${reminder.doctor_name}` : ""}</div>
+              <div><b>Clinic:</b> {clinicName || "—"}</div>
+            </div>
+
+            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: COLOR.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
+              Send to (clinic email)
+            </label>
+            <input
+              type="email"
+              value={clinicEmail}
+              onChange={(e) => setClinicEmail(e.target.value)}
+              placeholder="clinic@example.com"
+              style={{
+                width: "100%", padding: "10px 12px", fontSize: 14,
+                border: `0.5px solid ${COLOR.border}`, borderRadius: 8,
+                background: "#fafafa", color: COLOR.text, marginBottom: 16,
+                fontFamily: "inherit",
+              }}
+            />
+            <div style={{ fontSize: 11, color: COLOR.grey, marginTop: -10, marginBottom: 14 }}>
+              Saved back to Partner Clinics on resend.
             </div>
 
             <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: COLOR.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
@@ -884,12 +920,12 @@ function EditHandoverModal({
               </button>
               <button
                 onClick={onResend}
-                disabled={sending || !clinicEmail}
+                disabled={sending || !clinicEmail.trim()}
                 style={{
                   fontSize: 13, fontWeight: 500, padding: "8px 14px", borderRadius: 8,
                   background: COLOR.coral, color: "#fff", border: "none",
-                  cursor: sending || !clinicEmail ? "wait" : "pointer",
-                  opacity: sending || !clinicEmail ? 0.6 : 1,
+                  cursor: sending || !clinicEmail.trim() ? "wait" : "pointer",
+                  opacity: sending || !clinicEmail.trim() ? 0.6 : 1,
                 }}
               >
                 {sending ? "Sending…" : "Resend handover email"}
