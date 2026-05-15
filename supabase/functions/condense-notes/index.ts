@@ -37,7 +37,7 @@ CRITICAL RULES:
 EXAMPLE OUTPUT:
 
 Steve revealed he had a complete hair transplant in Turkey 10 years ago; the front was done but he kept it shaved and never grew it out fully. The transplant held up well but the front is "still not full enough" and he wants "full" density in the crown area as well. He won't take medications, tried creams post-op but didn't stick with them. He's motivated to get a second transplant to restore his hairline and crown density. Confirmed he can travel to the clinic location (Essendon, Lincoln Road). Also mentioned he has a broken nose and wants that assessed during the consult if possible.
-- Where they are now: Locked in for 9am consult tomorrow at NITAI Medical with Dr. Shobna Singh; $75 deposit paid via Apple Pay; finance-checked and approved; ready to attend.`;
+- Where they are now: Locked in for 9am consult tomorrow at NITAI Medical with Dr. Shobna Singh; $75 deposit paid via Apple Pay; finance-checked; ready to attend.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
@@ -60,7 +60,7 @@ serve(async (req) => {
       const factLines: string[] = [];
       const df = dealFacts as Record<string, unknown>;
       if (df.deposit_paid !== undefined) factLines.push(`- Deposit paid: ${df.deposit_paid ? "YES" : "NO"}`);
-      if (df.finance_eligible !== undefined && df.finance_eligible !== null) factLines.push(`- Finance approved: ${df.finance_eligible ? "YES" : "NO"}`);
+      if (df.finance_eligible !== undefined && df.finance_eligible !== null) factLines.push(`- Finance checked: ${df.finance_eligible ? "YES" : "NO"}`);
       if (df.funding_preference) factLines.push(`- Funding method: ${String(df.funding_preference).replaceAll("_", " ")}`);
       if (df.booking_date) factLines.push(`- Booking: ${df.booking_date}${df.booking_time ? ` at ${df.booking_time}` : ""}`);
       if (df.status) factLines.push(`- Lead status: ${String(df.status).replaceAll("_", " ")}`);
