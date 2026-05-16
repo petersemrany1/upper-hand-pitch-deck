@@ -3097,47 +3097,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         <div className="flex flex-col gap-2.5">
           {/* Send handover to clinic */}
           <div className="flex flex-col gap-1.5">
-            {/* Intel status indicator */}
-            {!handoverSent && (
-              <div className="flex items-center gap-2" style={{ padding: "0 4px" }}>
-                {intelStatus === "waiting" && (
-                  <>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%",
-                      border: `2px solid ${COLORS.amber}`,
-                      borderTopColor: "transparent",
-                      animation: "discoverySpin 0.8s linear infinite",
-                      flexShrink: 0,
-                    }} />
-                    <div style={{ fontSize: 13, color: COLORS.amberDark, fontWeight: 500 }}>
-                      Analysing call recording... ({pollAttempt}/18)
-                    </div>
-                    <button
-                      onClick={() => setIntelStatus("timeout")}
-                      style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: 8 }}
-                    >
-                      Skip
-                    </button>
-                  </>
-                )}
-                {intelStatus === "ready" && (
-                  <>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green, flexShrink: 0 }} />
-                    <div style={{ fontSize: 12, color: COLORS.green, fontWeight: 500 }}>
-                      Patient intel ready ✓ — good to send
-                    </div>
-                  </>
-                )}
-                {intelStatus === "timeout" && (
-                  <>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.muted, flexShrink: 0 }} />
-                    <div style={{ fontSize: 12, color: COLORS.muted }}>
-                      No recording detected — you can still send manually
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            {/* (status indicator moved into AI notes card above) */}
 
             {/* Manual notes fallback when no recording was detected */}
             {showManualNotes && !handoverSent && (
