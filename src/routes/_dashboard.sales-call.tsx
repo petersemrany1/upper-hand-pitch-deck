@@ -2993,7 +2993,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           borderRadius: 12,
           padding: "28px 24px",
           textAlign: "center",
-          marginBottom: 24,
+          marginBottom: 16,
         }}>
           <div style={{
             width: 48, height: 48, borderRadius: "50%", background: COLORS.green,
@@ -3007,10 +3007,84 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           <div style={{ fontSize: 15, color: COLORS.text, marginBottom: 4 }}>
             {bookingDisplay}
           </div>
-          <div style={{ fontSize: 13, color: COLORS.muted }}>
+          <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 14 }}>
             with {bookedData.doctorName} · {bookedData.clinicName}
           </div>
+          {/* Patient SMS status pill */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            fontSize: 12, fontWeight: 500,
+            padding: "4px 10px", borderRadius: 999,
+            background: confirmationSent ? "#ecfdf5" : "#fff7ed",
+            color: confirmationSent ? COLORS.green : COLORS.amberDark,
+            border: `0.5px solid ${confirmationSent ? COLORS.green : COLORS.amber}`,
+          }}>
+            <span>{confirmationSent ? "✓" : "📱"}</span>
+            <span>{confirmationSent ? "Patient SMS sent" : "Patient SMS queued (5s)"}</span>
+          </div>
         </div>
+
+        {/* Inline AI call notes preview */}
+        {!handoverSent && (
+          <div style={{
+            background: "#ffffff",
+            border: `0.5px solid ${COLORS.line}`,
+            borderRadius: 12,
+            padding: "18px 20px",
+            marginBottom: 16,
+          }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#999" }}>
+                AI call notes
+              </div>
+              {intelStatus === "ready" && previewIntel && (
+                <button
+                  onClick={() => void openPreview()}
+                  style={{ fontSize: 12, color: COLORS.coral, fontWeight: 500, background: "transparent" }}
+                >
+                  Edit →
+                </button>
+              )}
+            </div>
+            {intelStatus === "waiting" && (
+              <div className="flex items-center gap-2" style={{ fontSize: 13, color: COLORS.amberDark }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: "50%",
+                  border: `2px solid ${COLORS.amber}`, borderTopColor: "transparent",
+                  animation: "discoverySpin 0.8s linear infinite", flexShrink: 0,
+                }} />
+                <span>✨ Analysing call recording… ({pollAttempt}/18)</span>
+                <button
+                  onClick={() => setIntelStatus("timeout")}
+                  style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: "auto" }}
+                >
+                  Skip
+                </button>
+              </div>
+            )}
+            {intelStatus === "ready" && (
+              <div style={{
+                fontSize: 13, lineHeight: 1.6, color: COLORS.text,
+                whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto",
+              }}>
+                {previewIntel || lead.call_notes || discoveryNotes || "—"}
+              </div>
+            )}
+            {intelStatus === "timeout" && !showManualNotes && (
+              <div className="flex items-center justify-between gap-2">
+                <div style={{ fontSize: 13, color: COLORS.muted }}>
+                  No recording detected — add notes manually while they're fresh.
+                </div>
+                <button
+                  onClick={() => setShowManualNotes(true)}
+                  style={{ fontSize: 12, color: COLORS.coral, fontWeight: 500, background: "transparent", whiteSpace: "nowrap" }}
+                >
+                  Add notes →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Two action buttons */}
         <div style={{
