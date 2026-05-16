@@ -2915,6 +2915,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     setPatientSmsDraft(null);
     if (sres.success) {
       setConfirmationSent(true);
+      setPatientSmsSentPopup({ phone });
       toast.success("Patient SMS sent ✓");
     } else {
       toast.error(`SMS failed: ${sres.error}`);
