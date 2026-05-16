@@ -1115,6 +1115,7 @@ export type Database = {
     }
     Functions: {
       current_clinic_id: { Args: never; Returns: string }
+      current_sales_rep_id: { Args: never; Returns: string }
       current_sales_rep_role: { Args: never; Returns: string }
       get_dashboard_stats: { Args: never; Returns: Json }
       has_sales_role: { Args: { _roles: string[] }; Returns: boolean }
