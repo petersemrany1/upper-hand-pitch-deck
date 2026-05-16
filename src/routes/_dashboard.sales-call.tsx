@@ -5979,19 +5979,6 @@ function RightPanel({
             <span>Payment received — ${paymentAmount ?? 75} · {new Date(paymentReceivedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
           </div>
         </div>
-      ) : sendingDepositLink || smsHistory.some((m) => (m.body ?? "").toLowerCase().includes("checkout.stripe.com") || (m.body ?? "").toLowerCase().includes("payment link")) ? (
-        <div style={{ padding: "14px 18px 0" }}>
-          <div style={{
-            background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 8,
-            padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
-            fontSize: 13, fontWeight: 500, color: "#92400e",
-          }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", background: "#f59e0b",
-            }} />
-            <span>Waiting for payment… link sent to patient</span>
-          </div>
-        </div>
       ) : null}
 
       <div style={{ padding: "14px 18px 0", display: "flex", gap: 8 }}>
