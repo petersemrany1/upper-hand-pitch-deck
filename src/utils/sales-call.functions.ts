@@ -262,8 +262,11 @@ export const saveBooking = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     if (!data.leadId || !data.date) return { success: false as const, error: "leadId and date required" };
+    // NOTE: do NOT change status here. Status only flips to "booked_deposit_paid"
+    // when the rep explicitly confirms the deposit. Booking date/time alone
+    // should never auto-promote a lead to a "Booked" status.
     const { error } = await supabaseAdmin.from("meta_leads").update({
-      status: "booked", booking_date: data.date, booking_time: data.time, clinic_id: data.clinicId,
+      booking_date: data.date, booking_time: data.time, clinic_id: data.clinicId,
       updated_at: new Date().toISOString(),
     }).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
