@@ -2439,6 +2439,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [patientSmsDraft, setPatientSmsDraft] = useState<{ body: string; phone: string; leadId: string } | null>(null);
+  const [patientSmsCountdown, setPatientSmsCountdown] = useState(5);
+  const [patientSmsSending, setPatientSmsSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
   const [refreshingIntel, setRefreshingIntel] = useState(false);
