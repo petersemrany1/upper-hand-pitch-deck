@@ -121,7 +121,7 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
         // Idempotency: skip if already marked paid for this session.
         const { data: existing } = await supabase
           .from("meta_leads")
-          .select("id, deposit_paid_at, stripe_checkout_session_id")
+          .select("id, deposit_paid_at, stripe_checkout_session_id, first_name, last_name, rep_id")
           .eq("id", leadId)
           .maybeSingle();
 
