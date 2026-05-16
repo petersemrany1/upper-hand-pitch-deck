@@ -3793,12 +3793,62 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           onTime={(v) => set("time", v)}
         />
 
+        {/* Payment-link gate — must be paid before booking can be locked in */}
+        {!paymentReceivedAt ? (
+          <button
+            onClick={() => void sendPaymentLink()}
+            disabled={sendingPaymentLink || !lead.phone}
+            className="w-full rounded-[6px]"
+            style={{
+              background: paymentLinkSent ? "#fffbeb" : COLORS.coral,
+              color: paymentLinkSent ? "#92400e" : "#fff",
+              border: paymentLinkSent ? "1px solid #f59e0b" : "none",
+              fontSize: 13, fontWeight: 600, padding: "9px 20px", marginTop: 4,
+              cursor: sendingPaymentLink || !lead.phone ? "not-allowed" : "pointer",
+              opacity: sendingPaymentLink || !lead.phone ? 0.6 : 1,
+            }}
+          >
+            {sendingPaymentLink
+              ? "Sending…"
+              : paymentLinkSent
+                ? "⏳ Waiting for Stripe to confirm payment…"
+                : "💳 Send payment link"}
+          </button>
+        ) : (
+          <div style={{
+            background: "#dcfce7", border: "1px solid #10b981", borderRadius: 8,
+            padding: "8px 12px", marginTop: 4, fontSize: 12, fontWeight: 600, color: "#065f46",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span>✅</span><span>Payment confirmed by Stripe</span>
+          </div>
+        )}
+        {paymentLinkSent && !paymentReceivedAt && (
+          <button
+            onClick={() => void sendPaymentLink()}
+            disabled={sendingPaymentLink}
+            style={{
+              background: "transparent", color: COLORS.muted, border: "none",
+              fontSize: 11, padding: "4px 0", cursor: "pointer", textDecoration: "underline",
+            }}
+          >
+            Resend payment link
+          </button>
+        )}
+
         <button
           onClick={() => void book()}
+          disabled={!paymentReceivedAt}
+          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : undefined}
           className="w-full rounded-[6px]"
-          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4 }}
+          style={{
+            background: paymentReceivedAt ? COLORS.green : "#e5e7eb",
+            color: paymentReceivedAt ? "#ffffff" : "#9ca3af",
+            fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
+            cursor: paymentReceivedAt ? "pointer" : "not-allowed",
+          }}
         >
-          Book appointment
+          {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
         </button>
       </Card>
     </div>
