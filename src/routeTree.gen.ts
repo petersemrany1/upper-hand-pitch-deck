@@ -29,6 +29,7 @@ import { Route as DashboardClientsRouteImport } from './routes/_dashboard.client
 import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api/public/hooks/stripe-deposit'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api/public/hooks/reconcile-call-durations'
 
@@ -132,6 +133,12 @@ const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
   path: '/api/public/meta-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksStripeDepositRoute =
   ApiPublicHooksStripeDepositRouteImport.update({
     id: '/api/public/hooks/stripe-deposit',
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesByTo {
   '/clinic-portal': typeof ClinicPortalRoute
@@ -190,6 +198,7 @@ export interface FileRoutesByTo {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -215,6 +224,7 @@ export interface FileRoutesById {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/lovable/email/queue/process'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clinic-portal'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/lovable/email/queue/process'
   id:
     | '__root__'
     | '/_dashboard'
@@ -287,6 +299,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/lovable/email/queue/process'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -298,6 +311,7 @@ export interface RootRouteChildren {
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -442,6 +456,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/stripe-deposit': {
       id: '/api/public/hooks/stripe-deposit'
       path: '/api/public/hooks/stripe-deposit'
@@ -507,6 +528,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksReconcileCallDurationsRoute:
     ApiPublicHooksReconcileCallDurationsRoute,
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
