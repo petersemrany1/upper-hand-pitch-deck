@@ -3274,10 +3274,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
               }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.amberDark, marginBottom: 2 }}>
-                  Please wait — analysing call recording
+                  Please wait to send handover video
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
-                  The “Send handover to clinic” button will appear when analysis is complete. ({pollAttempt}/18)
+                  Analysing call recording ({pollAttempt}/18)
                 </div>
               </div>
               <button
