@@ -3966,9 +3966,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       {/* Patient confirmation SMS — 5s countdown popup */}
       {patientSmsDraftPopupNode}
 
-      {patientSmsSentPopup && (
-        patientSmsSentPopupNode
-      )}
+      {patientSmsSentPopupNode}
     </div>
   );
 }
