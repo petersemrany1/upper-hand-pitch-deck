@@ -2454,6 +2454,58 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const [manualNotes, setManualNotes] = useState("");
   const [savingManualNotes, setSavingManualNotes] = useState(false);
 
+  // Payment-link gate: rep must send link and Stripe must confirm payment
+  // before "Book appointment" unlocks. Driven by meta_leads.deposit_paid_at
+  // (set by Stripe webhook).
+  const [paymentLinkSent, setPaymentLinkSent] = useState<boolean>(
+    Boolean((lead as { deposit_link_sent_at?: string | null }).deposit_link_sent_at) ||
+      Boolean((lead as { deposit_paid_at?: string | null }).deposit_paid_at),
+  );
+  const [sendingPaymentLink, setSendingPaymentLink] = useState(false);
+  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(
+    (lead as { deposit_paid_at?: string | null }).deposit_paid_at ?? null,
+  );
+  useEffect(() => {
+    setPaymentReceivedAt((lead as { deposit_paid_at?: string | null }).deposit_paid_at ?? null);
+    const channel = supabase
+      .channel(`booking-step-deposit-${lead.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "meta_leads", filter: `id=eq.${lead.id}` },
+        (payload) => {
+          const row = payload.new as { deposit_paid_at?: string | null };
+          if (row.deposit_paid_at) {
+            setPaymentReceivedAt((prev) => {
+              if (!prev) toast.success("💳 Payment confirmed — you can book now");
+              return row.deposit_paid_at ?? prev;
+            });
+          }
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [lead.id]);
+
+  const sendPaymentLink = async () => {
+    if (!lead.phone) { toast.error("No phone number on this lead"); return; }
+    if (sendingPaymentLink) return;
+    setSendingPaymentLink(true);
+    const r = await sendStandaloneDepositSms({
+      data: {
+        leadId: lead.id,
+        firstName: lead.first_name ?? "there",
+        phone: lead.phone,
+      },
+    });
+    setSendingPaymentLink(false);
+    if (r.success) {
+      setPaymentLinkSent(true);
+      toast.success("Payment link sent — waiting for Stripe confirmation");
+    } else {
+      toast.error(r.error ?? "Failed to send payment link");
+    }
+  };
+
   useEffect(() => {
     if (!booked) return;
     if (lead.call_notes?.trim() || discoveryNotes?.trim()) {
@@ -3741,12 +3793,62 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           onTime={(v) => set("time", v)}
         />
 
+        {/* Payment-link gate — must be paid before booking can be locked in */}
+        {!paymentReceivedAt ? (
+          <button
+            onClick={() => void sendPaymentLink()}
+            disabled={sendingPaymentLink || !lead.phone}
+            className="w-full rounded-[6px]"
+            style={{
+              background: paymentLinkSent ? "#fffbeb" : COLORS.coral,
+              color: paymentLinkSent ? "#92400e" : "#fff",
+              border: paymentLinkSent ? "1px solid #f59e0b" : "none",
+              fontSize: 13, fontWeight: 600, padding: "9px 20px", marginTop: 4,
+              cursor: sendingPaymentLink || !lead.phone ? "not-allowed" : "pointer",
+              opacity: sendingPaymentLink || !lead.phone ? 0.6 : 1,
+            }}
+          >
+            {sendingPaymentLink
+              ? "Sending…"
+              : paymentLinkSent
+                ? "⏳ Waiting for Stripe to confirm payment…"
+                : "💳 Send payment link"}
+          </button>
+        ) : (
+          <div style={{
+            background: "#dcfce7", border: "1px solid #10b981", borderRadius: 8,
+            padding: "8px 12px", marginTop: 4, fontSize: 12, fontWeight: 600, color: "#065f46",
+            display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span>✅</span><span>Payment confirmed by Stripe</span>
+          </div>
+        )}
+        {paymentLinkSent && !paymentReceivedAt && (
+          <button
+            onClick={() => void sendPaymentLink()}
+            disabled={sendingPaymentLink}
+            style={{
+              background: "transparent", color: COLORS.muted, border: "none",
+              fontSize: 11, padding: "4px 0", cursor: "pointer", textDecoration: "underline",
+            }}
+          >
+            Resend payment link
+          </button>
+        )}
+
         <button
           onClick={() => void book()}
+          disabled={!paymentReceivedAt}
+          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : undefined}
           className="w-full rounded-[6px]"
-          style={{ background: COLORS.green, color: "#ffffff", fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4 }}
+          style={{
+            background: paymentReceivedAt ? COLORS.green : "#e5e7eb",
+            color: paymentReceivedAt ? "#ffffff" : "#9ca3af",
+            fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
+            cursor: paymentReceivedAt ? "pointer" : "not-allowed",
+          }}
         >
-          Book appointment
+          {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
         </button>
       </Card>
     </div>
@@ -5875,19 +5977,6 @@ function RightPanel({
           }}>
             <span style={{ fontSize: 16 }}>✅</span>
             <span>Payment received — ${paymentAmount ?? 75} · {new Date(paymentReceivedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
-          </div>
-        </div>
-      ) : sendingDepositLink || smsHistory.some((m) => (m.body ?? "").toLowerCase().includes("checkout.stripe.com") || (m.body ?? "").toLowerCase().includes("payment link")) ? (
-        <div style={{ padding: "14px 18px 0" }}>
-          <div style={{
-            background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 8,
-            padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
-            fontSize: 13, fontWeight: 500, color: "#92400e",
-          }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%", background: "#f59e0b",
-            }} />
-            <span>Waiting for payment… link sent to patient</span>
           </div>
         </div>
       ) : null}
