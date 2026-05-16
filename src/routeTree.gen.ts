@@ -29,6 +29,7 @@ import { Route as DashboardClientsRouteImport } from './routes/_dashboard.client
 import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
+import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api/public/hooks/reconcile-call-durations'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -130,6 +131,12 @@ const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
   path: '/api/public/meta-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksReconcileCallDurationsRoute =
+  ApiPublicHooksReconcileCallDurationsRouteImport.update({
+    id: '/api/public/hooks/reconcile-call-durations',
+    path: '/api/public/hooks/reconcile-call-durations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
@@ -151,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
 }
 export interface FileRoutesByTo {
   '/clinic-portal': typeof ClinicPortalRoute
@@ -172,6 +180,7 @@ export interface FileRoutesByTo {
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/': typeof DashboardIndexRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -195,6 +204,7 @@ export interface FileRoutesById {
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/coach-stream'
     | '/api/public/meta-leads'
+    | '/api/public/hooks/reconcile-call-durations'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clinic-portal'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/api/coach-stream'
     | '/'
     | '/api/public/meta-leads'
+    | '/api/public/hooks/reconcile-call-durations'
   id:
     | '__root__'
     | '/_dashboard'
@@ -261,6 +273,7 @@ export interface FileRouteTypes {
     | '/api/coach-stream'
     | '/_dashboard/'
     | '/api/public/meta-leads'
+    | '/api/public/hooks/reconcile-call-durations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -270,6 +283,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
+  ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -414,6 +428,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/reconcile-call-durations': {
+      id: '/api/public/hooks/reconcile-call-durations'
+      path: '/api/public/hooks/reconcile-call-durations'
+      fullPath: '/api/public/hooks/reconcile-call-durations'
+      preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -462,6 +483,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
+  ApiPublicHooksReconcileCallDurationsRoute:
+    ApiPublicHooksReconcileCallDurationsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

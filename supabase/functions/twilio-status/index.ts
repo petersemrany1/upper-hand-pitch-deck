@@ -57,7 +57,21 @@ serve(async (req) => {
     } else if (callStatus) {
       patch.status = callStatus;
     }
-    if (duration > 0) patch.duration = duration;
+    if (duration > 0) {
+      // Belt-and-braces: write BOTH columns. A DB trigger also mirrors them,
+      // but writing both here means dashboards see the value even if the
+      // trigger is ever dropped or fails.
+      patch.duration = duration;
+      patch.duration_seconds = duration;
+    } else if (callStatus === "completed") {
+      // Log when Twilio reports a completed call with no duration — signal
+      // that the webhook payload is broken so we can investigate.
+      console.warn("twilio-status: completed call with zero/missing CallDuration", {
+        callSid: recordSid,
+        callStatus,
+        rawCallDuration: callDuration,
+      });
+    }
 
     // Upsert by twilio_call_sid so we always end up with exactly one row,
     // even if the browser-side insert was lost or raced.
