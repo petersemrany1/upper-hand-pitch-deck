@@ -1,0 +1,6 @@
+UPDATE public.meta_leads
+SET deposit_paid_at = NULL,
+    stripe_checkout_session_id = NULL,
+    stripe_payment_intent_id = NULL,
+    deposit_amount = NULL
+WHERE id = 'c32b4465-77ac-4f63-9d7b-0af95a08cbb0';
