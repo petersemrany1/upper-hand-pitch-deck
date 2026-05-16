@@ -3741,6 +3741,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
             </div>
           </div>
         )}
+
+        {patientSmsSentPopupNode}
       </div>
     );
   }
