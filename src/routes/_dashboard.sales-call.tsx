@@ -3808,6 +3808,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         )}
 
         {patientSmsSentPopupNode}
+        {patientSmsDraftPopupNode}
       </div>
     );
   }
@@ -3963,65 +3964,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       </Card>
 
       {/* Patient confirmation SMS — 5s countdown popup */}
-      {patientSmsDraft && (
-        <div
-          style={{
-            position: "fixed", inset: 0, background: "rgba(17,17,17,0.55)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            zIndex: 10000, padding: 16, backdropFilter: "blur(4px)",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff", borderRadius: 14, maxWidth: 480, width: "100%",
-              padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ea580c", marginBottom: 8 }}>
-              Sending in {patientSmsCountdown}s…
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>
-              Confirmation text to {patientSmsDraft.phone}
-            </div>
-            <div style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>
-              The patient will receive this SMS automatically when the timer hits 0.
-            </div>
-            <div
-              style={{
-                background: "#f8f8f8", border: "0.5px solid #e5e5e5", borderRadius: 10,
-                padding: 14, fontSize: 13, lineHeight: 1.5, color: "#222",
-                whiteSpace: "pre-wrap", marginBottom: 18, maxHeight: 220, overflowY: "auto",
-              }}
-            >
-              {patientSmsDraft.body}
-            </div>
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button
-                onClick={() => { setPatientSmsDraft(null); toast.message("Patient SMS cancelled"); }}
-                disabled={patientSmsSending}
-                style={{
-                  background: "#fff", color: "#111", border: "0.5px solid #d4d4d4",
-                  borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 500,
-                  cursor: patientSmsSending ? "not-allowed" : "pointer",
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={firePatientSms}
-                disabled={patientSmsSending}
-                style={{
-                  background: "#ea580c", color: "#fff", border: "none",
-                  borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600,
-                  cursor: patientSmsSending ? "not-allowed" : "pointer",
-                }}
-              >
-                {patientSmsSending ? "Sending…" : "Send now"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {patientSmsDraftPopupNode}
 
       {patientSmsSentPopup && (
         patientSmsSentPopupNode
