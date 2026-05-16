@@ -2924,7 +2924,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     }
   }, [patientSmsDraft, patientSmsSending]);
 
-  // 5-second countdown that auto-fires the SMS when modal is open
+  // 10-second countdown that auto-fires the SMS when modal is open
   useEffect(() => {
     if (!patientSmsDraft) return;
     if (patientSmsCountdown <= 0) {
