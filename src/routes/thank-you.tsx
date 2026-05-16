@@ -25,12 +25,9 @@ function ThankYouPage() {
         <p className="mt-4 text-base leading-7 text-muted-foreground">
           Thanks — your refundable consultation deposit has gone through. Your consultant can now lock in the appointment.
         </p>
-        <Link
-          to="/"
-          className="mt-8 inline-flex items-center justify-center rounded-md bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          Return to portal
-        </Link>
+        <p className="mt-6 text-sm text-muted-foreground">
+          You can safely close this page.
+        </p>
       </section>
     </main>
   );
