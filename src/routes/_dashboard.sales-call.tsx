@@ -3816,27 +3816,41 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         />
 
         {/* Payment-link gate — must be paid before booking can be locked in */}
-        {!paymentReceivedAt ? (
-          <button
-            onClick={() => void sendPaymentLink()}
-            disabled={sendingPaymentLink || !lead.phone}
-            className="w-full rounded-[6px]"
-            style={{
-              background: paymentLinkSent ? "#fffbeb" : COLORS.coral,
-              color: paymentLinkSent ? "#92400e" : "#fff",
-              border: paymentLinkSent ? "1px solid #f59e0b" : "none",
-              fontSize: 13, fontWeight: 600, padding: "9px 20px", marginTop: 4,
-              cursor: sendingPaymentLink || !lead.phone ? "not-allowed" : "pointer",
-              opacity: sendingPaymentLink || !lead.phone ? 0.6 : 1,
-            }}
-          >
-            {sendingPaymentLink
-              ? "Sending…"
-              : paymentLinkSent
-                ? "⏳ Waiting for Stripe to confirm payment…"
-                : "💳 Send payment link"}
-          </button>
-        ) : (
+        {(() => {
+          const missing: string[] = [];
+          if (!form.clinicId) missing.push("clinic");
+          if (!form.gender) missing.push("gender");
+          if (doctors.length > 0 && !form.doctorId) missing.push("doctor");
+          if (!form.funding) missing.push("funding type");
+          if (!form.date) missing.push("date");
+          if (!form.time) missing.push("time");
+          const formIncomplete = missing.length > 0;
+          return !paymentReceivedAt ? (
+            <button
+              onClick={() => void sendPaymentLink()}
+              disabled={sendingPaymentLink || !lead.phone || formIncomplete}
+              title={formIncomplete ? `Fill in: ${missing.join(", ")}` : undefined}
+              className="w-full rounded-[6px]"
+              style={{
+                background: formIncomplete ? "#e5e7eb" : paymentLinkSent ? "#fffbeb" : COLORS.coral,
+                color: formIncomplete ? "#9ca3af" : paymentLinkSent ? "#92400e" : "#fff",
+                border: paymentLinkSent && !formIncomplete ? "1px solid #f59e0b" : "none",
+                fontSize: 13, fontWeight: 600, padding: "9px 20px", marginTop: 4,
+                cursor: sendingPaymentLink || !lead.phone || formIncomplete ? "not-allowed" : "pointer",
+                opacity: sendingPaymentLink || !lead.phone ? 0.6 : 1,
+              }}
+            >
+              {formIncomplete
+                ? `🔒 Complete ${missing.join(", ")} first`
+                : sendingPaymentLink
+                  ? "Sending…"
+                  : paymentLinkSent
+                    ? "⏳ Waiting for Stripe to confirm payment…"
+                    : "💳 Send payment link"}
+            </button>
+          ) : null;
+        })()}
+        {paymentReceivedAt && (
           <div style={{
             background: "#dcfce7", border: "1px solid #10b981", borderRadius: 8,
             padding: "8px 12px", marginTop: 4, fontSize: 12, fontWeight: 600, color: "#065f46",
