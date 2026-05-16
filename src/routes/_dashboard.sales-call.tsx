@@ -47,7 +47,8 @@ const SALES_CALL_LEAD_SELECT = `
   ad_name, ad_set_name, campaign_name, status, call_notes, created_at,
   callback_scheduled_at, day_number, finance_eligible, booking_date,
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
-  pipeline_summary_updated_at
+  pipeline_summary_updated_at,
+  deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id
 `;
 
 type Clinic = {
