@@ -3093,6 +3093,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       setDepositPaid(false);
       setSendingHandover(false);
       setConfirmationSent(false);
+      setPatientSmsSentPopup(null);
+      setPatientSmsSentPopupDismissed(false);
       setSendingDeposit(false);
       setIntelStatus("waiting");
       setPollAttempt(0);
