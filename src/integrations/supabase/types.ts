@@ -642,6 +642,8 @@ export type Database = {
           created_at: string
           creative_time: string | null
           day_number: number
+          deposit_amount: number | null
+          deposit_paid_at: string | null
           email: string | null
           finance_eligible: boolean | null
           finance_form_answers: Json | null
@@ -655,6 +657,8 @@ export type Database = {
           raw_payload: Json | null
           rep_id: string | null
           status: string
+          stripe_checkout_session_id: string | null
+          stripe_payment_intent_id: string | null
           updated_at: string
         }
         Insert: {
@@ -669,6 +673,8 @@ export type Database = {
           created_at?: string
           creative_time?: string | null
           day_number?: number
+          deposit_amount?: number | null
+          deposit_paid_at?: string | null
           email?: string | null
           finance_eligible?: boolean | null
           finance_form_answers?: Json | null
@@ -682,6 +688,8 @@ export type Database = {
           raw_payload?: Json | null
           rep_id?: string | null
           status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -696,6 +704,8 @@ export type Database = {
           created_at?: string
           creative_time?: string | null
           day_number?: number
+          deposit_amount?: number | null
+          deposit_paid_at?: string | null
           email?: string | null
           finance_eligible?: boolean | null
           finance_form_answers?: Json | null
@@ -709,6 +719,8 @@ export type Database = {
           raw_payload?: Json | null
           rep_id?: string | null
           status?: string
+          stripe_checkout_session_id?: string | null
+          stripe_payment_intent_id?: string | null
           updated_at?: string
         }
         Relationships: []
