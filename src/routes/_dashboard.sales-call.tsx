@@ -2993,7 +2993,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           borderRadius: 12,
           padding: "28px 24px",
           textAlign: "center",
-          marginBottom: 24,
+          marginBottom: 16,
         }}>
           <div style={{
             width: 48, height: 48, borderRadius: "50%", background: COLORS.green,
@@ -3007,10 +3007,84 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           <div style={{ fontSize: 15, color: COLORS.text, marginBottom: 4 }}>
             {bookingDisplay}
           </div>
-          <div style={{ fontSize: 13, color: COLORS.muted }}>
+          <div style={{ fontSize: 13, color: COLORS.muted, marginBottom: 14 }}>
             with {bookedData.doctorName} · {bookedData.clinicName}
           </div>
+          {/* Patient SMS status pill */}
+          <div style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            fontSize: 12, fontWeight: 500,
+            padding: "4px 10px", borderRadius: 999,
+            background: confirmationSent ? "#ecfdf5" : "#fff7ed",
+            color: confirmationSent ? COLORS.green : COLORS.amberDark,
+            border: `0.5px solid ${confirmationSent ? COLORS.green : COLORS.amber}`,
+          }}>
+            <span>{confirmationSent ? "✓" : "📱"}</span>
+            <span>{confirmationSent ? "Patient SMS sent" : "Patient SMS queued (5s)"}</span>
+          </div>
         </div>
+
+        {/* Inline AI call notes preview */}
+        {!handoverSent && (
+          <div style={{
+            background: "#ffffff",
+            border: `0.5px solid ${COLORS.line}`,
+            borderRadius: 12,
+            padding: "18px 20px",
+            marginBottom: 16,
+          }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#999" }}>
+                AI call notes
+              </div>
+              {intelStatus === "ready" && previewIntel && (
+                <button
+                  onClick={() => void openPreview()}
+                  style={{ fontSize: 12, color: COLORS.coral, fontWeight: 500, background: "transparent" }}
+                >
+                  Edit →
+                </button>
+              )}
+            </div>
+            {intelStatus === "waiting" && (
+              <div className="flex items-center gap-2" style={{ fontSize: 13, color: COLORS.amberDark }}>
+                <div style={{
+                  width: 10, height: 10, borderRadius: "50%",
+                  border: `2px solid ${COLORS.amber}`, borderTopColor: "transparent",
+                  animation: "discoverySpin 0.8s linear infinite", flexShrink: 0,
+                }} />
+                <span>✨ Analysing call recording… ({pollAttempt}/18)</span>
+                <button
+                  onClick={() => setIntelStatus("timeout")}
+                  style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: "auto" }}
+                >
+                  Skip
+                </button>
+              </div>
+            )}
+            {intelStatus === "ready" && (
+              <div style={{
+                fontSize: 13, lineHeight: 1.6, color: COLORS.text,
+                whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto",
+              }}>
+                {previewIntel || lead.call_notes || discoveryNotes || "—"}
+              </div>
+            )}
+            {intelStatus === "timeout" && !showManualNotes && (
+              <div className="flex items-center justify-between gap-2">
+                <div style={{ fontSize: 13, color: COLORS.muted }}>
+                  No recording detected — add notes manually while they're fresh.
+                </div>
+                <button
+                  onClick={() => setShowManualNotes(true)}
+                  style={{ fontSize: 12, color: COLORS.coral, fontWeight: 500, background: "transparent", whiteSpace: "nowrap" }}
+                >
+                  Add notes →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Two action buttons */}
         <div style={{
@@ -3023,47 +3097,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         <div className="flex flex-col gap-2.5">
           {/* Send handover to clinic */}
           <div className="flex flex-col gap-1.5">
-            {/* Intel status indicator */}
-            {!handoverSent && (
-              <div className="flex items-center gap-2" style={{ padding: "0 4px" }}>
-                {intelStatus === "waiting" && (
-                  <>
-                    <div style={{
-                      width: 8, height: 8, borderRadius: "50%",
-                      border: `2px solid ${COLORS.amber}`,
-                      borderTopColor: "transparent",
-                      animation: "discoverySpin 0.8s linear infinite",
-                      flexShrink: 0,
-                    }} />
-                    <div style={{ fontSize: 13, color: COLORS.amberDark, fontWeight: 500 }}>
-                      Analysing call recording... ({pollAttempt}/18)
-                    </div>
-                    <button
-                      onClick={() => setIntelStatus("timeout")}
-                      style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: 8 }}
-                    >
-                      Skip
-                    </button>
-                  </>
-                )}
-                {intelStatus === "ready" && (
-                  <>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.green, flexShrink: 0 }} />
-                    <div style={{ fontSize: 12, color: COLORS.green, fontWeight: 500 }}>
-                      Patient intel ready ✓ — good to send
-                    </div>
-                  </>
-                )}
-                {intelStatus === "timeout" && (
-                  <>
-                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: COLORS.muted, flexShrink: 0 }} />
-                    <div style={{ fontSize: 12, color: COLORS.muted }}>
-                      No recording detected — you can still send manually
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
+            {/* (status indicator moved into AI notes card above) */}
 
             {/* Manual notes fallback when no recording was detected */}
             {showManualNotes && !handoverSent && (
@@ -3171,36 +3205,25 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
             )}
           </button>
 
-          {/* Send booking confirmation SMS to patient */}
-          <button
-            onClick={() => {
-              if (!lead.phone) { toast.error("No phone number on this lead"); return; }
-              setShowConfirmModal(true);
-            }}
-            disabled={confirmationSent || sendingConfirmation}
-            className="w-full rounded-[8px] flex items-center justify-between mt-3"
-            style={{
-              background: confirmationSent ? "#ecfdf5" : "#ffffff",
-              border: `0.5px solid ${confirmationSent ? COLORS.green : COLORS.line}`,
-              padding: "16px 20px",
-              cursor: confirmationSent ? "default" : sendingConfirmation ? "wait" : "pointer",
-              opacity: sendingConfirmation ? 0.7 : 1,
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: confirmationSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
-                {confirmationSent ? "✓ Confirmation sent" : "Send booking confirmation to patient"}
-              </div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>
-                Sends a confirmation SMS with appointment details
-              </div>
-            </div>
-            {!confirmationSent && (
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-                {sendingConfirmation ? "Sending…" : "Send →"}
-              </div>
-            )}
-          </button>
+          {/* Patient confirmation SMS auto-fires on Book appointment (with 5s Undo).
+              Status is shown as a pill in the confirmation card above. */}
+          {confirmationSent === false && intelStatus !== "waiting" && lead.phone && (
+            <button
+              onClick={() => {
+                if (!lead.phone) return;
+                setShowConfirmModal(true);
+              }}
+              disabled={sendingConfirmation}
+              style={{
+                fontSize: 12, color: COLORS.muted, background: "transparent",
+                textAlign: "left", padding: "4px 4px", marginTop: 2,
+                textDecoration: "underline", alignSelf: "flex-start",
+                cursor: sendingConfirmation ? "wait" : "pointer",
+              }}
+            >
+              Resend patient SMS manually
+            </button>
+          )}
 
           {/* Reset everything */}
           <button
