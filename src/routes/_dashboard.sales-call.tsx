@@ -3397,6 +3397,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                         setConfirmationSent(true);
                         setShowConfirmModal(false);
                         setPatientSmsSentPopup({ phone: lead.phone });
+                        setPatientSmsSentPopupDismissed(false);
                         toast.success("Confirmation sent ✓");
                       } else {
                         toast.error(`Failed: ${r.error}`);
