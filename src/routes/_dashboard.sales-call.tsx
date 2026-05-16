@@ -2442,6 +2442,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const [patientSmsDraft, setPatientSmsDraft] = useState<{ body: string; phone: string; leadId: string } | null>(null);
   const [patientSmsCountdown, setPatientSmsCountdown] = useState(5);
   const [patientSmsSentPopup, setPatientSmsSentPopup] = useState<{ phone: string } | null>(null);
+  const [patientSmsSentPopupDismissed, setPatientSmsSentPopupDismissed] = useState(false);
   const [patientSmsSending, setPatientSmsSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
@@ -2916,6 +2917,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     if (sres.success) {
       setConfirmationSent(true);
       setPatientSmsSentPopup({ phone });
+      setPatientSmsSentPopupDismissed(false);
       toast.success("Patient SMS sent ✓");
     } else {
       toast.error(`SMS failed: ${sres.error}`);
@@ -2933,14 +2935,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     return () => clearTimeout(t);
   }, [patientSmsDraft, patientSmsCountdown, firePatientSms]);
 
-  const patientSmsSentPopupNode = patientSmsSentPopup ? (
+  const patientSmsSentPopupNode = confirmationSent && !patientSmsSentPopupDismissed ? (
     <div
       style={{
         position: "fixed", inset: 0, background: "rgba(17,17,17,0.55)",
         display: "flex", alignItems: "center", justifyContent: "center",
         zIndex: 10001, padding: 16, backdropFilter: "blur(4px)",
       }}
-      onClick={() => setPatientSmsSentPopup(null)}
+      onClick={() => setPatientSmsSentPopupDismissed(true)}
     >
       <div
         onClick={(e) => e.stopPropagation()}
@@ -2959,10 +2961,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           Patient SMS sent
         </div>
         <div style={{ fontSize: 13, color: "#666", marginBottom: 20 }}>
-          Confirmation text delivered to {patientSmsSentPopup.phone}
+          Confirmation text delivered to {patientSmsSentPopup?.phone ?? lead.phone ?? "the patient"}
         </div>
         <button
-          onClick={() => setPatientSmsSentPopup(null)}
+          onClick={() => setPatientSmsSentPopupDismissed(true)}
           style={{
             background: "#111", color: "#fff", border: "none",
             borderRadius: 8, padding: "10px 24px", fontSize: 13, fontWeight: 600,
