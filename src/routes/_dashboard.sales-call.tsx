@@ -3251,34 +3251,6 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
             </button>
           </div>
 
-          {/* Mark as booked — deposit paid (single action, converts the lead) */}
-          <button
-            onClick={() => void handleConfirmDepositPaid()}
-            disabled={confirmingDeposit || depositPaid}
-            className="w-full rounded-[8px] flex items-center justify-between"
-            style={{
-              background: depositPaid ? "#dcfce7" : "#ffffff",
-              border: `0.5px solid ${depositPaid ? COLORS.green : COLORS.line}`,
-              padding: "16px 20px",
-              cursor: depositPaid ? "default" : confirmingDeposit ? "wait" : "pointer",
-              opacity: confirmingDeposit ? 0.7 : 1,
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: depositPaid ? COLORS.green : COLORS.text, marginBottom: 2 }}>
-                {depositPaid ? "✓ Booked — Deposit Paid" : "Mark as booked — deposit paid"}
-              </div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>
-                {depositPaid ? "Lead has been converted." : "Marks this lead as a booked, deposit-paid conversion."}
-              </div>
-            </div>
-            {!depositPaid && (
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.green, flexShrink: 0, marginLeft: 12 }}>
-                {confirmingDeposit ? "Saving…" : "Confirm ✓"}
-              </div>
-            )}
-          </button>
-
           {/* Patient confirmation SMS auto-fires on Book appointment (with 5s Undo).
               Status is shown as a pill in the confirmation card above. */}
           {confirmationSent === false && intelStatus !== "waiting" && lead.phone && (
@@ -3299,30 +3271,20 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
             </button>
           )}
 
-          {/* Reset everything */}
+          {/* Reset */}
           <button
             onClick={() => setShowResetConfirm(true)}
             disabled={resetting}
-            className="w-full rounded-[8px] flex items-center justify-between mt-3"
+            className="inline-flex items-center gap-1.5 mt-3 self-start"
             style={{
-              background: "#ffffff",
-              border: `0.5px solid ${COLORS.line}`,
-              padding: "16px 20px",
+              fontSize: 13, fontWeight: 500, color: COLORS.coral,
+              background: "transparent", border: "none", padding: "6px 4px",
               cursor: resetting ? "wait" : "pointer",
               opacity: resetting ? 0.7 : 1,
             }}
           >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.coral, marginBottom: 2 }}>
-                Reset everything
-              </div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>
-                Clear booking, deposit, handover & confirmation — fresh slate
-              </div>
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-              {resetting ? "Resetting…" : "Reset ↺"}
-            </div>
+            <RotateCcw size={14} />
+            {resetting ? "Resetting…" : "Reset"}
           </button>
         </div>
 
