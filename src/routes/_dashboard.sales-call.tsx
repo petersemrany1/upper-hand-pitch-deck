@@ -2648,9 +2648,50 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
       } catch { /* ignore */ }
 
-      // NOTE: booking confirmation SMS is NOT sent automatically here.
-      // It is sent only when the rep clicks the "Send booking confirmation"
-      // button below (which opens a preview modal first).
+      // Auto-fire patient booking SMS with a 5s Undo window so the rep
+      // gets the text out while still on the call. Rep can cancel via the
+      // toast action button if they fat-fingered something.
+      if (lead.phone) {
+        const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+        const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+        const dateStr = (() => {
+          try {
+            const d = new Date(`${form.date}T${form.time}`);
+            return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
+          } catch { return form.date; }
+        })();
+        const timeStr = (() => {
+          try {
+            const [h, m] = form.time.split(":");
+            const hh = parseInt(h, 10);
+            const ampm = hh >= 12 ? "PM" : "AM";
+            const hour12 = hh % 12 === 0 ? 12 : hh % 12;
+            return `${hour12}:${m} ${ampm}`;
+          } catch { return form.time; }
+        })();
+        const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
+        const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
+        const phone = lead.phone;
+        const leadId = lead.id;
+        let cancelled = false;
+        const timer = setTimeout(async () => {
+          if (cancelled) return;
+          const sres = await sendManualSms({ data: { leadId, phone, body: smsBody } });
+          if (sres.success) {
+            setConfirmationSent(true);
+            toast.success("Patient SMS sent ✓");
+          } else {
+            toast.error(`SMS failed: ${sres.error}`);
+          }
+        }, 5000);
+        toast("Sending patient SMS in 5s…", {
+          duration: 5000,
+          action: {
+            label: "Undo",
+            onClick: () => { cancelled = true; clearTimeout(timer); toast.message("Patient SMS cancelled"); },
+          },
+        });
+      }
     } else {
       toast.error(r.error);
     }
