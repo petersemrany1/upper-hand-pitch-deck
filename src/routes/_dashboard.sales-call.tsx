@@ -3206,141 +3206,98 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           </div>
         </div>
 
-        {/* Inline AI call notes preview */}
-        {!handoverSent && (
-          <div style={{
-            background: "#ffffff",
-            border: `0.5px solid ${COLORS.line}`,
-            borderRadius: 12,
-            padding: "18px 20px",
-            marginBottom: 16,
-          }}>
-            <div className="flex items-center justify-between" style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#999" }}>
-                AI call notes
-              </div>
-              {intelStatus === "ready" && previewIntel && (
-                <button
-                  onClick={() => void openPreview()}
-                  style={{ fontSize: 12, color: COLORS.coral, fontWeight: 500, background: "transparent" }}
-                >
-                  Edit →
-                </button>
-              )}
-            </div>
-            {intelStatus === "waiting" && (
-              <div className="flex items-center gap-2" style={{ fontSize: 13, color: COLORS.amberDark }}>
-                <div style={{
-                  width: 10, height: 10, borderRadius: "50%",
-                  border: `2px solid ${COLORS.amber}`, borderTopColor: "transparent",
-                  animation: "discoverySpin 0.8s linear infinite", flexShrink: 0,
-                }} />
-                <span>✨ Analysing call recording… ({pollAttempt}/18)</span>
-                <button
-                  onClick={() => setIntelStatus("timeout")}
-                  style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", marginLeft: "auto" }}
-                >
-                  Skip
-                </button>
-              </div>
-            )}
-            {intelStatus === "ready" && (
-              <div style={{
-                fontSize: 13, lineHeight: 1.6, color: COLORS.text,
-                whiteSpace: "pre-wrap", maxHeight: 180, overflowY: "auto",
-              }}>
-                {previewIntel || lead.call_notes || discoveryNotes || "—"}
-              </div>
-            )}
-            {intelStatus === "timeout" && !showManualNotes && (
-              <div className="flex items-center justify-between gap-2">
-                <div style={{ fontSize: 13, color: COLORS.muted }}>
-                  No recording detected — add notes manually while they're fresh.
-                </div>
-                <button
-                  onClick={() => setShowManualNotes(true)}
-                  style={{ fontSize: 12, color: COLORS.coral, fontWeight: 500, background: "transparent", whiteSpace: "nowrap" }}
-                >
-                  Add notes →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Two action buttons */}
-        <div style={{
-          fontSize: 11, fontWeight: 600, textTransform: "uppercase",
-          letterSpacing: "0.06em", color: "#999", marginBottom: 10,
-        }}>
-          Next steps
-        </div>
-
+        {/* Single handover card */}
         <div className="flex flex-col gap-2.5">
-          {/* Send handover to clinic */}
-          <div className="flex flex-col gap-1.5">
-            {/* (status indicator moved into AI notes card above) */}
+          {/* Manual notes fallback when no recording was detected */}
+          {showManualNotes && !handoverSent && (
+            <div style={{
+              background: "#fffbeb",
+              border: `0.5px solid ${COLORS.amber}`,
+              borderRadius: 10,
+              padding: "16px 20px",
+              marginBottom: 4,
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amberDark, marginBottom: 8 }}>
+                ⚠️ No recording detected — type your notes while they're fresh
+              </div>
+              <textarea
+                value={manualNotes}
+                onChange={(e) => setManualNotes(e.target.value)}
+                rows={4}
+                placeholder="What did they tell you? Pain points, motivation, budget, timeline..."
+                className="w-full rounded-[6px] outline-none"
+                style={{
+                  background: "#ffffff",
+                  border: `0.5px solid ${COLORS.line}`,
+                  color: "#111",
+                  fontSize: 14,
+                  lineHeight: 1.6,
+                  padding: "10px 12px",
+                  resize: "vertical",
+                  marginBottom: 10,
+                }}
+              />
+              <button
+                onClick={() => void saveManualNotes()}
+                disabled={savingManualNotes || !manualNotes.trim()}
+                style={{
+                  background: COLORS.coral,
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  padding: "8px 20px",
+                  borderRadius: 6,
+                  border: "none",
+                  opacity: savingManualNotes || !manualNotes.trim() ? 0.5 : 1,
+                  cursor: savingManualNotes || !manualNotes.trim() ? "default" : "pointer",
+                }}
+              >
+                {savingManualNotes ? "Saving..." : "Save notes →"}
+              </button>
+            </div>
+          )}
 
-            {/* Manual notes fallback when no recording was detected */}
-            {showManualNotes && !handoverSent && (
-              <div style={{
+          {/* Unified card: analysing state OR send handover button */}
+          {intelStatus === "waiting" ? (
+            <div
+              className="w-full rounded-[8px] flex items-center gap-3"
+              style={{
                 background: "#fffbeb",
                 border: `0.5px solid ${COLORS.amber}`,
-                borderRadius: 10,
-                padding: "16px 20px",
-                marginTop: 12,
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amberDark, marginBottom: 8 }}>
-                  ⚠️ No recording detected — type your notes while they're fresh
+                padding: "18px 20px",
+              }}
+            >
+              <div style={{
+                width: 14, height: 14, borderRadius: "50%",
+                border: `2px solid ${COLORS.amber}`, borderTopColor: "transparent",
+                animation: "discoverySpin 0.8s linear infinite", flexShrink: 0,
+              }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.amberDark, marginBottom: 2 }}>
+                  Please wait — analysing call recording
                 </div>
-                <textarea
-                  value={manualNotes}
-                  onChange={(e) => setManualNotes(e.target.value)}
-                  rows={4}
-                  placeholder="What did they tell you? Pain points, motivation, budget, timeline..."
-                  className="w-full rounded-[6px] outline-none"
-                  style={{
-                    background: "#ffffff",
-                    border: `0.5px solid ${COLORS.line}`,
-                    color: "#111",
-                    fontSize: 14,
-                    lineHeight: 1.6,
-                    padding: "10px 12px",
-                    resize: "vertical",
-                    marginBottom: 10,
-                  }}
-                />
-                <button
-                  onClick={() => void saveManualNotes()}
-                  disabled={savingManualNotes || !manualNotes.trim()}
-                  style={{
-                    background: COLORS.coral,
-                    color: "#fff",
-                    fontSize: 13,
-                    fontWeight: 500,
-                    padding: "8px 20px",
-                    borderRadius: 6,
-                    border: "none",
-                    opacity: savingManualNotes || !manualNotes.trim() ? 0.5 : 1,
-                    cursor: savingManualNotes || !manualNotes.trim() ? "default" : "pointer",
-                  }}
-                >
-                  {savingManualNotes ? "Saving..." : "Save notes →"}
-                </button>
+                <div style={{ fontSize: 12, color: COLORS.muted }}>
+                  The “Send handover to clinic” button will appear when analysis is complete. ({pollAttempt}/18)
+                </div>
               </div>
-            )}
-
-            {/* Button */}
+              <button
+                onClick={() => setIntelStatus("timeout")}
+                style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", flexShrink: 0 }}
+              >
+                Skip
+              </button>
+            </div>
+          ) : (
             <button
               onClick={() => void openPreview()}
-              disabled={sendingHandover || handoverSent || intelStatus === "waiting"}
+              disabled={sendingHandover || handoverSent}
               className="w-full rounded-[8px] flex items-center justify-between"
               style={{
-                background: handoverSent ? "#ecfdf5" : intelStatus === "waiting" ? "#f3f3f3" : "#ffffff",
+                background: handoverSent ? "#ecfdf5" : "#ffffff",
                 border: `0.5px solid ${handoverSent ? COLORS.green : COLORS.line}`,
                 padding: "16px 20px",
-                cursor: handoverSent || intelStatus === "waiting" ? "default" : sendingHandover ? "wait" : "pointer",
-                opacity: intelStatus === "waiting" ? 0.5 : sendingHandover ? 0.7 : 1,
+                cursor: handoverSent ? "default" : sendingHandover ? "wait" : "pointer",
+                opacity: sendingHandover ? 0.7 : 1,
               }}
             >
               <div style={{ textAlign: "left" }}>
@@ -3351,13 +3308,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                   Patient intel, funding, booking details → peter@gobold.com.au
                 </div>
               </div>
-              {!handoverSent && intelStatus !== "waiting" && (
+              {!handoverSent && (
                 <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
                   {sendingHandover ? "Sending…" : "Send →"}
                 </div>
               )}
             </button>
-          </div>
+          )}
 
           {/* Patient confirmation SMS auto-fires on Book appointment (with 5s Undo).
               Status is shown as a pill in the confirmation card above. */}
