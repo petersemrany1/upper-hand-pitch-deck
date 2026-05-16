@@ -4914,6 +4914,38 @@ function RightPanel({
   const [chargeCardOpen, setChargeCardOpen] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
+  // Live deposit-payment indicator (driven by Stripe webhook → meta_leads update)
+  // NOTE: never auto-changes lead status — only mirrors payment receipt.
+  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(
+    (active as { deposit_paid_at?: string | null }).deposit_paid_at ?? null,
+  );
+  const [paymentAmount, setPaymentAmount] = useState<number | null>(
+    (active as { deposit_amount?: number | null }).deposit_amount ?? null,
+  );
+  useEffect(() => {
+    setPaymentReceivedAt((active as { deposit_paid_at?: string | null }).deposit_paid_at ?? null);
+    setPaymentAmount((active as { deposit_amount?: number | null }).deposit_amount ?? null);
+    const channel = supabase
+      .channel(`lead-deposit-${active.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "meta_leads", filter: `id=eq.${active.id}` },
+        (payload) => {
+          const row = payload.new as { deposit_paid_at?: string | null; deposit_amount?: number | null };
+          if (row.deposit_paid_at) {
+            setPaymentReceivedAt((prev) => {
+              if (!prev) toast.success(`💳 Payment received — $${row.deposit_amount ?? 75}`);
+              return row.deposit_paid_at ?? prev;
+            });
+            setPaymentAmount(row.deposit_amount ?? null);
+          }
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [active.id]);
+
+
   // AI one-liner summary of where things are at with this lead.
   // Pulled from call_records.call_analysis.summary, regenerated when the
   // lead is selected and after each call ends (via the outcome modal).
