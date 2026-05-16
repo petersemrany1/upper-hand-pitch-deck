@@ -160,8 +160,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
 
     const params = new URLSearchParams();
     params.append("mode", "payment");
-    params.append("success_url", "https://bold-patients.com/thank-you");
-    params.append("cancel_url", "https://bold-patients.com");
+    params.append("success_url", "https://hairtransplantgroup.lovable.app/thank-you");
+    params.append("cancel_url", "https://hairtransplantgroup.lovable.app");
     if (data.email) params.append("customer_email", data.email);
     params.append("line_items[0][quantity]", "1");
     params.append("line_items[0][price_data][currency]", "aud");

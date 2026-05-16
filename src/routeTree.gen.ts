@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
@@ -34,9 +35,14 @@ import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
-import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api/public/hooks/stripe-deposit'
-import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api/public/hooks/reconcile-call-durations'
+import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
+import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
 
+const ThankYouRoute = ThankYouRouteImport.update({
+  id: '/thank-you',
+  path: '/thank-you',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/thank-you': typeof ThankYouRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
@@ -271,6 +280,7 @@ export interface FileRouteTypes {
     | '/clinic-portal'
     | '/login'
     | '/reset-password'
+    | '/thank-you'
     | '/analytics'
     | '/booked-appointments'
     | '/clients'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/clinic-portal'
     | '/login'
     | '/reset-password'
+    | '/thank-you'
     | '/analytics'
     | '/booked-appointments'
     | '/clients'
@@ -327,6 +338,7 @@ export interface FileRouteTypes {
     | '/clinic-portal'
     | '/login'
     | '/reset-password'
+    | '/thank-you'
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
     | '/_dashboard/clients'
@@ -357,6 +369,7 @@ export interface RootRouteChildren {
   ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
@@ -370,6 +383,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/thank-you': {
+      id: '/thank-you'
+      path: '/thank-you'
+      fullPath: '/thank-you'
+      preLoaderRoute: typeof ThankYouRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/reset-password': {
       id: '/reset-password'
       path: '/reset-password'
@@ -605,6 +625,7 @@ const rootRouteChildren: RootRouteChildren = {
   ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
