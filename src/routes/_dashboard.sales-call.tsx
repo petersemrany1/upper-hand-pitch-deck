@@ -2454,6 +2454,58 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const [manualNotes, setManualNotes] = useState("");
   const [savingManualNotes, setSavingManualNotes] = useState(false);
 
+  // Payment-link gate: rep must send link and Stripe must confirm payment
+  // before "Book appointment" unlocks. Driven by meta_leads.deposit_paid_at
+  // (set by Stripe webhook).
+  const [paymentLinkSent, setPaymentLinkSent] = useState<boolean>(
+    Boolean((lead as { deposit_link_sent_at?: string | null }).deposit_link_sent_at) ||
+      Boolean((lead as { deposit_paid_at?: string | null }).deposit_paid_at),
+  );
+  const [sendingPaymentLink, setSendingPaymentLink] = useState(false);
+  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(
+    (lead as { deposit_paid_at?: string | null }).deposit_paid_at ?? null,
+  );
+  useEffect(() => {
+    setPaymentReceivedAt((lead as { deposit_paid_at?: string | null }).deposit_paid_at ?? null);
+    const channel = supabase
+      .channel(`booking-step-deposit-${lead.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "meta_leads", filter: `id=eq.${lead.id}` },
+        (payload) => {
+          const row = payload.new as { deposit_paid_at?: string | null };
+          if (row.deposit_paid_at) {
+            setPaymentReceivedAt((prev) => {
+              if (!prev) toast.success("💳 Payment confirmed — you can book now");
+              return row.deposit_paid_at ?? prev;
+            });
+          }
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [lead.id]);
+
+  const sendPaymentLink = async () => {
+    if (!lead.phone) { toast.error("No phone number on this lead"); return; }
+    if (sendingPaymentLink) return;
+    setSendingPaymentLink(true);
+    const r = await sendStandaloneDepositSms({
+      data: {
+        leadId: lead.id,
+        firstName: lead.first_name ?? "there",
+        phone: lead.phone,
+      },
+    });
+    setSendingPaymentLink(false);
+    if (r.success) {
+      setPaymentLinkSent(true);
+      toast.success("Payment link sent — waiting for Stripe confirmation");
+    } else {
+      toast.error(r.error ?? "Failed to send payment link");
+    }
+  };
+
   useEffect(() => {
     if (!booked) return;
     if (lead.call_notes?.trim() || discoveryNotes?.trim()) {
