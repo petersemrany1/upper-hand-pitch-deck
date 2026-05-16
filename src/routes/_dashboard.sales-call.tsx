@@ -2726,26 +2726,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         })();
         const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
         const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
-        const phone = lead.phone;
-        const leadId = lead.id;
-        let cancelled = false;
-        const timer = setTimeout(async () => {
-          if (cancelled) return;
-          const sres = await sendManualSms({ data: { leadId, phone, body: smsBody } });
-          if (sres.success) {
-            setConfirmationSent(true);
-            toast.success("Patient SMS sent ✓");
-          } else {
-            toast.error(`SMS failed: ${sres.error}`);
-          }
-        }, 5000);
-        toast("Sending patient SMS in 5s…", {
-          duration: 5000,
-          action: {
-            label: "Undo",
-            onClick: () => { cancelled = true; clearTimeout(timer); toast.message("Patient SMS cancelled"); },
-          },
-        });
+        setPatientSmsCountdown(5);
+        setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
       }
     } else {
       toast.error(r.error);
