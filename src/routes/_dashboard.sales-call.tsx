@@ -2933,6 +2933,48 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     return () => clearTimeout(t);
   }, [patientSmsDraft, patientSmsCountdown, firePatientSms]);
 
+  const patientSmsSentPopupNode = patientSmsSentPopup ? (
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(17,17,17,0.55)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        zIndex: 10001, padding: 16, backdropFilter: "blur(4px)",
+      }}
+      onClick={() => setPatientSmsSentPopup(null)}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "#fff", borderRadius: 14, maxWidth: 400, width: "100%",
+          padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,0.25)", textAlign: "center",
+        }}
+      >
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%", background: "#10b981",
+          color: "#fff", fontSize: 28, fontWeight: 700,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 16px",
+        }}>✓</div>
+        <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 6 }}>
+          Patient SMS sent
+        </div>
+        <div style={{ fontSize: 13, color: "#666", marginBottom: 20 }}>
+          Confirmation text delivered to {patientSmsSentPopup.phone}
+        </div>
+        <button
+          onClick={() => setPatientSmsSentPopup(null)}
+          style={{
+            background: "#111", color: "#fff", border: "none",
+            borderRadius: 8, padding: "10px 24px", fontSize: 13, fontWeight: 600,
+            cursor: "pointer",
+          }}
+        >
+          Got it
+        </button>
+      </div>
+    </div>
+  ) : null;
+
   const openPreview = async () => {
     const { data: freshLead } = await supabase
       .from("meta_leads")
