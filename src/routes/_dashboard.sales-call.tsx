@@ -2491,6 +2491,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
 
   const sendPaymentLink = async () => {
     if (!lead.phone) { toast.error("No phone number on this lead"); return; }
+    const missing: string[] = [];
+    if (!form.clinicId) missing.push("clinic");
+    if (!form.gender) missing.push("gender");
+    if (doctors.length > 0 && !form.doctorId) missing.push("doctor");
+    if (!form.funding) missing.push("funding type");
+    if (!form.date) missing.push("booking date");
+    if (!form.time) missing.push("booking time");
+    if (missing.length) {
+      toast.error(`Fill in ${missing.join(", ")} before sending the payment link`);
+      return;
+    }
     if (sendingPaymentLink) return;
     setSendingPaymentLink(true);
     const r = await sendStandaloneDepositSms({
