@@ -3205,36 +3205,25 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
             )}
           </button>
 
-          {/* Send booking confirmation SMS to patient */}
-          <button
-            onClick={() => {
-              if (!lead.phone) { toast.error("No phone number on this lead"); return; }
-              setShowConfirmModal(true);
-            }}
-            disabled={confirmationSent || sendingConfirmation}
-            className="w-full rounded-[8px] flex items-center justify-between mt-3"
-            style={{
-              background: confirmationSent ? "#ecfdf5" : "#ffffff",
-              border: `0.5px solid ${confirmationSent ? COLORS.green : COLORS.line}`,
-              padding: "16px 20px",
-              cursor: confirmationSent ? "default" : sendingConfirmation ? "wait" : "pointer",
-              opacity: sendingConfirmation ? 0.7 : 1,
-            }}
-          >
-            <div style={{ textAlign: "left" }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: confirmationSent ? COLORS.green : COLORS.text, marginBottom: 2 }}>
-                {confirmationSent ? "✓ Confirmation sent" : "Send booking confirmation to patient"}
-              </div>
-              <div style={{ fontSize: 12, color: COLORS.muted }}>
-                Sends a confirmation SMS with appointment details
-              </div>
-            </div>
-            {!confirmationSent && (
-              <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-                {sendingConfirmation ? "Sending…" : "Send →"}
-              </div>
-            )}
-          </button>
+          {/* Patient confirmation SMS auto-fires on Book appointment (with 5s Undo).
+              Status is shown as a pill in the confirmation card above. */}
+          {confirmationSent === false && intelStatus !== "waiting" && lead.phone && (
+            <button
+              onClick={() => {
+                if (!lead.phone) return;
+                setShowConfirmModal(true);
+              }}
+              disabled={sendingConfirmation}
+              style={{
+                fontSize: 12, color: COLORS.muted, background: "transparent",
+                textAlign: "left", padding: "4px 4px", marginTop: 2,
+                textDecoration: "underline", alignSelf: "flex-start",
+                cursor: sendingConfirmation ? "wait" : "pointer",
+              }}
+            >
+              Resend patient SMS manually
+            </button>
+          )}
 
           {/* Reset everything */}
           <button
