@@ -2439,6 +2439,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [patientSmsDraft, setPatientSmsDraft] = useState<{ body: string; phone: string; leadId: string } | null>(null);
+  const [patientSmsCountdown, setPatientSmsCountdown] = useState(5);
+  const [patientSmsSending, setPatientSmsSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
   const [refreshingIntel, setRefreshingIntel] = useState(false);
@@ -2723,26 +2726,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         })();
         const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
         const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
-        const phone = lead.phone;
-        const leadId = lead.id;
-        let cancelled = false;
-        const timer = setTimeout(async () => {
-          if (cancelled) return;
-          const sres = await sendManualSms({ data: { leadId, phone, body: smsBody } });
-          if (sres.success) {
-            setConfirmationSent(true);
-            toast.success("Patient SMS sent ✓");
-          } else {
-            toast.error(`SMS failed: ${sres.error}`);
-          }
-        }, 5000);
-        toast("Sending patient SMS in 5s…", {
-          duration: 5000,
-          action: {
-            label: "Undo",
-            onClick: () => { cancelled = true; clearTimeout(timer); toast.message("Patient SMS cancelled"); },
-          },
-        });
+        setPatientSmsCountdown(5);
+        setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
       }
     } else {
       toast.error(r.error);
@@ -2908,6 +2893,32 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     }
   };
 
+  // Send the patient confirmation SMS (called by countdown timeout OR Send button)
+  const firePatientSms = useCallback(async () => {
+    if (!patientSmsDraft || patientSmsSending) return;
+    setPatientSmsSending(true);
+    const { body, phone, leadId } = patientSmsDraft;
+    const sres = await sendManualSms({ data: { leadId, phone, body } });
+    setPatientSmsSending(false);
+    setPatientSmsDraft(null);
+    if (sres.success) {
+      setConfirmationSent(true);
+      toast.success("Patient SMS sent ✓");
+    } else {
+      toast.error(`SMS failed: ${sres.error}`);
+    }
+  }, [patientSmsDraft, patientSmsSending]);
+
+  // 5-second countdown that auto-fires the SMS when modal is open
+  useEffect(() => {
+    if (!patientSmsDraft) return;
+    if (patientSmsCountdown <= 0) {
+      firePatientSms();
+      return;
+    }
+    const t = setTimeout(() => setPatientSmsCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [patientSmsDraft, patientSmsCountdown, firePatientSms]);
 
   const openPreview = async () => {
     const { data: freshLead } = await supabase
@@ -3851,6 +3862,67 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
         </button>
       </Card>
+
+      {/* Patient confirmation SMS — 5s countdown popup */}
+      {patientSmsDraft && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(17,17,17,0.55)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 10000, padding: 16, backdropFilter: "blur(4px)",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff", borderRadius: 14, maxWidth: 480, width: "100%",
+              padding: 24, boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ea580c", marginBottom: 8 }}>
+              Sending in {patientSmsCountdown}s…
+            </div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>
+              Confirmation text to {patientSmsDraft.phone}
+            </div>
+            <div style={{ fontSize: 12, color: "#666", marginBottom: 14 }}>
+              The patient will receive this SMS automatically when the timer hits 0.
+            </div>
+            <div
+              style={{
+                background: "#f8f8f8", border: "0.5px solid #e5e5e5", borderRadius: 10,
+                padding: 14, fontSize: 13, lineHeight: 1.5, color: "#222",
+                whiteSpace: "pre-wrap", marginBottom: 18, maxHeight: 220, overflowY: "auto",
+              }}
+            >
+              {patientSmsDraft.body}
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button
+                onClick={() => { setPatientSmsDraft(null); toast.message("Patient SMS cancelled"); }}
+                disabled={patientSmsSending}
+                style={{
+                  background: "#fff", color: "#111", border: "0.5px solid #d4d4d4",
+                  borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 500,
+                  cursor: patientSmsSending ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={firePatientSms}
+                disabled={patientSmsSending}
+                style={{
+                  background: "#ea580c", color: "#fff", border: "none",
+                  borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 600,
+                  cursor: patientSmsSending ? "not-allowed" : "pointer",
+                }}
+              >
+                {patientSmsSending ? "Sending…" : "Send now"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
