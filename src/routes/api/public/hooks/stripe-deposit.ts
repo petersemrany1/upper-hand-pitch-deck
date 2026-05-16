@@ -170,6 +170,62 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
           /* non-fatal */
         }
 
+        // Best-effort: notify ops via email on every successful deposit payment.
+        // Fixed recipient is baked into the payment-received template (peter@gobold.com.au).
+        try {
+          const patientName =
+            [existing.first_name, existing.last_name].filter(Boolean).join(" ").trim() || null;
+
+          let repName: string | null = null;
+          if (existing.rep_id) {
+            const { data: rep } = await supabase
+              .from("sales_reps")
+              .select("name, email")
+              .eq("id", existing.rep_id)
+              .maybeSingle();
+            repName = rep?.name || rep?.email || null;
+          }
+
+          const amountLabel =
+            typeof amount === "number"
+              ? `$${amount.toFixed(2)} ${(session.currency || "AUD").toUpperCase()}`
+              : null;
+
+          const paidAt = new Date().toLocaleString("en-AU", {
+            dateStyle: "medium",
+            timeStyle: "short",
+            timeZone: "Australia/Sydney",
+          });
+
+          const origin = new URL(request.url).origin;
+          const res = await fetch(`${origin}/lovable/email/transactional/send`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${serviceKey}`,
+            },
+            body: JSON.stringify({
+              templateName: "payment-received",
+              // `to` is hard-coded inside the template, but the send route
+              // still requires a non-empty recipientEmail field.
+              recipientEmail: "peter@gobold.com.au",
+              idempotencyKey: `payment-received-${session.id}`,
+              templateData: {
+                amount: amountLabel,
+                patientName,
+                repName,
+                leadId,
+                paidAt,
+              },
+            }),
+          });
+          if (!res.ok) {
+            console.warn("stripe-deposit webhook: notify email enqueue failed", res.status, await res.text());
+          }
+        } catch (e) {
+          console.warn("stripe-deposit webhook: notify email error", e);
+        }
+
         return new Response(JSON.stringify({ ok: true, leadId }), {
           status: 200,
           headers: { "Content-Type": "application/json" },
