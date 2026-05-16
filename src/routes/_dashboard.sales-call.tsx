@@ -47,7 +47,8 @@ const SALES_CALL_LEAD_SELECT = `
   ad_name, ad_set_name, campaign_name, status, call_notes, created_at,
   callback_scheduled_at, day_number, finance_eligible, booking_date,
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
-  pipeline_summary_updated_at
+  pipeline_summary_updated_at,
+  deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id
 `;
 
 type Clinic = {
@@ -4913,6 +4914,38 @@ function RightPanel({
   const [chargeCardOpen, setChargeCardOpen] = useState(false);
   const [smsHistory, setSmsHistory] = useState<{ body: string; sent_at: string | null; created_at: string; direction: string }[]>([]);
 
+  // Live deposit-payment indicator (driven by Stripe webhook → meta_leads update)
+  // NOTE: never auto-changes lead status — only mirrors payment receipt.
+  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(
+    (active as { deposit_paid_at?: string | null }).deposit_paid_at ?? null,
+  );
+  const [paymentAmount, setPaymentAmount] = useState<number | null>(
+    (active as { deposit_amount?: number | null }).deposit_amount ?? null,
+  );
+  useEffect(() => {
+    setPaymentReceivedAt((active as { deposit_paid_at?: string | null }).deposit_paid_at ?? null);
+    setPaymentAmount((active as { deposit_amount?: number | null }).deposit_amount ?? null);
+    const channel = supabase
+      .channel(`lead-deposit-${active.id}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "meta_leads", filter: `id=eq.${active.id}` },
+        (payload) => {
+          const row = payload.new as { deposit_paid_at?: string | null; deposit_amount?: number | null };
+          if (row.deposit_paid_at) {
+            setPaymentReceivedAt((prev) => {
+              if (!prev) toast.success(`💳 Payment received — $${row.deposit_amount ?? 75}`);
+              return row.deposit_paid_at ?? prev;
+            });
+            setPaymentAmount(row.deposit_amount ?? null);
+          }
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [active.id]);
+
+
   // AI one-liner summary of where things are at with this lead.
   // Pulled from call_records.call_analysis.summary, regenerated when the
   // lead is selected and after each call ends (via the outcome modal).
@@ -5769,6 +5802,32 @@ function RightPanel({
       </div>
 
       {/* Section 5b — Send standalone $75 deposit link */}
+      {paymentReceivedAt ? (
+        <div style={{ padding: "14px 18px 0" }}>
+          <div style={{
+            background: "#dcfce7", border: "1px solid #10b981", borderRadius: 8,
+            padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
+            fontSize: 13, fontWeight: 600, color: "#065f46",
+          }}>
+            <span style={{ fontSize: 16 }}>✅</span>
+            <span>Payment received — ${paymentAmount ?? 75} · {new Date(paymentReceivedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+          </div>
+        </div>
+      ) : sendingDepositLink || smsHistory.some((m) => (m.body ?? "").toLowerCase().includes("checkout.stripe.com") || (m.body ?? "").toLowerCase().includes("payment link")) ? (
+        <div style={{ padding: "14px 18px 0" }}>
+          <div style={{
+            background: "#fffbeb", border: "1px solid #f59e0b", borderRadius: 8,
+            padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
+            fontSize: 13, fontWeight: 500, color: "#92400e",
+          }}>
+            <span style={{
+              width: 8, height: 8, borderRadius: "50%", background: "#f59e0b",
+            }} />
+            <span>Waiting for payment… link sent to patient</span>
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ padding: "14px 18px 0", display: "flex", gap: 8 }}>
         <button
           onClick={() => {
