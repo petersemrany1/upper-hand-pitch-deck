@@ -2893,6 +2893,32 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     }
   };
 
+  // Send the patient confirmation SMS (called by countdown timeout OR Send button)
+  const firePatientSms = useCallback(async () => {
+    if (!patientSmsDraft || patientSmsSending) return;
+    setPatientSmsSending(true);
+    const { body, phone, leadId } = patientSmsDraft;
+    const sres = await sendManualSms({ data: { leadId, phone, body } });
+    setPatientSmsSending(false);
+    setPatientSmsDraft(null);
+    if (sres.success) {
+      setConfirmationSent(true);
+      toast.success("Patient SMS sent ✓");
+    } else {
+      toast.error(`SMS failed: ${sres.error}`);
+    }
+  }, [patientSmsDraft, patientSmsSending]);
+
+  // 5-second countdown that auto-fires the SMS when modal is open
+  useEffect(() => {
+    if (!patientSmsDraft) return;
+    if (patientSmsCountdown <= 0) {
+      firePatientSms();
+      return;
+    }
+    const t = setTimeout(() => setPatientSmsCountdown((n) => n - 1), 1000);
+    return () => clearTimeout(t);
+  }, [patientSmsDraft, patientSmsCountdown, firePatientSms]);
 
   const openPreview = async () => {
     const { data: freshLead } = await supabase
