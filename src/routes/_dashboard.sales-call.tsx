@@ -5829,7 +5829,9 @@ function RightPanel({
       ) : null}
 
       <div style={{ padding: "14px 18px 0", display: "flex", gap: 8 }}>
-
+        <button
+          onClick={() => {
+            if (!active.phone) { toast.error("No phone number on this lead"); return; }
             if (sendingDepositLink) return;
             setConfirmDepositOpen(true);
           }}
