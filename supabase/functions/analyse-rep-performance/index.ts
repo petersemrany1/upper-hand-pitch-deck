@@ -93,8 +93,10 @@ Output exactly this JSON and nothing else:
 }`;
 
 const MODEL = "claude-sonnet-4-5-20250929";
+const MAX_CALLS_PER_REPORT = 12;
+const TRANSCRIPT_CHAR_LIMIT = 7000;
 
-async function callClaude(apiKey: string, system: string, userContent: string): Promise<any> {
+async function callClaude(apiKey: string, system: string, userContent: string, maxTokens = 2200): Promise<any> {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -104,7 +106,7 @@ async function callClaude(apiKey: string, system: string, userContent: string): 
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: userContent }],
     }),
@@ -154,7 +156,7 @@ serve(async (req) => {
       .gt("duration_seconds", 60)
       .not("call_analysis->>transcript", "is", null)
       .order("called_at", { ascending: false })
-      .limit(50);
+      .limit(MAX_CALLS_PER_REPORT);
 
     if (dateFrom) q = q.gte("called_at", new Date(dateFrom).toISOString());
     if (dateTo) {
@@ -178,28 +180,27 @@ serve(async (req) => {
       );
     }
 
-    // Analyse each call in parallel batches of 4
+    console.log(`analyse-rep-performance: reviewing ${eligible.length} eligible calls`);
+
+    // Keep broad-range reports inside the request timeout by analysing a capped set concurrently.
+    const settled = await Promise.allSettled(
+      eligible.map(async (c: any) => {
+        const transcript: string = c.call_analysis.transcript;
+        const userContent = `CALL TRANSCRIPT:\n\n${transcript.slice(0, TRANSCRIPT_CHAR_LIMIT)}`;
+        const analysis = await callClaude(ANTHROPIC_API_KEY, PER_CALL_SYSTEM_PROMPT, userContent, 1800);
+        return {
+          called_at: c.called_at,
+          duration_seconds: c.duration_seconds ?? 0,
+          ...analysis,
+        };
+      }),
+    );
+
     const perCallResults: any[] = [];
-    const batchSize = 4;
-    for (let i = 0; i < eligible.length; i += batchSize) {
-      const batch = eligible.slice(i, i + batchSize);
-      const settled = await Promise.allSettled(
-        batch.map(async (c: any) => {
-          const transcript: string = c.call_analysis.transcript;
-          const userContent = `CALL TRANSCRIPT:\n\n${transcript.slice(0, 12000)}`;
-          const analysis = await callClaude(ANTHROPIC_API_KEY, PER_CALL_SYSTEM_PROMPT, userContent);
-          return {
-            called_at: c.called_at,
-            duration_seconds: c.duration_seconds ?? 0,
-            ...analysis,
-          };
-        }),
-      );
-      settled.forEach((r) => {
-        if (r.status === "fulfilled") perCallResults.push(r.value);
-        else console.error("per-call failed:", r.reason);
-      });
-    }
+    settled.forEach((r) => {
+      if (r.status === "fulfilled") perCallResults.push(r.value);
+      else console.error("per-call failed:", r.reason);
+    });
 
     if (perCallResults.length === 0) {
       throw new Error("All per-call analyses failed");
@@ -227,6 +228,7 @@ serve(async (req) => {
       ANTHROPIC_API_KEY,
       OVERALL_SYSTEM_PROMPT,
       `INDIVIDUAL CALL ANALYSES:\n\n${aggregateInput}`,
+      2400,
     );
 
     // Override LLM-reported counts with actual numbers — Claude hallucinates these.
