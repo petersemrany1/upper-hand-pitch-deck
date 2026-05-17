@@ -92,8 +92,15 @@ export const Route = createFileRoute("/api/public/meta-leads")({
         let firstName = cleanName(payload.first_name ?? payload.firstName);
         let lastName = cleanName(payload.last_name ?? payload.lastName);
 
-        // If last_name is not provided, split first_name on the first space
-        if (!lastName && firstName) {
+        // Split first_name on the first space when last_name is missing,
+        // OR when last_name is just a duplicate of the full first_name
+        // (Make.com sometimes sends the full name in both fields).
+        const lastNameMissingOrDuplicate =
+          !lastName ||
+          (firstName !== null &&
+            lastName.toLowerCase() === firstName.toLowerCase());
+
+        if (lastNameMissingOrDuplicate && firstName) {
           const spaceIndex = firstName.indexOf(" ");
           if (spaceIndex > 0) {
             lastName = firstName.slice(spaceIndex + 1).trim();
