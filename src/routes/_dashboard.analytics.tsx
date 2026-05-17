@@ -100,7 +100,7 @@ function AnalyticsPage() {
     setPerfReport(null);
 
     // Count eligible calls up-front so we can show "Reviewing X calls…".
-    // The backend samples the latest 5 eligible conversations to stay inside function timeouts.
+    // The backend samples the latest 3 eligible conversations to stay inside function timeouts.
     try {
       let cq = supabase
         .from("call_records")
@@ -115,7 +115,7 @@ function AnalyticsPage() {
         cq = cq.lte("called_at", end.toISOString());
       }
       const { count } = await cq;
-      setPerfLoadingCount(Math.min(count ?? 0, 5));
+      setPerfLoadingCount(Math.min(count ?? 0, 3));
     } catch {
       setPerfLoadingCount(0);
     }
