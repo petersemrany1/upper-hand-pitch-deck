@@ -89,9 +89,23 @@ export const Route = createFileRoute("/api/public/meta-leads")({
           return jsonResponse({ error: "Invalid JSON body" }, 400);
         }
 
+        let firstName = cleanName(payload.first_name ?? payload.firstName);
+        let lastName = cleanName(payload.last_name ?? payload.lastName);
+
+        // If last_name is not provided, split first_name on the first space
+        if (!lastName && firstName) {
+          const spaceIndex = firstName.indexOf(" ");
+          if (spaceIndex > 0) {
+            lastName = firstName.slice(spaceIndex + 1).trim();
+            firstName = firstName.slice(0, spaceIndex).trim();
+          } else {
+            lastName = "";
+          }
+        }
+
         const row = {
-          first_name: cleanName(payload.first_name ?? payload.firstName),
-          last_name: cleanName(payload.last_name ?? payload.lastName),
+          first_name: firstName,
+          last_name: lastName,
           email: asString(payload.email),
           phone: asString(payload.phone ?? payload.phone_number),
           funding_preference: asString(
