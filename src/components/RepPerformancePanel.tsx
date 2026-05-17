@@ -25,6 +25,8 @@ export type OverallReport = {
   headline: string;
   strengths: string[];
   development_areas: string[];
+  recurring_objections?: string[];
+  prevention_playbook?: string[];
   pattern_of_failure: string;
   pattern_of_success: string;
   coach_verdict: string;
