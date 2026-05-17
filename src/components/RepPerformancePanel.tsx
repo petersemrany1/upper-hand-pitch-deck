@@ -25,6 +25,8 @@ export type OverallReport = {
   headline: string;
   strengths: string[];
   development_areas: string[];
+  recurring_objections?: string[];
+  prevention_playbook?: string[];
   pattern_of_failure: string;
   pattern_of_success: string;
   coach_verdict: string;
@@ -197,6 +199,38 @@ export function RepPerformancePanel({
                   </ul>
                 </div>
               </div>
+
+              {/* Prevention focus */}
+              {((overall.recurring_objections?.length ?? 0) > 0 || (overall.prevention_playbook?.length ?? 0) > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="rounded-lg p-4 border border-amber-200 bg-amber-50">
+                    <div className="text-[10px] font-bold tracking-wider uppercase text-amber-800 mb-2">
+                      Recurring Objections (Prevention Gaps)
+                    </div>
+                    <ul className="space-y-1.5">
+                      {overall.recurring_objections?.map((s, i) => (
+                        <li key={i} className="text-xs text-foreground flex gap-2">
+                          <span className="text-amber-700">▸</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div className="rounded-lg p-4 border border-indigo-200 bg-indigo-50">
+                    <div className="text-[10px] font-bold tracking-wider uppercase text-indigo-800 mb-2">
+                      Prevention Playbook — Install This Week
+                    </div>
+                    <ul className="space-y-1.5">
+                      {overall.prevention_playbook?.map((s, i) => (
+                        <li key={i} className="text-xs text-foreground flex gap-2">
+                          <span className="text-indigo-700">▸</span>
+                          <span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
 
               {/* Call-by-call table */}
               <div className="rounded-lg border border-border overflow-hidden">
