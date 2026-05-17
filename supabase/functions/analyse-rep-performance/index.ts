@@ -91,9 +91,9 @@ Return minified valid JSON only. Keep every string short and direct. Output exac
       "call_type": "first_call or follow_up",
       "duration_seconds": number,
       "overall_score": number,
-      "call_verdict": "string",
-      "biggest_mistake": "string",
-      "coach_summary": "string"
+      "call_verdict": "Booked" or "Hot" or "Warm" or "Cold" or "Dead",
+      "biggest_mistake": "max 140 characters",
+      "coach_summary": "max 220 characters"
     }
   ]
 }`;
