@@ -208,7 +208,12 @@ serve(async (req) => {
       2200,
     );
 
-    const callSummaries = Array.isArray(overall.call_summaries) ? overall.call_summaries : [];
+    const allowedVerdicts = new Set(["Booked", "Hot", "Warm", "Cold", "Dead"]);
+    const callSummaries = (Array.isArray(overall.call_summaries) ? overall.call_summaries : []).map((r: any) => ({
+      ...r,
+      call_verdict: allowedVerdicts.has(r.call_verdict) ? r.call_verdict : "Cold",
+    }));
+    overall.call_summaries = callSummaries;
     const firstCalls = callSummaries.filter((r: any) => r.call_type === "first_call").length;
     const followUps = callSummaries.filter((r: any) => r.call_type === "follow_up").length;
     overall.calls_analysed = eligible.length;
