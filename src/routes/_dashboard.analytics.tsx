@@ -444,6 +444,18 @@ function AnalyticsPage() {
           </div>
         )}
       </div>
+
+      <RepPerformancePanel
+        open={perfOpen}
+        loading={perfLoading}
+        loadingCount={perfLoadingCount}
+        error={perfError}
+        repName={reps.find((r) => r.id === selectedRepId)?.name ?? ""}
+        dateFrom={perfFrom}
+        dateTo={perfTo}
+        overall={perfReport}
+        onClose={() => setPerfOpen(false)}
+      />
     </div>
   );
 }
