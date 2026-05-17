@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Phone, MessageSquare, Calendar, TrendingUp, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { RepPerformancePanel, type OverallReport } from "@/components/RepPerformancePanel";
 
 export const Route = createFileRoute("/_dashboard/analytics")({
   component: AnalyticsPage,
@@ -56,6 +57,81 @@ function AnalyticsPage() {
   const [range, setRange] = useState<Range>("month");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Rep performance analyser state
+  const [reps, setReps] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRepId, setSelectedRepId] = useState<string>("");
+  const [perfFrom, setPerfFrom] = useState<string>("");
+  const [perfTo, setPerfTo] = useState<string>("");
+  const [perfOpen, setPerfOpen] = useState(false);
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfError, setPerfError] = useState<string | null>(null);
+  const [perfReport, setPerfReport] = useState<OverallReport | null>(null);
+  const [perfLoadingCount, setPerfLoadingCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      // Pull distinct rep_ids present in call_records, then join to sales_reps for names
+      const { data: callReps } = await supabase
+        .from("call_records")
+        .select("rep_id")
+        .not("rep_id", "is", null)
+        .limit(5000);
+      const ids = Array.from(new Set((callReps ?? []).map((r: any) => r.rep_id).filter(Boolean)));
+      if (ids.length === 0) {
+        setReps([]);
+        return;
+      }
+      const { data: repRows } = await supabase
+        .from("sales_reps")
+        .select("id, name")
+        .in("id", ids);
+      const list = (repRows ?? []).map((r: any) => ({ id: r.id, name: r.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setReps(list);
+    })();
+  }, []);
+
+  const runRepAnalysis = async () => {
+    if (!selectedRepId) return;
+    setPerfOpen(true);
+    setPerfLoading(true);
+    setPerfError(null);
+    setPerfReport(null);
+
+    // Count eligible calls up-front so we can show "Reviewing X calls…"
+    try {
+      let cq = supabase
+        .from("call_records")
+        .select("id", { count: "exact", head: true })
+        .eq("rep_id", selectedRepId)
+        .gt("duration_seconds", 60)
+        .not("call_analysis->>transcript", "is", null);
+      if (perfFrom) cq = cq.gte("called_at", new Date(perfFrom).toISOString());
+      if (perfTo) {
+        const end = new Date(perfTo);
+        end.setHours(23, 59, 59, 999);
+        cq = cq.lte("called_at", end.toISOString());
+      }
+      const { count } = await cq;
+      setPerfLoadingCount(count ?? 0);
+    } catch {
+      setPerfLoadingCount(0);
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyse-rep-performance", {
+        body: { repId: selectedRepId, dateFrom: perfFrom || null, dateTo: perfTo || null },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPerfReport(data.overall as OverallReport);
+    } catch (err) {
+      setPerfError((err as Error).message || "Analysis failed");
+    } finally {
+      setPerfLoading(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -305,7 +381,47 @@ function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* Rep performance analyser row */}
+        <div className="bg-white rounded-xl border border-border p-3 mb-6 flex flex-col md:flex-row md:items-center gap-2">
+          <div className="text-[11px] font-bold tracking-wider uppercase text-muted-foreground md:mr-2 shrink-0">
+            Coach a Rep
+          </div>
+          <select
+            value={selectedRepId}
+            onChange={(e) => setSelectedRepId(e.target.value)}
+            className="text-xs px-3 py-1.5 rounded-md border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#f4522d]/30 min-w-[160px]"
+          >
+            <option value="">All Reps</option>
+            {reps.map((r) => (
+              <option key={r.id} value={r.id}>{r.name}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={perfFrom}
+            onChange={(e) => setPerfFrom(e.target.value)}
+            className="text-xs px-3 py-1.5 rounded-md border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#f4522d]/30"
+            aria-label="From date"
+          />
+          <span className="text-xs text-muted-foreground">→</span>
+          <input
+            type="date"
+            value={perfTo}
+            onChange={(e) => setPerfTo(e.target.value)}
+            className="text-xs px-3 py-1.5 rounded-md border border-border bg-white text-foreground focus:outline-none focus:ring-2 focus:ring-[#f4522d]/30"
+            aria-label="To date"
+          />
+          <button
+            onClick={runRepAnalysis}
+            disabled={!selectedRepId || perfLoading}
+            className="ml-auto inline-flex items-center gap-1.5 text-xs font-bold px-4 py-2 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: "#f4522d", color: "#fff" }}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Analyse Rep Performance
+          </button>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
           <StatCard icon={<Phone className="w-4 h-4" />} label="Total Calls" value={stats.total} />
           <StatCard icon={<MessageSquare className="w-4 h-4" />} label="Conversations" value={stats.conversations} hint=">2 min" />
@@ -328,6 +444,18 @@ function AnalyticsPage() {
           </div>
         )}
       </div>
+
+      <RepPerformancePanel
+        open={perfOpen}
+        loading={perfLoading}
+        loadingCount={perfLoadingCount}
+        error={perfError}
+        repName={reps.find((r) => r.id === selectedRepId)?.name ?? ""}
+        dateFrom={perfFrom}
+        dateTo={perfTo}
+        overall={perfReport}
+        onClose={() => setPerfOpen(false)}
+      />
     </div>
   );
 }
