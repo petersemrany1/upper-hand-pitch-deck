@@ -98,9 +98,9 @@ Output exactly this JSON and nothing else:
   ]
 }`;
 
-const MODEL = "claude-sonnet-4-5-20250929";
-const MAX_CALLS_PER_REPORT = 12;
-const TRANSCRIPT_CHAR_LIMIT = 7000;
+const MODEL = "claude-haiku-4-5-20251001";
+const MAX_CALLS_PER_REPORT = 5;
+const TRANSCRIPT_CHAR_LIMIT = 3500;
 
 async function callClaude(apiKey: string, system: string, userContent: string, maxTokens = 2200): Promise<any> {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
