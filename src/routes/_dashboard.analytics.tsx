@@ -58,6 +58,81 @@ function AnalyticsPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Rep performance analyser state
+  const [reps, setReps] = useState<{ id: string; name: string }[]>([]);
+  const [selectedRepId, setSelectedRepId] = useState<string>("");
+  const [perfFrom, setPerfFrom] = useState<string>("");
+  const [perfTo, setPerfTo] = useState<string>("");
+  const [perfOpen, setPerfOpen] = useState(false);
+  const [perfLoading, setPerfLoading] = useState(false);
+  const [perfError, setPerfError] = useState<string | null>(null);
+  const [perfReport, setPerfReport] = useState<OverallReport | null>(null);
+  const [perfLoadingCount, setPerfLoadingCount] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      // Pull distinct rep_ids present in call_records, then join to sales_reps for names
+      const { data: callReps } = await supabase
+        .from("call_records")
+        .select("rep_id")
+        .not("rep_id", "is", null)
+        .limit(5000);
+      const ids = Array.from(new Set((callReps ?? []).map((r: any) => r.rep_id).filter(Boolean)));
+      if (ids.length === 0) {
+        setReps([]);
+        return;
+      }
+      const { data: repRows } = await supabase
+        .from("sales_reps")
+        .select("id, name")
+        .in("id", ids);
+      const list = (repRows ?? []).map((r: any) => ({ id: r.id, name: r.name }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setReps(list);
+    })();
+  }, []);
+
+  const runRepAnalysis = async () => {
+    if (!selectedRepId) return;
+    setPerfOpen(true);
+    setPerfLoading(true);
+    setPerfError(null);
+    setPerfReport(null);
+
+    // Count eligible calls up-front so we can show "Reviewing X calls…"
+    try {
+      let cq = supabase
+        .from("call_records")
+        .select("id", { count: "exact", head: true })
+        .eq("rep_id", selectedRepId)
+        .gt("duration_seconds", 60)
+        .not("call_analysis->>transcript", "is", null);
+      if (perfFrom) cq = cq.gte("called_at", new Date(perfFrom).toISOString());
+      if (perfTo) {
+        const end = new Date(perfTo);
+        end.setHours(23, 59, 59, 999);
+        cq = cq.lte("called_at", end.toISOString());
+      }
+      const { count } = await cq;
+      setPerfLoadingCount(count ?? 0);
+    } catch {
+      setPerfLoadingCount(0);
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke("analyse-rep-performance", {
+        body: { repId: selectedRepId, dateFrom: perfFrom || null, dateTo: perfTo || null },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setPerfReport(data.overall as OverallReport);
+    } catch (err) {
+      setPerfError((err as Error).message || "Analysis failed");
+    } finally {
+      setPerfLoading(false);
+    }
+  };
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
