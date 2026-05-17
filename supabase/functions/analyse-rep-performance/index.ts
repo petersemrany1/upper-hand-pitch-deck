@@ -205,7 +205,7 @@ serve(async (req) => {
       ANTHROPIC_API_KEY,
       OVERALL_SYSTEM_PROMPT,
       `RAW CALLS TO REVIEW:\n\n${aggregateInput}`,
-      3500,
+      2200,
     );
 
     const callSummaries = Array.isArray(overall.call_summaries) ? overall.call_summaries : [];
