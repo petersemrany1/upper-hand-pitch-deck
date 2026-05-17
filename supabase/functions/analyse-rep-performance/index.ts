@@ -69,7 +69,7 @@ For each call summary, classify the call type yourself:
 
 Judge everything through objection PREVENTION, not objection handling. The question is: did the rep prevent resistance by setting the frame, deepening pain, building value before price, and pre-empting obvious stalls before they appeared?
 
-Output exactly this JSON and nothing else:
+Return minified valid JSON only. Keep every string short and direct. Output exactly this JSON and nothing else:
 
 {
   "overall_score": number out of 10 (weighted average across all calls),
@@ -99,10 +99,10 @@ Output exactly this JSON and nothing else:
 }`;
 
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_CALLS_PER_REPORT = 5;
-const TRANSCRIPT_CHAR_LIMIT = 3500;
+const MAX_CALLS_PER_REPORT = 3;
+const TRANSCRIPT_CHAR_LIMIT = 1800;
 
-async function callClaude(apiKey: string, system: string, userContent: string, maxTokens = 2200): Promise<any> {
+async function callClaude(apiKey: string, system: string, userContent: string, maxTokens = 1800): Promise<any> {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -132,6 +132,7 @@ async function callClaude(apiKey: string, system: string, userContent: string, m
     // try to extract JSON object
     const m = raw.match(/\{[\s\S]*\}/);
     if (m) return JSON.parse(m[0]);
+    console.error("Claude JSON parse failed. Raw prefix:", raw.slice(0, 500));
     throw new Error("Could not parse Claude JSON output");
   }
 }
