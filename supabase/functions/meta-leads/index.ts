@@ -102,14 +102,33 @@ Deno.serve(async (req: Request) => {
   const fullName = asString(payload.full_name ?? payload.fullName ?? payload.name);
   const { first, last } = splitFullName(fullName);
 
+  let firstName = cleanName(payload.first_name ?? payload.firstName) ?? cleanName(first);
+  let lastName = cleanName(payload.last_name ?? payload.lastName) ?? cleanName(last);
+
+  // Website leads can arrive with the full name duplicated into both first_name
+  // and last_name. Treat that as unsplit input and split on the first space.
+  const lastNameMissingOrDuplicate =
+    !lastName ||
+    (firstName !== null && lastName.toLowerCase() === firstName.toLowerCase());
+
+  if (lastNameMissingOrDuplicate && firstName) {
+    const spaceIndex = firstName.indexOf(" ");
+    if (spaceIndex > 0) {
+      lastName = firstName.slice(spaceIndex + 1).trim();
+      firstName = firstName.slice(0, spaceIndex).trim();
+    } else {
+      lastName = "";
+    }
+  }
+
   const clinicIdRaw = payload.clinic_id ?? payload.clinicId;
   const clinicId = isUuid(clinicIdRaw) ? (clinicIdRaw as string) : null;
 
   const formName = asString(payload.form_name ?? payload.formName);
 
   const row = {
-    first_name: cleanName(payload.first_name ?? payload.firstName) ?? cleanName(first),
-    last_name: cleanName(payload.last_name ?? payload.lastName) ?? cleanName(last),
+    first_name: firstName,
+    last_name: lastName,
     email: asString(payload.email),
     phone: asString(payload.phone ?? payload.phone_number),
     funding_preference: asString(
