@@ -61,9 +61,15 @@ THEN OUTPUT exactly this JSON structure and nothing else:
 
 const OVERALL_SYSTEM_PROMPT = `You are a world-class modern sales coach reviewing a rep's performance across multiple calls. Your coaching philosophy is built on one principle: objection PREVENTION beats objection handling every time. A rep who repeatedly faces the same objections is a rep who is failing to set frames, qualify deeply, and pre-empt resistance.
 
-You have just read the analysis of each individual call. Now write a performance report as if you are sitting down with this rep's manager. Be direct. Be specific. Use examples from the calls. Don't pad it out.
+You will receive raw call transcripts. Write a performance report as if you are sitting down with this rep's manager. Be direct. Be specific. Use examples from the calls. Don't pad it out.
 
-Output exactly this JSON and nothing else:
+For each call summary, classify the call type yourself:
+- first_call = first conversation, discovery, pitch, booking attempt
+- follow_up = previous conversation referenced, checking back in, lead already knows the offer
+
+Judge everything through objection PREVENTION, not objection handling. The question is: did the rep prevent resistance by setting the frame, deepening pain, building value before price, and pre-empting obvious stalls before they appeared?
+
+Return minified valid JSON only. Keep every string short and direct. Output exactly this JSON and nothing else:
 
 {
   "overall_score": number out of 10 (weighted average across all calls),
@@ -85,16 +91,18 @@ Output exactly this JSON and nothing else:
       "call_type": "first_call or follow_up",
       "duration_seconds": number,
       "overall_score": number,
-      "call_verdict": "string",
-      "biggest_mistake": "string",
-      "coach_summary": "string"
+      "call_verdict": "Booked" or "Hot" or "Warm" or "Cold" or "Dead",
+      "biggest_mistake": "max 140 characters",
+      "coach_summary": "max 220 characters"
     }
   ]
 }`;
 
-const MODEL = "claude-sonnet-4-5-20250929";
+const MODEL = "claude-haiku-4-5-20251001";
+const MAX_CALLS_PER_REPORT = 3;
+const TRANSCRIPT_CHAR_LIMIT = 1800;
 
-async function callClaude(apiKey: string, system: string, userContent: string): Promise<any> {
+async function callClaude(apiKey: string, system: string, userContent: string, maxTokens = 1800): Promise<any> {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -104,7 +112,7 @@ async function callClaude(apiKey: string, system: string, userContent: string): 
     },
     body: JSON.stringify({
       model: MODEL,
-      max_tokens: 4000,
+      max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content: userContent }],
     }),
@@ -124,6 +132,7 @@ async function callClaude(apiKey: string, system: string, userContent: string): 
     // try to extract JSON object
     const m = raw.match(/\{[\s\S]*\}/);
     if (m) return JSON.parse(m[0]);
+    console.error("Claude JSON parse failed. Raw prefix:", raw.slice(0, 500));
     throw new Error("Could not parse Claude JSON output");
   }
 }
@@ -154,7 +163,7 @@ serve(async (req) => {
       .gt("duration_seconds", 60)
       .not("call_analysis->>transcript", "is", null)
       .order("called_at", { ascending: false })
-      .limit(50);
+      .limit(MAX_CALLS_PER_REPORT);
 
     if (dateFrom) q = q.gte("called_at", new Date(dateFrom).toISOString());
     if (dateTo) {
@@ -178,66 +187,41 @@ serve(async (req) => {
       );
     }
 
-    // Analyse each call in parallel batches of 4
-    const perCallResults: any[] = [];
-    const batchSize = 4;
-    for (let i = 0; i < eligible.length; i += batchSize) {
-      const batch = eligible.slice(i, i + batchSize);
-      const settled = await Promise.allSettled(
-        batch.map(async (c: any) => {
-          const transcript: string = c.call_analysis.transcript;
-          const userContent = `CALL TRANSCRIPT:\n\n${transcript.slice(0, 12000)}`;
-          const analysis = await callClaude(ANTHROPIC_API_KEY, PER_CALL_SYSTEM_PROMPT, userContent);
-          return {
-            called_at: c.called_at,
-            duration_seconds: c.duration_seconds ?? 0,
-            ...analysis,
-          };
-        }),
-      );
-      settled.forEach((r) => {
-        if (r.status === "fulfilled") perCallResults.push(r.value);
-        else console.error("per-call failed:", r.reason);
-      });
-    }
+    console.log(`analyse-rep-performance: reviewing ${eligible.length} eligible calls`);
 
-    if (perCallResults.length === 0) {
-      throw new Error("All per-call analyses failed");
-    }
-
-    // Build aggregate prompt
-    const aggregateInput = JSON.stringify(
-      perCallResults.map((r) => ({
-        called_at: r.called_at,
-        duration_seconds: r.duration_seconds,
-        call_type: r.call_type,
-        overall_score: r.overall_score,
-        call_verdict: r.call_verdict,
-        coach_summary: r.coach_summary,
-        what_worked: r.what_worked,
-        what_to_fix: r.what_to_fix,
-        biggest_mistake: r.biggest_mistake,
-        stages: r.stages,
-      })),
-      null,
-      2,
-    );
+    // Single-pass report keeps broad ranges inside request and AI rate limits.
+    const aggregateInput = eligible.map((c: any, index: number) => {
+      const transcript: string = c.call_analysis.transcript;
+      return [
+        `CALL ${index + 1}`,
+        `called_at: ${c.called_at}`,
+        `duration_seconds: ${c.duration_seconds ?? 0}`,
+        "transcript:",
+        transcript.slice(0, TRANSCRIPT_CHAR_LIMIT),
+      ].join("\n");
+    }).join("\n\n---\n\n");
 
     const overall = await callClaude(
       ANTHROPIC_API_KEY,
       OVERALL_SYSTEM_PROMPT,
-      `INDIVIDUAL CALL ANALYSES:\n\n${aggregateInput}`,
+      `RAW CALLS TO REVIEW:\n\n${aggregateInput}`,
+      2200,
     );
 
-    // Override LLM-reported counts with actual numbers — Claude hallucinates these.
-    const firstCalls = perCallResults.filter((r) => r.call_type === "first_call").length;
-    const followUps = perCallResults.filter((r) => r.call_type === "follow_up").length;
-    overall.calls_analysed = perCallResults.length;
+    const allowedVerdicts = new Set(["Booked", "Hot", "Warm", "Cold", "Dead"]);
+    const callSummaries = (Array.isArray(overall.call_summaries) ? overall.call_summaries : []).map((r: any) => ({
+      ...r,
+      call_verdict: allowedVerdicts.has(r.call_verdict) ? r.call_verdict : "Cold",
+    }));
+    overall.call_summaries = callSummaries;
+    const firstCalls = callSummaries.filter((r: any) => r.call_type === "first_call").length;
+    const followUps = callSummaries.filter((r: any) => r.call_type === "follow_up").length;
+    overall.calls_analysed = eligible.length;
     overall.first_calls = firstCalls;
     overall.follow_ups = followUps;
 
     return new Response(
-      JSON.stringify({ overall, calls: perCallResults }),
+      JSON.stringify({ overall, calls: callSummaries }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
