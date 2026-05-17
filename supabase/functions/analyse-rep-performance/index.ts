@@ -84,7 +84,7 @@ Output exactly this JSON and nothing else:
   ]
 }`;
 
-const MODEL = "claude-sonnet-4-20250514";
+const MODEL = "claude-sonnet-4-5-20250929";
 
 async function callClaude(apiKey: string, system: string, userContent: string): Promise<any> {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
