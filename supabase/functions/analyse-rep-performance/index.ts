@@ -221,6 +221,13 @@ serve(async (req) => {
       `INDIVIDUAL CALL ANALYSES:\n\n${aggregateInput}`,
     );
 
+    // Override LLM-reported counts with actual numbers — Claude hallucinates these.
+    const firstCalls = perCallResults.filter((r) => r.call_type === "first_call").length;
+    const followUps = perCallResults.filter((r) => r.call_type === "follow_up").length;
+    overall.calls_analysed = perCallResults.length;
+    overall.first_calls = firstCalls;
+    overall.follow_ups = followUps;
+
     return new Response(
       JSON.stringify({ overall, calls: perCallResults }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
