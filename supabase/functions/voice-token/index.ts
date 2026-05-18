@@ -62,11 +62,24 @@ serve(async (req) => {
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
+  let resolvedRepId: string | null = null;
+  let userEmail: string | null = null;
   try {
     const sb = createClient(supabaseUrl, anonKey);
     const { data: userData, error: userErr } = await sb.auth.getUser(userJwt);
     if (userErr || !userData?.user) {
       return unauthorized("Invalid or expired session");
+    }
+    userEmail = userData.user.email ?? null;
+    if (userEmail) {
+      const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+      const admin = createClient(supabaseUrl, serviceKey || anonKey);
+      const { data: repRow } = await admin
+        .from("sales_reps")
+        .select("id")
+        .ilike("email", userEmail)
+        .maybeSingle();
+      if (repRow?.id) resolvedRepId = repRow.id as string;
     }
   } catch (e) {
     console.error("voice-token: auth check failed", e);
@@ -92,18 +105,25 @@ serve(async (req) => {
     }
 
     // Identity is required by Twilio; Voice JS only allows [A-Za-z0-9_].
+    // We embed the rep_id so voice-outbound can attribute calls server-side
+    // as a backup when the client forgets to pass repId in connect params.
     const url = new URL(req.url);
-    let identity = url.searchParams.get("identity") || "";
-    if (!identity && req.method === "POST") {
-      const body = await req.json().catch(() => ({}));
-      identity = body.identity || "";
-    }
-    if (!identity) {
-      identity = `peter_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+    let identity = "";
+    if (resolvedRepId) {
+      identity = `rep_${resolvedRepId.replace(/-/g, "")}`;
+    } else {
+      identity = url.searchParams.get("identity") || "";
+      if (!identity && req.method === "POST") {
+        const body = await req.json().catch(() => ({}));
+        identity = body.identity || "";
+      }
+      if (!identity) {
+        identity = `user_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
+      }
     }
     // Sanitize: replace any char outside [A-Za-z0-9_] with _, cap at 120 chars.
     identity = identity.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 120);
-    if (!identity) identity = `peter_${Date.now().toString(36)}`;
+    if (!identity) identity = `user_${Date.now().toString(36)}`;
 
     const now = Math.floor(Date.now() / 1000);
     const ttl = 60 * 60; // 1 hour
