@@ -139,24 +139,14 @@ function DashboardHome() {
   const [target, setTarget] = useState<number>(0);
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [targetInput, setTargetInput] = useState("");
+  const [repsList, setRepsList] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedRepId, setSelectedRepId] = useState<string>("");
 
   // Conversion rate widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
   const [convLeads, setConvLeads] = useState(0);
   const [convBookings, setConvBookings] = useState(0);
-
-  // Load target from localStorage on mount. Do NOT auto-open the modal —
-  // admins set/edit the target via the "Set target →" button. Auto-opening
-  // breaks in the preview iframe because browsers partition third-party
-  // storage, so the saved value is invisible there and the modal pops every
-  // time.
-  useEffect(() => {
-    const stored = localStorage.getItem(targetKey());
-    if (stored && Number(stored) > 0) {
-      setTarget(Number(stored));
-    }
-  }, [isAdmin]);
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
