@@ -80,7 +80,7 @@ Return ONLY this minified JSON:
 const MODEL = "claude-haiku-4-5-20251001";
 const TRANSCRIPT_CHAR_LIMIT = 2400;
 const BATCH_SIZE = 5; // parallel Claude calls; tuned for Anthropic 8k ITPM/OTPM headroom
-const PER_CALL_MAX_TOKENS = 1200;
+const PER_CALL_MAX_TOKENS = 2000;
 const OVERALL_MAX_TOKENS = 2000;
 
 async function callClaude(apiKey: string, system: string, userContent: string, maxTokens: number): Promise<any> {
