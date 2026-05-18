@@ -77,6 +77,18 @@ serve(async (req) => {
       clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");
       leadId = leadId || (form.get("leadId")?.toString() ?? "");
       repId = repId || (form.get("repId")?.toString() ?? "");
+
+      // Backup attribution: if client didn't pass repId, recover it from the
+      // Twilio "From" field, which is "client:<identity>" for browser SDK
+      // calls. voice-token mints identities as "rep_<uuid-no-dashes>".
+      if (!repId) {
+        const from = form.get("From")?.toString() ?? "";
+        const m = from.match(/^client:rep_([a-f0-9]{32})$/i);
+        if (m) {
+          const hex = m[1];
+          repId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+        }
+      }
     } catch {
       // ignore — fall through to validation
     }
