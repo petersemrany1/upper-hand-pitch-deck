@@ -212,6 +212,7 @@ function BookedAppointmentsPage() {
     if (!r.patient_phone) { toast.error("No phone number"); return; }
     const params: Record<string, string> = {};
     if (r.lead_id) params.leadId = r.lead_id;
+    if (myRepId) params.repId = myRepId;
     void twilio.call(r.patient_phone, params);
   };
 
