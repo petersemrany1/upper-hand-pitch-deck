@@ -133,6 +133,43 @@ export const Route = createFileRoute("/api/public/meta-leads")({
           raw_payload: payload,
         };
 
+        // Dedup: same phone (digits-only) or same email already in meta_leads.
+        const phoneDigits = row.phone ? row.phone.replace(/\D/g, "") : "";
+        const emailLower = row.email ? row.email.toLowerCase() : "";
+
+        if (phoneDigits || emailLower) {
+          const { data: existing } = await supabaseAdmin
+            .from("meta_leads")
+            .select("id, phone, email, created_at")
+            .or(
+              [
+                phoneDigits ? `phone.ilike.%${phoneDigits.slice(-9)}%` : null,
+                emailLower ? `email.eq.${emailLower}` : null,
+              ]
+                .filter(Boolean)
+                .join(",")
+            )
+            .order("created_at", { ascending: false })
+            .limit(20);
+
+          const match = (existing ?? []).find((r) => {
+            const rPhone = (r.phone ?? "").replace(/\D/g, "");
+            const rEmail = (r.email ?? "").toLowerCase();
+            return (
+              (phoneDigits && rPhone && rPhone.slice(-9) === phoneDigits.slice(-9)) ||
+              (emailLower && rEmail && rEmail === emailLower)
+            );
+          });
+
+          if (match) {
+            console.log("meta-leads duplicate skipped:", match.id);
+            return jsonResponse(
+              { success: true, duplicate: true, id: match.id },
+              200
+            );
+          }
+        }
+
         const { data, error } = await supabaseAdmin
           .from("meta_leads")
           .insert([row])
