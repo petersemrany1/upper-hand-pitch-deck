@@ -80,20 +80,33 @@ async function callClaude(apiKey: string, system: string, userContent: string, m
   // Retry on 429 / 529 with simple backoff
   while (true) {
     attempt++;
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        max_tokens: maxTokens,
-        system,
-        messages: [{ role: "user", content: userContent }],
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90_000); // 90s hard timeout per call
+    let resp: Response;
+    try {
+      resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: MODEL,
+          max_tokens: maxTokens,
+          system,
+          messages: [{ role: "user", content: userContent }],
+        }),
+      });
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (attempt > 3) throw new Error(`Anthropic fetch failed after ${attempt} attempts: ${(err as Error).message}`);
+      console.log(`Anthropic fetch error, retry ${attempt}: ${(err as Error).message}`);
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+      continue;
+    }
+    clearTimeout(timeoutId);
     const text = await resp.text();
     if (resp.status === 429 || resp.status === 529) {
       if (attempt > 4) throw new Error(`Anthropic ${resp.status} after ${attempt} attempts: ${text.slice(0, 200)}`);
@@ -218,30 +231,64 @@ async function processJob(jobId: string, repId: string, dateFrom: string | null,
       `prevention_misses: ${s.prevention_misses.join("; ") || "none"}`,
     ].join("\n")).join("\n\n");
 
-    const overall = await callClaude(
-      Deno.env.get("ANTHROPIC_API_KEY")!,
-      OVERALL_SYSTEM_PROMPT,
-      `REP CALL SUMMARIES (${summaries.length} calls):\n\n${aggregateInput}`,
-      OVERALL_MAX_TOKENS,
-    );
-
     const firstCalls = summaries.filter((s) => s.call_type === "first_call").length;
     const followUps = summaries.filter((s) => s.call_type === "follow_up").length;
+    const callSummariesOut = summaries.map((s) => ({
+      called_at: s.called_at,
+      call_type: s.call_type,
+      duration_seconds: s.duration_seconds,
+      overall_score: s.overall_score,
+      call_verdict: s.call_verdict,
+      biggest_mistake: s.biggest_mistake,
+      coach_summary: s.coach_summary,
+    }));
+
+    let overall: any = null;
+    try {
+      overall = await callClaude(
+        ANTHROPIC_API_KEY,
+        OVERALL_SYSTEM_PROMPT,
+        `REP CALL SUMMARIES (${summaries.length} calls):\n\n${aggregateInput}`,
+        OVERALL_MAX_TOKENS,
+      );
+    } catch (err) {
+      console.error(`Job ${jobId}: synthesis failed, building fallback:`, (err as Error).message);
+    }
+
+    // Always produce a usable report. If synthesis failed, derive a minimal one from per-call data.
+    if (!overall) {
+      const avg = summaries.reduce((a, s) => a + (s.overall_score || 0), 0) / summaries.length;
+      const allObjections = summaries.flatMap((s) => s.objections_that_surfaced || []);
+      const counts = new Map<string, number>();
+      for (const o of allObjections) {
+        const k = String(o).toLowerCase().trim();
+        if (k) counts.set(k, (counts.get(k) || 0) + 1);
+      }
+      const recurring = [...counts.entries()]
+        .filter(([, c]) => c >= 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 6)
+        .map(([k, c]) => `${k} (${c}×)`);
+      overall = {
+        overall_score: Math.round(avg * 10) / 10,
+        close_rate: `${summaries.filter((s) => s.call_verdict === "Booked").length} out of ${summaries.length}`,
+        headline: "Per-call analysis complete. Final synthesis was unavailable — review the call-by-call breakdown below.",
+        strengths: [],
+        development_areas: [],
+        recurring_objections: recurring,
+        prevention_playbook: [],
+        pattern_of_failure: "Synthesis pass timed out. Look at the recurring objections and per-call mistakes for the pattern.",
+        pattern_of_success: "See per-call notes below for what's working.",
+        coach_verdict: "Synthesis pass was unavailable for this run. Each call was scored individually — review the call-by-call breakdown to identify the rep's biggest leaks.",
+      };
+    }
 
     const report = {
       ...overall,
       calls_analysed: summaries.length,
       first_calls: firstCalls,
       follow_ups: followUps,
-      call_summaries: summaries.map((s) => ({
-        called_at: s.called_at,
-        call_type: s.call_type,
-        duration_seconds: s.duration_seconds,
-        overall_score: s.overall_score,
-        call_verdict: s.call_verdict,
-        biggest_mistake: s.biggest_mistake,
-        coach_summary: s.coach_summary,
-      })),
+      call_summaries: callSummariesOut,
     };
 
     await update({ status: "completed", report, call_summaries: summaries });
