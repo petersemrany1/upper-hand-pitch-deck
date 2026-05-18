@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Phone as PhoneIcon, X, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import { updateLeadStatus, clearBooking } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail } from "@/utils/resend.functions";
 import { toast } from "sonner";
