@@ -780,7 +780,7 @@ function ClinicsPage() {
     }
     setCallingId(clinic.id);
     try {
-      await deviceCall(clinic.phone, { clinicId: clinic.id });
+      await deviceCall(clinic.phone, { clinicId: clinic.id, ...(myRepId ? { repId: myRepId } : {}) });
     } catch (err) {
       console.error("Call failed:", err);
       setCallingId(null);
