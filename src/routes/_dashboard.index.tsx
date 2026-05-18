@@ -832,8 +832,8 @@ function DashboardHome() {
                 padding: "12px",
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: Number(targetInput) > 0 ? "pointer" : "not-allowed",
-                opacity: Number(targetInput) > 0 ? 1 : 0.5,
+                cursor: Number(targetInput) > 0 && selectedRepId ? "pointer" : "not-allowed",
+                opacity: Number(targetInput) > 0 && selectedRepId ? 1 : 0.5,
                 fontFamily: FONT,
               }}
             >
