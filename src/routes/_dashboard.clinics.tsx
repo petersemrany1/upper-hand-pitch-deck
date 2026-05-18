@@ -13,6 +13,7 @@ import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { sendBoldContractEmail } from "@/utils/bold-contract.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
@@ -361,6 +362,7 @@ function ClinicsPage() {
   // Call (browser-based via Twilio Voice SDK)
   const [callingId, setCallingId] = useState<string | null>(null);
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice(true);
+  const myRepId = useCurrentRepId();
 
   // NOTE: AI auto-call review now lives in the global CallReviewInbox (top-right
   // bell icon in the dashboard chrome). The clinics page no longer owns the
@@ -778,7 +780,7 @@ function ClinicsPage() {
     }
     setCallingId(clinic.id);
     try {
-      await deviceCall(clinic.phone, { clinicId: clinic.id });
+      await deviceCall(clinic.phone, { clinicId: clinic.id, ...(myRepId ? { repId: myRepId } : {}) });
     } catch (err) {
       console.error("Call failed:", err);
       setCallingId(null);

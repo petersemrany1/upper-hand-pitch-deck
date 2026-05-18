@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Phone as PhoneIcon, X, ChevronDown, ChevronUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import { updateLeadStatus, clearBooking } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail } from "@/utils/resend.functions";
 import { toast } from "sonner";
@@ -121,6 +122,7 @@ function BookedAppointmentsPage() {
 
   // Twilio device for placing calls
   const twilio = useTwilioDevice(true);
+  const myRepId = useCurrentRepId();
 
   const load = async () => {
     setLoading(true);
@@ -210,6 +212,7 @@ function BookedAppointmentsPage() {
     if (!r.patient_phone) { toast.error("No phone number"); return; }
     const params: Record<string, string> = {};
     if (r.lead_id) params.leadId = r.lead_id;
+    if (myRepId) params.repId = myRepId;
     void twilio.call(r.patient_phone, params);
   };
 

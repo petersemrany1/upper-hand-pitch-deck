@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import { CallAnalysisPanel, type CallAnalysis } from "@/components/CallAnalysisPanel";
 
 export const Route = createFileRoute("/_dashboard/clients")({
@@ -106,6 +107,7 @@ function ClientsPage() {
   // Browser-based dialer — opt-in: this page actively places calls so we
   // boot the Twilio Device on mount.
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice(true);
+  const myRepId = useCurrentRepId();
 
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
@@ -198,7 +200,7 @@ function ClientsPage() {
 
     try {
       const matchingClient = clients.find((c) => c.phone === dialNumber);
-      await deviceCall(dialNumber);
+      await deviceCall(dialNumber, myRepId ? { repId: myRepId } : undefined);
       setCallMessage("In call — click the red button to hang up.");
       setLastCallSid(null);
       // The hook inserts the call_record; refresh after a short delay
