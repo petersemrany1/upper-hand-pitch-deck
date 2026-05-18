@@ -83,6 +83,39 @@ const BATCH_SIZE = 5; // parallel Claude calls; tuned for Anthropic 8k ITPM/OTPM
 const PER_CALL_MAX_TOKENS = 2000;
 const OVERALL_MAX_TOKENS = 2000;
 
+function repairTruncatedJson(raw: string): any | null {
+  // Find the outermost opening brace
+  const start = raw.indexOf("{");
+  if (start === -1) return null;
+  let s = raw.slice(start);
+  // Walk forward and remember the last position where the document was structurally "almost balanced"
+  // Strategy: progressively trim from the end, close open arrays/objects, until JSON.parse succeeds.
+  for (let end = s.length; end > 20; end--) {
+    let candidate = s.slice(0, end);
+    // Trim trailing partial token (incomplete string, dangling comma, partial number)
+    candidate = candidate.replace(/,\s*$/, "").replace(/:\s*"[^"]*$/, ': ""').replace(/"[^"]*$/, '""');
+    // Count unbalanced braces/brackets (ignoring those inside strings — quick + dirty)
+    let depthCurly = 0, depthSquare = 0, inStr = false, esc = false;
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") depthCurly++;
+      else if (ch === "}") depthCurly--;
+      else if (ch === "[") depthSquare++;
+      else if (ch === "]") depthSquare--;
+    }
+    if (depthCurly < 0 || depthSquare < 0) continue;
+    let closed = candidate.replace(/,\s*$/, "");
+    closed += "]".repeat(Math.max(0, depthSquare));
+    closed += "}".repeat(Math.max(0, depthCurly));
+    try { return JSON.parse(closed); } catch { /* keep trimming */ }
+  }
+  return null;
+}
+
 async function callClaude(apiKey: string, system: string, userContent: string, maxTokens: number): Promise<any> {
   let attempt = 0;
   // Retry on 429 / 529 with simple backoff
