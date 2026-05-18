@@ -159,6 +159,37 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Dedup by phone (last 9 digits) or email
+  const phoneDigits = row.phone ? row.phone.replace(/\D/g, "") : "";
+  const emailLower = row.email ? row.email.toLowerCase() : "";
+
+  if (phoneDigits || emailLower) {
+    const orParts: string[] = [];
+    if (phoneDigits) orParts.push(`phone.ilike.%${phoneDigits.slice(-9)}%`);
+    if (emailLower) orParts.push(`email.eq.${emailLower}`);
+
+    const { data: existing } = await supabase
+      .from("meta_leads")
+      .select("id, phone, email, created_at")
+      .or(orParts.join(","))
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    const match = (existing ?? []).find((r: { phone: string | null; email: string | null }) => {
+      const rPhone = (r.phone ?? "").replace(/\D/g, "");
+      const rEmail = (r.email ?? "").toLowerCase();
+      return (
+        (phoneDigits && rPhone && rPhone.slice(-9) === phoneDigits.slice(-9)) ||
+        (emailLower && rEmail && rEmail === emailLower)
+      );
+    });
+
+    if (match) {
+      console.log("meta-leads duplicate skipped:", match.id);
+      return jsonResponse({ success: true, duplicate: true, id: match.id }, 200);
+    }
+  }
+
   const { data, error } = await supabase
     .from("meta_leads")
     .insert([row])
