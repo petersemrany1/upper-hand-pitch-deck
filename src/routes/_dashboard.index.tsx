@@ -214,7 +214,15 @@ function DashboardHome() {
       .limit(20);
     if (scopeId) missedQ.eq("rep_id", scopeId);
 
-    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes] =
+    const { year: curYear, month: curMonth } = currentYearMonth();
+    const targetQ = supabase
+      .from("rep_booking_targets")
+      .select("rep_id, target")
+      .eq("year", curYear)
+      .eq("month", curMonth);
+    if (scopeId) targetQ.eq("rep_id", scopeId);
+
+    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes, targetRes, repsRes] =
       await Promise.all([
         callsTodayQ,
         bookingsTodayQ,
@@ -231,7 +239,17 @@ function DashboardHome() {
           .limit(20),
         supabase.from("partner_clinics").select("id, price_per_booking"),
         supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
+        targetQ,
+        isAdmin
+          ? supabase.from("sales_reps").select("id, name").eq("role", "rep").order("name")
+          : Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null }),
       ]);
+
+    const targetRows = (targetRes.data ?? []) as Array<{ rep_id: string; target: number }>;
+    setTarget(targetRows.reduce((sum, r) => sum + (Number(r.target) || 0), 0));
+    if (isAdmin) {
+      setRepsList(((repsRes.data ?? []) as Array<{ id: string; name: string }>) || []);
+    }
 
     const calls = (callsRes.data ?? []) as CallRow[];
     const uniqueLeads = new Set(calls.map((c) => c.lead_id).filter(Boolean));
