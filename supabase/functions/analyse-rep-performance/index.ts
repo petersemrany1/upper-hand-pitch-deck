@@ -128,13 +128,23 @@ async function callClaude(apiKey: string, system: string, userContent: string, m
     let raw: string = data?.content?.[0]?.text ?? "";
     raw = raw.trim();
     if (raw.startsWith("```")) raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-    try {
-      return JSON.parse(raw);
-    } catch {
+    const stopReason: string | undefined = data?.stop_reason;
+    const tryParse = (s: string) => {
+      try { return JSON.parse(s); } catch { return null; }
+    };
+    let parsed = tryParse(raw);
+    if (!parsed) {
       const m = raw.match(/\{[\s\S]*\}/);
-      if (m) return JSON.parse(m[0]);
-      throw new Error("Could not parse Claude JSON output");
+      if (m) parsed = tryParse(m[0]);
     }
+    if (!parsed) parsed = repairTruncatedJson(raw);
+    if (parsed) return parsed;
+    if (stopReason === "max_tokens" && attempt <= 2) {
+      console.log(`Truncated output (stop=max_tokens), retrying with higher budget (attempt ${attempt})`);
+      maxTokens = Math.min(4000, Math.floor(maxTokens * 1.5));
+      continue;
+    }
+    throw new Error(`Could not parse Claude JSON output (stop=${stopReason})`);
   }
 }
 
