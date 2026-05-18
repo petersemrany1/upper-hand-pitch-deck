@@ -107,6 +107,7 @@ function ClientsPage() {
   // Browser-based dialer — opt-in: this page actively places calls so we
   // boot the Twilio Device on mount.
   const { status: deviceStatus, call: deviceCall, hangup: deviceHangup } = useTwilioDevice(true);
+  const myRepId = useCurrentRepId();
 
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
