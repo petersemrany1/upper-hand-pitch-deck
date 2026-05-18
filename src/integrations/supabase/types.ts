@@ -1021,6 +1021,54 @@ export type Database = {
         }
         Relationships: []
       }
+      rep_performance_jobs: {
+        Row: {
+          call_summaries: Json | null
+          calls_completed: number
+          created_at: string
+          created_by: string | null
+          date_from: string | null
+          date_to: string | null
+          error: string | null
+          id: string
+          rep_id: string
+          report: Json | null
+          status: string
+          total_eligible: number
+          updated_at: string
+        }
+        Insert: {
+          call_summaries?: Json | null
+          calls_completed?: number
+          created_at?: string
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          error?: string | null
+          id?: string
+          rep_id: string
+          report?: Json | null
+          status?: string
+          total_eligible?: number
+          updated_at?: string
+        }
+        Update: {
+          call_summaries?: Json | null
+          calls_completed?: number
+          created_at?: string
+          created_by?: string | null
+          date_from?: string | null
+          date_to?: string | null
+          error?: string | null
+          id?: string
+          rep_id?: string
+          report?: Json | null
+          status?: string
+          total_eligible?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sales_reps: {
         Row: {
           created_at: string
