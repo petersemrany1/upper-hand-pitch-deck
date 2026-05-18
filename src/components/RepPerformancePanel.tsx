@@ -45,6 +45,7 @@ type Props = {
   open: boolean;
   loading: boolean;
   loadingCount: number;
+  progressCompleted?: number;
   error: string | null;
   repName: string;
   dateFrom: string;
@@ -71,6 +72,7 @@ export function RepPerformancePanel({
   open,
   loading,
   loadingCount,
+  progressCompleted = 0,
   error,
   repName,
   dateFrom,
@@ -85,6 +87,8 @@ export function RepPerformancePanel({
   }, [open]);
 
   if (!open) return null;
+
+  const pct = loadingCount > 0 ? Math.min(100, Math.round((progressCompleted / loadingCount) * 100)) : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
@@ -102,13 +106,28 @@ export function RepPerformancePanel({
 
         <div className="px-6 py-6 space-y-6">
           {loading && (
-            <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
+            <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
               <Loader2 className="w-10 h-10 animate-spin text-[#f4522d]" />
               <p className="text-base font-semibold text-foreground">
-                Reviewing {loadingCount > 0 ? loadingCount : ""} calls… your coach is watching 👀
+                {loadingCount === 0
+                  ? "Queuing your job…"
+                  : progressCompleted < loadingCount
+                    ? `Reviewing call ${progressCompleted} of ${loadingCount}…`
+                    : "Writing the final report…"}
               </p>
+              {loadingCount > 0 && (
+                <div className="w-full max-w-xs">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[#f4522d] transition-all duration-500"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-2">{pct}% complete</p>
+                </div>
+              )}
               <p className="text-xs text-muted-foreground max-w-xs">
-                This can take a couple of minutes. We're sending each transcript to Claude and then writing the full report.
+                Runs in the background — every eligible call is scored individually, then the full report is synthesised. Safe to leave this panel open.
               </p>
             </div>
           )}

@@ -67,11 +67,12 @@ function AnalyticsPage() {
   const [perfLoading, setPerfLoading] = useState(false);
   const [perfError, setPerfError] = useState<string | null>(null);
   const [perfReport, setPerfReport] = useState<OverallReport | null>(null);
-  const [perfLoadingCount, setPerfLoadingCount] = useState(0);
+  const [perfCompleted, setPerfCompleted] = useState(0);
+  const [perfTotal, setPerfTotal] = useState(0);
+  const [perfJobId, setPerfJobId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      // Pull distinct rep_ids present in call_records, then join to sales_reps for names
       const { data: callReps } = await supabase
         .from("call_records")
         .select("rep_id")
@@ -92,33 +93,66 @@ function AnalyticsPage() {
     })();
   }, []);
 
+  // Subscribe to the in-flight job so progress + final report stream in via realtime.
+  useEffect(() => {
+    if (!perfJobId) return;
+    const channel = supabase
+      .channel(`rep-perf-job-${perfJobId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "rep_performance_jobs", filter: `id=eq.${perfJobId}` },
+        (payload) => {
+          const row: any = payload.new;
+          setPerfCompleted(row.calls_completed ?? 0);
+          setPerfTotal(row.total_eligible ?? 0);
+          if (row.status === "completed" && row.report) {
+            setPerfReport(row.report as OverallReport);
+            setPerfLoading(false);
+            setPerfJobId(null);
+          } else if (row.status === "failed") {
+            setPerfError(row.error || "Analysis failed");
+            setPerfLoading(false);
+            setPerfJobId(null);
+          }
+        },
+      )
+      .subscribe();
+
+    // Poll fallback every 4s in case realtime drops
+    const poll = setInterval(async () => {
+      const { data } = await supabase
+        .from("rep_performance_jobs")
+        .select("status, total_eligible, calls_completed, report, error")
+        .eq("id", perfJobId)
+        .single();
+      if (!data) return;
+      setPerfCompleted(data.calls_completed ?? 0);
+      setPerfTotal(data.total_eligible ?? 0);
+      if (data.status === "completed" && data.report) {
+        setPerfReport(data.report as OverallReport);
+        setPerfLoading(false);
+        setPerfJobId(null);
+      } else if (data.status === "failed") {
+        setPerfError(data.error || "Analysis failed");
+        setPerfLoading(false);
+        setPerfJobId(null);
+      }
+    }, 4000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(poll);
+    };
+  }, [perfJobId]);
+
   const runRepAnalysis = async () => {
     if (!selectedRepId) return;
     setPerfOpen(true);
     setPerfLoading(true);
     setPerfError(null);
     setPerfReport(null);
-
-    // Count eligible calls up-front so we can show "Reviewing X calls…".
-    // The backend samples the latest 3 eligible conversations to stay inside function timeouts.
-    try {
-      let cq = supabase
-        .from("call_records")
-        .select("id", { count: "exact", head: true })
-        .eq("rep_id", selectedRepId)
-        .gt("duration_seconds", 60)
-        .not("call_analysis->>transcript", "is", null);
-      if (perfFrom) cq = cq.gte("called_at", new Date(perfFrom).toISOString());
-      if (perfTo) {
-        const end = new Date(perfTo);
-        end.setHours(23, 59, 59, 999);
-        cq = cq.lte("called_at", end.toISOString());
-      }
-      const { count } = await cq;
-      setPerfLoadingCount(Math.min(count ?? 0, 3));
-    } catch {
-      setPerfLoadingCount(0);
-    }
+    setPerfCompleted(0);
+    setPerfTotal(0);
 
     try {
       const { data, error } = await supabase.functions.invoke("analyse-rep-performance", {
@@ -126,10 +160,10 @@ function AnalyticsPage() {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      setPerfReport(data.overall as OverallReport);
+      if (!data?.jobId) throw new Error("No job ID returned");
+      setPerfJobId(data.jobId);
     } catch (err) {
       setPerfError((err as Error).message || "Analysis failed");
-    } finally {
       setPerfLoading(false);
     }
   };
@@ -449,7 +483,8 @@ function AnalyticsPage() {
       <RepPerformancePanel
         open={perfOpen}
         loading={perfLoading}
-        loadingCount={perfLoadingCount}
+        loadingCount={perfTotal}
+        progressCompleted={perfCompleted}
         error={perfError}
         repName={reps.find((r) => r.id === selectedRepId)?.name ?? ""}
         dateFrom={perfFrom}
