@@ -773,11 +773,31 @@ function DashboardHome() {
             }}
           >
             <div style={{ fontSize: 20, fontWeight: 600, color: "#111", letterSpacing: "-0.01em" }}>
-              What's your booking target for {monthYearLabel()}?
+              Set booking target for {monthYearLabel()}
             </div>
             <div style={{ fontSize: 13, color: "#999", marginTop: 8 }}>
-              You can update this anytime in settings.
+              Choose a rep and their monthly booking target. The dashboard sums all reps' targets.
             </div>
+            <select
+              value={selectedRepId}
+              onChange={(e) => setSelectedRepId(e.target.value)}
+              style={{
+                marginTop: 20,
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 15,
+                border: "0.5px solid #e8e8e6",
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: FONT,
+                background: "#fff",
+              }}
+            >
+              <option value="">Select a rep…</option>
+              {repsList.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
             <input
               type="number"
               min={1}
