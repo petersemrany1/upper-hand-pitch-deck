@@ -69,9 +69,9 @@ function monthYearLabel(): string {
   return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric" });
 }
 
-function targetKey(): string {
+function currentYearMonth(): { year: number; month: number } {
   const d = new Date();
-  return `booking_target_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
 function initials(name: string): string {
