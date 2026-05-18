@@ -200,7 +200,7 @@ function ClientsPage() {
 
     try {
       const matchingClient = clients.find((c) => c.phone === dialNumber);
-      await deviceCall(dialNumber);
+      await deviceCall(dialNumber, myRepId ? { repId: myRepId } : undefined);
       setCallMessage("In call — click the red button to hang up.");
       setLastCallSid(null);
       // The hook inserts the call_record; refresh after a short delay
