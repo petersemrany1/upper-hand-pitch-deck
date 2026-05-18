@@ -122,6 +122,7 @@ function BookedAppointmentsPage() {
 
   // Twilio device for placing calls
   const twilio = useTwilioDevice(true);
+  const myRepId = useCurrentRepId();
 
   const load = async () => {
     setLoading(true);
