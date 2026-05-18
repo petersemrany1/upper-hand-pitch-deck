@@ -33,19 +33,27 @@ IF FOLLOW UP — score 5 stages (HIT / PARTIAL / MISSED):
 4. Cost of inaction + urgency
 5. Hard close
 
-Return ONLY this minified JSON and nothing else:
+HARD LIMITS (to keep JSON valid and compact — exceeding these will break the output):
+- Every string field: max 160 chars.
+- what_worked: exactly 2 items, each ≤80 chars.
+- what_to_fix: exactly 2 items, each ≤80 chars.
+- objections_that_surfaced: max 4 items, each ≤30 chars (one-word labels: price, time, partner, trust, pain_level, etc.).
+- prevention_misses: max 3 items, each ≤120 chars.
+- stages: exactly 9 items for first_call, exactly 5 for follow_up. Each "note" ≤80 chars.
+
+Return ONLY this minified JSON and nothing else. No markdown fences, no commentary:
 
 {
   "call_type": "first_call" | "follow_up",
   "overall_score": number 0-10,
   "call_verdict": "Booked" | "Hot" | "Warm" | "Cold" | "Dead",
-  "coach_summary": "max 220 chars, blunt coach, prevention lens",
-  "biggest_mistake": "max 140 chars, the #1 prevention miss",
-  "what_worked": ["string", "string"],
-  "what_to_fix": ["string", "string"],
-  "objections_that_surfaced": ["price", "time", "partner", ...],
-  "prevention_misses": ["for each objection, the earlier moment the rep could have pre-empted it"],
-  "stages": [{ "name": "stage name", "result": "HIT|PARTIAL|MISSED", "note": "one line" }]
+  "coach_summary": "≤160 chars",
+  "biggest_mistake": "≤120 chars",
+  "what_worked": ["≤80 chars", "≤80 chars"],
+  "what_to_fix": ["≤80 chars", "≤80 chars"],
+  "objections_that_surfaced": ["≤30 chars", "..."],
+  "prevention_misses": ["≤120 chars", "..."],
+  "stages": [{ "name": "stage name", "result": "HIT|PARTIAL|MISSED", "note": "≤80 chars" }]
 }`;
 
 const OVERALL_SYSTEM_PROMPT = `You are a world-class modern sales coach reviewing a rep's performance across many calls. Your philosophy: objection PREVENTION beats objection handling. A rep who repeatedly faces the same objections is failing to set frames, qualify deeply, and pre-empt resistance.
@@ -72,8 +80,41 @@ Return ONLY this minified JSON:
 const MODEL = "claude-haiku-4-5-20251001";
 const TRANSCRIPT_CHAR_LIMIT = 2400;
 const BATCH_SIZE = 5; // parallel Claude calls; tuned for Anthropic 8k ITPM/OTPM headroom
-const PER_CALL_MAX_TOKENS = 1200;
+const PER_CALL_MAX_TOKENS = 2000;
 const OVERALL_MAX_TOKENS = 2000;
+
+function repairTruncatedJson(raw: string): any | null {
+  // Find the outermost opening brace
+  const start = raw.indexOf("{");
+  if (start === -1) return null;
+  let s = raw.slice(start);
+  // Walk forward and remember the last position where the document was structurally "almost balanced"
+  // Strategy: progressively trim from the end, close open arrays/objects, until JSON.parse succeeds.
+  for (let end = s.length; end > 20; end--) {
+    let candidate = s.slice(0, end);
+    // Trim trailing partial token (incomplete string, dangling comma, partial number)
+    candidate = candidate.replace(/,\s*$/, "").replace(/:\s*"[^"]*$/, ': ""').replace(/"[^"]*$/, '""');
+    // Count unbalanced braces/brackets (ignoring those inside strings — quick + dirty)
+    let depthCurly = 0, depthSquare = 0, inStr = false, esc = false;
+    for (let i = 0; i < candidate.length; i++) {
+      const ch = candidate[i];
+      if (esc) { esc = false; continue; }
+      if (ch === "\\") { esc = true; continue; }
+      if (ch === '"') { inStr = !inStr; continue; }
+      if (inStr) continue;
+      if (ch === "{") depthCurly++;
+      else if (ch === "}") depthCurly--;
+      else if (ch === "[") depthSquare++;
+      else if (ch === "]") depthSquare--;
+    }
+    if (depthCurly < 0 || depthSquare < 0) continue;
+    let closed = candidate.replace(/,\s*$/, "");
+    closed += "]".repeat(Math.max(0, depthSquare));
+    closed += "}".repeat(Math.max(0, depthCurly));
+    try { return JSON.parse(closed); } catch { /* keep trimming */ }
+  }
+  return null;
+}
 
 async function callClaude(apiKey: string, system: string, userContent: string, maxTokens: number): Promise<any> {
   let attempt = 0;
@@ -120,13 +161,23 @@ async function callClaude(apiKey: string, system: string, userContent: string, m
     let raw: string = data?.content?.[0]?.text ?? "";
     raw = raw.trim();
     if (raw.startsWith("```")) raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-    try {
-      return JSON.parse(raw);
-    } catch {
+    const stopReason: string | undefined = data?.stop_reason;
+    const tryParse = (s: string) => {
+      try { return JSON.parse(s); } catch { return null; }
+    };
+    let parsed = tryParse(raw);
+    if (!parsed) {
       const m = raw.match(/\{[\s\S]*\}/);
-      if (m) return JSON.parse(m[0]);
-      throw new Error("Could not parse Claude JSON output");
+      if (m) parsed = tryParse(m[0]);
     }
+    if (!parsed) parsed = repairTruncatedJson(raw);
+    if (parsed) return parsed;
+    if (stopReason === "max_tokens" && attempt <= 2) {
+      console.log(`Truncated output (stop=max_tokens), retrying with higher budget (attempt ${attempt})`);
+      maxTokens = Math.min(4000, Math.floor(maxTokens * 1.5));
+      continue;
+    }
+    throw new Error(`Could not parse Claude JSON output (stop=${stopReason})`);
   }
 }
 
