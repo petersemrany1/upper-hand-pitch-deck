@@ -991,6 +991,36 @@ export type Database = {
         }
         Relationships: []
       }
+      rep_booking_targets: {
+        Row: {
+          created_at: string
+          id: string
+          month: number
+          rep_id: string
+          target: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          month: number
+          rep_id: string
+          target?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          month?: number
+          rep_id?: string
+          target?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
       sales_reps: {
         Row: {
           created_at: string
