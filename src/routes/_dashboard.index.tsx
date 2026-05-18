@@ -358,13 +358,25 @@ function DashboardHome() {
   const bonus = bookingsToday * 50;
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
 
-  const confirmTarget = () => {
+  const confirmTarget = async () => {
     const n = Number(targetInput);
     if (!n || n <= 0) return;
-    localStorage.setItem(targetKey(), String(n));
-    setTarget(n);
+    if (!selectedRepId) return;
+    const { year, month } = currentYearMonth();
+    const { error } = await supabase
+      .from("rep_booking_targets")
+      .upsert(
+        { rep_id: selectedRepId, year, month, target: n },
+        { onConflict: "rep_id,year,month" }
+      );
+    if (error) {
+      console.error("Failed to save target", error);
+      return;
+    }
     setShowTargetModal(false);
     setTargetInput("");
+    setSelectedRepId("");
+    void loadData();
   };
 
   const missedItems = useMemo(() => {
