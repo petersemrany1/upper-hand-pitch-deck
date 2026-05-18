@@ -69,9 +69,9 @@ function monthYearLabel(): string {
   return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric" });
 }
 
-function targetKey(): string {
+function currentYearMonth(): { year: number; month: number } {
   const d = new Date();
-  return `booking_target_${d.getFullYear()}_${String(d.getMonth() + 1).padStart(2, "0")}`;
+  return { year: d.getFullYear(), month: d.getMonth() + 1 };
 }
 
 function initials(name: string): string {
@@ -139,24 +139,14 @@ function DashboardHome() {
   const [target, setTarget] = useState<number>(0);
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [targetInput, setTargetInput] = useState("");
+  const [repsList, setRepsList] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedRepId, setSelectedRepId] = useState<string>("");
 
   // Conversion rate widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
   const [convLeads, setConvLeads] = useState(0);
   const [convBookings, setConvBookings] = useState(0);
-
-  // Load target from localStorage on mount. Do NOT auto-open the modal —
-  // admins set/edit the target via the "Set target →" button. Auto-opening
-  // breaks in the preview iframe because browsers partition third-party
-  // storage, so the saved value is invisible there and the modal pops every
-  // time.
-  useEffect(() => {
-    const stored = localStorage.getItem(targetKey());
-    if (stored && Number(stored) > 0) {
-      setTarget(Number(stored));
-    }
-  }, [isAdmin]);
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
@@ -224,7 +214,15 @@ function DashboardHome() {
       .limit(20);
     if (scopeId) missedQ.eq("rep_id", scopeId);
 
-    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes] =
+    const { year: curYear, month: curMonth } = currentYearMonth();
+    const targetQ = supabase
+      .from("rep_booking_targets")
+      .select("rep_id, target")
+      .eq("year", curYear)
+      .eq("month", curMonth);
+    if (scopeId) targetQ.eq("rep_id", scopeId);
+
+    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes, targetRes, repsRes] =
       await Promise.all([
         callsTodayQ,
         bookingsTodayQ,
@@ -241,7 +239,17 @@ function DashboardHome() {
           .limit(20),
         supabase.from("partner_clinics").select("id, price_per_booking"),
         supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
+        targetQ,
+        isAdmin
+          ? supabase.from("sales_reps").select("id, name").eq("role", "rep").order("name")
+          : Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null }),
       ]);
+
+    const targetRows = (targetRes.data ?? []) as Array<{ rep_id: string; target: number }>;
+    setTarget(targetRows.reduce((sum, r) => sum + (Number(r.target) || 0), 0));
+    if (isAdmin) {
+      setRepsList(((repsRes.data ?? []) as Array<{ id: string; name: string }>) || []);
+    }
 
     const calls = (callsRes.data ?? []) as CallRow[];
     const uniqueLeads = new Set(calls.map((c) => c.lead_id).filter(Boolean));
@@ -350,13 +358,25 @@ function DashboardHome() {
   const bonus = bookingsToday * 50;
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
 
-  const confirmTarget = () => {
+  const confirmTarget = async () => {
     const n = Number(targetInput);
     if (!n || n <= 0) return;
-    localStorage.setItem(targetKey(), String(n));
-    setTarget(n);
+    if (!selectedRepId) return;
+    const { year, month } = currentYearMonth();
+    const { error } = await supabase
+      .from("rep_booking_targets")
+      .upsert(
+        { rep_id: selectedRepId, year, month, target: n },
+        { onConflict: "rep_id,year,month" }
+      );
+    if (error) {
+      console.error("Failed to save target", error);
+      return;
+    }
     setShowTargetModal(false);
     setTargetInput("");
+    setSelectedRepId("");
+    void loadData();
   };
 
   const missedItems = useMemo(() => {
@@ -753,11 +773,31 @@ function DashboardHome() {
             }}
           >
             <div style={{ fontSize: 20, fontWeight: 600, color: "#111", letterSpacing: "-0.01em" }}>
-              What's your booking target for {monthYearLabel()}?
+              Set booking target for {monthYearLabel()}
             </div>
             <div style={{ fontSize: 13, color: "#999", marginTop: 8 }}>
-              You can update this anytime in settings.
+              Choose a rep and their monthly booking target. The dashboard sums all reps' targets.
             </div>
+            <select
+              value={selectedRepId}
+              onChange={(e) => setSelectedRepId(e.target.value)}
+              style={{
+                marginTop: 20,
+                width: "100%",
+                padding: "12px 14px",
+                fontSize: 15,
+                border: "0.5px solid #e8e8e6",
+                borderRadius: 8,
+                outline: "none",
+                fontFamily: FONT,
+                background: "#fff",
+              }}
+            >
+              <option value="">Select a rep…</option>
+              {repsList.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
             <input
               type="number"
               min={1}
@@ -781,7 +821,7 @@ function DashboardHome() {
             />
             <button
               onClick={confirmTarget}
-              disabled={!Number(targetInput) || Number(targetInput) <= 0}
+              disabled={!Number(targetInput) || Number(targetInput) <= 0 || !selectedRepId}
               style={{
                 marginTop: 16,
                 width: "100%",
@@ -792,8 +832,8 @@ function DashboardHome() {
                 padding: "12px",
                 fontSize: 14,
                 fontWeight: 600,
-                cursor: Number(targetInput) > 0 ? "pointer" : "not-allowed",
-                opacity: Number(targetInput) > 0 ? 1 : 0.5,
+                cursor: Number(targetInput) > 0 && selectedRepId ? "pointer" : "not-allowed",
+                opacity: Number(targetInput) > 0 && selectedRepId ? 1 : 0.5,
                 fontFamily: FONT,
               }}
             >
