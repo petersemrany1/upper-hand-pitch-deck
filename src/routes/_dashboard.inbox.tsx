@@ -359,7 +359,7 @@ function InboxPage() {
               {activePhone && (
                 <button
                   type="button"
-                  onClick={() => dialerCall(activePhone)}
+                  onClick={() => dialerCall(activePhone, myRepId ? { repId: myRepId } : undefined)}
                   disabled={dialerStatus !== "ready"}
                   title={dialerStatus === "ready" ? `Call ${activePhone}` : "Phone not ready"}
                   className="inline-flex items-center gap-2 h-9 px-3 rounded-lg text-white text-xs font-semibold shadow active:scale-95 transition disabled:opacity-50 disabled:cursor-not-allowed"
