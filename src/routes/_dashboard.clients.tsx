@@ -21,6 +21,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import { CallAnalysisPanel, type CallAnalysis } from "@/components/CallAnalysisPanel";
 
 export const Route = createFileRoute("/_dashboard/clients")({
