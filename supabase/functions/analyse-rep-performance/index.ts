@@ -7,163 +7,134 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 
-const PER_CALL_SYSTEM_PROMPT = `You are a world-class modern sales coach who has spent 20 years training high-performance phone sales teams across SaaS, high-ticket coaching, finance, and elective health. You think like Chris Voss, Jeremy Miner, and Alex Hormozi rolled into one. You are direct, no-nonsense, and you call things exactly as you see them. You don't soften feedback.
+const PER_CALL_SYSTEM_PROMPT = `You are a world-class modern sales coach (Chris Voss + Jeremy Miner + Alex Hormozi). You coach by ONE principle: the best objection handling is objection PREVENTION. Reactive objection handling = the rep already lost. Great reps make objections die in the womb.
 
-You coach by ONE governing principle: the best objection handling is objection PREVENTION. A rep who is constantly "handling" objections has already lost — they failed to set the frame, qualify deeply, and pre-empt the doubt before it formed in the lead's mind. Great reps make objections die in the womb; weak reps wrestle with them at the close.
+You will receive ONE call transcript. Do two things.
 
-You care about one thing: did this rep give themselves the best possible chance of getting a booking on this call by PREVENTING resistance from showing up in the first place?
+STEP 1 — CALL TYPE DETECTION: FIRST CALL (first contact, discovery + pitch + booking attempt) or FOLLOW UP (rep references a previous conversation).
 
-Your job is to read this call transcript and determine two things first:
+STEP 2 — SCORE through the lens of objection PREVENTION.
 
-STEP 1 — CALL TYPE DETECTION:
-Read the transcript carefully. Determine whether this is a FIRST CALL or a FOLLOW UP call.
+IF FIRST CALL — score 9 stages (HIT / PARTIAL / MISSED):
+1. Warm opener & frame-setting
+2. Permission & time-check
+3. Deep pain discovery (3+ layers)
+4. Dream outcome & cost of inaction
+5. Pre-frame the price/offer
+6. Pitch + tailored social proof
+7. Objection PREVENTION vs handling
+8. The close (assumptive / alternate-choice)
+9. Urgency without pressure
 
-A FIRST CALL is where the rep is speaking to this lead for the first time — they are building rapport, uncovering pain, pitching the offer, and trying to book.
+IF FOLLOW UP — score 5 stages (HIT / PARTIAL / MISSED):
+1. Callback + re-frame
+2. Diagnose the real stall
+3. Requalify pain & dream
+4. Cost of inaction + urgency
+5. Hard close
 
-A FOLLOW UP call is where the rep has spoken to this lead before — there are references to a previous conversation, phrases like "as we discussed", "just wanted to follow up", "you were going to think about it", or the lead already knows what the offer is.
-
-STEP 2 — SCORE THE CALL based on call type. Every stage below is judged through the lens of objection PREVENTION — did the rep pre-frame, qualify, and disarm before doubt could surface?
-
-IF FIRST CALL — score against these 9 stages (mark each as HIT, PARTIAL, or MISSED):
-1. Warm opener & frame-setting — did they build genuine rapport AND set the frame for the call (what we'll cover, why, what happens at the end)? A strong frame pre-empts the "I need to think about it" objection before it's born.
-2. Permission & time-check — did they confirm the lead has time AND mental space to talk? Calling a distracted lead breeds objections later.
-3. Deep pain discovery — did they dig past the surface (3+ layers deep) to find the REAL emotional pain? Shallow pain = price objections. Deep pain = urgency.
-4. Dream outcome & cost of inaction — did they make the lead articulate what they want AND what it costs them to keep waiting? This is the #1 way to prevent "let me think about it".
-5. Pre-frame the price/offer — did the rep set up the value, comparison, and stakes BEFORE revealing the offer? Or did they just blurt out the price and create sticker shock?
-6. The pitch + tailored social proof — did they present the offer tied to THIS lead's specific pain, with proof that matches their situation? Generic pitches breed generic objections.
-7. Objection PREVENTION vs handling — did the rep pre-empt the obvious objections (price, partner, time, scepticism) BEFORE the lead raised them? Or did they wait, get hit with objections, and scramble to recover? Score down hard for reactive handling; score up for proactive prevention.
-8. The close — did they confidently ASK for the booking with an assumptive or alternate-choice close? Or did they leave it open and let the lead off the hook?
-9. Urgency without pressure — did they give a real, lead-specific reason to act now (not a fake scarcity line)?
-
-IF FOLLOW UP — score against these 5 criteria (mark each as HIT, PARTIAL, or MISSED):
-1. Callback + re-frame — did they reference the last conversation AND reset the frame for this call so the lead knows what's about to happen?
-2. Diagnose the real stall — did they ask what's actually stopping them (not the surface excuse) and prevent the same objection from repeating? Or did they passively "check in"?
-3. Requalify pain & dream — did they re-confirm the pain is still real and the dream still matters, so price/time objections lose their teeth?
-4. Cost of inaction + urgency — did they make the lead feel the consequence of continuing to wait, so "I need more time" stops being viable?
-5. Hard close — did they ask for a definitive yes or no, or did they accept another "I'll think about it" and hang up?
-
-THEN OUTPUT exactly this JSON structure and nothing else:
+Return ONLY this minified JSON and nothing else:
 
 {
-  "call_type": "first_call" or "follow_up",
-  "overall_score": number out of 10,
-  "call_verdict": "Booked" or "Hot" or "Warm" or "Cold" or "Dead",
-  "coach_summary": "2-3 sentences written as a blunt coach. Focus on whether this rep PREVENTED objections or got dragged into handling them. Did they earn a booking or give it away?",
+  "call_type": "first_call" | "follow_up",
+  "overall_score": number 0-10,
+  "call_verdict": "Booked" | "Hot" | "Warm" | "Cold" | "Dead",
+  "coach_summary": "max 220 chars, blunt coach, prevention lens",
+  "biggest_mistake": "max 140 chars, the #1 prevention miss",
   "what_worked": ["string", "string"],
   "what_to_fix": ["string", "string"],
-  "objections_that_surfaced": ["list every objection the lead actually raised — price, time, partner, think-about-it, scepticism, etc."],
-  "prevention_misses": ["for each objection that surfaced, the SPECIFIC earlier moment in the call where the rep could have pre-empted it and didn't"],
-  "biggest_mistake": "single sentence — the ONE prevention miss that most cost them on this call",
-  "stages": [
-    { "name": "stage name", "result": "HIT" or "PARTIAL" or "MISSED", "note": "one line on what happened, framed through the prevention lens" }
-  ]
+  "objections_that_surfaced": ["price", "time", "partner", ...],
+  "prevention_misses": ["for each objection, the earlier moment the rep could have pre-empted it"],
+  "stages": [{ "name": "stage name", "result": "HIT|PARTIAL|MISSED", "note": "one line" }]
 }`;
 
-const OVERALL_SYSTEM_PROMPT = `You are a world-class modern sales coach reviewing a rep's performance across multiple calls. Your coaching philosophy is built on one principle: objection PREVENTION beats objection handling every time. A rep who repeatedly faces the same objections is a rep who is failing to set frames, qualify deeply, and pre-empt resistance.
+const OVERALL_SYSTEM_PROMPT = `You are a world-class modern sales coach reviewing a rep's performance across many calls. Your philosophy: objection PREVENTION beats objection handling. A rep who repeatedly faces the same objections is failing to set frames, qualify deeply, and pre-empt resistance.
 
-You will receive raw call transcripts. Write a performance report as if you are sitting down with this rep's manager. Be direct. Be specific. Use examples from the calls. Don't pad it out.
+You will receive COMPACT SUMMARIES of every call (not full transcripts) — verdicts, biggest mistakes, objections that surfaced, and prevention misses per call. Synthesise across the whole sample.
 
-For each call summary, classify the call type yourself:
-- first_call = first conversation, discovery, pitch, booking attempt
-- follow_up = previous conversation referenced, checking back in, lead already knows the offer
+Be direct. Use examples from the calls. Don't pad.
 
-Judge everything through objection PREVENTION, not objection handling. The question is: did the rep prevent resistance by setting the frame, deepening pain, building value before price, and pre-empting obvious stalls before they appeared?
-
-Return minified valid JSON only. Keep every string short and direct. Output exactly this JSON and nothing else:
+Return ONLY this minified JSON:
 
 {
-  "overall_score": number out of 10 (weighted average across all calls),
-  "calls_analysed": number,
-  "first_calls": number,
-  "follow_ups": number,
+  "overall_score": number 0-10 (weighted average),
   "close_rate": "X out of Y calls where rep actually asked for the booking",
-  "headline": "one punchy sentence summarising this rep's biggest strength and biggest prevention gap",
+  "headline": "one punchy sentence — biggest strength + biggest prevention gap",
   "strengths": ["string", "string"],
   "development_areas": ["string", "string"],
-  "recurring_objections": ["the same objections that kept showing up across multiple calls — these are the prevention failures to fix first"],
-  "prevention_playbook": ["2-4 specific scripts, frames, or pre-empts this rep should rehearse THIS WEEK to stop those objections appearing again"],
-  "pattern_of_failure": "What is this rep consistently failing to prevent across multiple calls? Be specific — name the objection and the earlier stage where prevention should have happened.",
-  "pattern_of_success": "What is this rep doing well that they should keep doing?",
-  "coach_verdict": "2-3 sentences. If you were this rep's manager, what would you tell them right now? Lead with the #1 prevention habit to install this week.",
-  "call_summaries": [
-    {
-      "called_at": "datetime string",
-      "call_type": "first_call or follow_up",
-      "duration_seconds": number,
-      "overall_score": number,
-      "call_verdict": "Booked" or "Hot" or "Warm" or "Cold" or "Dead",
-      "biggest_mistake": "max 140 characters",
-      "coach_summary": "max 220 characters"
-    }
-  ]
+  "recurring_objections": ["objections that kept showing up across multiple calls"],
+  "prevention_playbook": ["2-4 specific scripts/frames/pre-empts to rehearse THIS WEEK"],
+  "pattern_of_failure": "What this rep consistently fails to prevent — name the objection AND the earlier stage where prevention should have happened.",
+  "pattern_of_success": "What this rep is doing well that they should keep doing.",
+  "coach_verdict": "2-3 sentences. If you were this rep's manager, what would you tell them right now? Lead with the #1 prevention habit to install this week."
 }`;
 
 const MODEL = "claude-haiku-4-5-20251001";
-const MAX_CALLS_PER_REPORT = 3;
-const TRANSCRIPT_CHAR_LIMIT = 1800;
+const TRANSCRIPT_CHAR_LIMIT = 2400;
+const BATCH_SIZE = 5; // parallel Claude calls; tuned for Anthropic 8k ITPM/OTPM headroom
+const PER_CALL_MAX_TOKENS = 1200;
+const OVERALL_MAX_TOKENS = 2000;
 
-async function callClaude(apiKey: string, system: string, userContent: string, maxTokens = 1800): Promise<any> {
-  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: "user", content: userContent }],
-    }),
-  });
-
-  const text = await resp.text();
-  if (!resp.ok) {
-    throw new Error(`Anthropic ${resp.status}: ${text.slice(0, 400)}`);
-  }
-  const data = JSON.parse(text);
-  let raw: string = data?.content?.[0]?.text ?? "";
-  raw = raw.trim();
-  if (raw.startsWith("```")) raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    // try to extract JSON object
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
-    console.error("Claude JSON parse failed. Raw prefix:", raw.slice(0, 500));
-    throw new Error("Could not parse Claude JSON output");
+async function callClaude(apiKey: string, system: string, userContent: string, maxTokens: number): Promise<any> {
+  let attempt = 0;
+  // Retry on 429 / 529 with simple backoff
+  while (true) {
+    attempt++;
+    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: "user", content: userContent }],
+      }),
+    });
+    const text = await resp.text();
+    if (resp.status === 429 || resp.status === 529) {
+      if (attempt > 4) throw new Error(`Anthropic ${resp.status} after ${attempt} attempts: ${text.slice(0, 200)}`);
+      const wait = 2000 * attempt;
+      console.log(`Anthropic ${resp.status}, backing off ${wait}ms (attempt ${attempt})`);
+      await new Promise((r) => setTimeout(r, wait));
+      continue;
+    }
+    if (!resp.ok) throw new Error(`Anthropic ${resp.status}: ${text.slice(0, 400)}`);
+    const data = JSON.parse(text);
+    let raw: string = data?.content?.[0]?.text ?? "";
+    raw = raw.trim();
+    if (raw.startsWith("```")) raw = raw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    try {
+      return JSON.parse(raw);
+    } catch {
+      const m = raw.match(/\{[\s\S]*\}/);
+      if (m) return JSON.parse(m[0]);
+      throw new Error("Could not parse Claude JSON output");
+    }
   }
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+async function processJob(jobId: string, repId: string, dateFrom: string | null, dateTo: string | null) {
+  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+  const update = async (patch: Record<string, unknown>) => {
+    await supabase.from("rep_performance_jobs").update(patch).eq("id", jobId);
+  };
 
   try {
-    const { repId, dateFrom, dateTo } = await req.json();
-    if (!repId) {
-      return new Response(JSON.stringify({ error: "repId required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY missing");
-
-    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
-
     let q = supabase
       .from("call_records")
       .select("id, called_at, duration_seconds, call_analysis")
       .eq("rep_id", repId)
       .gt("duration_seconds", 60)
       .not("call_analysis->>transcript", "is", null)
-      .order("called_at", { ascending: false })
-      .limit(MAX_CALLS_PER_REPORT);
+      .order("called_at", { ascending: false });
 
     if (dateFrom) q = q.gte("called_at", new Date(dateFrom).toISOString());
     if (dateTo) {
@@ -181,49 +152,142 @@ serve(async (req) => {
     });
 
     if (eligible.length === 0) {
-      return new Response(
-        JSON.stringify({ error: "No calls with transcripts found for this rep in the selected range." }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      await update({ status: "failed", error: "No calls with transcripts found for this rep in the selected range." });
+      return;
     }
 
-    console.log(`analyse-rep-performance: reviewing ${eligible.length} eligible calls`);
+    await update({ status: "running", total_eligible: eligible.length, calls_completed: 0 });
+    console.log(`Job ${jobId}: processing ${eligible.length} calls`);
 
-    // Single-pass report keeps broad ranges inside request and AI rate limits.
-    const aggregateInput = eligible.map((c: any, index: number) => {
-      const transcript: string = c.call_analysis.transcript;
-      return [
-        `CALL ${index + 1}`,
-        `called_at: ${c.called_at}`,
-        `duration_seconds: ${c.duration_seconds ?? 0}`,
-        "transcript:",
-        transcript.slice(0, TRANSCRIPT_CHAR_LIMIT),
-      ].join("\n");
-    }).join("\n\n---\n\n");
+    const summaries: any[] = [];
+    let completed = 0;
+
+    for (let i = 0; i < eligible.length; i += BATCH_SIZE) {
+      const batch = eligible.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        batch.map(async (c: any) => {
+          try {
+            const transcript: string = c.call_analysis.transcript;
+            const userContent = [
+              `called_at: ${c.called_at}`,
+              `duration_seconds: ${c.duration_seconds ?? 0}`,
+              "",
+              "TRANSCRIPT:",
+              transcript.slice(0, TRANSCRIPT_CHAR_LIMIT),
+            ].join("\n");
+            const r = await callClaude(ANTHROPIC_API_KEY, PER_CALL_SYSTEM_PROMPT, userContent, PER_CALL_MAX_TOKENS);
+            const allowed = new Set(["Booked", "Hot", "Warm", "Cold", "Dead"]);
+            return {
+              call_id: c.id,
+              called_at: c.called_at,
+              duration_seconds: c.duration_seconds ?? 0,
+              call_type: r.call_type === "follow_up" ? "follow_up" : "first_call",
+              overall_score: typeof r.overall_score === "number" ? r.overall_score : 0,
+              call_verdict: allowed.has(r.call_verdict) ? r.call_verdict : "Cold",
+              coach_summary: r.coach_summary ?? "",
+              biggest_mistake: r.biggest_mistake ?? "",
+              what_worked: Array.isArray(r.what_worked) ? r.what_worked : [],
+              what_to_fix: Array.isArray(r.what_to_fix) ? r.what_to_fix : [],
+              objections_that_surfaced: Array.isArray(r.objections_that_surfaced) ? r.objections_that_surfaced : [],
+              prevention_misses: Array.isArray(r.prevention_misses) ? r.prevention_misses : [],
+              stages: Array.isArray(r.stages) ? r.stages : [],
+            };
+          } catch (err) {
+            console.error(`Per-call failed for ${c.id}:`, (err as Error).message);
+            return null;
+          }
+        }),
+      );
+      for (const r of results) if (r) summaries.push(r);
+      completed += batch.length;
+      await update({ calls_completed: completed, call_summaries: summaries });
+    }
+
+    if (summaries.length === 0) {
+      await update({ status: "failed", error: "Every per-call analysis failed." });
+      return;
+    }
+
+    // Build compact aggregate input for the synthesis pass
+    const aggregateInput = summaries.map((s, i) => [
+      `CALL ${i + 1} — ${s.called_at} — ${s.call_type} — ${Math.floor(s.duration_seconds / 60)}m${s.duration_seconds % 60}s`,
+      `verdict: ${s.call_verdict}  score: ${s.overall_score}/10`,
+      `biggest_mistake: ${s.biggest_mistake}`,
+      `coach: ${s.coach_summary}`,
+      `objections: ${s.objections_that_surfaced.join("; ") || "none"}`,
+      `prevention_misses: ${s.prevention_misses.join("; ") || "none"}`,
+    ].join("\n")).join("\n\n");
 
     const overall = await callClaude(
-      ANTHROPIC_API_KEY,
+      Deno.env.get("ANTHROPIC_API_KEY")!,
       OVERALL_SYSTEM_PROMPT,
-      `RAW CALLS TO REVIEW:\n\n${aggregateInput}`,
-      2200,
+      `REP CALL SUMMARIES (${summaries.length} calls):\n\n${aggregateInput}`,
+      OVERALL_MAX_TOKENS,
     );
 
-    const allowedVerdicts = new Set(["Booked", "Hot", "Warm", "Cold", "Dead"]);
-    const callSummaries = (Array.isArray(overall.call_summaries) ? overall.call_summaries : []).map((r: any) => ({
-      ...r,
-      call_verdict: allowedVerdicts.has(r.call_verdict) ? r.call_verdict : "Cold",
-    }));
-    overall.call_summaries = callSummaries;
-    const firstCalls = callSummaries.filter((r: any) => r.call_type === "first_call").length;
-    const followUps = callSummaries.filter((r: any) => r.call_type === "follow_up").length;
-    overall.calls_analysed = eligible.length;
-    overall.first_calls = firstCalls;
-    overall.follow_ups = followUps;
+    const firstCalls = summaries.filter((s) => s.call_type === "first_call").length;
+    const followUps = summaries.filter((s) => s.call_type === "follow_up").length;
 
-    return new Response(
-      JSON.stringify({ overall, calls: callSummaries }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    const report = {
+      ...overall,
+      calls_analysed: summaries.length,
+      first_calls: firstCalls,
+      follow_ups: followUps,
+      call_summaries: summaries.map((s) => ({
+        called_at: s.called_at,
+        call_type: s.call_type,
+        duration_seconds: s.duration_seconds,
+        overall_score: s.overall_score,
+        call_verdict: s.call_verdict,
+        biggest_mistake: s.biggest_mistake,
+        coach_summary: s.coach_summary,
+      })),
+    };
+
+    await update({ status: "completed", report, call_summaries: summaries });
+    console.log(`Job ${jobId}: completed`);
+  } catch (err) {
+    console.error(`Job ${jobId} failed:`, err);
+    await update({ status: "failed", error: (err as Error).message || "Unknown error" });
+  }
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+
+  try {
+    const { repId, dateFrom, dateTo } = await req.json();
+    if (!repId) {
+      return new Response(JSON.stringify({ error: "repId required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+    const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    const { data: job, error } = await supabase
+      .from("rep_performance_jobs")
+      .insert({
+        rep_id: repId,
+        date_from: dateFrom || null,
+        date_to: dateTo || null,
+        status: "queued",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+
+    // Fire and forget — the Edge runtime keeps the worker alive
+    // @ts-ignore EdgeRuntime is provided by Supabase
+    EdgeRuntime.waitUntil(processJob(job.id, repId, dateFrom || null, dateTo || null));
+
+    return new Response(JSON.stringify({ jobId: job.id }), {
+      status: 202,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("analyse-rep-performance error:", err);
     return new Response(
