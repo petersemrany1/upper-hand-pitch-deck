@@ -821,7 +821,7 @@ function DashboardHome() {
             />
             <button
               onClick={confirmTarget}
-              disabled={!Number(targetInput) || Number(targetInput) <= 0}
+              disabled={!Number(targetInput) || Number(targetInput) <= 0 || !selectedRepId}
               style={{
                 marginTop: 16,
                 width: "100%",
