@@ -444,6 +444,19 @@ function TeamSection() {
     }
   };
 
+  const onToggleActive = async (rep: Rep, nextActive: boolean) => {
+    if (!nextActive && !confirm(`Deactivate ${rep.name}? They will be signed out and unable to log in.`)) return;
+    const prev = reps;
+    setReps((rs) => rs.map((x) => x.id === rep.id ? { ...x, is_active: nextActive } : x));
+    const r = await setRepActive({ data: { id: rep.id, active: nextActive } });
+    if (!r.success) {
+      setReps(prev);
+      toast.error(r.error);
+    } else {
+      toast.success(nextActive ? `${rep.name} reactivated` : `${rep.name} deactivated`);
+    }
+  };
+
   return (
     <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
       <div className="flex items-center justify-between mb-5">
