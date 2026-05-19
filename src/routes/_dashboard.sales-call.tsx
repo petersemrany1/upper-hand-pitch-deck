@@ -803,6 +803,7 @@ function SalesCallPortal() {
         setSessionPaused(false);
         setSessionStartedAt(null);
         if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+        closeRepSession();
         toast.success("Session complete — great work!");
       });
     }
