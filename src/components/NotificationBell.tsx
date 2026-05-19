@@ -202,7 +202,7 @@ export function NotificationBell() {
                           type="button"
                           onClick={() => {
                             setOpen(false);
-                            navigate({ to: "/inbox", search: { thread: t.thread_id } });
+                            openMessenger(t.thread_id);
                           }}
                           className="flex flex-1 items-center gap-2 text-left min-w-0"
                         >
