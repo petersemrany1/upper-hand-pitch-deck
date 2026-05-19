@@ -6191,6 +6191,7 @@ function RightPanel({
                   setConfirmDepositOpen(false);
                   if (r.success) {
                     toast.success("$75 deposit link sent via SMS ✓");
+                    window.dispatchEvent(new CustomEvent("lead-payment-link-sent", { detail: { leadId: active.id } }));
                     setSmsHistory((prev) => [...prev, {
                       body: `Deposit link sent: ${r.stripeUrl}`,
                       sent_at: new Date().toISOString(),
