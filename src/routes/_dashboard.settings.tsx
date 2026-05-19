@@ -497,6 +497,7 @@ function TeamSection() {
                 <th className="text-left px-4 py-2.5 font-semibold">Last Name</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Email</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Role</th>
+                <th className="text-left px-4 py-2.5 font-semibold">Active</th>
                 <th className="text-right px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
