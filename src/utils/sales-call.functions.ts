@@ -287,7 +287,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         .select("id, deposit_amount, stripe_payment_intent_id")
         .eq("lead_id", data.leadId)
         .limit(1);
-      const payload: Record<string, unknown> = {
+      const payload: any = {
         clinic_id: data.clinicId,
         lead_id: data.leadId,
         patient_name: patientName,
