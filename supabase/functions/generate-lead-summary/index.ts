@@ -86,6 +86,24 @@ serve(async (req) => {
       recent_calls: callList,
     };
 
+    // Short-circuit: if there's no real signal, return empty instead of asking
+    // the model to invent one. Prevents hallucinated summaries on leads with
+    // no completed calls, no notes, no booking and no callback.
+    const hasRealSignal =
+      callList.some(
+        (c) => (c.duration_seconds ?? 0) > 0 || c.outcome || c.notes,
+      ) ||
+      !!lead.call_notes ||
+      !!lead.booking_date ||
+      !!lead.callback_scheduled_at;
+
+    if (!hasRealSignal) {
+      return new Response(JSON.stringify({ summary: "", reason: "no_signal" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY missing" }), {
