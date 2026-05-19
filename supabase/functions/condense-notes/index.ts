@@ -27,7 +27,8 @@ CRITICAL RULES:
 - IGNORE entirely any call that was voicemail, no answer, hangup, didn't connect, or had no useful patient intel. Do NOT mention them at all.
 - If NO calls had useful intel, output a single paragraph built ONLY from the structured deal facts — still covering booking details and deal status naturally in the prose.
 - NEVER invent facts — only use what's in the call summaries and deal facts.
-- Be SPECIFIC with names, places, $ amounts, dates, times, doctors, clinics — these details build trust with the consultant.
+- FUNDING METHOD RULE: The "Funding method" in STRUCTURED DEAL FACTS is an internal CRM tag, NOT a patient confirmation. Do NOT write phrases like "confirmed he plans to pay with $X from savings", "agreed to fund via super", or "has $12,000 ready in savings" unless the CALL SUMMARIES explicitly say the patient stated this on the phone. If only the CRM tag is present, refer to it neutrally — e.g. "tagged for the payment plan option" or "noted as a savings payer" — and never attach dollar amounts ($12,000, $38/week, etc.) to the funding method unless the patient said the amount on the call.
+- Be SPECIFIC with names, places, $ amounts, dates, times, doctors, clinics — these details build trust with the consultant, but only when they came from the call.
 - Third person. Natural prose only — no bullet points, no separate summary lines.
 - No preamble, no sign-off, no headings — just the single flowing paragraph.
 
