@@ -7,6 +7,8 @@ import { SmsNotifier } from "@/components/SmsNotifier";
 import { MissedCallNotifier } from "@/components/MissedCallNotifier";
 import { FloatingCallWidget } from "@/components/FloatingCallWidget";
 import { NotificationBell } from "@/components/NotificationBell";
+import { MiniMessenger } from "@/components/MiniMessenger";
+import { MessengerLauncher } from "@/components/MessengerLauncher";
 import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
@@ -129,6 +131,8 @@ function DashboardLayout() {
         </DashboardShell>
         <SmsNotifier />
         <MissedCallNotifier />
+        <MessengerLauncher />
+        <MiniMessenger />
       </SidebarProvider>
     </NotificationsProvider>
   );

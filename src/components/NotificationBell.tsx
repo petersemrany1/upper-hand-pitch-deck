@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Bell, MessageSquare, PhoneMissed, PhoneCall, X } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { normalizeAUPhone } from "@/utils/phone";
+import { openMessenger } from "@/hooks/useMessenger";
 import { toast } from "sonner";
 import {
   Popover,
@@ -24,7 +24,6 @@ function relTime(d: string | null): string {
 }
 
 export function NotificationBell() {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const {
     unreadThreads,
@@ -203,7 +202,7 @@ export function NotificationBell() {
                           type="button"
                           onClick={() => {
                             setOpen(false);
-                            navigate({ to: "/inbox", search: { thread: t.thread_id } });
+                            openMessenger(t.thread_id);
                           }}
                           className="flex flex-1 items-center gap-2 text-left min-w-0"
                         >
