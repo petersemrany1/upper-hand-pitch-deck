@@ -841,12 +841,9 @@ function SalesCallPortal() {
             <button
               onClick={() => {
                 sessionEndRequestedRef.current = true;
-                // End Session is a deliberate exit. If there's an unlogged
-                // outcome, confirm with the user, then force-clear the gate
-                // so they're not trapped by stale sessionStorage state.
+                // End Session is a deliberate exit. Force-clear any stale
+                // outcome gate so the user can always leave the session.
                 if (gateActive()) {
-                  const ok = window.confirm("There's an unlogged call outcome. End session anyway?");
-                  if (!ok) return;
                   outcomeRequiredRef.current = false;
                   outcomePendingRef.current = false;
                   try {
