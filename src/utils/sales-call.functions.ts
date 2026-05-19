@@ -802,13 +802,15 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       .select("id, rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
 
-    // BUG 1 FIX: filter on created_at, not updated_at. updated_at gets bumped
-    // every time a 3-day or 24-hour reminder SMS fires, which would re-surface
-    // bookings made weeks ago into today's leaderboard. created_at is set once
-    // when the deposit-paid booking is confirmed.
+    // Bookings are counted from appointment rows, using created_at as the time
+    // the booking was made. Do not use the appointment date itself — a booking
+    // made today for next week should still count on today's leaderboard.
     const { data: appointmentBookings } = await supabaseAdmin.from("appointment_reminders")
       .select("id, lead_id, status, created_at")
       .neq("status", "cancelled")
+      .gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
+    const { data: clinicAppointmentBookings } = await supabaseAdmin.from("clinic_appointments")
+      .select("id, lead_id, created_at")
       .gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
     // meta_leads has no booking timestamp, so we use booking_date (the appointment
     // date) as a coarse fallback for legacy rows without an appointment_reminder.
@@ -822,6 +824,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const relevantLeadIds = Array.from(new Set([
       ...((calls ?? []).map((c) => c.lead_id).filter(Boolean) as string[]),
       ...((appointmentBookings ?? []).map((b) => b.lead_id).filter(Boolean) as string[]),
+      ...((clinicAppointmentBookings ?? []).map((b) => b.lead_id).filter(Boolean) as string[]),
       ...((metaBookings ?? []).map((b) => b.id).filter(Boolean) as string[]),
     ]));
 
@@ -1014,17 +1017,20 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       byRep.set(repId, s);
     }
 
-    const bookedLeadIds = new Set<string>();
+    const bookedLeadIds = new Map<string, string | null>();
     for (const b of appointmentBookings ?? []) {
-      if (b.lead_id) bookedLeadIds.add(b.lead_id as string);
+      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.created_at as string | null);
+    }
+    for (const b of clinicAppointmentBookings ?? []) {
+      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.created_at as string | null);
     }
     for (const b of metaBookings ?? []) {
-      bookedLeadIds.add(b.id as string);
+      bookedLeadIds.set(b.id as string, null);
     }
 
-    for (const leadId of bookedLeadIds) {
+    for (const [leadId, bookedAt] of bookedLeadIds.entries()) {
       if (excludedLeadIds.has(leadId)) continue; // skip Peter Test
-      const repId = repIdForLead(leadId);
+      const repId = repIdForLead(leadId, bookedAt);
       if (!repId) continue;
       const s = byRep.get(repId) ?? blank();
       s.bookings += 1;
