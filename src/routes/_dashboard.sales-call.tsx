@@ -3869,8 +3869,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           const formIncomplete = missing.length > 0;
           return !paymentReceivedAt ? (
             <button
-              onClick={() => void sendPaymentLink()}
-              disabled={sendingPaymentLink || !lead.phone || formIncomplete}
+              onClick={() => { if (!paymentLinkSent) void sendPaymentLink(); }}
+              disabled={sendingPaymentLink || !lead.phone || formIncomplete || paymentLinkSent}
               title={formIncomplete ? `Fill in: ${missing.join(", ")}` : undefined}
               className="w-full rounded-[6px]"
               style={{
@@ -3878,7 +3878,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                 color: formIncomplete ? "#9ca3af" : paymentLinkSent ? "#92400e" : "#fff",
                 border: paymentLinkSent && !formIncomplete ? "1px solid #f59e0b" : "none",
                 fontSize: 13, fontWeight: 600, padding: "9px 20px", marginTop: 4,
-                cursor: sendingPaymentLink || !lead.phone || formIncomplete ? "not-allowed" : "pointer",
+                cursor: sendingPaymentLink || !lead.phone || formIncomplete || paymentLinkSent ? "not-allowed" : "pointer",
                 opacity: sendingPaymentLink || !lead.phone ? 0.6 : 1,
               }}
             >
