@@ -111,7 +111,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signIn: async (usernameOrEmail, password) => {
       const email = usernameToInternalEmail(usernameOrEmail);
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message ?? null };
+      if (error) return { error: error.message };
+      // Block deactivated reps (clinic users have no sales_reps row and pass through).
+      const { data: rep } = await supabase
+        .from("sales_reps")
+        .select("is_active")
+        .ilike("email", email)
+        .maybeSingle();
+      if (rep && rep.is_active === false) {
+        await supabase.auth.signOut();
+        return { error: "Your account has been deactivated. Contact your admin." };
+      }
+      return { error: null };
     },
     signOut: async () => {
       await supabase.auth.signOut();
