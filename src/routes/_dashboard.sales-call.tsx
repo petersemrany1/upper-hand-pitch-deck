@@ -233,6 +233,14 @@ function SalesCallPortal() {
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
   }, [sessionActive, sessionPaused, sessionStartedAt]);
 
+  // Fire-and-forget close of the rep's open session row. Called from every
+  // path that exits sessionActive (manual End button, queue exhausted, etc.).
+  const closeRepSession = useCallback(() => {
+    endRepSession({ data: undefined as never }).catch((err) => {
+      console.error("endRepSession failed", err);
+    });
+  }, []);
+
   useEffect(() => {
     if (!sessionActive || !sessionStartedAt || !repId) return;
     const sessionLeadIds = new Set(sessionQueue);
