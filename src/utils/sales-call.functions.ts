@@ -1113,3 +1113,78 @@ export const findLeadByPhone = createServerFn({ method: "POST" })
       },
     };
   });
+
+/* ───────────────────────── Rep Sessions ───────────────────────── */
+// Persists Start/End Session in DB so the timer survives tab refreshes.
+// Source of truth = `started_at` of the rep's currently open row.
+
+async function resolveRepIdForUser(userId: string): Promise<string> {
+  const { data: u, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+  if (error || !u?.user?.email) throw new Error("Could not verify caller");
+  const { data: rep, error: repErr } = await supabaseAdmin
+    .from("sales_reps")
+    .select("id")
+    .ilike("email", u.user.email)
+    .maybeSingle();
+  if (repErr || !rep?.id) throw new Error("No sales rep record for this user");
+  return rep.id as string;
+}
+
+export const getCurrentRepSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const repId = await resolveRepIdForUser((context as any).userId);
+    // Auto-close stale opens (started on a previous calendar day, UTC). Keeps
+    // long-abandoned rows from looking active.
+    const todayStartUtc = new Date();
+    todayStartUtc.setUTCHours(0, 0, 0, 0);
+    await supabaseAdmin
+      .from("rep_sessions")
+      .update({ ended_at: new Date().toISOString() })
+      .eq("rep_id", repId)
+      .is("ended_at", null)
+      .lt("started_at", todayStartUtc.toISOString());
+
+    const { data, error } = await supabaseAdmin
+      .from("rep_sessions")
+      .select("id, started_at, ended_at")
+      .eq("rep_id", repId)
+      .is("ended_at", null)
+      .order("started_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data ? { id: data.id as string, started_at: data.started_at as string } : null;
+  });
+
+export const startRepSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const repId = await resolveRepIdForUser((context as any).userId);
+    // Close any still-open session defensively.
+    await supabaseAdmin
+      .from("rep_sessions")
+      .update({ ended_at: new Date().toISOString() })
+      .eq("rep_id", repId)
+      .is("ended_at", null);
+    const { data, error } = await supabaseAdmin
+      .from("rep_sessions")
+      .insert({ rep_id: repId, started_at: new Date().toISOString() })
+      .select("id, started_at")
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: data.id as string, started_at: data.started_at as string };
+  });
+
+export const endRepSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const repId = await resolveRepIdForUser((context as any).userId);
+    const { error } = await supabaseAdmin
+      .from("rep_sessions")
+      .update({ ended_at: new Date().toISOString() })
+      .eq("rep_id", repId)
+      .is("ended_at", null);
+    if (error) throw new Error(error.message);
+    return { ok: true as const };
+  });

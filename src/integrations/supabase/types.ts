@@ -1069,6 +1069,30 @@ export type Database = {
         }
         Relationships: []
       }
+      rep_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          id: string
+          rep_id: string
+          started_at: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          rep_id: string
+          started_at?: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          rep_id?: string
+          started_at?: string
+        }
+        Relationships: []
+      }
       sales_reps: {
         Row: {
           created_at: string
