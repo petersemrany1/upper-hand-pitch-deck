@@ -69,6 +69,10 @@ function InboxPage() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // Lightbox state — opening photos in a new tab inside the preview iframe
+  // can navigate the iframe away from the React app and kill an in-progress
+  // sales call. Keep image preview in-page instead.
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const sendSmsFn = useServerFn(sendSms);
   const markReadFn = useServerFn(markThreadRead);
