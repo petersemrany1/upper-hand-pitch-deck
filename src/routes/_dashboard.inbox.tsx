@@ -478,6 +478,29 @@ function InboxPage() {
           </>
         )}
       </section>
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6 cursor-zoom-out"
+          style={{ background: "rgba(0,0,0,0.85)" }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxUrl(null); }}
+            className="absolute top-4 right-4 h-9 w-9 inline-flex items-center justify-center rounded-full"
+            style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Photo"
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
