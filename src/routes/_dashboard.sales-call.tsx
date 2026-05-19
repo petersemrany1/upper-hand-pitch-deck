@@ -706,6 +706,7 @@ function SalesCallPortal() {
             <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
             <button
               onClick={async () => {
+                sessionEndRequestedRef.current = false;
                 const q = buildSessionQueue();
                 // Persist the session start in the DB so the timer survives
                 // refreshes. End → Start creates a new row, restarting the clock.
