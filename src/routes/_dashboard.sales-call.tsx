@@ -165,49 +165,17 @@ function SalesCallPortal() {
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
   const [showCallbackAlert, setShowCallbackAlert] = useState(false);
-  // Session mode
+  // Session mode.
+  // Source of truth for "is a session active" and "when did it start" is the
+  // DB (`rep_sessions` row with ended_at IS NULL). sessionStorage is kept only
+  // as an optimistic cache for non-timer fields (queue, counts, current step)
+  // so refreshing the tab doesn't lose the in-progress queue. The timer
+  // itself is derived from now - started_at, so refresh / new tab no longer
+  // resets it to zero. Clicking End Session and then Start Session creates a
+  // brand new row, so the timer correctly restarts then.
   const sessionRestored = (() => {
     if (typeof window === "undefined") return null;
-    let raw: any = null;
-    try { raw = JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
-    if (!raw) return null;
-    // Discard stale sessions: started on a different day, or no activity in >30 min.
-    // We treat (now - startedAt) - seconds as "idle gap" — if the wall clock has
-    // advanced far beyond the counted seconds, the tab was abandoned.
-    const STALE_IDLE_MS = 30 * 60 * 1000;
-    try {
-      const startedAt = typeof raw.startedAt === "string" ? new Date(raw.startedAt) : null;
-      const lastTickAt = typeof raw.lastTickAt === "string" ? new Date(raw.lastTickAt) : null;
-      if (raw.active && startedAt && !isNaN(startedAt.getTime())) {
-        const now = new Date();
-        const sameDay = startedAt.toDateString() === now.toDateString();
-        // Idle gap is measured from the last persisted tick (updated whether
-        // active or on break) so taking a break doesn't look like abandonment.
-        const referenceMs = lastTickAt && !isNaN(lastTickAt.getTime())
-          ? lastTickAt.getTime()
-          : startedAt.getTime() + ((typeof raw.seconds === "number" ? raw.seconds : 0) * 1000);
-        const idleGapMs = now.getTime() - referenceMs;
-        if (!sameDay || idleGapMs > STALE_IDLE_MS) {
-          sessionStorage.removeItem("salesCall.session");
-          sessionStorage.removeItem("salesCall.activeId");
-          return null;
-        }
-      }
-    } catch { /* fall through */ }
-    return raw;
-  })();
-  const inferredSessionStartedAt = (() => {
-    const restoredStartedAt = typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null;
-    if (restoredStartedAt) return restoredStartedAt;
-    if (sessionRestored?.active && typeof sessionRestored?.seconds === "number" && sessionRestored.seconds > 0) {
-      return new Date(Date.now() - sessionRestored.seconds * 1000).toISOString();
-    }
-    if (sessionRestored?.active) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return today.toISOString();
-    }
-    return null;
+    try { return JSON.parse(sessionStorage.getItem("salesCall.session") || "null"); } catch { return null; }
   })();
   const [sessionActive, setSessionActive] = useState<boolean>(sessionRestored?.active ?? false);
   const [manualMode, setManualMode] = useState<boolean>(sessionRestored?.manualMode ?? false);
@@ -217,44 +185,53 @@ function SalesCallPortal() {
   const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
   const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
   const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
-  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(inferredSessionStartedAt);
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(
+    typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
+  );
+
+  // On mount: ask the server whether this rep has an open session and, if so,
+  // hydrate sessionStartedAt + sessionSeconds from `started_at`. This is what
+  // fixes the timer resetting after a refresh / new tab.
+  useEffect(() => {
+    let cancelled = false;
+    void getCurrentRepSession({ data: undefined as never })
+      .then((row) => {
+        if (cancelled || !row) return;
+        setSessionStartedAt(row.started_at);
+        setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000)));
+        setSessionActive(true);
+      })
+      .catch(() => { /* not signed in / no rep — ignore */ });
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("salesCall.session", JSON.stringify({
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
       startedAt: sessionStartedAt,
-      lastTickAt: new Date().toISOString(),
     }));
   }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
+  // Timer: while a session is active and not paused, recompute seconds from
+  // (now - started_at). Using a derived value (instead of s + 1) means
+  // refreshes don't drift and multiple tabs stay in sync.
   useEffect(() => {
-    if (sessionActive && !sessionPaused) {
-      sessionTimerRef.current = setInterval(() => {
-        setSessionSeconds((s) => s + 1);
-      }, 1000);
+    if (sessionActive && !sessionPaused && sessionStartedAt) {
+      const recompute = () => {
+        const elapsed = Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 1000));
+        setSessionSeconds(elapsed);
+      };
+      recompute();
+      sessionTimerRef.current = setInterval(recompute, 1000);
     } else {
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
-  }, [sessionActive, sessionPaused]);
-  // Heartbeat: keep lastTickAt fresh even while on break, so a refresh
-  // mid-break doesn't look like an abandoned session and wipe state.
-  useEffect(() => {
-    if (!sessionActive) return;
-    const id = setInterval(() => {
-      try {
-        const raw = sessionStorage.getItem("salesCall.session");
-        if (!raw) return;
-        const parsed = JSON.parse(raw);
-        parsed.lastTickAt = new Date().toISOString();
-        sessionStorage.setItem("salesCall.session", JSON.stringify(parsed));
-      } catch { /* ignore */ }
-    }, 30 * 1000);
-    return () => clearInterval(id);
-  }, [sessionActive]);
+  }, [sessionActive, sessionPaused, sessionStartedAt]);
 
   useEffect(() => {
     if (!sessionActive || !sessionStartedAt || !repId) return;
