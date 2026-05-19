@@ -80,6 +80,7 @@ type Rep = {
   first_name: string | null;
   last_name: string | null;
   role: string;
+  is_active?: boolean;
   created_at: string;
 };
 
