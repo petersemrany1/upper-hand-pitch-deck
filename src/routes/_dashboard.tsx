@@ -131,6 +131,8 @@ function DashboardLayout() {
         </DashboardShell>
         <SmsNotifier />
         <MissedCallNotifier />
+        <MessengerLauncher />
+        <MiniMessenger />
       </SidebarProvider>
     </NotificationsProvider>
   );
