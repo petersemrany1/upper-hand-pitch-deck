@@ -69,6 +69,10 @@ function InboxPage() {
   const [showNewThread, setShowNewThread] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  // Lightbox state — opening photos in a new tab inside the preview iframe
+  // can navigate the iframe away from the React app and kill an in-progress
+  // sales call. Keep image preview in-page instead.
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
 
   const sendSmsFn = useServerFn(sendSms);
   const markReadFn = useServerFn(markThreadRead);
@@ -392,9 +396,14 @@ function InboxPage() {
                       {m.media_urls && m.media_urls.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-1">
                           {m.media_urls.map((u) => (
-                            <a key={u} href={u} target="_blank" rel="noreferrer">
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => setLightboxUrl(u)}
+                              className="block p-0 border-0 bg-transparent cursor-zoom-in"
+                            >
                               <img src={u} alt="MMS" className="max-h-48 rounded-lg" />
-                            </a>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -469,6 +478,29 @@ function InboxPage() {
           </>
         )}
       </section>
+      {lightboxUrl && (
+        <div
+          onClick={() => setLightboxUrl(null)}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6 cursor-zoom-out"
+          style={{ background: "rgba(0,0,0,0.85)" }}
+        >
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxUrl(null); }}
+            className="absolute top-4 right-4 h-9 w-9 inline-flex items-center justify-center rounded-full"
+            style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={lightboxUrl}
+            alt="Photo"
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[90vh] max-w-[90vw] rounded-lg shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }
