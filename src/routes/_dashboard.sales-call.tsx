@@ -188,6 +188,7 @@ function SalesCallPortal() {
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
+  const sessionEndRequestedRef = useRef(false);
 
   // On mount: ask the server whether this rep has an open session and, if so,
   // hydrate sessionStartedAt + sessionSeconds from `started_at`. This is what
@@ -196,7 +197,7 @@ function SalesCallPortal() {
     let cancelled = false;
     void getCurrentRepSession({ data: undefined as never })
       .then((row) => {
-        if (cancelled || !row) return;
+        if (cancelled || !row || sessionEndRequestedRef.current) return;
         setSessionStartedAt(row.started_at);
         setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000)));
         setSessionActive(true);
