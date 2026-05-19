@@ -2487,7 +2487,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         },
       )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    // Cross-component sync: when the right-side panel sends the deposit link,
+    // it dispatches this event so step 10's "Send payment link" reflects sent.
+    const onExternalSent = (e: Event) => {
+      const detail = (e as CustomEvent<{ leadId?: string }>).detail;
+      if (detail?.leadId === lead.id) setPaymentLinkSent(true);
+    };
+    window.addEventListener("lead-payment-link-sent", onExternalSent as EventListener);
+    return () => {
+      void supabase.removeChannel(channel);
+      window.removeEventListener("lead-payment-link-sent", onExternalSent as EventListener);
+    };
   }, [lead.id]);
 
   const sendPaymentLink = async () => {
@@ -2515,6 +2525,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     setSendingPaymentLink(false);
     if (r.success) {
       setPaymentLinkSent(true);
+      window.dispatchEvent(new CustomEvent("lead-payment-link-sent", { detail: { leadId: lead.id } }));
       toast.success("Payment link sent — waiting for Stripe confirmation");
     } else {
       toast.error(r.error ?? "Failed to send payment link");
@@ -6180,6 +6191,7 @@ function RightPanel({
                   setConfirmDepositOpen(false);
                   if (r.success) {
                     toast.success("$75 deposit link sent via SMS ✓");
+                    window.dispatchEvent(new CustomEvent("lead-payment-link-sent", { detail: { leadId: active.id } }));
                     setSmsHistory((prev) => [...prev, {
                       body: `Deposit link sent: ${r.stripeUrl}`,
                       sent_at: new Date().toISOString(),
