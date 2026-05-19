@@ -696,9 +696,18 @@ function SalesCallPortal() {
             <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6, color: "#111" }}>Ready to dial?</div>
             <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
             <button
-              onClick={() => {
+              onClick={async () => {
                 const q = buildSessionQueue();
-                const startedAt = new Date().toISOString();
+                // Persist the session start in the DB so the timer survives
+                // refreshes. End → Start creates a new row, restarting the clock.
+                let startedAt: string;
+                try {
+                  const row = await startRepSession({ data: undefined as never });
+                  startedAt = row.started_at;
+                } catch (err) {
+                  console.error("startRepSession failed", err);
+                  startedAt = new Date().toISOString();
+                }
                 setSessionQueue(q);
                 setSessionIndex(0);
                 setSessionCalls(0);
