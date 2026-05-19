@@ -2487,7 +2487,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         },
       )
       .subscribe();
-    return () => { void supabase.removeChannel(channel); };
+    // Cross-component sync: when the right-side panel sends the deposit link,
+    // it dispatches this event so step 10's "Send payment link" reflects sent.
+    const onExternalSent = (e: Event) => {
+      const detail = (e as CustomEvent<{ leadId?: string }>).detail;
+      if (detail?.leadId === lead.id) setPaymentLinkSent(true);
+    };
+    window.addEventListener("lead-payment-link-sent", onExternalSent as EventListener);
+    return () => {
+      void supabase.removeChannel(channel);
+      window.removeEventListener("lead-payment-link-sent", onExternalSent as EventListener);
+    };
   }, [lead.id]);
 
   const sendPaymentLink = async () => {
