@@ -2471,6 +2471,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   );
   useEffect(() => {
     setPaymentReceivedAt((lead as { deposit_paid_at?: string | null }).deposit_paid_at ?? null);
+    // Persist "link sent" across refresh: check sms_messages for a prior
+    // outbound deposit link for this lead.
+    void (async () => {
+      const { data: prior } = await supabase
+        .from("sms_messages")
+        .select("id")
+        .eq("lead_id", lead.id)
+        .eq("direction", "outbound")
+        .ilike("body", "%refundable consultation deposit%")
+        .limit(1);
+      if (prior && prior.length > 0) setPaymentLinkSent(true);
+    })();
     const channel = supabase
       .channel(`booking-step-deposit-${lead.id}`)
       .on(
