@@ -519,6 +519,19 @@ function TeamSection() {
                     </select>
                   </td>
                   <td className="px-4 py-3">
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={r.is_active !== false}
+                        onChange={(e) => void onToggleActive(r, e.target.checked)}
+                        className="h-4 w-4 accent-primary cursor-pointer"
+                      />
+                      <span className={`text-xs font-medium ${r.is_active === false ? "text-destructive" : "text-muted-foreground"}`}>
+                        {r.is_active === false ? "Disabled" : "Active"}
+                      </span>
+                    </label>
+                  </td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => setEditing(r)}
