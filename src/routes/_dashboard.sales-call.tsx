@@ -843,7 +843,7 @@ function SalesCallPortal() {
                   toast.error("Please set a call outcome first");
                   return;
                 }
-                setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+                setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
               }}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
