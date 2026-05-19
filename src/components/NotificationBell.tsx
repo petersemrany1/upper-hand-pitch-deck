@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Bell, MessageSquare, PhoneMissed, PhoneCall, X } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
 import { useNotifications } from "@/hooks/useNotifications";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { normalizeAUPhone } from "@/utils/phone";
+import { openMessenger } from "@/hooks/useMessenger";
 import { toast } from "sonner";
 import {
   Popover,
