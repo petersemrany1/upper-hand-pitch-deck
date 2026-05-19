@@ -188,6 +188,7 @@ function SalesCallPortal() {
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
+  const sessionEndRequestedRef = useRef(false);
 
   // On mount: ask the server whether this rep has an open session and, if so,
   // hydrate sessionStartedAt + sessionSeconds from `started_at`. This is what
@@ -196,7 +197,7 @@ function SalesCallPortal() {
     let cancelled = false;
     void getCurrentRepSession({ data: undefined as never })
       .then((row) => {
-        if (cancelled || !row) return;
+        if (cancelled || !row || sessionEndRequestedRef.current) return;
         setSessionStartedAt(row.started_at);
         setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000)));
         setSessionActive(true);
@@ -705,6 +706,7 @@ function SalesCallPortal() {
             <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
             <button
               onClick={async () => {
+                sessionEndRequestedRef.current = false;
                 const q = buildSessionQueue();
                 // Persist the session start in the DB so the timer survives
                 // refreshes. End → Start creates a new row, restarting the clock.
@@ -838,16 +840,17 @@ function SalesCallPortal() {
             </button>
             <button
               onClick={() => {
-                // End Session is a deliberate exit. If there's an unlogged
-                // outcome, confirm with the user, then force-clear the gate
-                // so they're not trapped by stale sessionStorage state.
+                sessionEndRequestedRef.current = true;
+                // End Session is a deliberate exit. Force-clear any stale
+                // outcome gate so the user can always leave the session.
                 if (gateActive()) {
-                  const ok = window.confirm("There's an unlogged call outcome. End session anyway?");
-                  if (!ok) return;
                   outcomeRequiredRef.current = false;
                   outcomePendingRef.current = false;
                   try {
-                    if (activeId) window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+                    if (activeId) {
+                      window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
+                      window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+                    }
                   } catch {}
                 }
                 setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
