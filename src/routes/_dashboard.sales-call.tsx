@@ -5379,6 +5379,16 @@ function RightPanel({
               toast.error("End the call first");
               return;
             }
+            // If the lead is already booked + paid, the booking IS the outcome —
+            // skip the "How did that go?" gate so the rep can move on cleanly.
+            const alreadyBooked = active.status === "booked_deposit_paid";
+            if (alreadyBooked) {
+              setOutcomePending(false);
+              setOutcomeRequired(false);
+              onOutcomeRequiredChange?.(false);
+              onChangeLead();
+              return;
+            }
             // If a call was just dialled, force an outcome before moving on
             if (outcomePending) {
               setOutcomeRequired(true);
