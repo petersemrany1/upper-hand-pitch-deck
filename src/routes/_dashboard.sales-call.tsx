@@ -2525,6 +2525,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
     setSendingPaymentLink(false);
     if (r.success) {
       setPaymentLinkSent(true);
+      window.dispatchEvent(new CustomEvent("lead-payment-link-sent", { detail: { leadId: lead.id } }));
       toast.success("Payment link sent — waiting for Stripe confirmation");
     } else {
       toast.error(r.error ?? "Failed to send payment link");
