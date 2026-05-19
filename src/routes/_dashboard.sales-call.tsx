@@ -840,6 +840,7 @@ function SalesCallPortal() {
             </button>
             <button
               onClick={() => {
+                sessionEndRequestedRef.current = true;
                 // End Session is a deliberate exit. If there's an unlogged
                 // outcome, confirm with the user, then force-clear the gate
                 // so they're not trapped by stale sessionStorage state.
@@ -849,7 +850,10 @@ function SalesCallPortal() {
                   outcomeRequiredRef.current = false;
                   outcomePendingRef.current = false;
                   try {
-                    if (activeId) window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+                    if (activeId) {
+                      window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
+                      window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+                    }
                   } catch {}
                 }
                 setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
