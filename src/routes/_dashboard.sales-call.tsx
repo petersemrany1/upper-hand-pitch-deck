@@ -15,6 +15,7 @@ import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
+  getCurrentRepSession, startRepSession, endRepSession,
 } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
