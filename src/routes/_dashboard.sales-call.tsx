@@ -838,10 +838,17 @@ function SalesCallPortal() {
             </button>
             <button
               onClick={() => {
-                // Don't let End Session escape an unlogged call.
+                // End Session is a deliberate exit. If there's an unlogged
+                // outcome, confirm with the user, then force-clear the gate
+                // so they're not trapped by stale sessionStorage state.
                 if (gateActive()) {
-                  toast.error("Please set a call outcome first");
-                  return;
+                  const ok = window.confirm("There's an unlogged call outcome. End session anyway?");
+                  if (!ok) return;
+                  outcomeRequiredRef.current = false;
+                  outcomePendingRef.current = false;
+                  try {
+                    if (activeId) window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+                  } catch {}
                 }
                 setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
               }}
