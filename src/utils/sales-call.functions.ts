@@ -685,6 +685,44 @@ export const updateRepRole = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+/* Activate / deactivate a rep — admin only. Deactivating also signs them out of all sessions. */
+export const setRepActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; active: boolean }) => ({
+    id: String(data.id ?? ""),
+    active: Boolean(data.active),
+  }))
+  .handler(async ({ data, context }) => {
+    let callerEmail: string;
+    try { callerEmail = await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+    if (!data.id) return { success: false as const, error: "id required" };
+
+    const { data: rep } = await supabaseAdmin.from("sales_reps")
+      .select("email").eq("id", data.id).maybeSingle();
+    if (!data.active && rep?.email && rep.email.toLowerCase() === callerEmail.toLowerCase()) {
+      return { success: false as const, error: "You cannot deactivate yourself" };
+    }
+
+    const { error } = await supabaseAdmin.from("sales_reps")
+      .update({ is_active: data.active } as never)
+      .eq("id", data.id);
+    if (error) return { success: false as const, error: error.message };
+
+    // On deactivate, sign out any active session so they're kicked immediately.
+    if (!data.active && rep?.email) {
+      try {
+        const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+        const match = list?.users.find((u) => u.email?.toLowerCase() === rep.email!.toLowerCase());
+        if (match) await supabaseAdmin.auth.admin.signOut(match.id);
+      } catch (e) {
+        await logError("setRepActive.signOut", (e as Error).message, { email: rep.email });
+      }
+    }
+    return { success: true as const };
+  });
+
 /* Remove a rep — admin only. Also deletes their auth user. */
 export const deleteRep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

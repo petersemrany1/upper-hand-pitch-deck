@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPassword } from "@/utils/sales-call.functions";
+import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPassword, setRepActive } from "@/utils/sales-call.functions";
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,6 +80,7 @@ type Rep = {
   first_name: string | null;
   last_name: string | null;
   role: string;
+  is_active?: boolean;
   created_at: string;
 };
 
@@ -443,6 +444,19 @@ function TeamSection() {
     }
   };
 
+  const onToggleActive = async (rep: Rep, nextActive: boolean) => {
+    if (!nextActive && !confirm(`Deactivate ${rep.name}? They will be signed out and unable to log in.`)) return;
+    const prev = reps;
+    setReps((rs) => rs.map((x) => x.id === rep.id ? { ...x, is_active: nextActive } : x));
+    const r = await setRepActive({ data: { id: rep.id, active: nextActive } });
+    if (!r.success) {
+      setReps(prev);
+      toast.error(r.error);
+    } else {
+      toast.success(nextActive ? `${rep.name} reactivated` : `${rep.name} deactivated`);
+    }
+  };
+
   return (
     <section className="bg-card border border-border rounded-2xl p-6 md:p-8">
       <div className="flex items-center justify-between mb-5">
@@ -483,6 +497,7 @@ function TeamSection() {
                 <th className="text-left px-4 py-2.5 font-semibold">Last Name</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Email</th>
                 <th className="text-left px-4 py-2.5 font-semibold">Role</th>
+                <th className="text-left px-4 py-2.5 font-semibold">Active</th>
                 <th className="text-right px-4 py-2.5 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -502,6 +517,19 @@ function TeamSection() {
                       <option value="admin">admin</option>
                       <option value="caller">clinic setter</option>
                     </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={r.is_active !== false}
+                        onChange={(e) => void onToggleActive(r, e.target.checked)}
+                        className="h-4 w-4 accent-primary cursor-pointer"
+                      />
+                      <span className={`text-xs font-medium ${r.is_active === false ? "text-destructive" : "text-muted-foreground"}`}>
+                        {r.is_active === false ? "Disabled" : "Active"}
+                      </span>
+                    </label>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
