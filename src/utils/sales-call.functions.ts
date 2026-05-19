@@ -278,16 +278,16 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (data.clinicId) {
       const { data: leadRow } = await supabaseAdmin
         .from("meta_leads")
-        .select("first_name, last_name, phone")
+        .select("first_name, last_name, phone, deposit_amount, stripe_payment_intent_id")
         .eq("id", data.leadId)
         .maybeSingle();
       const patientName = `${leadRow?.first_name ?? ""} ${leadRow?.last_name ?? ""}`.trim() || "Patient";
       const { data: existing } = await supabaseAdmin
         .from("clinic_appointments")
-        .select("id")
+        .select("id, deposit_amount, stripe_payment_intent_id")
         .eq("lead_id", data.leadId)
         .limit(1);
-      const payload = {
+      const payload: Record<string, unknown> = {
         clinic_id: data.clinicId,
         lead_id: data.leadId,
         patient_name: patientName,
@@ -295,7 +295,14 @@ export const saveBooking = createServerFn({ method: "POST" })
         appointment_date: data.date,
         appointment_time: data.time,
       };
+      // Carry over deposit info from meta_leads if Stripe webhook already
+      // marked it paid before the booking row was created (race condition).
+      if (leadRow?.stripe_payment_intent_id) payload.stripe_payment_intent_id = leadRow.stripe_payment_intent_id;
+      if (leadRow?.deposit_amount != null) payload.deposit_amount = leadRow.deposit_amount;
       if (existing && existing.length > 0) {
+        // Don't overwrite deposit fields already set on the appointment.
+        if (existing[0].stripe_payment_intent_id) delete payload.stripe_payment_intent_id;
+        if (existing[0].deposit_amount != null) delete payload.deposit_amount;
         await supabaseAdmin.from("clinic_appointments").update(payload).eq("id", existing[0].id);
       } else {
         await supabaseAdmin.from("clinic_appointments").insert({ ...payload, intel_notes: null });
