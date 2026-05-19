@@ -15,7 +15,7 @@ const corsHeaders = {
 
 const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 
-const SYSTEM_PROMPT = `You are a sales assistant. Based on the call history and current status of this lead, write exactly ONE sentence (maximum 15 words) summarising where things are at with this person. Be specific and practical. Examples: 'Called twice, was at the shops — asked for a callback this afternoon.' or 'Had a 4 min convo, interested but wants to think about it.' or 'Booked for May 8 with Dr Singh, deposit paid.' Never mention technical details like call IDs or durations.`;
+const SYSTEM_PROMPT = `You are a sales assistant. Based on the call history and current status of this lead, write exactly ONE sentence (maximum 15 words) summarising where things are at with this person. Be specific and practical, using ONLY facts present in the provided lead context — never invent names, dollar amounts, payment plans, doctors, dates, or quotes. If the context has no real signal (no completed call with duration, no outcome, no notes, no booking, no callback), respond with an empty string and nothing else. Examples: 'Called twice, was at the shops — asked for a callback this afternoon.' or 'Had a 4 min convo, interested but wants to think about it.' or 'Booked for May 8 with Dr Singh, deposit paid.' Never mention technical details like call IDs or durations.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -85,6 +85,24 @@ serve(async (req) => {
       },
       recent_calls: callList,
     };
+
+    // Short-circuit: if there's no real signal, return empty instead of asking
+    // the model to invent one. Prevents hallucinated summaries on leads with
+    // no completed calls, no notes, no booking and no callback.
+    const hasRealSignal =
+      callList.some(
+        (c) => (c.duration_seconds ?? 0) > 0 || c.outcome || c.notes,
+      ) ||
+      !!lead.call_notes ||
+      !!lead.booking_date ||
+      !!lead.callback_scheduled_at;
+
+    if (!hasRealSignal) {
+      return new Response(JSON.stringify({ summary: "", reason: "no_signal" }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {
