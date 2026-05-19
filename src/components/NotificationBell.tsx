@@ -24,7 +24,6 @@ function relTime(d: string | null): string {
 }
 
 export function NotificationBell() {
-  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const {
     unreadThreads,
