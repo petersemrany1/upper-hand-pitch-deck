@@ -396,9 +396,14 @@ function InboxPage() {
                       {m.media_urls && m.media_urls.length > 0 && (
                         <div className="flex flex-wrap gap-2 mb-1">
                           {m.media_urls.map((u) => (
-                            <a key={u} href={u} target="_blank" rel="noreferrer">
+                            <button
+                              key={u}
+                              type="button"
+                              onClick={() => setLightboxUrl(u)}
+                              className="block p-0 border-0 bg-transparent cursor-zoom-in"
+                            >
                               <img src={u} alt="MMS" className="max-h-48 rounded-lg" />
-                            </a>
+                            </button>
                           ))}
                         </div>
                       )}
