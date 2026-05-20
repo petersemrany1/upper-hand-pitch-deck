@@ -780,10 +780,17 @@ function ClinicsPage() {
     }
     setCallingId(clinic.id);
     try {
+      setCalledTodayIds((prev) => {
+        if (prev.has(clinic.id)) return prev;
+        const next = new Set(prev);
+        next.add(clinic.id);
+        return next;
+      });
       await deviceCall(clinic.phone, { clinicId: clinic.id, ...(myRepId ? { repId: myRepId } : {}) });
     } catch (err) {
       console.error("Call failed:", err);
       setCallingId(null);
+      void loadCalledToday();
     }
   };
 
