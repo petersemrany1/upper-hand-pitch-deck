@@ -348,8 +348,14 @@ async function ensureDevice(): Promise<void> {
 async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
   console.log("[placeCall] entry", { phone, hasDevice: !!device, currentStatus });
   if (!device) {
+    await ensureDevice();
+  }
+  if (!device) {
     setSnapshot({ error: "Dialler not ready yet. Try again in a moment." });
     throw new Error("Dialler not ready yet — please wait a moment and try again.");
+  }
+  if (currentStatus === "error") {
+    setSnapshot({ error: null, status: "ready", dialerStatus: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
   }
   if (currentStatus !== "ready" && currentStatus !== "in-call") {
     setSnapshot({ error: "Dialler still connecting. Wait until DEVICE READY before calling." });
