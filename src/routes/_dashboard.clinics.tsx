@@ -14,6 +14,7 @@ import { sendBoldContractEmail } from "@/utils/bold-contract.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
+import { toast } from "sonner";
 import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
@@ -774,16 +775,20 @@ function ClinicsPage() {
       return;
     }
     if (callingId) return; // another call in progress
-    if (deviceStatus !== "ready" && deviceStatus !== "in-call") {
-      alert("Phone is still connecting. Try again in a moment.");
-      return;
-    }
     setCallingId(clinic.id);
     try {
+      setCalledTodayIds((prev) => {
+        if (prev.has(clinic.id)) return prev;
+        const next = new Set(prev);
+        next.add(clinic.id);
+        return next;
+      });
       await deviceCall(clinic.phone, { clinicId: clinic.id, ...(myRepId ? { repId: myRepId } : {}) });
     } catch (err) {
       console.error("Call failed:", err);
       setCallingId(null);
+      void loadCalledToday();
+      toast.error(err instanceof Error ? err.message : "Could not start call");
     }
   };
 
