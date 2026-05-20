@@ -21,6 +21,7 @@ import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmati
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
+import { openMessenger, setMessengerThread } from "@/hooks/useMessenger";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
