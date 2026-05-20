@@ -10,7 +10,7 @@ export function MessengerLauncher() {
     <button
       type="button"
       onClick={() => toggleMessenger()}
-      className="fixed z-[94] bottom-20 right-4 h-12 w-12 rounded-full shadow-xl inline-flex items-center justify-center active:scale-95 transition"
+      className="fixed z-[94] bottom-4 left-4 h-12 w-12 rounded-full shadow-xl inline-flex items-center justify-center active:scale-95 transition"
       style={{ background: "#111111", color: "#ffffff", border: "2px solid #ffffff" }}
       title="Open messenger"
       aria-label="Open messenger"
