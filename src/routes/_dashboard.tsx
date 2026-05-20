@@ -47,7 +47,7 @@ function DashboardLayout() {
   // Reps cannot access admin-only routes — bounce to dashboard.
   useEffect(() => {
     if (!ready || !session) return;
-    const blocked = ["/leads", "/clinics", "/pitch-deck", "/sent-links", "/logs"];
+    const blocked = ["/leads", "/pitch-deck", "/sent-links", "/logs"];
     if (role === "rep" && blocked.includes(location.pathname)) {
       navigate({ to: "/", replace: true });
     }
