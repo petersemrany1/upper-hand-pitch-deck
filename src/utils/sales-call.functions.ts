@@ -798,9 +798,11 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     // Call metrics come from Twilio-derived call_records. The Twilio status
     // callback writes `duration` in seconds; `duration_seconds` is legacy.
+    // Sales-call portal only: exclude clinic prospecting dials (clinic_id set, no lead_id).
     const { data: calls } = await supabaseAdmin.from("call_records")
-      .select("id, rep_id, lead_id, duration, duration_seconds, outcome, status, called_at")
-      .gte("called_at", from.toISOString()).lte("called_at", to.toISOString());
+      .select("id, rep_id, lead_id, clinic_id, duration, duration_seconds, outcome, status, called_at")
+      .gte("called_at", from.toISOString()).lte("called_at", to.toISOString())
+      .or("clinic_id.is.null,lead_id.not.is.null");
 
     // Bookings are counted from appointment rows, using created_at as the time
     // the booking was made. Do not use the appointment date itself — a booking
