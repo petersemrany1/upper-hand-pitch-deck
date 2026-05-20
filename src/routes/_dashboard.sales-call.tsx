@@ -6246,7 +6246,7 @@ function RightPanel({
       <div style={{ padding: "14px 18px 96px", borderTop: `0.5px solid ${COLORS.line}` }}>
         <button
           onClick={async () => {
-            const phone = lead.phone;
+            const phone = active.phone;
             if (!phone) { toast.error("No phone number on this lead"); return; }
             // Try to find an existing thread for this phone first
             try {
