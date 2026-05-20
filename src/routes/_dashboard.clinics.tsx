@@ -417,7 +417,11 @@ function ClinicsPage() {
       for (const r of data as { clinic_id: string | null }[]) {
         if (r.clinic_id) set.add(r.clinic_id);
       }
-      setCalledTodayIds(set);
+      setCalledTodayIds((prev) => {
+        const next = new Set(prev);
+        for (const id of set) next.add(id);
+        return next;
+      });
     }
   }, []);
 
@@ -457,7 +461,7 @@ function ClinicsPage() {
       )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "call_records" },
+        { event: "*", schema: "public", table: "call_records" },
         (payload) => {
           const row = payload.new as { clinic_id?: string | null } | undefined;
           if (row?.clinic_id) {
