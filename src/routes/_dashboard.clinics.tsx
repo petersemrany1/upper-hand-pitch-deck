@@ -774,10 +774,6 @@ function ClinicsPage() {
       return;
     }
     if (callingId) return; // another call in progress
-    if (deviceStatus !== "ready" && deviceStatus !== "in-call") {
-      alert("Phone is still connecting. Try again in a moment.");
-      return;
-    }
     setCallingId(clinic.id);
     try {
       setCalledTodayIds((prev) => {
@@ -791,6 +787,7 @@ function ClinicsPage() {
       console.error("Call failed:", err);
       setCallingId(null);
       void loadCalledToday();
+      toast.error(err instanceof Error ? err.message : "Could not start call");
     }
   };
 
