@@ -5290,29 +5290,44 @@ function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
 
+  const loadDoctorForClinic = useCallback(async (clinicId: string | null) => {
+    if (!clinicId) { setPanelDoctor(null); return; }
+    const { data: docs } = await supabase
+      .from("partner_doctors")
+      .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+      .eq("clinic_id", clinicId)
+      .eq("is_active", true)
+      .order("created_at")
+      .limit(1);
+    setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+  }, []);
+
+  const handleSelectPanelClinic = useCallback((clinicId: string) => {
+    const next = panelClinics.find((c) => c.id === clinicId) ?? null;
+    setPanelClinic(next);
+    // Reset selling points so they regenerate for the new clinic's doctor
+    setSellingPoints(null);
+    setSellingPointsForDoctorId(null);
+    setShowSellingPoints(false);
+    void loadDoctorForClinic(next?.id ?? null);
+  }, [panelClinics, loadDoctorForClinic]);
+
   useEffect(() => {
     void (async () => {
       const { data: clinics } = await supabase
         .from("partner_clinics")
         .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("clinic_name");
       const list = (clinics ?? []) as Clinic[];
+      setPanelClinics(list);
       const picked = (active.clinic_id ? list.find((c) => c.id === active.clinic_id) : null) ?? list[0] ?? null;
       setPanelClinic(picked);
-      if (picked) {
-        const { data: docs } = await supabase
-          .from("partner_doctors")
-          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
-          .eq("clinic_id", picked.id)
-          .eq("is_active", true)
-          .order("created_at")
-          .limit(1);
-        setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
-      } else {
-        setPanelDoctor(null);
-      }
+      await loadDoctorForClinic(picked?.id ?? null);
     })();
-  }, [active.id, active.clinic_id]);
+  }, [active.id, active.clinic_id, loadDoctorForClinic]);
+
+
 
   // Run the timer only when actually connected.
   // We mirror callTimer into a ref so the disconnect effect always reads
