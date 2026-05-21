@@ -2130,6 +2130,38 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         </div>
       </SayThisCard>
 
+      {/* 4 — The Difference */}
+      <StepLabel>4. The Difference</StepLabel>
+      {doctors.length > 1 && (
+        <div style={{ fontSize: 12, color: COLORS.text, opacity: 0.7, marginBottom: 8, fontStyle: "italic" }}>
+          No clinic selected for this lead — showing selling points for every active clinic. Pick the clinic on the right panel to narrow down.
+        </div>
+      )}
+      {(doctors.length > 0 ? doctors : [null]).map((d, i) => (
+        <div key={d?.id ?? i} style={{ marginBottom: i < doctors.length - 1 ? 14 : 0 }}>
+          {doctors.length > 1 && d?.clinic_name && (
+            <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.text, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {d.clinic_name}
+            </div>
+          )}
+          <SayThisCard color="#f59e0b">
+            <div style={{ fontSize: 13, fontStyle: "italic", color: "#f59e0b", lineHeight: 1.5, marginBottom: 12 }}>
+              I'm not saying this is the case for you — but it's worth knowing...
+            </div>
+            <div style={{ fontSize: 16, color: COLORS.text, lineHeight: 1.9 }}>
+              {d?.what_makes_them_different || (
+                <>A lot of clinics just plant the grafts straight up. Quick and easy for them. But the result looks like a doll's head — stiff, unnatural, you can tell from a mile away. The difference is in the angle. Your specialist places every single graft at the exact angle your natural hair grows — studying the direction, the flow, the whole pattern. That's the difference between a result that looks fake and one where nobody can ever tell.</>
+              )}
+              {d?.natural_results_approach && (
+                <div style={{ marginTop: 12, fontSize: 15, color: COLORS.text, lineHeight: 1.8 }}>
+                  {d.natural_results_approach}
+                </div>
+              )}
+            </div>
+          </SayThisCard>
+        </div>
+      ))}
+
       <div style={{ height: 24 }} />
 
       {/* 5 — Bring it back to them */}
