@@ -5157,6 +5157,7 @@ function RightPanel({
   const [generatingUpdate, setGeneratingUpdate] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
+  const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
@@ -5289,29 +5290,44 @@ function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
 
+  const loadDoctorForClinic = useCallback(async (clinicId: string | null) => {
+    if (!clinicId) { setPanelDoctor(null); return; }
+    const { data: docs } = await supabase
+      .from("partner_doctors")
+      .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+      .eq("clinic_id", clinicId)
+      .eq("is_active", true)
+      .order("created_at")
+      .limit(1);
+    setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+  }, []);
+
+  const handleSelectPanelClinic = useCallback((clinicId: string) => {
+    const next = panelClinics.find((c) => c.id === clinicId) ?? null;
+    setPanelClinic(next);
+    // Reset selling points so they regenerate for the new clinic's doctor
+    setSellingPoints(null);
+    setSellingPointsForDoctorId(null);
+    setShowSellingPoints(false);
+    void loadDoctorForClinic(next?.id ?? null);
+  }, [panelClinics, loadDoctorForClinic]);
+
   useEffect(() => {
     void (async () => {
       const { data: clinics } = await supabase
         .from("partner_clinics")
         .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .order("clinic_name");
       const list = (clinics ?? []) as Clinic[];
+      setPanelClinics(list);
       const picked = (active.clinic_id ? list.find((c) => c.id === active.clinic_id) : null) ?? list[0] ?? null;
       setPanelClinic(picked);
-      if (picked) {
-        const { data: docs } = await supabase
-          .from("partner_doctors")
-          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
-          .eq("clinic_id", picked.id)
-          .eq("is_active", true)
-          .order("created_at")
-          .limit(1);
-        setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
-      } else {
-        setPanelDoctor(null);
-      }
+      await loadDoctorForClinic(picked?.id ?? null);
     })();
-  }, [active.id, active.clinic_id]);
+  }, [active.id, active.clinic_id, loadDoctorForClinic]);
+
+
 
   // Run the timer only when actually connected.
   // We mirror callTimer into a ref so the disconnect effect always reads
@@ -5819,7 +5835,31 @@ function RightPanel({
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
+        {panelClinics.length > 0 && (
+          <select
+            value={panelClinic?.id ?? ""}
+            onChange={(e) => handleSelectPanelClinic(e.target.value)}
+            style={{
+              marginTop: 6,
+              width: "100%",
+              fontSize: 13,
+              padding: "6px 8px",
+              border: `0.5px solid ${COLORS.line}`,
+              borderRadius: 6,
+              background: "#fff",
+              color: "#111",
+              cursor: "pointer",
+            }}
+          >
+            {panelClinics.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
         {panelClinic ? (
+
           <>
             <div style={{ marginTop: 6, fontSize: 14, fontWeight: 500, color: "#111" }}>
               {panelClinic.clinic_name}
