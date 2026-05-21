@@ -952,6 +952,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       bookingDate: string;
       bookingTime: string;
       clinicAddress?: string | null;
+      parkingInfo?: string | null;
     }) => data
   )
   .handler(async ({ data }) => {
@@ -979,9 +980,13 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
     })();
 
     const doctorDisplay = data.doctorName ?? "your specialist";
-    const address = data.clinicAddress || "64 Lincoln Rd Essendon VIC 3040";
+    const address = (data.clinicAddress ?? "").trim();
+    const parking = (data.parkingInfo ?? "").trim();
 
-    const message = `Hi ${data.firstName}, your hair transplant consultation is confirmed for ${bookingDisplay} with ${doctorDisplay} at ${data.clinicName}. Address: ${address}. Free parking on site. See you soon! — Hair Transplant Group`;
+    const addressPart = address ? ` Address: ${address}.` : "";
+    const parkingPart = parking ? ` ${parking}.` : "";
+
+    const message = `Hi ${data.firstName}, your hair transplant consultation is confirmed for ${bookingDisplay} with ${doctorDisplay} at ${data.clinicName}.${addressPart}${parkingPart} See you soon! — Hair Transplant Group`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
