@@ -2178,7 +2178,10 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
         .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
         .eq("is_active", true);
       const list = (clinics ?? []) as Clinic[];
-      const picked = (lead.clinic_id ? list.find((c) => c.id === lead.clinic_id) : null) ?? list[0] ?? null;
+      // Only auto-pick when the lead has a clinic_id, or when there's exactly one active partner clinic.
+      // Never silently default to "the first clinic in the list" — that mis-assigns leads across clinics.
+      const matched = lead.clinic_id ? list.find((c) => c.id === lead.clinic_id) ?? null : null;
+      const picked = matched ?? (list.length === 1 ? list[0] : null);
       setClinic(picked);
 
       if (picked) {
