@@ -5157,6 +5157,7 @@ function RightPanel({
   const [generatingUpdate, setGeneratingUpdate] = useState(false);
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
+  const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
