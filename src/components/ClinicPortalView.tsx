@@ -1644,6 +1644,12 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
 
   const save = async () => {
     if (!name.trim() || !date || !time) { toast.error("Patient name, date and time required"); return; }
+    // Guard against typos like year 0005 — date must be between 2024 and 2100.
+    const y = Number(date.slice(0, 4));
+    if (!Number.isFinite(y) || y < 2024 || y > 2100) {
+      toast.error("Please enter a valid appointment date");
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.from("clinic_appointments").insert({
       clinic_id: clinicId,
@@ -1667,8 +1673,9 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Patient name" style={inp} />
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" style={inp} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={inp} />
+        <input type="date" value={date} min="2024-01-01" max="2100-01-01" onChange={(e) => setDate(e.target.value)} style={inp} />
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inp} />
+
       </div>
       <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Intel notes (visible to clinic)" rows={3} style={{ ...inp, resize: "vertical" }} />
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
