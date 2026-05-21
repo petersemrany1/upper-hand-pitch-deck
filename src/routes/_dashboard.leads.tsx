@@ -216,18 +216,23 @@ function LeadsPage() {
   };
   const duplicateCount = rows.filter(isDuplicate).length;
 
-  // Reps see only their own assigned leads; admins see everything.
-  // Reps are also hidden from "closed" statuses so they focus on active leads.
-  const HIDDEN_REP_STATUSES = new Set(["not interested", "dropped", "had convo no sale"]);
-  const visibleRows = isAdmin
+  // Hide "closed" leads from the lead sheet (booked, dropped, not interested, etc.).
+  // Reps additionally only see their own assigned leads.
+  const HIDDEN_STATUSES = new Set([
+    "not_interested",
+    "dropped",
+    "had_convo_no_sale",
+    "booked_deposit_paid",
+  ]);
+  const statusKeyOf = (s: string | null | undefined) =>
+    (s ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  const visibleRows = (isAdmin
     ? rows
     : mySalesRepId
-      ? rows.filter(
-          (r) =>
-            r.rep_id === mySalesRepId &&
-            !HIDDEN_REP_STATUSES.has((r.status ?? "").trim().toLowerCase()),
-        )
-      : [];
+      ? rows.filter((r) => r.rep_id === mySalesRepId)
+      : []
+  ).filter((r) => !HIDDEN_STATUSES.has(statusKeyOf(r.status)));
+
 
   const filtered = visibleRows.filter((r) => {
     if (!search.trim()) return true;
