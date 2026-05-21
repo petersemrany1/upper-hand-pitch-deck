@@ -1952,27 +1952,45 @@ function DiscoveryStep({
 function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImages: { name: string; url: string }[]; onNext: () => void; repId: string | null }) {
   void repId; void onNext;
   const [sendingIdx, setSendingIdx] = useState<number | null>(null);
-  const [doctor, setDoctor] = useState<PartnerDoctor | null>(null);
+  const [doctors, setDoctors] = useState<Array<PartnerDoctor & { clinic_name: string | null }>>([]);
 
   useEffect(() => {
     void (async () => {
-      // Pick the lead's clinic if set, else the first active partner clinic
-      let clinicId = lead.clinic_id;
-      if (!clinicId) {
-        const { data: c } = await supabase.from("partner_clinics").select("id").eq("is_active", true).limit(1);
-        clinicId = c?.[0]?.id ?? null;
-      }
-      if (!clinicId) return;
+      // If the lead has a clinic selected, show only that clinic's doctor.
+      // Otherwise show every active partner clinic's doctor so the rep isn't
+      // shown one arbitrary clinic's selling points by accident.
+      const { data: clinics } = await supabase
+        .from("partner_clinics")
+        .select("id, clinic_name")
+        .eq("is_active", true);
+      const clinicList = (clinics ?? []) as Array<{ id: string; clinic_name: string | null }>;
+      const targetClinics = lead.clinic_id
+        ? clinicList.filter((c) => c.id === lead.clinic_id)
+        : clinicList;
+      if (targetClinics.length === 0) { setDoctors([]); return; }
+      const ids = targetClinics.map((c) => c.id);
       const { data: docs } = await supabase
         .from("partner_doctors")
         .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
-        .eq("clinic_id", clinicId)
+        .in("clinic_id", ids)
         .eq("is_active", true)
-        .order("created_at")
-        .limit(1);
-      setDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+        .order("created_at");
+      const byClinic = new Map<string, string | null>(clinicList.map((c) => [c.id, c.clinic_name]));
+      // Keep first doctor per clinic, in clinic order.
+      const seen = new Set<string>();
+      const result: Array<PartnerDoctor & { clinic_name: string | null }> = [];
+      for (const cid of ids) {
+        const d = (docs ?? []).find((x) => x.clinic_id === cid && !seen.has(cid));
+        if (d) {
+          seen.add(cid);
+          result.push({ ...(d as PartnerDoctor), clinic_name: byClinic.get(cid) ?? null });
+        }
+      }
+      setDoctors(result);
     })();
   }, [lead.clinic_id]);
+
+  const doctor = doctors[0] ?? null;
 
   const send = async (idx: number, url: string | undefined) => {
     if (!url) {
