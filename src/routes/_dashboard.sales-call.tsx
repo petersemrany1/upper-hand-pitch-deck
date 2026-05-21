@@ -2675,8 +2675,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       .then(({ data }) => {
         const list = (data ?? []) as PartnerDoctor[];
         setDoctors(list);
-        // Auto-select first doctor if none chosen yet
-        if (!form.doctorId && list.length > 0) {
+        // Only auto-select when there's exactly one doctor — otherwise force the rep to pick.
+        if (!form.doctorId && list.length === 1) {
           setForm((f) => ({ ...f, doctorId: list[0].id }));
         }
       });
