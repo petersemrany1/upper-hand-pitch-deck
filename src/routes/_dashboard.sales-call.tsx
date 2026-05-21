@@ -2800,7 +2800,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
         clinicName: bookedData.clinicName,
         clinicEmail: (selectedClinic as { email?: string | null } | undefined)?.email ?? null,
         doctorName: bookedData.doctorName,
-        depositPaid: depositSent,
+        depositPaid: Boolean(paymentReceivedAt) || depositPaid || depositSent,
       },
     });
     setSendingHandover(false);
