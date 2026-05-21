@@ -1990,7 +1990,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
     })();
   }, [lead.clinic_id]);
 
-  const doctor = doctors[0] ?? null;
+  
 
   const send = async (idx: number, url: string | undefined) => {
     if (!url) {
