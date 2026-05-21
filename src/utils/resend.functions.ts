@@ -952,6 +952,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       bookingDate: string;
       bookingTime: string;
       clinicAddress?: string | null;
+      parkingInfo?: string | null;
     }) => data
   )
   .handler(async ({ data }) => {
