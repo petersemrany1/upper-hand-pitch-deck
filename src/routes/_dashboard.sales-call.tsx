@@ -5835,7 +5835,31 @@ function RightPanel({
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
+        {panelClinics.length > 0 && (
+          <select
+            value={panelClinic?.id ?? ""}
+            onChange={(e) => handleSelectPanelClinic(e.target.value)}
+            style={{
+              marginTop: 6,
+              width: "100%",
+              fontSize: 13,
+              padding: "6px 8px",
+              border: `0.5px solid ${COLORS.line}`,
+              borderRadius: 6,
+              background: "#fff",
+              color: "#111",
+              cursor: "pointer",
+            }}
+          >
+            {panelClinics.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
         {panelClinic ? (
+
           <>
             <div style={{ marginTop: 6, fontSize: 14, fontWeight: 500, color: "#111" }}>
               {panelClinic.clinic_name}
