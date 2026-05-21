@@ -6997,8 +6997,8 @@ const OBJECTIONS = [
   },
   {
     q: "Consult price",
-    a: "Normally it's $395 — but I want to get you in with Dr. Singh, she's got some complimentary spots available. The only caveat is the $75 deposit to hold the spot, which is fully refunded when you arrive. Does that sound fair?",
-    note: "Walk the price journey. Don't skip steps.",
+    a: "Normally the consult is the clinic's full price — but I want to get you in with [Dr Name], they've got some complimentary spots available. The only caveat is the refundable deposit to hold the spot, which is fully refunded when you arrive. Does that sound fair?",
+    note: "Pull the exact consult price, deposit amount and doctor name from the clinic panel on the right. Walk the price journey — don't skip steps.",
   },
   {
     q: "Transplant price",
