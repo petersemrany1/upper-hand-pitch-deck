@@ -268,7 +268,7 @@ function ViewToggleBtn({ active, onClick, icon, children }: { active: boolean; o
 /* ---------- LIST VIEW ---------- */
 
 function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void }) {
-  const [tab, setTab] = useState<"upcoming" | "past">("upcoming");
+  const [tab, setTab] = useState<"upcoming" | "past" | "noshow">("upcoming");
   const [query, setQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -287,14 +287,17 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   const endOfNextWeek = new Date(endOfThisWeek); endOfNextWeek.setDate(endOfThisWeek.getDate() + 7);
 
   const now = new Date();
+  const isNoShow = (a: ClinicAppointment) => a.outcome === "noshow";
   const isPastAppointment = (a: ClinicAppointment) => Boolean(a.outcome) || parseAppointmentDateTime(a.appointment_date, a.appointment_time) < now;
 
   // Filter by tab + search + date range first.
   const q = query.trim().toLowerCase();
   const filtered = appts.filter((a) => {
+    const noShow = isNoShow(a);
     const isPast = isPastAppointment(a);
-    if (tab === "upcoming" && isPast) return false;
-    if (tab === "past" && !isPast) return false;
+    if (tab === "upcoming" && (isPast || noShow)) return false;
+    if (tab === "past" && (!isPast || noShow)) return false;
+    if (tab === "noshow" && !noShow) return false;
     if (fromDate && a.appointment_date < fromDate) return false;
     if (toDate && a.appointment_date > toDate) return false;
     if (q) {
@@ -304,16 +307,17 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
     return true;
   });
 
-  // Sort: upcoming = ascending (soonest first), past = descending (most recent first).
+  // Sort: upcoming = ascending (soonest first), past/noshow = descending (most recent first).
   const sorted = [...filtered].sort((a, b) => {
     const cmp = a.appointment_date.localeCompare(b.appointment_date);
-    if (cmp !== 0) return tab === "past" ? -cmp : cmp;
+    if (cmp !== 0) return tab === "upcoming" ? cmp : -cmp;
     return (a.appointment_time || "").localeCompare(b.appointment_time || "");
   });
 
   // Group into buckets.
-  type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past";
+  type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past" | "No shows";
   const bucketOf = (appt: ClinicAppointment): Bucket => {
+    if (tab === "noshow") return "No shows";
     if (tab === "past" || isPastAppointment(appt)) return "Past";
     const dateStr = appt.appointment_date;
     const d = startOfDay(parseDateOnly(dateStr));
@@ -324,7 +328,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
     if (d <= endOfNextWeek) return "Next week";
     return "Later";
   };
-  const order: Bucket[] = tab === "past"
+  const order: Bucket[] = tab === "noshow"
+    ? ["No shows"]
+    : tab === "past"
     ? ["Past"]
     : ["Today", "Tomorrow", "This week", "Next week", "Later"];
   const groups = new Map<Bucket, ClinicAppointment[]>();
@@ -334,8 +340,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
     groups.get(b)!.push(a);
   }
 
-  const upcomingCount = appts.filter((a) => !isPastAppointment(a)).length;
-  const pastCount = appts.length - upcomingCount;
+  const noShowCount = appts.filter(isNoShow).length;
+  const upcomingCount = appts.filter((a) => !isPastAppointment(a) && !isNoShow(a)).length;
+  const pastCount = appts.filter((a) => isPastAppointment(a) && !isNoShow(a)).length;
 
   const inputStyle: React.CSSProperties = {
     padding: "7px 10px", fontSize: 12, border: "1px solid #e2e6ec", borderRadius: 8,
@@ -349,6 +356,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
         <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
           <ViewToggleBtn active={tab === "upcoming"} onClick={() => setTab("upcoming")} icon={null}>Upcoming ({upcomingCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "past"} onClick={() => setTab("past")} icon={null}>Past ({pastCount})</ViewToggleBtn>
+          <ViewToggleBtn active={tab === "noshow"} onClick={() => setTab("noshow")} icon={null}>No shows ({noShowCount})</ViewToggleBtn>
         </div>
         <input
           type="text"
