@@ -5357,7 +5357,10 @@ function RightPanel({
         .order("clinic_name");
       const list = (clinics ?? []) as Clinic[];
       setPanelClinics(list);
-      const picked = (active.clinic_id ? list.find((c) => c.id === active.clinic_id) : null) ?? list[0] ?? null;
+      // Only auto-pick when the lead has a clinic_id, or when there's exactly one active partner clinic.
+      // The rep can still switch clinics via the dropdown — but we won't silently choose one.
+      const matched = active.clinic_id ? list.find((c) => c.id === active.clinic_id) ?? null : null;
+      const picked = matched ?? (list.length === 1 ? list[0] : null);
       setPanelClinic(picked);
       await loadDoctorForClinic(picked?.id ?? null);
     })();
