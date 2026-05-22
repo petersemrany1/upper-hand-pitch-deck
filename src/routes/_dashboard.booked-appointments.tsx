@@ -734,14 +734,14 @@ function EditHandoverModal({
         // Lead details
         const { data: lead } = await supabase
           .from("meta_leads")
-          .select("first_name,last_name,email,phone,funding_preference,finance_eligible,call_notes,clinic_id,status")
+          .select("first_name,last_name,email,phone,funding_preference,finance_eligible,call_notes,clinic_id,status,deposit_paid_at,stripe_payment_intent_id")
           .eq("id", reminder.lead_id)
           .maybeSingle();
 
         // Clinic appointment snapshot (intel_notes is the exact text sent last time)
         const { data: appt } = await supabase
           .from("clinic_appointments")
-          .select("id, clinic_id, intel_notes")
+          .select("id, clinic_id, intel_notes, stripe_payment_intent_id, deposit_amount")
           .eq("lead_id", reminder.lead_id)
           .maybeSingle();
 
@@ -773,8 +773,17 @@ function EditHandoverModal({
           call_notes: lead?.call_notes ?? null,
         });
         setNotes((appt?.intel_notes as string | null) ?? lead?.call_notes ?? "");
+        // Deposit is "paid" if Stripe has confirmed it (deposit_paid_at /
+        // stripe_payment_intent_id on the lead or appointment) OR the rep
+        // manually flagged it in the lead status. We must NOT rely on status
+        // alone — the Stripe webhook deliberately does not touch status.
         const status = ((lead?.status as string | null) ?? "").toLowerCase();
-        setDepositPaid(status.includes("deposit_paid"));
+        const paid =
+          Boolean(lead?.deposit_paid_at) ||
+          Boolean(lead?.stripe_payment_intent_id) ||
+          Boolean((appt as { stripe_payment_intent_id?: string | null } | null)?.stripe_payment_intent_id) ||
+          status.includes("deposit_paid");
+        setDepositPaid(paid);
       } finally {
         if (alive) setLoading(false);
       }
