@@ -485,35 +485,17 @@ function LeadsPage() {
                         )}
                         <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
                         <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                              <span>{fullName}</span>
-                              {dup && (
-                                <span
-                                  className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                  style={{ background: "#f59e0b", color: "#fff" }}
-                                  title="Same phone or email already exists in another lead"
-                                >
-                                  Duplicate
-                                </span>
-                              )}
-                            </div>
-                            {(() => {
-                              const a = (r.ad_set_name ?? "").toLowerCase();
-                              const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : null;
-                              if (!loc) return null;
-                              const colors = loc === "MELBOURNE"
-                                ? { bg: "#e0f2fe", fg: "#075985" }
-                                : { bg: "#dcfce7", fg: "#166534" };
-                              return (
-                                <span
-                                  className="inline-flex self-start px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider"
-                                  style={{ background: colors.bg, color: colors.fg }}
-                                >
-                                  {loc}
-                                </span>
-                              );
-                            })()}
+                          <div className="flex items-center gap-2">
+                            <span>{fullName}</span>
+                            {dup && (
+                              <span
+                                className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                style={{ background: "#f59e0b", color: "#fff" }}
+                                title="Same phone or email already exists in another lead"
+                              >
+                                Duplicate
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
