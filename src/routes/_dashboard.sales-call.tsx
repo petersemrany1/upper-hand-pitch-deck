@@ -2721,7 +2721,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       });
       setBooked(true);
     }
-    if (lead.status && lead.status.toLowerCase().includes("deposit_paid")) {
+    if (
+      Boolean((lead as { deposit_paid_at?: string | null }).deposit_paid_at) ||
+      Boolean((lead as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id) ||
+      Boolean(lead.status && lead.status.toLowerCase().includes("deposit_paid"))
+    ) {
       setDepositPaid(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3120,9 +3124,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
   const openPreview = async () => {
     const { data: freshLead } = await supabase
       .from("meta_leads")
-      .select("call_notes, funding_preference, finance_eligible, phone, email, status")
+      .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
       .eq("id", lead.id)
       .single();
+
+    const { data: freshAppointment } = await supabase
+      .from("clinic_appointments")
+      .select("stripe_payment_intent_id")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     setPreviewIntel(freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "");
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
@@ -3132,9 +3144,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       lead.finance_eligible === true ? "Yes" :
       lead.finance_eligible === false ? "No" : "Not checked"
     );
-    // Deposit is paid if either we sent+confirmed it this session OR the lead status reflects it
+    // Deposit is paid when Stripe has actually confirmed it, even though the
+    // webhook deliberately does NOT auto-change the lead status.
     const statusImpliesDeposit = (freshLead?.status || "").toLowerCase().includes("deposit_paid");
-    setPreviewDeposit(depositSent || statusImpliesDeposit);
+    setPreviewDeposit(
+      Boolean(freshLead?.deposit_paid_at) ||
+      Boolean(freshLead?.stripe_payment_intent_id) ||
+      Boolean(freshAppointment?.stripe_payment_intent_id) ||
+      Boolean(paymentReceivedAt) ||
+      depositPaid ||
+      depositSent ||
+      statusImpliesDeposit,
+    );
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
     const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
