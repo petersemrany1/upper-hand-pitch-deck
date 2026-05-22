@@ -274,7 +274,37 @@ function InboxPage() {
   }
 
   return (
-    <div className="h-full w-full flex" style={{ background: "#f7f7f5", color: "#111111" }}>
+    <div className="h-full w-full flex flex-col" style={{ background: "#f7f7f5", color: "#111111" }}>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-4 pt-3" style={{ background: "#ffffff", borderBottom: "1px solid #ebebeb" }}>
+        {([
+          { key: "messages", label: "Messages", Icon: MessageSquarePlus },
+          { key: "calls", label: "Calls", Icon: Phone },
+        ] as const).map(({ key, label, Icon }) => {
+          const active = tab === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setTab(key)}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors"
+              style={{
+                color: active ? "#f4522d" : "#666",
+                borderBottom: active ? "2px solid #f4522d" : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      {tab === "calls" ? (
+        <CallsPanel />
+      ) : (
+      <div className="flex-1 flex min-h-0">
       {/* Thread list */}
       <aside className="w-[320px] flex flex-col" style={{ borderRight: "1px solid #ebebeb", background: "#ffffff" }}>
         <div className="p-4" style={{ borderBottom: "1px solid #ebebeb" }}>
