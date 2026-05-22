@@ -530,7 +530,11 @@ function SalesCallPortal() {
     if (activeId !== found.id) {
       // If we still owe an outcome on the current lead (dial fired or call
       // just ended), DON'T jump — queue the new lead and prompt instead.
-      if (gateActive()) {
+      // EXCEPTION: if the lead being requested is the very person we're on
+      // the phone with right now (e.g. user rang a missed caller back and
+      // clicked "Open in Sales Call" on the popup), allow the switch —
+      // otherwise the click silently does nothing.
+      if (gateActive() && liveCallLeadId !== found.id) {
         setPendingLeadId(found.id);
         toast.error("Please set a call outcome first");
         navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
