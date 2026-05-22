@@ -576,6 +576,7 @@ function CallsPanel() {
   const [loading, setLoading] = useState(true);
   const [nameMap, setNameMap] = useState<Map<string, string>>(new Map());
   const [clinicMap, setClinicMap] = useState<Map<string, string>>(new Map());
+  const [phoneNameMap, setPhoneNameMap] = useState<Map<string, string>>(new Map());
   const [dialInput, setDialInput] = useState("");
   const [filter, setFilter] = useState("");
   const { call: dialerCall, dialerStatus, status, activePhone, hangup } = useTwilioDevice(true);
@@ -596,28 +597,66 @@ function CallsPanel() {
     const rows = (data as unknown as CallRow[]) ?? [];
     setCalls(rows);
 
-    // Resolve lead names + clinic names
+    const tail9 = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "").slice(-9);
+
+    // Resolve lead names + clinic names by id
     const leadIds = Array.from(new Set(rows.map((r) => r.lead_id).filter(Boolean) as string[]));
     const clinicIds = Array.from(new Set(rows.map((r) => r.clinic_id).filter(Boolean) as string[]));
+    const leadNameMap = new Map<string, string>();
+    const clinicNameMap = new Map<string, string>();
     if (leadIds.length) {
       const { data: leads } = await supabase
         .from("meta_leads").select("id, first_name, last_name").in("id", leadIds);
-      const m = new Map<string, string>();
       for (const l of (leads as Array<{ id: string; first_name: string | null; last_name: string | null }>) ?? []) {
         const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
-        if (name) m.set(l.id, name);
+        if (name) leadNameMap.set(l.id, name);
       }
-      setNameMap(m);
     }
     if (clinicIds.length) {
       const { data: clinics } = await supabase
         .from("clinics").select("id, clinic_name").in("id", clinicIds);
-      const m = new Map<string, string>();
       for (const c of (clinics as Array<{ id: string; clinic_name: string }>) ?? []) {
-        m.set(c.id, c.clinic_name);
+        clinicNameMap.set(c.id, c.clinic_name);
       }
-      setClinicMap(m);
     }
+    setNameMap(leadNameMap);
+    setClinicMap(clinicNameMap);
+
+    // Phone-tail fallback: for rows we couldn't name via id, look up the
+    // number in meta_leads / clinics so the call log never shows "Unknown"
+    // when we actually have the contact saved.
+    const unknownTails = new Set<string>();
+    for (const r of rows) {
+      const hasName = (r.lead_id && leadNameMap.get(r.lead_id)) || (r.clinic_id && clinicNameMap.get(r.clinic_id));
+      if (hasName) continue;
+      const t = tail9(r.phone ?? r.from_number);
+      if (t.length >= 7) unknownTails.add(t);
+    }
+    const pm = new Map<string, string>();
+    if (unknownTails.size) {
+      const tails = Array.from(unknownTails);
+      const orExpr = tails.map((t) => `phone.ilike.%${t}%`).join(",");
+      try {
+        const { data: leads2 } = await supabase
+          .from("meta_leads").select("first_name, last_name, phone").or(orExpr).limit(500);
+        for (const l of (leads2 as Array<{ first_name: string | null; last_name: string | null; phone: string | null }>) ?? []) {
+          const t = tail9(l.phone);
+          if (!t) continue;
+          const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
+          if (name && !pm.has(t)) pm.set(t, name);
+        }
+      } catch { /* noop */ }
+      try {
+        const { data: clinics2 } = await supabase
+          .from("clinics").select("clinic_name, phone").or(orExpr).limit(500);
+        for (const c of (clinics2 as Array<{ clinic_name: string | null; phone: string | null }>) ?? []) {
+          const t = tail9(c.phone);
+          if (!t) continue;
+          if (c.clinic_name && !pm.has(t)) pm.set(t, c.clinic_name);
+        }
+      } catch { /* noop */ }
+    }
+    setPhoneNameMap(pm);
     setLoading(false);
   }, []);
 
@@ -633,14 +672,22 @@ function CallsPanel() {
     return () => { void supabase.removeChannel(ch); };
   }, [loadCalls]);
 
+  const resolveName = useCallback((c: CallRow): string => {
+    if (c.lead_id && nameMap.get(c.lead_id)) return nameMap.get(c.lead_id)!;
+    if (c.clinic_id && clinicMap.get(c.clinic_id)) return clinicMap.get(c.clinic_id)!;
+    const t = (c.phone ?? c.from_number ?? "").replace(/\D/g, "").slice(-9);
+    if (t && phoneNameMap.get(t)) return phoneNameMap.get(t)!;
+    return "";
+  }, [nameMap, clinicMap, phoneNameMap]);
+
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return calls;
     return calls.filter((c) => {
-      const name = (c.lead_id && nameMap.get(c.lead_id)) || (c.clinic_id && clinicMap.get(c.clinic_id)) || "";
+      const name = resolveName(c);
       return name.toLowerCase().includes(q) || (c.phone ?? "").toLowerCase().includes(q);
     });
-  }, [calls, nameMap, clinicMap, filter]);
+  }, [calls, resolveName, filter]);
 
   const inCall = status === "in-call" || status === "connecting";
 
