@@ -807,7 +807,7 @@ function CallsPanel() {
           )}
           {filtered.map((c) => {
             const isOutbound = (c.direction ?? "outbound") === "outbound";
-            const name = (c.lead_id && nameMap.get(c.lead_id)) || (c.clinic_id && clinicMap.get(c.clinic_id)) || "Unknown";
+            const name = resolveName(c) || c.phone || c.from_number || "Unknown";
             const secs = c.duration_seconds ?? c.duration ?? null;
             const missed = !isOutbound && (!secs || secs === 0);
             const Icon = missed ? PhoneMissed : isOutbound ? PhoneOutgoing : PhoneIncoming;
