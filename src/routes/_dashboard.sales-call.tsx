@@ -5535,6 +5535,34 @@ function RightPanel({
             Customer Journey
           </button>
         </div>
+        {(() => {
+          const adSetName = (active.ad_set_name ?? "").toLowerCase();
+          const location = adSetName.includes("melbourne") ? "MELBOURNE" : adSetName.includes("byron") ? "BYRON" : null;
+          if (!location) return null;
+          const colors = location === "MELBOURNE"
+            ? { bg: "#e0f2fe", fg: "#075985" }
+            : { bg: "#dcfce7", fg: "#166534" };
+          return (
+            <div style={{ marginTop: 6 }}>
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "3px 10px",
+                  borderRadius: 20,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  letterSpacing: "0.04em",
+                  background: colors.bg,
+                  color: colors.fg,
+                  border: `0.5px solid ${colors.fg}33`,
+                }}
+              >
+                {location}
+              </span>
+            </div>
+          );
+        })()}
         {active.phone && (
           <div style={{ fontSize: 14, color: COLORS.coral, marginTop: 4 }}>{active.phone}</div>
         )}
