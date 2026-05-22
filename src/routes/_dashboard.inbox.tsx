@@ -3,9 +3,42 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
+
+type CallRow = {
+  id: string;
+  direction: string | null;
+  phone: string | null;
+  from_number: string | null;
+  status: string | null;
+  outcome: string | null;
+  duration: number | null;
+  duration_seconds: number | null;
+  called_at: string;
+  recording_url: string | null;
+  lead_id: string | null;
+  clinic_id: string | null;
+  rep_id: string | null;
+};
+
+function fmtCallDuration(secs: number | null): string {
+  if (!secs || secs <= 0) return "—";
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function fmtCallTime(iso: string): string {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  if (sameDay) return `Today ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return `Yesterday ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+  return d.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
 
 type Thread = {
   id: string;
