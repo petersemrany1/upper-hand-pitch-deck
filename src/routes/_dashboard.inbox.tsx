@@ -542,6 +542,8 @@ function InboxPage() {
           </>
         )}
       </section>
+      </div>
+      )}
       {lightboxUrl && (
         <div
           onClick={() => setLightboxUrl(null)}
