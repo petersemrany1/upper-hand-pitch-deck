@@ -130,6 +130,13 @@ function SalesCallPortal() {
   const { user } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  // Read the active call's lead so the ?leadId= switch effect can tell when
+  // the user is asking to jump to the lead they're CURRENTLY on the phone
+  // with (e.g. clicking "Open in Sales Call" on the FloatingCallWidget after
+  // ringing a missed caller back). In that case we must not block on the
+  // outcome gate — the very call that armed the gate is the call they want
+  // to land in.
+  const { activeLeadId: liveCallLeadId } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
