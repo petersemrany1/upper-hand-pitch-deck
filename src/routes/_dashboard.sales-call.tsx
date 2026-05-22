@@ -4752,6 +4752,17 @@ function LeadChooser({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
+              {(() => {
+                const a = (l.ad_set_name ?? "").toLowerCase();
+                const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : null;
+                if (!loc) return null;
+                const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : { bg: "#dcfce7", fg: "#166534" };
+                return (
+                  <span style={{ background: c.bg, color: c.fg, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999 }}>
+                    {loc}
+                  </span>
+                );
+              })()}
               <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
             </div>
             {summary && (
