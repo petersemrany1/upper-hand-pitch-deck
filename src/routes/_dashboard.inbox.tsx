@@ -790,7 +790,17 @@ function CallsPanel() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => phone && dialerCall(phone, myRepId ? { repId: myRepId } : undefined)}
+                  onClick={() => {
+                    if (!phone) return;
+                    const extra: Record<string, string> = {};
+                    if (myRepId) extra.repId = myRepId;
+                    // Pass leadId when we know it so the FloatingCallWidget's
+                    // "Open in Sales Call" button jumps to the correct person
+                    // instead of falling back to a phone-number match (which
+                    // can resolve to the wrong lead when numbers are shared).
+                    if (c.lead_id) extra.leadId = c.lead_id;
+                    dialerCall(phone, Object.keys(extra).length ? extra : undefined);
+                  }}
                   disabled={!phone || dialerStatus !== "ready" || inCall}
                   className="h-8 w-8 inline-flex items-center justify-center rounded-full text-white disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition"
                   style={{ background: "#10b981" }}
