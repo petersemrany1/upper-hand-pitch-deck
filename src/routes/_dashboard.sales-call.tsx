@@ -547,7 +547,7 @@ function SalesCallPortal() {
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
     navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
-  }, [search.leadId, leads, activeId, navigate]);
+  }, [search.leadId, leads, activeId, navigate, liveCallLeadId]);
 
   useEffect(() => {
     const wantedPhone = search.phone;
