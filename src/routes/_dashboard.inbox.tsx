@@ -89,6 +89,7 @@ function fmtTime(iso: string | null): string {
 
 function InboxPage() {
   const search = useSearch({ from: "/_dashboard/inbox" }) as SearchParams;
+  const [tab, setTab] = useState<"messages" | "calls">("messages");
   const [threads, setThreads] = useState<Thread[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
