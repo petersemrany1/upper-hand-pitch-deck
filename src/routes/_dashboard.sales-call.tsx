@@ -5261,12 +5261,16 @@ function RightPanel({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const key = gateStorageKey(active.id);
+    if (leadHasBookedSale(active)) {
+      window.sessionStorage.removeItem(key);
+      return;
+    }
     if (outcomePending || outcomeRequired) {
       window.sessionStorage.setItem(key, JSON.stringify({ pending: outcomePending, required: outcomeRequired }));
     } else {
       window.sessionStorage.removeItem(key);
     }
-  }, [active.id, outcomePending, outcomeRequired]);
+  }, [active, active.id, outcomePending, outcomeRequired]);
   useEffect(() => {
     if (!leadHasBookedSale(active)) return;
     setOutcomePending(false);
@@ -5275,7 +5279,7 @@ function RightPanel({
     onOutcomeRequiredChange?.(false);
     if (typeof window !== "undefined") window.sessionStorage.removeItem(gateStorageKey(active.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active.id, active.status, active.booking_date, active.booking_time]);
+  }, [active.id, active.status, active.booking_date, active.booking_time, (active as { deposit_paid_at?: string | null }).deposit_paid_at, (active as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id]);
 
   const wasInCallRef = useRef(false);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
