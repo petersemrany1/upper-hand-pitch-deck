@@ -942,6 +942,13 @@ function SalesCallPortal() {
             setAmpPrefill={setAmpPrefill}
             audioPrefill={audioPrefill}
             setAudioPrefill={setAudioPrefill}
+            onBookedSaved={(leadId, patch) => {
+              updateLocalLead(leadId, patch);
+              if (leadId === active.id) {
+                outcomePendingRef.current = false;
+                outcomeRequiredRef.current = false;
+              }
+            }}
             onDepositPaid={() => {
               if (sessionActive) {
                 setSessionBookings((b) => b + 1);
@@ -1080,7 +1087,7 @@ function SalesCallPortal() {
 function StepContent({
   step, lead, repName, repId, mmsImages, onAdvance, onMarkComplete,
   discoveryNotes, setDiscoveryNotes, ampPrefill, setAmpPrefill, audioPrefill, setAudioPrefill,
-  onDepositPaid,
+  onDepositPaid, onBookedSaved,
 }: {
   step: StepKey;
   lead: Lead | null;
@@ -1096,6 +1103,7 @@ function StepContent({
   audioPrefill: string;
   setAudioPrefill: (v: string) => void;
   onDepositPaid?: () => void;
+  onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void;
 }) {
   if (!lead) {
     return (
@@ -1463,7 +1471,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} />;
+    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} />;
   }
 
   return null;
@@ -2480,7 +2488,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
@@ -2803,13 +2811,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       const doctorName = sd?.name ?? "[DOCTOR NAME — fill in before sending]";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
-      await updateLeadStatus({ data: { leadId: lead.id, status: "booked_deposit_paid" } });
-      // Mutate the lead prop so when the rep switches tabs and comes back,
-      // the restore-effect sees the booking and skips the form.
-      (lead as { booking_date: string | null }).booking_date = form.date;
-      (lead as { booking_time: string | null }).booking_time = form.time;
-      (lead as { clinic_id: string | null }).clinic_id = form.clinicId || null;
-      (lead as { status: string | null }).status = "booked_deposit_paid";
+      const statusResult = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_deposit_paid" } });
+      if (!statusResult.success) {
+        toast.error(statusResult.error || "Booked, but couldn’t update lead status — refresh before moving on.");
+        return;
+      }
+      const bookingPatch: Partial<Lead> = {
+        booking_date: form.date,
+        booking_time: form.time,
+        clinic_id: form.clinicId || null,
+        status: "booked_deposit_paid",
+      };
+      onBookedSaved?.(lead.id, bookingPatch);
       onBooked();
       toast.success("Appointment booked!");
 
@@ -5248,12 +5261,26 @@ function RightPanel({
   useEffect(() => {
     if (typeof window === "undefined") return;
     const key = gateStorageKey(active.id);
+    if (leadHasBookedSale(active)) {
+      window.sessionStorage.removeItem(key);
+      return;
+    }
     if (outcomePending || outcomeRequired) {
       window.sessionStorage.setItem(key, JSON.stringify({ pending: outcomePending, required: outcomeRequired }));
     } else {
       window.sessionStorage.removeItem(key);
     }
-  }, [active.id, outcomePending, outcomeRequired]);
+  }, [active, active.id, outcomePending, outcomeRequired]);
+  useEffect(() => {
+    if (!leadHasBookedSale(active)) return;
+    setOutcomePending(false);
+    setOutcomeRequired(false);
+    onOutcomePendingChange?.(false);
+    onOutcomeRequiredChange?.(false);
+    if (typeof window !== "undefined") window.sessionStorage.removeItem(gateStorageKey(active.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id, active.status, active.booking_date, active.booking_time, (active as { deposit_paid_at?: string | null }).deposit_paid_at, (active as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id]);
+
   const wasInCallRef = useRef(false);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
   const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
@@ -6824,6 +6851,10 @@ function ForcedOutcomeModal({
 }) {
   const apply = async (status: string, extra?: Partial<Lead>) => {
     if (busy) return;
+    if (leadHasBookedSale(active) && status !== "booked_deposit_paid") {
+      onClosed("booked_deposit_paid");
+      return;
+    }
     setBusy(true);
     try {
       const r = await updateLeadStatus({ data: { leadId: active.id, status } });
