@@ -120,12 +120,13 @@ export function FloatingCallWidget() {
     id: string; first_name: string | null; last_name: string | null;
   } | null>(null);
 
-  // Clear stale matched lead whenever a new call starts (different SID/instance
-  // or different dialled phone). Without this, the previous call's name leaks
-  // into the new call's button label until the DB lookup catches up.
+  // Clear stale matched lead ONLY when a brand-new call instance starts.
+  // We deliberately do NOT key off incomingFrom/activePhone here — those flip
+  // to null the moment an inbound call is answered, which would wipe the
+  // matched lead and leave "Open in Sales Call" with no leadId to navigate to.
   useEffect(() => {
     setMatchedLead(null);
-  }, [activeCallInstanceId, activeCallSid, activePhone, incomingFrom]);
+  }, [activeCallInstanceId]);
 
   useEffect(() => {
     if (isClinicSetter || !incomingFrom) { setMatchedLead(null); return; }
