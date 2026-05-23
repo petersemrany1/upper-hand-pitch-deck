@@ -3562,8 +3562,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
 
               {/* Header */}
               <div style={{ padding: "20px 24px", borderBottom: `0.5px solid ${COLORS.line}` }}>
-                <div style={{ fontSize: 16, fontWeight: 500, color: "#111" }}>Review before sending</div>
-                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>Edit anything before it goes to the clinic</div>
+                <div style={{ fontSize: 16, fontWeight: 500, color: "#111" }}>
+                  {handoverSent ? "Handover already sent — review or resend" : "Review before sending"}
+                </div>
+                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>
+                  {handoverSent
+                    ? "This is exactly what the clinic received. Edit and resend if anything was wrong."
+                    : "Edit anything before it goes to the clinic"}
+                </div>
               </div>
 
               {/* Scrollable body */}
