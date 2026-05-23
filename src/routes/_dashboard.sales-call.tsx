@@ -6032,6 +6032,7 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
+            <option value="">No clinic assigned</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
