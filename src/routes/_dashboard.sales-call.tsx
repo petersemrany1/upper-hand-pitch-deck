@@ -1799,18 +1799,33 @@ function DiscoveryStep({
   // autosave would clobber it with the stale (or empty) textarea contents.
   const userEditedRef = useRef(false);
 
+  // Reset the "user has edited" flag whenever the active lead changes.
+  // Without this, switching from Francesco → Jay would carry over Francesco's
+  // edit-trust into Jay's session and let an in-flight debounce save
+  // Francesco's notes into Jay's row (root cause of the cross-lead
+  // pipeline_summary contamination bug).
+  useEffect(() => {
+    userEditedRef.current = false;
+  }, [lead?.id]);
+
   // Debounced auto-save to meta_leads.call_notes (1s).
   // Rules:
   // - Only fire after the rep has actually typed (userEditedRef).
   // - Never overwrite existing call_notes with an empty string — the AI
   //   pipeline writes patient summaries here and an empty save would wipe
   //   the handover note for the clinic.
+  // - Snapshot leadId + notes at scheduling time; if the active lead changes
+  //   before the debounce fires we bail, so the save can never land on the
+  //   wrong lead's row.
   useEffect(() => {
     if (!lead?.id) return;
     if (!userEditedRef.current) return;
     if (!notes.trim()) return;
+    const snapshotLeadId = lead.id;
+    const snapshotNotes = notes;
     const handle = setTimeout(() => {
-      void saveCallNotes({ data: { leadId: lead.id, notes } }).then((r) => {
+      if (lead?.id !== snapshotLeadId) return; // lead switched mid-debounce — abort
+      void saveCallNotes({ data: { leadId: snapshotLeadId, notes: snapshotNotes } }).then((r) => {
         if (r.success) setSavedAt(Date.now());
       });
     }, 1000);
@@ -1821,6 +1836,7 @@ function DiscoveryStep({
     userEditedRef.current = true;
     setNotes(v);
   };
+
 
   const handleAi = async () => {
     if (!notes.trim()) {
