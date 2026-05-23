@@ -6890,7 +6890,22 @@ function ForcedOutcomeModal({
           {callDuration > 0 ? ` (Call: ${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")})` : ""}
         </div>
 
-        {view === "menu" && (
+        {view === "menu" && active.status === "booked_deposit_paid" && (
+          <>
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", fontSize: 13, color: "#065f46", lineHeight: 1.5, marginBottom: 14 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>✓ Already booked — deposit paid</div>
+              This lead is locked in. Don't pick another outcome — it would overwrite the booking.
+            </div>
+            <button
+              style={{ ...optionStyle, justifyContent: "center", borderColor: "#10b981", color: "#065f46", fontWeight: 600 }}
+              onClick={() => onClosed("booked_deposit_paid")}
+            >
+              Close
+            </button>
+          </>
+        )}
+
+        {view === "menu" && active.status !== "booked_deposit_paid" && (
           <>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>
               <span style={dotStyle("#eab308")} /> No Answer
