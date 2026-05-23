@@ -3840,12 +3840,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                 <button onClick={() => setShowPreview(false)}
                   className="flex-1 rounded-[8px]"
                   style={{ background: "#f3f3f3", color: "#111", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
-                  Cancel
+                  {handoverSent ? "Close" : "Cancel"}
                 </button>
                 <button onClick={() => void confirmAndSend()}
                   className="flex-1 rounded-[8px]"
                   style={{ background: COLORS.coral, color: "#fff", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
-                  Confirm & Send →
+                  {handoverSent ? "Resend with updates →" : "Confirm & Send →"}
                 </button>
               </div>
             </div>
