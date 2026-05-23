@@ -868,7 +868,9 @@ function SalesCallPortal() {
                       window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
                       window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
                     }
-                  } catch {}
+                  } catch {
+                    // Ignore storage cleanup failures; ending the session must still work.
+                  }
                 }
                 setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
               }}
@@ -1736,7 +1738,10 @@ function DiscoveryChecklist() {
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggle = (k: string) => setChecked((s) => {
-    const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
+    const n = new Set(s);
+    if (n.has(k)) n.delete(k);
+    else n.add(k);
+    return n;
   });
 
   return (
@@ -5217,36 +5222,37 @@ function RightPanel({
   onCallStarted?: () => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
-  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
+  const { status: deviceStatus, call: placeCall, hangup, sendDtmf, activeLeadId: deviceActiveLeadId } = useTwilioDevice(true);
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
 
-  // Forced-outcome modal: shown after a non-booked call >= 10s ends.
-  // Persisted per-lead in sessionStorage so navigating away mid-call
-  // (e.g. flicking to Inbox) does NOT wipe the outcome gate when we return.
+  // Forced-outcome modal: only arm it from a real call attempt made for the
+  // currently selected lead. Do NOT hydrate old per-lead sessionStorage gates:
+  // they made previously-called leads pop the modal before a fresh dial.
   const gateStorageKey = (id: string) => `salescall.gate.${id}`;
-  const readGate = (id: string): { pending: boolean; required: boolean } => {
-    if (typeof window === "undefined") return { pending: false, required: false };
-    try {
-      const raw = window.sessionStorage.getItem(gateStorageKey(id));
-      if (!raw) return { pending: false, required: false };
-      const parsed = JSON.parse(raw);
-      return { pending: !!parsed.pending, required: !!parsed.required };
-    } catch { return { pending: false, required: false }; }
+  const clearStoredGate = (id: string) => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.removeItem(gateStorageKey(id));
+    window.sessionStorage.removeItem(`htg.outcomeGate.${id}`);
   };
-  const [outcomeRequired, setOutcomeRequired] = useState(() => readGate(active.id).required);
+  const [outcomeRequired, setOutcomeRequired] = useState(false);
   const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
-  const [outcomePending, setOutcomePending] = useState(() => readGate(active.id).pending);
+  const [outcomePending, setOutcomePending] = useState(false);
 
-  // Re-hydrate gate when the active lead changes (e.g. session advanced
-  // while we were on another page, or we returned to a different lead).
+  // Selecting/browsing a lead should never inherit an old outcome gate. The
+  // gate is re-armed below only when this panel starts or observes a live call
+  // for this exact lead.
   useEffect(() => {
-    const g = readGate(active.id);
-    setOutcomePending(g.pending);
-    setOutcomeRequired(g.required);
-    onOutcomeRequiredChange?.(g.required);
-    onOutcomePendingChange?.(g.pending);
+    setOutcomePending(false);
+    setOutcomeRequired(false);
+    setCallDurationAtHangup(0);
+    setOutcomeView("menu");
+    wasInCallRef.current = false;
+    callAttemptLeadIdRef.current = null;
+    onOutcomeRequiredChange?.(false);
+    onOutcomePendingChange?.(false);
+    clearStoredGate(active.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
 
@@ -5256,21 +5262,21 @@ function RightPanel({
     onOutcomePendingChange?.(outcomePending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcomePending]);
+  useEffect(() => {
+    onOutcomeRequiredChange?.(outcomeRequired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomeRequired]);
 
-  // Persist gate to sessionStorage whenever it changes for the active lead.
+  // Purge old stored gates from earlier builds so a refresh cannot resurrect
+  // a stale "How did that go?" modal for already-called leads.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const key = gateStorageKey(active.id);
-    if (leadHasBookedSale(active)) {
-      window.sessionStorage.removeItem(key);
-      return;
-    }
-    if (outcomePending || outcomeRequired) {
-      window.sessionStorage.setItem(key, JSON.stringify({ pending: outcomePending, required: outcomeRequired }));
-    } else {
-      window.sessionStorage.removeItem(key);
-    }
-  }, [active, active.id, outcomePending, outcomeRequired]);
+    Object.keys(window.sessionStorage).forEach((key) => {
+      if (key.startsWith("salescall.gate.") || key.startsWith("htg.outcomeGate.")) {
+        window.sessionStorage.removeItem(key);
+      }
+    });
+  }, []);
   useEffect(() => {
     if (!leadHasBookedSale(active)) return;
     setOutcomePending(false);
@@ -5282,6 +5288,7 @@ function RightPanel({
   }, [active.id, active.status, active.booking_date, active.booking_time, (active as { deposit_paid_at?: string | null }).deposit_paid_at, (active as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id]);
 
   const wasInCallRef = useRef(false);
+  const callAttemptLeadIdRef = useRef<string | null>(null);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
   const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
   const [outcomeCallbackTime, setOutcomeCallbackTime] = useState("");
@@ -5479,17 +5486,21 @@ function RightPanel({
   const prevDeviceStatusRef = useRef(deviceStatus);
   useEffect(() => {
     const prev = prevDeviceStatusRef.current;
-    if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call") {
+    const belongsToActiveLead = deviceActiveLeadId === active.id || callAttemptLeadIdRef.current === active.id;
+    if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call" && belongsToActiveLead) {
+      callAttemptLeadIdRef.current = active.id;
       onCallStarted?.();
       // Mark that a dial happened — even if the call never connects, the rep
       // must log an outcome (e.g. No Answer) before moving to the next lead.
       wasInCallRef.current = true;
     }
     prevDeviceStatusRef.current = deviceStatus;
-  }, [deviceStatus, onCallStarted]);
+  }, [active.id, deviceActiveLeadId, deviceStatus, onCallStarted]);
 
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
+    if (deviceActiveLeadId !== active.id && callAttemptLeadIdRef.current !== active.id) return;
+    callAttemptLeadIdRef.current = active.id;
     // Any time we reach in-call (outbound OR inbound answered), force an
     // outcome before the rep can move on.
     wasInCallRef.current = true;
@@ -5500,7 +5511,7 @@ function RightPanel({
       return next;
     }), 1000);
     return () => clearInterval(i);
-  }, [deviceStatus]);
+  }, [active.id, deviceActiveLeadId, deviceStatus]);
 
   // Reset timer when the call ends. Capture the duration so the manual
   // "Next Lead" button can require an outcome if a call was just completed.
@@ -5508,9 +5519,12 @@ function RightPanel({
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
-        setCallDurationAtHangup(callTimerRef.current);
-        setOutcomePending(true);
+        if (callAttemptLeadIdRef.current === active.id && !leadHasBookedSale(active)) {
+          setCallDurationAtHangup(callTimerRef.current);
+          setOutcomePending(true);
+        }
       }
+      callAttemptLeadIdRef.current = null;
       setCallTimer(0);
       callTimerRef.current = 0;
       setKeypadOpen(false);
@@ -5528,6 +5542,7 @@ function RightPanel({
     // Don't wait for device-status transitions — they can be missed if the
     // call connects/disconnects faster than React subscribes, or if the call
     // was inbound (e.g. callback from the lead).
+    callAttemptLeadIdRef.current = active.id;
     wasInCallRef.current = true;
     setOutcomePending(true);
     try {
@@ -5537,6 +5552,11 @@ function RightPanel({
     } catch (e) {
       stopRingback();
       console.error("[callNow] placeCall threw", e);
+      callAttemptLeadIdRef.current = null;
+      wasInCallRef.current = false;
+      setOutcomePending(false);
+      setOutcomeRequired(false);
+      setCallDurationAtHangup(0);
       toast.error(e instanceof Error ? e.message : "Failed to start call");
     }
   };
