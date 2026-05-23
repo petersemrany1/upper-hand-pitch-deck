@@ -413,6 +413,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     }
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     if (callerId) params.callerId = callerId;
+    await preferHeadsetMicrophone(device);
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
 
@@ -591,7 +592,14 @@ function answerIncoming() {
   // Prefer waiting call if there is one — answering it ends the active call.
   const target = waitingCall ?? pendingIncoming;
   if (!target) return;
-  try { target.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
+  void (async () => {
+    try {
+      if (device) await preferHeadsetMicrophone(device);
+      target.accept(lowLatencyMediaOptions());
+    } catch (e) {
+      console.error("answerIncoming failed", e);
+    }
+  })();
 }
 
 function rejectIncoming() {
