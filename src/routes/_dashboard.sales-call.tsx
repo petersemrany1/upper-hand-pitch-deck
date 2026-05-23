@@ -868,7 +868,9 @@ function SalesCallPortal() {
                       window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
                       window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
                     }
-                  } catch {}
+                  } catch {
+                    // Ignore storage cleanup failures; ending the session must still work.
+                  }
                 }
                 setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
               }}
@@ -1736,7 +1738,10 @@ function DiscoveryChecklist() {
   ];
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const toggle = (k: string) => setChecked((s) => {
-    const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n;
+    const n = new Set(s);
+    if (n.has(k)) n.delete(k);
+    else n.add(k);
+    return n;
   });
 
   return (
