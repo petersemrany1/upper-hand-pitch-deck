@@ -5217,36 +5217,35 @@ function RightPanel({
   onCallStarted?: () => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
-  const { status: deviceStatus, call: placeCall, hangup, sendDtmf } = useTwilioDevice(true);
+  const { status: deviceStatus, call: placeCall, hangup, sendDtmf, activeLeadId: deviceActiveLeadId } = useTwilioDevice(true);
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
 
-  // Forced-outcome modal: shown after a non-booked call >= 10s ends.
-  // Persisted per-lead in sessionStorage so navigating away mid-call
-  // (e.g. flicking to Inbox) does NOT wipe the outcome gate when we return.
+  // Forced-outcome modal: only arm it from a real call attempt made for the
+  // currently selected lead. Do NOT hydrate old per-lead sessionStorage gates:
+  // they made previously-called leads pop the modal before a fresh dial.
   const gateStorageKey = (id: string) => `salescall.gate.${id}`;
-  const readGate = (id: string): { pending: boolean; required: boolean } => {
+  const clearStoredGate = (id: string) => {
     if (typeof window === "undefined") return { pending: false, required: false };
-    try {
-      const raw = window.sessionStorage.getItem(gateStorageKey(id));
-      if (!raw) return { pending: false, required: false };
-      const parsed = JSON.parse(raw);
-      return { pending: !!parsed.pending, required: !!parsed.required };
-    } catch { return { pending: false, required: false }; }
+    window.sessionStorage.removeItem(gateStorageKey(id));
+    window.sessionStorage.removeItem(`htg.outcomeGate.${id}`);
   };
-  const [outcomeRequired, setOutcomeRequired] = useState(() => readGate(active.id).required);
+  const [outcomeRequired, setOutcomeRequired] = useState(false);
   const [callDurationAtHangup, setCallDurationAtHangup] = useState(0);
-  const [outcomePending, setOutcomePending] = useState(() => readGate(active.id).pending);
+  const [outcomePending, setOutcomePending] = useState(false);
 
-  // Re-hydrate gate when the active lead changes (e.g. session advanced
-  // while we were on another page, or we returned to a different lead).
+  // Selecting/browsing a lead should never inherit an old outcome gate. The
+  // gate is re-armed below only when this panel starts or observes a live call
+  // for this exact lead.
   useEffect(() => {
-    const g = readGate(active.id);
-    setOutcomePending(g.pending);
-    setOutcomeRequired(g.required);
-    onOutcomeRequiredChange?.(g.required);
-    onOutcomePendingChange?.(g.pending);
+    setOutcomePending(false);
+    setOutcomeRequired(false);
+    setCallDurationAtHangup(0);
+    setOutcomeView("menu");
+    onOutcomeRequiredChange?.(false);
+    onOutcomePendingChange?.(false);
+    clearStoredGate(active.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
 
@@ -5256,21 +5255,21 @@ function RightPanel({
     onOutcomePendingChange?.(outcomePending);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outcomePending]);
+  useEffect(() => {
+    onOutcomeRequiredChange?.(outcomeRequired);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [outcomeRequired]);
 
-  // Persist gate to sessionStorage whenever it changes for the active lead.
+  // Purge old stored gates from earlier builds so a refresh cannot resurrect
+  // a stale "How did that go?" modal for already-called leads.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const key = gateStorageKey(active.id);
-    if (leadHasBookedSale(active)) {
-      window.sessionStorage.removeItem(key);
-      return;
-    }
-    if (outcomePending || outcomeRequired) {
-      window.sessionStorage.setItem(key, JSON.stringify({ pending: outcomePending, required: outcomeRequired }));
-    } else {
-      window.sessionStorage.removeItem(key);
-    }
-  }, [active, active.id, outcomePending, outcomeRequired]);
+    Object.keys(window.sessionStorage).forEach((key) => {
+      if (key.startsWith("salescall.gate.") || key.startsWith("htg.outcomeGate.")) {
+        window.sessionStorage.removeItem(key);
+      }
+    });
+  }, []);
   useEffect(() => {
     if (!leadHasBookedSale(active)) return;
     setOutcomePending(false);
