@@ -561,6 +561,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
+  const [rescheduleMode, setRescheduleMode] = useState(false);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
   const setOutcome = async (outcome: "noshow" | "proceeded") => {
