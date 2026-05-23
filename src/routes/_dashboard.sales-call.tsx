@@ -43,6 +43,11 @@ type Lead = {
   pipeline_summary?: string | null; pipeline_summary_updated_at?: string | null;
 };
 
+function leadHasBookedSale(lead: Lead) {
+  const paid = lead as Lead & { deposit_paid_at?: string | null; stripe_payment_intent_id?: string | null };
+  return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
+}
+
 const SALES_CALL_LEAD_LIMIT = 200;
 const SALES_CALL_LEAD_SELECT = `
   id, first_name, last_name, email, phone, funding_preference,
