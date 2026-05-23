@@ -5243,6 +5243,8 @@ function RightPanel({
     setOutcomeRequired(false);
     setCallDurationAtHangup(0);
     setOutcomeView("menu");
+    wasInCallRef.current = false;
+    callAttemptLeadIdRef.current = null;
     onOutcomeRequiredChange?.(false);
     onOutcomePendingChange?.(false);
     clearStoredGate(active.id);
@@ -5481,6 +5483,7 @@ function RightPanel({
     const prev = prevDeviceStatusRef.current;
     const belongsToActiveLead = deviceActiveLeadId === active.id || callAttemptLeadIdRef.current === active.id;
     if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call" && belongsToActiveLead) {
+      callAttemptLeadIdRef.current = active.id;
       onCallStarted?.();
       // Mark that a dial happened — even if the call never connects, the rep
       // must log an outcome (e.g. No Answer) before moving to the next lead.
@@ -5492,6 +5495,7 @@ function RightPanel({
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
     if (deviceActiveLeadId !== active.id && callAttemptLeadIdRef.current !== active.id) return;
+    callAttemptLeadIdRef.current = active.id;
     // Any time we reach in-call (outbound OR inbound answered), force an
     // outcome before the rep can move on.
     wasInCallRef.current = true;
