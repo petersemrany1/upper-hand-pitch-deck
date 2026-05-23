@@ -561,6 +561,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
+  const [rescheduleMode, setRescheduleMode] = useState(false);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
   const setOutcome = async (outcome: "noshow" | "proceeded") => {
@@ -688,6 +689,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
           <button onClick={() => setSummaryMode("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
           <button onClick={() => setOutcome("noshow")} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
+          <button onClick={() => setRescheduleMode(true)} style={outcomeBtn("#2d5fa0", "#edf2f9")}>📅 Reschedule</button>
         </div>
       )}
 
@@ -715,6 +717,91 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           onSaved={() => { setSummaryMode(null); onChange(); onClose(); }}
         />
       )}
+      {rescheduleMode && (
+        <RescheduleModal
+          appt={appt}
+          onClose={() => setRescheduleMode(false)}
+          onSaved={() => { setRescheduleMode(false); onChange(); onClose(); }}
+        />
+      )}
+    </ModalShell>
+  );
+}
+
+function RescheduleModal({ appt, onClose, onSaved }: {
+  appt: ClinicAppointment; onClose: () => void; onSaved: () => void;
+}) {
+  const [date, setDate] = useState<string>(appt.appointment_date);
+  const timeInit = /^(\d{1,2}):(\d{2})/.exec(appt.appointment_time ?? "");
+  const [time, setTime] = useState<string>(timeInit ? `${timeInit[1].padStart(2, "0")}:${timeInit[2]}` : "09:00");
+  const [saving, setSaving] = useState(false);
+
+  const oldLabel = `${new Date(appt.appointment_date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} ${fmtTime(appt.appointment_time)}`;
+
+  const save = async () => {
+    if (!date || !time) { toast.error("Pick a date and time"); return; }
+    if (date === appt.appointment_date && time === appt.appointment_time) {
+      toast.error("That's the same date and time");
+      return;
+    }
+    setSaving(true);
+    const newLabel = `${new Date(date).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })} ${fmtTime(time)}`;
+    const stamp = new Date().toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+    const auditLine = `\n— Rescheduled from ${oldLabel} → ${newLabel} (${stamp})`;
+    const nextNotes = (appt.intel_notes ?? "") + auditLine;
+
+    const { error } = await supabase
+      .from("clinic_appointments")
+      .update({ appointment_date: date, appointment_time: time, intel_notes: nextNotes })
+      .eq("id", appt.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Rescheduled");
+    onSaved();
+  };
+
+  return (
+    <ModalShell onClose={onClose}>
+      <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 4 }}>Reschedule appointment</div>
+      <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 14 }}>{appt.patient_name} · currently {oldLabel}</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5 }}>New date</span>
+          <input
+            type="date"
+            value={date}
+            min={new Date().toISOString().slice(0, 10)}
+            onChange={(e) => setDate(e.target.value)}
+            style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #d4dae3", borderRadius: 6 }}
+          />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5 }}>New time</span>
+          <input
+            type="time"
+            value={time}
+            step={300}
+            onChange={(e) => setTime(e.target.value)}
+            style={{ padding: "8px 10px", fontSize: 14, border: "1px solid #d4dae3", borderRadius: 6 }}
+          />
+        </label>
+      </div>
+
+      <div style={{ fontSize: 11, color: "#6b7785", marginTop: 12, lineHeight: 1.5 }}>
+        Reminder SMSes (3-day and 24-hour) will re-send for the new date. A note will be added to the Patient Intel for your records.
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+        <button onClick={onClose} disabled={saving} style={{ ...navBtn, fontSize: 13 }}>Cancel</button>
+        <button
+          onClick={save}
+          disabled={saving}
+          style={{ ...navBtn, fontSize: 13, background: NAVY, color: "#fff", borderColor: NAVY, opacity: saving ? 0.6 : 1 }}
+        >
+          {saving ? "Saving…" : "Save new date"}
+        </button>
+      </div>
     </ModalShell>
   );
 }
