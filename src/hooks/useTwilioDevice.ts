@@ -50,18 +50,20 @@ const voiceAudioConstraints: MediaTrackConstraints = {
 
 async function preferHeadsetMicrophone(d: Device) {
   try {
-    await d.audio?.setAudioConstraints?.(voiceAudioConstraints);
+    const audio = d.audio;
+    if (!audio) return;
+    await audio.setAudioConstraints(voiceAudioConstraints);
 
-    const devices = Array.from(d.audio?.availableInputDevices?.values?.() ?? []);
+    const devices = Array.from(audio.availableInputDevices.values());
     const headset = devices.find((audioDevice) => {
       const label = audioDevice.label.toLowerCase();
       return label.includes("airpods") || label.includes("air pods") || label.includes("headset") || label.includes("bluetooth");
     });
 
     if (!headset?.deviceId) return;
-    if (d.audio?.inputDevice?.deviceId === headset.deviceId) return;
+    if (audio.inputDevice?.deviceId === headset.deviceId) return;
 
-    await d.audio.setInputDevice(headset.deviceId);
+    await audio.setInputDevice(headset.deviceId);
     console.log("Voice SDK: using preferred microphone", headset.label || headset.deviceId);
   } catch (err) {
     console.warn("Voice SDK: could not select preferred microphone", err);
