@@ -6465,32 +6465,44 @@ function RightPanel({
 
       {/* Section 6 — SMS */}
       <div style={{ padding: "14px 18px 96px", borderTop: `0.5px solid ${COLORS.line}` }}>
-        <button
-          onClick={async () => {
-            const phone = active.phone;
-            if (!phone) { toast.error("No phone number on this lead"); return; }
-            // Try to find an existing thread for this phone first
-            try {
-              const digits = phone.replace(/\D/g, "").slice(-9);
-              const { data } = await supabase
-                .from("sms_threads")
-                .select("id, phone")
-                .order("last_message_at", { ascending: false })
-                .limit(200);
-              const match = (data ?? []).find((t) => (t.phone ?? "").replace(/\D/g, "").endsWith(digits));
-              if (match?.id) setMessengerThread(match.id);
-              else setMessengerThread(null);
-            } catch { setMessengerThread(null); }
-            openMessenger();
-          }}
-          style={{
-            width: "100%", background: "#ffffff", color: "#111",
-            border: `1px solid #111`, borderRadius: 8,
-            fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
-          }}
-        >
-          📱 Open SMS phone
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setShowSms((v) => !v)}
+            style={{
+              flex: 1, background: showSms ? "#111" : "#ffffff", color: showSms ? "#fff" : "#111",
+              border: `1px solid #111`, borderRadius: 8,
+              fontSize: 13, fontWeight: 600, padding: "8px 12px", cursor: "pointer",
+            }}
+          >
+            💬 {showSms ? "Hide SMS" : `Quick SMS ${active.first_name ?? ""}`.trim()}
+          </button>
+          <button
+            onClick={async () => {
+              const phone = active.phone;
+              if (!phone) { toast.error("No phone number on this lead"); return; }
+              try {
+                const digits = phone.replace(/\D/g, "").slice(-9);
+                const { data } = await supabase
+                  .from("sms_threads")
+                  .select("id, phone")
+                  .order("last_message_at", { ascending: false })
+                  .limit(200);
+                const match = (data ?? []).find((t) => (t.phone ?? "").replace(/\D/g, "").endsWith(digits));
+                if (match?.id) setMessengerThread(match.id);
+                else setMessengerThread(null);
+              } catch { setMessengerThread(null); }
+              openMessenger();
+            }}
+            title="Open full SMS inbox"
+            style={{
+              background: "#ffffff", color: "#111",
+              border: `1px solid ${COLORS.line}`, borderRadius: 8,
+              fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
+            }}
+          >
+            📱 Inbox
+          </button>
+        </div>
         {showSms && (
           <div style={{ marginTop: 10 }}>
             {smsHistory.length > 0 && (
