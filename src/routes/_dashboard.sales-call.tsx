@@ -533,18 +533,13 @@ function SalesCallPortal() {
       return;
     }
     if (activeId !== found.id) {
-      // If we still owe an outcome on the current lead (dial fired or call
-      // just ended), DON'T jump — queue the new lead and prompt instead.
-      // EXCEPTION: if the lead being requested is the very person we're on
-      // the phone with right now (e.g. user rang a missed caller back and
-      // clicked "Open in Sales Call" on the popup), allow the switch —
-      // otherwise the click silently does nothing.
-      if (gateActive() && liveCallLeadId !== found.id) {
-        setPendingLeadId(found.id);
-        toast.error("Please set a call outcome first");
-        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
-        return;
-      }
+      // Explicit "Open in Sales Call" deeplinks should ALWAYS jump to the
+      // requested lead — never get silently blocked by a stale outcome gate
+      // on whatever lead was previously active. Clear the gate refs for the
+      // prior lead so the new lead's right-panel renders cleanly.
+      outcomeRequiredRef.current = false;
+      outcomePendingRef.current = false;
+      setPendingLeadId(null);
       setActiveId(found.id);
       setStep("mindset");
       setCompleted(new Set());
@@ -552,7 +547,7 @@ function SalesCallPortal() {
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
     navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
-  }, [search.leadId, leads, activeId, navigate, liveCallLeadId]);
+  }, [search.leadId, leads, activeId, navigate]);
 
   useEffect(() => {
     const wantedPhone = search.phone;
