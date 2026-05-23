@@ -43,6 +43,11 @@ type Lead = {
   pipeline_summary?: string | null; pipeline_summary_updated_at?: string | null;
 };
 
+function leadHasBookedSale(lead: Lead) {
+  const paid = lead as Lead & { deposit_paid_at?: string | null; stripe_payment_intent_id?: string | null };
+  return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
+}
+
 const SALES_CALL_LEAD_LIMIT = 200;
 const SALES_CALL_LEAD_SELECT = `
   id, first_name, last_name, email, phone, funding_preference,
@@ -2798,11 +2803,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
       const doctorName = sd?.name ?? "[DOCTOR NAME — fill in before sending]";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
+      await updateLeadStatus({ data: { leadId: lead.id, status: "booked_deposit_paid" } });
       // Mutate the lead prop so when the rep switches tabs and comes back,
       // the restore-effect sees the booking and skips the form.
       (lead as { booking_date: string | null }).booking_date = form.date;
       (lead as { booking_time: string | null }).booking_time = form.time;
       (lead as { clinic_id: string | null }).clinic_id = form.clinicId || null;
+      (lead as { status: string | null }).status = "booked_deposit_paid";
       onBooked();
       toast.success("Appointment booked!");
 
@@ -5534,7 +5541,7 @@ function RightPanel({
             }
             // If the lead is already booked + paid, the booking IS the outcome —
             // skip the "How did that go?" gate so the rep can move on cleanly.
-            const alreadyBooked = active.status === "booked_deposit_paid";
+            const alreadyBooked = leadHasBookedSale(active);
             if (alreadyBooked) {
               setOutcomePending(false);
               setOutcomeRequired(false);
@@ -6896,7 +6903,7 @@ function ForcedOutcomeModal({
           {callDuration > 0 ? ` (Call: ${Math.floor(callDuration / 60)}:${(callDuration % 60).toString().padStart(2, "0")})` : ""}
         </div>
 
-        {view === "menu" && active.status === "booked_deposit_paid" && (
+        {view === "menu" && leadHasBookedSale(active) && (
           <>
             <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ecfdf5", border: "1px solid #a7f3d0", fontSize: 13, color: "#065f46", lineHeight: 1.5, marginBottom: 14 }}>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>✓ Already booked — deposit paid</div>
@@ -6911,7 +6918,7 @@ function ForcedOutcomeModal({
           </>
         )}
 
-        {view === "menu" && active.status !== "booked_deposit_paid" && (
+        {view === "menu" && !leadHasBookedSale(active) && (
           <>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>
               <span style={dotStyle("#eab308")} /> No Answer
