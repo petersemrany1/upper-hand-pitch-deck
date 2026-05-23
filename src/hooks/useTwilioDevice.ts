@@ -40,6 +40,36 @@ function lowLatencyMediaOptions() {
   };
 }
 
+const voiceAudioConstraints: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  autoGainControl: true,
+  channelCount: { ideal: 1 },
+  sampleRate: { ideal: 48000 },
+};
+
+async function preferHeadsetMicrophone(d: Device) {
+  try {
+    const audio = d.audio;
+    if (!audio) return;
+    await audio.setAudioConstraints(voiceAudioConstraints);
+
+    const devices = Array.from(audio.availableInputDevices.values());
+    const headset = devices.find((audioDevice) => {
+      const label = audioDevice.label.toLowerCase();
+      return label.includes("airpods") || label.includes("air pods") || label.includes("headset") || label.includes("bluetooth");
+    });
+
+    if (!headset?.deviceId) return;
+    if (audio.inputDevice?.deviceId === headset.deviceId) return;
+
+    await audio.setInputDevice(headset.deviceId);
+    console.log("Voice SDK: using preferred microphone", headset.label || headset.deviceId);
+  } catch (err) {
+    console.warn("Voice SDK: could not select preferred microphone", err);
+  }
+}
+
 // ----- Singleton state -----
 let device: Device | null = null;
 let activeCall: Call | null = null;
@@ -383,6 +413,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     }
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     if (callerId) params.callerId = callerId;
+    await preferHeadsetMicrophone(device);
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
 
@@ -561,7 +592,14 @@ function answerIncoming() {
   // Prefer waiting call if there is one — answering it ends the active call.
   const target = waitingCall ?? pendingIncoming;
   if (!target) return;
-  try { target.accept(lowLatencyMediaOptions()); } catch (e) { console.error("answerIncoming failed", e); }
+  void (async () => {
+    try {
+      if (device) await preferHeadsetMicrophone(device);
+      target.accept(lowLatencyMediaOptions());
+    } catch (e) {
+      console.error("answerIncoming failed", e);
+    }
+  })();
 }
 
 function rejectIncoming() {
