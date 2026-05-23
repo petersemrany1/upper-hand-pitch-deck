@@ -230,6 +230,12 @@ function SalesCallPortal() {
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
+  const sessionQueueRef = useRef<string[]>([]);
+  useEffect(() => { sessionQueueRef.current = sessionQueue; }, [sessionQueue]);
+  const sessionIndexRef = useRef<number>(0);
+  useEffect(() => { sessionIndexRef.current = sessionIndex; }, [sessionIndex]);
+  const leadsRef = useRef<Lead[]>([]);
+  useEffect(() => { leadsRef.current = leads; }, [leads]);
   // Timer: while a session is active and not paused, recompute seconds from
   // (now - started_at). Using a derived value (instead of s + 1) means
   // refreshes don't drift and multiple tabs stay in sync.
