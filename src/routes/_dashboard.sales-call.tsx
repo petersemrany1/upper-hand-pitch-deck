@@ -230,6 +230,12 @@ function SalesCallPortal() {
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
+  const sessionQueueRef = useRef<string[]>([]);
+  useEffect(() => { sessionQueueRef.current = sessionQueue; }, [sessionQueue]);
+  const sessionIndexRef = useRef<number>(0);
+  useEffect(() => { sessionIndexRef.current = sessionIndex; }, [sessionIndex]);
+  const leadsRef = useRef<Lead[]>([]);
+  useEffect(() => { leadsRef.current = leads; }, [leads]);
   // Timer: while a session is active and not paused, recompute seconds from
   // (now - started_at). Using a derived value (instead of s + 1) means
   // refreshes don't drift and multiple tabs stay in sync.
@@ -503,6 +509,53 @@ function SalesCallPortal() {
       }).subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
+
+  // Missed-call jump-the-queue: if an inbound missed call comes in from a lead
+  // that's already in the current session queue (e.g. someone marked "no answer"
+  // who's now ringing back), bump them to be the NEXT lead so pressing "Next
+  // lead" jumps straight to them.
+  useEffect(() => {
+    const seen = new Set<string>();
+    const handle = (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null } | null) => {
+      if (!row || row.direction !== "inbound" || !row.id) return;
+      const s = (row.status || "").toLowerCase();
+      const answered = (row.duration && row.duration > 0) || s === "in-progress" || s === "completed";
+      if (answered) return;
+      if (seen.has(row.id)) return;
+      seen.add(row.id);
+      const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
+      if (tail.length < 6) return;
+      const lead = leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail);
+      if (!lead) return;
+      const queue = sessionQueueRef.current;
+      const idx = queue.indexOf(lead.id);
+      const cur = sessionIndexRef.current;
+      if (idx === -1) {
+        // Not in queue yet — insert right after current position
+        if (!sessionActiveRef.current) return;
+        const next = [...queue];
+        next.splice(cur + 1, 0, lead.id);
+        setSessionQueue(next);
+      } else if (idx > cur + 1) {
+        // Already queued later — move to next-in-line
+        const next = [...queue];
+        next.splice(idx, 1);
+        next.splice(cur + 1, 0, lead.id);
+        setSessionQueue(next);
+      } else {
+        return; // already next or current
+      }
+      const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
+      toast.success(`📞 ${name} called back — queued next`);
+    };
+    const ch = supabase.channel("sales-call-missed-callbacks")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
+      .subscribe();
+    return () => { void supabase.removeChannel(ch); };
+  }, []);
+
+
 
   // Load MMS images
   useEffect(() => {
