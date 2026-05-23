@@ -3407,13 +3407,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           ) : (
             <button
               onClick={() => void openPreview()}
-              disabled={sendingHandover || handoverSent}
+              disabled={sendingHandover}
               className="w-full rounded-[8px] flex items-center justify-between"
               style={{
                 background: handoverSent ? "#ecfdf5" : "#ffffff",
                 border: `0.5px solid ${handoverSent ? COLORS.green : COLORS.line}`,
                 padding: "16px 20px",
-                cursor: handoverSent ? "default" : sendingHandover ? "wait" : "pointer",
+                cursor: sendingHandover ? "wait" : "pointer",
                 opacity: sendingHandover ? 0.7 : 1,
               }}
             >
@@ -3422,14 +3422,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                   {handoverSent ? "✓ Handover sent to clinic" : "Send handover to clinic"}
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
-                  Patient intel, funding, booking details → peter@gobold.com.au
+                  {handoverSent
+                    ? "Tap to review what was sent or resend with updates"
+                    : "Patient intel, funding, booking details → peter@gobold.com.au"}
                 </div>
               </div>
-              {!handoverSent && (
-                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-                  {sendingHandover ? "Sending…" : "Send →"}
-                </div>
-              )}
+              <div style={{ fontSize: 13, fontWeight: 500, color: handoverSent ? COLORS.green : COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+                {sendingHandover ? "Sending…" : handoverSent ? "View →" : "Send →"}
+              </div>
             </button>
           )}
 
@@ -3562,8 +3562,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
 
               {/* Header */}
               <div style={{ padding: "20px 24px", borderBottom: `0.5px solid ${COLORS.line}` }}>
-                <div style={{ fontSize: 16, fontWeight: 500, color: "#111" }}>Review before sending</div>
-                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>Edit anything before it goes to the clinic</div>
+                <div style={{ fontSize: 16, fontWeight: 500, color: "#111" }}>
+                  {handoverSent ? "Handover already sent — review or resend" : "Review before sending"}
+                </div>
+                <div style={{ fontSize: 13, color: "#888", marginTop: 2 }}>
+                  {handoverSent
+                    ? "This is exactly what the clinic received. Edit and resend if anything was wrong."
+                    : "Edit anything before it goes to the clinic"}
+                </div>
               </div>
 
               {/* Scrollable body */}
@@ -3834,12 +3840,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                 <button onClick={() => setShowPreview(false)}
                   className="flex-1 rounded-[8px]"
                   style={{ background: "#f3f3f3", color: "#111", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
-                  Cancel
+                  {handoverSent ? "Close" : "Cancel"}
                 </button>
                 <button onClick={() => void confirmAndSend()}
                   className="flex-1 rounded-[8px]"
                   style={{ background: COLORS.coral, color: "#fff", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
-                  Confirm & Send →
+                  {handoverSent ? "Resend with updates →" : "Confirm & Send →"}
                 </button>
               </div>
             </div>
