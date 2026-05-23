@@ -5227,7 +5227,7 @@ function RightPanel({
   // they made previously-called leads pop the modal before a fresh dial.
   const gateStorageKey = (id: string) => `salescall.gate.${id}`;
   const clearStoredGate = (id: string) => {
-    if (typeof window === "undefined") return { pending: false, required: false };
+    if (typeof window === "undefined") return;
     window.sessionStorage.removeItem(gateStorageKey(id));
     window.sessionStorage.removeItem(`htg.outcomeGate.${id}`);
   };
@@ -5281,6 +5281,7 @@ function RightPanel({
   }, [active.id, active.status, active.booking_date, active.booking_time, (active as { deposit_paid_at?: string | null }).deposit_paid_at, (active as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id]);
 
   const wasInCallRef = useRef(false);
+  const callAttemptLeadIdRef = useRef<string | null>(null);
   const [outcomeView, setOutcomeView] = useState<"menu" | "callback" | "drop">("menu");
   const [outcomeCallbackDate, setOutcomeCallbackDate] = useState("");
   const [outcomeCallbackTime, setOutcomeCallbackTime] = useState("");
@@ -5478,17 +5479,19 @@ function RightPanel({
   const prevDeviceStatusRef = useRef(deviceStatus);
   useEffect(() => {
     const prev = prevDeviceStatusRef.current;
-    if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call") {
+    const belongsToActiveLead = deviceActiveLeadId === active.id || callAttemptLeadIdRef.current === active.id;
+    if (deviceStatus === "connecting" && prev !== "connecting" && prev !== "in-call" && belongsToActiveLead) {
       onCallStarted?.();
       // Mark that a dial happened — even if the call never connects, the rep
       // must log an outcome (e.g. No Answer) before moving to the next lead.
       wasInCallRef.current = true;
     }
     prevDeviceStatusRef.current = deviceStatus;
-  }, [deviceStatus, onCallStarted]);
+  }, [active.id, deviceActiveLeadId, deviceStatus, onCallStarted]);
 
   useEffect(() => {
     if (deviceStatus !== "in-call") return;
+    if (deviceActiveLeadId !== active.id && callAttemptLeadIdRef.current !== active.id) return;
     // Any time we reach in-call (outbound OR inbound answered), force an
     // outcome before the rep can move on.
     wasInCallRef.current = true;
@@ -5499,7 +5502,7 @@ function RightPanel({
       return next;
     }), 1000);
     return () => clearInterval(i);
-  }, [deviceStatus]);
+  }, [active.id, deviceActiveLeadId, deviceStatus]);
 
   // Reset timer when the call ends. Capture the duration so the manual
   // "Next Lead" button can require an outcome if a call was just completed.
@@ -5507,9 +5510,12 @@ function RightPanel({
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
-        setCallDurationAtHangup(callTimerRef.current);
-        setOutcomePending(true);
+        if (callAttemptLeadIdRef.current === active.id && !leadHasBookedSale(active)) {
+          setCallDurationAtHangup(callTimerRef.current);
+          setOutcomePending(true);
+        }
       }
+      callAttemptLeadIdRef.current = null;
       setCallTimer(0);
       callTimerRef.current = 0;
       setKeypadOpen(false);
@@ -5527,6 +5533,7 @@ function RightPanel({
     // Don't wait for device-status transitions — they can be missed if the
     // call connects/disconnects faster than React subscribes, or if the call
     // was inbound (e.g. callback from the lead).
+    callAttemptLeadIdRef.current = active.id;
     wasInCallRef.current = true;
     setOutcomePending(true);
     try {
@@ -5536,6 +5543,11 @@ function RightPanel({
     } catch (e) {
       stopRingback();
       console.error("[callNow] placeCall threw", e);
+      callAttemptLeadIdRef.current = null;
+      wasInCallRef.current = false;
+      setOutcomePending(false);
+      setOutcomeRequired(false);
+      setCallDurationAtHangup(0);
       toast.error(e instanceof Error ? e.message : "Failed to start call");
     }
   };
