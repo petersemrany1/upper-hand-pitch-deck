@@ -3407,13 +3407,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
           ) : (
             <button
               onClick={() => void openPreview()}
-              disabled={sendingHandover || handoverSent}
+              disabled={sendingHandover}
               className="w-full rounded-[8px] flex items-center justify-between"
               style={{
                 background: handoverSent ? "#ecfdf5" : "#ffffff",
                 border: `0.5px solid ${handoverSent ? COLORS.green : COLORS.line}`,
                 padding: "16px 20px",
-                cursor: handoverSent ? "default" : sendingHandover ? "wait" : "pointer",
+                cursor: sendingHandover ? "wait" : "pointer",
                 opacity: sendingHandover ? 0.7 : 1,
               }}
             >
@@ -3422,14 +3422,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid }: { lead: 
                   {handoverSent ? "✓ Handover sent to clinic" : "Send handover to clinic"}
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
-                  Patient intel, funding, booking details → peter@gobold.com.au
+                  {handoverSent
+                    ? "Tap to review what was sent or resend with updates"
+                    : "Patient intel, funding, booking details → peter@gobold.com.au"}
                 </div>
               </div>
-              {!handoverSent && (
-                <div style={{ fontSize: 13, fontWeight: 500, color: COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
-                  {sendingHandover ? "Sending…" : "Send →"}
-                </div>
-              )}
+              <div style={{ fontSize: 13, fontWeight: 500, color: handoverSent ? COLORS.green : COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
+                {sendingHandover ? "Sending…" : handoverSent ? "View →" : "Send →"}
+              </div>
             </button>
           )}
 
