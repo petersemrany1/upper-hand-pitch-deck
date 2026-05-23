@@ -689,6 +689,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
           <button onClick={() => setSummaryMode("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
           <button onClick={() => setOutcome("noshow")} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
+          <button onClick={() => setRescheduleMode(true)} style={outcomeBtn("#2d5fa0", "#edf2f9")}>📅 Reschedule</button>
         </div>
       )}
 
