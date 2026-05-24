@@ -308,6 +308,36 @@ export const saveBooking = createServerFn({ method: "POST" })
         await supabaseAdmin.from("clinic_appointments").insert({ ...payload, intel_notes: null });
       }
     }
+
+    // Refresh any existing appointment_reminders row for this lead so a
+    // re-book after a "Reset booking" doesn't leave the reminder stuck on
+    // status='cancelled' (which would hide the patient from the
+    // Booked Appointments dashboard).
+    try {
+      const { data: existingReminder } = await supabaseAdmin
+        .from("appointment_reminders")
+        .select("id")
+        .eq("lead_id", data.leadId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (existingReminder && existingReminder.length > 0) {
+        await supabaseAdmin
+          .from("appointment_reminders")
+          .update({
+            status: "confirmed",
+            booking_date: data.date,
+            booking_time: data.time,
+            three_day_sms_sent: false,
+            three_day_sms_sent_at: null,
+            twentyfour_hour_sms_sent: false,
+            twentyfour_hour_sms_sent_at: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existingReminder[0].id);
+      }
+    } catch (e) {
+      console.error("[saveBooking] reminder refresh failed", e);
+    }
     return { success: true as const };
   });
 
