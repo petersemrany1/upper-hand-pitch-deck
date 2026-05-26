@@ -216,9 +216,15 @@ function LeadsPage() {
   };
   const duplicateCount = rows.filter(isDuplicate).length;
 
-  // Everyone (admins + reps) now sees every lead. Reps can assign/reassign too.
+  // Everyone (admins + reps) sees leads, but hide closed-out statuses from the sheet.
   void mySalesRepId;
-  const visibleRows = rows;
+  const HIDDEN_STATUSES = new Set([
+    "Not Interested",
+    "Dropped",
+    "Spoke — No Sale",
+    "Booked — Deposit Paid",
+  ]);
+  const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
 
 
   const filtered = visibleRows.filter((r) => {
