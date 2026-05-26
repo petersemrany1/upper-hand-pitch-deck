@@ -499,17 +499,15 @@ function LeadsPage() {
                             {(r.status ?? "").trim() || "New"}
                           </span>
                         </td>
-                        {isAdmin && (
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {r.rep_id ? (
-                              <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
-                                {repNameById(r.rep_id)}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-[#999]">Unassigned</span>
-                            )}
-                          </td>
-                        )}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {r.rep_id ? (
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
+                              {repNameById(r.rep_id)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[#999]">Unassigned</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
                             {r.email && (
