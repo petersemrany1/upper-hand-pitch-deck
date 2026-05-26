@@ -400,16 +400,14 @@ function LeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
-                    {isAdmin && (
-                      <th className="px-3 py-3 w-8">
-                        <input
-                          type="checkbox"
-                          checked={filtered.length > 0 && selected.size === filtered.length}
-                          onChange={toggleSelectAll}
-                          className="accent-[#f4522d] cursor-pointer"
-                        />
-                      </th>
-                    )}
+                    <th className="px-3 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && selected.size === filtered.length}
+                        onChange={toggleSelectAll}
+                        className="accent-[#f4522d] cursor-pointer"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3 font-medium">Received</th>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
