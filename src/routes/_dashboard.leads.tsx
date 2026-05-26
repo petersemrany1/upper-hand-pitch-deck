@@ -420,7 +420,7 @@ function LeadsPage() {
                 </thead>
                 <tbody>
                   {(() => {
-                    const colSpan = isAdmin ? 9 : 7;
+                    const colSpan = 9;
                     // Group filtered rows by status preserving DEFAULT_STATUSES order, then any extras.
                     const groups = new Map<string, Lead[]>();
                     for (const r of filtered) {
