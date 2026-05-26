@@ -261,7 +261,7 @@ function LeadsPage() {
     else setSelected(new Set(filtered.map((r) => r.id)));
   };
   const bulkAssign = async () => {
-    if (!isAdmin || selected.size === 0) return;
+    if (selected.size === 0) return;
     setAssigning(true);
     const ids = Array.from(selected);
     const newRepId = bulkRepId === "" ? null : bulkRepId;
