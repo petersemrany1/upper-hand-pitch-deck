@@ -226,12 +226,9 @@ function LeadsPage() {
   ]);
   const statusKeyOf = (s: string | null | undefined) =>
     (s ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  const visibleRows = (isAdmin
-    ? rows
-    : mySalesRepId
-      ? rows.filter((r) => r.rep_id === mySalesRepId)
-      : []
-  ).filter((r) => !HIDDEN_STATUSES.has(statusKeyOf(r.status)));
+  // Everyone (admins + reps) now sees every lead. Reps can assign/reassign too.
+  void mySalesRepId;
+  const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has(statusKeyOf(r.status)));
 
 
   const filtered = visibleRows.filter((r) => {
