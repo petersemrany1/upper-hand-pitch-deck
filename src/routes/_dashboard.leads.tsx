@@ -357,7 +357,7 @@ function LeadsPage() {
             />
           </div>
 
-          {isAdmin && selected.size > 0 && (
+          {selected.size > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#fff5f3] border border-[#f4522d]/30">
               <UserCheck className="h-4 w-4 text-[#f4522d]" />
               <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
