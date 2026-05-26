@@ -104,7 +104,7 @@ function saveCustomStatuses(list: string[]) {
 
 function LeadsPage() {
   const { user, role, ready } = useAuth();
-  const isAdmin = role === "admin";
+  void role;
   const [rows, setRows] = useState<Lead[]>([]);
   const [reps, setReps] = useState<RepOption[]>([]);
   const [loading, setLoading] = useState(true);
