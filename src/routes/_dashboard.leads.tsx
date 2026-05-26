@@ -216,19 +216,9 @@ function LeadsPage() {
   };
   const duplicateCount = rows.filter(isDuplicate).length;
 
-  // Hide "closed" leads from the lead sheet (booked, dropped, not interested, etc.).
-  // Reps additionally only see their own assigned leads.
-  const HIDDEN_STATUSES = new Set([
-    "not_interested",
-    "dropped",
-    "had_convo_no_sale",
-    "booked_deposit_paid",
-  ]);
-  const statusKeyOf = (s: string | null | undefined) =>
-    (s ?? "").trim().toLowerCase().replace(/\s+/g, "_");
   // Everyone (admins + reps) now sees every lead. Reps can assign/reassign too.
   void mySalesRepId;
-  const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has(statusKeyOf(r.status)));
+  const visibleRows = rows;
 
 
   const filtered = visibleRows.filter((r) => {
