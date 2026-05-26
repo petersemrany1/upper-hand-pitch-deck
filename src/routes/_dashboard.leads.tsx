@@ -341,7 +341,7 @@ function LeadsPage() {
           <p className="text-sm text-[#111111] mt-1">
             {loading
               ? "Loading…"
-              : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}${isAdmin ? "" : " assigned to you"}`}
+              : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
           </p>
         </div>
 
