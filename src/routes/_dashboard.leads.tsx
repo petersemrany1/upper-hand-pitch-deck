@@ -411,7 +411,7 @@ function LeadsPage() {
                     <th className="text-left px-4 py-3 font-medium">Received</th>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
-                    {isAdmin && <th className="text-left px-4 py-3 font-medium">Assigned</th>}
+                    <th className="text-left px-4 py-3 font-medium">Assigned</th>
                     <th className="text-left px-4 py-3 font-medium">Contact</th>
                     <th className="text-left px-4 py-3 font-medium">Funding</th>
                     <th className="text-left px-4 py-3 font-medium">Campaign / Ad Set / Ad</th>
