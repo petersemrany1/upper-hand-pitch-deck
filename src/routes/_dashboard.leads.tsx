@@ -104,7 +104,7 @@ function saveCustomStatuses(list: string[]) {
 
 function LeadsPage() {
   const { user, role, ready } = useAuth();
-  const isAdmin = role === "admin";
+  void role;
   const [rows, setRows] = useState<Lead[]>([]);
   const [reps, setReps] = useState<RepOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,12 +226,9 @@ function LeadsPage() {
   ]);
   const statusKeyOf = (s: string | null | undefined) =>
     (s ?? "").trim().toLowerCase().replace(/\s+/g, "_");
-  const visibleRows = (isAdmin
-    ? rows
-    : mySalesRepId
-      ? rows.filter((r) => r.rep_id === mySalesRepId)
-      : []
-  ).filter((r) => !HIDDEN_STATUSES.has(statusKeyOf(r.status)));
+  // Everyone (admins + reps) now sees every lead. Reps can assign/reassign too.
+  void mySalesRepId;
+  const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has(statusKeyOf(r.status)));
 
 
   const filtered = visibleRows.filter((r) => {
@@ -264,7 +261,7 @@ function LeadsPage() {
     else setSelected(new Set(filtered.map((r) => r.id)));
   };
   const bulkAssign = async () => {
-    if (!isAdmin || selected.size === 0) return;
+    if (selected.size === 0) return;
     setAssigning(true);
     const ids = Array.from(selected);
     const newRepId = bulkRepId === "" ? null : bulkRepId;
@@ -344,7 +341,7 @@ function LeadsPage() {
           <p className="text-sm text-[#111111] mt-1">
             {loading
               ? "Loading…"
-              : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}${isAdmin ? "" : " assigned to you"}`}
+              : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
           </p>
         </div>
 
@@ -360,7 +357,7 @@ function LeadsPage() {
             />
           </div>
 
-          {isAdmin && selected.size > 0 && (
+          {selected.size > 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#fff5f3] border border-[#f4522d]/30">
               <UserCheck className="h-4 w-4 text-[#f4522d]" />
               <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
@@ -403,20 +400,18 @@ function LeadsPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
-                    {isAdmin && (
-                      <th className="px-3 py-3 w-8">
-                        <input
-                          type="checkbox"
-                          checked={filtered.length > 0 && selected.size === filtered.length}
-                          onChange={toggleSelectAll}
-                          className="accent-[#f4522d] cursor-pointer"
-                        />
-                      </th>
-                    )}
+                    <th className="px-3 py-3 w-8">
+                      <input
+                        type="checkbox"
+                        checked={filtered.length > 0 && selected.size === filtered.length}
+                        onChange={toggleSelectAll}
+                        className="accent-[#f4522d] cursor-pointer"
+                      />
+                    </th>
                     <th className="text-left px-4 py-3 font-medium">Received</th>
                     <th className="text-left px-4 py-3 font-medium">Name</th>
                     <th className="text-left px-4 py-3 font-medium">Status</th>
-                    {isAdmin && <th className="text-left px-4 py-3 font-medium">Assigned</th>}
+                    <th className="text-left px-4 py-3 font-medium">Assigned</th>
                     <th className="text-left px-4 py-3 font-medium">Contact</th>
                     <th className="text-left px-4 py-3 font-medium">Funding</th>
                     <th className="text-left px-4 py-3 font-medium">Campaign / Ad Set / Ad</th>
@@ -425,7 +420,7 @@ function LeadsPage() {
                 </thead>
                 <tbody>
                   {(() => {
-                    const colSpan = isAdmin ? 9 : 7;
+                    const colSpan = 9;
                     // Group filtered rows by status preserving DEFAULT_STATUSES order, then any extras.
                     const groups = new Map<string, Lead[]>();
                     for (const r of filtered) {
@@ -473,16 +468,14 @@ function LeadsPage() {
                         className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
                         style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
                       >
-                        {isAdmin && (
-                          <td className="px-3 py-3 w-8">
-                            <input
-                              type="checkbox"
-                              checked={selected.has(r.id)}
-                              onChange={() => toggleSelect(r.id)}
-                              className="accent-[#f4522d] cursor-pointer"
-                            />
-                          </td>
-                        )}
+                        <td className="px-3 py-3 w-8">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.id)}
+                            onChange={() => toggleSelect(r.id)}
+                            className="accent-[#f4522d] cursor-pointer"
+                          />
+                        </td>
                         <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
                         <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
                           <div className="flex items-center gap-2">
@@ -506,17 +499,15 @@ function LeadsPage() {
                             {(r.status ?? "").trim() || "New"}
                           </span>
                         </td>
-                        {isAdmin && (
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {r.rep_id ? (
-                              <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
-                                {repNameById(r.rep_id)}
-                              </span>
-                            ) : (
-                              <span className="text-xs text-[#999]">Unassigned</span>
-                            )}
-                          </td>
-                        )}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {r.rep_id ? (
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
+                              {repNameById(r.rep_id)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[#999]">Unassigned</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-[#111111]">
                           <div className="flex flex-col gap-1">
                             {r.email && (
