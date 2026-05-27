@@ -119,6 +119,12 @@ const OUTCOME_MAP: Record<string, string[]> = {
   Call: CALL_OUTCOMES, Email: EMAIL_OUTCOMES, Loom: LOOM_OUTCOMES, Zoom: ZOOM_OUTCOMES,
 };
 
+// Friendlier display labels for outcome values (value stays the same in DB)
+const OUTCOME_LABELS: Record<string, string> = {
+  "Spoke — Call Me Back": "They want me to call them back another time",
+};
+const outcomeLabel = (o: string) => OUTCOME_LABELS[o] ?? o;
+
 // Map outcomes to pipeline stages
 const OUTCOME_TO_STAGE: Record<string, string> = {
   "No Answer": "Contacted — No Answer",
@@ -1343,7 +1349,7 @@ function ClinicsPage() {
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#111111", letterSpacing: "0.1em" }}>Outcome</label>
                 <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#111111" }}>
-                  {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{o}</option>)}
+                  {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{outcomeLabel(o)}</option>)}
                 </select>
               </div>
               <div>
