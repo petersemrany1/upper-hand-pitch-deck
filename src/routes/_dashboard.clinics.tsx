@@ -1349,7 +1349,7 @@ function ClinicsPage() {
               <div>
                 <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#111111", letterSpacing: "0.1em" }}>Outcome</label>
                 <select value={logOutcome} onChange={(e) => setLogOutcome(e.target.value)} className="w-full rounded px-2 py-1.5 text-xs border-0" style={{ background: "#f9f9f9", color: "#111111" }}>
-                  {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{o}</option>)}
+                  {(OUTCOME_MAP[logType] || CALL_OUTCOMES).map((o) => <option key={o} value={o}>{outcomeLabel(o)}</option>)}
                 </select>
               </div>
               <div>
