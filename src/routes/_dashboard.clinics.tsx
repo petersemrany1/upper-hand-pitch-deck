@@ -1003,11 +1003,20 @@ function ClinicsPage() {
                     const calledToday = calledTodayIds.has(c.id);
                     const phoneInvalid = !!c.phone && !isValidAUPhone(c.phone);
 
+                    const isChild = !!(c as Clinic & { __indent?: boolean }).__indent;
+                    const isParentRow = c.is_parent;
+                    const childCount = isParentRow ? (childrenByParent[c.id]?.length || 0) : 0;
                     return (
                       <div
                         key={c.id}
                         className="flex items-center hover:bg-white/[0.02] transition-colors relative"
-                        style={{ height: 44, borderBottom: "1px solid #111" }}
+                        style={{
+                          height: 44,
+                          borderBottom: "1px solid #111",
+                          paddingLeft: isChild ? 24 : 0,
+                          background: isChild ? "#fbfaf7" : undefined,
+                          borderLeft: isParentRow ? "3px solid #f4522d" : undefined,
+                        }}
                       >
                         {/* Today-called dot (fix #7) */}
                         {calledToday && (
@@ -1017,9 +1026,28 @@ function ClinicsPage() {
                             title="Called today"
                           />
                         )}
+                        {/* Expand/collapse caret for parent rows */}
+                        {isParentRow ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleParentExpanded(c.id); }}
+                            className="ml-1 mr-0.5 p-0.5 rounded hover:bg-[#f0ede5]"
+                            title={isParentExpanded(c.id) ? "Collapse branches" : "Expand branches"}
+                          >
+                            {isParentExpanded(c.id)
+                              ? <ChevronDown className="w-3 h-3" style={{ color: "#f4522d" }} />
+                              : <ChevronRight className="w-3 h-3" style={{ color: "#f4522d" }} />}
+                          </button>
+                        ) : (
+                          <span className="w-4 shrink-0" />
+                        )}
                         {/* Clinic Name */}
-                        <div className="w-[180px] shrink-0 px-3 truncate">
-                          <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
+                        <div className="w-[180px] shrink-0 px-2 truncate">
+                          <button onClick={() => openDetail(c)} className={`text-left hover:underline truncate block text-xs ${isParentRow ? "font-extrabold" : "font-semibold"}`} style={{ color: "#111111" }}>
+                            {c.clinic_name}
+                            {isParentRow && childCount > 0 && (
+                              <span className="ml-1 text-[10px] font-normal" style={{ color: "#9a9a9a" }}>({childCount})</span>
+                            )}
+                          </button>
                         </div>
                         {/* City */}
                         <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>{c.city || "—"}</div>
