@@ -726,8 +726,10 @@ function ClinicsPage() {
       email: newEmail || null,
       website: newWebsite || null,
       status: "Not Started",
+      parent_clinic_id: addBranchParent?.id ?? null,
     });
     setShowAddModal(false);
+    setAddBranchParent(null);
     setNewName(""); setNewState(""); setNewCity(""); setNewPhone(""); setNewEmail(""); setNewWebsite("");
     loadClinics();
   };
