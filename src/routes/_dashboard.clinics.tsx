@@ -1129,7 +1129,7 @@ function ClinicsPage() {
                           <span className="w-4 shrink-0" />
                         )}
                         {/* Clinic Name */}
-                        <div className="w-[180px] shrink-0 px-2 truncate">
+                        <div className="shrink-0 px-2 truncate" style={{ width: colWidths.name }}>
                           <button onClick={() => openDetail(c)} className={`text-left hover:underline truncate block text-xs ${isParentRow ? "font-extrabold" : "font-semibold"}`} style={{ color: "#111111" }}>
                             {c.clinic_name}
                             {isParentRow && childCount > 0 && (
@@ -1138,9 +1138,9 @@ function ClinicsPage() {
                           </button>
                         </div>
                         {/* City */}
-                        <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>{c.city || "—"}</div>
+                        <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.city, color: "#111111" }}>{c.city || "—"}</div>
                         {/* Phone */}
-                        <div className="w-[140px] shrink-0 px-2">
+                        <div className="shrink-0 px-2" style={{ width: colWidths.phone }}>
                           {c.phone ? (
                             <div className="flex items-center gap-1">
                               <button
@@ -1167,11 +1167,11 @@ function ClinicsPage() {
                           ) : <span style={{ color: "#111111" }} className="text-[11px]">—</span>}
                         </div>
                         {/* Latest Note */}
-                        <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: notePreview ? "#111111" : "#111111" }}>
+                        <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.note, color: notePreview ? "#111111" : "#111111" }} title={lastCt?.notes || lastCt?.outcome || ""}>
                           {notePreview || "—"}
                         </div>
                         {/* Stage */}
-                        <div className="w-[130px] shrink-0 px-2">
+                        <div className="shrink-0 px-2" style={{ width: colWidths.stage }}>
                           <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>
                             {c.status === "Not Started" ? "Not Started" : c.status.replace("Contacted — ", "")}
                           </span>
@@ -1181,7 +1181,7 @@ function ClinicsPage() {
                           {nextAction.text}
                         </div>
                         {/* Actions */}
-                        <div className="w-[70px] shrink-0 px-2 flex items-center gap-0.5">
+                        <div className="shrink-0 px-2 flex items-center gap-0.5" style={{ width: colWidths.actions }}>
                           {c.phone && !phoneInvalid && (
                             <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#f9f9f9]" title="Call">
                               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
