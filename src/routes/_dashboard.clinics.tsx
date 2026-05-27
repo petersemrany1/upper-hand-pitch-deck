@@ -252,6 +252,49 @@ function ClinicsPage() {
     return init;
   });
 
+  // Resizable column widths (persisted)
+  type ColKey = "name" | "city" | "phone" | "note" | "stage" | "actions";
+  const DEFAULT_COL_WIDTHS: Record<ColKey, number> = {
+    name: 180, city: 90, phone: 140, note: 200, stage: 130, actions: 70,
+  };
+  const COL_MIN: Record<ColKey, number> = {
+    name: 100, city: 60, phone: 90, note: 100, stage: 90, actions: 50,
+  };
+  const [colWidths, setColWidths] = useState<Record<ColKey, number>>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem("clinics.colWidths.v1") : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        return { ...DEFAULT_COL_WIDTHS, ...parsed };
+      }
+    } catch { /* noop */ }
+    return DEFAULT_COL_WIDTHS;
+  });
+  useEffect(() => {
+    try { localStorage.setItem("clinics.colWidths.v1", JSON.stringify(colWidths)); } catch { /* noop */ }
+  }, [colWidths]);
+  const startResize = (key: ColKey) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startW = colWidths[key];
+    const min = COL_MIN[key];
+    const onMove = (ev: MouseEvent) => {
+      const next = Math.max(min, Math.round(startW + (ev.clientX - startX)));
+      setColWidths((prev) => (prev[key] === next ? prev : { ...prev, [key]: next }));
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
   // Detail panel
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
   const [contacts, setContacts] = useState<ClinicContact[]>([]);
