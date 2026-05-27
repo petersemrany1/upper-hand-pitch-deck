@@ -1229,17 +1229,17 @@ function ClinicsPage() {
                       className="flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
                       style={{ height: 44, borderBottom: "1px solid #111" }}
                     >
-                      <div className="w-[180px] shrink-0 px-3 truncate">
+                      <div className="shrink-0 px-3 truncate" style={{ width: colWidths.name }}>
                         <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
                       </div>
-                      <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>{c.city || "—"}</div>
-                      <div className="w-[140px] shrink-0 px-2 text-[11px]" style={{ color: "#111111" }}>{c.phone || "—"}</div>
-                      <div className="w-[200px] shrink-0 px-2 truncate text-[11px]" title={lastCt?.notes || lastCt?.outcome || ""} style={{ color: "#111111" }}>{notePreview || "—"}</div>
-                      <div className="w-[130px] shrink-0 px-2">
+                      <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.city, color: "#111111" }}>{c.city || "—"}</div>
+                      <div className="shrink-0 px-2 text-[11px]" style={{ width: colWidths.phone, color: "#111111" }}>{c.phone || "—"}</div>
+                      <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.note, color: "#111111" }} title={lastCt?.notes || lastCt?.outcome || ""}>{notePreview || "—"}</div>
+                      <div className="shrink-0 px-2" style={{ width: colWidths.stage }}>
                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
                       </div>
                       <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>—</div>
-                      <div className="w-[70px] shrink-0 px-2" />
+                      <div className="shrink-0 px-2" style={{ width: colWidths.actions }} />
                     </div>
                   );
                 })}
