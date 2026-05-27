@@ -228,12 +228,10 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   return { text: "—", overdue: false };
 }
 
-// Truncate latest activity note for inline table preview
-function truncateNote(text: string | null | undefined, max = 40): string {
+// Keep latest activity note as one line and let the column width control truncation
+function truncateNote(text: string | null | undefined): string {
   if (!text) return "";
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  if (oneLine.length <= max) return oneLine;
-  return oneLine.slice(0, max - 1) + "…";
+  return text.replace(/\s+/g, " ").trim();
 }
 
 function ClinicsPage() {
