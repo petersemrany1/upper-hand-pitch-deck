@@ -279,6 +279,24 @@ function ClinicsPage() {
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
+  const [addBranchParent, setAddBranchParent] = useState<Clinic | null>(null);
+
+  // Expand/collapse state for parent clinic rows (persisted per session)
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.sessionStorage.getItem("clinics:expandedParents");
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  const toggleParentExpanded = (id: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { window.sessionStorage.setItem("clinics:expandedParents", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   // Bulk CSV
   const [importing, setImporting] = useState(false);
