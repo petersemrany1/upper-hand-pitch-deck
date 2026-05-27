@@ -825,14 +825,31 @@ function ClinicsPage() {
     }
   }, [deviceStatus, callingId]);
 
-  // Filtering
-  const filtered = clinics.filter((c) => {
-    const q = search.toLowerCase();
+  // Filtering — a row passes if it matches itself, OR (it's a parent and one of its children matches)
+  const q = search.toLowerCase();
+  const rowMatchesSelf = (c: Clinic) => {
     const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
     const matchState = !filterState || c.state === filterState;
     const matchStatus = !filterStatus || c.status === filterStatus;
     return matchSearch && matchState && matchStatus;
+  };
+  const childrenByParent: Record<string, Clinic[]> = {};
+  for (const c of clinics) {
+    if (c.parent_clinic_id) (childrenByParent[c.parent_clinic_id] ||= []).push(c);
+  }
+  const filtered = clinics.filter((c) => {
+    if (rowMatchesSelf(c)) return true;
+    if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
+    return false;
   });
+  // Auto-expand parents when a child matches search/filter
+  const autoExpandedParents = new Set<string>();
+  if (q || filterState || filterStatus) {
+    for (const c of clinics) {
+      if (c.parent_clinic_id && rowMatchesSelf(c)) autoExpandedParents.add(c.parent_clinic_id);
+    }
+  }
+  const isParentExpanded = (id: string) => expandedParents.has(id) || autoExpandedParents.has(id);
 
   // Split active vs not-applicable, then group active by state
   const activeFiltered = filtered.filter((c) => !NOT_APPLICABLE_STAGES.has(c.status));
@@ -843,8 +860,31 @@ function ClinicsPage() {
     if (!grouped[st]) grouped[st] = [];
     grouped[st].push(c);
   }
+  // Within each state: top-level rows = those without a parent in the same filtered set;
+  // children render under their parent when expanded.
+  const filteredIds = new Set(activeFiltered.map((c) => c.id));
+  for (const st of Object.keys(grouped)) {
+    const all = grouped[st];
+    const topLevel = all.filter((c) => !c.parent_clinic_id || !filteredIds.has(c.parent_clinic_id));
+    const childrenInState: Record<string, Clinic[]> = {};
+    for (const c of all) {
+      if (c.parent_clinic_id && filteredIds.has(c.parent_clinic_id)) {
+        (childrenInState[c.parent_clinic_id] ||= []).push(c);
+      }
+    }
+    // flatten: parent followed by its expanded children
+    const out: Array<Clinic & { __indent?: boolean }> = [];
+    for (const c of topLevel) {
+      out.push(c);
+      if (c.is_parent && isParentExpanded(c.id)) {
+        for (const ch of childrenInState[c.id] || []) out.push({ ...ch, __indent: true });
+      }
+    }
+    grouped[st] = out;
+  }
   const stateOrder = [...STATES, "Unknown"];
   const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
+  const [naCollapsed, setNaCollapsed] = [collapsedStates["__NA__"] !== false, (v: boolean) => setCollapsedStates((p) => ({ ...p, __NA__: !v }))];
   const [naCollapsed, setNaCollapsed] = [collapsedStates["__NA__"] !== false, (v: boolean) => setCollapsedStates((p) => ({ ...p, __NA__: !v }))];
 
   const toggleState = (state: string) => {
