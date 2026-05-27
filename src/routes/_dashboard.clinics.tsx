@@ -50,6 +50,8 @@ type Clinic = {
   notes: string | null;
   created_at: string;
   reminder_sent: boolean;
+  parent_clinic_id: string | null;
+  is_parent: boolean;
 };
 
 type ClinicContact = {
