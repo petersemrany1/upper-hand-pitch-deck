@@ -1027,6 +1027,45 @@ function ClinicsPage() {
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto">
+        {/* Column header with resize handles */}
+        <div
+          className="flex items-center sticky top-0 z-10"
+          style={{ background: "#f4f3ee", borderBottom: "1px solid #111", height: 28 }}
+        >
+          <span className="w-4 shrink-0" />
+          {([
+            ["name", "CLINIC"],
+            ["city", "CITY"],
+            ["phone", "PHONE"],
+            ["note", "LATEST NOTE"],
+            ["stage", "STAGE"],
+          ] as Array<[ColKey, string]>).map(([key, label]) => (
+            <div
+              key={key}
+              className="shrink-0 px-2 relative h-full flex items-center"
+              style={{ width: colWidths[key] }}
+            >
+              <span className="text-[9px] font-bold uppercase truncate" style={{ color: "#111111", letterSpacing: "0.1em" }}>{label}</span>
+              <div
+                onMouseDown={startResize(key)}
+                className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-[#f4522d]/40"
+                title="Drag to resize"
+              />
+            </div>
+          ))}
+          <div className="flex-1 min-w-0 px-2 h-full flex items-center">
+            <span className="text-[9px] font-bold uppercase truncate" style={{ color: "#111111", letterSpacing: "0.1em" }}>NEXT ACTION</span>
+          </div>
+          <div className="shrink-0 px-2 h-full flex items-center relative" style={{ width: colWidths.actions }}>
+            <span className="text-[9px] font-bold uppercase truncate" style={{ color: "#111111", letterSpacing: "0.1em" }}>ACTIONS</span>
+            <div
+              onMouseDown={startResize("actions")}
+              className="absolute left-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-[#f4522d]/40"
+              title="Drag to resize"
+            />
+          </div>
+        </div>
+
         {sortedStates.map((state) => {
           const isCollapsed = collapsedStates[state] !== false;
           const stateClinics = grouped[state];
