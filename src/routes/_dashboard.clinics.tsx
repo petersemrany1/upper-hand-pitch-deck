@@ -1048,9 +1048,11 @@ function ClinicsPage() {
               <span className="text-[9px] font-bold uppercase truncate" style={{ color: "#111111", letterSpacing: "0.1em" }}>{label}</span>
               <div
                 onMouseDown={startResize(key)}
-                className="absolute right-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-[#f4522d]/40"
+                className="absolute -right-1 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center z-20"
                 title="Drag to resize"
-              />
+              >
+                <span className="block h-3 w-px bg-[#c9c5b8] group-hover:bg-[#f4522d] group-hover:w-0.5" />
+              </div>
             </div>
           ))}
           <div className="flex-1 min-w-0 px-2 h-full flex items-center">
@@ -1060,9 +1062,11 @@ function ClinicsPage() {
             <span className="text-[9px] font-bold uppercase truncate" style={{ color: "#111111", letterSpacing: "0.1em" }}>ACTIONS</span>
             <div
               onMouseDown={startResize("actions")}
-              className="absolute left-0 top-0 h-full w-1.5 cursor-col-resize hover:bg-[#f4522d]/40"
+              className="absolute -left-1 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center z-20"
               title="Drag to resize"
-            />
+            >
+              <span className="block h-3 w-px bg-[#c9c5b8] group-hover:bg-[#f4522d] group-hover:w-0.5" />
+            </div>
           </div>
         </div>
 
