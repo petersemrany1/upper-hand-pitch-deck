@@ -119,6 +119,12 @@ const OUTCOME_MAP: Record<string, string[]> = {
   Call: CALL_OUTCOMES, Email: EMAIL_OUTCOMES, Loom: LOOM_OUTCOMES, Zoom: ZOOM_OUTCOMES,
 };
 
+// Friendlier display labels for outcome values (value stays the same in DB)
+const OUTCOME_LABELS: Record<string, string> = {
+  "Spoke — Call Me Back": "They want me to call them back another time",
+};
+const outcomeLabel = (o: string) => OUTCOME_LABELS[o] ?? o;
+
 // Map outcomes to pipeline stages
 const OUTCOME_TO_STAGE: Record<string, string> = {
   "No Answer": "Contacted — No Answer",
