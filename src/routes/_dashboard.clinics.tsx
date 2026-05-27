@@ -885,7 +885,6 @@ function ClinicsPage() {
   const stateOrder = [...STATES, "Unknown"];
   const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
   const [naCollapsed, setNaCollapsed] = [collapsedStates["__NA__"] !== false, (v: boolean) => setCollapsedStates((p) => ({ ...p, __NA__: !v }))];
-  const [naCollapsed, setNaCollapsed] = [collapsedStates["__NA__"] !== false, (v: boolean) => setCollapsedStates((p) => ({ ...p, __NA__: !v }))];
 
   const toggleState = (state: string) => {
     setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
