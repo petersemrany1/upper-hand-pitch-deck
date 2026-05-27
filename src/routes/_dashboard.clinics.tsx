@@ -50,6 +50,8 @@ type Clinic = {
   notes: string | null;
   created_at: string;
   reminder_sent: boolean;
+  parent_clinic_id: string | null;
+  is_parent: boolean;
 };
 
 type ClinicContact = {
@@ -277,6 +279,24 @@ function ClinicsPage() {
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newWebsite, setNewWebsite] = useState("");
+  const [addBranchParent, setAddBranchParent] = useState<Clinic | null>(null);
+
+  // Expand/collapse state for parent clinic rows (persisted per session)
+  const [expandedParents, setExpandedParents] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.sessionStorage.getItem("clinics:expandedParents");
+      return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+    } catch { return new Set(); }
+  });
+  const toggleParentExpanded = (id: string) => {
+    setExpandedParents((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      try { window.sessionStorage.setItem("clinics:expandedParents", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   // Bulk CSV
   const [importing, setImporting] = useState(false);
@@ -706,8 +726,10 @@ function ClinicsPage() {
       email: newEmail || null,
       website: newWebsite || null,
       status: "Not Started",
+      parent_clinic_id: addBranchParent?.id ?? null,
     });
     setShowAddModal(false);
+    setAddBranchParent(null);
     setNewName(""); setNewState(""); setNewCity(""); setNewPhone(""); setNewEmail(""); setNewWebsite("");
     loadClinics();
   };
@@ -803,14 +825,31 @@ function ClinicsPage() {
     }
   }, [deviceStatus, callingId]);
 
-  // Filtering
-  const filtered = clinics.filter((c) => {
-    const q = search.toLowerCase();
+  // Filtering — a row passes if it matches itself, OR (it's a parent and one of its children matches)
+  const q = search.toLowerCase();
+  const rowMatchesSelf = (c: Clinic) => {
     const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
     const matchState = !filterState || c.state === filterState;
     const matchStatus = !filterStatus || c.status === filterStatus;
     return matchSearch && matchState && matchStatus;
+  };
+  const childrenByParent: Record<string, Clinic[]> = {};
+  for (const c of clinics) {
+    if (c.parent_clinic_id) (childrenByParent[c.parent_clinic_id] ||= []).push(c);
+  }
+  const filtered = clinics.filter((c) => {
+    if (rowMatchesSelf(c)) return true;
+    if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
+    return false;
   });
+  // Auto-expand parents when a child matches search/filter
+  const autoExpandedParents = new Set<string>();
+  if (q || filterState || filterStatus) {
+    for (const c of clinics) {
+      if (c.parent_clinic_id && rowMatchesSelf(c)) autoExpandedParents.add(c.parent_clinic_id);
+    }
+  }
+  const isParentExpanded = (id: string) => expandedParents.has(id) || autoExpandedParents.has(id);
 
   // Split active vs not-applicable, then group active by state
   const activeFiltered = filtered.filter((c) => !NOT_APPLICABLE_STAGES.has(c.status));
@@ -820,6 +859,28 @@ function ClinicsPage() {
     const st = c.state || "Unknown";
     if (!grouped[st]) grouped[st] = [];
     grouped[st].push(c);
+  }
+  // Within each state: top-level rows = those without a parent in the same filtered set;
+  // children render under their parent when expanded.
+  const filteredIds = new Set(activeFiltered.map((c) => c.id));
+  for (const st of Object.keys(grouped)) {
+    const all = grouped[st];
+    const topLevel = all.filter((c) => !c.parent_clinic_id || !filteredIds.has(c.parent_clinic_id));
+    const childrenInState: Record<string, Clinic[]> = {};
+    for (const c of all) {
+      if (c.parent_clinic_id && filteredIds.has(c.parent_clinic_id)) {
+        (childrenInState[c.parent_clinic_id] ||= []).push(c);
+      }
+    }
+    // flatten: parent followed by its expanded children
+    const out: Array<Clinic & { __indent?: boolean }> = [];
+    for (const c of topLevel) {
+      out.push(c);
+      if (c.is_parent && isParentExpanded(c.id)) {
+        for (const ch of childrenInState[c.id] || []) out.push({ ...ch, __indent: true });
+      }
+    }
+    grouped[st] = out;
   }
   const stateOrder = [...STATES, "Unknown"];
   const sortedStates = stateOrder.filter((s) => grouped[s]?.length);
@@ -942,11 +1003,20 @@ function ClinicsPage() {
                     const calledToday = calledTodayIds.has(c.id);
                     const phoneInvalid = !!c.phone && !isValidAUPhone(c.phone);
 
+                    const isChild = !!(c as Clinic & { __indent?: boolean }).__indent;
+                    const isParentRow = c.is_parent;
+                    const childCount = isParentRow ? (childrenByParent[c.id]?.length || 0) : 0;
                     return (
                       <div
                         key={c.id}
                         className="flex items-center hover:bg-white/[0.02] transition-colors relative"
-                        style={{ height: 44, borderBottom: "1px solid #111" }}
+                        style={{
+                          height: 44,
+                          borderBottom: "1px solid #111",
+                          paddingLeft: isChild ? 24 : 0,
+                          background: isChild ? "#fbfaf7" : undefined,
+                          borderLeft: isParentRow ? "3px solid #f4522d" : undefined,
+                        }}
                       >
                         {/* Today-called dot (fix #7) */}
                         {calledToday && (
@@ -956,9 +1026,28 @@ function ClinicsPage() {
                             title="Called today"
                           />
                         )}
+                        {/* Expand/collapse caret for parent rows */}
+                        {isParentRow ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleParentExpanded(c.id); }}
+                            className="ml-1 mr-0.5 p-0.5 rounded hover:bg-[#f0ede5]"
+                            title={isParentExpanded(c.id) ? "Collapse branches" : "Expand branches"}
+                          >
+                            {isParentExpanded(c.id)
+                              ? <ChevronDown className="w-3 h-3" style={{ color: "#f4522d" }} />
+                              : <ChevronRight className="w-3 h-3" style={{ color: "#f4522d" }} />}
+                          </button>
+                        ) : (
+                          <span className="w-4 shrink-0" />
+                        )}
                         {/* Clinic Name */}
-                        <div className="w-[180px] shrink-0 px-3 truncate">
-                          <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
+                        <div className="w-[180px] shrink-0 px-2 truncate">
+                          <button onClick={() => openDetail(c)} className={`text-left hover:underline truncate block text-xs ${isParentRow ? "font-extrabold" : "font-semibold"}`} style={{ color: "#111111" }}>
+                            {c.clinic_name}
+                            {isParentRow && childCount > 0 && (
+                              <span className="ml-1 text-[10px] font-normal" style={{ color: "#9a9a9a" }}>({childCount})</span>
+                            )}
+                          </button>
                         </div>
                         {/* City */}
                         <div className="w-[90px] shrink-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>{c.city || "—"}</div>
