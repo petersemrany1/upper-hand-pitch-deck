@@ -508,9 +508,11 @@ export type Database = {
           doctor_name: string | null
           email: string | null
           id: string
+          is_parent: boolean
           next_follow_up: string | null
           notes: string | null
           owner_name: string | null
+          parent_clinic_id: string | null
           phone: string | null
           priority: string
           reminder_sent: boolean
@@ -532,9 +534,11 @@ export type Database = {
           doctor_name?: string | null
           email?: string | null
           id?: string
+          is_parent?: boolean
           next_follow_up?: string | null
           notes?: string | null
           owner_name?: string | null
+          parent_clinic_id?: string | null
           phone?: string | null
           priority?: string
           reminder_sent?: boolean
@@ -556,9 +560,11 @@ export type Database = {
           doctor_name?: string | null
           email?: string | null
           id?: string
+          is_parent?: boolean
           next_follow_up?: string | null
           notes?: string | null
           owner_name?: string | null
+          parent_clinic_id?: string | null
           phone?: string | null
           priority?: string
           reminder_sent?: boolean
@@ -567,7 +573,15 @@ export type Database = {
           updated_at?: string
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clinics_parent_clinic_id_fkey"
+            columns: ["parent_clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contract_logs: {
         Row: {
