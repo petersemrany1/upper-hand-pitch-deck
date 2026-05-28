@@ -1101,16 +1101,28 @@ function ClinicsPage() {
                     const childCount = isParentRow ? (childrenByParent[c.id]?.length || 0) : 0;
                     const isNotInterested = c.status === "Contacted — Not Interested";
                     const isZoomSet = c.status === "Zoom Set";
+                    const callbackStatuses = new Set([
+                      "Call Back — Specific Time",
+                      "Contacted — Call Me Back",
+                      "Contacted — No Answer",
+                      "Contacted — Left Voicemail",
+                      "Contacted — Gatekeeper",
+                    ]);
+                    const needsCallback = callbackStatuses.has(c.status);
+                    const fullLastNote = (lastCt?.notes || lastCt?.outcome || "").trim();
+                    const showCallbackDetail = needsCallback && !!fullLastNote;
                     const rowBg = isChild
                       ? "#fbfaf7"
                       : isNotInterested
                         ? "#fde2e2"
                         : isZoomSet
                           ? "#dcfce7"
-                          : undefined;
+                          : showCallbackDetail
+                            ? "#fff7ed"
+                            : undefined;
                     return (
+                      <div key={c.id}>
                       <div
-                        key={c.id}
                         className="flex items-center hover:bg-white/[0.02] transition-colors relative"
                         style={{
                           height: 44,
@@ -1210,6 +1222,42 @@ function ClinicsPage() {
                             <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
                           </button>
                         </div>
+                      </div>
+                      {showCallbackDetail && (
+                        <div
+                          className="px-4 py-2 text-[11px] leading-relaxed"
+                          style={{
+                            background: "#fff7ed",
+                            borderBottom: "1px solid #111",
+                            color: "#111111",
+                            paddingLeft: isChild ? 40 : 16,
+                          }}
+                        >
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#f4522d" }}>
+                              Last convo {lastCt?.created_at ? `· ${formatDateTime(lastCt.created_at)} (${relativeTime(lastCt.created_at)})` : ""}
+                            </span>
+                            {lastCt?.contact_type && (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "#fed7aa", color: "#9a3412" }}>
+                                {lastCt.contact_type}
+                              </span>
+                            )}
+                            {lastCt?.outcome && (
+                              <span className="text-[9px]" style={{ color: "#6b6b6b" }}>{lastCt.outcome}</span>
+                            )}
+                            {lastCt?.duration && (
+                              <span className="text-[9px]" style={{ color: "#6b6b6b" }}>· {lastCt.duration}</span>
+                            )}
+                          </div>
+                          <div style={{ whiteSpace: "pre-wrap", color: "#111111" }}>{fullLastNote}</div>
+                          {lastCt?.next_action && (
+                            <div className="mt-1 text-[10px]" style={{ color: "#9a3412" }}>
+                              <span className="font-semibold">Next: </span>{lastCt.next_action}
+                              {lastCt.next_action_date ? ` — ${lastCt.next_action_date}${lastCt.next_action_time ? ` ${lastCt.next_action_time}` : ""}` : ""}
+                            </div>
+                          )}
+                        </div>
+                      )}
                       </div>
                     );
                   })}
