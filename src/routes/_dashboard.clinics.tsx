@@ -1124,8 +1124,9 @@ function ClinicsPage() {
                             : undefined;
                     return (
                       <div key={c.id}>
+                      {/* Desktop row */}
                       <div
-                        className="flex items-center hover:bg-white/[0.02] transition-colors relative"
+                        className="hidden md:flex items-center hover:bg-white/[0.02] transition-colors relative"
                         style={{
                           height: 44,
                           borderBottom: "1px solid #111",
@@ -1225,9 +1226,118 @@ function ClinicsPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Mobile card */}
+                      <div
+                        className="md:hidden relative"
+                        style={{
+                          borderBottom: "1px solid #e5e5e5",
+                          paddingLeft: isChild ? 16 : 0,
+                          background: rowBg,
+                          borderLeft: isParentRow ? "3px solid #f4522d" : undefined,
+                        }}
+                      >
+                        {calledToday && (
+                          <span
+                            className="absolute left-1 top-3 w-1.5 h-1.5 rounded-full"
+                            style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)" }}
+                            title="Called today"
+                          />
+                        )}
+                        <div className="px-3 py-3">
+                          <div className="flex items-start gap-2 mb-1.5">
+                            {isParentRow && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleParentExpanded(c.id); }}
+                                className="mt-0.5 p-0.5 rounded hover:bg-[#f0ede5] shrink-0"
+                                aria-label={isParentExpanded(c.id) ? "Collapse" : "Expand"}
+                              >
+                                {isParentExpanded(c.id)
+                                  ? <ChevronDown className="w-4 h-4" style={{ color: "#f4522d" }} />
+                                  : <ChevronRight className="w-4 h-4" style={{ color: "#f4522d" }} />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openDetail(c)}
+                              className={`flex-1 min-w-0 text-left ${isParentRow ? "font-extrabold" : "font-semibold"}`}
+                              style={{ color: "#111111" }}
+                            >
+                              <div className="text-sm leading-tight break-words">
+                                {c.clinic_name}
+                                {isParentRow && childCount > 0 && (
+                                  <span className="ml-1 text-[11px] font-normal" style={{ color: "#9a9a9a" }}>({childCount})</span>
+                                )}
+                              </div>
+                              {c.city && (
+                                <div className="text-[11px] mt-0.5" style={{ color: "#6b6b6b" }}>{c.city}</div>
+                              )}
+                            </button>
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap shrink-0" style={{ background: sc.bg, color: sc.text }}>
+                              {c.status === "Not Started" ? "Not Started" : c.status.replace("Contacted — ", "")}
+                            </span>
+                          </div>
+
+                          {notePreview && (
+                            <div className="text-[11px] mb-1.5 line-clamp-2" style={{ color: "#444" }}>
+                              {notePreview}
+                            </div>
+                          )}
+
+                          {nextAction.text !== "—" && (
+                            <div className="text-[11px] mb-2 truncate" style={{ color: nextAction.overdue ? "#ef4444" : "#6b6b6b" }}>
+                              {nextAction.text}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {c.phone && !phoneInvalid && (
+                              <button
+                                onClick={() => handleCall(c)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                                style={{ background: "#dcfce7", color: "#166534" }}
+                              >
+                                {callingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
+                                Call
+                              </button>
+                            )}
+                            {c.phone && phoneInvalid && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full uppercase"
+                                style={{ background: "#fef2f2", color: "#f87171" }}
+                              >
+                                <AlertCircle className="w-3 h-3" /> Bad number
+                              </span>
+                            )}
+                            {c.email && (
+                              <a
+                                href={`mailto:${c.email}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                                style={{ background: "#dbeafe", color: "#1e40af" }}
+                              >
+                                <Mail className="w-3.5 h-3.5" /> Email
+                              </a>
+                            )}
+                            <button
+                              onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                              style={{ background: "#f3e8ff", color: "#6b21a8" }}
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" /> Log
+                            </button>
+                            <button
+                              onClick={() => openDetail(c)}
+                              className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                              style={{ background: "#111", color: "#fff" }}
+                            >
+                              Open
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
                       {showCallbackDetail && (
                         <div
-                          className="px-4 py-2 text-[11px] leading-relaxed"
+                          className="px-3 md:px-4 py-2 text-[11px] leading-relaxed"
                           style={{
                             background: "#fff7ed",
                             borderBottom: "1px solid #111",
@@ -1235,7 +1345,7 @@ function ClinicsPage() {
                             paddingLeft: isChild ? 40 : 16,
                           }}
                         >
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#f4522d" }}>
                               Last convo {lastCt?.created_at ? `· ${formatDateTime(lastCt.created_at)} (${relativeTime(lastCt.created_at)})` : ""}
                             </span>
