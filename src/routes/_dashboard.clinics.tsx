@@ -991,39 +991,41 @@ function ClinicsPage() {
       )}
 
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
+        <div className="relative w-full md:flex-1 md:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#111111" }} />
           <Input
             placeholder="Search clinics..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 border-0 text-sm"
+            className="pl-9 border-0 text-sm w-full"
             style={{ background: "#f9f9f9", color: "#111111", height: 36 }}
           />
         </div>
-        <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
-        <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
-        <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
-          <Plus className="w-3 h-3 mr-1" /> Add Clinic
-        </Button>
-        <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
-        <Button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={importing}
-          size="sm"
-          variant="ghost"
-          className="text-xs h-9 w-9 p-0"
-          style={{ color: "#111111" }}
-          title={importing ? "Importing..." : "Bulk Upload CSV"}
-          aria-label="Bulk Upload CSV"
-        >
-          {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        </Button>
-        <CallReviewInbox />
-        <span className="text-xs ml-auto" style={{ color: "#111111" }}>
-          {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
+          <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
+          <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
+            <Plus className="w-3 h-3 mr-1" /> Add
+          </Button>
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            size="sm"
+            variant="ghost"
+            className="text-xs h-9 w-9 p-0"
+            style={{ color: "#111111" }}
+            title={importing ? "Importing..." : "Bulk Upload CSV"}
+            aria-label="Bulk Upload CSV"
+          >
+            {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          </Button>
+          <CallReviewInbox />
+          <span className="text-xs ml-auto" style={{ color: "#111111" }}>
+            {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
+          </span>
+        </div>
       </div>
 
       {/* Table */}
