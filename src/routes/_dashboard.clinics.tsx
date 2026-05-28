@@ -884,7 +884,10 @@ function ClinicsPage() {
   for (const c of clinics) {
     if (c.parent_clinic_id) (childrenByParent[c.parent_clinic_id] ||= []).push(c);
   }
+  // Hide Signed clinics from the CRM list unless the user explicitly filters by Signed
+  const hideSigned = filterStatus !== "Signed";
   const filtered = clinics.filter((c) => {
+    if (hideSigned && c.status === "Signed") return false;
     if (rowMatchesSelf(c)) return true;
     if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
     return false;
