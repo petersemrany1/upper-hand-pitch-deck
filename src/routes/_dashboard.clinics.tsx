@@ -1099,6 +1099,15 @@ function ClinicsPage() {
                     const isChild = !!(c as Clinic & { __indent?: boolean }).__indent;
                     const isParentRow = c.is_parent;
                     const childCount = isParentRow ? (childrenByParent[c.id]?.length || 0) : 0;
+                    const isNotInterested = c.status === "Contacted — Not Interested";
+                    const isZoomSet = c.status === "Zoom Set";
+                    const rowBg = isChild
+                      ? "#fbfaf7"
+                      : isNotInterested
+                        ? "#fde2e2"
+                        : isZoomSet
+                          ? "#dcfce7"
+                          : undefined;
                     return (
                       <div
                         key={c.id}
@@ -1107,7 +1116,7 @@ function ClinicsPage() {
                           height: 44,
                           borderBottom: "1px solid #111",
                           paddingLeft: isChild ? 24 : 0,
-                          background: isChild ? "#fbfaf7" : undefined,
+                          background: rowBg,
                           borderLeft: isParentRow ? "3px solid #f4522d" : undefined,
                         }}
                       >
