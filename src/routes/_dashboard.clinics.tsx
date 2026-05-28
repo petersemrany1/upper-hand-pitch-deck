@@ -1121,8 +1121,8 @@ function ClinicsPage() {
                             ? "#fff7ed"
                             : undefined;
                     return (
+                      <div key={c.id}>
                       <div
-                        key={c.id}
                         className="flex items-center hover:bg-white/[0.02] transition-colors relative"
                         style={{
                           height: 44,
