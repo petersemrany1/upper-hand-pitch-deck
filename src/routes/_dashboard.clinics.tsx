@@ -1103,25 +1103,15 @@ function ClinicsPage() {
                     const childCount = isParentRow ? (childrenByParent[c.id]?.length || 0) : 0;
                     const isNotInterested = c.status === "Contacted — Not Interested";
                     const isZoomSet = c.status === "Zoom Set";
-                    const callbackStatuses = new Set([
-                      "Call Back — Specific Time",
-                      "Contacted — Call Me Back",
-                      "Contacted — No Answer",
-                      "Contacted — Left Voicemail",
-                      "Contacted — Gatekeeper",
-                    ]);
-                    const needsCallback = callbackStatuses.has(c.status);
-                    const fullLastNote = (lastCt?.notes || lastCt?.outcome || "").trim();
-                    const showCallbackDetail = needsCallback && !!fullLastNote;
+                    const showCallbackDetail = false;
+                    const fullLastNote = "";
                     const rowBg = isChild
                       ? "#fbfaf7"
                       : isNotInterested
                         ? "#fde2e2"
                         : isZoomSet
                           ? "#dcfce7"
-                          : showCallbackDetail
-                            ? "#fff7ed"
-                            : undefined;
+                          : undefined;
                     return (
                       <div key={c.id}>
                       {/* Desktop row */}
