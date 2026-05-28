@@ -1607,7 +1607,7 @@ function ClinicsPage() {
       {showLogModal && selectedClinic && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowLogModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-sm mx-3 max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold mb-4" style={{ color: "#111111" }}>Log Activity — {selectedClinic.clinic_name}</h3>
             <div className="space-y-3">
               <div>
@@ -1670,7 +1670,7 @@ function ClinicsPage() {
       {showBoldModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !boldSending && setShowBoldModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-md mx-3 max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
               <span className="text-base font-extrabold tracking-tight" style={{ color: "#111111" }}>BOLD</span>
               <span className="text-base font-extrabold tracking-tight" style={{ color: "#f4522d" }}>PATIENTS</span>
@@ -1766,7 +1766,7 @@ function ClinicsPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowAddModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-sm mx-3 max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold mb-4" style={{ color: "#111111" }}>Add Clinic</h3>
             <div className="space-y-3">
               <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clinic name *" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
