@@ -1397,26 +1397,40 @@ function ClinicsPage() {
                   const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
                   const lastCt = lastContacts[c.id];
                   const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
-                      style={{ height: 44, borderBottom: "1px solid #111" }}
-                    >
-                      <div className="shrink-0 px-3 truncate" style={{ width: colWidths.name }}>
-                        <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
-                      </div>
-                      <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.city, color: "#111111" }}>{c.city || "—"}</div>
-                      <div className="shrink-0 px-2 text-[11px]" style={{ width: colWidths.phone, color: "#111111" }}>{c.phone || "—"}</div>
-                      <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.note, color: "#111111" }} title={lastCt?.notes || lastCt?.outcome || ""}>{notePreview || "—"}</div>
-                      <div className="shrink-0 px-2" style={{ width: colWidths.stage }}>
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
-                      </div>
-                      <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>—</div>
-                      <div className="shrink-0 px-2" style={{ width: colWidths.actions }} />
-                    </div>
-                  );
-                })}
+                   return (
+                     <div key={c.id}>
+                     {/* Desktop */}
+                     <div
+                       className="hidden md:flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
+                       style={{ height: 44, borderBottom: "1px solid #111" }}
+                     >
+                       <div className="shrink-0 px-3 truncate" style={{ width: colWidths.name }}>
+                         <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
+                       </div>
+                       <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.city, color: "#111111" }}>{c.city || "—"}</div>
+                       <div className="shrink-0 px-2 text-[11px]" style={{ width: colWidths.phone, color: "#111111" }}>{c.phone || "—"}</div>
+                       <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.note, color: "#111111" }} title={lastCt?.notes || lastCt?.outcome || ""}>{notePreview || "—"}</div>
+                       <div className="shrink-0 px-2" style={{ width: colWidths.stage }}>
+                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
+                       </div>
+                       <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>—</div>
+                       <div className="shrink-0 px-2" style={{ width: colWidths.actions }} />
+                     </div>
+                     {/* Mobile */}
+                     <button
+                       onClick={() => openDetail(c)}
+                       className="md:hidden w-full text-left px-3 py-2.5 opacity-60"
+                       style={{ borderBottom: "1px solid #e5e5e5" }}
+                     >
+                       <div className="flex items-center gap-2">
+                         <span className="text-xs font-semibold flex-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</span>
+                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold" style={{ background: sc.bg, color: sc.text }}>N/A</span>
+                       </div>
+                       {c.city && <div className="text-[11px] mt-0.5" style={{ color: "#6b6b6b" }}>{c.city}</div>}
+                     </button>
+                     </div>
+                   );
+                 })}
               </div>
             )}
           </div>
