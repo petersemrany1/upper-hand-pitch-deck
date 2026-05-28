@@ -421,12 +421,27 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // This guarantees a row exists before twilio-status fires, so the
     // recording webhook + auto-analyse-call chain has something to update.
     const insertCallRow = async (callSid: string) => {
-      const leadId = extraParams?.leadId || null;
+      let leadId = extraParams?.leadId || null;
       const repId = extraParams?.repId || null;
       const clinicId = extraParams?.clinicId || null;
-      // Verification log: confirm lead_id + rep_id are being threaded through
-      // on every outbound call. If either prints null on a real call, the
-      // upstream caller forgot to pass it.
+      // Fallback: if the caller didn't thread a leadId through (e.g. dial-pad
+      // dial, or inbox click on a row whose call_records row wasn't yet
+      // linked), look one up by exact phone match so the call still stamps
+      // onto the right lead card. Best-effort — never blocks the call.
+      if (!leadId && phone && !clinicId) {
+        try {
+          const { data: leadMatch } = await supabase
+            .from("meta_leads")
+            .select("id")
+            .eq("phone", phone)
+            .order("updated_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (leadMatch?.id) leadId = leadMatch.id;
+        } catch (e) {
+          console.warn("[insertCallRow] phone->lead lookup failed", e);
+        }
+      }
       console.log("[insertCallRow] saving call_records", {
         callSid,
         leadId,
