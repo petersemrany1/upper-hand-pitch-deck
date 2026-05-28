@@ -991,46 +991,48 @@ function ClinicsPage() {
       )}
 
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
+        <div className="relative w-full md:flex-1 md:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: "#111111" }} />
           <Input
             placeholder="Search clinics..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 border-0 text-sm"
+            className="pl-9 border-0 text-sm w-full"
             style={{ background: "#f9f9f9", color: "#111111", height: 36 }}
           />
         </div>
-        <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
-        <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
-        <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
-          <Plus className="w-3 h-3 mr-1" /> Add Clinic
-        </Button>
-        <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
-        <Button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={importing}
-          size="sm"
-          variant="ghost"
-          className="text-xs h-9 w-9 p-0"
-          style={{ color: "#111111" }}
-          title={importing ? "Importing..." : "Bulk Upload CSV"}
-          aria-label="Bulk Upload CSV"
-        >
-          {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-        </Button>
-        <CallReviewInbox />
-        <span className="text-xs ml-auto" style={{ color: "#111111" }}>
-          {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto">
+          <FilterDropdown label="State" options={STATES} value={filterState} onChange={setFilterState} />
+          <FilterDropdown label="Stage" options={[...PIPELINE_STAGES]} value={filterStatus} onChange={setFilterStatus} />
+          <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
+            <Plus className="w-3 h-3 mr-1" /> Add
+          </Button>
+          <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            size="sm"
+            variant="ghost"
+            className="text-xs h-9 w-9 p-0"
+            style={{ color: "#111111" }}
+            title={importing ? "Importing..." : "Bulk Upload CSV"}
+            aria-label="Bulk Upload CSV"
+          >
+            {importing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+          </Button>
+          <CallReviewInbox />
+          <span className="text-xs ml-auto" style={{ color: "#111111" }}>
+            {activeFiltered.length} active{notApplicableFiltered.length > 0 && ` · ${notApplicableFiltered.length} N/A`}
+          </span>
+        </div>
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-y-auto">
         {/* Column header with resize handles */}
         <div
-          className="flex items-center sticky top-0 z-10"
+          className="hidden md:flex items-center sticky top-0 z-10"
           style={{ background: "#f4f3ee", borderBottom: "1px solid #111", height: 28 }}
         >
           <span className="w-4 shrink-0" />
@@ -1122,8 +1124,9 @@ function ClinicsPage() {
                             : undefined;
                     return (
                       <div key={c.id}>
+                      {/* Desktop row */}
                       <div
-                        className="flex items-center hover:bg-white/[0.02] transition-colors relative"
+                        className="hidden md:flex items-center hover:bg-white/[0.02] transition-colors relative"
                         style={{
                           height: 44,
                           borderBottom: "1px solid #111",
@@ -1223,9 +1226,118 @@ function ClinicsPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Mobile card */}
+                      <div
+                        className="md:hidden relative"
+                        style={{
+                          borderBottom: "1px solid #e5e5e5",
+                          paddingLeft: isChild ? 16 : 0,
+                          background: rowBg,
+                          borderLeft: isParentRow ? "3px solid #f4522d" : undefined,
+                        }}
+                      >
+                        {calledToday && (
+                          <span
+                            className="absolute left-1 top-3 w-1.5 h-1.5 rounded-full"
+                            style={{ background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)" }}
+                            title="Called today"
+                          />
+                        )}
+                        <div className="px-3 py-3">
+                          <div className="flex items-start gap-2 mb-1.5">
+                            {isParentRow && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleParentExpanded(c.id); }}
+                                className="mt-0.5 p-0.5 rounded hover:bg-[#f0ede5] shrink-0"
+                                aria-label={isParentExpanded(c.id) ? "Collapse" : "Expand"}
+                              >
+                                {isParentExpanded(c.id)
+                                  ? <ChevronDown className="w-4 h-4" style={{ color: "#f4522d" }} />
+                                  : <ChevronRight className="w-4 h-4" style={{ color: "#f4522d" }} />}
+                              </button>
+                            )}
+                            <button
+                              onClick={() => openDetail(c)}
+                              className={`flex-1 min-w-0 text-left ${isParentRow ? "font-extrabold" : "font-semibold"}`}
+                              style={{ color: "#111111" }}
+                            >
+                              <div className="text-sm leading-tight break-words">
+                                {c.clinic_name}
+                                {isParentRow && childCount > 0 && (
+                                  <span className="ml-1 text-[11px] font-normal" style={{ color: "#9a9a9a" }}>({childCount})</span>
+                                )}
+                              </div>
+                              {c.city && (
+                                <div className="text-[11px] mt-0.5" style={{ color: "#6b6b6b" }}>{c.city}</div>
+                              )}
+                            </button>
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap shrink-0" style={{ background: sc.bg, color: sc.text }}>
+                              {c.status === "Not Started" ? "Not Started" : c.status.replace("Contacted — ", "")}
+                            </span>
+                          </div>
+
+                          {notePreview && (
+                            <div className="text-[11px] mb-1.5 line-clamp-2" style={{ color: "#444" }}>
+                              {notePreview}
+                            </div>
+                          )}
+
+                          {nextAction.text !== "—" && (
+                            <div className="text-[11px] mb-2 truncate" style={{ color: nextAction.overdue ? "#ef4444" : "#6b6b6b" }}>
+                              {nextAction.text}
+                            </div>
+                          )}
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {c.phone && !phoneInvalid && (
+                              <button
+                                onClick={() => handleCall(c)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                                style={{ background: "#dcfce7", color: "#166534" }}
+                              >
+                                {callingId === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <PhoneCall className="w-3.5 h-3.5" />}
+                                Call
+                              </button>
+                            )}
+                            {c.phone && phoneInvalid && (
+                              <span
+                                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full uppercase"
+                                style={{ background: "#fef2f2", color: "#f87171" }}
+                              >
+                                <AlertCircle className="w-3 h-3" /> Bad number
+                              </span>
+                            )}
+                            {c.email && (
+                              <a
+                                href={`mailto:${c.email}`}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                                style={{ background: "#dbeafe", color: "#1e40af" }}
+                              >
+                                <Mail className="w-3.5 h-3.5" /> Email
+                              </a>
+                            )}
+                            <button
+                              onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                              style={{ background: "#f3e8ff", color: "#6b21a8" }}
+                            >
+                              <MessageSquare className="w-3.5 h-3.5" /> Log
+                            </button>
+                            <button
+                              onClick={() => openDetail(c)}
+                              className="ml-auto inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-[11px] font-semibold"
+                              style={{ background: "#111", color: "#fff" }}
+                            >
+                              Open
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
                       {showCallbackDetail && (
                         <div
-                          className="px-4 py-2 text-[11px] leading-relaxed"
+                          className="px-3 md:px-4 py-2 text-[11px] leading-relaxed"
                           style={{
                             background: "#fff7ed",
                             borderBottom: "1px solid #111",
@@ -1233,7 +1345,7 @@ function ClinicsPage() {
                             paddingLeft: isChild ? 40 : 16,
                           }}
                         >
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#f4522d" }}>
                               Last convo {lastCt?.created_at ? `· ${formatDateTime(lastCt.created_at)} (${relativeTime(lastCt.created_at)})` : ""}
                             </span>
@@ -1285,26 +1397,40 @@ function ClinicsPage() {
                   const sc = STAGE_COLORS[c.status] || STAGE_COLORS["Not Started"];
                   const lastCt = lastContacts[c.id];
                   const notePreview = truncateNote(lastCt?.notes || lastCt?.outcome);
-                  return (
-                    <div
-                      key={c.id}
-                      className="flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
-                      style={{ height: 44, borderBottom: "1px solid #111" }}
-                    >
-                      <div className="shrink-0 px-3 truncate" style={{ width: colWidths.name }}>
-                        <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
-                      </div>
-                      <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.city, color: "#111111" }}>{c.city || "—"}</div>
-                      <div className="shrink-0 px-2 text-[11px]" style={{ width: colWidths.phone, color: "#111111" }}>{c.phone || "—"}</div>
-                      <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.note, color: "#111111" }} title={lastCt?.notes || lastCt?.outcome || ""}>{notePreview || "—"}</div>
-                      <div className="shrink-0 px-2" style={{ width: colWidths.stage }}>
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
-                      </div>
-                      <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>—</div>
-                      <div className="shrink-0 px-2" style={{ width: colWidths.actions }} />
-                    </div>
-                  );
-                })}
+                   return (
+                     <div key={c.id}>
+                     {/* Desktop */}
+                     <div
+                       className="hidden md:flex items-center hover:bg-white/[0.02] transition-colors opacity-60"
+                       style={{ height: 44, borderBottom: "1px solid #111" }}
+                     >
+                       <div className="shrink-0 px-3 truncate" style={{ width: colWidths.name }}>
+                         <button onClick={() => openDetail(c)} className="text-left hover:underline font-semibold truncate block text-xs" style={{ color: "#111111" }}>{c.clinic_name}</button>
+                       </div>
+                       <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.city, color: "#111111" }}>{c.city || "—"}</div>
+                       <div className="shrink-0 px-2 text-[11px]" style={{ width: colWidths.phone, color: "#111111" }}>{c.phone || "—"}</div>
+                       <div className="shrink-0 px-2 truncate text-[11px]" style={{ width: colWidths.note, color: "#111111" }} title={lastCt?.notes || lastCt?.outcome || ""}>{notePreview || "—"}</div>
+                       <div className="shrink-0 px-2" style={{ width: colWidths.stage }}>
+                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>N/A</span>
+                       </div>
+                       <div className="flex-1 min-w-0 px-2 truncate text-[11px]" style={{ color: "#111111" }}>—</div>
+                       <div className="shrink-0 px-2" style={{ width: colWidths.actions }} />
+                     </div>
+                     {/* Mobile */}
+                     <button
+                       onClick={() => openDetail(c)}
+                       className="md:hidden w-full text-left px-3 py-2.5 opacity-60"
+                       style={{ borderBottom: "1px solid #e5e5e5" }}
+                     >
+                       <div className="flex items-center gap-2">
+                         <span className="text-xs font-semibold flex-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</span>
+                         <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold" style={{ background: sc.bg, color: sc.text }}>N/A</span>
+                       </div>
+                       {c.city && <div className="text-[11px] mt-0.5" style={{ color: "#6b6b6b" }}>{c.city}</div>}
+                     </button>
+                     </div>
+                   );
+                 })}
               </div>
             )}
           </div>
@@ -1481,7 +1607,7 @@ function ClinicsPage() {
       {showLogModal && selectedClinic && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowLogModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-sm mx-3 max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold mb-4" style={{ color: "#111111" }}>Log Activity — {selectedClinic.clinic_name}</h3>
             <div className="space-y-3">
               <div>
@@ -1544,7 +1670,7 @@ function ClinicsPage() {
       {showBoldModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => !boldSending && setShowBoldModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-md max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-md mx-3 max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-4">
               <span className="text-base font-extrabold tracking-tight" style={{ color: "#111111" }}>BOLD</span>
               <span className="text-base font-extrabold tracking-tight" style={{ color: "#f4522d" }}>PATIENTS</span>
@@ -1640,7 +1766,7 @@ function ClinicsPage() {
       {showAddModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center" onClick={() => setShowAddModal(false)}>
           <div className="absolute inset-0 bg-black/70" />
-          <div className="relative rounded-lg p-5 w-full max-w-sm" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
+          <div className="relative rounded-lg p-5 w-full max-w-sm mx-3 max-h-[90vh] overflow-y-auto" style={{ background: "#ffffff", border: "1px solid #ebebeb" }} onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-bold mb-4" style={{ color: "#111111" }}>Add Clinic</h3>
             <div className="space-y-3">
               <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Clinic name *" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
