@@ -1032,7 +1032,7 @@ function ClinicsPage() {
       <div className="flex-1 overflow-y-auto">
         {/* Column header with resize handles */}
         <div
-          className="flex items-center sticky top-0 z-10"
+          className="hidden md:flex items-center sticky top-0 z-10"
           style={{ background: "#f4f3ee", borderBottom: "1px solid #111", height: 28 }}
         >
           <span className="w-4 shrink-0" />
