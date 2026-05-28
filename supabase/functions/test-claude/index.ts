@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
 };
 
-const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Upper Hand Digital and a hair transplant clinic. Based on the transcript, return a JSON object with exactly these fields:
+const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Bold and a hair transplant clinic. Based on the transcript, return a JSON object with exactly these fields:
 {
   "outcome": one of ["Not Interested", "No Answer", "Left Voicemail", "Gatekeeper", "Call Me Back", "Zoom Set", "Spoke - Interested"],
   "next_action": "what Peter should do next in one short sentence",
@@ -17,7 +17,7 @@ const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Upper H
 }
 Return only valid JSON, no preamble.`;
 
-const TRANSCRIPT = `Hey this is Peter from Upper Hand Digital, just calling to see if you guys are interested in more hair transplant patients. The receptionist said the owner wasn't available but to call back Monday morning between 9 and 12.`;
+const TRANSCRIPT = `Hey this is Peter from Bold, just calling to see if you guys are interested in more hair transplant patients. The receptionist said the owner wasn't available but to call back Monday morning between 9 and 12.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
