@@ -2062,17 +2062,9 @@ Grafts from the back → permanent zone → never falls out → planted where yo
 
 
 
-NATURAL VS UN-NATURAL 
+NATURAL VS UN-NATURAL
 
-Most people have the same concern, even if they don't say it out loud — will it actually look natural, or will people be able to tell? 
-
-It's the most important part of all this, so let me explain what makes the difference. 
-
-Your hair doesn't grow straight up — it grows at an angle, and it flows in a certain direction.
-
-So a good surgeon studies how your hair naturally grows and places every single graft to match that exact angle and direction. 
-
-That's the whole difference between a result that looks 'done' and one that's completely undetectable. Done properly, even your own barber wouldn't be able to tell."
+Most people have the same concern, even if they don't say it out loud — will it actually look natural, or will people be able to tell? It's the most important part of all this, so let me explain what makes the difference. Your hair doesn't grow straight up — it grows at an angle, and it flows in a certain direction. So a good surgeon studies how your hair naturally grows and places every single graft to match that exact angle and direction. That's the whole difference between a result that looks 'done' and one that's completely undetectable. Done properly, even your own barber wouldn't be able to tell."
 
 SEND PHOTOS natural vs unnatural + before/afters → "Have a look at your phone"
 
