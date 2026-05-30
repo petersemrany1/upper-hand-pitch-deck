@@ -6292,6 +6292,7 @@ function RightPanel({
             { label: "Natural vs Un-natural", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/natural-vs-unnatural.jpg" },
             { label: "Before & After 1", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-1.png" },
             { label: "Before & After 2 (Bald)", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-2-bald.png" },
+            { label: "Norwood Scale", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/norwood-scale.png" },
           ];
           return (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
