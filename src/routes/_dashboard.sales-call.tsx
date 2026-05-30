@@ -1938,42 +1938,71 @@ function DiscoveryStep({
         Understand Their Pain <span style={{ fontSize: 16, fontWeight: 400, color: COLORS.text }}>(5–7 mins)</span>
       </h1>
 
-      {/* Opening question — script card */}
+      {/* Discovery script — scrollable box */}
       <div style={{
         marginTop: 16,
         background: "#ffffff",
         borderLeft: `2px solid ${COLORS.coral}`,
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
+        maxHeight: 420,
+        overflowY: "auto",
+        fontSize: 14,
+        lineHeight: 1.55,
+        color: COLORS.text,
+        whiteSpace: "pre-wrap",
       }}>
-        <div style={{ fontSize: 20, fontWeight: 500, color: COLORS.text, lineHeight: 1.4 }}>
-          "So what's going on with your hair situation?"
-        </div>
-        <div style={{
-          marginTop: 10, fontSize: 13, fontStyle: "italic", color: COLORS.text, lineHeight: 1.5,
-        }}>
-          Ask it. Then stop. Don't interrupt. Don't fill silence. Let them lead.
-        </div>
+{`👉 So what's going on with your hair situation?
+
+
+
+👉 Let them talk. Don't interrupt. Don't fill silence.
+
+
+
+📋 HISTORY
+👉 Timeline — "How long's this been going on?" (push for exact — when you first noticed → when it sped up. You'll reuse this number at Q4 and in the amplification.)
+
+
+
+📍 THE MAP
+ 👉 Hairline — how far back → temples → crown/vertex → mid-scalp density → see-through in light → shedding rate → "anything else up top?"
+Transition to donor — explicit: "Now let's have a close look at the back and sides"
+
+
+
+👉 Donor (back & sides) — density → thinning here too or holding → this is the bank, no donor no transplant 👉 Additional clinical (itch, flaking, scarring, previous procedure/Turkey, meds — fin/minox/dut, family pattern & how theirs ended up)
+
+
+
+After you map the head, you're only halfway. Before you send the density image, you need five more questions in this order:
+
+
+
+👉 1. What's left — can it be saved? "Of the hair you've still got up top, do you feel like it's holding steady, or are you still losing it? And the back and sides — how's that holding up?"
+👉 2. Why is it happening? "What do you reckon's driving it — hereditary, who's it come from? Or stress, health stuff, just age?"
+👉 3. Have you looked into this before? "Have you looked into sorting it before — any clinics, Turkey, stuff online? What did they say?" If yes: "What stopped you going ahead at that point?"
+👉 4. Why now? "So you've been dealing with this for [use their own number] years — what's got you looking into it now? Why now do you think?"
+
+
+
+👉 5. Impact — ask these as three SEPARATE questions, not one:
+"Day to day, what are you doing to manage it at the moment — how you're styling it, any products, fibres, caps, that sort of thing?" [Wait for answer]
+"And appearance-wise — in photos, or meeting someone the first time — how's it sitting for you?" [Wait for answer]
+"Any sensitivity up top — scalp catching the sun, getting tender, anything like that?" [Wait for answer]
+
+
+
+👉 Amplification — everything reflected back in one concentrated statement, in their words. Then stop. Let them say "yeah, exactly."`}
       </div>
 
-      {/* Checklist */}
-      <DiscoveryChecklist />
-
-      {/* Echoing tip — quiet line above HISTORY */}
-      <p style={{
-        marginTop: 14, marginBottom: 6, fontSize: 13, fontStyle: "italic",
-        color: COLORS.text, lineHeight: 1.5,
-      }}>
-        Echoing tip: when they say something — repeat it back as a question with genuine curiosity.
-      </p>
-
-      {/* History */}
-      <div>
+      {/* Notes */}
+      <div style={{ marginTop: 16 }}>
         <div style={{
           fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em",
           color: COLORS.text, fontWeight: 500, marginBottom: 6,
         }}>
-          History
+          Notes
         </div>
         <textarea
           value={notes}
