@@ -228,7 +228,7 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       if (clinicName) parts.push(clinicName);
       if (addrLine) parts.push(addrLine);
       parts.push("Fully refundable at your consultation");
-      productDescription = parts.join(" · ");
+      productDescription = parts.join("  |  ");
     } catch (err) {
       // Lookup failure must never block taking the deposit — fall back to generic name.
       console.error("createHtgDepositSession clinic lookup failed", err);
