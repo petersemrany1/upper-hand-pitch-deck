@@ -701,7 +701,11 @@ function ClinicsPage() {
     });
 
     // Auto-update stage based on outcome
-    const newStage = OUTCOME_TO_STAGE[logOutcome];
+    let newStage = OUTCOME_TO_STAGE[logOutcome];
+    // Special case: "Sent" outcome under Email or Loom → Sent Email/Loom stage
+    if ((logType === "Email" || logType === "Loom") && logOutcome === "Sent") {
+      newStage = "Sent Email/Loom";
+    }
     if (newStage) {
       await supabase.from("clinics").update({ status: newStage }).eq("id", selectedClinic.id);
       setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, status: newStage } : c));
