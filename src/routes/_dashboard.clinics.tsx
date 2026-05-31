@@ -95,7 +95,6 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Contacted — Left Voicemail": { bg: "#ebebeb", text: "#111111" },
   "Contacted — Gatekeeper": { bg: "#fff1ee", text: "#fb923c" },
   "Contacted — Call Me Back": { bg: "#fffbeb", text: "#fbbf24" },
-  "Call Back — Specific Time": { bg: "#fffbeb", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
   "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
   "Contract Sent": { bg: "#fef3c7", text: "#b45309" },
