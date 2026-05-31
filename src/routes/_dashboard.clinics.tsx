@@ -20,6 +20,8 @@ import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
 import type { AppliedReview } from "@/components/CallReviewPopup";
 import { useAuth } from "@/hooks/useAuth";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
 export const Route = createFileRoute("/_dashboard/clinics")({
@@ -1028,9 +1030,17 @@ function ClinicsPage() {
         </div>
       </div>
 
+      {/* Tabs: List + Pipeline */}
+      <Tabs defaultValue="list" className="flex-1 flex flex-col overflow-hidden">
+        <TabsList className="mx-4 mt-2 self-start">
+          <TabsTrigger value="list">List</TabsTrigger>
+          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="list" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
       {/* Table */}
-      <div className="flex-1 overflow-y-auto">
-        {/* Column header with resize handles */}
+      <div className="flex-1 overflow-y-auto h-full">
+
         <div
           className="hidden md:flex items-center sticky top-0 z-10"
           style={{ background: "#f4f3ee", borderBottom: "1px solid #111", height: 28 }}
@@ -1430,6 +1440,28 @@ function ClinicsPage() {
           <div className="text-center py-12" style={{ color: "#111111", fontSize: 13 }}>No clinics found.</div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="pipeline" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <PipelineBoard
+            clinics={filtered}
+            onOpenDetail={openDetail}
+            onMoveStage={async (clinic, newStage) => {
+              const prevStage = clinic.status;
+              setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStage } : c));
+              setSelectedClinic((prev) => prev && prev.id === clinic.id ? { ...prev, status: newStage } : prev);
+              const { error } = await supabase.from("clinics").update({ status: newStage }).eq("id", clinic.id);
+              if (error) {
+                setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: prevStage } : c));
+                setSelectedClinic((prev) => prev && prev.id === clinic.id ? { ...prev, status: prevStage } : prev);
+                toast.error("Failed to move clinic");
+              }
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+
+
 
       {/* Detail Panel */}
       {selectedClinic && (
@@ -1854,3 +1886,104 @@ function FilterDropdown({ label, options, value, onChange }: { label: string; op
     </select>
   );
 }
+
+// ============== Pipeline Kanban Board ==============
+const PIPELINE_BOARD_STAGES = PIPELINE_STAGES.filter(
+  (s) => s !== "TEST" && s !== "Not Applicable"
+);
+
+function PipelineBoard({
+  clinics,
+  onOpenDetail,
+  onMoveStage,
+}: {
+  clinics: Clinic[];
+  onOpenDetail: (c: Clinic) => void;
+  onMoveStage: (c: Clinic, newStage: string) => void;
+}) {
+  const byStage: Record<string, Clinic[]> = {};
+  for (const s of PIPELINE_BOARD_STAGES) byStage[s] = [];
+  for (const c of clinics) {
+    if (byStage[c.status]) byStage[c.status].push(c);
+  }
+
+  return (
+    <div className="h-full overflow-x-auto overflow-y-hidden">
+      <div className="flex gap-3 p-4 h-full">
+        {PIPELINE_BOARD_STAGES.map((stage) => {
+          const colour = STAGE_COLORS[stage] || STAGE_COLORS["Not Started"];
+          const items = byStage[stage] || [];
+          return (
+            <div
+              key={stage}
+              className="shrink-0 flex flex-col rounded-lg"
+              style={{ width: 220, background: "#f4f3ee", border: "1px solid #ebebeb" }}
+            >
+              <div
+                className="px-3 py-2 rounded-t-lg flex items-center justify-between"
+                style={{ background: colour.bg, color: colour.text, borderBottom: "1px solid #ebebeb" }}
+              >
+                <span className="text-[11px] font-bold uppercase truncate" style={{ letterSpacing: "0.05em" }}>{stage}</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.08)", color: colour.text }}>{items.length}</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {items.map((c) => {
+                  const doctor = (c as Clinic & { doctor_name?: string | null }).doctor_name || c.owner_name;
+                  const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
+                  return (
+                    <div
+                      key={c.id}
+                      className="rounded-md p-2.5 cursor-pointer hover:shadow-sm transition-shadow"
+                      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+                      onClick={() => onOpenDetail(c)}
+                    >
+                      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+                      {cityLine && (
+                        <div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>
+                      )}
+                      {doctor && (
+                        <div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>
+                      )}
+                      {c.phone && (
+                        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
+                          <Phone className="w-2.5 h-2.5" /> {c.phone}
+                        </div>
+                      )}
+                      {c.next_follow_up && (
+                        <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
+                          <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
+                        </div>
+                      )}
+                      <div onClick={(e) => e.stopPropagation()} className="mt-2">
+                        <Select
+                          value={c.status}
+                          onValueChange={(v) => { if (v !== c.status) onMoveStage(c, v); }}
+                        >
+                          <SelectTrigger className="h-7 text-[10px] px-2" aria-label="Move to stage">
+                            <SelectValue placeholder="Move to…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PIPELINE_BOARD_STAGES.map((s) => (
+                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  );
+                })}
+                {items.length === 0 && (
+                  <div className="text-[10px] text-center py-3" style={{ color: "#999" }}>No clinics</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Doctor_name type augmentation — fall back already handled in board
+declare module "react" {}
+
