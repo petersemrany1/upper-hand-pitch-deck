@@ -74,7 +74,6 @@ const PIPELINE_STAGES = [
   "TEST",
   "Not Started",
   "Contacted — No Answer",
-  "Contacted — Left Voicemail",
   "Contacted — Gatekeeper",
   "Contacted — Call Me Back",
   "Contacted — Not Interested",
@@ -92,7 +91,7 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "TEST": { bg: "#eff6ff", text: "#60a5fa" },
   "Not Started": { bg: "#ebebeb", text: "#111111" },
   "Contacted — No Answer": { bg: "#ebebeb", text: "#111111" },
-  "Contacted — Left Voicemail": { bg: "#ebebeb", text: "#111111" },
+  
   "Contacted — Gatekeeper": { bg: "#fff1ee", text: "#fb923c" },
   "Contacted — Call Me Back": { bg: "#fffbeb", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
@@ -127,7 +126,7 @@ const outcomeLabel = (o: string) => OUTCOME_LABELS[o] ?? o;
 // Map outcomes to pipeline stages
 const OUTCOME_TO_STAGE: Record<string, string> = {
   "No Answer": "Contacted — No Answer",
-  "Left Voicemail": "Contacted — Left Voicemail",
+  "Left Voicemail": "Contacted — No Answer",
   "Spoke — Gatekeeper": "Contacted — Gatekeeper",
   "Spoke — Not Interested": "Contacted — Not Interested",
   "Spoke — Call Me Back": "Contacted — Call Me Back",
@@ -199,7 +198,7 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
     return { text: `📞 Call back ${clinic.next_follow_up}`, overdue: isOverdue };
   }
 
-  if (clinic.status === "Contacted — No Answer" || clinic.status === "Contacted — Left Voicemail") {
+  if (clinic.status === "Contacted — No Answer") {
     const isOverdue = clinic.next_follow_up ? clinic.next_follow_up < today : false;
     return { text: "📞 Follow up — no answer", overdue: isOverdue };
   }
