@@ -131,7 +131,6 @@ const OUTCOME_TO_STAGE: Record<string, string> = {
   "Spoke — Gatekeeper": "Contacted — Gatekeeper",
   "Spoke — Not Interested": "Contacted — Not Interested",
   "Spoke — Call Me Back": "Contacted — Call Me Back",
-  "Call Back — Specific Time": "Call Back — Specific Time",
   "Spoke — Interested": "Contacted — Call Me Back",
   "Spoke — Zoom Set": "Zoom Set",
   "Not Applicable — Doesn't Do Transplants": "Not Applicable",
