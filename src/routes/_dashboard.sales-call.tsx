@@ -6227,16 +6227,17 @@ function RightPanel({
         <button
           onClick={() => {
             if (!active.phone) { toast.error("No phone number on this lead"); return; }
+            if (!panelClinic) { toast.error("Select a clinic before sending the payment link"); return; }
             if (sendingDepositLink) return;
             setConfirmDepositOpen(true);
           }}
-          disabled={sendingDepositLink || !active.phone}
+          disabled={sendingDepositLink || !active.phone || !panelClinic}
           style={{
             flex: 1, background: COLORS.coral, color: "#fff",
             border: "none", borderRadius: 8,
             fontSize: 13, fontWeight: 600, padding: "8px 12px",
-            cursor: sendingDepositLink || !active.phone ? "not-allowed" : "pointer",
-            opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
+            cursor: sendingDepositLink || !active.phone || !panelClinic ? "not-allowed" : "pointer",
+            opacity: sendingDepositLink || !active.phone || !panelClinic ? 0.6 : 1,
             boxShadow: `0 4px 14px ${COLORS.coral}55`,
           }}
         >
@@ -6334,6 +6335,8 @@ function RightPanel({
                       leadId: active.id,
                       firstName: active.first_name ?? "there",
                       phone: active.phone!,
+                      clinicId: panelClinic?.id,
+                      doctorName: panelDoctor?.name,
                     },
                   });
                   setSendingDepositLink(false);
