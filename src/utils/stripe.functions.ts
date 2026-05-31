@@ -156,7 +156,55 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     }
 
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ").trim();
-    const productName = "Hair Transplant Consultation Deposit (Refundable)";
+    let productName = "Hair Transplant Consultation Deposit (Refundable)";
+    let productDescription: string | null = null;
+    let resolvedClinicName: string | null = null;
+    let resolvedDoctorName: string | null = null;
+
+    if (data.leadId) {
+      try {
+        const { data: leadRow } = await supabaseAdmin
+          .from("meta_leads")
+          .select("clinic_id")
+          .eq("id", data.leadId)
+          .maybeSingle();
+        const clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id;
+        if (clinicId) {
+          const { data: clinicRow } = await supabaseAdmin
+            .from("partner_clinics")
+            .select("clinic_name, doctor_name, address, city, state")
+            .eq("id", clinicId)
+            .maybeSingle();
+          if (clinicRow) {
+            const c = clinicRow as {
+              clinic_name?: string | null;
+              doctor_name?: string | null;
+              address?: string | null;
+              city?: string | null;
+              state?: string | null;
+            };
+            const clinicName = c.clinic_name?.trim() || null;
+            let doctor = c.doctor_name?.trim() || null;
+            if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
+            resolvedClinicName = clinicName;
+            resolvedDoctorName = doctor;
+            if (doctor && clinicName) productName = `Consultation with ${doctor} — ${clinicName}`;
+            else if (doctor) productName = `Consultation with ${doctor}`;
+            else if (clinicName) productName = `Hair Transplant Consultation — ${clinicName}`;
+            if (clinicName) {
+              const addrParts = [c.address, c.city, c.state]
+                .map((p) => (p ?? "").trim())
+                .filter(Boolean);
+              const addrLine = addrParts.join(", ");
+              productDescription = `${clinicName}${addrLine ? ` — ${addrLine}` : ""}. Fully refundable — returned to you in full when you attend your consultation.`;
+            }
+          }
+        }
+      } catch (err) {
+        // Lookup failure must never block taking the deposit — fall back to generic name.
+        console.error("createHtgDepositSession clinic lookup failed", err);
+      }
+    }
 
     const params = new URLSearchParams();
     params.append("mode", "payment");
@@ -167,6 +215,9 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     params.append("line_items[0][price_data][currency]", "aud");
     params.append("line_items[0][price_data][unit_amount]", String(amountCents));
     params.append("line_items[0][price_data][product_data][name]", productName);
+    if (productDescription) {
+      params.append("line_items[0][price_data][product_data][description]", productDescription);
+    }
     params.append("payment_intent_data[statement_descriptor_suffix]", "HTG DEPOSIT");
     if (data.leadId) params.append("payment_intent_data[metadata][lead_id]", data.leadId);
     params.append("payment_intent_data[metadata][deposit_amount]", String(data.amount));
@@ -174,6 +225,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     params.append("metadata[patient_name]", fullName);
     if (data.leadId) params.append("metadata[lead_id]", data.leadId);
     params.append("metadata[deposit_amount]", String(data.amount));
+    if (resolvedClinicName) params.append("metadata[clinic_name]", resolvedClinicName);
+    if (resolvedDoctorName) params.append("metadata[doctor_name]", resolvedDoctorName);
 
     try {
       const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
