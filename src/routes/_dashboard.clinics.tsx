@@ -1912,7 +1912,7 @@ const PIPELINE_BOARD_STAGES = (() => {
   const base = PIPELINE_STAGES.filter((s) => s !== "TEST" && s !== "Not Applicable" && s !== "Contacted — Not Interested");
   const lostIdx = base.indexOf("Lost");
   if (lostIdx === -1) return [...base, "Contacted — Not Interested"];
-  return [...base.slice(0, lostIdx), "Contacted — Not Interested", ...base.slice(lostIdx)];
+  return [...base.slice(0, lostIdx + 1), "Contacted — Not Interested", ...base.slice(lostIdx + 1)];
 })();
 
 function PipelineBoard({
