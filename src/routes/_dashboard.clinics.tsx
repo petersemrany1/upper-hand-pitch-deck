@@ -455,6 +455,9 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
+  // Latest Email/Zoom contact per clinic — drives the Follow-Ups tab
+  const [sentFollowUps, setSentFollowUps] = useState<Record<string, ClinicContact>>({});
+
   const loadLastContacts = useCallback(async () => {
     // Only fetch latest contact per clinic. Cap rows to avoid scanning the full
     // table on every mount and after every Log Activity.
@@ -465,10 +468,15 @@ function ClinicsPage() {
       .limit(1000);
     if (data) {
       const map: Record<string, ClinicContact> = {};
+      const followUps: Record<string, ClinicContact> = {};
       for (const d of data as ClinicContact[]) {
         if (!map[d.clinic_id]) map[d.clinic_id] = d;
+        if ((d.contact_type === "Email" || d.contact_type === "Zoom") && !followUps[d.clinic_id]) {
+          followUps[d.clinic_id] = d;
+        }
       }
       setLastContacts(map);
+      setSentFollowUps(followUps);
     }
   }, []);
 
@@ -1035,6 +1043,7 @@ function ClinicsPage() {
         <TabsList className="mx-4 mt-2 self-start">
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+          <TabsTrigger value="followups">Follow-Ups</TabsTrigger>
         </TabsList>
 
         <TabsContent value="list" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
@@ -1457,6 +1466,14 @@ function ClinicsPage() {
                 toast.error("Failed to move clinic");
               }
             }}
+          />
+        </TabsContent>
+
+        <TabsContent value="followups" className="flex-1 overflow-auto mt-0 data-[state=inactive]:hidden">
+          <FollowUpsList
+            clinics={filtered}
+            sentFollowUps={sentFollowUps}
+            onOpenDetail={openDetail}
           />
         </TabsContent>
       </Tabs>
@@ -1888,9 +1905,13 @@ function FilterDropdown({ label, options, value, onChange }: { label: string; op
 }
 
 // ============== Pipeline Kanban Board ==============
-const PIPELINE_BOARD_STAGES = PIPELINE_STAGES.filter(
-  (s) => s !== "TEST" && s !== "Not Applicable"
-);
+// Reorder so "Contacted — Not Interested" sits at the end near "Lost"
+const PIPELINE_BOARD_STAGES = (() => {
+  const base = PIPELINE_STAGES.filter((s) => s !== "TEST" && s !== "Not Applicable" && s !== "Contacted — Not Interested");
+  const lostIdx = base.indexOf("Lost");
+  if (lostIdx === -1) return [...base, "Contacted — Not Interested"];
+  return [...base.slice(0, lostIdx), "Contacted — Not Interested", ...base.slice(lostIdx)];
+})();
 
 function PipelineBoard({
   clinics,
@@ -1984,6 +2005,77 @@ function PipelineBoard({
   );
 }
 
-// Doctor_name type augmentation — fall back already handled in board
+// ============== Follow-Ups List ==============
+function FollowUpsList({
+  clinics,
+  sentFollowUps,
+  onOpenDetail,
+}: {
+  clinics: Clinic[];
+  sentFollowUps: Record<string, ClinicContact>;
+  onOpenDetail: (c: Clinic) => void;
+}) {
+  const rows = clinics
+    .map((c) => ({ clinic: c, contact: sentFollowUps[c.id] }))
+    .filter((r): r is { clinic: Clinic; contact: ClinicContact } => !!r.contact)
+    .sort((a, b) => (a.contact.created_at < b.contact.created_at ? 1 : -1));
+
+  const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+
+  if (rows.length === 0) {
+    return (
+      <div className="p-8 text-center text-sm" style={{ color: "#666" }}>
+        No Emails or Zooms sent yet. Log an Email or Zoom activity on a clinic and it'll appear here so you can chase it up.
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4">
+      <div className="text-[11px] mb-3 uppercase font-bold" style={{ color: "#111", letterSpacing: "0.1em" }}>
+        Chase-up list — {rows.length} clinic{rows.length === 1 ? "" : "s"} you've emailed or zoomed
+      </div>
+      <div className="rounded-lg overflow-hidden" style={{ background: "#fff", border: "1px solid #ebebeb" }}>
+        {rows.map(({ clinic, contact }, i) => {
+          const days = daysSince(contact.created_at);
+          const stale = days >= 3;
+          const veryStale = days >= 7;
+          const emoji = contact.contact_type === "Email" ? "✉️" : "📹";
+          const sc = STAGE_COLORS[clinic.status] || STAGE_COLORS["Not Started"];
+          return (
+            <button
+              key={clinic.id}
+              onClick={() => onOpenDetail(clinic)}
+              className="w-full text-left px-4 py-3 hover:bg-[#f9f9f9] transition-colors flex items-center gap-3"
+              style={{ borderBottom: i === rows.length - 1 ? "none" : "1px solid #ebebeb" }}
+            >
+              <span className="text-base shrink-0">{emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold truncate" style={{ color: "#111" }}>{clinic.clinic_name}</span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>{clinic.status}</span>
+                </div>
+                <div className="text-[11px] mt-0.5 truncate" style={{ color: "#666" }}>
+                  {contact.contact_type}{contact.outcome ? ` — ${contact.outcome}` : ""}
+                  {contact.notes ? ` · ${contact.notes.slice(0, 60)}${contact.notes.length > 60 ? "…" : ""}` : ""}
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-[11px] font-semibold" style={{ color: veryStale ? "#dc2626" : stale ? "#f59e0b" : "#111" }}>
+                  {days === 0 ? "Today" : days === 1 ? "1 day ago" : `${days} days ago`}
+                </div>
+                {clinic.phone && (
+                  <div className="text-[10px] mt-0.5" style={{ color: "#666" }}>{clinic.phone}</div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 declare module "react" {}
+
 
