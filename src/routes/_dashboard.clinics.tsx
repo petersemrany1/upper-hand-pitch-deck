@@ -126,7 +126,7 @@ const outcomeLabel = (o: string) => OUTCOME_LABELS[o] ?? o;
 // Map outcomes to pipeline stages
 const OUTCOME_TO_STAGE: Record<string, string> = {
   "No Answer": "Contacted — No Answer",
-  "Left Voicemail": "Contacted — Left Voicemail",
+  "Left Voicemail": "Contacted — No Answer",
   "Spoke — Gatekeeper": "Contacted — Gatekeeper",
   "Spoke — Not Interested": "Contacted — Not Interested",
   "Spoke — Call Me Back": "Contacted — Call Me Back",
