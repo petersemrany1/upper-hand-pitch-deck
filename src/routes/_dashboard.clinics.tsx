@@ -1826,6 +1826,131 @@ const PIPELINE_BOARD_STAGES = (() => {
   return [...base.slice(0, notStartedIdx + 1), "Contacted — Not Interested", ...base.slice(notStartedIdx + 1)];
 })();
 
+function PipelineCardContent({ c, overlay = false }: { c: Clinic; overlay?: boolean }) {
+  const doctor = (c as Clinic & { doctor_name?: string | null }).doctor_name || c.owner_name;
+  const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
+  return (
+    <>
+      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+      {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
+      {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
+      {c.phone && (
+        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
+          <Phone className="w-2.5 h-2.5" /> {c.phone}
+        </div>
+      )}
+      {c.next_follow_up && (
+        <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
+          <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
+        </div>
+      )}
+      {!overlay && (
+        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mt-2">
+          {/* dropdown injected by parent */}
+        </div>
+      )}
+    </>
+  );
+}
+
+function DraggableClinicCard({
+  c,
+  onOpenDetail,
+  onMoveStage,
+}: {
+  c: Clinic;
+  onOpenDetail: (c: Clinic) => void;
+  onMoveStage: (c: Clinic, newStage: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: c.id,
+    data: { clinic: c, status: c.status },
+  });
+  const doctor = (c as Clinic & { doctor_name?: string | null }).doctor_name || c.owner_name;
+  const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      className="rounded-md p-2.5 cursor-pointer hover:shadow-sm transition-shadow"
+      style={{ background: "#ffffff", border: "1px solid #ebebeb", opacity: isDragging ? 0.4 : 1, touchAction: "none" }}
+      onClick={() => onOpenDetail(c)}
+    >
+      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+      {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
+      {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
+      {c.phone && (
+        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
+          <Phone className="w-2.5 h-2.5" /> {c.phone}
+        </div>
+      )}
+      {c.next_follow_up && (
+        <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
+          <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
+        </div>
+      )}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="mt-2"
+      >
+        <Select
+          value={c.status}
+          onValueChange={(v) => { if (v !== c.status) onMoveStage(c, v); }}
+        >
+          <SelectTrigger className="h-7 text-[10px] px-2" aria-label="Move to stage">
+            <SelectValue placeholder="Move to…" />
+          </SelectTrigger>
+          <SelectContent>
+            {PIPELINE_BOARD_STAGES.map((s) => (
+              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+function StageColumn({
+  stage,
+  items,
+  children,
+}: {
+  stage: string;
+  items: Clinic[];
+  children: React.ReactNode;
+}) {
+  const colour = STAGE_COLORS[stage] || STAGE_COLORS["Not Started"];
+  const { setNodeRef, isOver } = useDroppable({ id: stage });
+  return (
+    <div
+      className="shrink-0 flex flex-col rounded-lg"
+      style={{
+        width: 220,
+        background: isOver ? "#ecebe4" : "#f4f3ee",
+        border: isOver ? "1px solid #111111" : "1px solid #ebebeb",
+        transition: "background 120ms, border-color 120ms",
+      }}
+    >
+      <div
+        className="px-3 py-2 rounded-t-lg flex items-center justify-between"
+        style={{ background: colour.bg, color: colour.text, borderBottom: "1px solid #ebebeb" }}
+      >
+        <span className="text-[11px] font-bold uppercase truncate" style={{ letterSpacing: "0.05em" }}>{stage}</span>
+        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.08)", color: colour.text }}>{items.length}</span>
+      </div>
+      <div ref={setNodeRef} className="flex-1 overflow-y-auto p-2 space-y-2">
+        {children}
+        {items.length === 0 && (
+          <div className="text-[10px] text-center py-3" style={{ color: "#999" }}>No clinics</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PipelineBoard({
   clinics,
   onOpenDetail,
@@ -1841,80 +1966,55 @@ function PipelineBoard({
     if (byStage[c.status]) byStage[c.status].push(c);
   }
 
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
+
   return (
-    <div className="h-full overflow-x-auto overflow-y-hidden">
-      <div className="flex gap-3 p-4 h-full">
-        {PIPELINE_BOARD_STAGES.map((stage) => {
-          const colour = STAGE_COLORS[stage] || STAGE_COLORS["Not Started"];
-          const items = byStage[stage] || [];
-          return (
-            <div
-              key={stage}
-              className="shrink-0 flex flex-col rounded-lg"
-              style={{ width: 220, background: "#f4f3ee", border: "1px solid #ebebeb" }}
-            >
-              <div
-                className="px-3 py-2 rounded-t-lg flex items-center justify-between"
-                style={{ background: colour.bg, color: colour.text, borderBottom: "1px solid #ebebeb" }}
-              >
-                <span className="text-[11px] font-bold uppercase truncate" style={{ letterSpacing: "0.05em" }}>{stage}</span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.08)", color: colour.text }}>{items.length}</span>
-              </div>
-              <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {items.map((c) => {
-                  const doctor = (c as Clinic & { doctor_name?: string | null }).doctor_name || c.owner_name;
-                  const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
-                  return (
-                    <div
-                      key={c.id}
-                      className="rounded-md p-2.5 cursor-pointer hover:shadow-sm transition-shadow"
-                      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
-                      onClick={() => onOpenDetail(c)}
-                    >
-                      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
-                      {cityLine && (
-                        <div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>
-                      )}
-                      {doctor && (
-                        <div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>
-                      )}
-                      {c.phone && (
-                        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
-                          <Phone className="w-2.5 h-2.5" /> {c.phone}
-                        </div>
-                      )}
-                      {c.next_follow_up && (
-                        <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
-                          <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
-                        </div>
-                      )}
-                      <div onClick={(e) => e.stopPropagation()} className="mt-2">
-                        <Select
-                          value={c.status}
-                          onValueChange={(v) => { if (v !== c.status) onMoveStage(c, v); }}
-                        >
-                          <SelectTrigger className="h-7 text-[10px] px-2" aria-label="Move to stage">
-                            <SelectValue placeholder="Move to…" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {PIPELINE_BOARD_STAGES.map((s) => (
-                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  );
-                })}
-                {items.length === 0 && (
-                  <div className="text-[10px] text-center py-3" style={{ color: "#999" }}>No clinics</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e) => {
+        const c = (e.active.data.current as { clinic?: Clinic } | undefined)?.clinic;
+        if (c) setActiveClinic(c);
+      }}
+      onDragCancel={() => setActiveClinic(null)}
+      onDragEnd={(e) => {
+        setActiveClinic(null);
+        const overId = e.over?.id;
+        if (!overId) return;
+        const data = e.active.data.current as { clinic?: Clinic } | undefined;
+        const clinic = data?.clinic;
+        if (!clinic) return;
+        const newStage = String(overId);
+        if (newStage === clinic.status) return;
+        if (!PIPELINE_BOARD_STAGES.includes(newStage)) return;
+        onMoveStage(clinic, newStage);
+      }}
+    >
+      <div className="h-full overflow-x-auto overflow-y-hidden">
+        <div className="flex gap-3 p-4 h-full">
+          {PIPELINE_BOARD_STAGES.map((stage) => {
+            const items = byStage[stage] || [];
+            return (
+              <StageColumn key={stage} stage={stage} items={items}>
+                {items.map((c) => (
+                  <DraggableClinicCard key={c.id} c={c} onOpenDetail={onOpenDetail} onMoveStage={onMoveStage} />
+                ))}
+              </StageColumn>
+            );
+          })}
+        </div>
       </div>
-    </div>
+      <DragOverlay dropAnimation={null}>
+        {activeClinic ? (
+          <div
+            className="rounded-md p-2.5 shadow-lg"
+            style={{ background: "#ffffff", border: "1px solid #111111", width: 204 }}
+          >
+            <PipelineCardContent c={activeClinic} overlay />
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
