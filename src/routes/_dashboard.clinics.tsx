@@ -198,7 +198,7 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
     return { text: `📞 Call back ${clinic.next_follow_up}`, overdue: isOverdue };
   }
 
-  if (clinic.status === "Contacted — No Answer" || clinic.status === "Contacted — Left Voicemail") {
+  if (clinic.status === "Contacted — No Answer") {
     const isOverdue = clinic.next_follow_up ? clinic.next_follow_up < today : false;
     return { text: "📞 Follow up — no answer", overdue: isOverdue };
   }
