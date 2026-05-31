@@ -19,7 +19,7 @@ import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
 import type { AppliedReview } from "@/components/CallReviewPopup";
-import { useAuth } from "@/hooks/useAuth";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -233,8 +233,6 @@ function truncateNote(text: string | null | undefined): string {
 }
 
 function ClinicsPage() {
-  const { role } = useAuth();
-  const isClinicSetter = role === "caller";
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -442,8 +440,6 @@ function ClinicsPage() {
   // Set of clinic ids that had at least one call today (for the row dot — fix #7)
   const [calledTodayIds, setCalledTodayIds] = useState<Set<string>>(new Set());
 
-  // Today's actions panel
-  const [todayExpanded, setTodayExpanded] = useState(false);
 
   const loadClinics = useCallback(async () => {
     const { data } = await supabase.from("clinics").select("*").order("created_at", { ascending: false });
@@ -451,8 +447,6 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
-  // Latest Email/Zoom contact per clinic — drives the Follow-Ups tab
-  const [sentFollowUps, setSentFollowUps] = useState<Record<string, ClinicContact>>({});
 
   const loadLastContacts = useCallback(async () => {
     // Only fetch latest contact per clinic. Cap rows to avoid scanning the full
