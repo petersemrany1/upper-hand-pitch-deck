@@ -78,6 +78,7 @@ const PIPELINE_STAGES = [
   "Contacted — Gatekeeper",
   "Contacted — Call Me Back",
   "Contacted — Not Interested",
+  "Sent Email/Loom",
   "Zoom Set",
   "Contract Sent",
   "Signed",
@@ -96,6 +97,7 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Contacted — Gatekeeper": { bg: "#fff1ee", text: "#fb923c" },
   "Contacted — Call Me Back": { bg: "#fffbeb", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
+  "Sent Email/Loom": { bg: "#ecfeff", text: "#0891b2" },
   "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
   "Contract Sent": { bg: "#fef3c7", text: "#b45309" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
@@ -699,7 +701,11 @@ function ClinicsPage() {
     });
 
     // Auto-update stage based on outcome
-    const newStage = OUTCOME_TO_STAGE[logOutcome];
+    let newStage = OUTCOME_TO_STAGE[logOutcome];
+    // Special case: "Sent" outcome under Email or Loom → Sent Email/Loom stage
+    if ((logType === "Email" || logType === "Loom") && logOutcome === "Sent") {
+      newStage = "Sent Email/Loom";
+    }
     if (newStage) {
       await supabase.from("clinics").update({ status: newStage }).eq("id", selectedClinic.id);
       setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, status: newStage } : c));
