@@ -77,7 +77,6 @@ const PIPELINE_STAGES = [
   "Contacted — Left Voicemail",
   "Contacted — Gatekeeper",
   "Contacted — Call Me Back",
-  "Call Back — Specific Time",
   "Contacted — Not Interested",
   "Zoom Set",
   "Contract Sent",
@@ -96,7 +95,6 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Contacted — Left Voicemail": { bg: "#ebebeb", text: "#111111" },
   "Contacted — Gatekeeper": { bg: "#fff1ee", text: "#fb923c" },
   "Contacted — Call Me Back": { bg: "#fffbeb", text: "#fbbf24" },
-  "Call Back — Specific Time": { bg: "#fffbeb", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
   "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
   "Contract Sent": { bg: "#fef3c7", text: "#b45309" },
@@ -109,7 +107,6 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
 const CALL_OUTCOMES = [
   "No Answer", "Left Voicemail", "Spoke — Gatekeeper",
   "Spoke — Not Interested", "Spoke — Call Me Back",
-  "Call Back — Specific Time",
   "Spoke — Interested", "Spoke — Zoom Set",
   "Not Applicable — Doesn't Do Transplants",
 ];
@@ -134,7 +131,6 @@ const OUTCOME_TO_STAGE: Record<string, string> = {
   "Spoke — Gatekeeper": "Contacted — Gatekeeper",
   "Spoke — Not Interested": "Contacted — Not Interested",
   "Spoke — Call Me Back": "Contacted — Call Me Back",
-  "Call Back — Specific Time": "Call Back — Specific Time",
   "Spoke — Interested": "Contacted — Call Me Back",
   "Spoke — Zoom Set": "Zoom Set",
   "Not Applicable — Doesn't Do Transplants": "Not Applicable",
@@ -196,12 +192,6 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   if (clinic.status === "Zoom Set" && clinic.next_follow_up) {
     const isOverdue = clinic.next_follow_up < today;
     return { text: `📹 Zoom ${clinic.next_follow_up}`, overdue: isOverdue };
-  }
-
-  if (clinic.status === "Call Back — Specific Time" && clinic.next_follow_up) {
-    const isOverdue = clinic.next_follow_up < today;
-    const timeWindow = lastContact?.next_action_time ? ` ${lastContact.next_action_time}` : "";
-    return { text: `📞 Call back ${clinic.next_follow_up}${timeWindow}`, overdue: isOverdue };
   }
 
   if (clinic.status === "Contacted — Call Me Back" && clinic.next_follow_up) {
@@ -754,9 +744,7 @@ function ClinicsPage() {
 
   const needsDateTimePicker =
     logOutcome === "Spoke — Call Me Back" ||
-    logOutcome === "Spoke — Zoom Set" ||
-    logOutcome === "Call Back — Specific Time";
-  const isSpecificTimeRange = logOutcome === "Call Back — Specific Time";
+    logOutcome === "Spoke — Zoom Set";
 
   const handleAddClinic = async () => {
     if (!newName) return;
@@ -1613,21 +1601,8 @@ function ClinicsPage() {
                     <Input type="date" value={logNextDate} onChange={(e) => setLogNextDate(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#111111", letterSpacing: "0.1em" }}>
-                      {isSpecificTimeRange ? "Time Window (e.g. 9am–12pm)" : "Time"}
-                    </label>
-                    {isSpecificTimeRange ? (
-                      <Input
-                        type="text"
-                        value={logNextTime}
-                        onChange={(e) => setLogNextTime(e.target.value)}
-                        placeholder="9am–12pm"
-                        className="border-0 text-xs h-8"
-                        style={{ background: "#f9f9f9", color: "#111111" }}
-                      />
-                    ) : (
-                      <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
-                    )}
+                    <label className="text-[10px] uppercase font-semibold block mb-1" style={{ color: "#111111", letterSpacing: "0.1em" }}>Time</label>
+                    <Input type="time" value={logNextTime} onChange={(e) => setLogNextTime(e.target.value)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </div>
                 </>
               )}
