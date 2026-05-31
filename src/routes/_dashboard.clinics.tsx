@@ -1040,30 +1040,7 @@ function ClinicsPage() {
         <TabsContent value="list" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
       {/* Table */}
       <div className="flex-1 overflow-y-auto h-full">
-// ... keep existing code (entire table rendering, sortedStates loop, Not Applicable section, "No clinics found" empty state) the same ...
-      </div>
-        </TabsContent>
 
-        <TabsContent value="pipeline" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
-          <PipelineBoard
-            clinics={filtered}
-            onOpenDetail={openDetail}
-            onMoveStage={async (clinic, newStage) => {
-              const prevStage = clinic.status;
-              setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStage } : c));
-              setSelectedClinic((prev) => prev && prev.id === clinic.id ? { ...prev, status: newStage } : prev);
-              const { error } = await supabase.from("clinics").update({ status: newStage }).eq("id", clinic.id);
-              if (error) {
-                setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: prevStage } : c));
-                setSelectedClinic((prev) => prev && prev.id === clinic.id ? { ...prev, status: prevStage } : prev);
-                toast.error("Failed to move clinic");
-              }
-            }}
-          />
-        </TabsContent>
-      </Tabs>
-
-        {/* Column header with resize handles */}
         <div
           className="hidden md:flex items-center sticky top-0 z-10"
           style={{ background: "#f4f3ee", borderBottom: "1px solid #111", height: 28 }}
