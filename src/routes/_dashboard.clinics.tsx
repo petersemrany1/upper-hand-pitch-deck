@@ -744,9 +744,7 @@ function ClinicsPage() {
 
   const needsDateTimePicker =
     logOutcome === "Spoke — Call Me Back" ||
-    logOutcome === "Spoke — Zoom Set" ||
-    logOutcome === "Call Back — Specific Time";
-  const isSpecificTimeRange = logOutcome === "Call Back — Specific Time";
+    logOutcome === "Spoke — Zoom Set";
 
   const handleAddClinic = async () => {
     if (!newName) return;
