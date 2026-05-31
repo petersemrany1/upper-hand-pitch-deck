@@ -194,12 +194,6 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
     return { text: `📹 Zoom ${clinic.next_follow_up}`, overdue: isOverdue };
   }
 
-  if (clinic.status === "Call Back — Specific Time" && clinic.next_follow_up) {
-    const isOverdue = clinic.next_follow_up < today;
-    const timeWindow = lastContact?.next_action_time ? ` ${lastContact.next_action_time}` : "";
-    return { text: `📞 Call back ${clinic.next_follow_up}${timeWindow}`, overdue: isOverdue };
-  }
-
   if (clinic.status === "Contacted — Call Me Back" && clinic.next_follow_up) {
     const isOverdue = clinic.next_follow_up < today;
     return { text: `📞 Call back ${clinic.next_follow_up}`, overdue: isOverdue };
