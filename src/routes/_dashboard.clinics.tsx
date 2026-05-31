@@ -989,7 +989,7 @@ function ClinicsPage() {
         <TabsList className="mx-4 mt-2 self-start">
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-          <TabsTrigger value="followups">Follow-Ups</TabsTrigger>
+          
         </TabsList>
 
         <TabsContent value="list" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
