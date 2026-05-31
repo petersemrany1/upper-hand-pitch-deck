@@ -935,13 +935,6 @@ function ClinicsPage() {
     setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
   };
 
-  // Today's actions
-  const today = new Date().toISOString().split("T")[0];
-  const todayActions = clinics.filter((c) => {
-    if (c.next_follow_up && c.next_follow_up <= today && c.status !== "Signed" && c.status !== "Lost" && c.status !== "Contacted — Not Interested") return true;
-    return false;
-  });
-
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -952,38 +945,6 @@ function ClinicsPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#f7f7f5" }}>
-      {/* Today's Actions Panel */}
-      {!isClinicSetter && todayActions.length > 0 && (
-        <div style={{ borderBottom: "1px solid #f9f9f9" }}>
-          <button
-            onClick={() => setTodayExpanded(!todayExpanded)}
-            className="w-full flex items-center gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors"
-          >
-            {todayExpanded ? <ChevronDown className="w-3 h-3" style={{ color: "#f59e0b" }} /> : <ChevronRight className="w-3 h-3" style={{ color: "#f59e0b" }} />}
-            <AlertCircle className="w-3.5 h-3.5" style={{ color: "#f59e0b" }} />
-            <span className="text-xs font-bold" style={{ color: "#f59e0b" }}>TODAY'S ACTIONS</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "#dc2626", color: "#111111" }}>{todayActions.length}</span>
-          </button>
-          {todayExpanded && (
-            <div className="px-5 pb-3 space-y-1">
-              {todayActions.map((c) => {
-                const action = getNextActionText(c, lastContacts[c.id] || null);
-                return (
-                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-3 rounded" style={{ background: "#f9f9f9" }}>
-                    <button onClick={() => openDetail(c)} className="text-xs font-semibold hover:underline truncate" style={{ color: "#111111", minWidth: 120 }}>{c.clinic_name}</button>
-                    <span className="text-[11px] flex-1 truncate" style={{ color: "#f59e0b" }}>{action.text}</span>
-                    {c.phone && (
-                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#f9f9f9]" title="Call now">
-                        <PhoneCall className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
