@@ -121,6 +121,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       email: string;
       amount: number;
       leadId?: string;
+      clinicId?: string;
+      doctorName?: string;
     }) => data
   )
   .handler(async ({ data }) => {
@@ -161,49 +163,59 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     let resolvedClinicName: string | null = null;
     let resolvedDoctorName: string | null = null;
 
-    if (data.leadId) {
-      try {
+    try {
+      // Prefer an explicitly supplied clinicId (e.g. from the booking form,
+      // which may not yet be persisted onto meta_leads.clinic_id).
+      let clinicId: string | null = data.clinicId?.trim() || null;
+      if (!clinicId && data.leadId) {
         const { data: leadRow } = await supabaseAdmin
           .from("meta_leads")
           .select("clinic_id")
           .eq("id", data.leadId)
           .maybeSingle();
-        const clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id;
-        if (clinicId) {
-          const { data: clinicRow } = await supabaseAdmin
-            .from("clinics")
-            .select("clinic_name, doctor_name, address, city, state")
-            .eq("id", clinicId)
-            .maybeSingle();
-          if (clinicRow) {
-            const c = clinicRow as {
-              clinic_name?: string | null;
-              doctor_name?: string | null;
-              address?: string | null;
-              city?: string | null;
-              state?: string | null;
-            };
-            const clinicName = c.clinic_name?.trim() || null;
-            let doctor = c.doctor_name?.trim() || null;
-            if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
-            resolvedClinicName = clinicName;
-            resolvedDoctorName = doctor;
-            if (doctor && clinicName) productName = `Consultation with ${doctor} — ${clinicName}`;
-            else if (doctor) productName = `Consultation with ${doctor}`;
-            else if (clinicName) productName = `Hair Transplant Consultation — ${clinicName}`;
-            if (clinicName) {
-              const addrParts = [c.address, c.city, c.state]
-                .map((p) => (p ?? "").trim())
-                .filter(Boolean);
-              const addrLine = addrParts.join(", ");
-              productDescription = `${clinicName}${addrLine ? ` — ${addrLine}` : ""}. Fully refundable — returned to you in full when you attend your consultation.`;
-            }
+        clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id || null;
+      }
+      if (clinicId) {
+        const { data: clinicRow } = await supabaseAdmin
+          .from("clinics")
+          .select("clinic_name, doctor_name, address, city, state")
+          .eq("id", clinicId)
+          .maybeSingle();
+        if (clinicRow) {
+          const c = clinicRow as {
+            clinic_name?: string | null;
+            doctor_name?: string | null;
+            address?: string | null;
+            city?: string | null;
+            state?: string | null;
+          };
+          const clinicName = c.clinic_name?.trim() || null;
+          // Prefer an explicitly supplied doctor name over the clinic default.
+          let doctor = (data.doctorName?.trim() || c.doctor_name?.trim()) || null;
+          if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
+          resolvedClinicName = clinicName;
+          resolvedDoctorName = doctor;
+          if (doctor && clinicName) productName = `Consultation with ${doctor} — ${clinicName}`;
+          else if (doctor) productName = `Consultation with ${doctor}`;
+          else if (clinicName) productName = `Hair Transplant Consultation — ${clinicName}`;
+          if (clinicName) {
+            const addrParts = [c.address, c.city, c.state]
+              .map((p) => (p ?? "").trim())
+              .filter(Boolean);
+            const addrLine = addrParts.join(", ");
+            productDescription = `${clinicName}${addrLine ? ` — ${addrLine}` : ""}. Fully refundable — returned to you in full when you attend your consultation.`;
           }
         }
-      } catch (err) {
-        // Lookup failure must never block taking the deposit — fall back to generic name.
-        console.error("createHtgDepositSession clinic lookup failed", err);
+      } else if (data.doctorName?.trim()) {
+        // No clinic but doctor was supplied — still personalize.
+        let doctor = data.doctorName.trim();
+        if (!/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
+        resolvedDoctorName = doctor;
+        productName = `Consultation with ${doctor}`;
       }
+    } catch (err) {
+      // Lookup failure must never block taking the deposit — fall back to generic name.
+      console.error("createHtgDepositSession clinic lookup failed", err);
     }
 
     const params = new URLSearchParams();

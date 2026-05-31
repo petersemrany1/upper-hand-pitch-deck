@@ -2514,11 +2514,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
     if (sendingPaymentLink) return;
     setSendingPaymentLink(true);
+    const selectedDoctor = doctors.find((d) => d.id === form.doctorId);
     const r = await sendStandaloneDepositSms({
       data: {
         leadId: lead.id,
         firstName: lead.first_name ?? "there",
         phone: lead.phone,
+        clinicId: form.clinicId || lead.clinic_id || undefined,
+        doctorName: selectedDoctor?.name || undefined,
       },
     });
     setSendingPaymentLink(false);
