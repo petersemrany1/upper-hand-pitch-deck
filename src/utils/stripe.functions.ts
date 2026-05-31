@@ -176,11 +176,21 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
         clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id || null;
       }
       if (clinicId) {
-        const { data: clinicRow } = await supabaseAdmin
+        let { data: clinicRow } = await supabaseAdmin
           .from("clinics")
           .select("clinic_name, doctor_name, address, city, state")
           .eq("id", clinicId)
           .maybeSingle();
+        if (!clinicRow) {
+          const { data: partnerClinicRow } = await supabaseAdmin
+            .from("partner_clinics")
+            .select("clinic_name, address, city, state")
+            .eq("id", clinicId)
+            .maybeSingle();
+          clinicRow = partnerClinicRow
+            ? { ...partnerClinicRow, doctor_name: data.doctorName ?? null }
+            : null;
+        }
         if (clinicRow) {
           const c = clinicRow as {
             clinic_name?: string | null;
