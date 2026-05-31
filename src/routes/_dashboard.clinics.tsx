@@ -1468,6 +1468,14 @@ function ClinicsPage() {
             }}
           />
         </TabsContent>
+
+        <TabsContent value="followups" className="flex-1 overflow-auto mt-0 data-[state=inactive]:hidden">
+          <FollowUpsList
+            clinics={filtered}
+            sentFollowUps={sentFollowUps}
+            onOpenDetail={openDetail}
+          />
+        </TabsContent>
       </Tabs>
 
 
