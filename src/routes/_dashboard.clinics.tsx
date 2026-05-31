@@ -455,6 +455,9 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
+  // Latest Email/Zoom contact per clinic — drives the Follow-Ups tab
+  const [sentFollowUps, setSentFollowUps] = useState<Record<string, ClinicContact>>({});
+
   const loadLastContacts = useCallback(async () => {
     // Only fetch latest contact per clinic. Cap rows to avoid scanning the full
     // table on every mount and after every Log Activity.
@@ -465,10 +468,15 @@ function ClinicsPage() {
       .limit(1000);
     if (data) {
       const map: Record<string, ClinicContact> = {};
+      const followUps: Record<string, ClinicContact> = {};
       for (const d of data as ClinicContact[]) {
         if (!map[d.clinic_id]) map[d.clinic_id] = d;
+        if ((d.contact_type === "Email" || d.contact_type === "Zoom") && !followUps[d.clinic_id]) {
+          followUps[d.clinic_id] = d;
+        }
       }
       setLastContacts(map);
+      setSentFollowUps(followUps);
     }
   }, []);
 
