@@ -1440,6 +1440,28 @@ function ClinicsPage() {
           <div className="text-center py-12" style={{ color: "#111111", fontSize: 13 }}>No clinics found.</div>
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="pipeline" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
+          <PipelineBoard
+            clinics={filtered}
+            onOpenDetail={openDetail}
+            onMoveStage={async (clinic, newStage) => {
+              const prevStage = clinic.status;
+              setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStage } : c));
+              setSelectedClinic((prev) => prev && prev.id === clinic.id ? { ...prev, status: newStage } : prev);
+              const { error } = await supabase.from("clinics").update({ status: newStage }).eq("id", clinic.id);
+              if (error) {
+                setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: prevStage } : c));
+                setSelectedClinic((prev) => prev && prev.id === clinic.id ? { ...prev, status: prevStage } : prev);
+                toast.error("Failed to move clinic");
+              }
+            }}
+          />
+        </TabsContent>
+      </Tabs>
+
+
 
       {/* Detail Panel */}
       {selectedClinic && (
