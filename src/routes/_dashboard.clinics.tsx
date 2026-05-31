@@ -80,7 +80,6 @@ const PIPELINE_STAGES = [
   "Call Back — Specific Time",
   "Contacted — Not Interested",
   "Zoom Set",
-  "Zoom Completed",
   "Contract Sent",
   "Signed",
   "Lost",
@@ -100,7 +99,6 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Call Back — Specific Time": { bg: "#fffbeb", text: "#fbbf24" },
   "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
   "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
-  "Zoom Completed": { bg: "#eff6ff", text: "#60a5fa" },
   "Contract Sent": { bg: "#fef3c7", text: "#b45309" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
   "Lost": { bg: "#fef2f2", text: "#dc2626" },
@@ -141,7 +139,7 @@ const OUTCOME_TO_STAGE: Record<string, string> = {
   "Spoke — Zoom Set": "Zoom Set",
   "Not Applicable — Doesn't Do Transplants": "Not Applicable",
   "Qualified — Ready to Sign": "Signed",
-  "Qualified — Needs Follow Up": "Zoom Completed",
+  "Qualified — Needs Follow Up": "Contract Sent",
   "Not Qualified — Budget": "Lost",
   "Not Qualified — Wrong Fit": "Lost",
   "No Show": "Zoom Set",
@@ -218,10 +216,6 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
 
   if (clinic.status === "Contacted — Gatekeeper") {
     return { text: "📞 Call back — waiting for owner", overdue: false };
-  }
-
-  if (clinic.status === "Zoom Completed") {
-    return { text: "✉️ Send follow-up", overdue: false };
   }
 
   if (clinic.next_follow_up) {
