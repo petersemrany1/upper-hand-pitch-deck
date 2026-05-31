@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 const AI_OUTCOME_TO_STAGE: Record<string, string> = {
   "Not Interested": "Contacted — Not Interested",
   "No Answer": "Contacted — No Answer",
-  "Left Voicemail": "Contacted — Left Voicemail",
+  "Left Voicemail": "Contacted — No Answer",
   "Gatekeeper": "Contacted — Gatekeeper",
   "Call Me Back": "Contacted — Call Me Back",
   "Zoom Set": "Zoom Set",
