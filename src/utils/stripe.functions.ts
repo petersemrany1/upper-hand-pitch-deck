@@ -221,12 +221,14 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
 
       // Stripe renders newlines in description as line breaks — use them
       // to give each piece of info its own line instead of one long sentence.
-      const lines: string[] = [];
-      if (clinicName) lines.push(clinicName);
-      if (addrLine) lines.push(addrLine);
-      lines.push("Fully refundable — returned in full when you attend.");
-      // Double newlines render as a blank line between items on Stripe Checkout.
-      productDescription = lines.join("\n\n");
+      // Stripe Checkout renders product_data.description as plain text and
+      // strips newlines, so we use " · " separators and keep it short so it
+      // isn't truncated with "..." on mobile.
+      const parts: string[] = [];
+      if (clinicName) parts.push(clinicName);
+      if (addrLine) parts.push(addrLine);
+      parts.push("Fully refundable at your consultation");
+      productDescription = parts.join(" · ");
     } catch (err) {
       // Lookup failure must never block taking the deposit — fall back to generic name.
       console.error("createHtgDepositSession clinic lookup failed", err);
