@@ -225,7 +225,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       if (clinicName) lines.push(clinicName);
       if (addrLine) lines.push(addrLine);
       lines.push("Fully refundable — returned in full when you attend.");
-      productDescription = lines.join("\n");
+      // Double newlines render as a blank line between items on Stripe Checkout.
+      productDescription = lines.join("\n\n");
     } catch (err) {
       // Lookup failure must never block taking the deposit — fall back to generic name.
       console.error("createHtgDepositSession clinic lookup failed", err);
