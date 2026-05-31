@@ -171,7 +171,7 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
         const clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id;
         if (clinicId) {
           const { data: clinicRow } = await supabaseAdmin
-            .from("partner_clinics")
+            .from("clinics")
             .select("clinic_name, doctor_name, address, city, state")
             .eq("id", clinicId)
             .maybeSingle();
