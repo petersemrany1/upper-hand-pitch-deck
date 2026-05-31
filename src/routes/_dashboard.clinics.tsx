@@ -19,7 +19,7 @@ import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
 import { CallReviewInbox } from "@/components/CallReviewInbox";
 import { isValidAUPhone } from "@/utils/phone";
 import type { AppliedReview } from "@/components/CallReviewPopup";
-import { useAuth } from "@/hooks/useAuth";
+
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -233,8 +233,6 @@ function truncateNote(text: string | null | undefined): string {
 }
 
 function ClinicsPage() {
-  const { role } = useAuth();
-  const isClinicSetter = role === "caller";
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -442,8 +440,6 @@ function ClinicsPage() {
   // Set of clinic ids that had at least one call today (for the row dot — fix #7)
   const [calledTodayIds, setCalledTodayIds] = useState<Set<string>>(new Set());
 
-  // Today's actions panel
-  const [todayExpanded, setTodayExpanded] = useState(false);
 
   const loadClinics = useCallback(async () => {
     const { data } = await supabase.from("clinics").select("*").order("created_at", { ascending: false });
@@ -451,8 +447,6 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
-  // Latest Email/Zoom contact per clinic — drives the Follow-Ups tab
-  const [sentFollowUps, setSentFollowUps] = useState<Record<string, ClinicContact>>({});
 
   const loadLastContacts = useCallback(async () => {
     // Only fetch latest contact per clinic. Cap rows to avoid scanning the full
@@ -464,15 +458,10 @@ function ClinicsPage() {
       .limit(1000);
     if (data) {
       const map: Record<string, ClinicContact> = {};
-      const followUps: Record<string, ClinicContact> = {};
       for (const d of data as ClinicContact[]) {
         if (!map[d.clinic_id]) map[d.clinic_id] = d;
-        if ((d.contact_type === "Email" || d.contact_type === "Zoom") && !followUps[d.clinic_id]) {
-          followUps[d.clinic_id] = d;
-        }
       }
       setLastContacts(map);
-      setSentFollowUps(followUps);
     }
   }, []);
 
@@ -946,13 +935,6 @@ function ClinicsPage() {
     setCollapsedStates((prev) => ({ ...prev, [state]: !prev[state] }));
   };
 
-  // Today's actions
-  const today = new Date().toISOString().split("T")[0];
-  const todayActions = clinics.filter((c) => {
-    if (c.next_follow_up && c.next_follow_up <= today && c.status !== "Signed" && c.status !== "Lost" && c.status !== "Contacted — Not Interested") return true;
-    return false;
-  });
-
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -963,38 +945,6 @@ function ClinicsPage() {
 
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ background: "#f7f7f5" }}>
-      {/* Today's Actions Panel */}
-      {!isClinicSetter && todayActions.length > 0 && (
-        <div style={{ borderBottom: "1px solid #f9f9f9" }}>
-          <button
-            onClick={() => setTodayExpanded(!todayExpanded)}
-            className="w-full flex items-center gap-2 px-5 py-2 hover:bg-white/[0.02] transition-colors"
-          >
-            {todayExpanded ? <ChevronDown className="w-3 h-3" style={{ color: "#f59e0b" }} /> : <ChevronRight className="w-3 h-3" style={{ color: "#f59e0b" }} />}
-            <AlertCircle className="w-3.5 h-3.5" style={{ color: "#f59e0b" }} />
-            <span className="text-xs font-bold" style={{ color: "#f59e0b" }}>TODAY'S ACTIONS</span>
-            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: "#dc2626", color: "#111111" }}>{todayActions.length}</span>
-          </button>
-          {todayExpanded && (
-            <div className="px-5 pb-3 space-y-1">
-              {todayActions.map((c) => {
-                const action = getNextActionText(c, lastContacts[c.id] || null);
-                return (
-                  <div key={c.id} className="flex items-center gap-3 py-1.5 px-3 rounded" style={{ background: "#f9f9f9" }}>
-                    <button onClick={() => openDetail(c)} className="text-xs font-semibold hover:underline truncate" style={{ color: "#111111", minWidth: 120 }}>{c.clinic_name}</button>
-                    <span className="text-[11px] flex-1 truncate" style={{ color: "#f59e0b" }}>{action.text}</span>
-                    {c.phone && (
-                      <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#f9f9f9]" title="Call now">
-                        <PhoneCall className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Top bar */}
       <div className="flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-5 py-3" style={{ borderBottom: "1px solid #f9f9f9" }}>
@@ -1039,7 +989,7 @@ function ClinicsPage() {
         <TabsList className="mx-4 mt-2 self-start">
           <TabsTrigger value="list">List</TabsTrigger>
           <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-          <TabsTrigger value="followups">Follow-Ups</TabsTrigger>
+          
         </TabsList>
 
         <TabsContent value="list" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
@@ -1465,13 +1415,6 @@ function ClinicsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="followups" className="flex-1 overflow-auto mt-0 data-[state=inactive]:hidden">
-          <FollowUpsList
-            clinics={filtered}
-            sentFollowUps={sentFollowUps}
-            onOpenDetail={openDetail}
-          />
-        </TabsContent>
       </Tabs>
 
 
@@ -2001,76 +1944,6 @@ function PipelineBoard({
   );
 }
 
-// ============== Follow-Ups List ==============
-function FollowUpsList({
-  clinics,
-  sentFollowUps,
-  onOpenDetail,
-}: {
-  clinics: Clinic[];
-  sentFollowUps: Record<string, ClinicContact>;
-  onOpenDetail: (c: Clinic) => void;
-}) {
-  const rows = clinics
-    .map((c) => ({ clinic: c, contact: sentFollowUps[c.id] }))
-    .filter((r): r is { clinic: Clinic; contact: ClinicContact } => !!r.contact)
-    .sort((a, b) => (a.contact.created_at < b.contact.created_at ? 1 : -1));
-
-  const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-
-  if (rows.length === 0) {
-    return (
-      <div className="p-8 text-center text-sm" style={{ color: "#666" }}>
-        No Emails or Zooms sent yet. Log an Email or Zoom activity on a clinic and it'll appear here so you can chase it up.
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4">
-      <div className="text-[11px] mb-3 uppercase font-bold" style={{ color: "#111", letterSpacing: "0.1em" }}>
-        Chase-up list — {rows.length} clinic{rows.length === 1 ? "" : "s"} you've emailed or zoomed
-      </div>
-      <div className="rounded-lg overflow-hidden" style={{ background: "#fff", border: "1px solid #ebebeb" }}>
-        {rows.map(({ clinic, contact }, i) => {
-          const days = daysSince(contact.created_at);
-          const stale = days >= 3;
-          const veryStale = days >= 7;
-          const emoji = contact.contact_type === "Email" ? "✉️" : "📹";
-          const sc = STAGE_COLORS[clinic.status] || STAGE_COLORS["Not Started"];
-          return (
-            <button
-              key={clinic.id}
-              onClick={() => onOpenDetail(clinic)}
-              className="w-full text-left px-4 py-3 hover:bg-[#f9f9f9] transition-colors flex items-center gap-3"
-              style={{ borderBottom: i === rows.length - 1 ? "none" : "1px solid #ebebeb" }}
-            >
-              <span className="text-base shrink-0">{emoji}</span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold truncate" style={{ color: "#111" }}>{clinic.clinic_name}</span>
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={{ background: sc.bg, color: sc.text }}>{clinic.status}</span>
-                </div>
-                <div className="text-[11px] mt-0.5 truncate" style={{ color: "#666" }}>
-                  {contact.contact_type}{contact.outcome ? ` — ${contact.outcome}` : ""}
-                  {contact.notes ? ` · ${contact.notes.slice(0, 60)}${contact.notes.length > 60 ? "…" : ""}` : ""}
-                </div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-[11px] font-semibold" style={{ color: veryStale ? "#dc2626" : stale ? "#f59e0b" : "#111" }}>
-                  {days === 0 ? "Today" : days === 1 ? "1 day ago" : `${days} days ago`}
-                </div>
-                {clinic.phone && (
-                  <div className="text-[10px] mt-0.5" style={{ color: "#666" }}>{clinic.phone}</div>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 declare module "react" {}
 
