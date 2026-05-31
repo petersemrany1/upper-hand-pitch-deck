@@ -77,7 +77,6 @@ const PIPELINE_STAGES = [
   "Contacted — Left Voicemail",
   "Contacted — Gatekeeper",
   "Contacted — Call Me Back",
-  "Call Back — Specific Time",
   "Contacted — Not Interested",
   "Zoom Set",
   "Contract Sent",
