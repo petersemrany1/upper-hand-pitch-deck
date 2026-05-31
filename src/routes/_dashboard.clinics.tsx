@@ -107,7 +107,6 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
 const CALL_OUTCOMES = [
   "No Answer", "Left Voicemail", "Spoke — Gatekeeper",
   "Spoke — Not Interested", "Spoke — Call Me Back",
-  "Call Back — Specific Time",
   "Spoke — Interested", "Spoke — Zoom Set",
   "Not Applicable — Doesn't Do Transplants",
 ];
