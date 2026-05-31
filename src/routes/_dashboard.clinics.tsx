@@ -1886,3 +1886,104 @@ function FilterDropdown({ label, options, value, onChange }: { label: string; op
     </select>
   );
 }
+
+// ============== Pipeline Kanban Board ==============
+const PIPELINE_BOARD_STAGES = PIPELINE_STAGES.filter(
+  (s) => s !== "TEST" && s !== "Not Applicable"
+);
+
+function PipelineBoard({
+  clinics,
+  onOpenDetail,
+  onMoveStage,
+}: {
+  clinics: Clinic[];
+  onOpenDetail: (c: Clinic) => void;
+  onMoveStage: (c: Clinic, newStage: string) => void;
+}) {
+  const byStage: Record<string, Clinic[]> = {};
+  for (const s of PIPELINE_BOARD_STAGES) byStage[s] = [];
+  for (const c of clinics) {
+    if (byStage[c.status]) byStage[c.status].push(c);
+  }
+
+  return (
+    <div className="h-full overflow-x-auto overflow-y-hidden">
+      <div className="flex gap-3 p-4 h-full">
+        {PIPELINE_BOARD_STAGES.map((stage) => {
+          const colour = STAGE_COLORS[stage] || STAGE_COLORS["Not Started"];
+          const items = byStage[stage] || [];
+          return (
+            <div
+              key={stage}
+              className="shrink-0 flex flex-col rounded-lg"
+              style={{ width: 220, background: "#f4f3ee", border: "1px solid #ebebeb" }}
+            >
+              <div
+                className="px-3 py-2 rounded-t-lg flex items-center justify-between"
+                style={{ background: colour.bg, color: colour.text, borderBottom: "1px solid #ebebeb" }}
+              >
+                <span className="text-[11px] font-bold uppercase truncate" style={{ letterSpacing: "0.05em" }}>{stage}</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "rgba(0,0,0,0.08)", color: colour.text }}>{items.length}</span>
+              </div>
+              <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {items.map((c) => {
+                  const doctor = c.doctor_name || c.owner_name;
+                  const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
+                  return (
+                    <div
+                      key={c.id}
+                      className="rounded-md p-2.5 cursor-pointer hover:shadow-sm transition-shadow"
+                      style={{ background: "#ffffff", border: "1px solid #ebebeb" }}
+                      onClick={() => onOpenDetail(c)}
+                    >
+                      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+                      {cityLine && (
+                        <div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>
+                      )}
+                      {doctor && (
+                        <div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>
+                      )}
+                      {c.phone && (
+                        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
+                          <Phone className="w-2.5 h-2.5" /> {c.phone}
+                        </div>
+                      )}
+                      {c.next_follow_up && (
+                        <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
+                          <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
+                        </div>
+                      )}
+                      <div onClick={(e) => e.stopPropagation()} className="mt-2">
+                        <Select
+                          value={c.status}
+                          onValueChange={(v) => { if (v !== c.status) onMoveStage(c, v); }}
+                        >
+                          <SelectTrigger className="h-7 text-[10px] px-2" aria-label="Move to stage">
+                            <SelectValue placeholder="Move to…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PIPELINE_BOARD_STAGES.map((s) => (
+                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  );
+                })}
+                {items.length === 0 && (
+                  <div className="text-[10px] text-center py-3" style={{ color: "#999" }}>No clinics</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Doctor_name type augmentation — fall back already handled in board
+declare module "react" {}
+
