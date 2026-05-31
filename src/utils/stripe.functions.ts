@@ -158,8 +158,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     }
 
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ").trim();
-    let productName = "Hair Transplant Consultation Deposit (Refundable)";
-    let productDescription: string | null = null;
+    let productName = "Consultation Deposit";
+    let productDescription: string | null = "Fully refundable — returned in full when you attend your consultation.";
     let resolvedClinicName: string | null = null;
     let resolvedDoctorName: string | null = null;
 
@@ -175,6 +175,9 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
           .maybeSingle();
         clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id || null;
       }
+      let clinicName: string | null = null;
+      let doctor: string | null = null;
+      let addrLine: string | null = null;
       if (clinicId) {
         let { data: clinicRow } = await supabaseAdmin
           .from("clinics")
@@ -199,30 +202,30 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
             city?: string | null;
             state?: string | null;
           };
-          const clinicName = c.clinic_name?.trim() || null;
-          // Prefer an explicitly supplied doctor name over the clinic default.
-          let doctor = (data.doctorName?.trim() || c.doctor_name?.trim()) || null;
-          if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
-          resolvedClinicName = clinicName;
-          resolvedDoctorName = doctor;
-          if (doctor && clinicName) productName = `Consultation with ${doctor} — ${clinicName}`;
-          else if (doctor) productName = `Consultation with ${doctor}`;
-          else if (clinicName) productName = `Hair Transplant Consultation — ${clinicName}`;
-          if (clinicName) {
-            const addrParts = [c.address, c.city, c.state]
-              .map((p) => (p ?? "").trim())
-              .filter(Boolean);
-            const addrLine = addrParts.join(", ");
-            productDescription = `${clinicName}${addrLine ? ` — ${addrLine}` : ""}. Fully refundable — returned to you in full when you attend your consultation.`;
-          }
+          clinicName = c.clinic_name?.trim() || null;
+          doctor = (data.doctorName?.trim() || c.doctor_name?.trim()) || null;
+          const addrParts = [c.address, c.city, c.state]
+            .map((p) => (p ?? "").trim())
+            .filter(Boolean);
+          addrLine = addrParts.length ? addrParts.join(", ") : null;
         }
-      } else if (data.doctorName?.trim()) {
-        // No clinic but doctor was supplied — still personalize.
-        let doctor = data.doctorName.trim();
-        if (!/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
-        resolvedDoctorName = doctor;
-        productName = `Consultation with ${doctor}`;
       }
+      if (!doctor && data.doctorName?.trim()) doctor = data.doctorName.trim();
+      if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
+      resolvedClinicName = clinicName;
+      resolvedDoctorName = doctor;
+
+      // Short, scannable title — keeps the A$ amount visually dominant.
+      if (doctor) productName = `Consultation with ${doctor}`;
+      else if (clinicName) productName = `Consultation at ${clinicName}`;
+
+      // Stripe renders newlines in description as line breaks — use them
+      // to give each piece of info its own line instead of one long sentence.
+      const lines: string[] = [];
+      if (clinicName) lines.push(clinicName);
+      if (addrLine) lines.push(addrLine);
+      lines.push("Fully refundable — returned in full when you attend.");
+      productDescription = lines.join("\n");
     } catch (err) {
       // Lookup failure must never block taking the deposit — fall back to generic name.
       console.error("createHtgDepositSession clinic lookup failed", err);
