@@ -101,6 +101,7 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Contacted — Not Interested": { bg: "#fef2f2", text: "#f87171" },
   "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
   "Zoom Completed": { bg: "#eff6ff", text: "#60a5fa" },
+  "Contract Sent": { bg: "#fef3c7", text: "#b45309" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
   "Lost": { bg: "#fef2f2", text: "#dc2626" },
   "Not Applicable": { bg: "#f9f9f9", text: "#111111" },
