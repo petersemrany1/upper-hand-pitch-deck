@@ -1888,9 +1888,13 @@ function FilterDropdown({ label, options, value, onChange }: { label: string; op
 }
 
 // ============== Pipeline Kanban Board ==============
-const PIPELINE_BOARD_STAGES = PIPELINE_STAGES.filter(
-  (s) => s !== "TEST" && s !== "Not Applicable"
-);
+// Reorder so "Contacted — Not Interested" sits at the end near "Lost"
+const PIPELINE_BOARD_STAGES = (() => {
+  const base = PIPELINE_STAGES.filter((s) => s !== "TEST" && s !== "Not Applicable" && s !== "Contacted — Not Interested");
+  const lostIdx = base.indexOf("Lost");
+  if (lostIdx === -1) return [...base, "Contacted — Not Interested"];
+  return [...base.slice(0, lostIdx), "Contacted — Not Interested", ...base.slice(lostIdx)];
+})();
 
 function PipelineBoard({
   clinics,
