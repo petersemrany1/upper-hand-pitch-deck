@@ -81,6 +81,7 @@ const PIPELINE_STAGES = [
   "Contacted — Not Interested",
   "Zoom Set",
   "Zoom Completed",
+  "Contract Sent",
   "Signed",
   "Lost",
   "Not Applicable",
