@@ -1266,6 +1266,8 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       leadId: string;
       firstName: string;
       phone: string;
+      clinicId?: string;
+      doctorName?: string;
     }) => data
   )
   .handler(async ({ data }) => {
@@ -1284,6 +1286,8 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
         email: "",
         amount: 75,
         leadId: data.leadId,
+        clinicId: data.clinicId,
+        doctorName: data.doctorName,
       },
     });
 
