@@ -1928,7 +1928,7 @@ function PipelineBoard({
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-2">
                 {items.map((c) => {
-                  const doctor = c.doctor_name || c.owner_name;
+                  const doctor = (c as Clinic & { doctor_name?: string | null }).doctor_name || c.owner_name;
                   const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
                   return (
                     <div
