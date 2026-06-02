@@ -114,7 +114,7 @@ export function AppSidebar() {
           .filter((f) => f.title !== "Clinic Acquisition")
           .map((f) =>
             f.title === "Sales"
-              ? { ...f, items: f.items.filter((i) => i.title !== "Leads" && i.title !== "Analytics") }
+              ? { ...f, items: f.items.filter((i) => !["Leads", "Analytics", "Partner Clinics", "Leaderboard", "Appointments"].includes(i.title)) }
               : f
           );
 
