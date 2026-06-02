@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/_dashboard/training/")({
-  component: TrainingPage,
+export const Route = createFileRoute("/_dashboard/training/sales-framework/")({
+  component: SalesFrameworkPage,
   head: () => ({
-    meta: [{ title: "Training" }],
+    meta: [{ title: "Sales Framework" }],
     links: [
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
@@ -17,49 +17,33 @@ export const Route = createFileRoute("/_dashboard/training/")({
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
-const modules = [
-  {
-    title: "Product Knowledge",
-    url: "/training/product-knowledge",
-    desc: "Learn everything about the product, services, pricing, and clinic partnerships.",
-  },
-  {
-    title: "Understanding Who You Are Talking To",
-    url: "/training/audience",
-    desc: "Buyer personas, motivations, objections and how to identify lead types fast.",
-  },
-  {
-    title: "Sales Framework",
-    url: "/training/sales-framework",
-    desc: "The 9-stage sales framework — from introduction through to closing.",
-  },
-  {
-    title: "Sales Call Example",
-    url: "/training/sales-call-example",
-    desc: "Listen to model sales calls and study the structure step by step.",
-  },
-  {
-    title: "AI Training",
-    url: "/training/ai",
-    desc: "How to use the in-portal AI tools (coach, summaries, lead intel) effectively.",
-  },
-  {
-    title: "Platform Training",
-    url: "/training/platform",
-    desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting.",
-  },
+export const FRAMEWORK_STAGES: { slug: string; title: string }[] = [
+  { slug: "introduction", title: "Introduction" },
+  { slug: "the-opening", title: "The Opening" },
+  { slug: "discovery", title: "Discovery" },
+  { slug: "amplification", title: "Amplification" },
+  { slug: "education", title: "Education" },
+  { slug: "audiobook-moment", title: "Audiobook Moment" },
+  { slug: "commitment-booking", title: "Commitment & Booking" },
+  { slug: "end-of-call-objections", title: "End of call Objections" },
+  { slug: "closing-order-takers", title: "Closing - Order Takers" },
 ];
 
-function TrainingPage() {
+function SalesFrameworkPage() {
   const completed = 0;
-  const total = modules.length;
-  const currentIndex = 0;
+  const total = FRAMEWORK_STAGES.length;
 
   return (
     <div style={{ fontFamily: FONT, background: "#f7f7f5", minHeight: "100%" }}>
       <div style={{ padding: "32px 28px", maxWidth: 880, margin: "0 auto" }}>
+        <Link
+          to="/training"
+          style={{ fontSize: 13, color: "#6b6b6b", textDecoration: "none", marginBottom: 16, display: "inline-block" }}
+        >
+          ‹ Back to Training
+        </Link>
         <h1 style={{ fontFamily: FONT, fontSize: 28, fontWeight: 700, color: "#111", marginBottom: 6, letterSpacing: "-0.01em" }}>
-          Your Training Journey
+          Sales Framework
         </h1>
         <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 16 }}>
           {completed} of {total} modules complete
@@ -69,10 +53,15 @@ function TrainingPage() {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {modules.map((m, i) => {
-            const isCurrent = i === currentIndex;
+          {FRAMEWORK_STAGES.map((m, i) => {
+            const isCurrent = i === 0;
             return (
-              <Link key={m.url} to={m.url} style={{ textDecoration: "none" }}>
+              <Link
+                key={m.slug}
+                to="/training/sales-framework/$stage"
+                params={{ stage: m.slug }}
+                style={{ textDecoration: "none" }}
+              >
                 <div
                   style={{
                     display: "flex",
@@ -113,24 +102,7 @@ function TrainingPage() {
                     {i + 1}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{m.title}</span>
-                      {isCurrent && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "#f4522d",
-                            background: "#fff1ee",
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                          }}
-                        >
-                          Current
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ fontSize: 13, color: "#6b6b6b", lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{m.title}</span>
                   </div>
                   <span style={{ color: "#c4c4c4", fontSize: 18, flexShrink: 0 }}>›</span>
                 </div>
