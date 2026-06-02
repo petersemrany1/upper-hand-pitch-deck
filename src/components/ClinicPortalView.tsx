@@ -641,6 +641,8 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
+      <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
+
       {/* Refund status cards (replace outcome buttons when applicable) */}
       {appt.outcome === "show" && appt.refund_status === "refunded" && appt.stripe_refund_id && (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
