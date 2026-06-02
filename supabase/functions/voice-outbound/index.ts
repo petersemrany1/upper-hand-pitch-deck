@@ -7,7 +7,32 @@ import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 // dialled number from the SDK params and bridge to PSTN with the verified
 // callerId. The call is recorded and statusCallback updates call_records.
 
-const TWILIO_CALLER_ID = "+61468031075";
+const FALLBACK_CALLER_ID = "+61483938205";
+
+// Pick least-recently-used ACTIVE number from the pool so outbound calls
+// always present a verified, currently-owned AU number. The previously
+// hard-coded number was retired, which made Twilio substitute an arbitrary
+// fallback (recipients sometimes saw it as a foreign/Japanese number).
+async function pickCallerId(sb: ReturnType<typeof createClient>): Promise<string> {
+  try {
+    const { data } = await sb
+      .from("phone_numbers")
+      .select("id, number, call_count")
+      .eq("status", "active")
+      .order("last_used_at", { ascending: true, nullsFirst: true })
+      .limit(1)
+      .maybeSingle();
+    if (data?.number) {
+      await sb.from("phone_numbers")
+        .update({ last_used_at: new Date().toISOString(), call_count: (data.call_count ?? 0) + 1 })
+        .eq("id", data.id);
+      return data.number as string;
+    }
+  } catch (e) {
+    console.error("voice-outbound: pickCallerId failed", e);
+  }
+  return FALLBACK_CALLER_ID;
+}
 
 // Mirror of src/utils/phone.ts — keep in sync. Returns E.164 (+61...)
 // when valid, otherwise null so we can refuse to dial bad numbers.
@@ -145,14 +170,12 @@ serve(async (req) => {
     callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
   );
 
-  // answerOnBridge="true" — caller hears real ringing and audio connects
-  //   the instant the callee picks up. Without it, Twilio answers our leg
-  //   immediately and pumps silence until bridge → feels like delay.
-  // trim="trim-silence" — strips dead air at the start of the recording
-  //   AND speeds up the audible bridge.
+  const sbForCaller = (supabaseUrl && serviceKey) ? createClient(supabaseUrl, serviceKey) : null;
+  const callerId = sbForCaller ? await pickCallerId(sbForCaller) : FALLBACK_CALLER_ID;
+
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial answerOnBridge="true" callerId="${TWILIO_CALLER_ID}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence" timeout="30">
+  <Dial answerOnBridge="true" callerId="${escapeXml(callerId)}" record="record-from-answer" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" trim="trim-silence" timeout="30">
     <Number statusCallback="${childStatusCallbackUrl}" statusCallbackMethod="POST" statusCallbackEvent="initiated ringing answered completed">${dialTo}</Number>
   </Dial>
 </Response>`;
