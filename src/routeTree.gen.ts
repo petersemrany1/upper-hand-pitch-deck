@@ -17,6 +17,7 @@ import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
+import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
@@ -30,6 +31,7 @@ import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinic
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
+import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
@@ -81,6 +83,11 @@ const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
   id: '/api/coach-stream',
   path: '/api/coach-stream',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardTrainingRoute = DashboardTrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
   id: '/settings',
@@ -148,6 +155,11 @@ const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
   path: '/analytics',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardTrainingRoute,
+} as any)
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
@@ -160,32 +172,32 @@ const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
 } as any)
 const DashboardTrainingSalesCallExampleRoute =
   DashboardTrainingSalesCallExampleRouteImport.update({
-    id: '/training/sales-call-example',
-    path: '/training/sales-call-example',
-    getParentRoute: () => DashboardRoute,
+    id: '/sales-call-example',
+    path: '/sales-call-example',
+    getParentRoute: () => DashboardTrainingRoute,
   } as any)
 const DashboardTrainingProductKnowledgeRoute =
   DashboardTrainingProductKnowledgeRouteImport.update({
-    id: '/training/product-knowledge',
-    path: '/training/product-knowledge',
-    getParentRoute: () => DashboardRoute,
+    id: '/product-knowledge',
+    path: '/product-knowledge',
+    getParentRoute: () => DashboardTrainingRoute,
   } as any)
 const DashboardTrainingPlatformRoute =
   DashboardTrainingPlatformRouteImport.update({
-    id: '/training/platform',
-    path: '/training/platform',
-    getParentRoute: () => DashboardRoute,
+    id: '/platform',
+    path: '/platform',
+    getParentRoute: () => DashboardTrainingRoute,
   } as any)
 const DashboardTrainingAudienceRoute =
   DashboardTrainingAudienceRouteImport.update({
-    id: '/training/audience',
-    path: '/training/audience',
-    getParentRoute: () => DashboardRoute,
+    id: '/audience',
+    path: '/audience',
+    getParentRoute: () => DashboardTrainingRoute,
   } as any)
 const DashboardTrainingAiRoute = DashboardTrainingAiRouteImport.update({
-  id: '/training/ai',
-  path: '/training/ai',
-  getParentRoute: () => DashboardRoute,
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => DashboardTrainingRoute,
 } as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
@@ -237,6 +249,7 @@ export interface FileRoutesByFullPath {
   '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
+  '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/training/ai': typeof DashboardTrainingAiRoute
@@ -246,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/training/': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -280,6 +294,7 @@ export interface FileRoutesByTo {
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/training': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -306,6 +321,7 @@ export interface FileRoutesById {
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
+  '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/_dashboard/': typeof DashboardIndexRoute
@@ -316,6 +332,7 @@ export interface FileRoutesById {
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
+  '/_dashboard/training/': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -343,6 +360,7 @@ export interface FileRouteTypes {
     | '/sales-call'
     | '/sent-links'
     | '/settings'
+    | '/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
     | '/training/ai'
@@ -352,6 +370,7 @@ export interface FileRouteTypes {
     | '/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
+    | '/training/'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
@@ -386,6 +405,7 @@ export interface FileRouteTypes {
     | '/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
+    | '/training'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
@@ -411,6 +431,7 @@ export interface FileRouteTypes {
     | '/_dashboard/sales-call'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
+    | '/_dashboard/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
     | '/_dashboard/'
@@ -421,6 +442,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
+    | '/_dashboard/training/'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
@@ -502,6 +524,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/coach-stream'
       preLoaderRoute: typeof ApiCoachStreamRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_dashboard/training': {
+      id: '/_dashboard/training'
+      path: '/training'
+      fullPath: '/training'
+      preLoaderRoute: typeof DashboardTrainingRouteImport
+      parentRoute: typeof DashboardRoute
     }
     '/_dashboard/settings': {
       id: '/_dashboard/settings'
@@ -594,6 +623,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/training/': {
+      id: '/_dashboard/training/'
+      path: '/'
+      fullPath: '/training/'
+      preLoaderRoute: typeof DashboardTrainingIndexRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
     '/lovable/email/suppression': {
       id: '/lovable/email/suppression'
       path: '/lovable/email/suppression'
@@ -610,38 +646,38 @@ declare module '@tanstack/react-router' {
     }
     '/_dashboard/training/sales-call-example': {
       id: '/_dashboard/training/sales-call-example'
-      path: '/training/sales-call-example'
+      path: '/sales-call-example'
       fullPath: '/training/sales-call-example'
       preLoaderRoute: typeof DashboardTrainingSalesCallExampleRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof DashboardTrainingRoute
     }
     '/_dashboard/training/product-knowledge': {
       id: '/_dashboard/training/product-knowledge'
-      path: '/training/product-knowledge'
+      path: '/product-knowledge'
       fullPath: '/training/product-knowledge'
       preLoaderRoute: typeof DashboardTrainingProductKnowledgeRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof DashboardTrainingRoute
     }
     '/_dashboard/training/platform': {
       id: '/_dashboard/training/platform'
-      path: '/training/platform'
+      path: '/platform'
       fullPath: '/training/platform'
       preLoaderRoute: typeof DashboardTrainingPlatformRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof DashboardTrainingRoute
     }
     '/_dashboard/training/audience': {
       id: '/_dashboard/training/audience'
-      path: '/training/audience'
+      path: '/audience'
       fullPath: '/training/audience'
       preLoaderRoute: typeof DashboardTrainingAudienceRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof DashboardTrainingRoute
     }
     '/_dashboard/training/ai': {
       id: '/_dashboard/training/ai'
-      path: '/training/ai'
+      path: '/ai'
       fullPath: '/training/ai'
       preLoaderRoute: typeof DashboardTrainingAiRouteImport
-      parentRoute: typeof DashboardRoute
+      parentRoute: typeof DashboardTrainingRoute
     }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
@@ -681,6 +717,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DashboardTrainingRouteChildren {
+  DashboardTrainingAiRoute: typeof DashboardTrainingAiRoute
+  DashboardTrainingAudienceRoute: typeof DashboardTrainingAudienceRoute
+  DashboardTrainingPlatformRoute: typeof DashboardTrainingPlatformRoute
+  DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
+  DashboardTrainingSalesCallExampleRoute: typeof DashboardTrainingSalesCallExampleRoute
+  DashboardTrainingIndexRoute: typeof DashboardTrainingIndexRoute
+}
+
+const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
+  DashboardTrainingAiRoute: DashboardTrainingAiRoute,
+  DashboardTrainingAudienceRoute: DashboardTrainingAudienceRoute,
+  DashboardTrainingPlatformRoute: DashboardTrainingPlatformRoute,
+  DashboardTrainingProductKnowledgeRoute:
+    DashboardTrainingProductKnowledgeRoute,
+  DashboardTrainingSalesCallExampleRoute:
+    DashboardTrainingSalesCallExampleRoute,
+  DashboardTrainingIndexRoute: DashboardTrainingIndexRoute,
+}
+
+const DashboardTrainingRouteWithChildren =
+  DashboardTrainingRoute._addFileChildren(DashboardTrainingRouteChildren)
+
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBookedAppointmentsRoute: typeof DashboardBookedAppointmentsRoute
@@ -695,12 +754,8 @@ interface DashboardRouteChildren {
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
+  DashboardTrainingRoute: typeof DashboardTrainingRouteWithChildren
   DashboardIndexRoute: typeof DashboardIndexRoute
-  DashboardTrainingAiRoute: typeof DashboardTrainingAiRoute
-  DashboardTrainingAudienceRoute: typeof DashboardTrainingAudienceRoute
-  DashboardTrainingPlatformRoute: typeof DashboardTrainingPlatformRoute
-  DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
-  DashboardTrainingSalesCallExampleRoute: typeof DashboardTrainingSalesCallExampleRoute
 }
 
 const DashboardRouteChildren: DashboardRouteChildren = {
@@ -717,14 +772,8 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
+  DashboardTrainingRoute: DashboardTrainingRouteWithChildren,
   DashboardIndexRoute: DashboardIndexRoute,
-  DashboardTrainingAiRoute: DashboardTrainingAiRoute,
-  DashboardTrainingAudienceRoute: DashboardTrainingAudienceRoute,
-  DashboardTrainingPlatformRoute: DashboardTrainingPlatformRoute,
-  DashboardTrainingProductKnowledgeRoute:
-    DashboardTrainingProductKnowledgeRoute,
-  DashboardTrainingSalesCallExampleRoute:
-    DashboardTrainingSalesCallExampleRoute,
 }
 
 const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
