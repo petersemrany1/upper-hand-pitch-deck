@@ -59,6 +59,7 @@ function TrainingPage() {
   const completed = 0;
   const total = modules.length;
   const currentIndex = 0;
+  const navigate = useNavigate();
 
   return (
     <div style={{ fontFamily: FONT, background: "#f7f7f5", minHeight: "100%" }}>
