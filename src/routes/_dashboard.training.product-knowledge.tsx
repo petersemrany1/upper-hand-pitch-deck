@@ -12,11 +12,13 @@ function ProductKnowledge() {
       <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 24 }}>
         Module 1 — Learn everything about the product, services, pricing, and clinic partnerships.
       </p>
-      <div style={{ borderRadius: 12, overflow: "hidden", background: "#000", boxShadow: "0 4px 14px rgba(0,0,0,0.08)" }}>
+      <div style={{ borderRadius: 12, overflow: "hidden", background: "#000", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", aspectRatio: "16 / 9" }}>
         <video
           src={videoAsset.url}
           controls
-          style={{ width: "100%", display: "block" }}
+          preload="metadata"
+          playsInline
+          style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
         />
       </div>
     </div>
