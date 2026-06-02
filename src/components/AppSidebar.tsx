@@ -228,6 +228,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {role !== "caller" && renderItem(topItem)}
               {role !== "caller" && renderItem(trainingItem, false, currentPath.startsWith('/training'))}
+              {role === "admin" && renderItem(partnerClinicsItem)}
 
               {folders.map((folder) => {
                 const open = openFolders[folder.title];
