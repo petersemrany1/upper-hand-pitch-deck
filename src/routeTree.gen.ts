@@ -35,6 +35,7 @@ import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
+import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
 import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
 import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
@@ -178,6 +179,12 @@ const DashboardTrainingSalesCallExampleRoute =
     path: '/sales-call-example',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
+const DashboardTrainingReadAlongRoute =
+  DashboardTrainingReadAlongRouteImport.update({
+    id: '/read-along',
+    path: '/read-along',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any)
 const DashboardTrainingProductKnowledgeRoute =
   DashboardTrainingProductKnowledgeRouteImport.update({
     id: '/product-knowledge',
@@ -270,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
+  '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -307,6 +315,7 @@ export interface FileRoutesByTo {
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
+  '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -347,6 +356,7 @@ export interface FileRoutesById {
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
   '/_dashboard/training/platform': typeof DashboardTrainingPlatformRoute
   '/_dashboard/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
+  '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -387,6 +397,7 @@ export interface FileRouteTypes {
     | '/training/audience'
     | '/training/platform'
     | '/training/product-knowledge'
+    | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
@@ -424,6 +435,7 @@ export interface FileRouteTypes {
     | '/training/audience'
     | '/training/platform'
     | '/training/product-knowledge'
+    | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
@@ -463,6 +475,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training/audience'
     | '/_dashboard/training/platform'
     | '/_dashboard/training/product-knowledge'
+    | '/_dashboard/training/read-along'
     | '/_dashboard/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
@@ -677,6 +690,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingSalesCallExampleRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
+    '/_dashboard/training/read-along': {
+      id: '/_dashboard/training/read-along'
+      path: '/read-along'
+      fullPath: '/training/read-along'
+      preLoaderRoute: typeof DashboardTrainingReadAlongRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
     '/_dashboard/training/product-knowledge': {
       id: '/_dashboard/training/product-knowledge'
       path: '/product-knowledge'
@@ -762,6 +782,7 @@ interface DashboardTrainingRouteChildren {
   DashboardTrainingAudienceRoute: typeof DashboardTrainingAudienceRoute
   DashboardTrainingPlatformRoute: typeof DashboardTrainingPlatformRoute
   DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
+  DashboardTrainingReadAlongRoute: typeof DashboardTrainingReadAlongRoute
   DashboardTrainingSalesCallExampleRoute: typeof DashboardTrainingSalesCallExampleRoute
   DashboardTrainingIndexRoute: typeof DashboardTrainingIndexRoute
   DashboardTrainingSalesFrameworkStageRoute: typeof DashboardTrainingSalesFrameworkStageRoute
@@ -774,6 +795,7 @@ const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
   DashboardTrainingPlatformRoute: DashboardTrainingPlatformRoute,
   DashboardTrainingProductKnowledgeRoute:
     DashboardTrainingProductKnowledgeRoute,
+  DashboardTrainingReadAlongRoute: DashboardTrainingReadAlongRoute,
   DashboardTrainingSalesCallExampleRoute:
     DashboardTrainingSalesCallExampleRoute,
   DashboardTrainingIndexRoute: DashboardTrainingIndexRoute,
