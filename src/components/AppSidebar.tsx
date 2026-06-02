@@ -29,7 +29,6 @@ const ALL_FOLDERS: NavFolder[] = [
     repUrl: "/sales-call",
     items: [
       { title: "Sales Portal", url: "/sales-call", icon: Headphones },
-      { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar },
       { title: "Leads", url: "/leads", icon: Users },
@@ -50,6 +49,7 @@ const ALL_FOLDERS: NavFolder[] = [
 ];
 
 const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap };
+const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 };
 
 const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
@@ -116,7 +116,7 @@ export function AppSidebar() {
           .filter((f) => f.title !== "Clinic Acquisition")
           .map((f) =>
             f.title === "Sales"
-              ? { ...f, items: f.items.filter((i) => !["Leads", "Analytics", "Partner Clinics", "Leaderboard", "Appointments"].includes(i.title)) }
+              ? { ...f, items: f.items.filter((i) => !["Leads", "Analytics", "Leaderboard", "Appointments"].includes(i.title)) }
               : f
           );
 
@@ -228,6 +228,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {role !== "caller" && renderItem(topItem)}
               {role !== "caller" && renderItem(trainingItem, false, currentPath.startsWith('/training'))}
+              {role === "admin" && renderItem(partnerClinicsItem)}
 
               {folders.map((folder) => {
                 const open = openFolders[folder.title];
