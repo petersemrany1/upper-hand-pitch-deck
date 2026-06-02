@@ -833,14 +833,19 @@ function InviteClinicLoginPanel({ clinic, onClose }: { clinic: PartnerClinic; on
       {result ? (
         <div>
           <div style={{ background: "#e8f5ef", color: "#1a7a4a", padding: 12, borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
-            Login created. Share these credentials with the clinic — they can log in at <code>/login</code>.
+            Login created. Share these credentials with the clinic — they can log in at the portal URL below.
           </div>
+          <Field label="Portal URL"><TextInput readOnly value="https://hairtransplantgroup.lovable.app/clinic-portal" /></Field>
           <Field label="Email"><TextInput readOnly value={result.email} /></Field>
           <Field label="Temporary password"><TextInput readOnly value={result.password} /></Field>
           <div style={{ fontSize: 12, color: "#666" }}>They'll be taken straight to the Clinic Partner Portal after sign-in.</div>
         </div>
       ) : (
         <div>
+          <div style={{ background: "#f5f5f5", color: "#333", padding: 10, borderRadius: 6, fontSize: 12, marginBottom: 14 }}>
+            Portal URL: <code>https://hairtransplantgroup.lovable.app/clinic-portal</code>
+          </div>
+
           <Field label="Clinic login email">
             <TextInput type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
