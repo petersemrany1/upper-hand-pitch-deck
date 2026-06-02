@@ -185,6 +185,51 @@ export type Database = {
           },
         ]
       }
+      call_stages: {
+        Row: {
+          band: string
+          gun_tell: string | null
+          job: string
+          move_on: string | null
+          moves: Json
+          name: string
+          never_do: string | null
+          notes: string | null
+          say_text: string | null
+          slug: string
+          stage_no: number
+          tag: string
+        }
+        Insert: {
+          band: string
+          gun_tell?: string | null
+          job: string
+          move_on?: string | null
+          moves?: Json
+          name: string
+          never_do?: string | null
+          notes?: string | null
+          say_text?: string | null
+          slug: string
+          stage_no: number
+          tag: string
+        }
+        Update: {
+          band?: string
+          gun_tell?: string | null
+          job?: string
+          move_on?: string | null
+          moves?: Json
+          name?: string
+          never_do?: string | null
+          notes?: string | null
+          say_text?: string | null
+          slug?: string
+          stage_no?: number
+          tag?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           created_at: string
@@ -1080,6 +1125,42 @@ export type Database = {
         }
         Relationships: []
       }
+      rep_module_progress: {
+        Row: {
+          beats_done: boolean
+          drill_done: boolean
+          hill_done: boolean
+          id: string
+          module_complete: boolean
+          module_slug: string
+          seen_beats: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          beats_done?: boolean
+          drill_done?: boolean
+          hill_done?: boolean
+          id?: string
+          module_complete?: boolean
+          module_slug?: string
+          seen_beats?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          beats_done?: boolean
+          drill_done?: boolean
+          hill_done?: boolean
+          id?: string
+          module_complete?: boolean
+          module_slug?: string
+          seen_beats?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rep_performance_jobs: {
         Row: {
           call_summaries: Json | null
@@ -1182,6 +1263,30 @@ export type Database = {
           last_name?: string | null
           name?: string
           role?: string
+        }
+        Relationships: []
+      }
+      scorecard_dimensions: {
+        Row: {
+          dim_no: number
+          gun_desc: string
+          miss_desc: string
+          name: string
+          points: number
+        }
+        Insert: {
+          dim_no: number
+          gun_desc: string
+          miss_desc: string
+          name: string
+          points: number
+        }
+        Update: {
+          dim_no?: number
+          gun_desc?: string
+          miss_desc?: string
+          name?: string
+          points?: number
         }
         Relationships: []
       }
