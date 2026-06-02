@@ -555,6 +555,148 @@ function buildMonthGrid(monthStart: Date): (Date | null)[] {
   return cells;
 }
 
+/* ============== NOTES TRAIL ============== */
+
+type ApptNote = {
+  id: string;
+  appointment_id: string;
+  clinic_id: string;
+  author_type: "admin" | "clinic";
+  author_name: string | null;
+  body: string;
+  created_at: string;
+};
+
+function NotesTrail({ appointmentId, clinicId, isAdmin }: {
+  appointmentId: string; clinicId: string; isAdmin: boolean;
+}) {
+  const [notes, setNotes] = useState<ApptNote[]>([]);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    const { data, error } = await supabase
+      .from("clinic_appointment_notes")
+      .select("*")
+      .eq("appointment_id", appointmentId)
+      .order("created_at", { ascending: false });
+    if (!error) setNotes((data ?? []) as ApptNote[]);
+    setLoading(false);
+  };
+
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [appointmentId]);
+
+  const addNote = async () => {
+    const body = draft.trim();
+    if (!body) return;
+    setSaving(true);
+    const { data: userRes } = await supabase.auth.getUser();
+    const authorType: "admin" | "clinic" = isAdmin ? "admin" : "clinic";
+    const authorName = userRes?.user?.user_metadata?.full_name
+      ?? userRes?.user?.email
+      ?? null;
+    const { error } = await supabase.from("clinic_appointment_notes").insert({
+      appointment_id: appointmentId,
+      clinic_id: clinicId,
+      author_type: authorType,
+      author_name: authorName,
+      body,
+    });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    setDraft("");
+    void load();
+  };
+
+  const deleteNote = async (id: string) => {
+    if (!confirm("Delete this note?")) return;
+    const { error } = await supabase.from("clinic_appointment_notes").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    void load();
+  };
+
+  const fmtStamp = (iso: string) =>
+    new Date(iso).toLocaleString("en-AU", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+
+  return (
+    <div style={{ marginBottom: 14, paddingTop: 14, borderTop: "1px solid #e2e6ec" }}>
+      <div style={{ fontSize: 10, fontWeight: 600, color: NAVY, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>
+        Notes trail
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 10 }}>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder={isAdmin ? "Add an admin note (e.g. spoke with patient — getting quotes Tuesday)…" : "Add a clinic note…"}
+          rows={3}
+          style={{
+            width: "100%", boxSizing: "border-box", padding: 10, fontSize: 13,
+            border: "1px solid #e2e6ec", borderRadius: 6, resize: "vertical",
+            fontFamily: "inherit",
+          }}
+        />
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <button
+            onClick={addNote}
+            disabled={saving || !draft.trim()}
+            style={{
+              ...navBtn, fontSize: 12, padding: "6px 12px",
+              background: NAVY, color: "#fff", borderColor: NAVY,
+              opacity: saving || !draft.trim() ? 0.5 : 1,
+            }}
+          >
+            {saving ? "Adding…" : "Add note"}
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div style={{ fontSize: 12, color: "#6b7785" }}>Loading notes…</div>
+      ) : notes.length === 0 ? (
+        <div style={{ fontSize: 12, color: "#6b7785", fontStyle: "italic" }}>No notes yet.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {notes.map((n) => {
+            const isAdminNote = n.author_type === "admin";
+            const bg = isAdminNote ? "#fff7ed" : "#eef5ff";
+            const border = isAdminNote ? "#fcd9a8" : "#c7dcf5";
+            const badgeBg = isAdminNote ? "#f59e0b" : NAVY;
+            const badgeLabel = isAdminNote ? "Admin (HTG)" : "Clinic";
+            return (
+              <div key={n.id} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{
+                      display: "inline-block", padding: "2px 8px", fontSize: 10, fontWeight: 700,
+                      background: badgeBg, color: "#fff", borderRadius: 10, textTransform: "uppercase", letterSpacing: 0.4,
+                    }}>{badgeLabel}</span>
+                    {n.author_name && (
+                      <span style={{ fontSize: 11, color: "#111", fontWeight: 600 }}>{n.author_name}</span>
+                    )}
+                    <span style={{ fontSize: 11, color: "#6b7785" }}>{fmtStamp(n.created_at)}</span>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      onClick={() => deleteNote(n.id)}
+                      title="Delete note"
+                      style={{ background: "transparent", border: "none", color: "#b83232", cursor: "pointer", fontSize: 11, padding: 2 }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{n.body}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
 function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
@@ -640,6 +782,8 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           <div style={{ fontSize: 12, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{appt.consult_summary}</div>
         </div>
       )}
+
+      <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
       {appt.outcome === "show" && appt.refund_status === "refunded" && appt.stripe_refund_id && (
