@@ -844,14 +844,13 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const { data: clinicAppointmentBookings } = await supabaseAdmin.from("clinic_appointments")
       .select("id, lead_id, created_at")
       .gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
-    // meta_leads has no booking timestamp, so we use booking_date (the appointment
-    // date) as a coarse fallback for legacy rows without an appointment_reminder.
-    const fromDateStr = from.toISOString().slice(0, 10);
-    const toDateStr = to.toISOString().slice(0, 10);
-    const { data: metaBookings } = await supabaseAdmin.from("meta_leads")
-      .select("id, rep_id, status, booking_date")
-      .eq("status", "booked_deposit_paid")
-      .gte("booking_date", fromDateStr).lte("booking_date", toDateStr);
+    // NOTE: we intentionally do NOT fall back to meta_leads.booking_date here.
+    // booking_date is the APPOINTMENT date, not when the booking was made, so
+    // using it inflated "today's" count whenever a lead's appointment happened
+    // to fall inside the window (e.g. a booking taken last week for today).
+    // Bookings now only count from appointment_reminders / clinic_appointments,
+    // both of which have real created_at timestamps for when the booking was made.
+    const metaBookings: { id: string; rep_id: string | null; status: string; booking_date: string }[] = [];
 
     const relevantLeadIds = Array.from(new Set([
       ...((calls ?? []).map((c) => c.lead_id).filter(Boolean) as string[]),
