@@ -39,11 +39,13 @@ import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/
 import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
 import { Route as DashboardTrainingAiRouteImport } from './routes/_dashboard.training.ai'
+import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './routes/_dashboard.training.sales-framework.index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
+import { Route as DashboardTrainingSalesFrameworkStageRouteImport } from './routes/_dashboard.training.sales-framework.$stage'
 
 const ThankYouRoute = ThankYouRouteImport.update({
   id: '/thank-you',
@@ -199,6 +201,12 @@ const DashboardTrainingAiRoute = DashboardTrainingAiRouteImport.update({
   path: '/ai',
   getParentRoute: () => DashboardTrainingRoute,
 } as any)
+const DashboardTrainingSalesFrameworkIndexRoute =
+  DashboardTrainingSalesFrameworkIndexRouteImport.update({
+    id: '/sales-framework/',
+    path: '/sales-framework/',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any)
 const LovableEmailTransactionalSendRoute =
   LovableEmailTransactionalSendRouteImport.update({
     id: '/lovable/email/transactional/send',
@@ -228,6 +236,12 @@ const ApiPublicHooksReconcileCallDurationsRoute =
     id: '/api/public/hooks/reconcile-call-durations',
     path: '/api/public/hooks/reconcile-call-durations',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const DashboardTrainingSalesFrameworkStageRoute =
+  DashboardTrainingSalesFrameworkStageRouteImport.update({
+    id: '/sales-framework/$stage',
+    path: '/sales-framework/$stage',
+    getParentRoute: () => DashboardTrainingRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -260,11 +274,13 @@ export interface FileRoutesByFullPath {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training/': typeof DashboardTrainingIndexRoute
+  '/training/sales-framework/$stage': typeof DashboardTrainingSalesFrameworkStageRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 export interface FileRoutesByTo {
   '/clinic-portal': typeof ClinicPortalRoute
@@ -295,11 +311,13 @@ export interface FileRoutesByTo {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training': typeof DashboardTrainingIndexRoute
+  '/training/sales-framework/$stage': typeof DashboardTrainingSalesFrameworkStageRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/training/sales-framework': typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -333,11 +351,13 @@ export interface FileRoutesById {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_dashboard/training/': typeof DashboardTrainingIndexRoute
+  '/_dashboard/training/sales-framework/$stage': typeof DashboardTrainingSalesFrameworkStageRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
+  '/_dashboard/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -371,11 +391,13 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/training/'
+    | '/training/sales-framework/$stage'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/training/sales-framework/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/clinic-portal'
@@ -406,11 +428,13 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/training'
+    | '/training/sales-framework/$stage'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/training/sales-framework'
   id:
     | '__root__'
     | '/_dashboard'
@@ -443,11 +467,13 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/_dashboard/training/'
+    | '/_dashboard/training/sales-framework/$stage'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
+    | '/_dashboard/training/sales-framework/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -679,6 +705,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingAiRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
+    '/_dashboard/training/sales-framework/': {
+      id: '/_dashboard/training/sales-framework/'
+      path: '/sales-framework'
+      fullPath: '/training/sales-framework/'
+      preLoaderRoute: typeof DashboardTrainingSalesFrameworkIndexRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
     '/lovable/email/transactional/send': {
       id: '/lovable/email/transactional/send'
       path: '/lovable/email/transactional/send'
@@ -714,6 +747,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_dashboard/training/sales-framework/$stage': {
+      id: '/_dashboard/training/sales-framework/$stage'
+      path: '/sales-framework/$stage'
+      fullPath: '/training/sales-framework/$stage'
+      preLoaderRoute: typeof DashboardTrainingSalesFrameworkStageRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
   }
 }
 
@@ -724,6 +764,8 @@ interface DashboardTrainingRouteChildren {
   DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
   DashboardTrainingSalesCallExampleRoute: typeof DashboardTrainingSalesCallExampleRoute
   DashboardTrainingIndexRoute: typeof DashboardTrainingIndexRoute
+  DashboardTrainingSalesFrameworkStageRoute: typeof DashboardTrainingSalesFrameworkStageRoute
+  DashboardTrainingSalesFrameworkIndexRoute: typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 
 const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
@@ -735,6 +777,10 @@ const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
   DashboardTrainingSalesCallExampleRoute:
     DashboardTrainingSalesCallExampleRoute,
   DashboardTrainingIndexRoute: DashboardTrainingIndexRoute,
+  DashboardTrainingSalesFrameworkStageRoute:
+    DashboardTrainingSalesFrameworkStageRoute,
+  DashboardTrainingSalesFrameworkIndexRoute:
+    DashboardTrainingSalesFrameworkIndexRoute,
 }
 
 const DashboardTrainingRouteWithChildren =
