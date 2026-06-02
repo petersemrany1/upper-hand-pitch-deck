@@ -29,7 +29,6 @@ const ALL_FOLDERS: NavFolder[] = [
     repUrl: "/sales-call",
     items: [
       { title: "Sales Portal", url: "/sales-call", icon: Headphones },
-      { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar },
       { title: "Leads", url: "/leads", icon: Users },
