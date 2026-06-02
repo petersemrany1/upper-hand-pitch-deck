@@ -138,6 +138,30 @@ function TrainingPage() {
                     </div>
                     <p style={{ fontSize: 13, color: "#6b6b6b", lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
                   </div>
+                  {m.url === "/training/sales-framework" && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate({ to: "/training/sales-framework", search: { step: "drill" } });
+                      }}
+                      style={{
+                        padding: "6px 10px",
+                        background: "#fff1ee",
+                        color: "#f4522d",
+                        border: "1px solid #f4522d",
+                        borderRadius: 999,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                      }}
+                      title="Jump straight to the 2-minute drill"
+                    >
+                      ⚡ 2-min warm-up
+                    </button>
+                  )}
                   <span style={{ color: "#c4c4c4", fontSize: 18, flexShrink: 0 }}>›</span>
                 </div>
               </Link>
