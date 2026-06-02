@@ -49,6 +49,7 @@ const ALL_FOLDERS: NavFolder[] = [
 ];
 
 const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap };
+const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 };
 
 const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
