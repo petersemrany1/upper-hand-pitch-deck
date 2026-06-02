@@ -29,6 +29,11 @@ const modules = [
     desc: "Buyer personas, motivations, objections and how to identify lead types fast.",
   },
   {
+    title: "Read Along",
+    url: "/training/read-along",
+    desc: "Hair Restoration product knowledge — the full written deep-dive to read alongside the videos.",
+  },
+  {
     title: "Sales Framework",
     url: "/training/sales-framework",
     desc: "The 9-stage sales framework — from introduction through to closing.",
