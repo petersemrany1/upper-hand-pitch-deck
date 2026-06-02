@@ -204,18 +204,39 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .upsert(rows, { onConflict: "user_id,notification_type,notification_key" });
   }, [userId]);
 
+  // For reps, fetch the set of phone-tails (last 9 digits) belonging to leads
+  // they own. Used to filter SMS threads and missed inbound calls so reps only
+  // see notifications tied to their own leads. Admins skip this.
+  const fetchMyLeadPhoneTails = useCallback(async (): Promise<Set<string> | null> => {
+    if (!isRep) return null; // null = no filter (admin/other)
+    if (!repId) return new Set<string>();
+    const { data } = await supabase
+      .from("meta_leads")
+      .select("phone")
+      .eq("rep_id", repId)
+      .not("phone", "is", null);
+    const tails = new Set<string>();
+    for (const l of (data || []) as { phone: string | null }[]) {
+      const t = digitsOnly(l.phone).slice(-9);
+      if (t.length >= 6) tails.add(t);
+    }
+    return tails;
+  }, [isRep, repId]);
+
   const fetchThreads = useCallback(async () => {
     if (isClinicSetter) {
       setUnreadThreads([]);
       return;
     }
     if (!acksReady) return;
+    if (isRep && !repId) { setUnreadThreads([]); return; }
+    const myTails = await fetchMyLeadPhoneTails();
     const { data } = await supabase
       .from("sms_threads")
       .select("id, phone, display_name, unread_count, last_message_preview, last_message_at, clinic:clinics(clinic_name)")
       .gt("unread_count", 0)
       .order("last_message_at", { ascending: false, nullsFirst: false })
-      .limit(20);
+      .limit(50);
     if (!data) return;
     const acks = threadAcksRef.current;
     setUnreadThreads(
@@ -229,6 +250,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         clinic: { clinic_name: string } | null;
       }>)
         .filter((t) => {
+          // Rep scope: only threads matching one of their lead phone-tails.
+          if (myTails) {
+            const tail = digitsOnly(t.phone).slice(-9);
+            if (!tail || !myTails.has(tail)) return false;
+          }
           // Hide if user dismissed and no strictly newer message has arrived since.
           const ackAt = acks[t.id];
           if (!ackAt) return true;
@@ -236,6 +262,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           const ack = new Date(ackAt).getTime();
           return last > ack;
         })
+        .slice(0, 20)
         .map((t) => ({
           thread_id: t.id,
           phone: t.phone,
@@ -246,7 +273,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           last_message_at: t.last_message_at,
         }))
     );
-  }, [acksReady, isClinicSetter]);
+  }, [acksReady, isClinicSetter, isRep, repId, fetchMyLeadPhoneTails]);
 
   const fetchMissed = useCallback(async () => {
     if (isClinicSetter) {
@@ -254,6 +281,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       return;
     }
     if (!acksReady) return;
+    if (isRep && !repId) { setMissedCalls([]); return; }
+    const myTails = await fetchMyLeadPhoneTails();
     // Pull recent inbound calls; consider missed when duration is null/0 and
     // status is not in-progress / completed.
     const { data } = await supabase
@@ -261,7 +290,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .select("id, phone, status, duration, called_at, clinic_id, clinics(clinic_name)")
       .eq("direction", "inbound")
       .order("called_at", { ascending: false })
-      .limit(50);
+      .limit(100);
     if (!data) return;
     type Row = {
       id: string;
@@ -279,7 +308,13 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         if (acked.has(r.id)) return false;
         if (r.duration && r.duration > 0) return false;
         const s = (r.status || "").toLowerCase();
-        return s !== "in-progress" && s !== "completed";
+        if (s === "in-progress" || s === "completed") return false;
+        // Rep scope: only missed calls from one of their lead phone-tails.
+        if (myTails) {
+          const tail = digitsOnly(r.phone).slice(-9);
+          if (!tail || !myTails.has(tail)) return false;
+        }
+        return true;
       })
       .slice(0, 20);
 
@@ -314,7 +349,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         called_at: r.called_at,
       }))
     );
-  }, [acksReady, isClinicSetter]);
+  }, [acksReady, isClinicSetter, isRep, repId, fetchMyLeadPhoneTails]);
 
   const refresh = useCallback(() => {
     void fetchThreads();
