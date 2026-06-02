@@ -730,53 +730,10 @@ function SalesCallPortal() {
         <>
           {callbackBanner}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", overflow: "auto" }}>
-            {todaysCallbacks.length > 0 && (
-              <div style={{ width: "100%", maxWidth: 520, marginBottom: 28, background: "#fff", border: "0.5px solid #e8e8e6", borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.04)" }}>
-                <div style={{ padding: "10px 14px", borderBottom: "0.5px solid #f0f0ee", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#111", textTransform: "uppercase", letterSpacing: "0.04em" }}>📞 Callbacks today</div>
-                  <div style={{ fontSize: 11, color: "#888" }}>{todaysCallbacks.length} scheduled</div>
-                </div>
-                <div style={{ maxHeight: 220, overflow: "auto" }}>
-                  {todaysCallbacks.map((l) => {
-                    const t = new Date(l.callback_scheduled_at!);
-                    const overdue = t.getTime() <= Date.now();
-                    const time = t.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
-                    const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "(no name)";
-                    return (
-                      <button
-                        key={l.id}
-                        onClick={() => {
-                          if (gateActive()) {
-                            setPendingLeadId(l.id);
-                            toast.error("Please set a call outcome first");
-                            return;
-                          }
-                          setActiveId(l.id); setStep("mindset"); setCompleted(new Set());
-                          setAmpPrefill(""); setAudioPrefill("");
-                        }}
-                        style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 14px", background: "transparent", border: "none", borderBottom: "0.5px solid #f4f4f2", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
-                      >
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: overdue ? "#b91c1c" : "#c2410c", background: overdue ? "#fee2e2" : "#ffedd5", padding: "2px 7px", borderRadius: 6, whiteSpace: "nowrap" }}>
-                            {overdue ? "Overdue" : time}
-                          </span>
-                          <span style={{ fontSize: 13, color: "#111", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-                        </div>
-                        <span style={{ fontSize: 11, color: "#aaa" }}>{overdue ? time : ""} ›</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-            <div style={{ fontSize: 22, fontWeight: 500, letterSpacing: "-0.01em", marginBottom: 6, color: "#111" }}>Ready to dial?</div>
-            <div style={{ fontSize: 13, color: "#888", marginBottom: 32 }}>Your queue has {queueCount} leads today</div>
             <button
               onClick={async () => {
                 sessionEndRequestedRef.current = false;
                 const q = buildSessionQueue();
-                // Persist the session start in the DB so the timer survives
-                // refreshes. End → Start creates a new row, restarting the clock.
                 let startedAt: string;
                 try {
                   const row = await startRepSession({ data: undefined as never });
@@ -806,15 +763,9 @@ function SalesCallPortal() {
                   setAudioPrefill("");
                 }
               }}
-              style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 10, fontSize: 14, fontWeight: 500, padding: "14px 0", width: "100%", maxWidth: 380, cursor: "pointer", fontFamily: "inherit", marginBottom: 12 }}
+              style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 16, fontSize: 22, fontWeight: 600, padding: "32px 0", width: "100%", maxWidth: 520, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 20px rgba(244,82,45,0.25)", letterSpacing: "-0.01em" }}
             >
               Start calling session
-            </button>
-            <button
-              onClick={() => setManualMode(true)}
-              style={{ fontSize: 12, color: "#aaa", background: "none", border: "none", cursor: "pointer", fontFamily: "inherit" }}
-            >
-              Browse leads manually instead
             </button>
           </div>
         </>
