@@ -212,6 +212,51 @@ export type Database = {
         }
         Relationships: []
       }
+      clinic_appointment_notes: {
+        Row: {
+          appointment_id: string
+          author_name: string | null
+          author_type: string
+          body: string
+          clinic_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          appointment_id: string
+          author_name?: string | null
+          author_type: string
+          body: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          appointment_id?: string
+          author_name?: string | null
+          author_type?: string
+          body?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_appointment_notes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_appointments: {
         Row: {
           appointment_date: string
