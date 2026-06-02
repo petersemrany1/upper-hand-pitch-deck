@@ -126,6 +126,7 @@ function digitsOnly(s: string | null | undefined): string {
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user, role } = useAuth();
   const isClinicSetter = role === "caller";
+  const isRep = role === "rep"; // admins see everything; reps only see their own
   const userId = user?.id ?? null;
   const [unreadThreads, setUnreadThreads] = useState<UnreadThread[]>([]);
   const [missedCalls, setMissedCalls] = useState<MissedCall[]>([]);
@@ -133,6 +134,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const ackedRef = useRef<Set<string>>(loadAcked(userId));
   const threadAcksRef = useRef<Record<string, string>>(loadThreadAcks(userId));
   const [acksReady, setAcksReady] = useState(false);
+  const [repId, setRepId] = useState<string | null>(null);
+
+  // Resolve the sales_reps.id for the current authenticated rep (used to scope
+  // notifications to leads they own). Admins skip this entirely and see all.
+  useEffect(() => {
+    if (!isRep) { setRepId(null); return; }
+    const email = user?.email?.toLowerCase();
+    if (!email) { setRepId(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("sales_reps")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+      if (!cancelled) setRepId(data?.id ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [isRep, user?.email]);
 
   useEffect(() => {
     setAcksReady(false);
