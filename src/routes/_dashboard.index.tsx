@@ -864,8 +864,6 @@ function StatCard({
   );
 }
 
-}
-
 function statusBadge(status: string | null): { label: string; bg: string; fg: string } {
   switch (status) {
     case "booked_deposit_paid":
