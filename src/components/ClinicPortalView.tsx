@@ -663,7 +663,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
             const bg = isAdminNote ? "#fff7ed" : "#eef5ff";
             const border = isAdminNote ? "#fcd9a8" : "#c7dcf5";
             const badgeBg = isAdminNote ? "#f59e0b" : NAVY;
-            const badgeLabel = isAdminNote ? "Admin (HTG)" : "Clinic";
+            const badgeLabel = isAdminNote ? "ADMIN" : "Clinic";
             return (
               <div key={n.id} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
