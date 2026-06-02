@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3 } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -35,6 +35,18 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Leads", url: "/leads", icon: Users },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
       { title: "Phone", url: "/inbox", icon: Phone },
+    ],
+  },
+  {
+    title: "Training",
+    repIcon: GraduationCap,
+    repUrl: "/training/product-knowledge",
+    items: [
+      { title: "Product Knowledge", url: "/training/product-knowledge", icon: BookOpen },
+      { title: "Understanding Who You Are Talking To", url: "/training/audience", icon: UserSearch },
+      { title: "Sales Call Example", url: "/training/sales-call-example", icon: PhoneCall },
+      { title: "AI Training", url: "/training/ai", icon: Brain },
+      { title: "Platform Training", url: "/training/platform", icon: Monitor },
     ],
   },
   {
