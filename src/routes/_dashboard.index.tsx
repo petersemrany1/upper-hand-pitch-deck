@@ -108,13 +108,6 @@ type SmsRow = {
   direction: string;
 };
 
-type PipelineCounts = {
-  new: number;
-  callback: number;
-  retry: number;
-  had_convo: number;
-  booked: number;
-};
 
 function DashboardHome() {
   const { ready: authReady, session, role } = useAuth();
@@ -127,9 +120,6 @@ function DashboardHome() {
   const [bookingsToday, setBookingsToday] = useState(0);
   const [bookingsMonth, setBookingsMonth] = useState(0);
   const [revenueMonth, setRevenueMonth] = useState(0);
-  const [pipeline, setPipeline] = useState<PipelineCounts>({
-    new: 0, callback: 0, retry: 0, had_convo: 0, booked: 0,
-  });
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
   const [overdueCallbacks, setOverdueCallbacks] = useState(0);
   const [missedCalls, setMissedCalls] = useState<CallRow[]>([]);
@@ -188,8 +178,6 @@ function DashboardHome() {
       .gte("updated_at", monthIso);
     if (scopeId) bookingsMonthQ.eq("rep_id", scopeId);
 
-    const pipelineQ = supabase.from("meta_leads").select("status");
-    if (scopeId) pipelineQ.eq("rep_id", scopeId);
 
     const newLeadsQ = supabase
       .from("meta_leads")
@@ -222,12 +210,11 @@ function DashboardHome() {
       .eq("month", curMonth);
     if (scopeId) targetQ.eq("rep_id", scopeId);
 
-    const [callsRes, bookingsTodayRes, bookingsMonthRes, pipelineRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes, targetRes, repsRes] =
+    const [callsRes, bookingsTodayRes, bookingsMonthRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes, targetRes, repsRes] =
       await Promise.all([
         callsTodayQ,
         bookingsTodayQ,
         bookingsMonthQ,
-        pipelineQ,
         newLeadsQ,
         overdueQ,
         missedQ,
@@ -277,17 +264,6 @@ function DashboardHome() {
     );
     setRevenueMonth(revenue);
 
-    const counts: PipelineCounts = { new: 0, callback: 0, retry: 0, had_convo: 0, booked: 0 };
-    for (const row of (pipelineRes.data ?? []) as { status: string | null }[]) {
-      const s = row.status ?? "";
-      if (s === "new") counts.new++;
-      else if (s === "callback_scheduled") counts.callback++;
-      else if (s === "had_convo_chase_up" || s === "had_convo_no_sale" || s === "no_answer") {
-        if (s === "no_answer") counts.retry++;
-        else counts.had_convo++;
-      } else if (s === "booked_deposit_paid") counts.booked++;
-    }
-    setPipeline(counts);
 
     setNewLeads((newLeadsRes.data ?? []) as Lead[]);
     setOverdueCallbacks(overdueRes.count ?? 0);
@@ -499,22 +475,6 @@ function DashboardHome() {
           </div>
         </Card>
 
-        {/* Pipeline */}
-        <Card>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px" }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Pipeline</div>
-            <Link to="/sales-call" search={{}} style={{ fontSize: 13, color: "#f4522d", fontWeight: 500 }}>
-              Open call sheet →
-            </Link>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", borderTop: "0.5px solid #f0f0ee" }}>
-            <PipelineCol label="New" value={pipeline.new} color="#3b82f6" />
-            <PipelineCol label="Callback" value={pipeline.callback} color="#f4522d" />
-            <PipelineCol label="Retry" value={pipeline.retry} color="#f59e0b" />
-            <PipelineCol label="Had Convo" value={pipeline.had_convo} color="#8b5cf6" />
-            <PipelineCol label="Booked" value={pipeline.booked} color="#16a34a" />
-          </div>
-        </Card>
 
         {/* Two column row — admins see "New leads today" + Bookings/target.
             Reps don't get the company-wide leads feed; instead they see their
@@ -900,32 +860,6 @@ function StatCard({
         {value}
       </div>
       <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{sub}</div>
-    </div>
-  );
-}
-
-function PipelineCol({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div
-      style={{
-        padding: "20px 16px",
-        textAlign: "center",
-        borderRight: "0.5px solid #f0f0ee",
-      }}
-    >
-      <div style={{ fontSize: 32, fontWeight: 600, color, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
-      <div
-        style={{
-          fontSize: 10,
-          color: "#999",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-          fontWeight: 600,
-          marginTop: 8,
-        }}
-      >
-        {label}
-      </div>
     </div>
   );
 }
