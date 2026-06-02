@@ -38,6 +38,18 @@ const ALL_FOLDERS: NavFolder[] = [
     ],
   },
   {
+    title: "Training",
+    repIcon: GraduationCap,
+    repUrl: "/training/product-knowledge",
+    items: [
+      { title: "Product Knowledge", url: "/training/product-knowledge", icon: BookOpen },
+      { title: "Understanding Who You Are Talking To", url: "/training/audience", icon: UserSearch },
+      { title: "Sales Call Example", url: "/training/sales-call-example", icon: PhoneCall },
+      { title: "AI Training", url: "/training/ai", icon: Brain },
+      { title: "Platform Training", url: "/training/platform", icon: Monitor },
+    ],
+  },
+  {
     title: "Clinic Acquisition",
     repIcon: Presentation,
     repUrl: "/pitch-deck",
