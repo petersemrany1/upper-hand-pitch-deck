@@ -7205,13 +7205,67 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     return holidayLabelFor(new Date(y, m - 1, d), overrides, clinicState);
   }, [date, overrides, clinicState]);
 
+  // Compute available/unavailable days for the next ~120 days for calendar colouring
+  const { availableDays, unavailableDays } = useMemo(() => {
+    const avail: Date[] = [];
+    const unavail: Date[] = [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    for (let i = 0; i < 120; i++) {
+      const d = new Date(today); d.setDate(today.getDate() + i);
+      const s = summarizeDay(d, trading, blocks, appts, overrides, clinicState);
+      const hasOpenSlot = !s.closed && s.total - s.bookedCount > 0 && !s.allBlocked;
+      if (hasOpenSlot) avail.push(d); else unavail.push(d);
+    }
+    return { availableDays: avail, unavailableDays: unavail };
+  }, [trading, blocks, appts, overrides, clinicState]);
+
+  const selectedDate = useMemo(() => {
+    if (!date) return undefined;
+    const [y, m, d] = date.split("-").map(Number);
+    if (!y || !m || !d) return undefined;
+    return new Date(y, m - 1, d);
+  }, [date]);
+
+  const [calOpen, setCalOpen] = useState(false);
+  const dateLabel = selectedDate
+    ? selectedDate.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+    : "Pick a date";
+
   return (
     <div className="grid grid-cols-2 gap-2.5">
       <div>
         <Label>Booking date</Label>
-        <input type="date" value={date} onChange={(e) => { onDate(e.target.value); onTime(""); }}
-          className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
-          style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }} />
+        <Popover open={calOpen} onOpenChange={setCalOpen}>
+          <PopoverTrigger asChild>
+            <button type="button"
+              className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1 text-left flex items-center justify-between"
+              style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: selectedDate ? COLORS.text : COLORS.muted }}>
+              <span>{dateLabel}</span>
+              <CalendarIcon size={14} style={{ color: COLORS.muted }} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={(d) => {
+                if (d) { onDate(ymdLocal(d)); onTime(""); setCalOpen(false); }
+              }}
+              disabled={{ before: new Date() }}
+              modifiers={{ hasSlots: availableDays, noSlots: unavailableDays }}
+              modifiersClassNames={{
+                hasSlots: "bg-emerald-100 text-emerald-700 font-semibold hover:bg-emerald-200",
+                noSlots: "bg-red-100 text-red-700 hover:bg-red-200",
+              }}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+            <div className="px-3 pb-3 pt-1 flex items-center gap-3 text-[11px]" style={{ color: COLORS.muted }}>
+              <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-200" /> Available</span>
+              <span className="flex items-center gap-1"><span className="inline-block w-2.5 h-2.5 rounded-sm bg-red-200" /> No slots</span>
+            </div>
+          </PopoverContent>
+        </Popover>
         {holidayName && (
           <div className="text-[11px] mt-1" style={{ color: "#8a6500" }}>Public holiday — {holidayName}. Clinic closed.</div>
         )}
