@@ -56,7 +56,11 @@ Deno.serve(async (req) => {
           return new Response(JSON.stringify({ error: createErr.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
         }
         userId = existing.id;
-        await admin.auth.admin.updateUserById(existing.id, { password: tempPassword });
+        const { error: updErr } = await admin.auth.admin.updateUserById(existing.id, { password: tempPassword });
+        if (updErr) {
+          return new Response(JSON.stringify({ error: `Couldn't set password: ${updErr.message}. Try a stronger password (12+ chars, mix of letters/numbers/symbols) or leave blank to auto-generate.` }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
       } else {
         return new Response(JSON.stringify({ error: createErr.message }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
