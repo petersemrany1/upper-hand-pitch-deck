@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import ahmedAsset from "@/assets/sales-call-ahmed.mp3.asset.json";
 import jonoAsset from "@/assets/sales-call-jono.mp3.asset.json";
@@ -22,6 +22,15 @@ function SalesCallExample() {
   return (
     <div style={{ fontFamily: FONT, background: "#f7f7f5", minHeight: "100%" }}>
       <div style={{ padding: "32px 28px", maxWidth: 880, margin: "0 auto" }}>
+        <Link to="/training" style={{ textDecoration: "none" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b6b6b", marginBottom: 10, cursor: "pointer", transition: "color 0.15s ease" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#f4522d"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "#6b6b6b"; }}
+          >
+            <span style={{ fontSize: 16 }}>‹</span>
+            <span>Back to Training</span>
+          </div>
+        </Link>
         <h1 style={{ fontSize: 28, fontWeight: 700, color: "#111", marginBottom: 6, letterSpacing: "-0.01em" }}>
           Sales Call Example
         </h1>
