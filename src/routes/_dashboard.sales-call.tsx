@@ -135,8 +135,8 @@ function normalisePhoneDigits(phone: string | null | undefined) {
 
 export function SalesCallPortal() {
   const { user } = useAuth();
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
+  const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
+  const navigate = useNavigate();
   // Read the active call's lead so the ?leadId= switch effect can tell when
   // the user is asking to jump to the lead they're CURRENTLY on the phone
   // with (e.g. clicking "Open in Sales Call" on the FloatingCallWidget after
