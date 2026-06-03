@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Device, type Call } from "@twilio/voice-sdk";
+import type { Device as DeviceType, Call } from "@twilio/voice-sdk";
+type Device = DeviceType;
+let DeviceCtor: typeof DeviceType | null = null;
+async function loadDeviceCtor(): Promise<typeof DeviceType> {
+  if (DeviceCtor) return DeviceCtor;
+  const mod = await import("@twilio/voice-sdk");
+  DeviceCtor = mod.Device;
+  return DeviceCtor;
+}
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
