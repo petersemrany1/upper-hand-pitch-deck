@@ -49,6 +49,11 @@ const modules = [
     desc: "Listen to model sales calls and study the structure step by step.",
   },
   {
+    title: "Practice Call",
+    url: "/training/practice-call",
+    desc: "Roleplay a live call against our AI customer Dave — with the 9-stage cockpit beside you.",
+  },
+  {
     title: "Platform Training",
     url: "/training/platform",
     desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting.",
