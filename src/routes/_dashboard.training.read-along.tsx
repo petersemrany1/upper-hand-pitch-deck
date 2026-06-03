@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/_dashboard/training/read-along")({
   component: ReadAlong,
 });
+
+const STORAGE_KEY = "htg_training_module3_complete";
+const ACCENT = "#f4522d";
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
