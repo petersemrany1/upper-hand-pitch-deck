@@ -133,7 +133,8 @@ function normalisePhoneDigits(phone: string | null | undefined) {
   return digits;
 }
 
-export function SalesCallPortal() {
+export const PRACTICE_LEAD_ID = "practice-dave-ai";
+export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boolean } = {}) {
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
@@ -220,6 +221,49 @@ export function SalesCallPortal() {
       .catch(() => { /* not signed in / no rep — ignore */ });
     return () => { cancelled = true; };
   }, []);
+
+  // Practice mode: inject a synthetic "Dave AI" lead and auto-activate the
+  // session so the rep lands directly inside the call cockpit without having
+  // to press "Start calling session". No clinic is assigned.
+  useEffect(() => {
+    if (!practiceMode) return;
+    setLeads((prev) => {
+      if (prev.some((l) => l.id === PRACTICE_LEAD_ID)) return prev;
+      const dave: Lead = {
+        id: PRACTICE_LEAD_ID,
+        first_name: "Dave",
+        last_name: "AI",
+        email: null,
+        phone: null,
+        funding_preference: null,
+        ad_name: null,
+        ad_set_name: null,
+        campaign_name: null,
+        status: "practice",
+        call_notes: null,
+        created_at: new Date().toISOString(),
+        callback_scheduled_at: null,
+        day_number: 1,
+        finance_eligible: null,
+        booking_date: null,
+        booking_time: null,
+        clinic_id: null,
+        rep_id: null,
+        raw_payload: null,
+        pipeline_summary: null,
+        pipeline_summary_updated_at: null,
+      };
+      return [dave, ...prev];
+    });
+    setActiveId(PRACTICE_LEAD_ID);
+    setStep("mindset");
+    setCompleted(new Set());
+    setSessionActive(true);
+    setSessionQueue([PRACTICE_LEAD_ID]);
+    setSessionIndex(0);
+    if (!sessionStartedAt) setSessionStartedAt(new Date().toISOString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [practiceMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
