@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/_dashboard/training/read-along")({
   component: ReadAlong,
 });
+
+const STORAGE_KEY = "htg_training_module3_complete";
+const ACCENT = "#f4522d";
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
@@ -166,32 +170,184 @@ const sections: { heading: string; body: string[] }[] = [
 ];
 
 function ReadAlong() {
+  const [index, setIndex] = useState(0);
+  const [complete, setComplete] = useState(false);
+  const headingRef = useRef<HTMLHeadingElement | null>(null);
+  const firstRender = useRef(true);
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined" && localStorage.getItem(STORAGE_KEY) === "1") {
+        setComplete(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (firstRender.current) {
+      firstRender.current = false;
+      return;
+    }
+    headingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [index]);
+
+  const total = sections.length;
+  const current = sections[index];
+  const isFirst = index === 0;
+  const isLast = index === total - 1;
+  const progressPct = Math.round(((index + 1) / total) * 100);
+
+  const handleNext = () => {
+    if (isLast) {
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY, "1");
+        }
+      } catch {
+        // ignore
+      }
+      setComplete(true);
+      return;
+    }
+    setIndex((i) => Math.min(total - 1, i + 1));
+  };
+
+  const handleBack = () => {
+    setIndex((i) => Math.max(0, i - 1));
+  };
+
   return (
-    <div style={{ padding: "32px 28px", maxWidth: 820, margin: "0 auto", fontFamily: FONT, color: "#111" }}>
-      <h1 style={{ fontSize: 30, fontWeight: 700, marginBottom: 8, letterSpacing: "-0.01em" }}>
+    <div
+      style={{
+        padding: "24px 28px 56px",
+        maxWidth: 760,
+        margin: "0 auto",
+        fontFamily: FONT,
+        color: "#111",
+        background: "#f7f7f5",
+        minHeight: "100vh",
+        WebkitFontSmoothing: "antialiased",
+        MozOsxFontSmoothing: "grayscale",
+      }}
+    >
+      <h1 style={{ fontSize: 21, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>
         Read Along — Hair Restoration Product Knowledge
       </h1>
-      <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 12 }}>
+      <p style={{ color: "#6b6b6b", fontSize: 13, margin: "0 0 14px" }}>
         Module 3 — The full written deep-dive. Read this alongside the videos.
       </p>
-      <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 32, lineHeight: 1.7, fontStyle: "italic" }}>
-        Built on the same spine as the dental module: mission → understand the patient deeper than they do → the one piece of science → the solution → the options landscape → pre-dissolve every barrier → how you communicate it. The goal isn't to make you recite facts. It's to make you believe — because belief comes through in your voice.
-      </p>
 
-      <article style={{ display: "flex", flexDirection: "column", gap: 36 }}>
-        {sections.map((s) => (
-          <section key={s.heading}>
-            <h2 style={{ fontSize: 19, fontWeight: 600, marginBottom: 12, color: "#111", letterSpacing: "-0.005em" }}>
-              {s.heading}
-            </h2>
-            {s.body.map((p, i) => (
-              <p key={i} style={{ fontSize: 15, lineHeight: 1.75, color: "#2b2b2b", margin: "0 0 14px 0" }}>
+      {isFirst && (
+        <p style={{ color: "#6b6b6b", fontSize: 14, margin: "0 0 18px", lineHeight: 1.7, fontStyle: "italic" }}>
+          Built on the same spine as the dental module: mission → understand the patient deeper than they do → the one piece of science → the solution → the options landscape → pre-dissolve every barrier → how you communicate it. The goal isn't to make you recite facts. It's to make you believe — because belief comes through in your voice.
+        </p>
+      )}
+
+      <div style={{ margin: "0 0 14px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#6b6b6b", marginBottom: 6 }}>
+          <span>Section {index + 1} of {total}</span>
+          <span>{progressPct}%</span>
+        </div>
+        <div style={{ height: 6, background: "#ebebeb", borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ width: `${progressPct}%`, height: "100%", background: ACCENT, transition: "width 240ms ease" }} />
+        </div>
+      </div>
+
+      <section
+        style={{
+          background: "#fff",
+          border: "1px solid #ebebeb",
+          borderRadius: 12,
+          padding: "24px 26px",
+        }}
+      >
+        <h2
+          ref={headingRef}
+          style={{ fontSize: 20, fontWeight: 600, margin: "0 0 14px", color: "#111", letterSpacing: "-0.005em", scrollMarginTop: 16 }}
+        >
+          {current.heading}
+        </h2>
+        {current.body.map((p, i) => {
+          if (p.startsWith("How to say it:")) {
+            return (
+              <p
+                key={i}
+                style={{
+                  fontSize: 17,
+                  lineHeight: 1.85,
+                  color: "#242424",
+                  margin: "0 0 16px",
+                  background: "#fff6f4",
+                  borderLeft: `3px solid ${ACCENT}`,
+                  padding: "12px 14px",
+                  borderRadius: 6,
+                  fontStyle: "italic",
+                }}
+              >
                 {p}
               </p>
-            ))}
-          </section>
-        ))}
-      </article>
+            );
+          }
+          return (
+            <p key={i} style={{ fontSize: 17, lineHeight: 1.85, color: "#242424", margin: "0 0 16px" }}>
+              {p}
+            </p>
+          );
+        })}
+      </section>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20 }}>
+        <button
+          onClick={handleBack}
+          disabled={isFirst}
+          style={{
+            fontFamily: FONT,
+            fontSize: 14,
+            padding: "10px 18px",
+            borderRadius: 8,
+            border: "1px solid #ebebeb",
+            background: "#fff",
+            color: isFirst ? "#bbb" : "#111",
+            cursor: isFirst ? "not-allowed" : "pointer",
+          }}
+        >
+          ‹ Back
+        </button>
+        <button
+          onClick={handleNext}
+          style={{
+            fontFamily: FONT,
+            fontSize: 14,
+            fontWeight: 600,
+            padding: "10px 20px",
+            borderRadius: 8,
+            border: "none",
+            background: ACCENT,
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          {isLast ? "Finish module" : "Next ›"}
+        </button>
+      </div>
+
+      {complete && (
+        <div
+          style={{
+            marginTop: 24,
+            background: "#111",
+            color: "#fff",
+            padding: "16px 20px",
+            borderRadius: 10,
+            fontSize: 15,
+            fontWeight: 600,
+          }}
+        >
+          Module complete
+        </div>
+      )}
     </div>
   );
 }
