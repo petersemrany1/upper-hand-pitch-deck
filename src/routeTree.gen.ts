@@ -38,6 +38,7 @@ import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/
 import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
 import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
 import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
+import { Route as DashboardTrainingConsultationVideosRouteImport } from './routes/_dashboard.training.consultation-videos'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
 import { Route as DashboardTrainingAiRouteImport } from './routes/_dashboard.training.ai'
 import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './routes/_dashboard.training.sales-framework.index'
@@ -196,6 +197,12 @@ const DashboardTrainingPlatformRoute =
     path: '/platform',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
+const DashboardTrainingConsultationVideosRoute =
+  DashboardTrainingConsultationVideosRouteImport.update({
+    id: '/consultation-videos',
+    path: '/consultation-videos',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any)
 const DashboardTrainingAudienceRoute =
   DashboardTrainingAudienceRouteImport.update({
     id: '/audience',
@@ -268,6 +275,7 @@ export interface FileRoutesByFullPath {
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
+  '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
@@ -305,6 +313,7 @@ export interface FileRoutesByTo {
   '/': typeof DashboardIndexRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
+  '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
@@ -345,6 +354,7 @@ export interface FileRoutesById {
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/training/ai': typeof DashboardTrainingAiRoute
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
+  '/_dashboard/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/_dashboard/training/platform': typeof DashboardTrainingPlatformRoute
   '/_dashboard/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
@@ -385,6 +395,7 @@ export interface FileRouteTypes {
     | '/email/unsubscribe'
     | '/training/ai'
     | '/training/audience'
+    | '/training/consultation-videos'
     | '/training/platform'
     | '/training/product-knowledge'
     | '/training/read-along'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/'
     | '/training/ai'
     | '/training/audience'
+    | '/training/consultation-videos'
     | '/training/platform'
     | '/training/product-knowledge'
     | '/training/read-along'
@@ -461,6 +473,7 @@ export interface FileRouteTypes {
     | '/_dashboard/'
     | '/_dashboard/training/ai'
     | '/_dashboard/training/audience'
+    | '/_dashboard/training/consultation-videos'
     | '/_dashboard/training/platform'
     | '/_dashboard/training/product-knowledge'
     | '/_dashboard/training/read-along'
@@ -698,6 +711,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingPlatformRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
+    '/_dashboard/training/consultation-videos': {
+      id: '/_dashboard/training/consultation-videos'
+      path: '/consultation-videos'
+      fullPath: '/training/consultation-videos'
+      preLoaderRoute: typeof DashboardTrainingConsultationVideosRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
     '/_dashboard/training/audience': {
       id: '/_dashboard/training/audience'
       path: '/audience'
@@ -760,6 +780,7 @@ declare module '@tanstack/react-router' {
 interface DashboardTrainingRouteChildren {
   DashboardTrainingAiRoute: typeof DashboardTrainingAiRoute
   DashboardTrainingAudienceRoute: typeof DashboardTrainingAudienceRoute
+  DashboardTrainingConsultationVideosRoute: typeof DashboardTrainingConsultationVideosRoute
   DashboardTrainingPlatformRoute: typeof DashboardTrainingPlatformRoute
   DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
   DashboardTrainingReadAlongRoute: typeof DashboardTrainingReadAlongRoute
@@ -771,6 +792,8 @@ interface DashboardTrainingRouteChildren {
 const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
   DashboardTrainingAiRoute: DashboardTrainingAiRoute,
   DashboardTrainingAudienceRoute: DashboardTrainingAudienceRoute,
+  DashboardTrainingConsultationVideosRoute:
+    DashboardTrainingConsultationVideosRoute,
   DashboardTrainingPlatformRoute: DashboardTrainingPlatformRoute,
   DashboardTrainingProductKnowledgeRoute:
     DashboardTrainingProductKnowledgeRoute,
@@ -845,3 +868,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

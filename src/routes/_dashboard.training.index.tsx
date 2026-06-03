@@ -29,6 +29,11 @@ const modules = [
     desc: "Buyer personas, motivations, objections and how to identify lead types fast.",
   },
   {
+    title: "What to Expect at the Consultation",
+    url: "/training/consultation-videos",
+    desc: "Watch these videos so you know exactly what a patient experiences during their consultation.",
+  },
+  {
     title: "Read Along",
     url: "/training/read-along",
     desc: "Hair Restoration product knowledge — the full written deep-dive to read alongside the videos.",
