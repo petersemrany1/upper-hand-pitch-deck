@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 export const Route = createFileRoute("/_dashboard/training/read-along")({
@@ -232,6 +232,16 @@ function ReadAlong() {
         MozOsxFontSmoothing: "grayscale",
       }}
     >
+      <Link to="/training" style={{ textDecoration: "none" }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#6b6b6b", marginBottom: 10, cursor: "pointer", transition: "color 0.15s ease" }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = ACCENT; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "#6b6b6b"; }}
+        >
+          <span style={{ fontSize: 16 }}>‹</span>
+          <span>Back to Training</span>
+        </div>
+      </Link>
+
       <h1 style={{ fontSize: 21, fontWeight: 700, margin: "0 0 6px", letterSpacing: "-0.01em" }}>
         Read Along — Hair Restoration Product Knowledge
       </h1>
