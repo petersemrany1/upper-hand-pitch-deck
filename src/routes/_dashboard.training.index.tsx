@@ -44,14 +44,14 @@ const modules = [
     desc: "Listen to model sales calls and study the structure step by step.",
   },
   {
-    title: "AI Training",
-    url: "/training/ai",
-    desc: "How to use the in-portal AI tools (coach, summaries, lead intel) effectively.",
-  },
-  {
     title: "Platform Training",
     url: "/training/platform",
     desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting.",
+  },
+  {
+    title: "AI Training",
+    url: "/training/ai",
+    desc: "How to use the in-portal AI tools (coach, summaries, lead intel) effectively.",
   },
 ];
 
