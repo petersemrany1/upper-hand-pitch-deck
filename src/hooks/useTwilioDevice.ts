@@ -216,7 +216,8 @@ async function ensureDevice(): Promise<void> {
       // - edge: "sydney" keeps the media path local for AU users.
       // - dscp tags packets so home routers prioritise voice.
       // - closeProtection avoids accidental disconnects mid-call.
-      const d = new Device(token, {
+      const DeviceClass = await loadDeviceCtor();
+      const d = new DeviceClass(token, {
         allowIncomingWhileBusy: true,
         logLevel: 1,
         codecPreferences: ["opus" as never, "pcmu" as never],
@@ -226,7 +227,7 @@ async function ensureDevice(): Promise<void> {
         forceAggressiveIceNomination: true,
         closeProtection: true,
         enableImprovedSignalingErrorPrecision: true,
-      } as ConstructorParameters<typeof Device>[1]);
+      } as ConstructorParameters<typeof DeviceType>[1]);
       device = d;
 
       d.on("registered", () => {
