@@ -133,7 +133,7 @@ function normalisePhoneDigits(phone: string | null | undefined) {
   return digits;
 }
 
-function SalesCallPortal() {
+export function SalesCallPortal() {
   const { user } = useAuth();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
