@@ -5,13 +5,17 @@
 //     error logger plugins, and sandbox detection (port/host/strictPort).
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { fileURLToPath } from "node:url";
+
+const eventsShim = fileURLToPath(new URL("./src/shims/events.ts", import.meta.url));
 
 export default defineConfig({
   vite: {
     resolve: {
-      alias: {
-        events: "events/events.js",
-      },
+      alias: [
+        { find: /^events$/, replacement: eventsShim },
+        { find: /^node:events$/, replacement: eventsShim },
+      ],
     },
   },
 });
