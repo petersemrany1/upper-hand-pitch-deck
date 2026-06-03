@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useConversation } from "@elevenlabs/react";
+import { useConversation, ConversationProvider } from "@elevenlabs/react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/training/practice-call")({
-  component: PracticeCallPage,
+  component: PracticeCallPageWrapper,
   head: () => ({
     meta: [{ title: "Practice Call" }],
     links: [
@@ -583,5 +583,13 @@ function PracticeCallPage() {
         }
       `}</style>
     </div>
+  );
+}
+
+function PracticeCallPageWrapper() {
+  return (
+    <ConversationProvider>
+      <PracticeCallPage />
+    </ConversationProvider>
   );
 }
