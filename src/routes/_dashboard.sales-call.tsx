@@ -612,10 +612,10 @@ export function SalesCallPortal() {
       if (cancelled) return;
       const foundId = r.success ? r.lead?.id : null;
       if (foundId) {
-        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
+        navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
         return;
       }
-      navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
+      navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
     });
     return () => { cancelled = true; };
   }, [search.phone, search.leadId, navigate]);
