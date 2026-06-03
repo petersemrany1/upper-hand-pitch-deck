@@ -289,16 +289,14 @@ function Stepper({ step, progress, onJump }: {
 function HillView({ stages, onJumpBeat, onNext }: {
   stages: Stage[]; onJumpBeat: (idx: number) => void; onNext: () => void;
 }) {
-  // Plot: stage_no 0 is mindset (left, low). 1-9 climb/peak/paper across an arc.
-  // arc: x from 6% to 94%, y follows sin shape peaking at audiobook (stage 5)
-  const w = 900, h = 280;
-  const padX = 60, baseY = 230, peakY = 60;
+  // Plot: stage_no 0 is mindset (separate, far left). 1-9 climb/peak/paper across an arc.
+  const w = 960, h = 360;
+  const padX = 95, baseY = 250, peakY = 90;
   const nonMind = stages.filter((s) => s.band !== "mind");
   const peakStage = stages.find((s) => s.band === "peak");
   const peakIdxInNon = peakStage ? nonMind.findIndex((s) => s.stage_no === peakStage.stage_no) : 4;
   const points = nonMind.map((s, i) => {
     const t = i / Math.max(1, nonMind.length - 1);
-    // Triangle-ish arc peaking at peakIdxInNon
     const peakT = peakIdxInNon / (nonMind.length - 1);
     const y = baseY - (baseY - peakY) * (1 - Math.abs(t - peakT) / Math.max(peakT, 1 - peakT));
     const x = padX + (w - padX * 2) * t;
@@ -316,15 +314,16 @@ function HillView({ stages, onJumpBeat, onNext }: {
 
         <div style={{ overflowX: "auto" }}>
           <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ maxWidth: w, display: "block" }} role="img" aria-label="The Hill">
-            {/* baseline */}
-            <line x1={padX} y1={baseY + 10} x2={w - padX} y2={baseY + 10} stroke="#ebebeb" strokeWidth={1} />
+            {/* top-of-chart act labels — clear of all nodes */}
+            <text x={padX} y={28} fontSize="13" fill="#16a34a" fontWeight={700}>Earn the sigh ▲</text>
+            <text x={w - padX} y={28} fontSize="13" fill="#3b82f6" fontWeight={700} textAnchor="end">Paperwork ▼</text>
+            {/* baseline — pushed well below node labels */}
+            <line x1={padX - 20} y1={baseY + 60} x2={w - padX + 20} y2={baseY + 60} stroke="#ebebeb" strokeWidth={1} />
             {/* arc */}
             <path d={pathD} fill="none" stroke="#d4d4d4" strokeWidth={2} strokeDasharray="4 4" />
-            {/* labels rise/peak/descent */}
-            <text x={padX + 40} y={baseY - 2} fontSize="12" fill="#16a34a" fontWeight={600}>Earn the sigh ▲</text>
-            <text x={w - padX - 110} y={baseY - 2} fontSize="12" fill="#3b82f6" fontWeight={600}>Paperwork ▼</text>
+            {/* peak label */}
             {peakStage && (
-              <text x={points[peakIdxInNon].x} y={peakY - 14} fontSize="12" textAnchor="middle" fill="#f59e0b" fontWeight={700}>
+              <text x={points[peakIdxInNon].x} y={peakY - 22} fontSize="12" textAnchor="middle" fill="#f59e0b" fontWeight={700}>
                 the sigh = the sale
               </text>
             )}
@@ -333,18 +332,18 @@ function HillView({ stages, onJumpBeat, onNext }: {
               const idx = stages.findIndex((x) => x.stage_no === p.s.stage_no);
               return (
                 <g key={p.s.stage_no} style={{ cursor: "pointer" }} onClick={() => onJumpBeat(idx)}>
-                  <circle cx={p.x} cy={p.y} r={16} fill="#fff" stroke={BAND_COLOR[p.s.band]} strokeWidth={3} />
+                  <circle cx={p.x} cy={p.y} r={18} fill="#fff" stroke={BAND_COLOR[p.s.band]} strokeWidth={3} />
                   <text x={p.x} y={p.y + 4} fontSize="12" textAnchor="middle" fill="#111" fontWeight={700}>{p.s.stage_no}</text>
-                  <text x={p.x} y={p.y + 34} fontSize="11" textAnchor="middle" fill="#6b6b6b">{p.s.name}</text>
+                  <text x={p.x} y={p.y + 38} fontSize="11" textAnchor="middle" fill="#6b6b6b">{p.s.name}</text>
                 </g>
               );
             })}
-            {/* mindset bubble — sits below baseline, left */}
+            {/* mindset bubble — far left, below baseline, fully clear of node 1 */}
             {stages.find((s) => s.band === "mind") && (
               <g style={{ cursor: "pointer" }} onClick={() => onJumpBeat(0)}>
-                <circle cx={padX - 30} cy={baseY + 30} r={14} fill="#fff" stroke={BAND_COLOR.mind} strokeWidth={2} strokeDasharray="3 3" />
-                <text x={padX - 30} y={baseY + 34} fontSize="11" textAnchor="middle" fill="#111" fontWeight={700}>0</text>
-                <text x={padX - 30} y={baseY + 56} fontSize="10" textAnchor="middle" fill="#6b6b6b">Mindset</text>
+                <circle cx={padX - 60} cy={baseY + 95} r={14} fill="#fff" stroke={BAND_COLOR.mind} strokeWidth={2} strokeDasharray="3 3" />
+                <text x={padX - 60} y={baseY + 99} fontSize="11" textAnchor="middle" fill="#111" fontWeight={700}>0</text>
+                <text x={padX - 60} y={baseY + 122} fontSize="10" textAnchor="middle" fill="#6b6b6b">Mindset</text>
               </g>
             )}
           </svg>
