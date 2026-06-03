@@ -4,7 +4,7 @@ import { useConversation, ConversationProvider } from "@elevenlabs/react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_dashboard/training/practice-call")({
-  component: PracticeCallPage,
+  component: PracticeCallPageWrapper,
   head: () => ({
     meta: [{ title: "Practice Call" }],
     links: [
