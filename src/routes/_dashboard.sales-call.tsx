@@ -133,7 +133,8 @@ function normalisePhoneDigits(phone: string | null | undefined) {
   return digits;
 }
 
-export function SalesCallPortal() {
+export const PRACTICE_LEAD_ID = "practice-dave-ai";
+export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boolean } = {}) {
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
