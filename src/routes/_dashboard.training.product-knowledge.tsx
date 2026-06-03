@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import videoAsset from "@/assets/module-1-product-knowledge.mp4.asset.json";
 
 export const Route = createFileRoute("/_dashboard/training/product-knowledge")({
