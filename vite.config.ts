@@ -6,11 +6,21 @@
 // You can pass additional config via defineConfig({ vite: { ... } }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 import { fileURLToPath } from "node:url";
+import type { Plugin } from "vite";
 
 const eventsShim = fileURLToPath(new URL("./src/shims/events.ts", import.meta.url));
+const eventsShimPlugin = (): Plugin => ({
+  name: "events-browser-shim",
+  enforce: "pre",
+  resolveId(source) {
+    if (source === "events" || source === "node:events") return eventsShim;
+    return null;
+  },
+});
 
 export default defineConfig({
   vite: {
+    plugins: [eventsShimPlugin()],
     resolve: {
       alias: [
         { find: /^events$/, replacement: eventsShim },
