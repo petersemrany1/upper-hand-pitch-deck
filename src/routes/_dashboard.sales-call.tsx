@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useSearch, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import {
   Brain, MessageCircle, Stethoscope, Megaphone, GraduationCap, Sparkles,
@@ -135,8 +135,8 @@ function normalisePhoneDigits(phone: string | null | undefined) {
 
 export function SalesCallPortal() {
   const { user } = useAuth();
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
+  const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
+  const navigate = useNavigate();
   // Read the active call's lead so the ?leadId= switch effect can tell when
   // the user is asking to jump to the lead they're CURRENTLY on the phone
   // with (e.g. clicking "Open in Sales Call" on the FloatingCallWidget after
@@ -601,7 +601,7 @@ export function SalesCallPortal() {
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
-    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
+    navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
   }, [search.leadId, leads, activeId, navigate]);
 
   useEffect(() => {
@@ -612,10 +612,10 @@ export function SalesCallPortal() {
       if (cancelled) return;
       const foundId = r.success ? r.lead?.id : null;
       if (foundId) {
-        navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
+        navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
         return;
       }
-      navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
+      navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
     });
     return () => { cancelled = true; };
   }, [search.phone, search.leadId, navigate]);
