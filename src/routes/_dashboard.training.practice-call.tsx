@@ -585,3 +585,11 @@ function PracticeCallPage() {
     </div>
   );
 }
+
+function PracticeCallPageWrapper() {
+  return (
+    <ConversationProvider>
+      <PracticeCallPage />
+    </ConversationProvider>
+  );
+}
