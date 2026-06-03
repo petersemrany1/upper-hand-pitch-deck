@@ -37,6 +37,7 @@ import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
 import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
 import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
+import { Route as DashboardTrainingPracticeCallRouteImport } from './routes/_dashboard.training.practice-call'
 import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
 import { Route as DashboardTrainingConsultationVideosRouteImport } from './routes/_dashboard.training.consultation-videos'
 import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
@@ -191,6 +192,12 @@ const DashboardTrainingProductKnowledgeRoute =
     path: '/product-knowledge',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
+const DashboardTrainingPracticeCallRoute =
+  DashboardTrainingPracticeCallRouteImport.update({
+    id: '/practice-call',
+    path: '/practice-call',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any)
 const DashboardTrainingPlatformRoute =
   DashboardTrainingPlatformRouteImport.update({
     id: '/platform',
@@ -277,6 +284,7 @@ export interface FileRoutesByFullPath {
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
+  '/training/practice-call': typeof DashboardTrainingPracticeCallRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
@@ -315,6 +323,7 @@ export interface FileRoutesByTo {
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
+  '/training/practice-call': typeof DashboardTrainingPracticeCallRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
@@ -356,6 +365,7 @@ export interface FileRoutesById {
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
   '/_dashboard/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/_dashboard/training/platform': typeof DashboardTrainingPlatformRoute
+  '/_dashboard/training/practice-call': typeof DashboardTrainingPracticeCallRoute
   '/_dashboard/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/training/audience'
     | '/training/consultation-videos'
     | '/training/platform'
+    | '/training/practice-call'
     | '/training/product-knowledge'
     | '/training/read-along'
     | '/training/sales-call-example'
@@ -435,6 +446,7 @@ export interface FileRouteTypes {
     | '/training/audience'
     | '/training/consultation-videos'
     | '/training/platform'
+    | '/training/practice-call'
     | '/training/product-knowledge'
     | '/training/read-along'
     | '/training/sales-call-example'
@@ -475,6 +487,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training/audience'
     | '/_dashboard/training/consultation-videos'
     | '/_dashboard/training/platform'
+    | '/_dashboard/training/practice-call'
     | '/_dashboard/training/product-knowledge'
     | '/_dashboard/training/read-along'
     | '/_dashboard/training/sales-call-example'
@@ -704,6 +717,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingProductKnowledgeRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
+    '/_dashboard/training/practice-call': {
+      id: '/_dashboard/training/practice-call'
+      path: '/practice-call'
+      fullPath: '/training/practice-call'
+      preLoaderRoute: typeof DashboardTrainingPracticeCallRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
     '/_dashboard/training/platform': {
       id: '/_dashboard/training/platform'
       path: '/platform'
@@ -782,6 +802,7 @@ interface DashboardTrainingRouteChildren {
   DashboardTrainingAudienceRoute: typeof DashboardTrainingAudienceRoute
   DashboardTrainingConsultationVideosRoute: typeof DashboardTrainingConsultationVideosRoute
   DashboardTrainingPlatformRoute: typeof DashboardTrainingPlatformRoute
+  DashboardTrainingPracticeCallRoute: typeof DashboardTrainingPracticeCallRoute
   DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
   DashboardTrainingReadAlongRoute: typeof DashboardTrainingReadAlongRoute
   DashboardTrainingSalesCallExampleRoute: typeof DashboardTrainingSalesCallExampleRoute
@@ -795,6 +816,7 @@ const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
   DashboardTrainingConsultationVideosRoute:
     DashboardTrainingConsultationVideosRoute,
   DashboardTrainingPlatformRoute: DashboardTrainingPlatformRoute,
+  DashboardTrainingPracticeCallRoute: DashboardTrainingPracticeCallRoute,
   DashboardTrainingProductKnowledgeRoute:
     DashboardTrainingProductKnowledgeRoute,
   DashboardTrainingReadAlongRoute: DashboardTrainingReadAlongRoute,
