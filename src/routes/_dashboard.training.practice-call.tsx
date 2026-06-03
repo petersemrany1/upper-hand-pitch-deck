@@ -124,7 +124,7 @@ function AIPracticeWidget() {
 function PracticeCallPageWrapper() {
   return (
     <ConversationProvider>
-      <SalesCallPortal />
+      <SalesCallPortal practiceMode />
       <AIPracticeWidget />
     </ConversationProvider>
   );
