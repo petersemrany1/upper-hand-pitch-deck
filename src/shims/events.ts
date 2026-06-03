@@ -1,3 +1,4 @@
+// @ts-expect-error The browser events package ships CommonJS without bundled declarations for this subpath.
 import EventEmitterModule from "events/events.js";
 
 const EventEmitter =
