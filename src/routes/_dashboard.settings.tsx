@@ -807,7 +807,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
                   <button
                     key={opt}
                     type="button"
-                    onClick={() => setInviteRole(opt)}
+                    onClick={() => handleRoleChange(opt)}
                     className="px-3 py-2 rounded-md text-xs font-medium border transition-colors"
                     style={{
                       borderColor: active ? "#f4522d" : "#e5e5e3",
