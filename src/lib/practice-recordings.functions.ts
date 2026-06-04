@@ -7,6 +7,65 @@ const InputSchema = z.object({
   durationSeconds: z.number().int().min(0).max(60 * 60).optional(),
 });
 
+export const listPracticeCallRecordings = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = (context.claims?.email as string | undefined)?.toLowerCase();
+
+    let repId: string | null = null;
+    let isAdmin = false;
+    if (email) {
+      const { data: rep } = await supabaseAdmin
+        .from("sales_reps")
+        .select("id, role")
+        .ilike("email", email)
+        .maybeSingle();
+      repId = rep?.id ?? null;
+      isAdmin = rep?.role === "admin";
+    }
+
+    let query = supabaseAdmin
+      .from("practice_call_recordings")
+      .select("id, rep_id, conversation_id, audio_path, duration_seconds, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (!isAdmin) query = query.eq("rep_id", repId ?? "00000000-0000-0000-0000-000000000000");
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(error.message);
+
+    // Get rep names for admin view
+    const repIds = Array.from(new Set((rows ?? []).map((r) => r.rep_id).filter(Boolean))) as string[];
+    let repMap: Record<string, string> = {};
+    if (isAdmin && repIds.length) {
+      const { data: reps } = await supabaseAdmin
+        .from("sales_reps")
+        .select("id, name")
+        .in("id", repIds);
+      repMap = Object.fromEntries((reps ?? []).map((r) => [r.id, r.name as string]));
+    }
+
+    const enriched = await Promise.all(
+      (rows ?? []).map(async (r) => {
+        const { data: signed } = await supabaseAdmin.storage
+          .from("practice-call-recordings")
+          .createSignedUrl(r.audio_path, 60 * 60);
+        return {
+          id: r.id,
+          conversation_id: r.conversation_id,
+          duration_seconds: r.duration_seconds,
+          created_at: r.created_at,
+          rep_name: r.rep_id ? repMap[r.rep_id] ?? null : null,
+          audio_url: signed?.signedUrl ?? null,
+        };
+      }),
+    );
+
+    return { recordings: enriched, isAdmin };
+  });
+
+
 export const savePracticeCallRecording = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => InputSchema.parse(input))
