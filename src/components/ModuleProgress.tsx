@@ -175,11 +175,14 @@ export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps)
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#16a34a", fontWeight: 600 }}>
             <CheckCircle2 size={16} /> Module complete
           </span>
-        ) : canComplete ? (
-          <span>You're cleared to mark this module complete.</span>
+        ) : effectiveCanComplete ? (
+          <span>
+            {isAdmin && !canComplete ? "Admin override — you can mark this complete anytime." : "You're cleared to mark this module complete."}
+          </span>
         ) : (
           <span>{notReadyHint ?? "Reach the end of the content to enable this."}</span>
         )}
+
       </div>
       <div style={{ display: "flex", gap: 10 }}>
         {!isDone && (
