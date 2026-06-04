@@ -5128,7 +5128,29 @@ function RightPanel({
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   // ElevenLabs practice conversation (only used in practiceMode)
+  const practiceConvIdRef = useRef<string | null>(null);
+  const practiceStartedAtRef = useRef<number | null>(null);
   const practiceConversation = useConversation({
+    onConnect: (info: unknown) => {
+      const id = (info as { conversationId?: string })?.conversationId ?? null;
+      if (id) practiceConvIdRef.current = id;
+      practiceStartedAtRef.current = Date.now();
+    },
+    onDisconnect: () => {
+      const convId = practiceConvIdRef.current;
+      const startedAt = practiceStartedAtRef.current;
+      practiceConvIdRef.current = null;
+      practiceStartedAtRef.current = null;
+      if (!convId) return;
+      const durationSeconds = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined;
+      // Fire-and-forget; ElevenLabs takes a few seconds to make the recording available
+      void savePracticeCallRecording({ data: { conversationId: convId, durationSeconds } })
+        .then(() => toast.success("Practice call recording saved"))
+        .catch((e) => {
+          console.error("[practice] save recording failed", e);
+          toast.error("Couldn't save practice call recording");
+        });
+    },
     onError: (err) => {
       console.error("[practice] elevenlabs error", err);
       toast.error("Practice call error");
@@ -5143,10 +5165,12 @@ function RightPanel({
     setPracticeConnecting(true);
     try {
       await navigator.mediaDevices.getUserMedia({ audio: true });
-      await practiceConversation.startSession({
+      const convId = await practiceConversation.startSession({
         agentId: PRACTICE_AGENT_ID,
         connectionType: "webrtc",
       });
+      if (typeof convId === "string") practiceConvIdRef.current = convId;
+      practiceStartedAtRef.current = Date.now();
     } catch (e) {
       console.error("[practice] startSession failed", e);
       toast.error(e instanceof Error ? e.message : "Failed to start practice call");
