@@ -84,8 +84,56 @@ type Rep = {
   last_name: string | null;
   role: string;
   is_active?: boolean;
+  allowed_tabs?: string[] | null;
   created_at: string;
 };
+
+function TabAccessPicker({
+  value,
+  onChange,
+}: {
+  value: TabKey[];
+  onChange: (next: TabKey[]) => void;
+}) {
+  const toggle = (tab: TabKey) => {
+    const set = new Set(value);
+    if (set.has(tab)) set.delete(tab); else set.add(tab);
+    onChange(ALL_TAB_KEYS.filter((t) => set.has(t)));
+  };
+  return (
+    <div className="space-y-3">
+      {TAB_GROUPS.map((group) => (
+        <div key={group.title}>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{group.title}</div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {group.tabs.map((tab) => {
+              const checked = value.includes(tab);
+              return (
+                <label
+                  key={tab}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border cursor-pointer text-sm transition-colors"
+                  style={{
+                    borderColor: checked ? "#f4522d" : "#e5e5e3",
+                    background: checked ? "#fff1ee" : "#fff",
+                    color: checked ? "#f4522d" : "#111",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(tab)}
+                    className="h-3.5 w-3.5 accent-[#f4522d]"
+                  />
+                  <span className="text-xs font-medium">{TAB_LABELS[tab]}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
