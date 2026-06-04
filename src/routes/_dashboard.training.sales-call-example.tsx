@@ -3,6 +3,7 @@ import { useState } from "react";
 import ahmedAsset from "@/assets/sales-call-ahmed.mp3.asset.json";
 import jonoAsset from "@/assets/sales-call-jono.mp3.asset.json";
 import rajAsset from "@/assets/sales-call-raj.mp3.asset.json";
+import { ModuleGate, CompleteModuleBar } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/sales-call-example")({
   component: SalesCallExample,
@@ -17,7 +18,21 @@ const recordings = [
 ];
 
 function SalesCallExample() {
+  return (
+    <ModuleGate slug="sales-call-example">
+      <Inner />
+    </ModuleGate>
+  );
+}
+
+function Inner() {
   const [selected, setSelected] = useState<number | null>(null);
+  const [endedAny, setEndedAny] = useState(false);
+
+  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
+    const a = e.currentTarget;
+    if (a.duration > 0 && a.currentTime / a.duration >= 0.95) setEndedAny(true);
+  };
 
   return (
     <div style={{ fontFamily: FONT, background: "#f7f7f5", minHeight: "100%" }}>
@@ -92,7 +107,14 @@ function SalesCallExample() {
                 </button>
                 {isOpen && (
                   <div style={{ padding: "0 20px 20px 20px" }}>
-                    <audio controls autoPlay src={r.url} style={{ width: "100%" }}>
+                    <audio
+                      controls
+                      autoPlay
+                      src={r.url}
+                      onEnded={() => setEndedAny(true)}
+                      onTimeUpdate={handleTimeUpdate}
+                      style={{ width: "100%" }}
+                    >
                       Your browser does not support audio playback.
                     </audio>
                   </div>
@@ -101,6 +123,12 @@ function SalesCallExample() {
             );
           })}
         </div>
+
+        <CompleteModuleBar
+          slug="sales-call-example"
+          canComplete={endedAny}
+          notReadyHint="Listen to at least one recording all the way through to enable this."
+        />
       </div>
     </div>
   );
