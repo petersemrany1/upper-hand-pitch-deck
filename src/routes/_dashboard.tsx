@@ -42,6 +42,7 @@ function DashboardLayout() {
   const { session, ready, role, userType, allowedTabs } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
   const pageOwnsNotificationBell = ["/sales-call", "/leaderboard", "/training/practice-call"].includes(location.pathname) || location.pathname.startsWith("/partner-clinics");
+  const isTrainingRoute = location.pathname.startsWith("/training");
   const isClinicSetter = role === "caller";
 
   // Redirect unauthenticated users once the session check has resolved.
