@@ -49,6 +49,11 @@ const modules = [
     desc: "Listen to model sales calls and study the structure step by step.",
   },
   {
+    title: "Knowledge Quiz",
+    url: "/training/knowledge-quiz",
+    desc: "40-question gate covering framework, product, skills and process. Pass 40/40 to unlock practice calls.",
+  },
+  {
     title: "Platform Training",
     url: "/training/platform",
     desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting.",
