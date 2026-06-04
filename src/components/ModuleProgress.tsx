@@ -31,11 +31,13 @@ export function ModuleGate({ slug, children }: Props) {
   useEffect(() => {
     (async () => {
       const status = await loadModuleStatus();
+      if (status.isAdmin) return setState("unlocked");
       const prev = previousModule(slug);
       if (!prev || status.completed[prev.slug]) setState("unlocked");
       else setState("locked");
     })();
   }, [slug]);
+
 
   if (state === "loading") {
     return (
