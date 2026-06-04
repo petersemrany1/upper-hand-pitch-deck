@@ -626,6 +626,7 @@ export const inviteRep = createServerFn({ method: "POST" })
         last_name: data.lastName,
         email: data.email,
         role: data.role,
+        allowed_tabs: data.role === "admin" ? null : data.allowedTabs,
       } as never).select("*").single();
     if (insertErr) {
       if (createdNewAuthUser) await rollbackAuthUser(newUserId);
