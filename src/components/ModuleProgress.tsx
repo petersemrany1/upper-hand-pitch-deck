@@ -123,6 +123,7 @@ type BarProps = {
 export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps) {
   const navigate = useNavigate();
   const [completed, setCompleted] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const next = nextModule(slug);
 
@@ -130,11 +131,14 @@ export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps)
     (async () => {
       const status = await loadModuleStatus();
       setCompleted(!!status.completed[slug]);
+      setIsAdmin(status.isAdmin);
     })();
   }, [slug]);
 
+  const effectiveCanComplete = canComplete || isAdmin;
+
   const onClick = async () => {
-    if (!canComplete || busy || completed) return;
+    if (!effectiveCanComplete || busy || completed) return;
     setBusy(true);
     const ok = await markModuleComplete(slug);
     setBusy(false);
@@ -142,7 +146,8 @@ export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps)
   };
 
   const isDone = completed === true;
-  const disabled = !isDone && (!canComplete || busy);
+  const disabled = !isDone && (!effectiveCanComplete || busy);
+
 
   return (
     <div
