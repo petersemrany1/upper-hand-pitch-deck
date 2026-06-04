@@ -126,7 +126,7 @@ function DashboardLayout() {
   return (
     <NotificationsProvider>
       <SidebarProvider defaultOpen={false}>
-        <DashboardShell>
+        <DashboardShell suppressBanner={isTrainingRoute}>
           <AppSidebar />
           <div className="flex-1 flex flex-col overflow-hidden">
             <SidebarTrigger
@@ -144,8 +144,8 @@ function DashboardLayout() {
             </main>
           </div>
         </DashboardShell>
-        <SmsNotifier />
-        <MissedCallNotifier />
+        {!isTrainingRoute && <SmsNotifier />}
+        {!isTrainingRoute && <MissedCallNotifier />}
         
         <MiniMessenger />
       </SidebarProvider>
