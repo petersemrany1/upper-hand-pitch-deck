@@ -83,7 +83,7 @@ function AIPracticeWidget() {
             }}
           >
             <PhoneCall className="h-4 w-4" />
-            {starting || status === "connecting" ? "Connecting…" : "Start practice call"}
+            {starting || status === "connecting" ? "Connecting…" : "Start Practice Call"}
           </button>
           {micError && <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 8 }}>{micError}</div>}
         </>
