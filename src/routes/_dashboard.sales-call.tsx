@@ -24,6 +24,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
 import { openMessenger, setMessengerThread } from "@/hooks/useMessenger";
+import { useConversation } from "@elevenlabs/react";
+
+const PRACTICE_AGENT_ID = "agent_1301kt5fgx3ye9krpyc25900fy60";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
