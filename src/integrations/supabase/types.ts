@@ -1122,6 +1122,33 @@ export type Database = {
         }
         Relationships: []
       }
+      quiz_questions: {
+        Row: {
+          created_at: string | null
+          id: string
+          options: Json
+          question: string
+          question_no: number
+          section: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          options: Json
+          question: string
+          question_no: number
+          section: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          options?: Json
+          question?: string
+          question_no?: number
+          section?: string
+        }
+        Relationships: []
+      }
       rep_booking_targets: {
         Row: {
           created_at: string
@@ -1233,6 +1260,33 @@ export type Database = {
           status?: string
           total_eligible?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      rep_quiz_progress: {
+        Row: {
+          attempts: number
+          best_score: number
+          passed: boolean
+          passed_at: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          best_score?: number
+          passed?: boolean
+          passed_at?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          best_score?: number
+          passed?: boolean
+          passed_at?: string | null
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: []
       }
