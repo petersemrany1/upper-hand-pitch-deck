@@ -132,7 +132,7 @@ export function AppSidebar() {
 
   // unread SMS count now comes from the global NotificationsProvider.
 
-  const renderItem = (item: NavItem, indent = false, forceActive = false) => {
+  const renderItem = (item: Omit<NavItem, "tab"> & { tab?: TabKey }, indent = false, forceActive = false) => {
     const active = forceActive || isActive(item.url);
     return (
       <SidebarMenuItem key={item.title}>
