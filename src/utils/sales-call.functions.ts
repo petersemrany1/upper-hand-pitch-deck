@@ -476,7 +476,7 @@ export const inviteRep = createServerFn({ method: "POST" })
       .select("*").ilike("email", data.email).maybeSingle();
     if (existing) return { success: false as const, error: "A rep with that email already exists" };
 
-    const siteUrl = process.env.SITE_URL || "https://upperhanddashboard.lovable.app";
+    const siteUrl = process.env.SITE_URL || "https://hairtransplantgroup.lovable.app";
 
     // Email is only required when we're sending an invite link (no manual password).
     const resendKey = process.env.RESEND_API_KEY;
