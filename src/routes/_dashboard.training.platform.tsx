@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import video from "@/assets/how-to-use-sales-portal-crm.mp4.asset.json";
+import { ModuleGate, CompleteModuleBar, useVideoEnded } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/platform")({
   component: PlatformTraining,
@@ -8,6 +10,16 @@ export const Route = createFileRoute("/_dashboard/training/platform")({
 const ACCENT = "#f4522d";
 
 function PlatformTraining() {
+  return (
+    <ModuleGate slug="platform">
+      <Inner />
+    </ModuleGate>
+  );
+}
+
+function Inner() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const ended = useVideoEnded(videoRef);
   return (
     <div style={{ fontFamily: `"DM Sans", system-ui, sans-serif`, background: "#f7f7f5", minHeight: "100%" }}>
       <div style={{ padding: "32px 28px", maxWidth: 880, margin: "0 auto" }}>
@@ -31,12 +43,18 @@ function PlatformTraining() {
         </p>
         <div style={{ background: "#000", border: "1px solid #ebebeb", borderRadius: 12, overflow: "hidden" }}>
           <video
+            ref={videoRef}
             src={video.url}
             controls
             playsInline
             style={{ width: "100%", display: "block" }}
           />
         </div>
+        <CompleteModuleBar
+          slug="platform"
+          canComplete={ended}
+          notReadyHint="Watch the video to the end to enable this."
+        />
       </div>
     </div>
   );
