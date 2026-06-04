@@ -1032,6 +1032,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
         }}
       >
         <RightPanel
+          practiceMode={practiceMode}
           active={active}
           repId={repId}
           mmsImages={mmsImages}
