@@ -1,0 +1,1 @@
+ALTER TABLE public.sales_reps ADD COLUMN IF NOT EXISTS allowed_tabs text[];

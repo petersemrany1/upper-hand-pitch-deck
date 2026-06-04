@@ -1316,6 +1316,7 @@ export type Database = {
       }
       sales_reps: {
         Row: {
+          allowed_tabs: string[] | null
           created_at: string
           email: string | null
           first_name: string | null
@@ -1326,6 +1327,7 @@ export type Database = {
           role: string
         }
         Insert: {
+          allowed_tabs?: string[] | null
           created_at?: string
           email?: string | null
           first_name?: string | null
@@ -1336,6 +1338,7 @@ export type Database = {
           role?: string
         }
         Update: {
+          allowed_tabs?: string[] | null
           created_at?: string
           email?: string | null
           first_name?: string | null
