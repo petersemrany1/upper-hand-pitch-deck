@@ -114,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role,
     userType,
     clinicId,
+    allowedTabs,
     loading: !ready,
     ready,
     signIn: async (usernameOrEmail, password) => {
