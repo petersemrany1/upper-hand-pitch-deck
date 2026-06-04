@@ -12,6 +12,25 @@ import { MiniMessenger } from "@/components/MiniMessenger";
 import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
+import { TAB_TO_URL, type TabKey } from "@/lib/tab-access";
+
+// Map current pathname → TabKey it belongs to. Returns null for pages that
+// aren't tab-gated (settings, clients, logs, clinic-portal, etc.).
+function tabForPath(pathname: string): TabKey | null {
+  if (pathname === "/") return "dashboard";
+  if (pathname.startsWith("/training")) return "training";
+  if (pathname.startsWith("/partner-clinics")) return "partner_clinics";
+  if (pathname.startsWith("/sales-call")) return "sales_portal";
+  if (pathname.startsWith("/leaderboard")) return "leaderboard";
+  if (pathname.startsWith("/booked-appointments")) return "appointments";
+  if (pathname.startsWith("/leads")) return "leads";
+  if (pathname.startsWith("/analytics")) return "analytics";
+  if (pathname.startsWith("/inbox")) return "phone";
+  if (pathname.startsWith("/pitch-deck")) return "pitch_deck";
+  if (pathname.startsWith("/clinics")) return "clinics";
+  if (pathname.startsWith("/sent-links")) return "sent_links";
+  return null;
+}
 
 export const Route = createFileRoute("/_dashboard")({
   component: DashboardLayout,
