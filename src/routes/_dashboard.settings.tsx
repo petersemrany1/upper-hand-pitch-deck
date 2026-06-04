@@ -907,6 +907,11 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
+  const repRoleKey: "admin" | "rep" | "caller" = rep.role === "admin" ? "admin" : ["caller", "clinic_setter"].includes(rep.role) ? "caller" : "rep";
+  const initialTabs: TabKey[] = (rep.allowed_tabs && rep.allowed_tabs.length > 0)
+    ? ALL_TAB_KEYS.filter((t) => rep.allowed_tabs!.includes(t))
+    : defaultTabsForRole(repRoleKey);
+  const [tabs, setTabs] = useState<TabKey[]>(initialTabs);
 
   const submit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -914,7 +919,7 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
       return;
     }
     setLoading(true);
-    const r = await updateRep({ data: { id: rep.id, firstName, lastName } });
+    const r = await updateRep({ data: { id: rep.id, firstName, lastName, allowedTabs: repRoleKey === "admin" ? null : tabs } });
     setLoading(false);
     if (r.success) { toast.success("Rep updated"); onDone(); }
     else toast.error(r.error);
@@ -931,7 +936,7 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold">Edit rep</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted">
@@ -948,7 +953,14 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Email</label>
             <div className="px-3 py-2 rounded-md bg-muted/40 text-sm text-muted-foreground">{rep.email || "—"}</div>
           </div>
+          {repRoleKey !== "admin" && (
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tab access</label>
+              <TabAccessPicker value={tabs} onChange={setTabs} />
+            </div>
+          )}
         </div>
+
 
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-md text-sm font-medium border border-border hover:bg-muted transition-colors">Cancel</button>
