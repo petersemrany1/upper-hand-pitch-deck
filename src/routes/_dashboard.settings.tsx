@@ -726,6 +726,15 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<TabKey[]>(() => defaultTabsForRole("rep"));
+  const [tabsTouched, setTabsTouched] = useState(false);
+
+  // When the role changes, reset tab selection to the role's defaults unless
+  // the admin has already manually edited them.
+  const handleRoleChange = (next: "rep" | "admin" | "caller") => {
+    setInviteRole(next);
+    if (!tabsTouched) setTabs(defaultTabsForRole(next));
+  };
 
   const submit = async () => {
     setFormError(null);
