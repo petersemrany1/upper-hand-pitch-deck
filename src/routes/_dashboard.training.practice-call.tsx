@@ -67,9 +67,6 @@ function AIPracticeWidget() {
       padding: 14, minWidth: 240, fontFamily: "system-ui, sans-serif",
       border: "1px solid #333",
     }}>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#f4522d", fontWeight: 700, marginBottom: 8 }}>
-        Practice with Dave (AI)
-      </div>
       {!isConnected ? (
         <>
           <button
@@ -83,7 +80,7 @@ function AIPracticeWidget() {
             }}
           >
             <PhoneCall className="h-4 w-4" />
-            {starting || status === "connecting" ? "Connecting…" : "Start practice call"}
+            {starting || status === "connecting" ? "Connecting…" : "Start Practice Call"}
           </button>
           {micError && <div style={{ fontSize: 11, color: "#fca5a5", marginTop: 8 }}>{micError}</div>}
         </>
