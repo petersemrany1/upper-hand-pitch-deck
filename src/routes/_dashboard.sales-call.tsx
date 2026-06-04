@@ -5260,6 +5260,7 @@ function RightPanel({
   // lead is selected and after each call ends (via the outcome modal).
   const [leadCallSummary, setLeadCallSummary] = useState<string | null>(null);
   const refreshLeadSummary = useCallback(async (mode: "cached" | "regenerate") => {
+    if (active.id === PRACTICE_LEAD_ID) { setLeadCallSummary(null); return; }
     try {
       const { data: latest } = await supabase
         .from("call_records")
@@ -5286,6 +5287,7 @@ function RightPanel({
     setLeadCallSummary(null);
     void refreshLeadSummary("regenerate");
   }, [active.id, refreshLeadSummary]);
+
 
   // Customer journey modal
   const [showJourney, setShowJourney] = useState(false);
