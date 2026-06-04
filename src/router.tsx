@@ -1,5 +1,7 @@
 import { createRouter, useRouter } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
+import { supabase } from "@/integrations/supabase/client";
 
 function DefaultErrorComponent({
   error,
@@ -9,6 +11,27 @@ function DefaultErrorComponent({
   reset: () => void;
 }) {
   const router = useRouter();
+  const logged = useRef(false);
+
+  useEffect(() => {
+    if (logged.current) return;
+    logged.current = true;
+    try {
+      void supabase.from("error_logs").insert({
+        function_name: "router-error-boundary",
+        error_message: `${error?.name ?? "Error"}: ${error?.message ?? "(no message)"}`,
+        context: {
+          source: "frontend",
+          url: typeof window !== "undefined" ? window.location.href : null,
+          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
+          stack: error?.stack ?? null,
+          loggedAt: new Date().toISOString(),
+        },
+      });
+    } catch { /* noop */ }
+  }, [error]);
+
+
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -35,7 +58,7 @@ function DefaultErrorComponent({
         <p className="mt-2 text-sm text-muted-foreground">
           An unexpected error occurred. Please try again.
         </p>
-        {import.meta.env.DEV && error.message && (
+        {error.message && (
           <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
             {error.message}
           </pre>
