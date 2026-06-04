@@ -5529,7 +5529,7 @@ function RightPanel({
       {/* Section 1 — Lead card */}
       <div style={{ padding: "12px 18px 18px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
+          <div style={{ fontSize: practiceMode ? 32 : 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
             {fullName}
           </div>
           {!practiceMode && (
