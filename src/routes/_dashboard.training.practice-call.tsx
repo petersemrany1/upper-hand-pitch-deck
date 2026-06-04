@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "./_dashboard.sales-call";
 
 export const Route = createFileRoute("/_dashboard/training/practice-call")({
@@ -7,5 +8,9 @@ export const Route = createFileRoute("/_dashboard/training/practice-call")({
 });
 
 function PracticeCallPageWrapper() {
-  return <SalesCallPortal practiceMode />;
+  return (
+    <ConversationProvider>
+      <SalesCallPortal practiceMode />
+    </ConversationProvider>
+  );
 }
