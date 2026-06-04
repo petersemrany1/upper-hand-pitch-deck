@@ -753,7 +753,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
     }
     setLoading(true);
     try {
-      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? trimmedPassword : undefined } });
+      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? trimmedPassword : undefined, allowedTabs: inviteRole === "admin" ? null : tabs } });
       if (r.success) {
         toast.success(mode === "password" ? `${email} created — share their password securely` : `Invite sent to ${email}`);
         onDone();
