@@ -22,6 +22,8 @@ import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPasswor
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { listPracticeCallRecordings } from "@/lib/practice-recordings.functions";
+import { Mic } from "lucide-react";
 
 // NOTE: These exports are consumed by the protected pitch deck route
 // (src/routes/_dashboard.pitch-deck.tsx). They are NOT surfaced in the
@@ -116,10 +118,103 @@ function SettingsPage() {
           <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
           {isAdmin && <BackfillSection />}
+          <PracticeRecordingsSection />
           <LogsSection />
         </div>
       </div>
     </div>
+  );
+}
+
+function PracticeRecordingsSection() {
+  type Rec = {
+    id: string;
+    conversation_id: string;
+    duration_seconds: number | null;
+    created_at: string;
+    rep_name: string | null;
+    audio_url: string | null;
+  };
+  const [recs, setRecs] = useState<Rec[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listPracticeCallRecordings();
+      setRecs(res.recordings as Rec[]);
+      setIsAdmin(res.isAdmin);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void load(); }, []);
+
+  const fmtDuration = (s: number | null) => {
+    if (!s && s !== 0) return "—";
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${String(sec).padStart(2, "0")}`;
+  };
+  const fmtDate = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+
+  return (
+    <SectionShell
+      icon={<Mic className="w-5 h-5" />}
+      title="Practice call recordings"
+      subtitle={isAdmin ? "All reps' practice calls with Dave AI." : "Your practice calls with Dave AI."}
+    >
+      {loading ? (
+        <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
+      ) : error ? (
+        <div className="text-sm py-6 text-center border border-dashed border-destructive/40 rounded-lg text-destructive">
+          {error}
+        </div>
+      ) : recs.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+          No practice call recordings yet. Run a practice call from the training module to save one here.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border overflow-hidden">
+          {recs.map((r) => (
+            <li key={r.id} className="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="text-sm font-semibold text-foreground">{fmtDate(r.created_at)}</div>
+                <div className="text-xs text-muted-foreground">
+                  {isAdmin && r.rep_name ? `${r.rep_name} · ` : ""}
+                  {fmtDuration(r.duration_seconds)}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {r.audio_url ? (
+                  <>
+                    <audio controls src={r.audio_url} className="h-8" preload="none" />
+                    <a
+                      href={r.audio_url}
+                      download={`practice-${r.conversation_id}.mp3`}
+                      className="text-xs font-semibold text-primary hover:underline"
+                    >
+                      Download
+                    </a>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Audio unavailable</span>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionShell>
   );
 }
 
