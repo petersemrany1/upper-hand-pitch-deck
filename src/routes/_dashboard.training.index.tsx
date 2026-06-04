@@ -2,7 +2,6 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Lock, CheckCircle2 } from "lucide-react";
 import {
-  TRAINING_MODULES,
   loadModuleStatus,
   unlockedSlugs,
   type ModuleStatus,
