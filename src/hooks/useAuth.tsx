@@ -21,6 +21,7 @@ type AuthState = {
   role: Role;
   userType: UserType;
   clinicId: string | null;
+  allowedTabs: TabKey[];
   loading: boolean;
   ready: boolean;
   signIn: (usernameOrEmail: string, password: string) => Promise<{ error: string | null }>;
