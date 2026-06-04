@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { ModuleGate } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/sales-framework/")({
-  component: SalesFrameworkPage,
+  component: SalesFrameworkWrapper,
   validateSearch: (s: Record<string, unknown>) => ({
     step: (s.step as string) === "drill" || s.step === "beats" || s.step === "hill" ? (s.step as "hill" | "beats" | "drill") : undefined,
   }),
@@ -19,6 +20,14 @@ export const Route = createFileRoute("/_dashboard/training/sales-framework/")({
     ],
   }),
 });
+
+function SalesFrameworkWrapper() {
+  return (
+    <ModuleGate slug="sales-framework">
+      <SalesFrameworkPage />
+    </ModuleGate>
+  );
+}
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 const DISPLAY = `"Fraunces", "DM Sans", Georgia, serif`;
