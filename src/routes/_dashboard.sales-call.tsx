@@ -5134,6 +5134,38 @@ function RightPanel({
 
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
+  // ElevenLabs practice conversation (only used in practiceMode)
+  const practiceConversation = useConversation({
+    onError: (err) => {
+      console.error("[practice] elevenlabs error", err);
+      toast.error("Practice call error");
+    },
+  });
+  const practiceStatus = practiceConversation.status; // 'connected' | 'disconnected'
+  const [practiceConnecting, setPracticeConnecting] = useState(false);
+  const practiceInCall = practiceConnecting || practiceStatus === "connected";
+
+  const startPracticeCall = async () => {
+    if (practiceInCall) return;
+    setPracticeConnecting(true);
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      await practiceConversation.startSession({
+        agentId: PRACTICE_AGENT_ID,
+        connectionType: "webrtc",
+      });
+    } catch (e) {
+      console.error("[practice] startSession failed", e);
+      toast.error(e instanceof Error ? e.message : "Failed to start practice call");
+    } finally {
+      setPracticeConnecting(false);
+    }
+  };
+
+  const endPracticeCall = async () => {
+    try { await practiceConversation.endSession(); } catch (e) { console.error("[practice] endSession failed", e); }
+  };
+
   const [callTimer, setCallTimer] = useState(0);
 
   // Forced-outcome modal: only arm it from a real call attempt made for the
