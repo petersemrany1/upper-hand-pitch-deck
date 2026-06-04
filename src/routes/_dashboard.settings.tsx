@@ -22,6 +22,8 @@ import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPasswor
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { listPracticeCallRecordings } from "@/lib/practice-recordings.functions";
+import { Mic } from "lucide-react";
 
 // NOTE: These exports are consumed by the protected pitch deck route
 // (src/routes/_dashboard.pitch-deck.tsx). They are NOT surfaced in the
