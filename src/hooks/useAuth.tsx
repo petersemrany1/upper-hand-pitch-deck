@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role>("rep");
   const [userType, setUserType] = useState<UserType>("unknown");
   const [clinicId, setClinicId] = useState<string | null>(null);
+  const [allowedTabs, setAllowedTabs] = useState<TabKey[]>([]);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
@@ -64,6 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRole("rep");
       setUserType("unknown");
       setClinicId(null);
+      setAllowedTabs([]);
       return;
     }
     let cancelled = false;
@@ -71,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Check sales_reps first (admin/rep)
       const { data: rep } = await supabase
         .from("sales_reps")
-        .select("role")
+        .select("role, allowed_tabs")
         .ilike("email", email)
         .maybeSingle();
       if (cancelled) return;
@@ -80,6 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole(r);
         setUserType(r);
         setClinicId(null);
+        const override = (rep as { allowed_tabs?: string[] | null }).allowed_tabs ?? null;
+        setAllowedTabs(resolveAllowedTabs(r as RoleKey, override));
         return;
       }
       // Then check clinic_portal_users
@@ -93,11 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRole("rep");
         setUserType("clinic");
         setClinicId(clinic.clinic_id);
+        setAllowedTabs([]);
         return;
       }
       setRole("rep");
       setUserType("unknown");
       setClinicId(null);
+      setAllowedTabs([]);
     })();
     return () => { cancelled = true; };
   }, [session?.user?.id, session?.user?.email]);
