@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveAllowedTabs, type TabKey, type RoleKey } from "@/lib/tab-access";
 
 // Lightweight auth context. Three user types share Supabase Auth:
 //   - admin: row in sales_reps with role='admin'
