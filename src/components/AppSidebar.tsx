@@ -17,10 +17,12 @@ import htgLogo from "@/assets/hair-transplant-group-logo.png";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 
-type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
+import type { TabKey } from "@/lib/tab-access";
+
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; tab: TabKey };
 type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
 
-const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard };
+const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard, tab: "dashboard" };
 
 const ALL_FOLDERS: NavFolder[] = [
   {
@@ -28,12 +30,12 @@ const ALL_FOLDERS: NavFolder[] = [
     repIcon: Headphones,
     repUrl: "/sales-call",
     items: [
-      { title: "Sales Portal", url: "/sales-call", icon: Headphones },
-      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
-      { title: "Appointments", url: "/booked-appointments", icon: Calendar },
-      { title: "Leads", url: "/leads", icon: Users },
-      { title: "Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "Phone", url: "/inbox", icon: Phone },
+      { title: "Sales Portal", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
+      { title: "Appointments", url: "/booked-appointments", icon: Calendar, tab: "appointments" },
+      { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
+      { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
+      { title: "Phone", url: "/inbox", icon: Phone, tab: "phone" },
     ],
   },
   {
@@ -41,15 +43,15 @@ const ALL_FOLDERS: NavFolder[] = [
     repIcon: Presentation,
     repUrl: "/pitch-deck",
     items: [
-      { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
-      { title: "Clinics", url: "/clinics", icon: Building2 },
-      { title: "Sent Links", url: "/sent-links", icon: Send },
+      { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
+      { title: "Clinics", url: "/clinics", icon: Building2, tab: "clinics" },
+      { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
     ],
   },
 ];
 
-const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap };
-const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 };
+const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
+const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" };
 
 const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
