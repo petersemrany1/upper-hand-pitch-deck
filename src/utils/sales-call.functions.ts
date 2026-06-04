@@ -441,12 +441,15 @@ export const addRep = createServerFn({ method: "POST" })
 /* Invite a new rep: sends Supabase auth invite email + creates sales_reps row */
 export const inviteRep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { firstName: string; lastName: string; email: string; role?: "rep" | "admin" | "caller"; password?: string }) => ({
+  .inputValidator((data: { firstName: string; lastName: string; email: string; role?: "rep" | "admin" | "caller"; password?: string; allowedTabs?: string[] | null }) => ({
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
     email: String(data.email ?? "").toLowerCase().trim(),
     role: data.role === "admin" ? ("admin" as const) : data.role === "caller" ? ("caller" as const) : ("rep" as const),
     password: typeof data.password === "string" && data.password.length > 0 ? data.password : undefined,
+    allowedTabs: Array.isArray(data.allowedTabs)
+      ? data.allowedTabs.filter((t): t is string => typeof t === "string").slice(0, 32)
+      : null,
   }))
   .handler(async ({ data, context }) => {
     try { await assertAdmin(context.userId); } catch (e) {
