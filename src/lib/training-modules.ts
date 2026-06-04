@@ -18,15 +18,30 @@ export type ModuleSlug = (typeof TRAINING_MODULES)[number]["slug"];
 export type ModuleStatus = {
   completed: Record<string, boolean>;
   quizPassed: boolean;
+  isAdmin: boolean;
 };
 
+export async function loadIsAdmin(): Promise<boolean> {
+  const { data: userData } = await supabase.auth.getUser();
+  const user = userData.user;
+  if (!user) return false;
+  const email = user.email ?? "";
+  const { data } = await supabase
+    .from("sales_reps")
+    .select("role")
+    .or(`id.eq.${user.id},email.eq.${email}`)
+    .limit(1)
+    .maybeSingle();
+  return (data as any)?.role === "admin";
+}
+
 export async function loadModuleStatus(): Promise<ModuleStatus> {
-  const empty: ModuleStatus = { completed: {}, quizPassed: false };
+  const empty: ModuleStatus = { completed: {}, quizPassed: false, isAdmin: false };
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return empty;
 
-  const [{ data: progress }, { data: quiz }] = await Promise.all([
+  const [{ data: progress }, { data: quiz }, isAdmin] = await Promise.all([
     supabase
       .from("rep_module_progress")
       .select("module_slug, module_complete")
@@ -36,6 +51,7 @@ export async function loadModuleStatus(): Promise<ModuleStatus> {
       .select("passed")
       .eq("user_id", uid)
       .maybeSingle(),
+    loadIsAdmin(),
   ]);
 
   const completed: Record<string, boolean> = {};
@@ -44,12 +60,17 @@ export async function loadModuleStatus(): Promise<ModuleStatus> {
   }
   // Quiz passing = knowledge-quiz module complete (in addition to any row that exists).
   if (quiz?.passed) completed["knowledge-quiz"] = true;
-  return { completed, quizPassed: !!quiz?.passed };
+  return { completed, quizPassed: !!quiz?.passed, isAdmin };
 }
 
 // Returns the slugs that are unlocked given the current completion map.
 export function unlockedSlugs(status: ModuleStatus): Set<string> {
   const unlocked = new Set<string>();
+  // Admins have everything unlocked.
+  if (status.isAdmin) {
+    for (const m of TRAINING_MODULES) unlocked.add(m.slug);
+    return unlocked;
+  }
   // first module always unlocked
   for (let i = 0; i < TRAINING_MODULES.length; i++) {
     if (i === 0) {
