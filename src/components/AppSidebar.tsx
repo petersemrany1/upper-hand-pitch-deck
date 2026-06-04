@@ -70,7 +70,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { isMobile, setOpenMobile } = useSidebar();
-  const { signOut, role, user } = useAuth();
+  const { signOut, role, user, allowedTabs } = useAuth();
   const { unreadSmsCount, missedCount } = useNotifications();
   const unreadSms = unreadSmsCount;
   const [repName, setRepName] = useState<string | null>(null);
