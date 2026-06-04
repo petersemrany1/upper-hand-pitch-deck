@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ModuleGate, CompleteModuleBar } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/consultation-videos")({
   component: ConsultationVideos,
@@ -9,26 +10,37 @@ const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 const ACCENT = "#f4522d";
 
 const videos = [
-  {
-    id: "FyJzaI_ovzs",
-    title: "Hair Transplant Explained",
-  },
-  {
-    id: "hKn5jkV5xn4",
-    title: "Consultation Overview",
-  },
-  {
-    id: "ofqY0sveY58",
-    title: "What to Expect",
-  },
-  {
-    id: "pSnN805v8EQ",
-    title: "Patient Journey",
-  },
+  { id: "FyJzaI_ovzs", title: "Hair Transplant Explained" },
+  { id: "hKn5jkV5xn4", title: "Consultation Overview" },
+  { id: "ofqY0sveY58", title: "What to Expect" },
+  { id: "pSnN805v8EQ", title: "Patient Journey" },
 ];
 
 function ConsultationVideos() {
+  return (
+    <ModuleGate slug="consultation-videos">
+      <Inner />
+    </ModuleGate>
+  );
+}
+
+function Inner() {
   const [hoveredBack, setHoveredBack] = useState(false);
+  const endRef = useRef<HTMLDivElement | null>(null);
+  const [reachedEnd, setReachedEnd] = useState(false);
+
+  useEffect(() => {
+    const el = endRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) if (e.isIntersecting) setReachedEnd(true);
+      },
+      { threshold: 0.5 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   return (
     <div style={{ fontFamily: FONT, background: "#f7f7f5", minHeight: "100%", padding: "32px 28px" }}>
@@ -105,27 +117,13 @@ function ConsultationVideos() {
           ))}
         </div>
 
-        <div style={{ marginTop: 32, display: "flex", justifyContent: "flex-end" }}>
-          <Link
-            to="/training/read-along"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 18px",
-              background: ACCENT,
-              color: "#fff",
-              borderRadius: 8,
-              fontSize: 14,
-              fontWeight: 600,
-              textDecoration: "none",
-              transition: "opacity 0.15s ease",
-            }}
-          >
-            Next: Read Along
-            <span>›</span>
-          </Link>
-        </div>
+        <div ref={endRef} style={{ height: 1 }} />
+
+        <CompleteModuleBar
+          slug="consultation-videos"
+          canComplete={reachedEnd}
+          notReadyHint="Scroll through all the videos to enable this."
+        />
       </div>
     </div>
   );

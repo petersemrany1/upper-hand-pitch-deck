@@ -1,4 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { Lock, CheckCircle2 } from "lucide-react";
+import {
+  loadModuleStatus,
+  unlockedSlugs,
+  type ModuleStatus,
+} from "@/lib/training-modules";
 
 export const Route = createFileRoute("/_dashboard/training/")({
   component: TrainingPage,
@@ -18,58 +25,30 @@ export const Route = createFileRoute("/_dashboard/training/")({
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
 const modules = [
-  {
-    title: "Product Knowledge",
-    url: "/training/product-knowledge",
-    desc: "Learn everything about the product, services, pricing, and clinic partnerships.",
-  },
-  {
-    title: "Understanding Who You Are Talking To",
-    url: "/training/audience",
-    desc: "Buyer personas, motivations, objections and how to identify lead types fast.",
-  },
-  {
-    title: "What to Expect at the Consultation",
-    url: "/training/consultation-videos",
-    desc: "Watch these videos so you know exactly what a patient experiences during their consultation.",
-  },
-  {
-    title: "Read Along",
-    url: "/training/read-along",
-    desc: "Hair Restoration product knowledge — the full written deep-dive to read alongside the videos.",
-  },
-  {
-    title: "Sales Framework",
-    url: "/training/sales-framework",
-    desc: "The 9-stage sales framework — from introduction through to closing.",
-  },
-  {
-    title: "Sales Call Example",
-    url: "/training/sales-call-example",
-    desc: "Listen to model sales calls and study the structure step by step.",
-  },
-  {
-    title: "Knowledge Quiz",
-    url: "/training/knowledge-quiz",
-    desc: "40-question gate covering framework, product, skills and process. Pass 40/40 to unlock practice calls.",
-  },
-  {
-    title: "Platform Training",
-    url: "/training/platform",
-    desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting.",
-  },
-  {
-    title: "AI Training",
-    url: "/training/ai",
-    desc: "Practice live calls against our AI customer Dave — with the 9-stage cockpit beside you.",
-  },
-];
+  { slug: "product-knowledge", title: "Product Knowledge", url: "/training/product-knowledge", desc: "Learn everything about the product, services, pricing, and clinic partnerships." },
+  { slug: "audience", title: "Understanding Who You Are Talking To", url: "/training/audience", desc: "Buyer personas, motivations, objections and how to identify lead types fast." },
+  { slug: "consultation-videos", title: "What to Expect at the Consultation", url: "/training/consultation-videos", desc: "Watch these videos so you know exactly what a patient experiences during their consultation." },
+  { slug: "read-along", title: "Read Along", url: "/training/read-along", desc: "Hair Restoration product knowledge — the full written deep-dive to read alongside the videos." },
+  { slug: "sales-framework", title: "Sales Framework", url: "/training/sales-framework", desc: "The 9-stage sales framework — from introduction through to closing." },
+  { slug: "sales-call-example", title: "Sales Call Example", url: "/training/sales-call-example", desc: "Listen to model sales calls and study the structure step by step." },
+  { slug: "knowledge-quiz", title: "Knowledge Quiz", url: "/training/knowledge-quiz", desc: "40-question gate covering framework, product, skills and process. Pass 40/40 to unlock practice calls." },
+  { slug: "platform", title: "Platform Training", url: "/training/platform", desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting." },
+  { slug: "ai", title: "AI Training", url: "/training/ai", desc: "Practice live calls against our AI customer Dave — with the 9-stage cockpit beside you." },
+] as const;
 
 function TrainingPage() {
-  const completed = 0;
   const total = modules.length;
-  const currentIndex = 0;
   const navigate = useNavigate();
+  const [status, setStatus] = useState<ModuleStatus | null>(null);
+
+  useEffect(() => {
+    (async () => setStatus(await loadModuleStatus()))();
+  }, []);
+
+  const unlocked = status ? unlockedSlugs(status) : new Set<string>();
+  const completed = status?.completed ?? {};
+  const doneCount = modules.filter((m) => completed[m.slug]).length;
+  const currentIndex = modules.findIndex((m) => unlocked.has(m.slug) && !completed[m.slug]);
 
   return (
     <div style={{ fontFamily: FONT, background: "#f7f7f5", minHeight: "100%" }}>
@@ -78,102 +57,119 @@ function TrainingPage() {
           Your Training Journey
         </h1>
         <p style={{ color: "#6b6b6b", fontSize: 14, marginBottom: 16 }}>
-          {completed} of {total} modules complete
+          {doneCount} of {total} modules complete
         </p>
         <div style={{ height: 4, background: "#ebebeb", borderRadius: 999, marginBottom: 28, overflow: "hidden" }}>
-          <div style={{ width: `${(completed / total) * 100}%`, height: "100%", background: "#f4522d" }} />
+          <div style={{ width: `${(doneCount / total) * 100}%`, height: "100%", background: "#f4522d" }} />
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {modules.map((m, i) => {
             const isCurrent = i === currentIndex;
-            return (
-              <Link key={m.url} to={m.url} style={{ textDecoration: "none" }}>
+            const isUnlocked = unlocked.has(m.slug);
+            const isComplete = !!completed[m.slug];
+
+            const cardContent = (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  padding: "18px 20px",
+                  border: `1px solid ${isCurrent ? "#111" : "#ebebeb"}`,
+                  borderRadius: 10,
+                  background: isUnlocked ? "#ffffff" : "#fafaf8",
+                  cursor: isUnlocked ? "pointer" : "not-allowed",
+                  opacity: isUnlocked ? 1 : 0.7,
+                  transition: "border-color 0.15s ease, box-shadow 0.15s ease",
+                }}
+                onMouseEnter={(e) => {
+                  if (!isUnlocked) return;
+                  e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.05)";
+                  if (!isCurrent) e.currentTarget.style.borderColor = "#f4522d";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = "none";
+                  if (!isCurrent) e.currentTarget.style.borderColor = "#ebebeb";
+                }}
+              >
                 <div
                   style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 8,
+                    background: isComplete ? "#16a34a" : isCurrent ? "#111" : isUnlocked ? "#f3f3f3" : "#ebebeb",
+                    color: isComplete || isCurrent ? "#fff" : "#9a9a9a",
                     display: "flex",
                     alignItems: "center",
-                    gap: 16,
-                    padding: "18px 20px",
-                    border: `1px solid ${isCurrent ? "#111" : "#ebebeb"}`,
-                    borderRadius: 10,
-                    background: "#ffffff",
-                    cursor: "pointer",
-                    transition: "border-color 0.15s ease, box-shadow 0.15s ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = "0 4px 14px rgba(0,0,0,0.05)";
-                    if (!isCurrent) e.currentTarget.style.borderColor = "#f4522d";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = "none";
-                    if (!isCurrent) e.currentTarget.style.borderColor = "#ebebeb";
+                    justifyContent: "center",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    flexShrink: 0,
+                    fontFamily: FONT,
                   }}
                 >
-                  <div
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 8,
-                      background: isCurrent ? "#111" : "#f3f3f3",
-                      color: isCurrent ? "#fff" : "#9a9a9a",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontWeight: 600,
-                      fontSize: 14,
-                      flexShrink: 0,
-                      fontFamily: FONT,
-                    }}
-                  >
-                    {i + 1}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{m.title}</span>
-                      {isCurrent && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 600,
-                            color: "#f4522d",
-                            background: "#fff1ee",
-                            padding: "2px 8px",
-                            borderRadius: 999,
-                          }}
-                        >
-                          Current
-                        </span>
-                      )}
-                    </div>
-                    <p style={{ fontSize: 13, color: "#6b6b6b", lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
-                  </div>
-                  {m.url === "/training/sales-framework" && (
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        navigate({ to: "/training/sales-framework", search: { step: "drill" } });
-                      }}
-                      style={{
-                        padding: "6px 10px",
-                        background: "#fff1ee",
-                        color: "#f4522d",
-                        border: "1px solid #f4522d",
-                        borderRadius: 999,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        flexShrink: 0,
-                      }}
-                      title="Jump straight to the 2-minute drill"
-                    >
-                      ⚡ 2-min warm-up
-                    </button>
-                  )}
-                  <span style={{ color: "#c4c4c4", fontSize: 18, flexShrink: 0 }}>›</span>
+                  {isComplete ? <CheckCircle2 size={20} /> : isUnlocked ? i + 1 : <Lock size={16} />}
                 </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 15, fontWeight: 600, color: isUnlocked ? "#111" : "#6b6b6b" }}>{m.title}</span>
+                    {isComplete && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 999 }}>
+                        Done
+                      </span>
+                    )}
+                    {isCurrent && !isComplete && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#f4522d", background: "#fff1ee", padding: "2px 8px", borderRadius: 999 }}>
+                        Current
+                      </span>
+                    )}
+                    {!isUnlocked && (
+                      <span style={{ fontSize: 11, fontWeight: 600, color: "#6b6b6b", background: "#ebebeb", padding: "2px 8px", borderRadius: 999 }}>
+                        Locked
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontSize: 13, color: "#6b6b6b", lineHeight: 1.5, margin: 0 }}>{m.desc}</p>
+                </div>
+                {m.url === "/training/sales-framework" && isUnlocked && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      navigate({ to: "/training/sales-framework", search: { step: "drill" } });
+                    }}
+                    style={{
+                      padding: "6px 10px",
+                      background: "#fff1ee",
+                      color: "#f4522d",
+                      border: "1px solid #f4522d",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                    }}
+                    title="Jump straight to the 2-minute drill"
+                  >
+                    ⚡ 2-min warm-up
+                  </button>
+                )}
+                <span style={{ color: "#c4c4c4", fontSize: 18, flexShrink: 0 }}>›</span>
+              </div>
+            );
+
+            if (!isUnlocked) {
+              return (
+                <div key={m.url} aria-disabled="true">
+                  {cardContent}
+                </div>
+              );
+            }
+            return (
+              <Link key={m.url} to={m.url} style={{ textDecoration: "none" }}>
+                {cardContent}
               </Link>
             );
           })}
