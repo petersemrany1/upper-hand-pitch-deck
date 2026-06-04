@@ -17,10 +17,12 @@ import htgLogo from "@/assets/hair-transplant-group-logo.png";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 
-type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }> };
+import type { TabKey } from "@/lib/tab-access";
+
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; tab: TabKey };
 type NavFolder = { title: string; items: NavItem[]; repIcon: NavItem["icon"]; repUrl: string };
 
-const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard };
+const topItem: NavItem = { title: "Dashboard", url: "/", icon: LayoutDashboard, tab: "dashboard" };
 
 const ALL_FOLDERS: NavFolder[] = [
   {
@@ -28,12 +30,12 @@ const ALL_FOLDERS: NavFolder[] = [
     repIcon: Headphones,
     repUrl: "/sales-call",
     items: [
-      { title: "Sales Portal", url: "/sales-call", icon: Headphones },
-      { title: "Leaderboard", url: "/leaderboard", icon: Trophy },
-      { title: "Appointments", url: "/booked-appointments", icon: Calendar },
-      { title: "Leads", url: "/leads", icon: Users },
-      { title: "Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "Phone", url: "/inbox", icon: Phone },
+      { title: "Sales Portal", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
+      { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
+      { title: "Appointments", url: "/booked-appointments", icon: Calendar, tab: "appointments" },
+      { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
+      { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
+      { title: "Phone", url: "/inbox", icon: Phone, tab: "phone" },
     ],
   },
   {
@@ -41,17 +43,17 @@ const ALL_FOLDERS: NavFolder[] = [
     repIcon: Presentation,
     repUrl: "/pitch-deck",
     items: [
-      { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation },
-      { title: "Clinics", url: "/clinics", icon: Building2 },
-      { title: "Sent Links", url: "/sent-links", icon: Send },
+      { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
+      { title: "Clinics", url: "/clinics", icon: Building2, tab: "clinics" },
+      { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
     ],
   },
 ];
 
-const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap };
-const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2 };
+const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
+const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" };
 
-const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
+const settingsItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
 function initialsFromName(name: string | null | undefined, fallbackEmail?: string | null): string {
   const cleaned = (name ?? "").trim();
@@ -68,7 +70,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { isMobile, setOpenMobile } = useSidebar();
-  const { signOut, role, user } = useAuth();
+  const { signOut, role, user, allowedTabs } = useAuth();
   const { unreadSmsCount, missedCount } = useNotifications();
   const unreadSms = unreadSmsCount;
   const [repName, setRepName] = useState<string | null>(null);
@@ -99,26 +101,14 @@ export function AppSidebar() {
     return () => { cancelled = true; };
   }, [user?.email]);
 
-  // Clinic setters see ONLY the clinic CRM.
-  // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
-  const folders: NavFolder[] = role === "admin"
-    ? ALL_FOLDERS
-    : role === "caller"
-      ? [{
-          title: "Clinic CRM",
-          repIcon: Building2,
-          repUrl: "/clinics",
-          items: [
-            { title: "Clinics", url: "/clinics", icon: Building2 },
-          ],
-        }]
-      : ALL_FOLDERS
-          .filter((f) => f.title !== "Clinic Acquisition")
-          .map((f) =>
-            f.title === "Sales"
-              ? { ...f, items: f.items.filter((i) => !["Leads", "Analytics", "Leaderboard", "Appointments"].includes(i.title)) }
-              : f
-          );
+  // Filter folders/items by the user's allowed tabs. Admins see everything;
+  // clinic portal users / unknown roles get the empty default and see nothing here
+  // (they're routed through their own portal anyway).
+  const allowed = new Set<TabKey>(allowedTabs);
+  const canSee = (tab: TabKey) => role === "admin" || allowed.has(tab);
+  const folders: NavFolder[] = ALL_FOLDERS
+    .map((f) => ({ ...f, items: f.items.filter((i) => canSee(i.tab)) }))
+    .filter((f) => f.items.length > 0);
 
   const isActive = (path: string) => currentPath === path;
 
@@ -142,7 +132,7 @@ export function AppSidebar() {
 
   // unread SMS count now comes from the global NotificationsProvider.
 
-  const renderItem = (item: NavItem, indent = false, forceActive = false) => {
+  const renderItem = (item: Omit<NavItem, "tab"> & { tab?: TabKey }, indent = false, forceActive = false) => {
     const active = forceActive || isActive(item.url);
     return (
       <SidebarMenuItem key={item.title}>

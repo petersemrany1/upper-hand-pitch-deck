@@ -24,6 +24,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { listPracticeCallRecordings } from "@/lib/practice-recordings.functions";
 import { Mic } from "lucide-react";
+import { TAB_GROUPS, TAB_LABELS, defaultTabsForRole, ALL_TAB_KEYS, type TabKey } from "@/lib/tab-access";
 
 // NOTE: These exports are consumed by the protected pitch deck route
 // (src/routes/_dashboard.pitch-deck.tsx). They are NOT surfaced in the
@@ -83,8 +84,56 @@ type Rep = {
   last_name: string | null;
   role: string;
   is_active?: boolean;
+  allowed_tabs?: string[] | null;
   created_at: string;
 };
+
+function TabAccessPicker({
+  value,
+  onChange,
+}: {
+  value: TabKey[];
+  onChange: (next: TabKey[]) => void;
+}) {
+  const toggle = (tab: TabKey) => {
+    const set = new Set(value);
+    if (set.has(tab)) set.delete(tab); else set.add(tab);
+    onChange(ALL_TAB_KEYS.filter((t) => set.has(t)));
+  };
+  return (
+    <div className="space-y-3">
+      {TAB_GROUPS.map((group) => (
+        <div key={group.title}>
+          <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">{group.title}</div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {group.tabs.map((tab) => {
+              const checked = value.includes(tab);
+              return (
+                <label
+                  key={tab}
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded-md border cursor-pointer text-sm transition-colors"
+                  style={{
+                    borderColor: checked ? "#f4522d" : "#e5e5e3",
+                    background: checked ? "#fff1ee" : "#fff",
+                    color: checked ? "#f4522d" : "#111",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggle(tab)}
+                    className="h-3.5 w-3.5 accent-[#f4522d]"
+                  />
+                  <span className="text-xs font-medium">{TAB_LABELS[tab]}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 const sleep = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -677,6 +726,15 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [tabs, setTabs] = useState<TabKey[]>(() => defaultTabsForRole("rep"));
+  const [tabsTouched, setTabsTouched] = useState(false);
+
+  // When the role changes, reset tab selection to the role's defaults unless
+  // the admin has already manually edited them.
+  const handleRoleChange = (next: "rep" | "admin" | "caller") => {
+    setInviteRole(next);
+    if (!tabsTouched) setTabs(defaultTabsForRole(next));
+  };
 
   const submit = async () => {
     setFormError(null);
@@ -695,7 +753,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
     }
     setLoading(true);
     try {
-      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? trimmedPassword : undefined } });
+      const r = await inviteRep({ data: { firstName, lastName, email, role: inviteRole, password: mode === "password" ? trimmedPassword : undefined, allowedTabs: inviteRole === "admin" ? null : tabs } });
       if (r.success) {
         toast.success(mode === "password" ? `${email} created — share their password securely` : `Invite sent to ${email}`);
         onDone();
@@ -749,7 +807,7 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
                   <button
                     key={opt}
                     type="button"
-                    onClick={() => setInviteRole(opt)}
+                    onClick={() => handleRoleChange(opt)}
                     className="px-3 py-2 rounded-md text-xs font-medium border transition-colors"
                     style={{
                       borderColor: active ? "#f4522d" : "#e5e5e3",
@@ -770,6 +828,14 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
                 : "Standard sales rep — Sales Portal, Appointments, Leaderboard."}
             </p>
           </div>
+
+          {inviteRole !== "admin" && (
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tab access</label>
+              <TabAccessPicker value={tabs} onChange={(next) => { setTabs(next); setTabsTouched(true); }} />
+              <p className="text-[11px] text-muted-foreground mt-2">Tick the sidebar tabs this user should see.</p>
+            </div>
+          )}
 
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">How they'll log in</label>
@@ -841,6 +907,11 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
+  const repRoleKey: "admin" | "rep" | "caller" = rep.role === "admin" ? "admin" : ["caller", "clinic_setter"].includes(rep.role) ? "caller" : "rep";
+  const initialTabs: TabKey[] = (rep.allowed_tabs && rep.allowed_tabs.length > 0)
+    ? ALL_TAB_KEYS.filter((t) => rep.allowed_tabs!.includes(t))
+    : defaultTabsForRole(repRoleKey);
+  const [tabs, setTabs] = useState<TabKey[]>(initialTabs);
 
   const submit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -848,7 +919,7 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
       return;
     }
     setLoading(true);
-    const r = await updateRep({ data: { id: rep.id, firstName, lastName } });
+    const r = await updateRep({ data: { id: rep.id, firstName, lastName, allowedTabs: repRoleKey === "admin" ? null : tabs } });
     setLoading(false);
     if (r.success) { toast.success("Rep updated"); onDone(); }
     else toast.error(r.error);
@@ -865,7 +936,7 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
-      <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 shadow-2xl">
+      <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-bold">Edit rep</h3>
           <button onClick={onClose} className="p-1 rounded hover:bg-muted">
@@ -882,7 +953,14 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Email</label>
             <div className="px-3 py-2 rounded-md bg-muted/40 text-sm text-muted-foreground">{rep.email || "—"}</div>
           </div>
+          {repRoleKey !== "admin" && (
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tab access</label>
+              <TabAccessPicker value={tabs} onChange={setTabs} />
+            </div>
+          )}
         </div>
+
 
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onClose} className="px-4 py-2 rounded-md text-sm font-medium border border-border hover:bg-muted transition-colors">Cancel</button>
