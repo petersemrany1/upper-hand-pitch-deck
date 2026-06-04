@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, updateRepRole, deleteRep, setRepPassword, setRepActive } from "@/utils/sales-call.functions";
+import { inviteRep, listReps, updateRep, updateRepRole, updateRepEmail, deleteRep, setRepPassword, setRepActive } from "@/utils/sales-call.functions";
 import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -907,11 +907,23 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
+  const [email, setEmail] = useState(rep.email ?? "");
+  const [emailLoading, setEmailLoading] = useState(false);
   const repRoleKey: "admin" | "rep" | "caller" = rep.role === "admin" ? "admin" : ["caller", "clinic_setter"].includes(rep.role) ? "caller" : "rep";
   const initialTabs: TabKey[] = (rep.allowed_tabs && rep.allowed_tabs.length > 0)
     ? ALL_TAB_KEYS.filter((t) => rep.allowed_tabs!.includes(t))
     : defaultTabsForRole(repRoleKey);
   const [tabs, setTabs] = useState<TabKey[]>(initialTabs);
+
+  const submitEmail = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || trimmed === (rep.email ?? "").toLowerCase()) return;
+    setEmailLoading(true);
+    const r = await updateRepEmail({ data: { id: rep.id, email: trimmed } });
+    setEmailLoading(false);
+    if (r.success) { toast.success("Email updated"); onDone(); }
+    else toast.error(r.error);
+  };
 
   const submit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
@@ -951,7 +963,23 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
           </div>
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">Email</label>
-            <div className="px-3 py-2 rounded-md bg-muted/40 text-sm text-muted-foreground">{rep.email || "—"}</div>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-md text-sm bg-background border border-border focus:outline-none focus:border-primary transition-colors"
+              />
+              <button
+                onClick={() => void submitEmail()}
+                disabled={emailLoading || email.trim().toLowerCase() === (rep.email ?? "").toLowerCase() || !email.trim()}
+                className="px-3 py-2 rounded-md text-sm font-bold transition-opacity disabled:opacity-60"
+                style={{ background: "#111", color: "#fff" }}
+              >
+                {emailLoading ? "Saving…" : "Update email"}
+              </button>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">Changes the login email immediately. The rep must use the new email next time they sign in.</p>
           </div>
           {repRoleKey !== "admin" && (
             <div>
