@@ -24,6 +24,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
 import { openMessenger, setMessengerThread } from "@/hooks/useMessenger";
+import { useConversation } from "@elevenlabs/react";
+
+const PRACTICE_AGENT_ID = "agent_1301kt5fgx3ye9krpyc25900fy60";
 
 export const Route = createFileRoute("/_dashboard/sales-call")({
   component: SalesCallPortal,
@@ -5131,6 +5134,38 @@ function RightPanel({
 
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
+  // ElevenLabs practice conversation (only used in practiceMode)
+  const practiceConversation = useConversation({
+    onError: (err) => {
+      console.error("[practice] elevenlabs error", err);
+      toast.error("Practice call error");
+    },
+  });
+  const practiceStatus = practiceConversation.status; // 'connected' | 'disconnected'
+  const [practiceConnecting, setPracticeConnecting] = useState(false);
+  const practiceInCall = practiceConnecting || practiceStatus === "connected";
+
+  const startPracticeCall = async () => {
+    if (practiceInCall) return;
+    setPracticeConnecting(true);
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      await practiceConversation.startSession({
+        agentId: PRACTICE_AGENT_ID,
+        connectionType: "webrtc",
+      });
+    } catch (e) {
+      console.error("[practice] startSession failed", e);
+      toast.error(e instanceof Error ? e.message : "Failed to start practice call");
+    } finally {
+      setPracticeConnecting(false);
+    }
+  };
+
+  const endPracticeCall = async () => {
+    try { await practiceConversation.endSession(); } catch (e) { console.error("[practice] endSession failed", e); }
+  };
+
   const [callTimer, setCallTimer] = useState(0);
 
   // Forced-outcome modal: only arm it from a real call attempt made for the
@@ -5440,6 +5475,17 @@ function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceStatus]);
 
+  // Practice mode: drive the timer from the ElevenLabs conversation status
+  useEffect(() => {
+    if (!practiceMode) return;
+    if (practiceStatus !== "connected") {
+      setCallTimer(0);
+      return;
+    }
+    const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
+    return () => clearInterval(i);
+  }, [practiceMode, practiceStatus]);
+
   // Reset open objection when switching leads
   useEffect(() => { setOpenObjection(null); }, [active.id]);
 
@@ -5683,7 +5729,55 @@ function RightPanel({
 
       {/* Section 2 — Call control */}
       <div style={{ padding: "0 18px 16px" }}>
-        {!inCall ? (
+        {practiceMode ? (
+          !practiceInCall ? (
+            <button
+              onClick={() => void startPracticeCall()}
+              className="w-full rounded-[8px] flex items-center justify-center gap-2"
+              style={{
+                background: COLORS.coral,
+                color: "#ffffff",
+                fontSize: 15,
+                fontWeight: 500,
+                padding: "14px 16px",
+              }}
+            >
+              📞 Start Practice Call
+            </button>
+          ) : (
+            <>
+              <div
+                className="w-full rounded-[8px] flex items-center justify-center font-mono"
+                style={{
+                  background: "#f0fdf4",
+                  color: COLORS.green,
+                  border: `1px solid ${COLORS.green}`,
+                  fontSize: 18,
+                  fontWeight: 600,
+                  padding: "12px 16px",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {practiceStatus !== "connected"
+                  ? "Connecting…"
+                  : `${practiceConversation.isSpeaking ? "🗣 Dave speaking" : "🎧 Listening"} · ⏱ ${fmtTimer}`}
+              </div>
+              <button
+                onClick={() => void endPracticeCall()}
+                className="w-full rounded-[8px] mt-2"
+                style={{
+                  background: COLORS.red,
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "10px 12px",
+                }}
+              >
+                🔴 End Practice Call
+              </button>
+            </>
+          )
+        ) : !inCall ? (
           <button
             onClick={() => void callNow()}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
