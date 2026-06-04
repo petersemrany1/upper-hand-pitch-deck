@@ -5729,7 +5729,55 @@ function RightPanel({
 
       {/* Section 2 — Call control */}
       <div style={{ padding: "0 18px 16px" }}>
-        {!inCall ? (
+        {practiceMode ? (
+          !practiceInCall ? (
+            <button
+              onClick={() => void startPracticeCall()}
+              className="w-full rounded-[8px] flex items-center justify-center gap-2"
+              style={{
+                background: COLORS.coral,
+                color: "#ffffff",
+                fontSize: 15,
+                fontWeight: 500,
+                padding: "14px 16px",
+              }}
+            >
+              📞 Start Practice Call
+            </button>
+          ) : (
+            <>
+              <div
+                className="w-full rounded-[8px] flex items-center justify-center font-mono"
+                style={{
+                  background: "#f0fdf4",
+                  color: COLORS.green,
+                  border: `1px solid ${COLORS.green}`,
+                  fontSize: 18,
+                  fontWeight: 600,
+                  padding: "12px 16px",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {practiceStatus !== "connected"
+                  ? "Connecting…"
+                  : `${practiceConversation.isSpeaking ? "🗣 Dave speaking" : "🎧 Listening"} · ⏱ ${fmtTimer}`}
+              </div>
+              <button
+                onClick={() => void endPracticeCall()}
+                className="w-full rounded-[8px] mt-2"
+                style={{
+                  background: COLORS.red,
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  padding: "10px 12px",
+                }}
+              >
+                🔴 End Practice Call
+              </button>
+            </>
+          )
+        ) : !inCall ? (
           <button
             onClick={() => void callNow()}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
