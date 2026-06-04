@@ -883,7 +883,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
   return (
     <>
       {callbackBanner}
-      {sessionActive && (
+      {sessionActive && !practiceMode && (
         <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             {[
@@ -5487,6 +5487,7 @@ function RightPanel({
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Lead navigation — top of right column */}
+      {!practiceMode && (
       <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
         <button
           onClick={() => {
@@ -5494,8 +5495,6 @@ function RightPanel({
               toast.error("End the call first");
               return;
             }
-            // If the lead is already booked + paid, the booking IS the outcome —
-            // skip the "How did that go?" gate so the rep can move on cleanly.
             const alreadyBooked = leadHasBookedSale(active);
             if (alreadyBooked) {
               setOutcomePending(false);
@@ -5504,7 +5503,6 @@ function RightPanel({
               onChangeLead();
               return;
             }
-            // If a call was just dialled, force an outcome before moving on
             if (outcomePending) {
               setOutcomeRequired(true);
               onOutcomeRequiredChange?.(true);
@@ -5526,6 +5524,7 @@ function RightPanel({
           Next Lead →
         </button>
       </div>
+      )}
 
       {/* Section 1 — Lead card */}
       <div style={{ padding: "12px 18px 18px" }}>
@@ -5533,6 +5532,7 @@ function RightPanel({
           <div style={{ fontSize: 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
             {fullName}
           </div>
+          {!practiceMode && (
           <button
             onClick={() => { setComprehensiveUpdate(null); setShowJourney(true); }}
             style={{
@@ -5550,6 +5550,7 @@ function RightPanel({
           >
             Customer Journey
           </button>
+          )}
         </div>
         {(() => {
           const adSetName = (active.ad_set_name ?? "").toLowerCase();
@@ -5613,7 +5614,7 @@ function RightPanel({
               {active.funding_preference}
             </span>
           ) : (
-            <span style={{ fontSize: 12, color: "#111", opacity: 0.5 }}>Funding unknown</span>
+            !practiceMode ? <span style={{ fontSize: 12, color: "#111", opacity: 0.5 }}>Funding unknown</span> : null
           )}
           {(() => {
             const meta = statusMeta(active.status, active);
@@ -5668,12 +5669,16 @@ function RightPanel({
             );
           })()}
         </div>
+        {!practiceMode && (
+        <>
         <div style={{ marginTop: 10, fontSize: 12, color: "#111" }}>
           Created {fmtTime(active.created_at)}
         </div>
         <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
           Day {day} · Attempt {Math.min(attemptCounts[active.id] ?? 0, attempts)} of {attempts} today
         </div>
+        </>
+        )}
       </div>
 
       {/* Section 2 — Call control */}
@@ -5763,9 +5768,12 @@ function RightPanel({
             )}
           </>
         )}
+        {!practiceMode && (
         <div style={{ marginTop: 10, fontSize: 12, color: COLORS.amberDark, fontWeight: 500 }}>
           🚫 Do not leave a voicemail
         </div>
+        )}
+        {!practiceMode && (
         <button
           onClick={async () => {
             if (!window.confirm("Are you sure you want to drop this lead?")) return;
@@ -5785,12 +5793,15 @@ function RightPanel({
         >
           Mark as dropped
         </button>
+        )}
+        {!practiceMode && (
         <button
           onClick={() => setShowCallbackPicker(!showCallbackPicker)}
           style={{ fontSize: 12, color: COLORS.coral, textDecoration: "underline", background: "transparent", display: "block", marginTop: 4 }}
         >
           Schedule callback
         </button>
+        )}
         {showCallbackPicker && (() => {
           const saveCallbackAt = async (dt: Date) => {
             setSavingCallback(true);
