@@ -101,26 +101,14 @@ export function AppSidebar() {
     return () => { cancelled = true; };
   }, [user?.email]);
 
-  // Clinic setters see ONLY the clinic CRM.
-  // Reps see a restricted nav: Sales folder without Leads, no Clinic Acquisition.
-  const folders: NavFolder[] = role === "admin"
-    ? ALL_FOLDERS
-    : role === "caller"
-      ? [{
-          title: "Clinic CRM",
-          repIcon: Building2,
-          repUrl: "/clinics",
-          items: [
-            { title: "Clinics", url: "/clinics", icon: Building2 },
-          ],
-        }]
-      : ALL_FOLDERS
-          .filter((f) => f.title !== "Clinic Acquisition")
-          .map((f) =>
-            f.title === "Sales"
-              ? { ...f, items: f.items.filter((i) => !["Leads", "Analytics", "Leaderboard", "Appointments"].includes(i.title)) }
-              : f
-          );
+  // Filter folders/items by the user's allowed tabs. Admins see everything;
+  // clinic portal users / unknown roles get the empty default and see nothing here
+  // (they're routed through their own portal anyway).
+  const allowed = new Set<TabKey>(allowedTabs);
+  const canSee = (tab: TabKey) => role === "admin" || allowed.has(tab);
+  const folders: NavFolder[] = ALL_FOLDERS
+    .map((f) => ({ ...f, items: f.items.filter((i) => canSee(i.tab)) }))
+    .filter((f) => f.items.length > 0);
 
   const isActive = (path: string) => currentPath === path;
 
