@@ -125,6 +125,9 @@ export function IncomingCallDialog() {
   // or a local timer.
 
   if (!isActive) return null;
+  // Suppress the incoming-call banner across the training portal so reps
+  // aren't interrupted while studying.
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/training")) return null;
 
   const fullName = matched
     ? [matched.first_name, matched.last_name].filter(Boolean).join(" ") || "Unnamed lead"

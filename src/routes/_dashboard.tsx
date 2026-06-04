@@ -42,6 +42,7 @@ function DashboardLayout() {
   const { session, ready, role, userType, allowedTabs } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
   const pageOwnsNotificationBell = ["/sales-call", "/leaderboard", "/training/practice-call"].includes(location.pathname) || location.pathname.startsWith("/partner-clinics");
+  const isTrainingRoute = location.pathname.startsWith("/training");
   const isClinicSetter = role === "caller";
 
   // Redirect unauthenticated users once the session check has resolved.
@@ -125,7 +126,7 @@ function DashboardLayout() {
   return (
     <NotificationsProvider>
       <SidebarProvider defaultOpen={false}>
-        <DashboardShell>
+        <DashboardShell suppressBanner={isTrainingRoute}>
           <AppSidebar />
           <div className="flex-1 flex flex-col overflow-hidden">
             <SidebarTrigger
@@ -133,7 +134,7 @@ function DashboardLayout() {
               style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
               aria-label="Open navigation"
             />
-            {!isClinicSetter && !pageOwnsNotificationBell && (
+            {!isClinicSetter && !pageOwnsNotificationBell && !isTrainingRoute && (
               <div className="fixed top-3 right-3 z-50">
                 <NotificationBell />
               </div>
@@ -143,8 +144,8 @@ function DashboardLayout() {
             </main>
           </div>
         </DashboardShell>
-        <SmsNotifier />
-        <MissedCallNotifier />
+        {!isTrainingRoute && <SmsNotifier />}
+        {!isTrainingRoute && <MissedCallNotifier />}
         
         <MiniMessenger />
       </SidebarProvider>
@@ -155,8 +156,8 @@ function DashboardLayout() {
 // Wraps the dashboard chrome and reserves space at the top whenever the
 // incoming-call banner is visible, so the banner pushes content down
 // instead of overlaying it.
-function DashboardShell({ children }: { children: React.ReactNode }) {
-  const bannerActive = useIncomingBannerActive();
+function DashboardShell({ children, suppressBanner }: { children: React.ReactNode; suppressBanner?: boolean }) {
+  const bannerActive = useIncomingBannerActive() && !suppressBanner;
   return (
     <div
       className="h-screen flex w-full overflow-hidden"
