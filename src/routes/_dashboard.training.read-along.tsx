@@ -1,9 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { ModuleGate, CompleteModuleBar } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/read-along")({
-  component: ReadAlong,
+  component: ReadAlongWrapper,
 });
+
+function ReadAlongWrapper() {
+  return (
+    <ModuleGate slug="read-along">
+      <ReadAlong />
+    </ModuleGate>
+  );
+}
 
 const STORAGE_KEY = "htg_training_module3_complete";
 const ACCENT = "#f4522d";
