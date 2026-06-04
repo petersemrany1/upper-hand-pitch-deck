@@ -53,7 +53,7 @@ const ALL_FOLDERS: NavFolder[] = [
 const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
 const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" };
 
-const settingsItem: NavItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
+const settingsItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
 function initialsFromName(name: string | null | undefined, fallbackEmail?: string | null): string {
   const cleaned = (name ?? "").trim();
