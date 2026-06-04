@@ -156,8 +156,8 @@ function DashboardLayout() {
 // Wraps the dashboard chrome and reserves space at the top whenever the
 // incoming-call banner is visible, so the banner pushes content down
 // instead of overlaying it.
-function DashboardShell({ children }: { children: React.ReactNode }) {
-  const bannerActive = useIncomingBannerActive();
+function DashboardShell({ children, suppressBanner }: { children: React.ReactNode; suppressBanner?: boolean }) {
+  const bannerActive = useIncomingBannerActive() && !suppressBanner;
   return (
     <div
       className="h-screen flex w-full overflow-hidden"
