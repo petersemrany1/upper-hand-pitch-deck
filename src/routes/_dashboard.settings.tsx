@@ -829,6 +829,14 @@ function InviteRepDialog({ onClose, onDone }: { onClose: () => void; onDone: () 
             </p>
           </div>
 
+          {inviteRole !== "admin" && (
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Tab access</label>
+              <TabAccessPicker value={tabs} onChange={(next) => { setTabs(next); setTabsTouched(true); }} />
+              <p className="text-[11px] text-muted-foreground mt-2">Tick the sidebar tabs this user should see.</p>
+            </div>
+          )}
+
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">How they'll log in</label>
             <div className="grid grid-cols-2 gap-2">
