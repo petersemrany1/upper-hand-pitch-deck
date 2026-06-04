@@ -707,6 +707,43 @@ export const setRepPassword = createServerFn({ method: "POST" })
     }
   });
 
+/* Update a rep's email (both auth.users and sales_reps) — admin only */
+export const updateRepEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string; email: string }) => ({
+    id: String(data.id ?? ""),
+    email: String(data.email ?? "").trim().toLowerCase(),
+  }))
+  .handler(async ({ data, context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+    if (!data.id) return { success: false as const, error: "id required" };
+    if (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+      return { success: false as const, error: "Invalid email address" };
+    }
+    const { data: rep } = await supabaseAdmin.from("sales_reps")
+      .select("email").eq("id", data.id).maybeSingle();
+    if (!rep?.email) return { success: false as const, error: "Rep not found" };
+    try {
+      const { data: list } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const match = list?.users.find((u) => u.email?.toLowerCase() === rep.email!.toLowerCase());
+      if (match) {
+        const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(match.id, { email: data.email, email_confirm: true });
+        if (authErr) return { success: false as const, error: authErr.message };
+      }
+      const { error } = await supabaseAdmin.from("sales_reps")
+        .update({ email: data.email } as never)
+        .eq("id", data.id);
+      if (error) return { success: false as const, error: error.message };
+      return { success: true as const };
+    } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+  });
+
+
+
 
 export const updateRepRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
