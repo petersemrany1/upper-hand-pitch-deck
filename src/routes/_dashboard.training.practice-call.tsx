@@ -1,7 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { ArrowLeft } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { QuizLockedNotice } from "./_dashboard.training.knowledge-quiz";
 
 export const Route = createFileRoute("/_dashboard/training/practice-call")({
   component: PracticeCallPageWrapper,
@@ -10,6 +13,25 @@ export const Route = createFileRoute("/_dashboard/training/practice-call")({
 
 function PracticeCallPageWrapper() {
   const navigate = useNavigate();
+  const [status, setStatus] = useState<"loading" | "locked" | "unlocked">("loading");
+
+  useEffect(() => {
+    (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) {
+        setStatus("locked");
+        return;
+      }
+      const { data } = await supabase
+        .from("rep_quiz_progress")
+        .select("passed")
+        .eq("user_id", uid)
+        .maybeSingle();
+      setStatus(data?.passed ? "unlocked" : "locked");
+    })();
+  }, []);
+
   return (
     <div className="h-full flex flex-col">
       <div
@@ -26,9 +48,17 @@ function PracticeCallPageWrapper() {
         </button>
       </div>
       <div className="flex-1 overflow-hidden">
-        <ConversationProvider>
-          <SalesCallPortal practiceMode />
-        </ConversationProvider>
+        {status === "loading" && (
+          <div style={{ padding: 40, textAlign: "center", color: "#6b6b6b", fontFamily: `"DM Sans", system-ui, sans-serif` }}>
+            Checking access…
+          </div>
+        )}
+        {status === "locked" && <QuizLockedNotice />}
+        {status === "unlocked" && (
+          <ConversationProvider>
+            <SalesCallPortal practiceMode />
+          </ConversationProvider>
+        )}
       </div>
     </div>
   );
