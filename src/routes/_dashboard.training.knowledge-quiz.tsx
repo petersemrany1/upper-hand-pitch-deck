@@ -213,11 +213,18 @@ function KnowledgeQuizPage() {
                 100% is needed to continue to practice calls. Review the questions below, then try again.
               </p>
               <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 10, padding: 16, marginBottom: 22 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#9a3412", marginBottom: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#9a3412", marginBottom: 10 }}>
                   Questions you got wrong:
                 </div>
-                <div style={{ fontSize: 14, color: "#7c2d12" }}>
-                  {result.wrong.map((n) => `Q${n}`).join(", ")}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {result.wrong.map((n) => {
+                    const qText = questions.find((qq) => qq.question_no === n)?.question ?? "";
+                    return (
+                      <div key={n} style={{ fontSize: 14, color: "#7c2d12", lineHeight: 1.45 }}>
+                        <span style={{ fontWeight: 600 }}>Q{n}:</span> {qText}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 10 }}>
