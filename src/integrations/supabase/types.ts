@@ -1095,6 +1095,33 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_call_recordings: {
+        Row: {
+          audio_path: string
+          conversation_id: string
+          created_at: string
+          duration_seconds: number | null
+          id: string
+          rep_id: string | null
+        }
+        Insert: {
+          audio_path: string
+          conversation_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          rep_id?: string | null
+        }
+        Update: {
+          audio_path?: string
+          conversation_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          id?: string
+          rep_id?: string | null
+        }
+        Relationships: []
+      }
       rep_booking_targets: {
         Row: {
           created_at: string
