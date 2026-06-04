@@ -22,7 +22,7 @@ function DashboardLayout() {
   const navigate = useNavigate();
   const { session, ready, role, userType } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
-  const pageOwnsNotificationBell = ["/sales-call", "/leaderboard"].includes(location.pathname);
+  const pageOwnsNotificationBell = ["/sales-call", "/leaderboard"].includes(location.pathname) || location.pathname.startsWith("/partner-clinics");
   const isClinicSetter = role === "caller";
 
   // Redirect unauthenticated users once the session check has resolved.
