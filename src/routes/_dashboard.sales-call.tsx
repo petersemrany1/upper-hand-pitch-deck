@@ -5099,7 +5099,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
-  onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted,
+  onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
 }: {
   active: Lead;
   repId: string | null;
@@ -5114,9 +5114,14 @@ function RightPanel({
   onOutcomePendingChange?: (val: boolean) => void;
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
   onCallStarted?: () => void;
+  practiceMode?: boolean;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
-  const { status: deviceStatus, call: placeCall, hangup, sendDtmf, activeLeadId: deviceActiveLeadId } = useTwilioDevice(true);
+  // In practiceMode, skip Twilio device registration entirely — the practice
+  // page uses the ElevenLabs widget instead, so registering Twilio just burns
+  // CPU and triggers Chrome's "this tab is using extra resources" warning.
+  const { status: deviceStatus, call: placeCall, hangup, sendDtmf, activeLeadId: deviceActiveLeadId } = useTwilioDevice(!practiceMode);
+
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
 
   const [callTimer, setCallTimer] = useState(0);
