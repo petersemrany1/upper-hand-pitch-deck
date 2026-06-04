@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_dashboard")({
 function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, ready, role, userType } = useAuth();
+  const { session, ready, role, userType, allowedTabs } = useAuth();
   const isFullscreen = location.pathname === "/pitch-deck";
   const pageOwnsNotificationBell = ["/sales-call", "/leaderboard", "/training/practice-call"].includes(location.pathname) || location.pathname.startsWith("/partner-clinics");
   const isClinicSetter = role === "caller";
@@ -63,23 +63,18 @@ function DashboardLayout() {
     }
   }, [ready, session, userType, navigate]);
 
-  // Reps cannot access admin-only routes — bounce to dashboard.
+  // Per-user tab access enforcement. Admins bypass (allowedTabs covers all).
   useEffect(() => {
     if (!ready || !session) return;
-    const blocked = ["/leads", "/pitch-deck", "/sent-links", "/logs"];
-    if (role === "rep" && blocked.includes(location.pathname)) {
-      navigate({ to: "/", replace: true });
-    }
-  }, [ready, session, role, location.pathname, navigate]);
-
-  // Clinic setters are locked to the clinic CRM only.
-  useEffect(() => {
-    if (!ready || !session) return;
-    if (role !== "caller") return;
-    if (location.pathname !== "/clinics") {
-      navigate({ to: "/clinics", replace: true });
-    }
-  }, [ready, session, role, location.pathname, navigate]);
+    if (role === "admin") return;
+    if (userType === "clinic") return;
+    const tab = tabForPath(location.pathname);
+    if (!tab) return; // page isn't tab-gated
+    if (allowedTabs.includes(tab)) return;
+    // Redirect to first allowed tab, or dashboard fallback.
+    const fallback = allowedTabs[0] ? TAB_TO_URL[allowedTabs[0]] : "/";
+    navigate({ to: fallback, replace: true });
+  }, [ready, session, role, userType, allowedTabs, location.pathname, navigate]);
 
   // While the session restores from localStorage, render the dashboard chrome
   // immediately with skeleton placeholders instead of a blank spinner.
