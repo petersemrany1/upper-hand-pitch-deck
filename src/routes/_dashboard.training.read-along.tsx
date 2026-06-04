@@ -352,21 +352,11 @@ function ReadAlong() {
         </button>
       </div>
 
-      {complete && (
-        <div
-          style={{
-            marginTop: 24,
-            background: "#111",
-            color: "#fff",
-            padding: "16px 20px",
-            borderRadius: 10,
-            fontSize: 15,
-            fontWeight: 600,
-          }}
-        >
-          Module complete
-        </div>
-      )}
+      <CompleteModuleBar
+        slug="read-along"
+        canComplete={complete || isLast}
+        notReadyHint="Step through to the final section to enable this."
+      />
     </div>
   );
 }
