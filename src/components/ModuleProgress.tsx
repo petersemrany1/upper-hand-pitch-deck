@@ -31,11 +31,13 @@ export function ModuleGate({ slug, children }: Props) {
   useEffect(() => {
     (async () => {
       const status = await loadModuleStatus();
+      if (status.isAdmin) return setState("unlocked");
       const prev = previousModule(slug);
       if (!prev || status.completed[prev.slug]) setState("unlocked");
       else setState("locked");
     })();
   }, [slug]);
+
 
   if (state === "loading") {
     return (
@@ -121,6 +123,7 @@ type BarProps = {
 export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps) {
   const navigate = useNavigate();
   const [completed, setCompleted] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
   const next = nextModule(slug);
 
@@ -128,11 +131,14 @@ export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps)
     (async () => {
       const status = await loadModuleStatus();
       setCompleted(!!status.completed[slug]);
+      setIsAdmin(status.isAdmin);
     })();
   }, [slug]);
 
+  const effectiveCanComplete = canComplete || isAdmin;
+
   const onClick = async () => {
-    if (!canComplete || busy || completed) return;
+    if (!effectiveCanComplete || busy || completed) return;
     setBusy(true);
     const ok = await markModuleComplete(slug);
     setBusy(false);
@@ -140,7 +146,8 @@ export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps)
   };
 
   const isDone = completed === true;
-  const disabled = !isDone && (!canComplete || busy);
+  const disabled = !isDone && (!effectiveCanComplete || busy);
+
 
   return (
     <div
@@ -168,11 +175,14 @@ export function CompleteModuleBar({ slug, canComplete, notReadyHint }: BarProps)
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#16a34a", fontWeight: 600 }}>
             <CheckCircle2 size={16} /> Module complete
           </span>
-        ) : canComplete ? (
-          <span>You're cleared to mark this module complete.</span>
+        ) : effectiveCanComplete ? (
+          <span>
+            {isAdmin && !canComplete ? "Admin override — you can mark this complete anytime." : "You're cleared to mark this module complete."}
+          </span>
         ) : (
           <span>{notReadyHint ?? "Reach the end of the content to enable this."}</span>
         )}
+
       </div>
       <div style={{ display: "flex", gap: 10 }}>
         {!isDone && (
