@@ -67,9 +67,6 @@ function AIPracticeWidget() {
       padding: 14, minWidth: 240, fontFamily: "system-ui, sans-serif",
       border: "1px solid #333",
     }}>
-      <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#f4522d", fontWeight: 700, marginBottom: 8 }}>
-        Practice with Dave (AI)
-      </div>
       {!isConnected ? (
         <>
           <button
