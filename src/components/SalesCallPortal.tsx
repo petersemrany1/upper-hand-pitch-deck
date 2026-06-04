@@ -5130,17 +5130,20 @@ function RightPanel({
   // ElevenLabs practice conversation (only used in practiceMode)
   const practiceConvIdRef = useRef<string | null>(null);
   const practiceStartedAtRef = useRef<number | null>(null);
+  const [practiceConnecting, setPracticeConnecting] = useState(false);
   const practiceConversation = useConversation({
     onConnect: (info: unknown) => {
       const id = (info as { conversationId?: string })?.conversationId ?? null;
       if (id) practiceConvIdRef.current = id;
       practiceStartedAtRef.current = Date.now();
+      setPracticeConnecting(false);
     },
     onDisconnect: () => {
       const convId = practiceConvIdRef.current;
       const startedAt = practiceStartedAtRef.current;
       practiceConvIdRef.current = null;
       practiceStartedAtRef.current = null;
+      setPracticeConnecting(false);
       if (!convId) return;
       const durationSeconds = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined;
       // Fire-and-forget; ElevenLabs takes a few seconds to make the recording available
@@ -5154,10 +5157,10 @@ function RightPanel({
     onError: (err) => {
       console.error("[practice] elevenlabs error", err);
       toast.error("Practice call error");
+      setPracticeConnecting(false);
     },
   });
   const practiceStatus = practiceConversation.status; // 'connected' | 'disconnected'
-  const [practiceConnecting, setPracticeConnecting] = useState(false);
   const practiceInCall = practiceConnecting || practiceStatus === "connected";
 
   const startPracticeCall = async () => {
@@ -5170,11 +5173,12 @@ function RightPanel({
         connectionType: "webrtc",
       });
       if (typeof convId === "string") practiceConvIdRef.current = convId;
-      practiceStartedAtRef.current = Date.now();
+      // Don't clear practiceConnecting here — startSession resolves as soon
+      // as the conv id is issued, but WebRTC is still negotiating. Leave the
+      // "Connecting…" label up until onConnect fires (or onError).
     } catch (e) {
       console.error("[practice] startSession failed", e);
       toast.error(e instanceof Error ? e.message : "Failed to start practice call");
-    } finally {
       setPracticeConnecting(false);
     }
   };
