@@ -5475,6 +5475,17 @@ function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceStatus]);
 
+  // Practice mode: drive the timer from the ElevenLabs conversation status
+  useEffect(() => {
+    if (!practiceMode) return;
+    if (practiceStatus !== "connected") {
+      setCallTimer(0);
+      return;
+    }
+    const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
+    return () => clearInterval(i);
+  }, [practiceMode, practiceStatus]);
+
   // Reset open objection when switching leads
   useEffect(() => { setOpenObjection(null); }, [active.id]);
 
