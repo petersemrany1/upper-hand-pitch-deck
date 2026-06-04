@@ -2,9 +2,11 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Lock, CheckCircle2 } from "lucide-react";
+import { ModuleGate } from "@/components/ModuleProgress";
+import { markModuleComplete } from "@/lib/training-modules";
 
 export const Route = createFileRoute("/_dashboard/training/knowledge-quiz")({
-  component: KnowledgeQuizPage,
+  component: KnowledgeQuizWrapper,
   head: () => ({
     meta: [{ title: "Knowledge Quiz" }],
     links: [
@@ -17,6 +19,14 @@ export const Route = createFileRoute("/_dashboard/training/knowledge-quiz")({
     ],
   }),
 });
+
+function KnowledgeQuizWrapper() {
+  return (
+    <ModuleGate slug="knowledge-quiz">
+      <KnowledgeQuizPage />
+    </ModuleGate>
+  );
+}
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 const ACCENT = "#f4522d";
