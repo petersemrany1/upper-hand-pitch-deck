@@ -652,10 +652,15 @@ export const listReps = createServerFn({ method: "POST" })
 /* Update an existing rep's name fields — admin only */
 export const updateRep = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string; firstName: string; lastName: string }) => ({
+  .inputValidator((data: { id: string; firstName: string; lastName: string; allowedTabs?: string[] | null }) => ({
     id: String(data.id ?? ""),
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
+    allowedTabs: data.allowedTabs === undefined
+      ? undefined
+      : Array.isArray(data.allowedTabs)
+        ? data.allowedTabs.filter((t): t is string => typeof t === "string").slice(0, 32)
+        : null,
   }))
   .handler(async ({ data, context }) => {
     try { await assertAdmin(context.userId); } catch (e) {
@@ -663,8 +668,10 @@ export const updateRep = createServerFn({ method: "POST" })
     }
     if (!data.id) return { success: false as const, error: "id required" };
     const fullName = `${data.firstName} ${data.lastName}`.trim();
+    const updatePayload: Record<string, unknown> = { first_name: data.firstName, last_name: data.lastName, name: fullName };
+    if (data.allowedTabs !== undefined) updatePayload.allowed_tabs = data.allowedTabs;
     const { data: updated, error } = await supabaseAdmin.from("sales_reps")
-      .update({ first_name: data.firstName, last_name: data.lastName, name: fullName } as never)
+      .update(updatePayload as never)
       .eq("id", data.id).select("*").single();
     if (error) return { success: false as const, error: error.message };
     return { success: true as const, rep: updated };
