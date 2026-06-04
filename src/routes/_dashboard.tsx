@@ -134,7 +134,7 @@ function DashboardLayout() {
               style={{ background: "#ffffff", border: "0.5px solid #ebebeb", color: "#111" }}
               aria-label="Open navigation"
             />
-            {!isClinicSetter && !pageOwnsNotificationBell && (
+            {!isClinicSetter && !pageOwnsNotificationBell && !isTrainingRoute && (
               <div className="fixed top-3 right-3 z-50">
                 <NotificationBell />
               </div>
