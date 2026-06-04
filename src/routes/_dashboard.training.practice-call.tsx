@@ -5,6 +5,7 @@ import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { QuizLockedNotice } from "./_dashboard.training.knowledge-quiz";
+import { loadIsAdmin } from "@/lib/training-modules";
 
 export const Route = createFileRoute("/_dashboard/training/practice-call")({
   component: PracticeCallPageWrapper,
@@ -23,14 +24,18 @@ function PracticeCallPageWrapper() {
         setStatus("locked");
         return;
       }
-      const { data } = await supabase
-        .from("rep_quiz_progress")
-        .select("passed")
-        .eq("user_id", uid)
-        .maybeSingle();
-      setStatus(data?.passed ? "unlocked" : "locked");
+      const [{ data }, isAdmin] = await Promise.all([
+        supabase
+          .from("rep_quiz_progress")
+          .select("passed")
+          .eq("user_id", uid)
+          .maybeSingle(),
+        loadIsAdmin(),
+      ]);
+      setStatus(isAdmin || data?.passed ? "unlocked" : "locked");
     })();
   }, []);
+
 
   return (
     <div className="h-full flex flex-col">
