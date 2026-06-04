@@ -527,7 +527,13 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
         .select(SALES_CALL_LEAD_SELECT)
         .order("created_at", { ascending: false })
         .limit(SALES_CALL_LEAD_LIMIT);
-      setLeads((data ?? []) as Lead[]);
+      setLeads((prev) => {
+        const fetched = (data ?? []) as Lead[];
+        // Preserve the synthetic practice lead (Dave AI) so the supabase
+        // refresh doesn't wipe it out and blank the practice-call page.
+        const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
+        return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
+      });
     };
     void load();
     const ch = supabase.channel("sales-call-leads")
