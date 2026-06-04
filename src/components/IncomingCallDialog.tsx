@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { sendSms } from "@/utils/sms.functions";
