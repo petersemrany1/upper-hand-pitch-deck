@@ -150,7 +150,10 @@ function KnowledgeQuizPage() {
     }
     wrong.sort((a, b) => a - b);
     setResult({ score, wrong, passed });
-    if (passed) setAlreadyPassed(true);
+    if (passed) {
+      setAlreadyPassed(true);
+      await markModuleComplete("knowledge-quiz");
+    }
     setSubmitting(false);
   };
 
