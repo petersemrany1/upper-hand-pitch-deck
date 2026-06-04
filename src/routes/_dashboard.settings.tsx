@@ -907,11 +907,23 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [pwLoading, setPwLoading] = useState(false);
+  const [email, setEmail] = useState(rep.email ?? "");
+  const [emailLoading, setEmailLoading] = useState(false);
   const repRoleKey: "admin" | "rep" | "caller" = rep.role === "admin" ? "admin" : ["caller", "clinic_setter"].includes(rep.role) ? "caller" : "rep";
   const initialTabs: TabKey[] = (rep.allowed_tabs && rep.allowed_tabs.length > 0)
     ? ALL_TAB_KEYS.filter((t) => rep.allowed_tabs!.includes(t))
     : defaultTabsForRole(repRoleKey);
   const [tabs, setTabs] = useState<TabKey[]>(initialTabs);
+
+  const submitEmail = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || trimmed === (rep.email ?? "").toLowerCase()) return;
+    setEmailLoading(true);
+    const r = await updateRepEmail({ data: { id: rep.id, email: trimmed } });
+    setEmailLoading(false);
+    if (r.success) { toast.success("Email updated"); onDone(); }
+    else toast.error(r.error);
+  };
 
   const submit = async () => {
     if (!firstName.trim() || !lastName.trim()) {
