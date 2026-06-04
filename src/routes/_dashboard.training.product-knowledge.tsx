@@ -1,11 +1,23 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useRef } from "react";
 import videoAsset from "@/assets/module-1-product-knowledge.mp4.asset.json";
+import { ModuleGate, CompleteModuleBar, useVideoEnded } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/product-knowledge")({
   component: ProductKnowledge,
 });
 
 function ProductKnowledge() {
+  return (
+    <ModuleGate slug="product-knowledge">
+      <Inner />
+    </ModuleGate>
+  );
+}
+
+function Inner() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const ended = useVideoEnded(videoRef);
   return (
     <div style={{ padding: 32, maxWidth: 960, fontFamily: "'DM Sans', sans-serif" }}>
       <Link to="/training" style={{ textDecoration: "none" }}>
@@ -23,6 +35,7 @@ function ProductKnowledge() {
       </p>
       <div style={{ borderRadius: 12, overflow: "hidden", background: "#000", boxShadow: "0 4px 14px rgba(0,0,0,0.08)", aspectRatio: "16 / 9" }}>
         <video
+          ref={videoRef}
           src={videoAsset.url}
           controls
           preload="metadata"
@@ -30,6 +43,11 @@ function ProductKnowledge() {
           style={{ width: "100%", height: "100%", display: "block", objectFit: "contain" }}
         />
       </div>
+      <CompleteModuleBar
+        slug="product-knowledge"
+        canComplete={ended}
+        notReadyHint="Watch the video to the end to enable this."
+      />
     </div>
   );
 }
