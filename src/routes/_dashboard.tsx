@@ -67,6 +67,9 @@ function DashboardLayout() {
   // Per-user tab access enforcement. Admins bypass (allowedTabs covers all).
   useEffect(() => {
     if (!ready || !session) return;
+    // Wait until the role lookup finishes — otherwise userType is briefly
+    // "unknown" with allowedTabs=[] and we'd wrongly redirect off the page.
+    if (userType === "unknown") return;
     if (role === "admin") return;
     if (userType === "clinic") return;
     const tab = tabForPath(location.pathname);
