@@ -475,11 +475,25 @@ export function FloatingCallWidget() {
           <button
             type="button"
             onClick={() => {
-              const id = activeLeadId || leadId || matchedLead?.id;
-              if (id) {
-                navigate({ to: "/sales-call", search: { leadId: id } });
-              } else {
-                navigate({ to: "/sales-call", search: { phone: phone || activePhone || incomingFrom || undefined } });
+              try {
+                const id = activeLeadId || leadId || matchedLead?.id;
+                const fallbackPhone = phone || activePhone || incomingFrom || undefined;
+                void supabase.from("error_logs").insert({
+                  function_name: "open-sales-call-click",
+                  error_message: `Open in Sales Call clicked (id=${id ?? "null"}, phone=${fallbackPhone ?? "null"})`,
+                  context: { source: "frontend", id: id ?? null, phone: fallbackPhone ?? null, url: typeof window !== "undefined" ? window.location.href : null },
+                });
+                if (id) {
+                  navigate({ to: "/sales-call", search: { leadId: id } });
+                } else {
+                  navigate({ to: "/sales-call", search: { phone: fallbackPhone } });
+                }
+              } catch (e) {
+                void supabase.from("error_logs").insert({
+                  function_name: "open-sales-call-click",
+                  error_message: `Click handler threw: ${e instanceof Error ? e.message : String(e)}`,
+                  context: { source: "frontend", stack: e instanceof Error ? e.stack : null },
+                });
               }
             }}
             className="w-full flex items-center justify-center gap-2 h-10 rounded-lg bg-emerald-600 text-white text-sm font-semibold shadow hover:bg-emerald-500 active:scale-95 transition"
