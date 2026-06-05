@@ -946,6 +946,19 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
     else toast.error(r.error);
   };
 
+  const [resetLoading, setResetLoading] = useState(false);
+  const sendResetEmail = async () => {
+    const target = (rep.email ?? "").trim();
+    if (!target) { toast.error("No email on file"); return; }
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetLoading(false);
+    if (error) toast.error(error.message);
+    else toast.success(`Password reset email sent to ${target}`);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
