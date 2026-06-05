@@ -946,6 +946,19 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
     else toast.error(r.error);
   };
 
+  const [resetLoading, setResetLoading] = useState(false);
+  const sendResetEmail = async () => {
+    const target = (rep.email ?? "").trim();
+    if (!target) { toast.error("No email on file"); return; }
+    setResetLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(target, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setResetLoading(false);
+    if (error) toast.error(error.message);
+    else toast.success(`Password reset email sent to ${target}`);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div className="w-full max-w-md rounded-xl bg-card border border-border p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1022,6 +1035,17 @@ function EditRepDialog({ rep, onClose, onDone }: { rep: Rep; onClose: () => void
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">The rep can sign in immediately with this password.</p>
+          <div className="mt-3 flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+            <p className="text-[11px] text-muted-foreground">Send the rep an email link to set their own password.</p>
+            <button
+              onClick={() => void sendResetEmail()}
+              disabled={resetLoading}
+              className="px-3 py-1.5 rounded-md text-xs font-bold transition-opacity disabled:opacity-60 whitespace-nowrap"
+              style={{ background: "#f4522d", color: "#fff" }}
+            >
+              {resetLoading ? "Sending…" : "Send invite email"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
