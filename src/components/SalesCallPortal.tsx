@@ -6260,8 +6260,12 @@ function RightPanel({
         </div>
       </div>
 
+      {/* Section 4b — Norwood pricing calculator */}
+      <NorwoodPricingCalculator />
+
       {/* Section 5 — Send a photo */}
       <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+
         <button
           onClick={() => { setShowPhoto((v) => !v); setSelectedPhoto(null); }}
           style={{
