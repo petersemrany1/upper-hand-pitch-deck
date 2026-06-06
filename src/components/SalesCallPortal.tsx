@@ -857,13 +857,23 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     // sessionActive — auto-advance
     const nextId = sessionQueue[sessionIndex];
     if (nextId) {
-      queueMicrotask(() => {
-        setActiveId(nextId);
-        setStep("mindset");
-        setCompleted(new Set());
-        setAmpPrefill("");
-        setAudioPrefill("");
-      });
+      // Guard: only schedule state updates when we actually need to change
+      // the active lead. Without this guard, if the queued lead isn't in
+      // the loaded `leads` array yet, `active` stays null and the render
+      // runs again — re-scheduling setCompleted(new Set()) every pass and
+      // freezing the tab in an infinite render loop.
+      const leadLoaded = leads.some((l) => l.id === nextId);
+      if (leadLoaded && activeId !== nextId) {
+        queueMicrotask(() => {
+          setActiveId(nextId);
+          setStep("mindset");
+          setCompleted((prev) => (prev.size === 0 ? prev : new Set()));
+          setAmpPrefill("");
+          setAudioPrefill("");
+        });
+      }
+      // If the lead isn't loaded yet, render nothing and wait for `leads`
+      // to update — the effect will re-run naturally without looping.
     } else {
       queueMicrotask(() => {
         setSessionActive(false);
@@ -876,6 +886,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     }
     return null;
   }
+
 
   return (
     <>
