@@ -19,7 +19,7 @@ const ROWS: Row[] = [
   { label: "Norwood 3 Vertex", min: 2000, max: 3000 },
   { label: "Norwood 4", min: 3000, max: 4000 },
   { label: "Norwood 5", min: 4000, max: 4500 },
-  { label: "Norwood 6", min: 5000, max: 6000, note: "Set expectations if pushing a Norwood 6–7" },
+  { label: "Norwood 6", min: 4000, max: 5000, note: "Set expectations if pushing a Norwood 6–7" },
   { label: "Norwood 7", min: 6000, max: 10000, note: "Set patient expectations" },
 ];
 
