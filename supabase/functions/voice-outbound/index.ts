@@ -78,45 +78,44 @@ serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
   const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status`;
 
-  // Twilio will POST application/x-www-form-urlencoded. SDK custom params
-  // (anything passed to device.connect({ params })) come through as POST body
-  // fields. We also accept query params for manual testing.
-  let phone = url.searchParams.get("phone") || url.searchParams.get("To") || "";
-  let callSid = url.searchParams.get("CallSid") || "";
-  let clinicId = url.searchParams.get("clinicId") || "";
-  let leadId = url.searchParams.get("leadId") || "";
-  let repId = url.searchParams.get("repId") || "";
+  // Twilio always POSTs to voice webhooks. Reject anything else so an
+  // unauthenticated GET can't bypass signature validation and inject
+  // arbitrary call_records rows via query params.
+  if (req.method !== "POST") {
+    return new Response("Method Not Allowed", { status: 405 });
+  }
 
-  if (req.method === "POST") {
-    try {
-      const form = await req.formData();
+  let phone = "";
+  let callSid = "";
+  let clinicId = "";
+  let leadId = "";
+  let repId = "";
 
-      // Reject unsigned requests so attackers can't probe TwiML generation
-      // or trigger arbitrary outbound dials.
-      if (!(await validateTwilioSignature(req, form))) {
-        return new Response("Forbidden", { status: 403 });
-      }
+  try {
+    const form = await req.formData();
 
-      phone = phone || (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "");
-      callSid = callSid || (form.get("CallSid")?.toString() ?? "");
-      clinicId = clinicId || (form.get("clinicId")?.toString() ?? "");
-      leadId = leadId || (form.get("leadId")?.toString() ?? "");
-      repId = repId || (form.get("repId")?.toString() ?? "");
-
-      // Backup attribution: if client didn't pass repId, recover it from the
-      // Twilio "From" field, which is "client:<identity>" for browser SDK
-      // calls. voice-token mints identities as "rep_<uuid-no-dashes>".
-      if (!repId) {
-        const from = form.get("From")?.toString() ?? "";
-        const m = from.match(/^client:rep_([a-f0-9]{32})$/i);
-        if (m) {
-          const hex = m[1];
-          repId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
-        }
-      }
-    } catch {
-      // ignore — fall through to validation
+    // Reject unsigned requests so attackers can't probe TwiML generation
+    // or trigger arbitrary outbound dials.
+    if (!(await validateTwilioSignature(req, form))) {
+      return new Response("Forbidden", { status: 403 });
     }
+
+    phone = (form.get("phone")?.toString() ?? "") || (form.get("To")?.toString() ?? "") || url.searchParams.get("phone") || url.searchParams.get("To") || "";
+    callSid = (form.get("CallSid")?.toString() ?? "") || url.searchParams.get("CallSid") || "";
+    clinicId = (form.get("clinicId")?.toString() ?? "") || url.searchParams.get("clinicId") || "";
+    leadId = (form.get("leadId")?.toString() ?? "") || url.searchParams.get("leadId") || "";
+    repId = (form.get("repId")?.toString() ?? "") || url.searchParams.get("repId") || "";
+
+    if (!repId) {
+      const from = form.get("From")?.toString() ?? "";
+      const m = from.match(/^client:rep_([a-f0-9]{32})$/i);
+      if (m) {
+        const hex = m[1];
+        repId = `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+      }
+    }
+  } catch {
+    return new Response("Bad Request", { status: 400 });
   }
 
   console.log("voice-outbound: incoming", { phone, callSid, clinicId, leadId, repId, method: req.method });
