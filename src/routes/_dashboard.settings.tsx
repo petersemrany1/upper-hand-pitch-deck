@@ -1483,9 +1483,9 @@ function TrainingProgressSection() {
                 const completed = r.completed_modules.length;
                 const pct = Math.round((completed / totalModules) * 100);
                 const isOpen = expanded === r.rep_id;
-                return [
-                  (
-                    <tr key={`${r.rep_id}-main`} className="border-t border-border">
+                return (
+                  <Fragment key={r.rep_id}>
+                    <tr className="border-t border-border">
                       <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{r.name}</div>
                         <div className="text-xs text-muted-foreground">{r.email}</div>
