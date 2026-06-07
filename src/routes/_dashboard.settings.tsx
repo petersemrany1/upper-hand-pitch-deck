@@ -1485,7 +1485,7 @@ function TrainingProgressSection() {
                 const isOpen = expanded === r.rep_id;
                 return (
                   <Fragment key={r.rep_id}>
-                    <tr key={r.rep_id} className="border-t border-border">
+                    <tr className="border-t border-border">
                       <td className="px-4 py-3">
                         <div className="font-medium text-foreground">{r.name}</div>
                         <div className="text-xs text-muted-foreground">{r.email}</div>
