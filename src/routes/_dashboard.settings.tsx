@@ -1555,7 +1555,7 @@ function TrainingProgressSection() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
