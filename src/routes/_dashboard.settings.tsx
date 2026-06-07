@@ -24,6 +24,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { listPracticeCallRecordings } from "@/lib/practice-recordings.functions";
 import { Mic } from "lucide-react";
+import { GraduationCap } from "lucide-react";
+import { listRepTrainingProgress, type RepTrainingRow } from "@/lib/training-progress-admin.functions";
+import { TRAINING_MODULES } from "@/lib/training-modules";
 import { TAB_GROUPS, TAB_LABELS, defaultTabsForRole, ALL_TAB_KEYS, type TabKey } from "@/lib/tab-access";
 
 // NOTE: These exports are consumed by the protected pitch deck route
