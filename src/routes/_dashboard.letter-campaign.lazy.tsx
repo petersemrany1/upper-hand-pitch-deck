@@ -3,11 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Printer, Download, Mail, Check, X } from "lucide-react";
+import { Search, Printer, Download, Mail, Check, X, StickyNote } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
@@ -87,6 +88,7 @@ function LetterCampaignPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [notesEditingId, setNotesEditingId] = useState<string | null>(null);
   const [showHowItWorks, setShowHowItWorks] = useState(true);
 
   const load = async () => {
@@ -187,7 +189,7 @@ function LetterCampaignPage() {
     }
   };
 
-  const saveFields = async (id: string, patch: { doctor_name?: string | null; address?: string | null }) => {
+  const saveFields = async (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => {
     setClinics((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
     const { error } = await supabase.from("clinics").update(patch).eq("id", id);
     if (error) toast.error("Could not save");
@@ -301,6 +303,9 @@ function LetterCampaignPage() {
             editingId={editingId}
             onStartEdit={setEditingId}
             onStopEdit={() => setEditingId(null)}
+            notesEditingId={notesEditingId}
+            onStartNotesEdit={setNotesEditingId}
+            onStopNotesEdit={() => setNotesEditingId(null)}
             onToggleSent={toggleSent}
             onSave={saveFields}
           />
@@ -324,7 +329,9 @@ function LetterCampaignPage() {
 }
 
 function LetterRow({
-  clinic, covers, lastCall, editing, onStartEdit, onStopEdit, onToggleSent, onSave,
+  clinic, covers, lastCall, editing, onStartEdit, onStopEdit,
+  notesEditing, onStartNotesEdit, onStopNotesEdit,
+  onToggleSent, onSave,
 }: {
   clinic: Clinic;
   covers: number;
@@ -332,8 +339,11 @@ function LetterRow({
   editing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
+  notesEditing: boolean;
+  onStartNotesEdit: () => void;
+  onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
-  onSave: (patch: { doctor_name?: string | null; address?: string | null }) => void;
+  onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
 }) {
   const sent = clinic.letter_sent;
   const addressee = addresseeFor(clinic);
@@ -453,18 +463,81 @@ function LetterRow({
             📅 follow-up {followUpLabel}
           </span>
         )}
-        {noteSnippet && (
-          <span className="text-muted-foreground/80 italic truncate max-w-full" title={clinic.notes ?? ""}>
-            "{noteSnippet}{(clinic.notes ?? "").length > 140 ? "…" : ""}"
-          </span>
-        )}
-        {!lastCallLabel && !followUpLabel && !noteSnippet && (
+        {!lastCallLabel && !followUpLabel && (
           <span className="text-muted-foreground/50">no CRM activity yet</span>
+        )}
+      </div>
+
+      {/* Research notes */}
+      <div className="ml-7 mt-1.5" onClick={(e) => e.stopPropagation()}>
+        {notesEditing ? (
+          <LetterNotesEditor
+            initial={clinic.notes ?? ""}
+            onCancel={onStopNotesEdit}
+            onSave={(v) => {
+              onSave({ notes: v.trim() === "" ? null : v });
+              onStopNotesEdit();
+            }}
+          />
+        ) : noteSnippet ? (
+          <button
+            type="button"
+            onClick={onStartNotesEdit}
+            className="text-left w-full text-[11px] text-muted-foreground/90 bg-amber-50/60 border border-amber-100 rounded px-2 py-1.5 hover:bg-amber-50 transition-colors"
+            title="Click to edit research notes"
+          >
+            <span className="inline-flex items-center gap-1 text-amber-700 font-medium mr-1">
+              <StickyNote className="h-3 w-3" /> notes
+            </span>
+            <span className="whitespace-pre-wrap">{noteSnippet}{(clinic.notes ?? "").length > 140 ? "…" : ""}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onStartNotesEdit}
+            className="text-[11px] text-muted-foreground/70 hover:text-foreground inline-flex items-center gap-1"
+          >
+            <StickyNote className="h-3 w-3" /> add research notes
+          </button>
         )}
       </div>
     </div>
   );
 }
+
+function LetterNotesEditor({
+  initial, onSave, onCancel,
+}: {
+  initial: string;
+  onSave: (v: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div className="space-y-1.5">
+      <Textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Research notes — addresses tried, who answered, links checked…"
+        className="text-xs min-h-[80px]"
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSave(value); }
+          if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        }}
+      />
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to save · Esc to cancel</span>
+        <div className="flex gap-1.5">
+          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7"><X className="h-3.5 w-3.5 mr-1" />Cancel</Button>
+          <Button size="sm" onClick={() => onSave(value)} className="h-7"><Check className="h-3.5 w-3.5 mr-1" />Save</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 
 const STATUS_TONES: Record<string, { bg: string; fg: string }> = {
   "Not Started": { bg: "#f3f4f6", fg: "#374151" },
@@ -502,7 +575,8 @@ function bucketFor(c: Clinic): ColKey {
 }
 
 function KanbanBoard({
-  clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit, onToggleSent, onSave,
+  clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit,
+  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave,
 }: {
   clinics: Clinic[];
   coversCounts: Record<string, number>;
@@ -510,8 +584,11 @@ function KanbanBoard({
   editingId: string | null;
   onStartEdit: (id: string) => void;
   onStopEdit: () => void;
+  notesEditingId: string | null;
+  onStartNotesEdit: (id: string) => void;
+  onStopNotesEdit: () => void;
   onToggleSent: (c: Clinic, v: boolean) => void;
-  onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null }) => void;
+  onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
@@ -565,6 +642,9 @@ function KanbanBoard({
                 editing={editingId === c.id}
                 onStartEdit={() => onStartEdit(c.id)}
                 onStopEdit={onStopEdit}
+                notesEditing={notesEditingId === c.id}
+                onStartNotesEdit={() => onStartNotesEdit(c.id)}
+                onStopNotesEdit={onStopNotesEdit}
                 onToggleSent={(v) => onToggleSent(c, v)}
                 onSave={(patch) => onSave(c.id, patch)}
               />
@@ -619,14 +699,17 @@ function DraggableLetterCard(props: {
   editing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
+  notesEditing: boolean;
+  onStartNotesEdit: () => void;
+  onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
-  onSave: (patch: { doctor_name?: string | null; address?: string | null }) => void;
+  onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: props.clinic.id,
     data: { clinic: props.clinic },
   });
-  if (props.editing) {
+  if (props.editing || props.notesEditing) {
     return <LetterRow {...props} />;
   }
   return (
