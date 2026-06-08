@@ -1,31 +1,22 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Settings as SettingsIcon,
-  Users,
-  Plus,
-  X,
-  Pencil,
-  Trash2,
-  Mail,
   DollarSign,
   User as UserIcon,
   Bell,
   FileText,
   ChevronRight,
-  Phone,
-  Loader2,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { inviteRep, listReps, updateRep, updateRepRole, updateRepEmail, deleteRep, setRepPassword, setRepActive } from "@/utils/sales-call.functions";
-import { provisionNumber, listPhoneNumbers, retireNumber } from "@/utils/phone-pool.functions";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { listPracticeCallRecordings } from "@/lib/practice-recordings.functions";
 import { Mic } from "lucide-react";
 import { TrainingProgressSection } from "@/components/settings/TrainingProgressSection";
-import { TAB_GROUPS, TAB_LABELS, defaultTabsForRole, ALL_TAB_KEYS, type TabKey } from "@/lib/tab-access";
+import { TeamSection } from "@/components/settings/TeamSection";
+import { PhoneNumbersSection } from "@/components/settings/PhoneNumbersSection";
+
 
 // NOTE: These exports are consumed by the protected pitch deck route
 // (src/routes/_dashboard.pitch-deck.tsx). They are NOT surfaced in the
