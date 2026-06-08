@@ -218,6 +218,18 @@ function LetterCampaignPage() {
     });
   };
 
+  const setColumn = async (c: Clinic, col: "call" | "letter" | "research") => {
+    const prev = c.letter_campaign_column;
+    setClinics((arr) => arr.map((x) => (x.id === c.id ? { ...x, letter_campaign_column: col } : x)));
+    const { error } = await supabase.from("clinics").update({ letter_campaign_column: col }).eq("id", c.id);
+    if (error) {
+      toast.error("Could not move card");
+      setClinics((arr) => arr.map((x) => (x.id === c.id ? { ...x, letter_campaign_column: prev } : x)));
+    }
+  };
+
+
+
   const printSheet = () => window.print();
 
   const downloadCsv = () => {
