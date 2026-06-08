@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor, Mail } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -45,9 +45,11 @@ const ALL_FOLDERS: NavFolder[] = [
     items: [
       { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
       { title: "Clinics", url: "/clinics", icon: Building2, tab: "clinics" },
+      { title: "Letter Campaign", url: "/letter-campaign", icon: Mail, tab: "clinics" },
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
     ],
   },
+
 ];
 
 const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
