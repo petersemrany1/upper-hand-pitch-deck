@@ -186,17 +186,6 @@ function LetterCampaignPage() {
     URL.revokeObjectURL(url);
   };
 
-  const Chip = ({ id, label, count }: { id: ChipFilter; label: string; count: number }) => (
-    <button
-      type="button"
-      onClick={() => setChip(id)}
-      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-        chip === id ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground border-border hover:text-foreground"
-      }`}
-    >
-      {label} <span className="opacity-70">{count}</span>
-    </button>
-  );
 
   return (
     <div className="p-6 max-w-5xl mx-auto letter-campaign">
