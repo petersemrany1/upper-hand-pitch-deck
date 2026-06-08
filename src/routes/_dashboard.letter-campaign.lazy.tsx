@@ -363,6 +363,17 @@ function LetterRow({
           <span className="text-xs text-muted-foreground w-20">Address</span>
           <Input value={draftAddress} onChange={(e) => setDraftAddress(e.target.value)} placeholder="Street, suburb, state, postcode" className="h-8 text-sm"
             onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") onStopEdit(); }} />
+          {!clinic.address && (
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(`${clinic.clinic_name} ${clinic.state ?? ""}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-600 hover:underline whitespace-nowrap"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Find on Google ↗
+            </a>
+          )}
         </div>
         <div className="flex justify-end gap-1.5">
           <Button size="sm" variant="ghost" onClick={onStopEdit} className="h-7"><X className="h-3.5 w-3.5 mr-1" />Cancel</Button>
