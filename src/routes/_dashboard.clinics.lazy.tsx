@@ -1391,10 +1391,13 @@ function ClinicsPage() {
           <PipelineBoard
             clinics={(() => {
               // Pipeline view: ONE CARD PER CHAIN. Show only flagships (top-level rows with no parent).
-              // Branches/satellites are hidden here — they still exist on the list view.
-              const childCount: Record<string, number> = {};
+              // Branches are surfaced inside the flagship's card so the rep can see which
+              // number belongs to which branch and call any of them directly.
+              const branchesByParent: Record<string, Clinic[]> = {};
               for (const c of clinics) {
-                if (c.parent_clinic_id) childCount[c.parent_clinic_id] = (childCount[c.parent_clinic_id] || 0) + 1;
+                if (c.parent_clinic_id) {
+                  (branchesByParent[c.parent_clinic_id] ||= []).push(c);
+                }
               }
               return clinics
                 .filter((c) => !c.parent_clinic_id)
@@ -1404,9 +1407,14 @@ function ClinicsPage() {
                   const matchStatus = !filterStatus || c.status === filterStatus;
                   return matchSearch && matchState && matchStatus;
                 })
-                .map((c) => ({ ...c, _branchCount: childCount[c.id] || 0 } as Clinic & { _branchCount?: number }));
+                .map((c) => ({
+                  ...c,
+                  _branches: (branchesByParent[c.id] || []).slice().sort((a, b) => a.clinic_name.localeCompare(b.clinic_name)),
+                } as Clinic & { _branches?: Clinic[] }));
             })()}
             onOpenDetail={openDetail}
+            onCall={handleCall}
+            callingId={callingId}
             onMoveStage={async (clinic, newStage) => {
               const prevStage = clinic.status;
               setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStage } : c));
