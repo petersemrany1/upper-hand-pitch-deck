@@ -72,7 +72,7 @@ function LetterCampaignPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [chip, setChip] = useState<ChipFilter>("all");
+  
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showHowItWorks, setShowHowItWorks] = useState(true);
 
