@@ -431,7 +431,7 @@ function PitchDeck() {
           </div>
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
             <p className="text-2xl font-bold text-foreground">Convert just 1</p>
-            <p className="text-[#CCCCCC] mt-1">one ${caseValue.toLocaleString()} case</p>
+            <p className="text-[#CCCCCC] mt-1">${caseValue.toLocaleString()}</p>
           </div>
           <div className="hidden md:flex items-center justify-center">
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
@@ -446,8 +446,8 @@ function PitchDeck() {
           variants={fadeIn}
           className="rounded-xl border-2 border-primary bg-primary/10 px-10 py-8 mb-8"
         >
-          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">The Safety Net</p>
-          <p className="text-2xl font-bold text-foreground mb-3">Close 0 of 10? We send 5 more — free.</p>
+          <p className="text-sm font-semibold tracking-[0.2em] uppercase text-primary mb-3">The Safety Net</p>
+          <p className="text-2xl font-bold text-foreground mb-3">Convert 0 of 10? We send 5 more — free.</p>
           <p className="text-[#CCCCCC] text-lg">
             That's 15 deposit-paid, pre-sold patients for the same $8,000. You need just <span className="text-foreground font-bold">one</span> to land to be in front.
           </p>
