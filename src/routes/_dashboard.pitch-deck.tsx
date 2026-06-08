@@ -456,7 +456,7 @@ function PitchDeck() {
 
         <motion.div variants={fadeIn} className="border-t border-white/10 pt-5 flex items-center justify-center gap-2.5">
           <ShieldCheck className="w-4 h-4 text-primary" />
-          <p className="text-sm text-[#999]">Not a discount — we're putting our own work on the line. One-time, no lock-in.</p>
+          <p className="text-sm text-[#999]">One-time offer - available on your first pack only.</p>
         </motion.div>
       </motion.div>
     </div>,
