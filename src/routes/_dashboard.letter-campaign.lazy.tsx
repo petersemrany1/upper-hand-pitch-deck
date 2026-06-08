@@ -196,6 +196,27 @@ function LetterCampaignPage() {
     if (error) toast.error("Could not save");
   };
 
+  const removeFromCampaign = async (c: Clinic) => {
+    setClinics((prev) => prev.filter((x) => x.id !== c.id));
+    const { error } = await supabase.from("clinics").update({ letter_campaign_excluded: true }).eq("id", c.id);
+    if (error) {
+      toast.error("Could not remove");
+      setClinics((prev) => [...prev, c]);
+      return;
+    }
+    toast(`Removed "${c.clinic_name}" from this campaign`, {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          const { error: undoErr } = await supabase.from("clinics").update({ letter_campaign_excluded: false }).eq("id", c.id);
+          if (undoErr) { toast.error("Could not undo"); return; }
+          setClinics((prev) => prev.some((x) => x.id === c.id) ? prev : [...prev, c]);
+        },
+      },
+      duration: 6000,
+    });
+  };
+
   const printSheet = () => window.print();
 
   const downloadCsv = () => {
