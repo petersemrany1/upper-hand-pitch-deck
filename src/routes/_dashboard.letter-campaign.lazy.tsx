@@ -631,14 +631,17 @@ function DraggableLetterCard(props: {
   editing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
+  notesEditing: boolean;
+  onStartNotesEdit: () => void;
+  onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
-  onSave: (patch: { doctor_name?: string | null; address?: string | null }) => void;
+  onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: props.clinic.id,
     data: { clinic: props.clinic },
   });
-  if (props.editing) {
+  if (props.editing || props.notesEditing) {
     return <LetterRow {...props} />;
   }
   return (
