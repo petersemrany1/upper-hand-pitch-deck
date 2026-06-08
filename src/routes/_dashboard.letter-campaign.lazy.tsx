@@ -88,6 +88,7 @@ function LetterCampaignPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [notesEditingId, setNotesEditingId] = useState<string | null>(null);
   const [showHowItWorks, setShowHowItWorks] = useState(true);
 
   const load = async () => {
