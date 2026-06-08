@@ -648,15 +648,16 @@ function ClinicsPage() {
   // Auto-open the clinic detail panel when ?clinic=<id> is in the URL.
   // This lets the dashboard activity items deep-link straight into a clinic.
   const routeSearch = routeApi.useSearch();
-  const routeNavigate = routeApi.useNavigate();
   useEffect(() => {
     if (!routeSearch.clinic || clinics.length === 0) return;
     const target = clinics.find((c) => c.id === routeSearch.clinic);
     if (target && (!selectedClinic || selectedClinic.id !== target.id)) {
       openDetail(target);
-      routeNavigate({ search: (prev) => ({ ...prev, clinic: undefined }), replace: true });
+      const url = new URL(window.location.href);
+      url.searchParams.delete("clinic");
+      window.history.replaceState(window.history.state, "", url);
     }
-  }, [routeSearch.clinic, clinics, selectedClinic, openDetail, routeNavigate]);
+  }, [routeSearch.clinic, clinics, selectedClinic, openDetail]);
 
   const updateClinicField = async (field: keyof Clinic, value: string | boolean) => {
     if (!selectedClinic) return;
