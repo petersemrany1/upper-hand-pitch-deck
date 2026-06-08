@@ -24,6 +24,7 @@ import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sale
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
+import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
 import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
@@ -128,6 +129,13 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardLetterCampaignRoute = DashboardLetterCampaignRouteImport.update({
+  id: '/letter-campaign',
+  path: '/letter-campaign',
+  getParentRoute: () => DashboardRoute,
+} as any).lazy(() =>
+  import('./routes/_dashboard.letter-campaign.lazy').then((d) => d.Route),
+)
 const DashboardLeadsRoute = DashboardLeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
@@ -288,6 +296,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof DashboardInboxRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
+  '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
@@ -328,6 +337,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof DashboardInboxRoute
   '/leaderboard': typeof DashboardLeaderboardRoute
   '/leads': typeof DashboardLeadsRoute
+  '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
@@ -370,6 +380,7 @@ export interface FileRoutesById {
   '/_dashboard/inbox': typeof DashboardInboxRoute
   '/_dashboard/leaderboard': typeof DashboardLeaderboardRoute
   '/_dashboard/leads': typeof DashboardLeadsRoute
+  '/_dashboard/letter-campaign': typeof DashboardLetterCampaignRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leaderboard'
     | '/leads'
+    | '/letter-campaign'
     | '/logs'
     | '/partner-clinics'
     | '/pitch-deck'
@@ -454,6 +466,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/leaderboard'
     | '/leads'
+    | '/letter-campaign'
     | '/logs'
     | '/partner-clinics'
     | '/pitch-deck'
@@ -495,6 +508,7 @@ export interface FileRouteTypes {
     | '/_dashboard/inbox'
     | '/_dashboard/leaderboard'
     | '/_dashboard/leads'
+    | '/_dashboard/letter-campaign'
     | '/_dashboard/logs'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
@@ -647,6 +661,13 @@ declare module '@tanstack/react-router' {
       path: '/logs'
       fullPath: '/logs'
       preLoaderRoute: typeof DashboardLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/letter-campaign': {
+      id: '/_dashboard/letter-campaign'
+      path: '/letter-campaign'
+      fullPath: '/letter-campaign'
+      preLoaderRoute: typeof DashboardLetterCampaignRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/leads': {
@@ -870,6 +891,7 @@ interface DashboardRouteChildren {
   DashboardInboxRoute: typeof DashboardInboxRoute
   DashboardLeaderboardRoute: typeof DashboardLeaderboardRoute
   DashboardLeadsRoute: typeof DashboardLeadsRoute
+  DashboardLetterCampaignRoute: typeof DashboardLetterCampaignRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
@@ -888,6 +910,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardInboxRoute: DashboardInboxRoute,
   DashboardLeaderboardRoute: DashboardLeaderboardRoute,
   DashboardLeadsRoute: DashboardLeadsRoute,
+  DashboardLetterCampaignRoute: DashboardLetterCampaignRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
