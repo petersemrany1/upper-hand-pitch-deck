@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { QuizLockedNotice } from "./_dashboard.training.knowledge-quiz";
 import { loadIsAdmin } from "@/lib/training-modules";
 
-export const Route = createFileRoute("/_dashboard/training/practice-call")({
+export const Route = createLazyFileRoute("/_dashboard/training/practice-call")({
   component: PracticeCallPageWrapper,
   head: () => ({ meta: [{ title: "Practice Call" }] }),
 });

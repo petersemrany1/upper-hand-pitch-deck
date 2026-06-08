@@ -1,10 +1,10 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
 
-export const Route = createFileRoute("/clinic-portal")({
+export const Route = createLazyFileRoute("/clinic-portal")({
   component: ClinicPortalPage,
   head: () => ({ meta: [{ title: "Clinic Partner Portal" }] }),
 });
