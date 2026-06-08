@@ -264,58 +264,15 @@ function LetterCampaignPage() {
         ) : filtered.length === 0 ? (
           <div className="text-sm text-muted-foreground py-12 text-center border rounded-md">No clinics match these filters.</div>
         ) : (
-          (() => {
-            const cols: { key: string; title: string; hint: string; items: Clinic[] }[] = [
-              { key: "call", title: "Try call first", hint: "Has phone, no address — call to get details", items: [] },
-              { key: "letter", title: "Send letter", hint: "Address ready — print & post", items: [] },
-              { key: "research", title: "Do research", hint: "No phone or address yet — look them up", items: [] },
-              { key: "sent", title: "Sent", hint: "Letter posted", items: [] },
-            ];
-            for (const c of filtered) {
-              if (c.letter_sent) cols[3].items.push(c);
-              else if (c.address) cols[1].items.push(c);
-              else if (c.phone) cols[0].items.push(c);
-              else cols[2].items.push(c);
-            }
-            for (const col of cols) {
-              col.items.sort((a, b) =>
-                (PRIORITY_ORDER[a.priority || "Unspecified"] ?? 99) - (PRIORITY_ORDER[b.priority || "Unspecified"] ?? 99) ||
-                (a.state ?? "").localeCompare(b.state ?? "") ||
-                a.clinic_name.localeCompare(b.clinic_name),
-              );
-            }
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                {cols.map((col) => (
-                  <div key={col.key} className="border rounded-md bg-muted/20 flex flex-col min-h-[200px]">
-                    <div className="px-3 py-2 border-b bg-background/60 rounded-t-md">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold uppercase tracking-wide">{col.title}</span>
-                        <span className="text-[10px] text-muted-foreground">{col.items.length}</span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">{col.hint}</p>
-                    </div>
-                    <div className="divide-y">
-                      {col.items.length === 0 ? (
-                        <div className="text-[11px] text-muted-foreground/60 px-3 py-4 text-center">—</div>
-                      ) : col.items.map((c) => (
-                        <LetterRow
-                          key={c.id}
-                          clinic={c}
-                          covers={coversCounts[c.id] ?? 0}
-                          editing={editingId === c.id}
-                          onStartEdit={() => setEditingId(c.id)}
-                          onStopEdit={() => setEditingId(null)}
-                          onToggleSent={(v) => toggleSent(c, v)}
-                          onSave={(patch) => saveFields(c.id, patch)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            );
-          })()
+          <KanbanBoard
+            clinics={filtered}
+            coversCounts={coversCounts}
+            editingId={editingId}
+            onStartEdit={setEditingId}
+            onStopEdit={() => setEditingId(null)}
+            onToggleSent={toggleSent}
+            onSave={saveFields}
+          />
         )}
       </div>
 
