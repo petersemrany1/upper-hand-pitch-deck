@@ -1413,8 +1413,6 @@ function ClinicsPage() {
                 } as Clinic & { _branches?: Clinic[] }));
             })()}
             onOpenDetail={openDetail}
-            onCall={handleCall}
-            callingId={callingId}
             onMoveStage={async (clinic, newStage) => {
               const prevStage = clinic.status;
               setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStage } : c));
