@@ -8,12 +8,11 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { createFileRoute } from '@tanstack/react-router'
-
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
@@ -21,6 +20,7 @@ import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
+import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
@@ -37,6 +37,7 @@ import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
 import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
 import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
+import { Route as DashboardTrainingPracticeCallRouteImport } from './routes/_dashboard.training.practice-call'
 import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
 import { Route as DashboardTrainingKnowledgeQuizRouteImport } from './routes/_dashboard.training.knowledge-quiz'
 import { Route as DashboardTrainingConsultationVideosRouteImport } from './routes/_dashboard.training.consultation-videos'
@@ -49,19 +50,6 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
 
-const ClinicPortalLazyRouteImport = createFileRoute('/clinic-portal')()
-const DashboardSalesCallLazyRouteImport = createFileRoute(
-  '/_dashboard/sales-call',
-)()
-const DashboardTrainingPracticeCallLazyRouteImport = createFileRoute(
-  '/_dashboard/training/practice-call',
-)()
-
-const ClinicPortalLazyRoute = ClinicPortalLazyRouteImport.update({
-  id: '/clinic-portal',
-  path: '/clinic-portal',
-  getParentRoute: () => rootRouteImport,
-} as any).lazy(() => import('./routes/clinic-portal.lazy').then((d) => d.Route))
 const ThankYouRoute = ThankYouRouteImport.update({
   id: '/thank-you',
   path: '/thank-you',
@@ -77,6 +65,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ClinicPortalRoute = ClinicPortalRouteImport.update({
+  id: '/clinic-portal',
+  path: '/clinic-portal',
+  getParentRoute: () => rootRouteImport,
+} as any).lazy(() => import('./routes/clinic-portal.lazy').then((d) => d.Route))
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
@@ -86,13 +79,6 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardSalesCallLazyRoute = DashboardSalesCallLazyRouteImport.update({
-  id: '/sales-call',
-  path: '/sales-call',
-  getParentRoute: () => DashboardRoute,
-} as any).lazy(() =>
-  import('./routes/_dashboard.sales-call.lazy').then((d) => d.Route),
-)
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
@@ -118,6 +104,13 @@ const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
   path: '/sent-links',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
+  id: '/sales-call',
+  path: '/sales-call',
+  getParentRoute: () => DashboardRoute,
+} as any).lazy(() =>
+  import('./routes/_dashboard.sales-call.lazy').then((d) => d.Route),
+)
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   id: '/pitch-deck',
   path: '/pitch-deck',
@@ -178,16 +171,6 @@ const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardTrainingRoute,
 } as any)
-const DashboardTrainingPracticeCallLazyRoute =
-  DashboardTrainingPracticeCallLazyRouteImport.update({
-    id: '/practice-call',
-    path: '/practice-call',
-    getParentRoute: () => DashboardTrainingRoute,
-  } as any).lazy(() =>
-    import('./routes/_dashboard.training.practice-call.lazy').then(
-      (d) => d.Route,
-    ),
-  )
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
@@ -216,6 +199,16 @@ const DashboardTrainingProductKnowledgeRoute =
     path: '/product-knowledge',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
+const DashboardTrainingPracticeCallRoute =
+  DashboardTrainingPracticeCallRouteImport.update({
+    id: '/practice-call',
+    path: '/practice-call',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any).lazy(() =>
+    import('./routes/_dashboard.training.practice-call.lazy').then(
+      (d) => d.Route,
+    ),
+  )
 const DashboardTrainingPlatformRoute =
   DashboardTrainingPlatformRouteImport.update({
     id: '/platform',
@@ -284,10 +277,10 @@ const ApiPublicHooksReconcileCallDurationsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
+  '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
-  '/clinic-portal': typeof ClinicPortalLazyRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
@@ -298,23 +291,23 @@ export interface FileRoutesByFullPath {
   '/logs': typeof DashboardLogsRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/sales-call': typeof DashboardSalesCallLazyRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/training/knowledge-quiz': typeof DashboardTrainingKnowledgeQuizRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
+  '/training/practice-call': typeof DashboardTrainingPracticeCallRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
-  '/training/practice-call': typeof DashboardTrainingPracticeCallLazyRoute
   '/training/': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
@@ -324,10 +317,10 @@ export interface FileRoutesByFullPath {
   '/training/sales-framework/': typeof DashboardTrainingSalesFrameworkIndexRoute
 }
 export interface FileRoutesByTo {
+  '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
-  '/clinic-portal': typeof ClinicPortalLazyRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
@@ -338,23 +331,23 @@ export interface FileRoutesByTo {
   '/logs': typeof DashboardLogsRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/sales-call': typeof DashboardSalesCallRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/sales-call': typeof DashboardSalesCallLazyRoute
   '/': typeof DashboardIndexRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/training/knowledge-quiz': typeof DashboardTrainingKnowledgeQuizRoute
   '/training/platform': typeof DashboardTrainingPlatformRoute
+  '/training/practice-call': typeof DashboardTrainingPracticeCallRoute
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
-  '/training/practice-call': typeof DashboardTrainingPracticeCallLazyRoute
   '/training': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
@@ -366,10 +359,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_dashboard': typeof DashboardRouteWithChildren
+  '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
-  '/clinic-portal': typeof ClinicPortalLazyRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
@@ -380,24 +373,24 @@ export interface FileRoutesById {
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
+  '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
-  '/_dashboard/sales-call': typeof DashboardSalesCallLazyRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/training/ai': typeof DashboardTrainingAiRoute
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
   '/_dashboard/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
   '/_dashboard/training/knowledge-quiz': typeof DashboardTrainingKnowledgeQuizRoute
   '/_dashboard/training/platform': typeof DashboardTrainingPlatformRoute
+  '/_dashboard/training/practice-call': typeof DashboardTrainingPracticeCallRoute
   '/_dashboard/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
-  '/_dashboard/training/practice-call': typeof DashboardTrainingPracticeCallLazyRoute
   '/_dashboard/training/': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
@@ -410,10 +403,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/clinic-portal'
     | '/login'
     | '/reset-password'
     | '/thank-you'
-    | '/clinic-portal'
     | '/analytics'
     | '/booked-appointments'
     | '/clients'
@@ -424,23 +417,23 @@ export interface FileRouteTypes {
     | '/logs'
     | '/partner-clinics'
     | '/pitch-deck'
+    | '/sales-call'
     | '/sent-links'
     | '/settings'
     | '/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
-    | '/sales-call'
     | '/training/ai'
     | '/training/audience'
     | '/training/consultation-videos'
     | '/training/knowledge-quiz'
     | '/training/platform'
+    | '/training/practice-call'
     | '/training/product-knowledge'
     | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
-    | '/training/practice-call'
     | '/training/'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
@@ -450,10 +443,10 @@ export interface FileRouteTypes {
     | '/training/sales-framework/'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/clinic-portal'
     | '/login'
     | '/reset-password'
     | '/thank-you'
-    | '/clinic-portal'
     | '/analytics'
     | '/booked-appointments'
     | '/clients'
@@ -464,23 +457,23 @@ export interface FileRouteTypes {
     | '/logs'
     | '/partner-clinics'
     | '/pitch-deck'
+    | '/sales-call'
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
     | '/email/unsubscribe'
-    | '/sales-call'
     | '/'
     | '/training/ai'
     | '/training/audience'
     | '/training/consultation-videos'
     | '/training/knowledge-quiz'
     | '/training/platform'
+    | '/training/practice-call'
     | '/training/product-knowledge'
     | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
-    | '/training/practice-call'
     | '/training'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
@@ -491,10 +484,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_dashboard'
+    | '/clinic-portal'
     | '/login'
     | '/reset-password'
     | '/thank-you'
-    | '/clinic-portal'
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
     | '/_dashboard/clients'
@@ -505,24 +498,24 @@ export interface FileRouteTypes {
     | '/_dashboard/logs'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
+    | '/_dashboard/sales-call'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/_dashboard/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
-    | '/_dashboard/sales-call'
     | '/_dashboard/'
     | '/_dashboard/training/ai'
     | '/_dashboard/training/audience'
     | '/_dashboard/training/consultation-videos'
     | '/_dashboard/training/knowledge-quiz'
     | '/_dashboard/training/platform'
+    | '/_dashboard/training/practice-call'
     | '/_dashboard/training/product-knowledge'
     | '/_dashboard/training/read-along'
     | '/_dashboard/training/sales-call-example'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
-    | '/_dashboard/training/practice-call'
     | '/_dashboard/training/'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
@@ -534,10 +527,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
+  ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ThankYouRoute: typeof ThankYouRoute
-  ClinicPortalLazyRoute: typeof ClinicPortalLazyRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
@@ -551,13 +544,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/clinic-portal': {
-      id: '/clinic-portal'
-      path: '/clinic-portal'
-      fullPath: '/clinic-portal'
-      preLoaderRoute: typeof ClinicPortalLazyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/thank-you': {
       id: '/thank-you'
       path: '/thank-you'
@@ -579,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/clinic-portal': {
+      id: '/clinic-portal'
+      path: '/clinic-portal'
+      fullPath: '/clinic-portal'
+      preLoaderRoute: typeof ClinicPortalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard': {
       id: '/_dashboard'
       path: ''
@@ -591,13 +584,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sales-call': {
-      id: '/_dashboard/sales-call'
-      path: '/sales-call'
-      fullPath: '/sales-call'
-      preLoaderRoute: typeof DashboardSalesCallLazyRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/email/unsubscribe': {
@@ -633,6 +619,13 @@ declare module '@tanstack/react-router' {
       path: '/sent-links'
       fullPath: '/sent-links'
       preLoaderRoute: typeof DashboardSentLinksRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sales-call': {
+      id: '/_dashboard/sales-call'
+      path: '/sales-call'
+      fullPath: '/sales-call'
+      preLoaderRoute: typeof DashboardSalesCallRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/pitch-deck': {
@@ -712,13 +705,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingIndexRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
-    '/_dashboard/training/practice-call': {
-      id: '/_dashboard/training/practice-call'
-      path: '/practice-call'
-      fullPath: '/training/practice-call'
-      preLoaderRoute: typeof DashboardTrainingPracticeCallLazyRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
     '/lovable/email/suppression': {
       id: '/lovable/email/suppression'
       path: '/lovable/email/suppression'
@@ -752,6 +738,13 @@ declare module '@tanstack/react-router' {
       path: '/product-knowledge'
       fullPath: '/training/product-knowledge'
       preLoaderRoute: typeof DashboardTrainingProductKnowledgeRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/practice-call': {
+      id: '/_dashboard/training/practice-call'
+      path: '/practice-call'
+      fullPath: '/training/practice-call'
+      preLoaderRoute: typeof DashboardTrainingPracticeCallRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
     '/_dashboard/training/platform': {
@@ -840,10 +833,10 @@ interface DashboardTrainingRouteChildren {
   DashboardTrainingConsultationVideosRoute: typeof DashboardTrainingConsultationVideosRoute
   DashboardTrainingKnowledgeQuizRoute: typeof DashboardTrainingKnowledgeQuizRoute
   DashboardTrainingPlatformRoute: typeof DashboardTrainingPlatformRoute
+  DashboardTrainingPracticeCallRoute: typeof DashboardTrainingPracticeCallRoute
   DashboardTrainingProductKnowledgeRoute: typeof DashboardTrainingProductKnowledgeRoute
   DashboardTrainingReadAlongRoute: typeof DashboardTrainingReadAlongRoute
   DashboardTrainingSalesCallExampleRoute: typeof DashboardTrainingSalesCallExampleRoute
-  DashboardTrainingPracticeCallLazyRoute: typeof DashboardTrainingPracticeCallLazyRoute
   DashboardTrainingIndexRoute: typeof DashboardTrainingIndexRoute
   DashboardTrainingSalesFrameworkIndexRoute: typeof DashboardTrainingSalesFrameworkIndexRoute
 }
@@ -855,13 +848,12 @@ const DashboardTrainingRouteChildren: DashboardTrainingRouteChildren = {
     DashboardTrainingConsultationVideosRoute,
   DashboardTrainingKnowledgeQuizRoute: DashboardTrainingKnowledgeQuizRoute,
   DashboardTrainingPlatformRoute: DashboardTrainingPlatformRoute,
+  DashboardTrainingPracticeCallRoute: DashboardTrainingPracticeCallRoute,
   DashboardTrainingProductKnowledgeRoute:
     DashboardTrainingProductKnowledgeRoute,
   DashboardTrainingReadAlongRoute: DashboardTrainingReadAlongRoute,
   DashboardTrainingSalesCallExampleRoute:
     DashboardTrainingSalesCallExampleRoute,
-  DashboardTrainingPracticeCallLazyRoute:
-    DashboardTrainingPracticeCallLazyRoute,
   DashboardTrainingIndexRoute: DashboardTrainingIndexRoute,
   DashboardTrainingSalesFrameworkIndexRoute:
     DashboardTrainingSalesFrameworkIndexRoute,
@@ -881,10 +873,10 @@ interface DashboardRouteChildren {
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
+  DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardTrainingRoute: typeof DashboardTrainingRouteWithChildren
-  DashboardSalesCallLazyRoute: typeof DashboardSalesCallLazyRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
@@ -899,10 +891,10 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
+  DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardTrainingRoute: DashboardTrainingRouteWithChildren,
-  DashboardSalesCallLazyRoute: DashboardSalesCallLazyRoute,
   DashboardIndexRoute: DashboardIndexRoute,
 }
 
@@ -912,10 +904,10 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
+  ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ThankYouRoute: ThankYouRoute,
-  ClinicPortalLazyRoute: ClinicPortalLazyRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
