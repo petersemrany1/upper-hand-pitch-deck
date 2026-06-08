@@ -81,6 +81,7 @@ function csvEscape(v: string | number | null | undefined): string {
 function LetterCampaignPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [coversCounts, setCoversCounts] = useState<Record<string, number>>({});
+  const [lastCalls, setLastCalls] = useState<Record<string, LastCall>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -92,7 +93,7 @@ function LetterCampaignPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("clinics")
-      .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, is_parent, parent_clinic_id, letter_sent, letter_sent_at")
+      .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at")
       .in("status", ELIGIBLE_STATUSES as unknown as string[])
       .or("is_parent.eq.true,parent_clinic_id.is.null")
       .limit(2000);
@@ -101,7 +102,8 @@ function LetterCampaignPage() {
       setLoading(false);
       return;
     }
-    setClinics((data ?? []) as Clinic[]);
+    const rows = (data ?? []) as Clinic[];
+    setClinics(rows);
 
     const { data: childRows } = await supabase
       .from("clinics")
@@ -113,6 +115,25 @@ function LetterCampaignPage() {
       if (r.parent_clinic_id) counts[r.parent_clinic_id] = (counts[r.parent_clinic_id] ?? 0) + 1;
     });
     setCoversCounts(counts);
+
+    // Latest call per clinic (most-recent first; keep first seen per clinic_id)
+    const ids = rows.map((r) => r.id);
+    if (ids.length) {
+      const { data: callRows } = await supabase
+        .from("call_records")
+        .select("clinic_id, called_at, outcome, status, duration_seconds")
+        .in("clinic_id", ids)
+        .order("called_at", { ascending: false })
+        .limit(5000);
+      const map: Record<string, LastCall> = {};
+      (callRows ?? []).forEach((r: { clinic_id: string | null; called_at: string; outcome: string | null; status: string | null; duration_seconds: number | null }) => {
+        if (r.clinic_id && !map[r.clinic_id]) {
+          map[r.clinic_id] = { called_at: r.called_at, outcome: r.outcome, status: r.status, duration_seconds: r.duration_seconds };
+        }
+      });
+      setLastCalls(map);
+    }
+
     setLoading(false);
   };
 
