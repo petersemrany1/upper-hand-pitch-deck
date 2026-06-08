@@ -505,6 +505,40 @@ function LetterRow({
   );
 }
 
+function LetterNotesEditor({
+  initial, onSave, onCancel,
+}: {
+  initial: string;
+  onSave: (v: string) => void;
+  onCancel: () => void;
+}) {
+  const [value, setValue] = useState(initial);
+  return (
+    <div className="space-y-1.5">
+      <Textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Research notes — addresses tried, who answered, links checked…"
+        className="text-xs min-h-[80px]"
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); onSave(value); }
+          if (e.key === "Escape") { e.preventDefault(); onCancel(); }
+        }}
+      />
+      <div className="flex justify-between items-center">
+        <span className="text-[10px] text-muted-foreground">⌘/Ctrl + Enter to save · Esc to cancel</span>
+        <div className="flex gap-1.5">
+          <Button size="sm" variant="ghost" onClick={onCancel} className="h-7"><X className="h-3.5 w-3.5 mr-1" />Cancel</Button>
+          <Button size="sm" onClick={() => onSave(value)} className="h-7"><Check className="h-3.5 w-3.5 mr-1" />Save</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
 const STATUS_TONES: Record<string, { bg: string; fg: string }> = {
   "Not Started": { bg: "#f3f4f6", fg: "#374151" },
   "Contacted — No Answer": { bg: "#fef3c7", fg: "#92400e" },
