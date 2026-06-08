@@ -599,6 +599,8 @@ export type Database = {
           email: string | null
           id: string
           is_parent: boolean
+          letter_sent: boolean
+          letter_sent_at: string | null
           next_follow_up: string | null
           notes: string | null
           owner_name: string | null
@@ -625,6 +627,8 @@ export type Database = {
           email?: string | null
           id?: string
           is_parent?: boolean
+          letter_sent?: boolean
+          letter_sent_at?: string | null
           next_follow_up?: string | null
           notes?: string | null
           owner_name?: string | null
@@ -651,6 +655,8 @@ export type Database = {
           email?: string | null
           id?: string
           is_parent?: boolean
+          letter_sent?: boolean
+          letter_sent_at?: string | null
           next_follow_up?: string | null
           notes?: string | null
           owner_name?: string | null
