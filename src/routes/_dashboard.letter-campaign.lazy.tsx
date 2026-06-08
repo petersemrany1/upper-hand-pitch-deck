@@ -303,6 +303,9 @@ function LetterCampaignPage() {
             editingId={editingId}
             onStartEdit={setEditingId}
             onStopEdit={() => setEditingId(null)}
+            notesEditingId={notesEditingId}
+            onStartNotesEdit={setNotesEditingId}
+            onStopNotesEdit={() => setNotesEditingId(null)}
             onToggleSent={toggleSent}
             onSave={saveFields}
           />
