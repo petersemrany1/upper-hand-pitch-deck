@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +25,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 
-export const Route = createFileRoute("/_dashboard/clinics")({
+export const Route = createLazyFileRoute("/_dashboard/clinics")({
   component: ClinicsPage,
   validateSearch: (search: Record<string, unknown>) => ({
     clinic: typeof search.clinic === "string" ? search.clinic : undefined,

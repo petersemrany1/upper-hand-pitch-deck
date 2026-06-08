@@ -1,32 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Search, Plus, Phone, Mail, X, ChevronDown, ChevronRight,
-  PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
-  Upload, Clock, AlertCircle, Trash2, Video, Send,
-} from "lucide-react";
-import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
-import { sendBoldContractEmail } from "@/utils/bold-contract.functions";
-import { useServerFn } from "@tanstack/react-start";
-import { useTwilioDevice } from "@/hooks/useTwilioDevice";
-import { useCurrentRepId } from "@/hooks/useCurrentRepId";
-import { toast } from "sonner";
-import { ClinicSmsPreview } from "@/components/ClinicSmsPreview";
-import { CallReviewInbox } from "@/components/CallReviewInbox";
-import { isValidAUPhone } from "@/utils/phone";
-import type { AppliedReview } from "@/components/CallReviewPopup";
-
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 
 export const Route = createFileRoute("/_dashboard/clinics")({
-  component: ClinicsPage,
   validateSearch: (search: Record<string, unknown>) => ({
     clinic: typeof search.clinic === "string" ? search.clinic : undefined,
   }),
@@ -37,54 +11,6 @@ export const Route = createFileRoute("/_dashboard/clinics")({
     ],
   }),
 });
-
-type Clinic = {
-  id: string;
-  clinic_name: string;
-  state: string | null;
-  city: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  owner_name: string | null;
-  priority: string;
-  status: string;
-  next_follow_up: string | null;
-  notes: string | null;
-  created_at: string;
-  reminder_sent: boolean;
-  parent_clinic_id: string | null;
-  is_parent: boolean;
-};
-
-type ClinicContact = {
-  id: string;
-  clinic_id: string;
-  contact_type: string;
-  outcome: string | null;
-  notes: string | null;
-  next_action: string | null;
-  next_action_date: string | null;
-  next_action_time: string | null;
-  duration: string | null;
-  created_at: string;
-};
-
-// Pipeline stages
-const PIPELINE_STAGES = [
-  "TEST",
-  "Not Started",
-  "Contacted — No Answer",
-  "Contacted — Gatekeeper",
-  "Contacted — Call Me Back",
-  "Contacted — Not Interested",
-  "Sent Email/Loom",
-  "Zoom Set",
-  "Contract Sent",
-  "Signed",
-  "Lost",
-  "Not Applicable",
-] as const;
 
 // Stages considered inactive — collapsed/hidden from main pipeline view by default
 const NOT_APPLICABLE_STAGES = new Set(["Not Applicable"]);
