@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Printer, Download, Mail, Check, X, StickyNote } from "lucide-react";
+import { Search, Printer, Download, Mail, Check, X, StickyNote, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
