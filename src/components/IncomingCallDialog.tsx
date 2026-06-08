@@ -200,7 +200,7 @@ export function IncomingCallDialog() {
           top: 0,
           left: 0,
           right: 0,
-          height: BANNER_HEIGHT,
+          height: INCOMING_BANNER_HEIGHT,
           background: "#ffffff",
           borderBottom: "1px solid #e8e8e6",
           boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
