@@ -463,13 +463,42 @@ function LetterRow({
             📅 follow-up {followUpLabel}
           </span>
         )}
-        {noteSnippet && (
-          <span className="text-muted-foreground/80 italic truncate max-w-full" title={clinic.notes ?? ""}>
-            "{noteSnippet}{(clinic.notes ?? "").length > 140 ? "…" : ""}"
-          </span>
-        )}
-        {!lastCallLabel && !followUpLabel && !noteSnippet && (
+        {!lastCallLabel && !followUpLabel && (
           <span className="text-muted-foreground/50">no CRM activity yet</span>
+        )}
+      </div>
+
+      {/* Research notes */}
+      <div className="ml-7 mt-1.5" onClick={(e) => e.stopPropagation()}>
+        {notesEditing ? (
+          <LetterNotesEditor
+            initial={clinic.notes ?? ""}
+            onCancel={onStopNotesEdit}
+            onSave={(v) => {
+              onSave({ notes: v.trim() === "" ? null : v });
+              onStopNotesEdit();
+            }}
+          />
+        ) : noteSnippet ? (
+          <button
+            type="button"
+            onClick={onStartNotesEdit}
+            className="text-left w-full text-[11px] text-muted-foreground/90 bg-amber-50/60 border border-amber-100 rounded px-2 py-1.5 hover:bg-amber-50 transition-colors"
+            title="Click to edit research notes"
+          >
+            <span className="inline-flex items-center gap-1 text-amber-700 font-medium mr-1">
+              <StickyNote className="h-3 w-3" /> notes
+            </span>
+            <span className="whitespace-pre-wrap">{noteSnippet}{(clinic.notes ?? "").length > 140 ? "…" : ""}</span>
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onStartNotesEdit}
+            className="text-[11px] text-muted-foreground/70 hover:text-foreground inline-flex items-center gap-1"
+          >
+            <StickyNote className="h-3 w-3" /> add research notes
+          </button>
         )}
       </div>
     </div>
