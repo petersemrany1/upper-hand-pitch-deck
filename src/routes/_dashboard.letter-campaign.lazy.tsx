@@ -466,7 +466,23 @@ function LetterRow({
             </button>
           )}
         </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Remove "${clinic.clinic_name}" from the Letter Campaign?\n\nThis only hides it from this campaign — status, notes, and other workflows are not affected. You can undo it from the toast.`)) {
+              onRemove();
+            }
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex-shrink-0 text-muted-foreground/40 hover:text-red-600 transition-colors p-1 -m-1"
+          title="Remove from this campaign only"
+          aria-label="Remove from campaign"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
+
 
       {/* CRM context line */}
       <div className="ml-7 mt-1 flex items-center flex-wrap gap-x-2 gap-y-1 text-[11px]">
