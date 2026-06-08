@@ -398,11 +398,11 @@ function LetterRow({
         <Checkbox checked={sent} onCheckedChange={(v) => onToggleSent(Boolean(v))} />
       </div>
       <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-        <span className={`font-semibold ${sent ? "line-through" : ""}`}>{addressee}</span>
+        <span className={`font-semibold ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
         <span className="text-muted-foreground/60">·</span>
-        <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
+        <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{addressee}</span>
         {covers > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700">covers {covers}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 cursor-default" title={`One letter reaches ${covers} clinic${covers === 1 ? "" : "s"} in this group — you only post once.`}>covers {covers}</span>
         )}
         {stateShort && <span className="text-[11px] text-muted-foreground/70">{stateShort}</span>}
       </div>
