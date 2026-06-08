@@ -143,7 +143,9 @@ const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
   id: '/clinics',
   path: '/clinics',
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/_dashboard.clinics.lazy').then((d) => d.Route),
+)
 const DashboardClientsRoute = DashboardClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
