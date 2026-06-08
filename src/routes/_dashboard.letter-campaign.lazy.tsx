@@ -51,6 +51,7 @@ type Clinic = {
   parent_clinic_id: string | null;
   letter_sent: boolean;
   letter_sent_at: string | null;
+  letter_campaign_column: string | null;
 };
 
 type LastCall = {
