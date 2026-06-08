@@ -507,7 +507,8 @@ function bucketFor(c: Clinic): ColKey {
 }
 
 function KanbanBoard({
-  clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit, onToggleSent, onSave,
+  clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit,
+  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave,
 }: {
   clinics: Clinic[];
   coversCounts: Record<string, number>;
@@ -515,8 +516,11 @@ function KanbanBoard({
   editingId: string | null;
   onStartEdit: (id: string) => void;
   onStopEdit: () => void;
+  notesEditingId: string | null;
+  onStartNotesEdit: (id: string) => void;
+  onStopNotesEdit: () => void;
   onToggleSent: (c: Clinic, v: boolean) => void;
-  onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null }) => void;
+  onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
