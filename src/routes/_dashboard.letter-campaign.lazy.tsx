@@ -297,6 +297,7 @@ function LetterCampaignPage() {
           <KanbanBoard
             clinics={filtered}
             coversCounts={coversCounts}
+            lastCalls={lastCalls}
             editingId={editingId}
             onStartEdit={setEditingId}
             onStopEdit={() => setEditingId(null)}
