@@ -51,9 +51,4 @@ function SalesCallErrorComponent({ error, reset }: { error: Error; reset: () => 
 export const Route = createLazyFileRoute("/_dashboard/sales-call")({
   component: SalesCallRoute,
   errorComponent: SalesCallErrorComponent,
-  validateSearch: (search: Record<string, unknown>): { leadId?: string; phone?: string } => {
-    const leadId = typeof search.leadId === "string" ? search.leadId : undefined;
-    const phone = typeof search.phone === "string" ? search.phone : undefined;
-    return { ...(leadId ? { leadId } : {}), ...(phone ? { phone } : {}) };
-  },
 });
