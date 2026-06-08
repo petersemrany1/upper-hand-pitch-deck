@@ -1387,13 +1387,23 @@ function ClinicsPage() {
 
         <TabsContent value="pipeline" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
           <PipelineBoard
-            clinics={clinics.filter((c) => {
-              // Pipeline view: keep Signed (don't apply the list-view Signed hide), but still respect search/state/status filters
-              const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
-              const matchState = !filterState || c.state === filterState;
-              const matchStatus = !filterStatus || c.status === filterStatus;
-              return matchSearch && matchState && matchStatus;
-            })}
+            clinics={(() => {
+              // Pipeline view: ONE CARD PER CHAIN. Show only flagships (top-level rows with no parent).
+              // Branches/satellites are hidden here — they still exist on the list view.
+              const childCount: Record<string, number> = {};
+              for (const c of clinics) {
+                if (c.parent_clinic_id) childCount[c.parent_clinic_id] = (childCount[c.parent_clinic_id] || 0) + 1;
+              }
+              return clinics
+                .filter((c) => !c.parent_clinic_id)
+                .filter((c) => {
+                  const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+                  const matchState = !filterState || c.state === filterState;
+                  const matchStatus = !filterStatus || c.status === filterStatus;
+                  return matchSearch && matchState && matchStatus;
+                })
+                .map((c) => ({ ...c, _branchCount: childCount[c.id] || 0 } as Clinic & { _branchCount?: number }));
+            })()}
             onOpenDetail={openDetail}
             onMoveStage={async (clinic, newStage) => {
               const prevStage = clinic.status;
@@ -1838,7 +1848,14 @@ function PipelineCardContent({ c, overlay = false }: { c: Clinic; overlay?: bool
   const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
   return (
     <>
-      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+      <div className="text-xs font-bold mb-1 truncate flex items-center gap-1.5" style={{ color: "#111111" }}>
+        <span className="truncate">{c.clinic_name}</span>
+        {((c as Clinic & { _branchCount?: number })._branchCount ?? 0) > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{ background: "#eef2ff", color: "#4338ca" }}>
+            +{(c as Clinic & { _branchCount?: number })._branchCount} {((c as Clinic & { _branchCount?: number })._branchCount === 1) ? "branch" : "branches"}
+          </span>
+        )}
+      </div>
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
       {c.phone && (
@@ -1884,7 +1901,14 @@ function DraggableClinicCard({
       style={{ background: "#ffffff", border: "1px solid #ebebeb", opacity: isDragging ? 0.4 : 1, touchAction: "none" }}
       onClick={() => onOpenDetail(c)}
     >
-      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+      <div className="text-xs font-bold mb-1 truncate flex items-center gap-1.5" style={{ color: "#111111" }}>
+        <span className="truncate">{c.clinic_name}</span>
+        {((c as Clinic & { _branchCount?: number })._branchCount ?? 0) > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{ background: "#eef2ff", color: "#4338ca" }}>
+            +{(c as Clinic & { _branchCount?: number })._branchCount} {((c as Clinic & { _branchCount?: number })._branchCount === 1) ? "branch" : "branches"}
+          </span>
+        )}
+      </div>
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
       {c.phone && (
