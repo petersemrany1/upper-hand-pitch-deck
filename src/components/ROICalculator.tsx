@@ -90,7 +90,7 @@ export default function ROICalculator({ caseValue, convertRate, pricePerShow, on
                 <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
                   {getConvertLabel(col.label)}
                 </p>
-                <p className={`font-extrabold ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1rem, 4vw, 4.5rem)', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                <p className={`font-extrabold leading-none ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1.75rem, 4.2vw, 3.5rem)', whiteSpace: 'nowrap', maxWidth: '100%' }}>
                   {fmt(col.revenue)}
                 </p>
                 <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>
