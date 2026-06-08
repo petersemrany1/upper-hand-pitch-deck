@@ -216,9 +216,26 @@ function LetterCampaignPage() {
           <Mail className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-xl font-semibold">Letter Campaign</h1>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground mb-3">
           Post every letter marked Private &amp; Confidential — it bypasses the front desk.
         </p>
+
+        {showHowItWorks && (
+          <div className="relative bg-muted/40 border rounded-md px-4 py-2.5 mb-4 text-xs text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setShowHowItWorks(false)}
+              className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            <span><span className="font-semibold text-foreground">1.</span> Find the address</span>
+            <span><span className="font-semibold text-foreground">2.</span> Print the ready list</span>
+            <span><span className="font-semibold text-foreground">3.</span> Handwrite &amp; post the letter (mark the envelope <em>Private &amp; Confidential</em>)</span>
+            <span><span className="font-semibold text-foreground">4.</span> Tick the box once it's posted</span>
+          </div>
+        )}
 
         {/* Summary strip */}
         <div className="bg-muted/50 border rounded-md px-4 py-2.5 mb-4 text-sm flex flex-wrap items-center gap-x-1 gap-y-1">
