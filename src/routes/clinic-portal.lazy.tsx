@@ -6,7 +6,6 @@ import { ClinicPortalView } from "@/components/ClinicPortalView";
 
 export const Route = createLazyFileRoute("/clinic-portal")({
   component: ClinicPortalPage,
-  head: () => ({ meta: [{ title: "Clinic Partner Portal" }] }),
 });
 
 const NAVY = "#1a3a6b";

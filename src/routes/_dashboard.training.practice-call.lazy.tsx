@@ -9,7 +9,6 @@ import { loadIsAdmin } from "@/lib/training-modules";
 
 export const Route = createLazyFileRoute("/_dashboard/training/practice-call")({
   component: PracticeCallPageWrapper,
-  head: () => ({ meta: [{ title: "Practice Call" }] }),
 });
 
 function PracticeCallPageWrapper() {
