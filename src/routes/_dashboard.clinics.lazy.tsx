@@ -1848,7 +1848,14 @@ function PipelineCardContent({ c, overlay = false }: { c: Clinic; overlay?: bool
   const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
   return (
     <>
-      <div className="text-xs font-bold mb-1 truncate" style={{ color: "#111111" }}>{c.clinic_name}</div>
+      <div className="text-xs font-bold mb-1 truncate flex items-center gap-1.5" style={{ color: "#111111" }}>
+        <span className="truncate">{c.clinic_name}</span>
+        {((c as Clinic & { _branchCount?: number })._branchCount ?? 0) > 0 && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold shrink-0" style={{ background: "#eef2ff", color: "#4338ca" }}>
+            +{(c as Clinic & { _branchCount?: number })._branchCount} {((c as Clinic & { _branchCount?: number })._branchCount === 1) ? "branch" : "branches"}
+          </span>
+        )}
+      </div>
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
       {c.phone && (
