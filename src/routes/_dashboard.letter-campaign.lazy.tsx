@@ -74,6 +74,7 @@ function LetterCampaignPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [chip, setChip] = useState<ChipFilter>("all");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showHowItWorks, setShowHowItWorks] = useState(true);
 
   const load = async () => {
     setLoading(true);
@@ -215,9 +216,26 @@ function LetterCampaignPage() {
           <Mail className="h-5 w-5 text-muted-foreground" />
           <h1 className="text-xl font-semibold">Letter Campaign</h1>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
+        <p className="text-sm text-muted-foreground mb-3">
           Post every letter marked Private &amp; Confidential — it bypasses the front desk.
         </p>
+
+        {showHowItWorks && (
+          <div className="relative bg-muted/40 border rounded-md px-4 py-2.5 mb-4 text-xs text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1">
+            <button
+              type="button"
+              onClick={() => setShowHowItWorks(false)}
+              className="absolute top-1.5 right-2 text-muted-foreground hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            <span><span className="font-semibold text-foreground">1.</span> Find the address</span>
+            <span><span className="font-semibold text-foreground">2.</span> Print the ready list</span>
+            <span><span className="font-semibold text-foreground">3.</span> Handwrite &amp; post the letter (mark the envelope <em>Private &amp; Confidential</em>)</span>
+            <span><span className="font-semibold text-foreground">4.</span> Tick the box once it's posted</span>
+          </div>
+        )}
 
         {/* Summary strip */}
         <div className="bg-muted/50 border rounded-md px-4 py-2.5 mb-4 text-sm flex flex-wrap items-center gap-x-1 gap-y-1">
@@ -345,6 +363,17 @@ function LetterRow({
           <span className="text-xs text-muted-foreground w-20">Address</span>
           <Input value={draftAddress} onChange={(e) => setDraftAddress(e.target.value)} placeholder="Street, suburb, state, postcode" className="h-8 text-sm"
             onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") onStopEdit(); }} />
+          {!clinic.address && (
+            <a
+              href={`https://www.google.com/search?q=${encodeURIComponent(`${clinic.clinic_name} ${clinic.state ?? ""}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-600 hover:underline whitespace-nowrap"
+              onClick={(e) => e.stopPropagation()}
+            >
+              Find on Google ↗
+            </a>
+          )}
         </div>
         <div className="flex justify-end gap-1.5">
           <Button size="sm" variant="ghost" onClick={onStopEdit} className="h-7"><X className="h-3.5 w-3.5 mr-1" />Cancel</Button>
@@ -369,11 +398,11 @@ function LetterRow({
         <Checkbox checked={sent} onCheckedChange={(v) => onToggleSent(Boolean(v))} />
       </div>
       <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-        <span className={`font-semibold ${sent ? "line-through" : ""}`}>{addressee}</span>
+        <span className={`font-semibold ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
         <span className="text-muted-foreground/60">·</span>
-        <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
+        <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{addressee}</span>
         {covers > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700">covers {covers}</span>
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 cursor-default" title={`One letter reaches ${covers} clinic${covers === 1 ? "" : "s"} in this group — you only post once.`}>covers {covers}</span>
         )}
         {stateShort && <span className="text-[11px] text-muted-foreground/70">{stateShort}</span>}
       </div>
