@@ -430,8 +430,8 @@ function PitchDeck() {
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
           </div>
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
-            <p className="text-2xl font-bold text-foreground">Close just 1</p>
-            <p className="text-[#CCCCCC] mt-1">one $17,000 case</p>
+            <p className="text-2xl font-bold text-foreground">Convert just 1</p>
+            <p className="text-[#CCCCCC] mt-1">one ${caseValue.toLocaleString()} case</p>
           </div>
           <div className="hidden md:flex items-center justify-center">
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
