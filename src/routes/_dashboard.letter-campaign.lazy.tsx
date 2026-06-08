@@ -682,7 +682,7 @@ function KanbanBoard({
         } else if (from === "sent") {
           onToggleSent(clinic, false);
         } else {
-          toast("Moving between these columns happens automatically — add an address or phone.", { duration: 2500 });
+          onSetColumn(clinic, overId as "call" | "letter" | "research");
         }
       }}
     >
