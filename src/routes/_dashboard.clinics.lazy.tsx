@@ -1892,14 +1892,10 @@ function DraggableClinicCard({
   c,
   onOpenDetail,
   onMoveStage,
-  onCall,
-  callingId,
 }: {
   c: Clinic;
   onOpenDetail: (c: Clinic) => void;
   onMoveStage: (c: Clinic, newStage: string) => void;
-  onCall: (c: Clinic) => void;
-  callingId: string | null;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: c.id,
@@ -1909,8 +1905,7 @@ function DraggableClinicCard({
   const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
   const branches = (c as Clinic & { _branches?: Clinic[] })._branches || [];
   const [branchesOpen, setBranchesOpen] = useState(false);
-  const mainPhoneValid = !!c.phone && isValidAUPhone(c.phone);
-  const isCallingMain = callingId === c.id;
+
 
   return (
     <div
