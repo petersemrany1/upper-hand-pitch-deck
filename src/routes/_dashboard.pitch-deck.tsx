@@ -453,9 +453,6 @@ function PitchDeck() {
           </p>
         </motion.div>
 
-        <motion.p variants={fadeIn} className="text-[#999] text-base md:text-lg text-center max-w-3xl mx-auto mb-10">
-          If 15 ready-to-go patients can't make a single sale, then hand on heart — this isn't for you. And we'll both know exactly why.
-        </motion.p>
 
         <motion.div variants={fadeIn} className="border-t border-white/10 pt-5 flex items-center justify-center gap-2.5">
           <ShieldCheck className="w-4 h-4 text-primary" />
