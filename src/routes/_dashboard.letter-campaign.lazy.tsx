@@ -344,6 +344,7 @@ function LetterCampaignPage() {
             onToggleSent={toggleSent}
             onSave={saveFields}
             onRemove={removeFromCampaign}
+            onSetColumn={setColumn}
           />
         )}
       </div>
