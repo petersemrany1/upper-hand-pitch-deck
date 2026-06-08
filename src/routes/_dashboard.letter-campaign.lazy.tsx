@@ -98,6 +98,7 @@ function LetterCampaignPage() {
       .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at")
       .in("status", ELIGIBLE_STATUSES as unknown as string[])
       .or("is_parent.eq.true,parent_clinic_id.is.null")
+      .eq("letter_campaign_excluded", false)
       .limit(2000);
     if (error) {
       toast.error("Failed to load clinics");
