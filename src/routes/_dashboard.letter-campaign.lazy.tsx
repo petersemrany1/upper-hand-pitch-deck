@@ -729,6 +729,7 @@ function DraggableLetterCard(props: {
   onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
   onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
+  onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: props.clinic.id,
