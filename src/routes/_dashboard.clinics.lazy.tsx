@@ -1387,7 +1387,13 @@ function ClinicsPage() {
 
         <TabsContent value="pipeline" className="flex-1 overflow-hidden mt-0 data-[state=inactive]:hidden">
           <PipelineBoard
-            clinics={filtered}
+            clinics={clinics.filter((c) => {
+              // Pipeline view: keep Signed (don't apply the list-view Signed hide), but still respect search/state/status filters
+              const matchSearch = !q || c.clinic_name.toLowerCase().includes(q) || (c.city || "").toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q);
+              const matchState = !filterState || c.state === filterState;
+              const matchStatus = !filterStatus || c.status === filterStatus;
+              return matchSearch && matchState && matchStatus;
+            })}
             onOpenDetail={openDetail}
             onMoveStage={async (clinic, newStage) => {
               const prevStage = clinic.status;
