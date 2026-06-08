@@ -9,6 +9,9 @@ import {
 } from "@/components/ui/select";
 import { Search, Printer, Download, Mail, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
+} from "@dnd-kit/core";
 
 export const Route = createLazyFileRoute("/_dashboard/letter-campaign")({
   component: LetterCampaignPage,
