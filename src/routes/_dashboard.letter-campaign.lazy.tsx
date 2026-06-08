@@ -96,7 +96,7 @@ function LetterCampaignPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("clinics")
-      .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at")
+      .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at, letter_campaign_column")
       .in("status", ELIGIBLE_STATUSES as unknown as string[])
       .or("is_parent.eq.true,parent_clinic_id.is.null")
       .eq("letter_campaign_excluded", false)
