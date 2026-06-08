@@ -8,7 +8,6 @@ import { DAY_NAMES } from "@/lib/slot-generation";
 
 export const Route = createLazyFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
-  head: () => ({ meta: [{ title: "Partner Clinics" }] }),
 });
 
 const COLORS = {
