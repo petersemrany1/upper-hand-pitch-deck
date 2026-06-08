@@ -189,7 +189,7 @@ function LetterCampaignPage() {
     }
   };
 
-  const saveFields = async (id: string, patch: { doctor_name?: string | null; address?: string | null }) => {
+  const saveFields = async (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => {
     setClinics((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
     const { error } = await supabase.from("clinics").update(patch).eq("id", id);
     if (error) toast.error("Could not save");
