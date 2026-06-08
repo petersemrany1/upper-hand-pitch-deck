@@ -69,7 +69,7 @@ const ClinicPortalRoute = ClinicPortalRouteImport.update({
   id: '/clinic-portal',
   path: '/clinic-portal',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any).lazy(() => import('./routes/clinic-portal.lazy').then((d) => d.Route))
 const DashboardRoute = DashboardRouteImport.update({
   id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
@@ -108,7 +108,9 @@ const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
   id: '/sales-call',
   path: '/sales-call',
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/_dashboard.sales-call.lazy').then((d) => d.Route),
+)
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   id: '/pitch-deck',
   path: '/pitch-deck',
@@ -118,7 +120,9 @@ const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
   id: '/partner-clinics',
   path: '/partner-clinics',
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/_dashboard.partner-clinics.lazy').then((d) => d.Route),
+)
 const DashboardLogsRoute = DashboardLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -200,7 +204,11 @@ const DashboardTrainingPracticeCallRoute =
     id: '/practice-call',
     path: '/practice-call',
     getParentRoute: () => DashboardTrainingRoute,
-  } as any)
+  } as any).lazy(() =>
+    import('./routes/_dashboard.training.practice-call.lazy').then(
+      (d) => d.Route,
+    ),
+  )
 const DashboardTrainingPlatformRoute =
   DashboardTrainingPlatformRouteImport.update({
     id: '/platform',
@@ -914,12 +922,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
