@@ -324,10 +324,11 @@ function LetterCampaignPage() {
 }
 
 function LetterRow({
-  clinic, covers, editing, onStartEdit, onStopEdit, onToggleSent, onSave,
+  clinic, covers, lastCall, editing, onStartEdit, onStopEdit, onToggleSent, onSave,
 }: {
   clinic: Clinic;
   covers: number;
+  lastCall: LastCall | null;
   editing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
