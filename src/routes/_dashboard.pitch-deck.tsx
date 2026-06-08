@@ -424,7 +424,7 @@ function PitchDeck() {
         >
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
             <p className="text-2xl font-bold text-foreground">10 patients</p>
-            <p className="text-[#CCCCCC] mt-1">in your chair · $8,000</p>
+            <p className="text-[#CCCCCC] mt-1">$8,000</p>
           </div>
           <div className="hidden md:flex items-center justify-center">
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
