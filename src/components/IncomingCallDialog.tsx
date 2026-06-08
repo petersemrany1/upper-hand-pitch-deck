@@ -4,6 +4,7 @@ import { findLeadByPhone } from "@/utils/sales-call.functions";
 import { sendSms } from "@/utils/sms.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Check, Phone } from "lucide-react";
+import { INCOMING_BANNER_HEIGHT } from "@/components/incoming-call-status";
 
 // Slim incoming-call banner that slides in from the top of the screen.
 // Sits ABOVE app content (the dashboard layout reserves 64px when this
@@ -11,8 +12,6 @@ import { Check, Phone } from "lucide-react";
 //
 // Replaces the old full-screen modal — the old name is kept so existing
 // imports keep working.
-
-const BANNER_HEIGHT = 64;
 
 type MatchedLead = {
   id: string;
@@ -368,12 +367,3 @@ export function IncomingCallDialog() {
   );
 }
 
-// Helper hook for the dashboard layout: returns true when the banner is
-// occupying space at the top of the viewport, so the layout can reserve
-// padding-top to avoid overlap.
-export function useIncomingBannerActive(): boolean {
-  const { status, waitingFrom } = useTwilioDevice();
-  return status === "ringing-incoming" || (status === "in-call" && !!waitingFrom);
-}
-
-export const INCOMING_BANNER_HEIGHT = BANNER_HEIGHT;
