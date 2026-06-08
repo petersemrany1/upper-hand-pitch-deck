@@ -574,6 +574,9 @@ function KanbanBoard({
                 editing={editingId === c.id}
                 onStartEdit={() => onStartEdit(c.id)}
                 onStopEdit={onStopEdit}
+                notesEditing={notesEditingId === c.id}
+                onStartNotesEdit={() => onStartNotesEdit(c.id)}
+                onStopNotesEdit={onStopNotesEdit}
                 onToggleSent={(v) => onToggleSent(c, v)}
                 onSave={(patch) => onSave(c.id, patch)}
               />
