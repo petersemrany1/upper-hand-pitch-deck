@@ -504,6 +504,7 @@ function KanbanBoard({
                 key={c.id}
                 clinic={c}
                 covers={coversCounts[c.id] ?? 0}
+                lastCall={lastCalls[c.id] ?? null}
                 editing={editingId === c.id}
                 onStartEdit={() => onStartEdit(c.id)}
                 onStopEdit={onStopEdit}
