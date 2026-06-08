@@ -632,7 +632,7 @@ function bucketFor(c: Clinic): ColKey {
 
 function KanbanBoard({
   clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit,
-  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave, onRemove,
+  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave, onRemove, onSetColumn,
 }: {
   clinics: Clinic[];
   coversCounts: Record<string, number>;
@@ -646,6 +646,7 @@ function KanbanBoard({
   onToggleSent: (c: Clinic, v: boolean) => void;
   onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
   onRemove: (c: Clinic) => void;
+  onSetColumn: (c: Clinic, col: "call" | "letter" | "research") => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
