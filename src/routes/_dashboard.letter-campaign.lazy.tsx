@@ -64,7 +64,7 @@ function csvEscape(v: string | number | null | undefined): string {
   return s;
 }
 
-type ChipFilter = "all" | "ready" | "needs";
+
 
 function LetterCampaignPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
