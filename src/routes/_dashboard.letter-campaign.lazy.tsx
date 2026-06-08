@@ -354,7 +354,7 @@ function LetterCampaignPage() {
 function LetterRow({
   clinic, covers, lastCall, editing, onStartEdit, onStopEdit,
   notesEditing, onStartNotesEdit, onStopNotesEdit,
-  onToggleSent, onSave,
+  onToggleSent, onSave, onRemove,
 }: {
   clinic: Clinic;
   covers: number;
@@ -367,6 +367,7 @@ function LetterRow({
   onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
   onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
+  onRemove: () => void;
 }) {
   const sent = clinic.letter_sent;
   const addressee = addresseeFor(clinic);
