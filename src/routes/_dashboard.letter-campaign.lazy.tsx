@@ -397,3 +397,156 @@ function LetterRow({
     </div>
   );
 }
+
+type ColKey = "call" | "letter" | "research" | "sent";
+const COLUMNS: { key: ColKey; title: string; hint: string }[] = [
+  { key: "call", title: "Try call first", hint: "Has phone, no address" },
+  { key: "letter", title: "Send letter", hint: "Address ready — print & post" },
+  { key: "research", title: "Do research", hint: "Look them up" },
+  { key: "sent", title: "Sent", hint: "Letter posted" },
+];
+
+function bucketFor(c: Clinic): ColKey {
+  if (c.letter_sent) return "sent";
+  if (c.address) return "letter";
+  if (c.phone) return "call";
+  return "research";
+}
+
+function KanbanBoard({
+  clinics, coversCounts, editingId, onStartEdit, onStopEdit, onToggleSent, onSave,
+}: {
+  clinics: Clinic[];
+  coversCounts: Record<string, number>;
+  editingId: string | null;
+  onStartEdit: (id: string) => void;
+  onStopEdit: () => void;
+  onToggleSent: (c: Clinic, v: boolean) => void;
+  onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null }) => void;
+}) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
+
+  const byCol: Record<ColKey, Clinic[]> = { call: [], letter: [], research: [], sent: [] };
+  for (const c of clinics) byCol[bucketFor(c)].push(c);
+  for (const k of Object.keys(byCol) as ColKey[]) {
+    byCol[k].sort((a, b) =>
+      (PRIORITY_ORDER[a.priority || "Unspecified"] ?? 99) - (PRIORITY_ORDER[b.priority || "Unspecified"] ?? 99) ||
+      (a.state ?? "").localeCompare(b.state ?? "") ||
+      a.clinic_name.localeCompare(b.clinic_name),
+    );
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e) => {
+        const c = (e.active.data.current as { clinic?: Clinic } | undefined)?.clinic;
+        if (c) setActiveClinic(c);
+      }}
+      onDragCancel={() => setActiveClinic(null)}
+      onDragEnd={(e) => {
+        setActiveClinic(null);
+        const overId = e.over?.id ? String(e.over.id) as ColKey : null;
+        if (!overId) return;
+        const clinic = (e.active.data.current as { clinic?: Clinic } | undefined)?.clinic;
+        if (!clinic) return;
+        const from = bucketFor(clinic);
+        if (from === overId) return;
+        if (overId === "sent") {
+          onToggleSent(clinic, true);
+        } else if (from === "sent") {
+          onToggleSent(clinic, false);
+        } else {
+          toast("Moving between these columns happens automatically — add an address or phone.", { duration: 2500 });
+        }
+      }}
+    >
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        {COLUMNS.map((col) => (
+          <LetterColumn key={col.key} colKey={col.key} title={col.title} hint={col.hint} count={byCol[col.key].length}>
+            {byCol[col.key].length === 0 ? (
+              <div className="text-[11px] text-muted-foreground/60 px-3 py-4 text-center">—</div>
+            ) : byCol[col.key].map((c) => (
+              <DraggableLetterCard
+                key={c.id}
+                clinic={c}
+                covers={coversCounts[c.id] ?? 0}
+                editing={editingId === c.id}
+                onStartEdit={() => onStartEdit(c.id)}
+                onStopEdit={onStopEdit}
+                onToggleSent={(v) => onToggleSent(c, v)}
+                onSave={(patch) => onSave(c.id, patch)}
+              />
+            ))}
+          </LetterColumn>
+        ))}
+      </div>
+      <DragOverlay dropAnimation={null}>
+        {activeClinic ? (
+          <div className="rounded-md bg-background border border-foreground shadow-lg px-3 py-2 text-sm w-[240px]">
+            <div className="font-semibold truncate">{activeClinic.clinic_name}</div>
+            <div className="text-xs text-muted-foreground truncate">{addresseeFor(activeClinic)}</div>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
+  );
+}
+
+function LetterColumn({
+  colKey, title, hint, count, children,
+}: {
+  colKey: ColKey;
+  title: string;
+  hint: string;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id: colKey });
+  return (
+    <div
+      className={`border rounded-md flex flex-col min-h-[240px] transition-colors ${isOver ? "bg-muted/60 border-foreground" : "bg-muted/20"}`}
+    >
+      <div className="px-3 py-2 border-b bg-background/60 rounded-t-md">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
+          <span className="text-[10px] text-muted-foreground">{count}</span>
+        </div>
+        <p className="text-[10px] text-muted-foreground mt-0.5">{hint}</p>
+      </div>
+      <div ref={setNodeRef} className="flex-1 divide-y">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function DraggableLetterCard(props: {
+  clinic: Clinic;
+  covers: number;
+  editing: boolean;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
+  onToggleSent: (v: boolean) => void;
+  onSave: (patch: { doctor_name?: string | null; address?: string | null }) => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: props.clinic.id,
+    data: { clinic: props.clinic },
+  });
+  if (props.editing) {
+    return <LetterRow {...props} />;
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      style={{ opacity: isDragging ? 0.4 : 1, touchAction: "none" }}
+    >
+      <LetterRow {...props} />
+    </div>
+  );
+}
+
