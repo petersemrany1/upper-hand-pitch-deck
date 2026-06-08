@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, Printer, Download, Mail, Check, X, StickyNote } from "lucide-react";
+import { Search, Printer, Download, Mail, Check, X, StickyNote, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors,
@@ -98,6 +98,7 @@ function LetterCampaignPage() {
       .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at")
       .in("status", ELIGIBLE_STATUSES as unknown as string[])
       .or("is_parent.eq.true,parent_clinic_id.is.null")
+      .eq("letter_campaign_excluded", false)
       .limit(2000);
     if (error) {
       toast.error("Failed to load clinics");
@@ -193,6 +194,27 @@ function LetterCampaignPage() {
     setClinics((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
     const { error } = await supabase.from("clinics").update(patch).eq("id", id);
     if (error) toast.error("Could not save");
+  };
+
+  const removeFromCampaign = async (c: Clinic) => {
+    setClinics((prev) => prev.filter((x) => x.id !== c.id));
+    const { error } = await supabase.from("clinics").update({ letter_campaign_excluded: true }).eq("id", c.id);
+    if (error) {
+      toast.error("Could not remove");
+      setClinics((prev) => [...prev, c]);
+      return;
+    }
+    toast(`Removed "${c.clinic_name}" from this campaign`, {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          const { error: undoErr } = await supabase.from("clinics").update({ letter_campaign_excluded: false }).eq("id", c.id);
+          if (undoErr) { toast.error("Could not undo"); return; }
+          setClinics((prev) => prev.some((x) => x.id === c.id) ? prev : [...prev, c]);
+        },
+      },
+      duration: 6000,
+    });
   };
 
   const printSheet = () => window.print();
@@ -308,6 +330,7 @@ function LetterCampaignPage() {
             onStopNotesEdit={() => setNotesEditingId(null)}
             onToggleSent={toggleSent}
             onSave={saveFields}
+            onRemove={removeFromCampaign}
           />
         )}
       </div>
@@ -331,7 +354,7 @@ function LetterCampaignPage() {
 function LetterRow({
   clinic, covers, lastCall, editing, onStartEdit, onStopEdit,
   notesEditing, onStartNotesEdit, onStopNotesEdit,
-  onToggleSent, onSave,
+  onToggleSent, onSave, onRemove,
 }: {
   clinic: Clinic;
   covers: number;
@@ -344,6 +367,7 @@ function LetterRow({
   onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
   onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
+  onRemove: () => void;
 }) {
   const sent = clinic.letter_sent;
   const addressee = addresseeFor(clinic);
@@ -442,7 +466,23 @@ function LetterRow({
             </button>
           )}
         </div>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Remove "${clinic.clinic_name}" from the Letter Campaign?\n\nThis only hides it from this campaign — status, notes, and other workflows are not affected. You can undo it from the toast.`)) {
+              onRemove();
+            }
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+          className="flex-shrink-0 text-muted-foreground/40 hover:text-red-600 transition-colors p-1 -m-1"
+          title="Remove from this campaign only"
+          aria-label="Remove from campaign"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
       </div>
+
 
       {/* CRM context line */}
       <div className="ml-7 mt-1 flex items-center flex-wrap gap-x-2 gap-y-1 text-[11px]">
@@ -576,7 +616,7 @@ function bucketFor(c: Clinic): ColKey {
 
 function KanbanBoard({
   clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit,
-  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave,
+  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave, onRemove,
 }: {
   clinics: Clinic[];
   coversCounts: Record<string, number>;
@@ -589,6 +629,7 @@ function KanbanBoard({
   onStopNotesEdit: () => void;
   onToggleSent: (c: Clinic, v: boolean) => void;
   onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
+  onRemove: (c: Clinic) => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
@@ -647,6 +688,7 @@ function KanbanBoard({
                 onStopNotesEdit={onStopNotesEdit}
                 onToggleSent={(v) => onToggleSent(c, v)}
                 onSave={(patch) => onSave(c.id, patch)}
+                onRemove={() => onRemove(c)}
               />
             ))}
           </LetterColumn>
@@ -704,6 +746,7 @@ function DraggableLetterCard(props: {
   onStopNotesEdit: () => void;
   onToggleSent: (v: boolean) => void;
   onSave: (patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
+  onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: props.clinic.id,

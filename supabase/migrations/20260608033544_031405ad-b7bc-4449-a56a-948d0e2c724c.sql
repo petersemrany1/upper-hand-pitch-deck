@@ -1,0 +1,2 @@
+ALTER TABLE public.clinics ADD COLUMN IF NOT EXISTS letter_campaign_excluded boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_clinics_letter_campaign_excluded ON public.clinics (letter_campaign_excluded) WHERE letter_campaign_excluded = false;
