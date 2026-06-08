@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createLazyFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
@@ -48,7 +48,7 @@ function SalesCallErrorComponent({ error, reset }: { error: Error; reset: () => 
   );
 }
 
-export const Route = createFileRoute("/_dashboard/sales-call")({
+export const Route = createLazyFileRoute("/_dashboard/sales-call")({
   component: SalesCallRoute,
   errorComponent: SalesCallErrorComponent,
   validateSearch: (search: Record<string, unknown>): { leadId?: string; phone?: string } => {
