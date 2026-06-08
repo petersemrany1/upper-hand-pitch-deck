@@ -44,10 +44,19 @@ type Clinic = {
   address: string | null;
   priority: string | null;
   status: string;
+  notes: string | null;
+  next_follow_up: string | null;
   is_parent: boolean | null;
   parent_clinic_id: string | null;
   letter_sent: boolean;
   letter_sent_at: string | null;
+};
+
+type LastCall = {
+  called_at: string;
+  outcome: string | null;
+  status: string | null;
+  duration_seconds: number | null;
 };
 
 function addresseeFor(c: Clinic): string {
