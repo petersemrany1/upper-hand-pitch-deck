@@ -1867,11 +1867,6 @@ function PipelineCardContent({ c, overlay = false }: { c: Clinic; overlay?: bool
       </div>
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
-      {c.phone && (
-        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
-          <Phone className="w-2.5 h-2.5" /> {c.phone}
-        </div>
-      )}
       {c.next_follow_up && (
         <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
           <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
@@ -1924,20 +1919,6 @@ function DraggableClinicCard({
       </div>
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-1 truncate" style={{ color: "#666" }}>{doctor}</div>)}
-
-      {/* MAIN phone — labelled with the clinic name so the rep knows whose number it is.
-          Not clickable: to actually dial, open the card and call from the detail panel. */}
-      {c.phone && (
-        <div
-          className="rounded px-1.5 py-1 mb-1"
-          style={{ background: "#f4f3ee" }}
-        >
-          <div className="text-[9px] font-bold uppercase truncate" style={{ color: "#4338ca", letterSpacing: "0.06em" }}>
-            {branches.length > 0 ? "Main" : "Phone"} · {c.clinic_name}
-          </div>
-          <div className="text-[10px] truncate" style={{ color: "#111111" }}>{c.phone}</div>
-        </div>
-      )}
 
       {/* BRANCHES — collapsible list. Tapping a branch opens its card; no dial from here. */}
       {branches.length > 0 && (
