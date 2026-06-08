@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound } from "lucide-react";
 import { toast } from "sonner";
@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
 import { DAY_NAMES } from "@/lib/slot-generation";
 
-export const Route = createFileRoute("/_dashboard/partner-clinics")({
+export const Route = createLazyFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
   head: () => ({ meta: [{ title: "Partner Clinics" }] }),
 });
