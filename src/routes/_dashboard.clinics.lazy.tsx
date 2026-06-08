@@ -1413,8 +1413,6 @@ function ClinicsPage() {
                 } as Clinic & { _branches?: Clinic[] }));
             })()}
             onOpenDetail={openDetail}
-            onCall={handleCall}
-            callingId={callingId}
             onMoveStage={async (clinic, newStage) => {
               const prevStage = clinic.status;
               setClinics((prev) => prev.map((c) => c.id === clinic.id ? { ...c, status: newStage } : c));
@@ -1892,14 +1890,10 @@ function DraggableClinicCard({
   c,
   onOpenDetail,
   onMoveStage,
-  onCall,
-  callingId,
 }: {
   c: Clinic;
   onOpenDetail: (c: Clinic) => void;
   onMoveStage: (c: Clinic, newStage: string) => void;
-  onCall: (c: Clinic) => void;
-  callingId: string | null;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: c.id,
@@ -1909,8 +1903,7 @@ function DraggableClinicCard({
   const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
   const branches = (c as Clinic & { _branches?: Clinic[] })._branches || [];
   const [branchesOpen, setBranchesOpen] = useState(false);
-  const mainPhoneValid = !!c.phone && isValidAUPhone(c.phone);
-  const isCallingMain = callingId === c.id;
+
 
   return (
     <div
@@ -1932,30 +1925,21 @@ function DraggableClinicCard({
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-1 truncate" style={{ color: "#666" }}>{doctor}</div>)}
 
-      {/* MAIN phone — labelled with the clinic name so the rep knows whose number it is */}
+      {/* MAIN phone — labelled with the clinic name so the rep knows whose number it is.
+          Not clickable: to actually dial, open the card and call from the detail panel. */}
       {c.phone && (
         <div
-          onClick={(e) => { e.stopPropagation(); if (mainPhoneValid) onCall(c); }}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="flex items-center justify-between gap-1 rounded px-1.5 py-1 mb-1"
-          style={{ background: "#f4f3ee", cursor: mainPhoneValid ? "pointer" : "default" }}
-          title={mainPhoneValid ? `Call ${c.clinic_name}` : "Invalid number"}
+          className="rounded px-1.5 py-1 mb-1"
+          style={{ background: "#f4f3ee" }}
         >
-          <div className="min-w-0">
-            <div className="text-[9px] font-bold uppercase truncate" style={{ color: "#4338ca", letterSpacing: "0.06em" }}>
-              {branches.length > 0 ? "Main" : "Phone"} · {c.clinic_name}
-            </div>
-            <div className="text-[10px] truncate" style={{ color: "#111111" }}>{c.phone}</div>
+          <div className="text-[9px] font-bold uppercase truncate" style={{ color: "#4338ca", letterSpacing: "0.06em" }}>
+            {branches.length > 0 ? "Main" : "Phone"} · {c.clinic_name}
           </div>
-          {mainPhoneValid && (
-            isCallingMain
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" style={{ color: "#22c55e" }} />
-              : <PhoneCall className="w-3.5 h-3.5 shrink-0" style={{ color: "#22c55e" }} />
-          )}
+          <div className="text-[10px] truncate" style={{ color: "#111111" }}>{c.phone}</div>
         </div>
       )}
 
-      {/* BRANCHES — collapsible list, each row has its own Call button */}
+      {/* BRANCHES — collapsible list. Tapping a branch opens its card; no dial from here. */}
       {branches.length > 0 && (
         <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1">
           <button
@@ -1964,45 +1948,28 @@ function DraggableClinicCard({
             className="w-full flex items-center justify-between text-[10px] font-semibold px-1.5 py-1 rounded"
             style={{ background: "#eef2ff", color: "#4338ca" }}
           >
-            <span>{branchesOpen ? "Hide" : "Call another"} {branches.length} {branches.length === 1 ? "branch" : "branches"}</span>
+            <span>{branchesOpen ? "Hide" : "Show"} {branches.length} other {branches.length === 1 ? "branch" : "branches"}</span>
             {branchesOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
           </button>
           {branchesOpen && (
             <div className="mt-1 space-y-1">
               {branches.map((b) => {
-                const bValid = !!b.phone && isValidAUPhone(b.phone);
-                const bCalling = callingId === b.id;
                 const bCity = [b.city, b.state ? (STATES_ABBR[b.state] || b.state) : null].filter(Boolean).join(", ");
                 return (
-                  <div
+                  <button
                     key={b.id}
-                    className="flex items-center justify-between gap-1 rounded px-1.5 py-1"
+                    type="button"
+                    onClick={() => onOpenDetail(b)}
+                    className="w-full text-left rounded px-1.5 py-1 hover:bg-white"
                     style={{ background: "#f9f9f7", border: "1px solid #ebebeb" }}
+                    title={`Open ${b.clinic_name} to call`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onOpenDetail(b)}
-                      className="min-w-0 text-left flex-1"
-                    >
-                      <div className="text-[10px] font-semibold truncate" style={{ color: "#111111" }}>{b.clinic_name}</div>
-                      {bCity && <div className="text-[9px] truncate" style={{ color: "#666" }}>{bCity}</div>}
-                      <div className="text-[10px] truncate" style={{ color: b.phone ? "#111111" : "#999" }}>
-                        {b.phone || "No phone"}
-                      </div>
-                    </button>
-                    {bValid && (
-                      <button
-                        type="button"
-                        onClick={() => onCall(b)}
-                        className="shrink-0 p-1 rounded hover:bg-white"
-                        title={`Call ${b.clinic_name}`}
-                      >
-                        {bCalling
-                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#22c55e" }} />
-                          : <PhoneCall className="w-3.5 h-3.5" style={{ color: "#22c55e" }} />}
-                      </button>
-                    )}
-                  </div>
+                    <div className="text-[10px] font-semibold truncate" style={{ color: "#111111" }}>{b.clinic_name}</div>
+                    {bCity && <div className="text-[9px] truncate" style={{ color: "#666" }}>{bCity}</div>}
+                    <div className="text-[10px] truncate" style={{ color: b.phone ? "#111111" : "#999" }}>
+                      {b.phone || "No phone"}
+                    </div>
+                  </button>
                 );
               })}
             </div>
@@ -2080,14 +2047,10 @@ function PipelineBoard({
   clinics,
   onOpenDetail,
   onMoveStage,
-  onCall,
-  callingId,
 }: {
   clinics: Clinic[];
   onOpenDetail: (c: Clinic) => void;
   onMoveStage: (c: Clinic, newStage: string) => void;
-  onCall: (c: Clinic) => void;
-  callingId: string | null;
 }) {
   const byStage: Record<string, Clinic[]> = {};
   for (const s of PIPELINE_BOARD_STAGES) byStage[s] = [];
@@ -2126,7 +2089,7 @@ function PipelineBoard({
             return (
               <StageColumn key={stage} stage={stage} items={items}>
                 {items.map((c) => (
-                  <DraggableClinicCard key={c.id} c={c} onOpenDetail={onOpenDetail} onMoveStage={onMoveStage} onCall={onCall} callingId={callingId} />
+                  <DraggableClinicCard key={c.id} c={c} onOpenDetail={onOpenDetail} onMoveStage={onMoveStage} />
                 ))}
               </StageColumn>
             );
