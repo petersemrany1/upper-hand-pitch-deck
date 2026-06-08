@@ -64,7 +64,7 @@ function csvEscape(v: string | number | null | undefined): string {
   return s;
 }
 
-type ChipFilter = "all" | "ready" | "needs";
+
 
 function LetterCampaignPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
@@ -72,7 +72,7 @@ function LetterCampaignPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [chip, setChip] = useState<ChipFilter>("all");
+  
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showHowItWorks, setShowHowItWorks] = useState(true);
 
@@ -110,15 +110,13 @@ function LetterCampaignPage() {
     const q = search.trim().toLowerCase();
     return clinics.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
-      if (chip === "ready" && (!c.address || c.letter_sent)) return false;
-      if (chip === "needs" && (c.address || c.letter_sent)) return false;
       if (q) {
         const hay = `${c.clinic_name} ${c.city ?? ""} ${c.state ?? ""} ${c.address ?? ""} ${c.doctor_name ?? ""} ${c.owner_name ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [clinics, search, statusFilter, chip]);
+  }, [clinics, search, statusFilter]);
 
   const grouped = useMemo(() => {
     const byPrio = new Map<string, Clinic[]>();
@@ -186,17 +184,6 @@ function LetterCampaignPage() {
     URL.revokeObjectURL(url);
   };
 
-  const Chip = ({ id, label, count }: { id: ChipFilter; label: string; count: number }) => (
-    <button
-      type="button"
-      onClick={() => setChip(id)}
-      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
-        chip === id ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground border-border hover:text-foreground"
-      }`}
-    >
-      {label} <span className="opacity-70">{count}</span>
-    </button>
-  );
 
   return (
     <div className="p-6 max-w-5xl mx-auto letter-campaign">
@@ -250,11 +237,6 @@ function LetterCampaignPage() {
 
         {/* Filter row */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="flex items-center gap-1.5">
-            <Chip id="all" label="All" count={totals.toSend + totals.sent} />
-            <Chip id="ready" label="Ready" count={totals.ready} />
-            <Chip id="needs" label="Needs address" count={totals.needs} />
-          </div>
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input className="pl-8 h-9" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -279,27 +261,58 @@ function LetterCampaignPage() {
         ) : filtered.length === 0 ? (
           <div className="text-sm text-muted-foreground py-12 text-center border rounded-md">No clinics match these filters.</div>
         ) : (
-          grouped.map(([priority, items]) => (
-            <div key={priority} className="mb-5">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70 mb-1.5 px-1">
-                {priority} priority <span className="opacity-60">· {items.length}</span>
-              </div>
-              <div className="border rounded-md divide-y bg-background">
-                {items.map((c) => (
-                  <LetterRow
-                    key={c.id}
-                    clinic={c}
-                    covers={coversCounts[c.id] ?? 0}
-                    editing={editingId === c.id}
-                    onStartEdit={() => setEditingId(c.id)}
-                    onStopEdit={() => setEditingId(null)}
-                    onToggleSent={(v) => toggleSent(c, v)}
-                    onSave={(patch) => saveFields(c.id, patch)}
-                  />
+          (() => {
+            const cols: { key: string; title: string; hint: string; items: Clinic[] }[] = [
+              { key: "call", title: "Try call first", hint: "Has phone, no address — call to get details", items: [] },
+              { key: "letter", title: "Send letter", hint: "Address ready — print & post", items: [] },
+              { key: "research", title: "Do research", hint: "No phone or address yet — look them up", items: [] },
+              { key: "sent", title: "Sent", hint: "Letter posted", items: [] },
+            ];
+            for (const c of filtered) {
+              if (c.letter_sent) cols[3].items.push(c);
+              else if (c.address) cols[1].items.push(c);
+              else if (c.phone) cols[0].items.push(c);
+              else cols[2].items.push(c);
+            }
+            for (const col of cols) {
+              col.items.sort((a, b) =>
+                (PRIORITY_ORDER[a.priority || "Unspecified"] ?? 99) - (PRIORITY_ORDER[b.priority || "Unspecified"] ?? 99) ||
+                (a.state ?? "").localeCompare(b.state ?? "") ||
+                a.clinic_name.localeCompare(b.clinic_name),
+              );
+            }
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                {cols.map((col) => (
+                  <div key={col.key} className="border rounded-md bg-muted/20 flex flex-col min-h-[200px]">
+                    <div className="px-3 py-2 border-b bg-background/60 rounded-t-md">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold uppercase tracking-wide">{col.title}</span>
+                        <span className="text-[10px] text-muted-foreground">{col.items.length}</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{col.hint}</p>
+                    </div>
+                    <div className="divide-y">
+                      {col.items.length === 0 ? (
+                        <div className="text-[11px] text-muted-foreground/60 px-3 py-4 text-center">—</div>
+                      ) : col.items.map((c) => (
+                        <LetterRow
+                          key={c.id}
+                          clinic={c}
+                          covers={coversCounts[c.id] ?? 0}
+                          editing={editingId === c.id}
+                          onStartEdit={() => setEditingId(c.id)}
+                          onStopEdit={() => setEditingId(null)}
+                          onToggleSent={(v) => toggleSent(c, v)}
+                          onSave={(patch) => saveFields(c.id, patch)}
+                        />
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          ))
+            );
+          })()
         )}
       </div>
 
