@@ -610,6 +610,8 @@ const COLUMNS: { key: ColKey; title: string; hint: string }[] = [
 
 function bucketFor(c: Clinic): ColKey {
   if (c.letter_sent) return "sent";
+  const override = c.letter_campaign_column;
+  if (override === "call" || override === "letter" || override === "research") return override;
   if (c.address) return "letter";
   if (c.phone) return "call";
   return "research";
