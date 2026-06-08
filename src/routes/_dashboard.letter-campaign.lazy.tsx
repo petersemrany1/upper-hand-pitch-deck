@@ -559,6 +559,7 @@ function LetterColumn({
 function DraggableLetterCard(props: {
   clinic: Clinic;
   covers: number;
+  lastCall: LastCall | null;
   editing: boolean;
   onStartEdit: () => void;
   onStopEdit: () => void;
