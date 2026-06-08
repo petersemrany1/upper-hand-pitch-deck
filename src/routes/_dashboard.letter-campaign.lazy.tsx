@@ -671,6 +671,7 @@ function KanbanBoard({
                 onStopNotesEdit={onStopNotesEdit}
                 onToggleSent={(v) => onToggleSent(c, v)}
                 onSave={(patch) => onSave(c.id, patch)}
+                onRemove={() => onRemove(c)}
               />
             ))}
           </LetterColumn>
