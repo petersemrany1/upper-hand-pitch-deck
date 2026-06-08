@@ -5,7 +5,7 @@ import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight, ShieldCheck } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { loadDeckSettings, DEFAULT_SETTINGS } from "./_dashboard.settings";
 import patientPhoto from "../assets/pitch/patient.jpg";
@@ -396,6 +396,75 @@ function PitchDeck() {
       </div>
       <div className="flex-1" />
     </div>,
+
+    /* ──────── SLIDE 5.5 — DE-RISK ──────── */
+    <div key="derisk" className="deck-slide flex flex-col min-h-screen w-full bg-black px-16 py-12">
+      <SlideHeader />
+      <motion.div
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true }}
+        variants={stagger}
+        className="flex-1 flex flex-col justify-center w-full max-w-6xl mx-auto"
+      >
+        <motion.div variants={fadeIn} className="text-center mb-4">
+          <ChapterLabel>THE RISK SITS WITH US</ChapterLabel>
+        </motion.div>
+        <motion.h2
+          variants={fadeIn}
+          className="text-5xl md:text-6xl font-extrabold text-foreground tracking-tight text-center mb-14"
+          style={{ fontFamily: "var(--font-heading)" }}
+        >
+          Let's de-risk it.
+        </motion.h2>
+
+        <motion.div
+          variants={fadeIn}
+          className="flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-3 mb-12"
+        >
+          <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
+            <p className="text-2xl font-bold text-foreground">10 patients</p>
+            <p className="text-[#CCCCCC] mt-1">in your chair · $8,000</p>
+          </div>
+          <div className="hidden md:flex items-center justify-center">
+            <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
+            <p className="text-2xl font-bold text-foreground">Close just 1</p>
+            <p className="text-[#CCCCCC] mt-1">one $17,000 case</p>
+          </div>
+          <div className="hidden md:flex items-center justify-center">
+            <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
+          </div>
+          <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
+            <p className="text-2xl font-bold text-primary">2× your money</p>
+            <p className="text-[#CCCCCC] mt-1">already in front</p>
+          </div>
+        </motion.div>
+
+        <motion.div
+          variants={fadeIn}
+          className="rounded-xl border-2 border-primary bg-primary/10 px-10 py-8 mb-8"
+        >
+          <p className="text-xs font-semibold tracking-[0.2em] uppercase text-primary mb-3">The Safety Net</p>
+          <p className="text-2xl font-bold text-foreground mb-3">Close 0 of 10? We send 5 more — free.</p>
+          <p className="text-[#CCCCCC] text-lg">
+            That's 15 deposit-paid, pre-sold patients for the same $8,000. You need just <span className="text-foreground font-bold">one</span> to land to be in front.
+          </p>
+        </motion.div>
+
+        <motion.p variants={fadeIn} className="text-[#999] text-base md:text-lg text-center max-w-3xl mx-auto mb-10">
+          If 15 ready-to-go patients can't make a single sale, then hand on heart — this isn't for you. And we'll both know exactly why.
+        </motion.p>
+
+        <motion.div variants={fadeIn} className="border-t border-white/10 pt-5 flex items-center justify-center gap-2.5">
+          <ShieldCheck className="w-4 h-4 text-primary" />
+          <p className="text-sm text-[#999]">Not a discount — we're putting our own work on the line. One-time, no lock-in.</p>
+        </motion.div>
+      </motion.div>
+    </div>,
+
+
 
     /* ──────── SLIDE 6 — YOUR NUMBERS (ROI) ──────── */
     <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} pricePerShow={pricePerShow} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} onPricePerShowChange={setPricePerShow} />,
