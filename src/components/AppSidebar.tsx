@@ -44,7 +44,7 @@ const ALL_FOLDERS: NavFolder[] = [
     repUrl: "/pitch-deck",
     items: [
       { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
-      { title: "Clinics", url: "/clinics", icon: Building2, tab: "clinics" },
+      { title: "Clinics CRM", url: "/clinics", icon: Building2, tab: "clinics" },
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
     ],
   },
