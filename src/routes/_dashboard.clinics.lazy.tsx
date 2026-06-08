@@ -1867,11 +1867,6 @@ function PipelineCardContent({ c, overlay = false }: { c: Clinic; overlay?: bool
       </div>
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{doctor}</div>)}
-      {c.phone && (
-        <div className="text-[10px] mb-0.5 truncate flex items-center gap-1" style={{ color: "#666" }}>
-          <Phone className="w-2.5 h-2.5" /> {c.phone}
-        </div>
-      )}
       {c.next_follow_up && (
         <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
           <Calendar className="w-2.5 h-2.5" /> {c.next_follow_up}
