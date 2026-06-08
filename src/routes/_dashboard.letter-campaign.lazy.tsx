@@ -4,11 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, MapPin, Printer, Download, Mail, AlertCircle, Pencil, Check, X } from "lucide-react";
+import { Search, Printer, Download, Mail, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createLazyFileRoute("/_dashboard/letter-campaign")({
@@ -65,13 +64,16 @@ function csvEscape(v: string | number | null | undefined): string {
   return s;
 }
 
+type ChipFilter = "all" | "ready" | "needs";
+
 function LetterCampaignPage() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [coversCounts, setCoversCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [hideSent, setHideSent] = useState(false);
+  const [chip, setChip] = useState<ChipFilter>("all");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -88,7 +90,6 @@ function LetterCampaignPage() {
     }
     setClinics((data ?? []) as Clinic[]);
 
-    // Covers count: how many child clinics point to each id
     const { data: childRows } = await supabase
       .from("clinics")
       .select("parent_clinic_id")
@@ -108,14 +109,15 @@ function LetterCampaignPage() {
     const q = search.trim().toLowerCase();
     return clinics.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
-      if (hideSent && c.letter_sent) return false;
+      if (chip === "ready" && (!c.address || c.letter_sent)) return false;
+      if (chip === "needs" && (c.address || c.letter_sent)) return false;
       if (q) {
         const hay = `${c.clinic_name} ${c.city ?? ""} ${c.state ?? ""} ${c.address ?? ""} ${c.doctor_name ?? ""} ${c.owner_name ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [clinics, search, statusFilter, hideSent]);
+  }, [clinics, search, statusFilter, chip]);
 
   const grouped = useMemo(() => {
     const byPrio = new Map<string, Clinic[]>();
@@ -135,7 +137,9 @@ function LetterCampaignPage() {
   const totals = useMemo(() => {
     const total = clinics.length;
     const sent = clinics.filter((c) => c.letter_sent).length;
-    return { total, sent, remaining: total - sent };
+    const ready = clinics.filter((c) => !c.letter_sent && !!c.address).length;
+    const needs = clinics.filter((c) => !c.letter_sent && !c.address).length;
+    return { total, sent, ready, needs, toSend: total - sent };
   }, [clinics]);
 
   const toggleSent = async (c: Clinic, next: boolean) => {
@@ -151,12 +155,9 @@ function LetterCampaignPage() {
     }
   };
 
-  const saveField = async (id: string, field: "doctor_name" | "address", value: string) => {
-    const v = value.trim() === "" ? null : value;
-    setClinics((prev) => prev.map((x) => (x.id === id ? { ...x, [field]: v } : x)));
-    const patch = field === "doctor_name" ? { doctor_name: v } : { address: v };
+  const saveFields = async (id: string, patch: { doctor_name?: string | null; address?: string | null }) => {
+    setClinics((prev) => prev.map((x) => (x.id === id ? { ...x, ...patch } : x)));
     const { error } = await supabase.from("clinics").update(patch).eq("id", id);
-
     if (error) toast.error("Could not save");
   };
 
@@ -184,8 +185,20 @@ function LetterCampaignPage() {
     URL.revokeObjectURL(url);
   };
 
+  const Chip = ({ id, label, count }: { id: ChipFilter; label: string; count: number }) => (
+    <button
+      type="button"
+      onClick={() => setChip(id)}
+      className={`px-3 py-1 text-xs rounded-full border transition-colors ${
+        chip === id ? "bg-foreground text-background border-foreground" : "bg-background text-muted-foreground border-border hover:text-foreground"
+      }`}
+    >
+      {label} <span className="opacity-70">{count}</span>
+    </button>
+  );
+
   return (
-    <div className="p-6 max-w-7xl mx-auto letter-campaign">
+    <div className="p-6 max-w-5xl mx-auto letter-campaign">
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -198,35 +211,49 @@ function LetterCampaignPage() {
       `}</style>
 
       <div className="no-print">
-        <div className="flex items-center gap-3 mb-4">
-          <Mail className="h-6 w-6" style={{ color: "#f4522d" }} />
-          <h1 className="text-2xl font-semibold">Letter Campaign</h1>
+        <div className="flex items-center gap-2 mb-1">
+          <Mail className="h-5 w-5 text-muted-foreground" />
+          <h1 className="text-xl font-semibold">Letter Campaign</h1>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Post every letter marked Private &amp; Confidential — it bypasses the front desk.
+        </p>
+
+        {/* Summary strip */}
+        <div className="bg-muted/50 border rounded-md px-4 py-2.5 mb-4 text-sm flex flex-wrap items-center gap-x-1 gap-y-1">
+          <span><strong>{totals.toSend}</strong> <span className="text-muted-foreground">to send</span></span>
+          <span className="text-muted-foreground/50 mx-2">·</span>
+          <span><strong>{totals.ready}</strong> <span className="text-muted-foreground">ready to print</span></span>
+          <span className="text-muted-foreground/50 mx-2">·</span>
+          <span className="text-amber-600"><strong>{totals.needs}</strong> need an address</span>
+          <span className="text-muted-foreground/50 mx-2">·</span>
+          <span><strong>{totals.sent}</strong> <span className="text-muted-foreground">sent</span></span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-          <MetricCard label="Letters to send" value={totals.total} />
-          <MetricCard label="Sent" value={totals.sent} accent="#10b981" />
-          <MetricCard label="Remaining" value={totals.remaining} accent="#f4522d" />
-        </div>
-
+        {/* Filter row */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="relative flex-1 min-w-[220px]">
+          <div className="flex items-center gap-1.5">
+            <Chip id="all" label="All" count={totals.toSend + totals.sent} />
+            <Chip id="ready" label="Ready" count={totals.ready} />
+            <Chip id="needs" label="Needs address" count={totals.needs} />
+          </div>
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-8" placeholder="Search clinic, city, state, doctor…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input className="pl-8 h-9" placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[220px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-[180px] h-9 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
               {ELIGIBLE_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 text-sm select-none cursor-pointer px-2">
-            <Checkbox checked={hideSent} onCheckedChange={(v) => setHideSent(Boolean(v))} />
-            Hide sent
-          </label>
-          <Button variant="outline" onClick={printSheet}><Printer className="h-4 w-4 mr-1" />Print sheet</Button>
-          <Button variant="outline" onClick={downloadCsv}><Download className="h-4 w-4 mr-1" />CSV</Button>
+          <Button variant="outline" size="sm" onClick={printSheet} className="h-9">
+            <Printer className="h-3.5 w-3.5 mr-1" />Print
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadCsv} className="h-9">
+            <Download className="h-3.5 w-3.5 mr-1" />CSV
+          </Button>
         </div>
 
         {loading ? (
@@ -235,18 +262,21 @@ function LetterCampaignPage() {
           <div className="text-sm text-muted-foreground py-12 text-center border rounded-md">No clinics match these filters.</div>
         ) : (
           grouped.map(([priority, items]) => (
-            <div key={priority} className="mb-6">
-              <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                {priority} priority · {items.length}
+            <div key={priority} className="mb-5">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground/70 mb-1.5 px-1">
+                {priority} priority <span className="opacity-60">· {items.length}</span>
               </div>
-              <div className="border rounded-md divide-y bg-white">
+              <div className="border rounded-md divide-y bg-background">
                 {items.map((c) => (
                   <LetterRow
                     key={c.id}
                     clinic={c}
                     covers={coversCounts[c.id] ?? 0}
+                    editing={editingId === c.id}
+                    onStartEdit={() => setEditingId(c.id)}
+                    onStopEdit={() => setEditingId(null)}
                     onToggleSent={(v) => toggleSent(c, v)}
-                    onSaveField={(field, value) => saveField(c.id, field, value)}
+                    onSave={(patch) => saveFields(c.id, patch)}
                   />
                 ))}
               </div>
@@ -271,130 +301,97 @@ function LetterCampaignPage() {
   );
 }
 
-function MetricCard({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  return (
-    <div className="border rounded-md p-4 bg-white">
-      <div className="text-xs text-muted-foreground uppercase tracking-wider">{label}</div>
-      <div className="text-2xl font-semibold mt-1" style={{ color: accent ?? "#111" }}>{value}</div>
-    </div>
-  );
-}
-
 function LetterRow({
-  clinic, covers, onToggleSent, onSaveField,
+  clinic, covers, editing, onStartEdit, onStopEdit, onToggleSent, onSave,
 }: {
   clinic: Clinic;
   covers: number;
+  editing: boolean;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
   onToggleSent: (v: boolean) => void;
-  onSaveField: (field: "doctor_name" | "address", value: string) => void;
+  onSave: (patch: { doctor_name?: string | null; address?: string | null }) => void;
 }) {
   const sent = clinic.letter_sent;
   const addressee = addresseeFor(clinic);
-  return (
-    <div
-      className="p-3 flex items-start gap-3"
-      style={sent ? { background: "#f9fafb", color: "#9ca3af", textDecoration: "line-through" } : undefined}
-    >
-      <Checkbox checked={sent} onCheckedChange={(v) => onToggleSent(Boolean(v))} className="mt-1" />
-      <div className="flex-1 min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
-          <InlineEdit
-            value={clinic.doctor_name ?? ""}
-            placeholder={addressee}
-            onSave={(v) => onSaveField("doctor_name", v)}
-            className="font-medium"
-          />
-          <span className="text-muted-foreground">·</span>
-          <span className="font-medium">{clinic.clinic_name}</span>
-          {covers > 0 && (
-            <Badge style={{ background: "#dbeafe", color: "#1d4ed8" }} className="border-0">Covers {covers}</Badge>
-          )}
-          {clinic.state && (
-            <Badge variant="outline">{STATES_ABBR[clinic.state] ?? clinic.state}</Badge>
-          )}
-          <Badge style={{ background: "#fef3c7", color: "#92400e" }} className="border-0">Private &amp; confidential</Badge>
-          {sent && (
-            <Badge style={{ background: "#dcfce7", color: "#166534" }} className="border-0">
-              Sent {formatSentDate(clinic.letter_sent_at)}
-            </Badge>
-          )}
+  const stateShort = clinic.state ? (STATES_ABBR[clinic.state] ?? clinic.state) : null;
+
+  const [draftAddressee, setDraftAddressee] = useState(clinic.doctor_name ?? "");
+  const [draftAddress, setDraftAddress] = useState(clinic.address ?? "");
+
+  useEffect(() => {
+    if (editing) {
+      setDraftAddressee(clinic.doctor_name ?? "");
+      setDraftAddress(clinic.address ?? "");
+    }
+  }, [editing, clinic.doctor_name, clinic.address]);
+
+  const save = () => {
+    onSave({
+      doctor_name: draftAddressee.trim() === "" ? null : draftAddressee.trim(),
+      address: draftAddress.trim() === "" ? null : draftAddress.trim(),
+    });
+    onStopEdit();
+  };
+
+  if (editing) {
+    return (
+      <div className="px-3 py-2.5 bg-muted/30">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-muted-foreground w-20">Addressee</span>
+          <Input value={draftAddressee} onChange={(e) => setDraftAddressee(e.target.value)} placeholder={addressee} className="h-8 text-sm" autoFocus />
         </div>
-        <div className="mt-1 flex items-start gap-2 text-sm">
-          <MapPin className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
-          {clinic.address ? (
-            <InlineEdit
-              value={clinic.address}
-              onSave={(v) => onSaveField("address", v)}
-              className="text-sm"
-              multiline
-            />
-          ) : (
-            <span className="inline-flex items-center gap-1 text-red-600">
-              <AlertCircle className="h-3.5 w-3.5" />
-              Address needed — add before sending
-              <InlineEdit
-                value=""
-                placeholder="Add address…"
-                onSave={(v) => onSaveField("address", v)}
-                className="text-sm ml-1"
-                multiline
-              />
-            </span>
-          )}
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-muted-foreground w-20">Address</span>
+          <Input value={draftAddress} onChange={(e) => setDraftAddress(e.target.value)} placeholder="Street, suburb, state, postcode" className="h-8 text-sm"
+            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") onStopEdit(); }} />
+        </div>
+        <div className="flex justify-end gap-1.5">
+          <Button size="sm" variant="ghost" onClick={onStopEdit} className="h-7"><X className="h-3.5 w-3.5 mr-1" />Cancel</Button>
+          <Button size="sm" onClick={save} className="h-7"><Check className="h-3.5 w-3.5 mr-1" />Save</Button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function InlineEdit({
-  value, onSave, placeholder, className, multiline,
-}: {
-  value: string;
-  onSave: (v: string) => void;
-  placeholder?: string;
-  className?: string;
-  multiline?: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  useEffect(() => { setDraft(value); }, [value]);
-
-  if (!editing) {
-    return (
-      <span className={`inline-flex items-center gap-1 group ${className ?? ""}`}>
-        <span>{value || <span className="text-muted-foreground italic">{placeholder ?? "—"}</span>}</span>
-        <button
-          type="button"
-          className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5"
-          onClick={() => setEditing(true)}
-          aria-label="Edit"
-        >
-          <Pencil className="h-3 w-3 text-muted-foreground" />
-        </button>
-      </span>
     );
   }
 
+  const hasAddress = !!clinic.address;
+
   return (
-    <span className="inline-flex items-center gap-1">
-      <Input
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        placeholder={placeholder}
-        className="h-7 text-sm"
-        autoFocus
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !multiline) { onSave(draft); setEditing(false); }
-          if (e.key === "Escape") { setDraft(value); setEditing(false); }
-        }}
-      />
-      <button type="button" onClick={() => { onSave(draft); setEditing(false); }} className="p-1 text-green-600" aria-label="Save">
-        <Check className="h-3.5 w-3.5" />
-      </button>
-      <button type="button" onClick={() => { setDraft(value); setEditing(false); }} className="p-1 text-muted-foreground" aria-label="Cancel">
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </span>
+    <div
+      className={`px-3 py-2 flex items-center gap-3 text-sm cursor-pointer hover:bg-muted/30 transition-colors ${sent ? "opacity-50" : ""}`}
+      onClick={(e) => {
+        // Don't trigger when clicking checkbox
+        if ((e.target as HTMLElement).closest('[role="checkbox"], button')) return;
+        onStartEdit();
+      }}
+    >
+      <div onClick={(e) => e.stopPropagation()}>
+        <Checkbox checked={sent} onCheckedChange={(v) => onToggleSent(Boolean(v))} />
+      </div>
+      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+        <span className={`font-semibold ${sent ? "line-through" : ""}`}>{addressee}</span>
+        <span className="text-muted-foreground/60">·</span>
+        <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
+        {covers > 0 && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700">covers {covers}</span>
+        )}
+        {stateShort && <span className="text-[11px] text-muted-foreground/70">{stateShort}</span>}
+      </div>
+      <div className="flex-shrink-0 text-xs">
+        {sent ? (
+          <span className="text-muted-foreground">sent {formatSentDate(clinic.letter_sent_at)}</span>
+        ) : hasAddress ? (
+          <span className="text-emerald-600">address ✓</span>
+        ) : (
+          <button
+            type="button"
+            className="text-amber-600 underline underline-offset-2 hover:text-amber-700"
+            onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
+          >
+            add address
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
