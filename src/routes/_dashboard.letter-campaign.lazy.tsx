@@ -390,44 +390,100 @@ function LetterRow({
 
   const hasAddress = !!clinic.address;
 
+  const statusTone = statusToneFor(clinic.status);
+  const noteSnippet = (clinic.notes ?? "").trim().replace(/\s+/g, " ").slice(0, 140);
+  const lastCallLabel = lastCall ? formatLastCall(lastCall) : null;
+  const followUpLabel = clinic.next_follow_up ? formatDateShort(clinic.next_follow_up) : null;
+
   return (
     <div
-      className={`px-3 py-2 flex items-center gap-3 text-sm cursor-pointer hover:bg-muted/30 transition-colors ${sent ? "opacity-50" : ""}`}
+      className={`px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors ${sent ? "opacity-50" : ""}`}
       onClick={(e) => {
-        // Don't trigger when clicking checkbox
         if ((e.target as HTMLElement).closest('[role="checkbox"], button')) return;
         onStartEdit();
       }}
     >
-      <div onClick={(e) => e.stopPropagation()}>
-        <Checkbox checked={sent} onCheckedChange={(v) => onToggleSent(Boolean(v))} />
+      {/* Top line: identity */}
+      <div className="flex items-center gap-3 text-sm">
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox checked={sent} onCheckedChange={(v) => onToggleSent(Boolean(v))} />
+        </div>
+        <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+          <span className={`font-semibold ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
+          <span className="text-muted-foreground/60">·</span>
+          <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{addressee}</span>
+          {covers > 0 && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 cursor-default" title={`One letter reaches ${covers} clinic${covers === 1 ? "" : "s"} in this group — you only post once.`}>covers {covers}</span>
+          )}
+          {stateShort && <span className="text-[11px] text-muted-foreground/70">{stateShort}</span>}
+        </div>
+        <div className="flex-shrink-0 text-xs">
+          {sent ? (
+            <span className="text-muted-foreground">sent {formatSentDate(clinic.letter_sent_at)}</span>
+          ) : hasAddress ? (
+            <span className="text-emerald-600">address ✓</span>
+          ) : (
+            <button
+              type="button"
+              className="text-amber-600 underline underline-offset-2 hover:text-amber-700"
+              onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
+            >
+              add address
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
-        <span className={`font-semibold ${sent ? "line-through" : ""}`}>{clinic.clinic_name}</span>
-        <span className="text-muted-foreground/60">·</span>
-        <span className={`text-muted-foreground ${sent ? "line-through" : ""}`}>{addressee}</span>
-        {covers > 0 && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 cursor-default" title={`One letter reaches ${covers} clinic${covers === 1 ? "" : "s"} in this group — you only post once.`}>covers {covers}</span>
+
+      {/* CRM context line */}
+      <div className="ml-7 mt-1 flex items-center flex-wrap gap-x-2 gap-y-1 text-[11px]">
+        <span
+          className="px-1.5 py-0.5 rounded-full font-medium"
+          style={{ background: statusTone.bg, color: statusTone.fg }}
+          title="Status in the clinics CRM"
+        >
+          {clinic.status}
+        </span>
+        {lastCallLabel && (
+          <span className="text-muted-foreground" title={`Last call: ${new Date(lastCall!.called_at).toLocaleString("en-AU")}`}>
+            ☎ {lastCallLabel}
+          </span>
         )}
-        {stateShort && <span className="text-[11px] text-muted-foreground/70">{stateShort}</span>}
-      </div>
-      <div className="flex-shrink-0 text-xs">
-        {sent ? (
-          <span className="text-muted-foreground">sent {formatSentDate(clinic.letter_sent_at)}</span>
-        ) : hasAddress ? (
-          <span className="text-emerald-600">address ✓</span>
-        ) : (
-          <button
-            type="button"
-            className="text-amber-600 underline underline-offset-2 hover:text-amber-700"
-            onClick={(e) => { e.stopPropagation(); onStartEdit(); }}
-          >
-            add address
-          </button>
+        {followUpLabel && (
+          <span className="text-muted-foreground">
+            📅 follow-up {followUpLabel}
+          </span>
+        )}
+        {noteSnippet && (
+          <span className="text-muted-foreground/80 italic truncate max-w-full" title={clinic.notes ?? ""}>
+            "{noteSnippet}{(clinic.notes ?? "").length > 140 ? "…" : ""}"
+          </span>
+        )}
+        {!lastCallLabel && !followUpLabel && !noteSnippet && (
+          <span className="text-muted-foreground/50">no CRM activity yet</span>
         )}
       </div>
     </div>
   );
+}
+
+const STATUS_TONES: Record<string, { bg: string; fg: string }> = {
+  "Not Started": { bg: "#f3f4f6", fg: "#374151" },
+  "Contacted — No Answer": { bg: "#fef3c7", fg: "#92400e" },
+  "Contacted — Gatekeeper": { bg: "#fde68a", fg: "#78350f" },
+  "Contacted — Call Me Back": { bg: "#dbeafe", fg: "#1e40af" },
+};
+function statusToneFor(s: string) {
+  return STATUS_TONES[s] ?? { bg: "#f3f4f6", fg: "#374151" };
+}
+function formatDateShort(iso: string): string {
+  try { return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" }); }
+  catch { return iso; }
+}
+function formatLastCall(lc: LastCall): string {
+  const when = formatDateShort(lc.called_at);
+  const detail = lc.outcome || lc.status || "called";
+  const dur = lc.duration_seconds ? ` · ${Math.round(lc.duration_seconds)}s` : "";
+  return `${detail}${dur} · ${when}`;
 }
 
 type ColKey = "call" | "letter" | "research" | "sent";
