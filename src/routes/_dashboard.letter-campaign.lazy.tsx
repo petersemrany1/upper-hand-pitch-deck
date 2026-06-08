@@ -445,10 +445,11 @@ function bucketFor(c: Clinic): ColKey {
 }
 
 function KanbanBoard({
-  clinics, coversCounts, editingId, onStartEdit, onStopEdit, onToggleSent, onSave,
+  clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit, onToggleSent, onSave,
 }: {
   clinics: Clinic[];
   coversCounts: Record<string, number>;
+  lastCalls: Record<string, LastCall>;
   editingId: string | null;
   onStartEdit: (id: string) => void;
   onStopEdit: () => void;
