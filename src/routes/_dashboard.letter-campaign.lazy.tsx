@@ -51,6 +51,7 @@ type Clinic = {
   parent_clinic_id: string | null;
   letter_sent: boolean;
   letter_sent_at: string | null;
+  letter_campaign_column: string | null;
 };
 
 type LastCall = {
@@ -95,7 +96,7 @@ function LetterCampaignPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from("clinics")
-      .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at")
+      .select("id, clinic_name, state, city, phone, email, owner_name, doctor_name, address, priority, status, notes, next_follow_up, is_parent, parent_clinic_id, letter_sent, letter_sent_at, letter_campaign_column")
       .in("status", ELIGIBLE_STATUSES as unknown as string[])
       .or("is_parent.eq.true,parent_clinic_id.is.null")
       .eq("letter_campaign_excluded", false)
@@ -217,6 +218,18 @@ function LetterCampaignPage() {
     });
   };
 
+  const setColumn = async (c: Clinic, col: "call" | "letter" | "research") => {
+    const prev = c.letter_campaign_column;
+    setClinics((arr) => arr.map((x) => (x.id === c.id ? { ...x, letter_campaign_column: col } : x)));
+    const { error } = await supabase.from("clinics").update({ letter_campaign_column: col }).eq("id", c.id);
+    if (error) {
+      toast.error("Could not move card");
+      setClinics((arr) => arr.map((x) => (x.id === c.id ? { ...x, letter_campaign_column: prev } : x)));
+    }
+  };
+
+
+
   const printSheet = () => window.print();
 
   const downloadCsv = () => {
@@ -331,6 +344,7 @@ function LetterCampaignPage() {
             onToggleSent={toggleSent}
             onSave={saveFields}
             onRemove={removeFromCampaign}
+            onSetColumn={setColumn}
           />
         )}
       </div>
@@ -609,6 +623,8 @@ const COLUMNS: { key: ColKey; title: string; hint: string }[] = [
 
 function bucketFor(c: Clinic): ColKey {
   if (c.letter_sent) return "sent";
+  const override = c.letter_campaign_column;
+  if (override === "call" || override === "letter" || override === "research") return override;
   if (c.address) return "letter";
   if (c.phone) return "call";
   return "research";
@@ -616,7 +632,7 @@ function bucketFor(c: Clinic): ColKey {
 
 function KanbanBoard({
   clinics, coversCounts, lastCalls, editingId, onStartEdit, onStopEdit,
-  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave, onRemove,
+  notesEditingId, onStartNotesEdit, onStopNotesEdit, onToggleSent, onSave, onRemove, onSetColumn,
 }: {
   clinics: Clinic[];
   coversCounts: Record<string, number>;
@@ -630,6 +646,7 @@ function KanbanBoard({
   onToggleSent: (c: Clinic, v: boolean) => void;
   onSave: (id: string, patch: { doctor_name?: string | null; address?: string | null; notes?: string | null }) => void;
   onRemove: (c: Clinic) => void;
+  onSetColumn: (c: Clinic, col: "call" | "letter" | "research") => void;
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
   const [activeClinic, setActiveClinic] = useState<Clinic | null>(null);
@@ -665,7 +682,7 @@ function KanbanBoard({
         } else if (from === "sent") {
           onToggleSent(clinic, false);
         } else {
-          toast("Moving between these columns happens automatically — add an address or phone.", { duration: 2500 });
+          onSetColumn(clinic, overId as "call" | "letter" | "research");
         }
       }}
     >
