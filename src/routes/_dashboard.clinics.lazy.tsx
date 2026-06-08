@@ -2080,10 +2080,14 @@ function PipelineBoard({
   clinics,
   onOpenDetail,
   onMoveStage,
+  onCall,
+  callingId,
 }: {
   clinics: Clinic[];
   onOpenDetail: (c: Clinic) => void;
   onMoveStage: (c: Clinic, newStage: string) => void;
+  onCall: (c: Clinic) => void;
+  callingId: string | null;
 }) {
   const byStage: Record<string, Clinic[]> = {};
   for (const s of PIPELINE_BOARD_STAGES) byStage[s] = [];
