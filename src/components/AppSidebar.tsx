@@ -52,7 +52,7 @@ const ALL_FOLDERS: NavFolder[] = [
 ];
 
 const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
-const partnerClinicsItem: NavItem = { title: "Partner Clinics", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" };
+const partnerClinicsItem: NavItem = { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" };
 
 const settingsItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
