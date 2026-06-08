@@ -330,6 +330,7 @@ function LetterCampaignPage() {
             onStopNotesEdit={() => setNotesEditingId(null)}
             onToggleSent={toggleSent}
             onSave={saveFields}
+            onRemove={removeFromCampaign}
           />
         )}
       </div>
