@@ -654,7 +654,7 @@ function ClinicsPage() {
     const target = clinics.find((c) => c.id === routeSearch.clinic);
     if (target && (!selectedClinic || selectedClinic.id !== target.id)) {
       openDetail(target);
-      routeNavigate({ search: { clinic: undefined }, replace: true });
+      routeNavigate({ search: (prev) => ({ ...prev, clinic: undefined }), replace: true });
     }
   }, [routeSearch.clinic, clinics, selectedClinic, openDetail, routeNavigate]);
 
