@@ -1,18 +1,20 @@
 import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { IncomingCallDialog, useIncomingBannerActive, INCOMING_BANNER_HEIGHT } from "@/components/IncomingCallDialog";
+import { useIncomingBannerActive, INCOMING_BANNER_HEIGHT } from "@/components/incoming-call-status";
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { MissedCallNotifier } from "@/components/MissedCallNotifier";
-import { FloatingCallWidget } from "@/components/FloatingCallWidget";
 import { NotificationBell } from "@/components/NotificationBell";
-import { MiniMessenger } from "@/components/MiniMessenger";
 
 import { NotificationsProvider } from "@/hooks/useNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/hooks/useAuth";
 import { TAB_TO_URL, type TabKey } from "@/lib/tab-access";
+
+const MiniMessenger = lazy(() =>
+  import("@/components/MiniMessenger").then((module) => ({ default: module.MiniMessenger })),
+);
 
 // Map current pathname → TabKey it belongs to. Returns null for pages that
 // aren't tab-gated (settings, clients, logs, clinic-portal, etc.).
@@ -150,7 +152,9 @@ function DashboardLayout() {
         {!isTrainingRoute && <SmsNotifier />}
         {!isTrainingRoute && <MissedCallNotifier />}
         
-        <MiniMessenger />
+        <Suspense fallback={null}>
+          <MiniMessenger />
+        </Suspense>
       </SidebarProvider>
     </NotificationsProvider>
   );
