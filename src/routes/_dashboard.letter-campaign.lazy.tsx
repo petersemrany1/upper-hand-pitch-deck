@@ -110,15 +110,13 @@ function LetterCampaignPage() {
     const q = search.trim().toLowerCase();
     return clinics.filter((c) => {
       if (statusFilter !== "all" && c.status !== statusFilter) return false;
-      if (chip === "ready" && (!c.address || c.letter_sent)) return false;
-      if (chip === "needs" && (c.address || c.letter_sent)) return false;
       if (q) {
         const hay = `${c.clinic_name} ${c.city ?? ""} ${c.state ?? ""} ${c.address ?? ""} ${c.doctor_name ?? ""} ${c.owner_name ?? ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [clinics, search, statusFilter, chip]);
+  }, [clinics, search, statusFilter]);
 
   const grouped = useMemo(() => {
     const byPrio = new Map<string, Clinic[]>();
