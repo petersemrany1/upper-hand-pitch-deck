@@ -424,14 +424,14 @@ function PitchDeck() {
         >
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
             <p className="text-2xl font-bold text-foreground">10 patients</p>
-            <p className="text-[#CCCCCC] mt-1">in your chair · $8,000</p>
+            <p className="text-[#CCCCCC] mt-1">$8,000</p>
           </div>
           <div className="hidden md:flex items-center justify-center">
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
           </div>
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
-            <p className="text-2xl font-bold text-foreground">Close just 1</p>
-            <p className="text-[#CCCCCC] mt-1">one $17,000 case</p>
+            <p className="text-2xl font-bold text-foreground">Convert just 1</p>
+            <p className="text-[#CCCCCC] mt-1">one ${caseValue.toLocaleString()} case</p>
           </div>
           <div className="hidden md:flex items-center justify-center">
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
@@ -453,13 +453,10 @@ function PitchDeck() {
           </p>
         </motion.div>
 
-        <motion.p variants={fadeIn} className="text-[#999] text-base md:text-lg text-center max-w-3xl mx-auto mb-10">
-          If 15 ready-to-go patients can't make a single sale, then hand on heart — this isn't for you. And we'll both know exactly why.
-        </motion.p>
 
         <motion.div variants={fadeIn} className="border-t border-white/10 pt-5 flex items-center justify-center gap-2.5">
           <ShieldCheck className="w-4 h-4 text-primary" />
-          <p className="text-sm text-[#999]">Not a discount — we're putting our own work on the line. One-time, no lock-in.</p>
+          <p className="text-sm text-[#999]">One-time offer - available on your first pack only.</p>
         </motion.div>
       </motion.div>
     </div>,
