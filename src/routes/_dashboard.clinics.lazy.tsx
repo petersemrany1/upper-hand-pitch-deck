@@ -1848,7 +1848,20 @@ function TimelineEntry({ contact, emoji, waitingOn, branchLabel, onDelete }: { c
           </div>
         )}
         {contact.outcome && <div className="text-[11px] mb-1" style={{ color: "#111111" }}>{contact.outcome}</div>}
-        {contact.notes && <div className="text-xs" style={{ color: "#111111" }}>{contact.notes}</div>}
+        {contact.notes && (
+          <ul className="text-xs space-y-1 mt-1 list-none" style={{ color: "#111111" }}>
+            {contact.notes
+              .split(/\s*•\s*/)
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .map((line, i) => (
+                <li key={i} className="flex gap-1.5 leading-snug">
+                  <span className="shrink-0">•</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+          </ul>
+        )}
         {waitingOn && (
           <div className="text-[10px] mt-1.5 px-2 py-1 rounded inline-block" style={{ background: "#eff6ff", color: "#60a5fa" }}>
             {waitingOn}
