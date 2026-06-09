@@ -46,6 +46,7 @@ const ALL_FOLDERS: NavFolder[] = [
     items: [
       { title: "Pitch Deck", url: "/pitch-deck", icon: Presentation, tab: "pitch_deck" },
       { title: "Clinics CRM", url: "/clinics", icon: Building2, tab: "clinics" },
+      { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
     ],
   },
@@ -53,7 +54,6 @@ const ALL_FOLDERS: NavFolder[] = [
 ];
 
 const trainingItem: NavItem = { title: "Training", url: "/training", icon: GraduationCap, tab: "training" };
-const partnerClinicsItem: NavItem = { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" };
 
 const settingsItem = { title: "Settings", url: "/settings", icon: SettingsIcon };
 
@@ -219,8 +219,6 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {role !== "caller" && canSee("dashboard") && renderItem(topItem)}
-              
-              {role === "admin" && renderItem(partnerClinicsItem)}
 
               {folders.map((folder) => {
                 const open = openFolders[folder.title];
