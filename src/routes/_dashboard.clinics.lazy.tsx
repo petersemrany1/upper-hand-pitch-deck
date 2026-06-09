@@ -1807,8 +1807,13 @@ function TimelineEntry({ contact, emoji, waitingOn, branchLabel, onDelete }: { c
       <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#f4522d" }} />
       <div className="rounded-lg p-3" style={{ background: "#f9f9f9" }}>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-semibold" style={{ color: "#111111" }}>
-            {emoji} {contact.contact_type}
+          <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: "#111111" }}>
+            <span>{emoji} {contact.contact_type}</span>
+            {branchLabel && (
+              <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: "#eef2ff", color: "#4338ca", letterSpacing: "0.06em" }} title="From another branch in this chain">
+                {branchLabel}
+              </span>
+            )}
           </span>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px]" style={{ color: "#111111" }}>{formatDateTime(contact.created_at)}</span>
