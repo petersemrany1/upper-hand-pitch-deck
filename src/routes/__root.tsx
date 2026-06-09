@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlobalCallLayer } from "@/components/GlobalCallLayer";
 
 import appCss from "../styles.css?url";
+import htgLogo from "@/assets/htg-logo.png?url";
 
 // Attach Supabase JWT to all server function calls so requireSupabaseAuth middleware passes.
 if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched) {
