@@ -23,6 +23,7 @@ import type { AppliedReview } from "@/components/CallReviewPopup";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 
 const routeApi = getRouteApi("/_dashboard/clinics");
