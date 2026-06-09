@@ -69,7 +69,7 @@ const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Bold an
   "next_action": "what Peter should do next in one short sentence — INCLUDE the day, date and time window if a callback or Zoom was agreed (e.g. 'Call back Mon 22 Apr between 9am–12pm')",
   "follow_up_date": "ISO date string (YYYY-MM-DD) for the Zoom date OR the callback date, otherwise null",
   "follow_up_time": "the specific time or time window agreed, in plain English (e.g. '9am', '10:30am', '9am–12pm', 'Monday morning'). null if no time mentioned",
-  "notes": "2-3 sentence plain English summary of what happened on the call",
+  "notes": "Comprehensive but scannable summary of the call. Use short bullet lines separated by newline characters (\\n), prefixed with '• '. Cover EVERYTHING that matters: who Peter spoke to and their role, what was pitched/discussed, the prospect's exact objections or concerns (price, timing, fit, capacity, partner approval, etc.), any numbers mentioned (pricing, volumes, conversion rates, deposits, follicle counts), competitors or other partnerships referenced, the prospect's current situation (busy, on holiday, restructuring, etc.), what was agreed or rejected, and any specific quote that captures their stance. Skip filler and pleasantries. Aim for 4–8 tight bullets — dense enough that Peter doesn't need to re-listen, short enough to skim in 15 seconds.",
   "contact_name": "name of person spoken to if mentioned, otherwise null",
   "owner_reached": true or false
 }
