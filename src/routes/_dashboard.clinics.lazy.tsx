@@ -581,7 +581,20 @@ function ClinicsPage() {
 
 
   const loadContacts = async (clinicId: string) => {
-    const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
+    // Include contacts from sibling/parent clinics in the same chain so the
+    // activity timeline shows the full chain history, not just this branch.
+    const current = clinics.find((c) => c.id === clinicId);
+    const rootId = current?.parent_clinic_id || clinicId;
+    const chainIds = new Set<string>([rootId]);
+    for (const c of clinics) {
+      if (c.id === rootId || c.parent_clinic_id === rootId) chainIds.add(c.id);
+    }
+    chainIds.add(clinicId);
+    const { data } = await supabase
+      .from("clinic_contacts")
+      .select("*")
+      .in("clinic_id", Array.from(chainIds))
+      .order("created_at", { ascending: false });
     if (data) setContacts(data as ClinicContact[]);
   };
 
@@ -1551,12 +1564,19 @@ function ClinicsPage() {
                           ? "You need to follow up"
                           : null;
 
+                        const isOtherBranch = ct.clinic_id !== selectedClinic.id;
+                        const branchClinic = isOtherBranch ? clinics.find((c) => c.id === ct.clinic_id) : null;
+                        const branchLabel = branchClinic
+                          ? (branchClinic.city || branchClinic.clinic_name)
+                          : null;
+
                         return (
                           <TimelineEntry
                             key={ct.id}
                             contact={ct}
                             emoji={emoji}
                             waitingOn={waitingOn}
+                            branchLabel={branchLabel}
                             onDelete={async () => {
                               await supabase.from("clinic_contacts").delete().eq("id", ct.id);
                               const { count } = await supabase
@@ -1771,7 +1791,7 @@ function ClinicsPage() {
   );
 }
 
-function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: ClinicContact; emoji: string; waitingOn: string | null; onDelete: () => Promise<void> }) {
+function TimelineEntry({ contact, emoji, waitingOn, branchLabel, onDelete }: { contact: ClinicContact; emoji: string; waitingOn: string | null; branchLabel?: string | null; onDelete: () => Promise<void> }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -1787,8 +1807,13 @@ function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: Clini
       <div className="absolute -left-4 top-1 w-2 h-2 rounded-full" style={{ background: "#f4522d" }} />
       <div className="rounded-lg p-3" style={{ background: "#f9f9f9" }}>
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[11px] font-semibold" style={{ color: "#111111" }}>
-            {emoji} {contact.contact_type}
+          <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: "#111111" }}>
+            <span>{emoji} {contact.contact_type}</span>
+            {branchLabel && (
+              <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded" style={{ background: "#eef2ff", color: "#4338ca", letterSpacing: "0.06em" }} title="From another branch in this chain">
+                {branchLabel}
+              </span>
+            )}
           </span>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px]" style={{ color: "#111111" }}>{formatDateTime(contact.created_at)}</span>
