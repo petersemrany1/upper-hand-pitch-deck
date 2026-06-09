@@ -1934,7 +1934,7 @@ function DraggableClinicCard({
                   +{branches.length} {branches.length === 1 ? "branch" : "branches"}
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-64 p-2">
+              <PopoverContent align="start" sideOffset={6} collisionPadding={12} className="w-64 p-2 z-[200] bg-white shadow-xl border max-h-[60vh] overflow-y-auto">
                 <div className="text-[10px] font-semibold mb-1.5" style={{ color: "#666" }}>
                   Branches of {c.clinic_name}
                 </div>
