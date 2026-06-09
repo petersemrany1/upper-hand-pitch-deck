@@ -1564,12 +1564,19 @@ function ClinicsPage() {
                           ? "You need to follow up"
                           : null;
 
+                        const isOtherBranch = ct.clinic_id !== selectedClinic.id;
+                        const branchClinic = isOtherBranch ? clinics.find((c) => c.id === ct.clinic_id) : null;
+                        const branchLabel = branchClinic
+                          ? (branchClinic.city || branchClinic.clinic_name)
+                          : null;
+
                         return (
                           <TimelineEntry
                             key={ct.id}
                             contact={ct}
                             emoji={emoji}
                             waitingOn={waitingOn}
+                            branchLabel={branchLabel}
                             onDelete={async () => {
                               await supabase.from("clinic_contacts").delete().eq("id", ct.id);
                               const { count } = await supabase
