@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GlobalCallLayer } from "@/components/GlobalCallLayer";
 
 import appCss from "../styles.css?url";
+import htgLogo from "@/assets/htg-logo.png?url";
 
 // Attach Supabase JWT to all server function calls so requireSupabaseAuth middleware passes.
 if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched) {
@@ -76,6 +77,11 @@ export const Route = createRootRoute({
       { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b3623e69-825b-4ea0-9f1e-954fb164b4b2/id-preview-d5f0506f--1d2b5d82-7b6e-4a9c-9899-a64f78717875.lovable.app-1776646147165.png" },
     ],
     links: [
+      {
+        rel: "icon",
+        href: htgLogo,
+        type: "image/png",
+      },
       {
         rel: "stylesheet",
         href: appCss,
