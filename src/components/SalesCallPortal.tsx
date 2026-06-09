@@ -4753,22 +4753,6 @@ function LeadChooser({
               })()}
               <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
             </div>
-            {summary && (
-              <div
-                title={summaryRaw}
-                style={{
-                  fontSize: 12,
-                  color: "#555",
-                  marginTop: 4,
-                  fontStyle: "italic",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {summary}
-              </div>
-            )}
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
               {renderStatusBadge(l)}
               <span style={{ fontSize: 11, color: "#666" }}>
