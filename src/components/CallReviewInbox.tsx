@@ -74,16 +74,29 @@ export function CallReviewInbox() {
 
   // Build/merge an inbox item from a row.
   const upsertFromRow = async (row: CallRecordRow) => {
+    const ageMs = Date.now() - new Date(row.called_at).getTime();
+    const isStuckWaiting =
+      row.analysis_stage === "waiting_for_recording" && ageMs > STUCK_RECORDING_MS;
     const isInProgress =
-      row.analysis_stage !== null && IN_PROGRESS_STAGES.has(row.analysis_stage);
+      row.analysis_stage !== null &&
+      IN_PROGRESS_STAGES.has(row.analysis_stage) &&
+      !isStuckWaiting;
     const isReviewable = row.needs_review === true && !!row.call_analysis;
     const isFailed = row.analysis_stage === "failed";
 
     // Drop the row from inbox if it's no longer relevant.
     if (!isInProgress && !isReviewable && !isFailed) {
       setItems((prev) => prev.filter((i) => i.callRecordId !== row.id));
+      // Auto-flip stuck "waiting" rows so they never resurface.
+      if (isStuckWaiting) {
+        void supabase
+          .from("call_records")
+          .update({ analysis_stage: "recording_missing" })
+          .eq("id", row.id);
+      }
       return;
     }
+
 
     const clinicName = await fetchClinicName(row.clinic_id);
     setItems((prev) => {
@@ -119,12 +132,35 @@ export function CallReviewInbox() {
         .limit(50);
       if (!data) return;
       const rows = data as CallRecordRow[];
-      const filtered = rows.filter(
-        (r) =>
+      const filtered = rows.filter((r) => {
+        const ageMs = Date.now() - new Date(r.called_at).getTime();
+        const isStuckWaiting =
+          r.analysis_stage === "waiting_for_recording" && ageMs > STUCK_RECORDING_MS;
+        return (
           (r.needs_review && r.call_analysis) ||
-          (r.analysis_stage && IN_PROGRESS_STAGES.has(r.analysis_stage)) ||
-          r.analysis_stage === "failed",
-      );
+          (r.analysis_stage &&
+            IN_PROGRESS_STAGES.has(r.analysis_stage) &&
+            !isStuckWaiting) ||
+          r.analysis_stage === "failed"
+        );
+      });
+      // Auto-flip stuck "waiting" rows in the background so they stop coming back.
+      const stuck = rows.filter((r) => {
+        const ageMs = Date.now() - new Date(r.called_at).getTime();
+        return (
+          r.analysis_stage === "waiting_for_recording" && ageMs > STUCK_RECORDING_MS
+        );
+      });
+      if (stuck.length > 0) {
+        void supabase
+          .from("call_records")
+          .update({ analysis_stage: "recording_missing" })
+          .in(
+            "id",
+            stuck.map((r) => r.id),
+          );
+      }
+
       const enriched: InboxItem[] = await Promise.all(
         filtered.map(async (r) => ({
           callRecordId: r.id,
