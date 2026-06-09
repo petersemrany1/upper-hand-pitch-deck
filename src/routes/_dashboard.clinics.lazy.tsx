@@ -1122,11 +1122,11 @@ function ClinicsPage() {
                               <button
                                 onClick={() => handleCall(c)}
                                 disabled={phoneInvalid}
-                                className="flex items-center gap-1 text-[11px] hover:brightness-125 transition disabled:opacity-60 disabled:cursor-not-allowed"
-                                style={{ color: phoneInvalid ? "#111111" : "#22c55e" }}
+                                className="flex items-center gap-1 text-[11px] hover:underline transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                style={{ color: phoneInvalid ? "#111111" : "#888" }}
                                 title={phoneInvalid ? "Invalid Australian phone number — cannot dial" : "Call"}
                               >
-                                {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" />}
+                                {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3 shrink-0" style={{ color: phoneInvalid ? "#111111" : "#bbb" }} />}
                                 <span className="truncate">{c.phone}</span>
                               </button>
                               {phoneInvalid && (
