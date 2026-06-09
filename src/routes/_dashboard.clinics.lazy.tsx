@@ -1929,18 +1929,18 @@ function DraggableClinicCard({
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-1 truncate" style={{ color: "#666" }}>{doctor}</div>)}
 
-      {/* Flagship Call button */}
+      {/* Phone — quiet metadata line */}
       {flagshipPhoneOk && (
-        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1.5">
+        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1">
           <button
             type="button"
             onClick={() => onCall(c)}
             disabled={!!callingId && callingId !== c.id}
-            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold disabled:opacity-50"
-            style={{ background: "#dcfce7", color: "#166534" }}
+            className="inline-flex items-center gap-1 text-[10px] disabled:opacity-50 hover:underline"
+            style={{ color: "#888" }}
             title={`Call ${c.phone}`}
           >
-            {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <PhoneCall className="w-3 h-3" />}
+            {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" style={{ color: "#bbb" }} />}
             <span className="truncate">{c.phone}</span>
           </button>
         </div>
@@ -1983,11 +1983,11 @@ function DraggableClinicCard({
                         type="button"
                         onClick={() => onCall(b)}
                         disabled={!!callingId && callingId !== b.id}
-                        className="mt-1 w-full inline-flex items-center justify-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold disabled:opacity-50"
-                        style={{ background: "#dcfce7", color: "#166534" }}
+                        className="mt-1 inline-flex items-center gap-1 text-[10px] disabled:opacity-50 hover:underline"
+                        style={{ color: "#888" }}
                         title={`Call ${b.phone}`}
                       >
-                        {callingId === b.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <PhoneCall className="w-3 h-3" />}
+                        {callingId === b.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" style={{ color: "#bbb" }} />}
                         <span className="truncate">{b.phone}</span>
                       </button>
                     ) : (
