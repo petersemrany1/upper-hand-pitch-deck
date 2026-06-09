@@ -1510,8 +1510,28 @@ function ClinicsPage() {
                     <Input value={editOwner} onChange={(e) => setEditOwner(e.target.value)} onBlur={() => updateClinicField("owner_name", editOwner)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
                   <FieldRow label="Phone">
-                    <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+                    <div className="flex items-center gap-2">
+                      <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8 flex-1" style={{ background: "#f9f9f9", color: "#111111" }} />
+                      {(() => {
+                        const phoneOk = !!selectedClinic.phone && isValidAUPhone(selectedClinic.phone);
+                        const isCalling = callingId === selectedClinic.id;
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => handleCall(selectedClinic)}
+                            disabled={!phoneOk || (!!callingId && !isCalling)}
+                            className="inline-flex items-center gap-1 h-8 px-2.5 rounded text-[11px] font-semibold disabled:opacity-50"
+                            style={{ background: phoneOk ? "#f4522d" : "#ebebeb", color: "#111111" }}
+                            title={phoneOk ? `Call ${selectedClinic.phone}` : "No valid phone"}
+                          >
+                            {isCalling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />}
+                            {isCalling ? "Calling…" : "Call"}
+                          </button>
+                        );
+                      })()}
+                    </div>
                   </FieldRow>
+
                   <FieldRow label="Email">
                     <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
@@ -2028,22 +2048,8 @@ function DraggableClinicCard({
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-1 truncate" style={{ color: "#666" }}>{doctor}</div>)}
 
-      {/* Phone — quiet metadata line */}
-      {flagshipPhoneOk && (
-        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1">
-          <button
-            type="button"
-            onClick={() => onCall(c)}
-            disabled={!!callingId && callingId !== c.id}
-            className="inline-flex items-center gap-1 text-[10px] disabled:opacity-50 hover:underline"
-            style={{ color: "#888" }}
-            title={`Call ${c.phone}`}
-          >
-            {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" style={{ color: "#bbb" }} />}
-            <span className="truncate">{c.phone}</span>
-          </button>
-        </div>
-      )}
+      {/* Phone removed from card — call button lives inside the detail panel */}
+
 
       {/* Branches now open via the chip popover next to the clinic name. */}
 
