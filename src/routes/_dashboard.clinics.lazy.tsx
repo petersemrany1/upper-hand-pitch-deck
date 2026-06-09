@@ -640,7 +640,7 @@ function ClinicsPage() {
     setEditStatus(clinic.status);
     setEditFollowUp(clinic.next_follow_up || "");
     setNotesSaveState("idle");
-    loadContacts(clinic.id);
+    loadContacts(clinic);
   }, [flushPendingNotes]);
 
   const closeDetail = useCallback(() => {
