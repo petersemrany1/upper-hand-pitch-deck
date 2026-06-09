@@ -1791,7 +1791,7 @@ function ClinicsPage() {
   );
 }
 
-function TimelineEntry({ contact, emoji, waitingOn, onDelete }: { contact: ClinicContact; emoji: string; waitingOn: string | null; onDelete: () => Promise<void> }) {
+function TimelineEntry({ contact, emoji, waitingOn, branchLabel, onDelete }: { contact: ClinicContact; emoji: string; waitingOn: string | null; branchLabel?: string | null; onDelete: () => Promise<void> }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
