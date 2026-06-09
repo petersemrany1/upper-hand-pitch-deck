@@ -1927,7 +1927,24 @@ function DraggableClinicCard({
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-1 truncate" style={{ color: "#666" }}>{doctor}</div>)}
 
-      {/* BRANCHES — collapsible list. Tapping a branch opens its card; no dial from here. */}
+      {/* Flagship Call button */}
+      {flagshipPhoneOk && (
+        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1.5">
+          <button
+            type="button"
+            onClick={() => onCall(c)}
+            disabled={!!callingId && callingId !== c.id}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-semibold disabled:opacity-50"
+            style={{ background: "#dcfce7", color: "#166534" }}
+            title={`Call ${c.phone}`}
+          >
+            {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <PhoneCall className="w-3 h-3" />}
+            <span className="truncate">{c.phone}</span>
+          </button>
+        </div>
+      )}
+
+      {/* BRANCHES — collapsible list. Each branch has its own Call button. */}
       {branches.length > 0 && (
         <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1">
           <button
@@ -1943,21 +1960,40 @@ function DraggableClinicCard({
             <div className="mt-1 space-y-1">
               {branches.map((b) => {
                 const bCity = [b.city, b.state ? (STATES_ABBR[b.state] || b.state) : null].filter(Boolean).join(", ");
+                const bPhoneOk = !!b.phone && isValidAUPhone(b.phone);
                 return (
-                  <button
+                  <div
                     key={b.id}
-                    type="button"
-                    onClick={() => onOpenDetail(b)}
-                    className="w-full text-left rounded px-1.5 py-1 hover:bg-white"
+                    className="rounded px-1.5 py-1"
                     style={{ background: "#f9f9f7", border: "1px solid #ebebeb" }}
-                    title={`Open ${b.clinic_name} to call`}
                   >
-                    <div className="text-[10px] font-semibold truncate" style={{ color: "#111111" }}>{b.clinic_name}</div>
-                    {bCity && <div className="text-[9px] truncate" style={{ color: "#666" }}>{bCity}</div>}
-                    <div className="text-[10px] truncate" style={{ color: b.phone ? "#111111" : "#999" }}>
-                      {b.phone || "No phone"}
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => onOpenDetail(b)}
+                      className="w-full text-left hover:underline"
+                      title={`Open ${b.clinic_name}`}
+                    >
+                      <div className="text-[10px] font-semibold truncate" style={{ color: "#111111" }}>{b.clinic_name}</div>
+                      {bCity && <div className="text-[9px] truncate" style={{ color: "#666" }}>{bCity}</div>}
+                    </button>
+                    {bPhoneOk ? (
+                      <button
+                        type="button"
+                        onClick={() => onCall(b)}
+                        disabled={!!callingId && callingId !== b.id}
+                        className="mt-1 w-full inline-flex items-center justify-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold disabled:opacity-50"
+                        style={{ background: "#dcfce7", color: "#166534" }}
+                        title={`Call ${b.phone}`}
+                      >
+                        {callingId === b.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <PhoneCall className="w-3 h-3" />}
+                        <span className="truncate">{b.phone}</span>
+                      </button>
+                    ) : (
+                      <div className="mt-1 text-[10px] truncate" style={{ color: "#999" }}>
+                        {b.phone || "No phone"}
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
