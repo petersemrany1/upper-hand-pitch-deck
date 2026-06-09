@@ -580,16 +580,26 @@ function ClinicsPage() {
   }, [selectedClinic]);
 
 
-  const loadContacts = async (clinicId: string) => {
-    // Include contacts from sibling/parent clinics in the same chain so the
-    // activity timeline shows the full chain history, not just this branch.
-    const current = clinics.find((c) => c.id === clinicId);
-    const rootId = current?.parent_clinic_id || clinicId;
-    const chainIds = new Set<string>([rootId]);
-    for (const c of clinics) {
-      if (c.id === rootId || c.parent_clinic_id === rootId) chainIds.add(c.id);
+  const loadContacts = async (clinic: Clinic | string) => {
+    // Resolve the chain (parent + all branches) directly from the DB so the
+    // activity timeline always shows full chain history, even if the local
+    // clinics state hasn't fully loaded yet.
+    let clinicId: string;
+    let rootId: string;
+    if (typeof clinic === "string") {
+      clinicId = clinic;
+      const local = clinics.find((c) => c.id === clinic);
+      rootId = local?.parent_clinic_id || clinic;
+    } else {
+      clinicId = clinic.id;
+      rootId = clinic.parent_clinic_id || clinic.id;
     }
-    chainIds.add(clinicId);
+    const { data: chainRows } = await supabase
+      .from("clinics")
+      .select("id")
+      .or(`id.eq.${rootId},parent_clinic_id.eq.${rootId}`);
+    const chainIds = new Set<string>([clinicId, rootId]);
+    for (const r of (chainRows || []) as { id: string }[]) chainIds.add(r.id);
     const { data } = await supabase
       .from("clinic_contacts")
       .select("*")
