@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, useLocation } from "@tanstack/react-route
 import { useEffect, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import htgLogo from "@/assets/hair-transplant-group-logo.png";
+import htgLogo from "@/assets/htg-logo.png";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,

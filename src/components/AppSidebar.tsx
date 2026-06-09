@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 
 import { useAuth } from "@/hooks/useAuth";
-import htgLogo from "@/assets/hair-transplant-group-logo.png";
+import htgLogo from "@/assets/htg-logo.png";
 import { useNotifications } from "@/hooks/useNotifications";
 import { supabase } from "@/integrations/supabase/client";
 
