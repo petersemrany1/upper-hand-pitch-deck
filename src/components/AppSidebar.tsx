@@ -219,7 +219,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {role !== "caller" && canSee("dashboard") && renderItem(topItem)}
-              {role !== "caller" && canSee("training") && renderItem(trainingItem, false, currentPath.startsWith('/training'))}
+              
               {role === "admin" && renderItem(partnerClinicsItem)}
 
               {folders.map((folder) => {
