@@ -1907,7 +1907,7 @@ function DraggableClinicCard({
   const cityLine = [c.city, c.state ? (STATES_ABBR[c.state] || c.state) : null].filter(Boolean).join(", ");
   const branches = (c as Clinic & { _branches?: Clinic[] })._branches || [];
   const flagshipPhoneOk = !!c.phone && isValidAUPhone(c.phone);
-  const [branchesOpen, setBranchesOpen] = useState(false);
+  // branches now open in a popover drawer (see chip below) — no inline expand
 
 
   return (
