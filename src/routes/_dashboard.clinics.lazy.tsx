@@ -1997,62 +1997,8 @@ function DraggableClinicCard({
         </div>
       )}
 
-      {/* BRANCHES — collapsible list. Each branch has its own Call button. */}
-      {branches.length > 0 && (
-        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1">
-          <button
-            type="button"
-            onClick={() => setBranchesOpen((v) => !v)}
-            className="w-full flex items-center justify-between text-[10px] font-semibold px-1.5 py-1 rounded"
-            style={{ background: "#eef2ff", color: "#4338ca" }}
-          >
-            <span>{branchesOpen ? "Hide" : "Show"} {branches.length} other {branches.length === 1 ? "branch" : "branches"}</span>
-            {branchesOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          </button>
-          {branchesOpen && (
-            <div className="mt-1 space-y-1">
-              {branches.map((b) => {
-                const bCity = [b.city, b.state ? (STATES_ABBR[b.state] || b.state) : null].filter(Boolean).join(", ");
-                const bPhoneOk = !!b.phone && isValidAUPhone(b.phone);
-                return (
-                  <div
-                    key={b.id}
-                    className="rounded px-1.5 py-1"
-                    style={{ background: "#f9f9f7", border: "1px solid #ebebeb" }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => onOpenDetail(b)}
-                      className="w-full text-left hover:underline"
-                      title={`Open ${b.clinic_name}`}
-                    >
-                      <div className="text-[10px] font-semibold truncate" style={{ color: "#111111" }}>{b.clinic_name}</div>
-                      {bCity && <div className="text-[9px] truncate" style={{ color: "#666" }}>{bCity}</div>}
-                    </button>
-                    {bPhoneOk ? (
-                      <button
-                        type="button"
-                        onClick={() => onCall(b)}
-                        disabled={!!callingId && callingId !== b.id}
-                        className="mt-1 inline-flex items-center gap-1 text-[10px] disabled:opacity-50 hover:underline"
-                        style={{ color: "#888" }}
-                        title={`Call ${b.phone}`}
-                      >
-                        {callingId === b.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" style={{ color: "#bbb" }} />}
-                        <span className="truncate">{b.phone}</span>
-                      </button>
-                    ) : (
-                      <div className="mt-1 text-[10px] truncate" style={{ color: "#999" }}>
-                        {b.phone || "No phone"}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
+      {/* Branches now open via the chip popover next to the clinic name. */}
+
 
       {c.next_follow_up && (
         <div className="text-[10px] mb-1 flex items-center gap-1" style={{ color: "#666" }}>
