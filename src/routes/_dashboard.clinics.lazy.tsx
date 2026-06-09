@@ -2028,22 +2028,8 @@ function DraggableClinicCard({
       {cityLine && (<div className="text-[10px] mb-0.5 truncate" style={{ color: "#666" }}>{cityLine}</div>)}
       {doctor && (<div className="text-[10px] mb-1 truncate" style={{ color: "#666" }}>{doctor}</div>)}
 
-      {/* Phone — quiet metadata line */}
-      {flagshipPhoneOk && (
-        <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()} className="mb-1">
-          <button
-            type="button"
-            onClick={() => onCall(c)}
-            disabled={!!callingId && callingId !== c.id}
-            className="inline-flex items-center gap-1 text-[10px] disabled:opacity-50 hover:underline"
-            style={{ color: "#888" }}
-            title={`Call ${c.phone}`}
-          >
-            {callingId === c.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Phone className="w-3 h-3" style={{ color: "#bbb" }} />}
-            <span className="truncate">{c.phone}</span>
-          </button>
-        </div>
-      )}
+      {/* Phone removed from card — call button lives inside the detail panel */}
+
 
       {/* Branches now open via the chip popover next to the clinic name. */}
 
