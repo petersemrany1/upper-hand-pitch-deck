@@ -31,6 +31,7 @@ const ALL_FOLDERS: NavFolder[] = [
     repUrl: "/sales-call",
     items: [
       { title: "Sales Portal", url: "/sales-call", icon: Headphones, tab: "sales_portal" },
+      { title: "Training", url: "/training", icon: GraduationCap, tab: "training" },
       { title: "Leaderboard", url: "/leaderboard", icon: Trophy, tab: "leaderboard" },
       { title: "Appointments", url: "/booked-appointments", icon: Calendar, tab: "appointments" },
       { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
@@ -218,7 +219,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {role !== "caller" && canSee("dashboard") && renderItem(topItem)}
-              {role !== "caller" && canSee("training") && renderItem(trainingItem, false, currentPath.startsWith('/training'))}
+              
               {role === "admin" && renderItem(partnerClinicsItem)}
 
               {folders.map((folder) => {
