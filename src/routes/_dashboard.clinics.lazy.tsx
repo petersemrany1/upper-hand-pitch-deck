@@ -2076,7 +2076,7 @@ function PipelineBoard({
             return (
               <StageColumn key={stage} stage={stage} items={items}>
                 {items.map((c) => (
-                  <DraggableClinicCard key={c.id} c={c} onOpenDetail={onOpenDetail} onMoveStage={onMoveStage} />
+                  <DraggableClinicCard key={c.id} c={c} onOpenDetail={onOpenDetail} onMoveStage={onMoveStage} onCall={onCall} callingId={callingId} />
                 ))}
               </StageColumn>
             );
