@@ -5637,9 +5637,6 @@ function RightPanel({
             </div>
           );
         })()}
-        {active.phone && (
-          <div style={{ fontSize: 14, color: COLORS.coral, marginTop: 4 }}>{active.phone}</div>
-        )}
         {leadCallSummary && (
           <div
             style={{
