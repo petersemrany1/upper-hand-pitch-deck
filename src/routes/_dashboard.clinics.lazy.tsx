@@ -581,7 +581,20 @@ function ClinicsPage() {
 
 
   const loadContacts = async (clinicId: string) => {
-    const { data } = await supabase.from("clinic_contacts").select("*").eq("clinic_id", clinicId).order("created_at", { ascending: false });
+    // Include contacts from sibling/parent clinics in the same chain so the
+    // activity timeline shows the full chain history, not just this branch.
+    const current = clinics.find((c) => c.id === clinicId);
+    const rootId = current?.parent_clinic_id || clinicId;
+    const chainIds = new Set<string>([rootId]);
+    for (const c of clinics) {
+      if (c.id === rootId || c.parent_clinic_id === rootId) chainIds.add(c.id);
+    }
+    chainIds.add(clinicId);
+    const { data } = await supabase
+      .from("clinic_contacts")
+      .select("*")
+      .in("clinic_id", Array.from(chainIds))
+      .order("created_at", { ascending: false });
     if (data) setContacts(data as ClinicContact[]);
   };
 
