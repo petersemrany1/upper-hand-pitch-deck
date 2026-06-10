@@ -13,6 +13,7 @@ type PhoneNumberRow = {
   call_count: number;
   twilio_sid: string | null;
   created_at: string;
+  mms_enabled: boolean;
 };
 
 export function PhoneNumbersSection() {
@@ -129,7 +130,21 @@ export function PhoneNumbersSection() {
             <tbody>
               {numbers.map((n) => (
                 <tr key={n.id} className="border-t border-border">
-                  <td className="px-4 py-3 font-medium font-mono">{n.number}</td>
+                  <td className="px-4 py-3 font-medium font-mono">
+                    <div className="flex items-center gap-2">
+                      <span>{n.number}</span>
+                      <span
+                        className={
+                          "inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide " +
+                          (n.mms_enabled
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-muted text-muted-foreground")
+                        }
+                      >
+                        {n.mms_enabled ? "MMS" : "SMS only"}
+                      </span>
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={
