@@ -133,6 +133,7 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
     twilio_sid: sid,
     friendly_name: friendly,
     status: "active",
+    mms_enabled: true,
   });
   if (error) {
     await logError("provisionNumber", error.message, { phoneNumber, sid });
