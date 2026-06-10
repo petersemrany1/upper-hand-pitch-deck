@@ -153,6 +153,7 @@ export const getNextNumber = createServerFn({ method: "POST" }).handler(async ()
     .from("phone_numbers")
     .select("id, number, call_count")
     .eq("status", "active")
+    .eq("mms_enabled", true)
     .order("last_used_at", { ascending: true, nullsFirst: true })
     .limit(1)
     .maybeSingle();
