@@ -3,6 +3,8 @@ import { useState } from "react";
 import ahmedAsset from "@/assets/sales-call-ahmed.mp3.asset.json";
 import jonoAsset from "@/assets/sales-call-jono.mp3.asset.json";
 import rajAsset from "@/assets/sales-call-raj.mp3.asset.json";
+import nathanAsset from "@/assets/sales-call-nathan.mp3.asset.json";
+import angusAsset from "@/assets/sales-call-angus.mp3.asset.json";
 import { ModuleGate, CompleteModuleBar } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/sales-call-example")({
@@ -15,6 +17,8 @@ const recordings = [
   { name: "Ahmed", url: ahmedAsset.url },
   { name: "Jono", url: jonoAsset.url },
   { name: "Raj", url: rajAsset.url },
+  { name: "Nathan (Byron — booked)", url: nathanAsset.url },
+  { name: "Angus (Byron — booked)", url: angusAsset.url },
 ];
 
 function SalesCallExample() {
