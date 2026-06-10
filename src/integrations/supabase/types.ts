@@ -1081,6 +1081,7 @@ export type Database = {
           friendly_name: string | null
           id: string
           last_used_at: string | null
+          mms_enabled: boolean
           number: string
           status: string
           twilio_sid: string | null
@@ -1091,6 +1092,7 @@ export type Database = {
           friendly_name?: string | null
           id?: string
           last_used_at?: string | null
+          mms_enabled?: boolean
           number: string
           status?: string
           twilio_sid?: string | null
@@ -1101,6 +1103,7 @@ export type Database = {
           friendly_name?: string | null
           id?: string
           last_used_at?: string | null
+          mms_enabled?: boolean
           number?: string
           status?: string
           twilio_sid?: string | null
