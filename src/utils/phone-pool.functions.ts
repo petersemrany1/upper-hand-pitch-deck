@@ -16,8 +16,8 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
 
   const authHeader = "Basic " + Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
-  // Step 1: search for an available AU mobile number
-  const searchUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/AvailablePhoneNumbers/AU/Mobile.json?SmsEnabled=true&VoiceEnabled=true&Limit=1`;
+  // Step 1: search for an available AU mobile number (MMS-capable only)
+  const searchUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/AvailablePhoneNumbers/AU/Mobile.json?SmsEnabled=true&VoiceEnabled=true&MmsEnabled=true&Limit=5`;
   const searchRes = await fetch(searchUrl, {
     method: "GET",
     headers: { Authorization: authHeader },
@@ -31,7 +31,11 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
   if (available.length === 0) {
     return { success: false as const, error: "No AU mobile numbers available in Twilio inventory" };
   }
-  const phoneNumber: string = available[0].phone_number;
+  const mmsCapable = available.find((n: { capabilities?: { mms?: boolean } }) => n.capabilities?.mms === true);
+  if (!mmsCapable) {
+    return { success: false as const, error: "No MMS-capable AU mobile numbers available right now — try again later." };
+  }
+  const phoneNumber: string = mmsCapable.phone_number;
 
   // AU mobile numbers require an approved regulatory bundle on purchase.
   const bundlesUrl = "https://numbers.twilio.com/v2/RegulatoryCompliance/Bundles?" + new URLSearchParams({
