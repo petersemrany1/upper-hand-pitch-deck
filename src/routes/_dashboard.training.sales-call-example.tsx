@@ -17,8 +17,8 @@ const recordings = [
   { name: "Ahmed", url: ahmedAsset.url },
   { name: "Jono", url: jonoAsset.url },
   { name: "Raj", url: rajAsset.url },
-  { name: "Nathan (Byron — booked)", url: nathanAsset.url },
-  { name: "Angus (Byron — booked)", url: angusAsset.url },
+  { name: "Nathan", url: nathanAsset.url },
+  { name: "Angus", url: angusAsset.url },
 ];
 
 function SalesCallExample() {
