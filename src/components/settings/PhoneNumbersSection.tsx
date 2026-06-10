@@ -13,6 +13,7 @@ type PhoneNumberRow = {
   call_count: number;
   twilio_sid: string | null;
   created_at: string;
+  mms_enabled: boolean;
 };
 
 export function PhoneNumbersSection() {
