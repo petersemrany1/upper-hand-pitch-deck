@@ -172,7 +172,8 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
     const buf = new Uint8Array(await audioRes.arrayBuffer());
     const contentType = audioRes.headers.get("content-type") || "audio/mpeg";
     const ext = contentType.includes("wav") ? "wav" : contentType.includes("mp4") ? "mp4" : "mp3";
-    const folder = repId ?? "unknown";
+    // Folder = rep id when known, else the auth uid (still traceable), else "orphaned".
+    const folder = repId ?? authUserId ?? "orphaned";
     const path = `${folder}/${data.conversationId}.${ext}`;
 
     const { error: uploadErr } = await supabaseAdmin.storage
