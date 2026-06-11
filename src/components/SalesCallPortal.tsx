@@ -5503,6 +5503,44 @@ function RightPanel({
     return () => clearInterval(i);
   }, [practiceMode, practiceStatus]);
 
+  // Practice mode: pagehide / visibilitychange backup. If the rep closes the
+  // tab while a practice call is mid-save, sendBeacon enqueues a pending row
+  // to the public endpoint so the cron picks it up. Browsers guarantee
+  // sendBeacon delivery even during unload, unlike fetch.
+  const currentRepIdForBeacon = useCurrentRepId();
+  useEffect(() => {
+    if (!practiceMode) return;
+    const sendBackup = () => {
+      const convId = practiceConvIdRef.current;
+      if (!convId) return;
+      const startedAt = practiceStartedAtRef.current;
+      const durationSeconds = startedAt
+        ? Math.max(0, Math.round((Date.now() - startedAt) / 1000))
+        : undefined;
+      try {
+        const payload = JSON.stringify({
+          conversationId: convId,
+          durationSeconds,
+          repId: currentRepIdForBeacon ?? undefined,
+        });
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon("/api/public/hooks/enqueue-practice-recording", blob);
+      } catch (e) {
+        console.error("[practice] sendBeacon backup failed", e);
+      }
+    };
+    const onPageHide = () => sendBackup();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") sendBackup();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [practiceMode, currentRepIdForBeacon]);
+
   // Reset open objection when switching leads
   useEffect(() => { setOpenObjection(null); }, [active.id]);
 
