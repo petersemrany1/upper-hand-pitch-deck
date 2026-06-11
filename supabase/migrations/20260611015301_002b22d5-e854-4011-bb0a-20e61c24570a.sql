@@ -1,0 +1,1 @@
+ALTER TABLE public.practice_call_save_queue ADD COLUMN IF NOT EXISTS auth_user_id UUID;

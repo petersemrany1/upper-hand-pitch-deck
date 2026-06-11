@@ -1140,6 +1140,7 @@ export type Database = {
       practice_call_save_queue: {
         Row: {
           attempts: number
+          auth_user_id: string | null
           conversation_id: string
           created_at: string
           done_at: string | null
@@ -1153,6 +1154,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          auth_user_id?: string | null
           conversation_id: string
           created_at?: string
           done_at?: string | null
@@ -1166,6 +1168,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          auth_user_id?: string | null
           conversation_id?: string
           created_at?: string
           done_at?: string | null

@@ -16,6 +16,7 @@ export const enqueuePracticeCallSave = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const email = (context.claims?.email as string | undefined)?.toLowerCase();
+    const authUserId = context.userId as string | undefined;
     let repId: string | null = null;
     if (email) {
       const { data: rep } = await supabaseAdmin
@@ -23,7 +24,17 @@ export const enqueuePracticeCallSave = createServerFn({ method: "POST" })
         .select("id")
         .ilike("email", email)
         .maybeSingle();
-      repId = rep?.id ?? null;
+      repId = (rep?.id as string | undefined) ?? null;
+    }
+    if (!repId) {
+      // Lookup failed — log so admin can fix the sales_reps email mismatch.
+      try {
+        await supabaseAdmin.from("error_logs").insert({
+          function_name: "practice-call-rep-lookup",
+          error_message: `No sales_reps row for email "${email ?? "(none)"}" (auth uid ${authUserId ?? "(none)"})`,
+          context: { conversationId: data.conversationId, email, authUserId },
+        });
+      } catch { /* noop */ }
     }
     const { error } = await supabaseAdmin
       .from("practice_call_save_queue")
@@ -31,6 +42,7 @@ export const enqueuePracticeCallSave = createServerFn({ method: "POST" })
         {
           conversation_id: data.conversationId,
           rep_id: repId,
+          auth_user_id: authUserId ?? null,
           duration_seconds: data.durationSeconds ?? null,
           status: "pending",
         },
@@ -110,6 +122,7 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
 
     // Look up sales_rep id for this auth user (matches current_sales_rep_id())
     const email = (context.claims?.email as string | undefined)?.toLowerCase();
+    const authUserId = context.userId as string | undefined;
     let repId: string | null = null;
     if (email) {
       const { data: rep } = await supabaseAdmin
@@ -118,6 +131,15 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
         .ilike("email", email)
         .maybeSingle();
       repId = rep?.id ?? null;
+    }
+    if (!repId) {
+      try {
+        await supabaseAdmin.from("error_logs").insert({
+          function_name: "practice-call-rep-lookup",
+          error_message: `No sales_reps row for email "${email ?? "(none)"}" (auth uid ${authUserId ?? "(none)"})`,
+          context: { conversationId: data.conversationId, email, authUserId },
+        });
+      } catch { /* noop */ }
     }
 
     // Happy-path poll only — give ElevenLabs ~8s to make the audio ready.
@@ -150,7 +172,8 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
     const buf = new Uint8Array(await audioRes.arrayBuffer());
     const contentType = audioRes.headers.get("content-type") || "audio/mpeg";
     const ext = contentType.includes("wav") ? "wav" : contentType.includes("mp4") ? "mp4" : "mp3";
-    const folder = repId ?? "unknown";
+    // Folder = rep id when known, else the auth uid (still traceable), else "orphaned".
+    const folder = repId ?? authUserId ?? "orphaned";
     const path = `${folder}/${data.conversationId}.${ext}`;
 
     const { error: uploadErr } = await supabaseAdmin.storage

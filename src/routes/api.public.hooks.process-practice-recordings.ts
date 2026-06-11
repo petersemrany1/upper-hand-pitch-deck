@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/public/hooks/process-practice-recordi
 
         const { data: rows, error: selErr } = await supabase
           .from("practice_call_save_queue")
-          .select("id, conversation_id, rep_id, duration_seconds, attempts")
+          .select("id, conversation_id, rep_id, auth_user_id, duration_seconds, attempts")
           .eq("status", "pending")
           .lte("next_attempt_at", new Date().toISOString())
           .order("created_at", { ascending: true })
@@ -80,7 +80,7 @@ export const Route = createFileRoute("/api/public/hooks/process-practice-recordi
             const buf = new Uint8Array(await audioRes.arrayBuffer());
             const contentType = audioRes.headers.get("content-type") || "audio/mpeg";
             const ext = contentType.includes("wav") ? "wav" : contentType.includes("mp4") ? "mp4" : "mp3";
-            const folder = row.rep_id ?? "unknown";
+            const folder = row.rep_id ?? row.auth_user_id ?? "orphaned";
             const path = `${folder}/${row.conversation_id}.${ext}`;
 
             const { error: upErr } = await supabase.storage
