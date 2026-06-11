@@ -10,31 +10,6 @@ const InputSchema = z.object({
 // Fast enqueue — writes a durable row in <100ms so the recording is
 // captured even if the rep slams the tab shut before the upload finishes.
 // The cron at /api/public/hooks/process-practice-recordings drains the queue.
-async function resolveRepId(
-  supabaseAdmin: ReturnType<typeof import("@supabase/supabase-js").createClient>,
-  email: string | undefined,
-  authUserId: string | undefined,
-  conversationId: string,
-): Promise<string | null> {
-  if (email) {
-    const { data: rep } = await supabaseAdmin
-      .from("sales_reps")
-      .select("id")
-      .ilike("email", email)
-      .maybeSingle();
-    if (rep?.id) return rep.id as string;
-  }
-  // Lookup failed — log loudly so admin can fix the sales_reps email mismatch.
-  try {
-    await supabaseAdmin.from("error_logs").insert({
-      function_name: "practice-call-rep-lookup",
-      error_message: `No sales_reps row for email "${email ?? "(none)"}" (auth uid ${authUserId ?? "(none)"})`,
-      context: { conversationId, email, authUserId },
-    });
-  } catch { /* noop */ }
-  return null;
-}
-
 export const enqueuePracticeCallSave = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => InputSchema.parse(input))
@@ -42,14 +17,31 @@ export const enqueuePracticeCallSave = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const email = (context.claims?.email as string | undefined)?.toLowerCase();
     const authUserId = context.userId as string | undefined;
-    const repId = await resolveRepId(supabaseAdmin, email, authUserId, data.conversationId);
+    let repId: string | null = null;
+    if (email) {
+      const { data: rep } = await supabaseAdmin
+        .from("sales_reps")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+      repId = (rep?.id as string | undefined) ?? null;
+    }
+    if (!repId) {
+      // Lookup failed — log so admin can fix the sales_reps email mismatch.
+      try {
+        await supabaseAdmin.from("error_logs").insert({
+          function_name: "practice-call-rep-lookup",
+          error_message: `No sales_reps row for email "${email ?? "(none)"}" (auth uid ${authUserId ?? "(none)"})`,
+          context: { conversationId: data.conversationId, email, authUserId },
+        });
+      } catch { /* noop */ }
+    }
     const { error } = await supabaseAdmin
       .from("practice_call_save_queue")
       .upsert(
         {
           conversation_id: data.conversationId,
           rep_id: repId,
-          // Stash the auth uid so the cron can use it as a folder fallback.
           auth_user_id: authUserId ?? null,
           duration_seconds: data.durationSeconds ?? null,
           status: "pending",
