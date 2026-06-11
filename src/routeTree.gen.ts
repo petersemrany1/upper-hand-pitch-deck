@@ -50,6 +50,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
+import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
 
 const ThankYouRoute = ThankYouRouteImport.update({
   id: '/thank-you',
@@ -282,6 +283,12 @@ const ApiPublicHooksReconcileCallDurationsRoute =
     path: '/api/public/hooks/reconcile-call-durations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksProcessPracticeRecordingsRoute =
+  ApiPublicHooksProcessPracticeRecordingsRouteImport.update({
+    id: '/api/public/hooks/process-practice-recordings',
+    path: '/api/public/hooks/process-practice-recordings',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
@@ -318,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training/': typeof DashboardTrainingIndexRoute
+  '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -359,6 +367,7 @@ export interface FileRoutesByTo {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training': typeof DashboardTrainingIndexRoute
+  '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -403,6 +412,7 @@ export interface FileRoutesById {
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_dashboard/training/': typeof DashboardTrainingIndexRoute
+  '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -447,6 +457,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/training/'
+    | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
@@ -488,6 +499,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/training'
+    | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
@@ -531,6 +543,7 @@ export interface FileRouteTypes {
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/_dashboard/training/'
+    | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/lovable/email/queue/process'
@@ -549,6 +562,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
+  ApiPublicHooksProcessPracticeRecordingsRoute: typeof ApiPublicHooksProcessPracticeRecordingsRoute
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -845,6 +859,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/process-practice-recordings': {
+      id: '/api/public/hooks/process-practice-recordings'
+      path: '/api/public/hooks/process-practice-recordings'
+      fullPath: '/api/public/hooks/process-practice-recordings'
+      preLoaderRoute: typeof ApiPublicHooksProcessPracticeRecordingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -935,6 +956,8 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
+  ApiPublicHooksProcessPracticeRecordingsRoute:
+    ApiPublicHooksProcessPracticeRecordingsRoute,
   ApiPublicHooksReconcileCallDurationsRoute:
     ApiPublicHooksReconcileCallDurationsRoute,
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
