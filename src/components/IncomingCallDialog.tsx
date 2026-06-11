@@ -150,18 +150,27 @@ export function IncomingCallDialog() {
         // Auto-schedule callback for 15 min from now and reject the call so
         // it falls to voicemail. The lead will pop back into the
         // "Callbacks today" queue.
+        //
+        // EXCEPTION: if the lead is already booked in (deposit paid or
+        // booked without deposit), do NOT change their status or add them
+        // back into the callback queue — they're past the dialler stage
+        // and Peter only needs the SMS sent to them.
         if (matched?.id) {
-          const callbackAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-          try {
-            await supabase
-              .from("meta_leads")
-              .update({
-                status: "callback_scheduled",
-                callback_scheduled_at: callbackAt,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", matched.id);
-          } catch { /* noop */ }
+          const raw = (matched.status ?? "").toLowerCase();
+          const isBooked = raw.includes("booked") || raw.includes("deposit_paid");
+          if (!isBooked) {
+            const callbackAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+            try {
+              await supabase
+                .from("meta_leads")
+                .update({
+                  status: "callback_scheduled",
+                  callback_scheduled_at: callbackAt,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", matched.id);
+            } catch { /* noop */ }
+          }
         }
         try { reject(); } catch { /* noop */ }
       }
