@@ -1513,7 +1513,8 @@ function ClinicsPage() {
                     <div className="flex items-center gap-2">
                       <Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} onBlur={() => updateClinicField("phone", editPhone)} className="border-0 text-xs h-8 flex-1" style={{ background: "#f9f9f9", color: "#111111" }} />
                       {(() => {
-                        const phoneOk = !!selectedClinic.phone && isValidAUPhone(selectedClinic.phone);
+                        const phoneToCall = (editPhone || selectedClinic.phone || "").trim();
+                        const phoneOk = !!phoneToCall && isValidAUPhone(phoneToCall);
                         const isCalling = callingId === selectedClinic.id;
                         return (
                           <button
