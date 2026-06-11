@@ -1137,6 +1137,56 @@ export type Database = {
         }
         Relationships: []
       }
+      practice_call_save_queue: {
+        Row: {
+          attempts: number
+          conversation_id: string
+          created_at: string
+          done_at: string | null
+          duration_seconds: number | null
+          id: string
+          last_error: string | null
+          next_attempt_at: string
+          rep_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          conversation_id: string
+          created_at?: string
+          done_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          rep_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          conversation_id?: string
+          created_at?: string
+          done_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          last_error?: string | null
+          next_attempt_at?: string
+          rep_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "practice_call_save_queue_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quiz_questions: {
         Row: {
           created_at: string | null

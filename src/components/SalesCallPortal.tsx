@@ -25,7 +25,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
 import { openMessenger, setMessengerThread } from "@/hooks/useMessenger";
 import { useConversation } from "@elevenlabs/react";
-import { savePracticeCallRecording } from "@/lib/practice-recordings.functions";
+import { savePracticeCallRecording, enqueuePracticeCallSave } from "@/lib/practice-recordings.functions";
+import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import NorwoodPricingCalculator from "@/components/NorwoodPricingCalculator";
 
 const PRACTICE_AGENT_ID = "agent_1301kt5fgx3ye9krpyc25900fy60";
@@ -5136,12 +5137,17 @@ function RightPanel({
       setPracticeConnecting(false);
       if (!convId) return;
       const durationSeconds = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined;
-      // Fire-and-forget; ElevenLabs takes a few seconds to make the recording available
+      // Step 1: enqueue immediately. Cheap insert (<100ms) so it completes
+      // even if the rep is closing the tab. The cron at
+      // /api/public/hooks/process-practice-recordings drains the queue.
+      void enqueuePracticeCallSave({ data: { conversationId: convId, durationSeconds } })
+        .catch((e) => console.error("[practice] enqueue failed", e));
+      // Step 2: best-effort happy-path save so the rep sees the toast now.
+      // If the tab dies mid-poll, the cron picks it up within a minute.
       void savePracticeCallRecording({ data: { conversationId: convId, durationSeconds } })
         .then(() => toast.success("Practice call recording saved"))
         .catch((e) => {
-          console.error("[practice] save recording failed", e);
-          toast.error("Couldn't save practice call recording");
+          console.error("[practice] save recording failed (cron will retry)", e);
         });
     },
     onError: (err) => {
@@ -5496,6 +5502,44 @@ function RightPanel({
     const i = setInterval(() => setCallTimer((t) => t + 1), 1000);
     return () => clearInterval(i);
   }, [practiceMode, practiceStatus]);
+
+  // Practice mode: pagehide / visibilitychange backup. If the rep closes the
+  // tab while a practice call is mid-save, sendBeacon enqueues a pending row
+  // to the public endpoint so the cron picks it up. Browsers guarantee
+  // sendBeacon delivery even during unload, unlike fetch.
+  const currentRepIdForBeacon = useCurrentRepId();
+  useEffect(() => {
+    if (!practiceMode) return;
+    const sendBackup = () => {
+      const convId = practiceConvIdRef.current;
+      if (!convId) return;
+      const startedAt = practiceStartedAtRef.current;
+      const durationSeconds = startedAt
+        ? Math.max(0, Math.round((Date.now() - startedAt) / 1000))
+        : undefined;
+      try {
+        const payload = JSON.stringify({
+          conversationId: convId,
+          durationSeconds,
+          repId: currentRepIdForBeacon ?? undefined,
+        });
+        const blob = new Blob([payload], { type: "application/json" });
+        navigator.sendBeacon("/api/public/hooks/enqueue-practice-recording", blob);
+      } catch (e) {
+        console.error("[practice] sendBeacon backup failed", e);
+      }
+    };
+    const onPageHide = () => sendBackup();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") sendBackup();
+    };
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [practiceMode, currentRepIdForBeacon]);
 
   // Reset open objection when switching leads
   useEffect(() => { setOpenObjection(null); }, [active.id]);

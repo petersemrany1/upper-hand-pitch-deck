@@ -7,6 +7,39 @@ const InputSchema = z.object({
   durationSeconds: z.number().int().min(0).max(60 * 60).optional(),
 });
 
+// Fast enqueue — writes a durable row in <100ms so the recording is
+// captured even if the rep slams the tab shut before the upload finishes.
+// The cron at /api/public/hooks/process-practice-recordings drains the queue.
+export const enqueuePracticeCallSave = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => InputSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const email = (context.claims?.email as string | undefined)?.toLowerCase();
+    let repId: string | null = null;
+    if (email) {
+      const { data: rep } = await supabaseAdmin
+        .from("sales_reps")
+        .select("id")
+        .ilike("email", email)
+        .maybeSingle();
+      repId = rep?.id ?? null;
+    }
+    const { error } = await supabaseAdmin
+      .from("practice_call_save_queue")
+      .upsert(
+        {
+          conversation_id: data.conversationId,
+          rep_id: repId,
+          duration_seconds: data.durationSeconds ?? null,
+          status: "pending",
+        },
+        { onConflict: "conversation_id", ignoreDuplicates: true },
+      );
+    if (error) throw new Error(`Enqueue failed: ${error.message}`);
+    return { ok: true };
+  });
+
 export const listPracticeCallRecordings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
