@@ -30,7 +30,7 @@ export const Route = createFileRoute("/api/public/hooks/process-practice-recordi
 
         const { data: rows, error: selErr } = await supabase
           .from("practice_call_save_queue")
-          .select("id, conversation_id, rep_id, duration_seconds, attempts")
+          .select("id, conversation_id, rep_id, auth_user_id, duration_seconds, attempts")
           .eq("status", "pending")
           .lte("next_attempt_at", new Date().toISOString())
           .order("created_at", { ascending: true })
