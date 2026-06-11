@@ -122,6 +122,7 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
 
     // Look up sales_rep id for this auth user (matches current_sales_rep_id())
     const email = (context.claims?.email as string | undefined)?.toLowerCase();
+    const authUserId = context.userId as string | undefined;
     let repId: string | null = null;
     if (email) {
       const { data: rep } = await supabaseAdmin
@@ -130,6 +131,15 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
         .ilike("email", email)
         .maybeSingle();
       repId = rep?.id ?? null;
+    }
+    if (!repId) {
+      try {
+        await supabaseAdmin.from("error_logs").insert({
+          function_name: "practice-call-rep-lookup",
+          error_message: `No sales_reps row for email "${email ?? "(none)"}" (auth uid ${authUserId ?? "(none)"})`,
+          context: { conversationId: data.conversationId, email, authUserId },
+        });
+      } catch { /* noop */ }
     }
 
     // Happy-path poll only — give ElevenLabs ~8s to make the audio ready.
