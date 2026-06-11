@@ -120,26 +120,31 @@ export const savePracticeCallRecording = createServerFn({ method: "POST" })
       repId = rep?.id ?? null;
     }
 
-    // Poll ElevenLabs for the recording (it takes a few seconds to be ready)
+    // Happy-path poll only — give ElevenLabs ~8s to make the audio ready.
+    // If it's not ready in time, we throw a "pending" error and the caller
+    // shows a "saving in background" toast. The cron at
+    // /api/public/hooks/process-practice-recordings will pick up the queue
+    // row (written by enqueuePracticeCallSave) and retry for ~50 minutes.
     const audioUrl = `https://api.elevenlabs.io/v1/convai/conversations/${data.conversationId}/audio`;
     let audioRes: Response | null = null;
     let lastStatus = 0;
-    for (let attempt = 0; attempt < 12; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++) {
       const res = await fetch(audioUrl, { headers: { "xi-api-key": apiKey } });
       lastStatus = res.status;
       if (res.ok) {
         audioRes = res;
         break;
       }
-      // 404 = not ready yet, 202 = processing
+      // 404 = not ready yet, 202 = processing, 425 = too early
       if (res.status !== 404 && res.status !== 202 && res.status !== 425) {
         const body = await res.text().catch(() => "");
         throw new Error(`ElevenLabs audio fetch failed [${res.status}]: ${body.slice(0, 200)}`);
       }
-      await new Promise((r) => setTimeout(r, 2500));
+      await new Promise((r) => setTimeout(r, 2000));
     }
     if (!audioRes) {
-      throw new Error(`Recording not ready after polling (last status ${lastStatus})`);
+      // Not an error — the queue row will be picked up by the cron.
+      throw new Error(`PENDING: Recording not ready yet (last status ${lastStatus}) — background save will retry`);
     }
 
     const buf = new Uint8Array(await audioRes.arrayBuffer());
