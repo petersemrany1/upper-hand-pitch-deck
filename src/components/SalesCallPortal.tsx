@@ -5136,12 +5136,17 @@ function RightPanel({
       setPracticeConnecting(false);
       if (!convId) return;
       const durationSeconds = startedAt ? Math.max(0, Math.round((Date.now() - startedAt) / 1000)) : undefined;
-      // Fire-and-forget; ElevenLabs takes a few seconds to make the recording available
+      // Step 1: enqueue immediately. Cheap insert (<100ms) so it completes
+      // even if the rep is closing the tab. The cron at
+      // /api/public/hooks/process-practice-recordings drains the queue.
+      void enqueuePracticeCallSave({ data: { conversationId: convId, durationSeconds } })
+        .catch((e) => console.error("[practice] enqueue failed", e));
+      // Step 2: best-effort happy-path save so the rep sees the toast now.
+      // If the tab dies mid-poll, the cron picks it up within a minute.
       void savePracticeCallRecording({ data: { conversationId: convId, durationSeconds } })
         .then(() => toast.success("Practice call recording saved"))
         .catch((e) => {
-          console.error("[practice] save recording failed", e);
-          toast.error("Couldn't save practice call recording");
+          console.error("[practice] save recording failed (cron will retry)", e);
         });
     },
     onError: (err) => {
