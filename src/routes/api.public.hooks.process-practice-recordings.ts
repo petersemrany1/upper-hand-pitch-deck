@@ -80,7 +80,7 @@ export const Route = createFileRoute("/api/public/hooks/process-practice-recordi
             const buf = new Uint8Array(await audioRes.arrayBuffer());
             const contentType = audioRes.headers.get("content-type") || "audio/mpeg";
             const ext = contentType.includes("wav") ? "wav" : contentType.includes("mp4") ? "mp4" : "mp3";
-            const folder = row.rep_id ?? "unknown";
+            const folder = row.rep_id ?? row.auth_user_id ?? "orphaned";
             const path = `${folder}/${row.conversation_id}.${ext}`;
 
             const { error: upErr } = await supabase.storage
