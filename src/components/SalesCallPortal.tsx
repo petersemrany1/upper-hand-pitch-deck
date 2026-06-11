@@ -5143,11 +5143,19 @@ function RightPanel({
       void enqueuePracticeCallSave({ data: { conversationId: convId, durationSeconds } })
         .catch((e) => console.error("[practice] enqueue failed", e));
       // Step 2: best-effort happy-path save so the rep sees the toast now.
-      // If the tab dies mid-poll, the cron picks it up within a minute.
+      // If ElevenLabs isn't ready in ~8s, the inline save throws a PENDING
+      // error — the cron at /api/public/hooks/process-practice-recordings
+      // will pick up the queue row written in step 1 and finish the save.
       void savePracticeCallRecording({ data: { conversationId: convId, durationSeconds } })
         .then(() => toast.success("Practice call recording saved"))
         .catch((e) => {
-          console.error("[practice] save recording failed (cron will retry)", e);
+          const msg = e instanceof Error ? e.message : String(e);
+          if (msg.startsWith("PENDING")) {
+            toast.info("Saving recording in the background — refresh in a minute");
+          } else {
+            console.error("[practice] save recording failed (cron will retry)", e);
+            toast.info("Saving recording in the background — refresh in a minute");
+          }
         });
     },
     onError: (err) => {
