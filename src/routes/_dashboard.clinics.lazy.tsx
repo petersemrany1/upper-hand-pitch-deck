@@ -1519,11 +1519,11 @@ function ClinicsPage() {
                         return (
                           <button
                             type="button"
-                            onClick={() => handleCall(selectedClinic)}
+                            onClick={() => handleCall({ ...selectedClinic, phone: phoneToCall })}
                             disabled={!phoneOk || (!!callingId && !isCalling)}
                             className="inline-flex items-center gap-1 h-8 px-2.5 rounded text-[11px] font-semibold disabled:opacity-50"
                             style={{ background: phoneOk ? "#f4522d" : "#ebebeb", color: "#111111" }}
-                            title={phoneOk ? `Call ${selectedClinic.phone}` : "No valid phone"}
+                            title={phoneOk ? `Call ${phoneToCall}` : "No valid phone"}
                           >
                             {isCalling ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Phone className="w-3.5 h-3.5" />}
                             {isCalling ? "Calling…" : "Call"}
