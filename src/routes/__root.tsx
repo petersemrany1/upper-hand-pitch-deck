@@ -38,6 +38,10 @@ function NotFoundComponent() {
   const location = useLocation();
   const navigate = useNavigate();
 
+  if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/sales-call") {
+    window.location.replace(`/sales-call${window.location.search}${window.location.hash}`);
+  }
+
   useEffect(() => {
     if (location.pathname !== "/_dashboard/sales-call") return;
     navigate({
