@@ -5231,6 +5231,11 @@ function RightPanel({
   // gate is re-armed below only when this panel starts or observes a live call
   // for this exact lead.
   useEffect(() => {
+    // If parent is snapping us back to a lead that still owes an outcome,
+    // preserve the gate so the modal can open instead of being wiped here.
+    if (pendingOutcomeLeadId && pendingOutcomeLeadId === active.id) {
+      return;
+    }
     setOutcomePending(false);
     setOutcomeRequired(false);
     setCallDurationAtHangup(0);
@@ -5242,6 +5247,18 @@ function RightPanel({
     clearStoredGate(active.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
+
+  // Auto-open the forced-outcome modal whenever the active lead matches the
+  // parent's "still owes an outcome" lead. This guarantees the modal appears
+  // immediately (not gated on the user clicking "Next Lead") whether they
+  // came back to the lead manually or the parent snapped them back.
+  useEffect(() => {
+    if (!pendingOutcomeLeadId || pendingOutcomeLeadId !== active.id) return;
+    if (leadHasBookedSale(active)) return;
+    setOutcomePending(true);
+    setOutcomeRequired(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOutcomeLeadId, active.id]);
 
   // Mirror outcomePending up to the parent so jump-to-lead shortcuts
   // (missed-call popup, ?leadId= deeplink, callbacks list) can also gate.
