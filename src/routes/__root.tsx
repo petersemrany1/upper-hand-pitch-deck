@@ -1,4 +1,4 @@
-import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { Outlet, Link, createRootRoute, HeadContent, Scripts, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { AuthProvider } from "@/hooks/useAuth";
@@ -35,6 +35,18 @@ if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatc
 }
 
 function NotFoundComponent() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (location.pathname !== "/_dashboard/sales-call") return;
+    navigate({
+      to: "/sales-call",
+      search: location.search,
+      replace: true,
+    });
+  }, [location.pathname, location.search, navigate]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
