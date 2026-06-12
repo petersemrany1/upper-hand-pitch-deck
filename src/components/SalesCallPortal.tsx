@@ -5263,17 +5263,13 @@ function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
 
-  // Auto-open the forced-outcome modal whenever the active lead matches the
-  // parent's "still owes an outcome" lead. This guarantees the modal appears
-  // immediately (not gated on the user clicking "Next Lead") whether they
-  // came back to the lead manually or the parent snapped them back.
-  useEffect(() => {
-    if (!pendingOutcomeLeadId || pendingOutcomeLeadId !== active.id) return;
-    if (leadHasBookedSale(active)) return;
-    setOutcomePending(true);
-    setOutcomeRequired(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingOutcomeLeadId, active.id]);
+  // NOTE: we intentionally do NOT auto-open the forced-outcome modal when
+  // pendingOutcomeLeadId matches the active lead. The rep must be free to
+  // double-dial (call → no answer → hangup → call again) without a modal
+  // popping every time the call ends. The modal only opens when the rep
+  // explicitly clicks "Next Lead" while an outcome is still pending
+  // (see the Next Lead handler below).
+
 
   // Mirror outcomePending up to the parent so jump-to-lead shortcuts
   // (missed-call popup, ?leadId= deeplink, callbacks list) can also gate.
