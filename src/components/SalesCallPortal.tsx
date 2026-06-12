@@ -5618,14 +5618,14 @@ function RightPanel({
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (!active.phone) { toast.error("No phone number"); return; }
-    // Mark outcome as pending the INSTANT the rep initiates a dial.
-    // Don't wait for device-status transitions — they can be missed if the
-    // call connects/disconnects faster than React subscribes, or if the call
-    // was inbound (e.g. callback from the lead).
+    // Mark outcome as pending the INSTANT the rep initiates a dial so the
+    // local "Next Lead" button gates correctly. Do NOT arm the parent-level
+    // pendingOutcomeLeadId here — that would auto-open the forced-outcome
+    // modal immediately on dial. The parent is armed only once the call
+    // ends (see hangup effect above).
     callAttemptLeadIdRef.current = active.id;
     wasInCallRef.current = true;
     setOutcomePending(true);
-    onPendingOutcomeArmed?.(active.id);
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
