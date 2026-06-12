@@ -5112,6 +5112,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
+  pendingOutcomeLeadId, onPendingOutcomeArmed,
 }: {
   active: Lead;
   repId: string | null;
@@ -5127,6 +5128,8 @@ function RightPanel({
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
   onCallStarted?: () => void;
   practiceMode?: boolean;
+  pendingOutcomeLeadId?: string | null;
+  onPendingOutcomeArmed?: (leadId: string) => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   // In practiceMode, skip Twilio device registration entirely — the practice
