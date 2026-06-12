@@ -212,12 +212,22 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     void getCurrentRepSession({ data: undefined as never })
       .then((row) => {
         if (cancelled || !row || sessionEndRequestedRef.current) return;
+        // Only resume if sessionStorage also has an in-progress queue. Without
+        // this guard, opening the tab on a new browser (or after clearing site
+        // data) would flip sessionActive=true with an empty queue, falling
+        // straight into the "Session complete" branch on every page load.
+        const hasLocalQueue = Array.isArray(sessionRestored?.queue) && sessionRestored.queue.length > 0;
+        if (!hasLocalQueue) {
+          void closeRepSession().catch(() => { /* noop */ });
+          return;
+        }
         setSessionStartedAt(row.started_at);
         setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000)));
         setSessionActive(true);
       })
       .catch(() => { /* not signed in / no rep — ignore */ });
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Practice mode: inject a synthetic "Dave AI" lead and auto-activate the
@@ -872,11 +882,6 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     // sessionActive — auto-advance
     const nextId = sessionQueue[sessionIndex];
     if (nextId) {
-      // Guard: only schedule state updates when we actually need to change
-      // the active lead. Without this guard, if the queued lead isn't in
-      // the loaded `leads` array yet, `active` stays null and the render
-      // runs again — re-scheduling setCompleted(new Set()) every pass and
-      // freezing the tab in an infinite render loop.
       const leadLoaded = leads.some((l) => l.id === nextId);
       if (leadLoaded && activeId !== nextId) {
         queueMicrotask(() => {
@@ -886,9 +891,15 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
           setAmpPrefill("");
           setAudioPrefill("");
         });
+      } else if (!leadLoaded && leads.length > 0) {
+        // Leads have loaded but this queued id isn't in the result set
+        // (deleted, filtered out, or older than the fetch limit). Skip past
+        // it instead of leaving the page permanently blank.
+        queueMicrotask(() => {
+          setSessionIndex((i) => i + 1);
+        });
       }
-      // If the lead isn't loaded yet, render nothing and wait for `leads`
-      // to update — the effect will re-run naturally without looping.
+      // If leads.length === 0 we're still loading — wait for the next render.
     } else {
       queueMicrotask(() => {
         setSessionActive(false);
