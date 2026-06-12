@@ -5522,11 +5522,13 @@ function RightPanel({
     if (deviceStatus !== "in-call") return;
     if (deviceActiveLeadId !== active.id && callAttemptLeadIdRef.current !== active.id) return;
     callAttemptLeadIdRef.current = active.id;
-    // Any time we reach in-call (outbound OR inbound answered), force an
-    // outcome before the rep can move on.
+    // Any time we reach in-call (outbound OR inbound answered), mark the
+    // outcome as pending so the rep can't slip past it without logging.
+    // The parent-level "snap back to this lead" arming only happens AFTER
+    // the call ends (see hangup effect below) — otherwise the forced-outcome
+    // modal would pop the instant the dial starts.
     wasInCallRef.current = true;
     setOutcomePending(true);
-    onPendingOutcomeArmed?.(active.id);
     const i = setInterval(() => setCallTimer((t) => {
       const next = t + 1;
       callTimerRef.current = next;
@@ -5616,14 +5618,14 @@ function RightPanel({
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (!active.phone) { toast.error("No phone number"); return; }
-    // Mark outcome as pending the INSTANT the rep initiates a dial.
-    // Don't wait for device-status transitions — they can be missed if the
-    // call connects/disconnects faster than React subscribes, or if the call
-    // was inbound (e.g. callback from the lead).
+    // Mark outcome as pending the INSTANT the rep initiates a dial so the
+    // local "Next Lead" button gates correctly. Do NOT arm the parent-level
+    // pendingOutcomeLeadId here — that would auto-open the forced-outcome
+    // modal immediately on dial. The parent is armed only once the call
+    // ends (see hangup effect above).
     callAttemptLeadIdRef.current = active.id;
     wasInCallRef.current = true;
     setOutcomePending(true);
-    onPendingOutcomeArmed?.(active.id);
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
