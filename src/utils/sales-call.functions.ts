@@ -305,7 +305,10 @@ export const saveBooking = createServerFn({ method: "POST" })
         if (existing[0].deposit_amount != null) delete payload.deposit_amount;
         await supabaseAdmin.from("clinic_appointments").update(payload).eq("id", existing[0].id);
       } else {
-        await supabaseAdmin.from("clinic_appointments").insert({ ...payload, intel_notes: null });
+        // Upsert on lead_id — DB unique index prevents race-condition duplicates.
+        await supabaseAdmin
+          .from("clinic_appointments")
+          .upsert({ ...payload, intel_notes: null }, { onConflict: "lead_id" });
       }
     }
 
