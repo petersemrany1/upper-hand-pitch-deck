@@ -5511,6 +5511,7 @@ function RightPanel({
     // outcome before the rep can move on.
     wasInCallRef.current = true;
     setOutcomePending(true);
+    onPendingOutcomeArmed?.(active.id);
     const i = setInterval(() => setCallTimer((t) => {
       const next = t + 1;
       callTimerRef.current = next;
@@ -5525,9 +5526,16 @@ function RightPanel({
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
-        if (callAttemptLeadIdRef.current === active.id && !leadHasBookedSale(active)) {
-          setCallDurationAtHangup(callTimerRef.current);
-          setOutcomePending(true);
+        const armedLeadId = callAttemptLeadIdRef.current;
+        if (armedLeadId && !leadHasBookedSale(active)) {
+          // Tell the parent which lead still owes an outcome — even if the
+          // user has since navigated away from this lead, the parent will
+          // snap back here and the modal will auto-open.
+          onPendingOutcomeArmed?.(armedLeadId);
+          if (armedLeadId === active.id) {
+            setCallDurationAtHangup(callTimerRef.current);
+            setOutcomePending(true);
+          }
         }
       }
       callAttemptLeadIdRef.current = null;
