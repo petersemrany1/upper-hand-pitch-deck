@@ -1117,7 +1117,10 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
+          pendingOutcomeLeadId={pendingOutcomeLeadId}
+          onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
+            setPendingOutcomeLeadId(null);
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
               const nextIndex = sessionIndex + 1;
