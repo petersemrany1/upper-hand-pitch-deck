@@ -5608,6 +5608,7 @@ function RightPanel({
     callAttemptLeadIdRef.current = active.id;
     wasInCallRef.current = true;
     setOutcomePending(true);
+    onPendingOutcomeArmed?.(active.id);
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
