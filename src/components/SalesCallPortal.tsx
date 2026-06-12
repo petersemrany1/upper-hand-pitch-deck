@@ -406,6 +406,20 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
   const outcomePendingRef = useRef(false);
   const gateActive = () => outcomeRequiredRef.current || outcomePendingRef.current;
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
+  // Lead that just had a call complete and still needs an outcome logged.
+  // Persists across activeId changes so navigating away (or never clicking
+  // "Next Lead") still surfaces the forced-outcome modal: we snap the
+  // portal back to that lead and RightPanel auto-opens the modal.
+  const [pendingOutcomeLeadId, setPendingOutcomeLeadId] = useState<string | null>(null);
+  // Snap back to the lead that needs an outcome whenever the user
+  // navigates away before logging one.
+  useEffect(() => {
+    if (!pendingOutcomeLeadId) return;
+    if (activeId === pendingOutcomeLeadId) return;
+    setActiveId(pendingOutcomeLeadId);
+    setStep("mindset");
+    setCompleted(new Set());
+  }, [pendingOutcomeLeadId, activeId]);
   useEffect(() => {
     // Reset the inner column scroll AND every scrollable ancestor (the
     // dashboard <main> wraps this view in `overflow-y-auto`, so without this
