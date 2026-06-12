@@ -1024,6 +1024,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
                 outcomePendingRef.current = false;
                 outcomeRequiredRef.current = false;
               }
+              if (pendingOutcomeLeadId === leadId) setPendingOutcomeLeadId(null);
             }}
             onDepositPaid={() => {
               if (sessionActive) {
