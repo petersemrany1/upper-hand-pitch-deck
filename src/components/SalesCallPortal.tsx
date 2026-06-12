@@ -649,7 +649,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
-    navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
+    navigate({ to: "/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: undefined, phone: undefined }), replace: true });
   }, [search.leadId, leads, activeId, navigate]);
 
   useEffect(() => {
@@ -660,10 +660,10 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
       if (cancelled) return;
       const foundId = r.success ? r.lead?.id : null;
       if (foundId) {
-        navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
+        navigate({ to: "/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, leadId: foundId, phone: undefined }), replace: true });
         return;
       }
-      navigate({ to: ".", from: "/_dashboard/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
+      navigate({ to: "/sales-call", search: (prev: Record<string, unknown>) => ({ ...prev, phone: undefined }), replace: true });
     });
     return () => { cancelled = true; };
   }, [search.phone, search.leadId, navigate]);
