@@ -218,7 +218,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
         // straight into the "Session complete" branch on every page load.
         const hasLocalQueue = Array.isArray(sessionRestored?.queue) && sessionRestored.queue.length > 0;
         if (!hasLocalQueue) {
-          void closeRepSession().catch(() => { /* noop */ });
+          try { closeRepSession(); } catch { /* noop */ }
           return;
         }
         setSessionStartedAt(row.started_at);
