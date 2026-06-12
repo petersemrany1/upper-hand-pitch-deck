@@ -230,6 +230,16 @@ async function ensureDevice(): Promise<void> {
       } as ConstructorParameters<typeof DeviceType>[1]);
       device = d;
 
+      // Silence the built-in incoming ringtone — we show a top banner instead
+      // so Peter can pick up without an audible ring interrupting him.
+      try {
+        const audioApi = (d as unknown as { audio?: { incoming?: (on: boolean) => void; disconnect?: (on: boolean) => void; outgoing?: (on: boolean) => void } }).audio;
+        audioApi?.incoming?.(false);
+      } catch (e) {
+        console.warn("Voice SDK: failed to disable incoming ringtone", e);
+      }
+
+
       d.on("registered", () => {
         console.log("Voice SDK: registered");
         console.log("DEVICE REGISTERED");
