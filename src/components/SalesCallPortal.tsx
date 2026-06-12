@@ -406,6 +406,20 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
   const outcomePendingRef = useRef(false);
   const gateActive = () => outcomeRequiredRef.current || outcomePendingRef.current;
   const [pendingLeadId, setPendingLeadId] = useState<string | null>(null);
+  // Lead that just had a call complete and still needs an outcome logged.
+  // Persists across activeId changes so navigating away (or never clicking
+  // "Next Lead") still surfaces the forced-outcome modal: we snap the
+  // portal back to that lead and RightPanel auto-opens the modal.
+  const [pendingOutcomeLeadId, setPendingOutcomeLeadId] = useState<string | null>(null);
+  // Snap back to the lead that needs an outcome whenever the user
+  // navigates away before logging one.
+  useEffect(() => {
+    if (!pendingOutcomeLeadId) return;
+    if (activeId === pendingOutcomeLeadId) return;
+    setActiveId(pendingOutcomeLeadId);
+    setStep("mindset");
+    setCompleted(new Set());
+  }, [pendingOutcomeLeadId, activeId]);
   useEffect(() => {
     // Reset the inner column scroll AND every scrollable ancestor (the
     // dashboard <main> wraps this view in `overflow-y-auto`, so without this
@@ -932,6 +946,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
                     // Ignore storage cleanup failures; ending the session must still work.
                   }
                 }
+                setPendingOutcomeLeadId(null);
                 setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
               }}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -1010,6 +1025,7 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
                 outcomePendingRef.current = false;
                 outcomeRequiredRef.current = false;
               }
+              if (pendingOutcomeLeadId === leadId) setPendingOutcomeLeadId(null);
             }}
             onDepositPaid={() => {
               if (sessionActive) {
@@ -1102,7 +1118,10 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
+          pendingOutcomeLeadId={pendingOutcomeLeadId}
+          onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
+            setPendingOutcomeLeadId(null);
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
               const nextIndex = sessionIndex + 1;
@@ -5094,6 +5113,7 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
+  pendingOutcomeLeadId, onPendingOutcomeArmed,
 }: {
   active: Lead;
   repId: string | null;
@@ -5109,6 +5129,8 @@ function RightPanel({
   onAfterOutcomeApplied?: (wasBooked?: boolean) => void;
   onCallStarted?: () => void;
   practiceMode?: boolean;
+  pendingOutcomeLeadId?: string | null;
+  onPendingOutcomeArmed?: (leadId: string) => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   // In practiceMode, skip Twilio device registration entirely — the practice
@@ -5210,6 +5232,11 @@ function RightPanel({
   // gate is re-armed below only when this panel starts or observes a live call
   // for this exact lead.
   useEffect(() => {
+    // If parent is snapping us back to a lead that still owes an outcome,
+    // preserve the gate so the modal can open instead of being wiped here.
+    if (pendingOutcomeLeadId && pendingOutcomeLeadId === active.id) {
+      return;
+    }
     setOutcomePending(false);
     setOutcomeRequired(false);
     setCallDurationAtHangup(0);
@@ -5221,6 +5248,18 @@ function RightPanel({
     clearStoredGate(active.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active.id]);
+
+  // Auto-open the forced-outcome modal whenever the active lead matches the
+  // parent's "still owes an outcome" lead. This guarantees the modal appears
+  // immediately (not gated on the user clicking "Next Lead") whether they
+  // came back to the lead manually or the parent snapped them back.
+  useEffect(() => {
+    if (!pendingOutcomeLeadId || pendingOutcomeLeadId !== active.id) return;
+    if (leadHasBookedSale(active)) return;
+    setOutcomePending(true);
+    setOutcomeRequired(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingOutcomeLeadId, active.id]);
 
   // Mirror outcomePending up to the parent so jump-to-lead shortcuts
   // (missed-call popup, ?leadId= deeplink, callbacks list) can also gate.
@@ -5473,6 +5512,7 @@ function RightPanel({
     // outcome before the rep can move on.
     wasInCallRef.current = true;
     setOutcomePending(true);
+    onPendingOutcomeArmed?.(active.id);
     const i = setInterval(() => setCallTimer((t) => {
       const next = t + 1;
       callTimerRef.current = next;
@@ -5487,9 +5527,16 @@ function RightPanel({
     if (deviceStatus === "ready" || deviceStatus === "idle" || deviceStatus === "error") {
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
-        if (callAttemptLeadIdRef.current === active.id && !leadHasBookedSale(active)) {
-          setCallDurationAtHangup(callTimerRef.current);
-          setOutcomePending(true);
+        const armedLeadId = callAttemptLeadIdRef.current;
+        if (armedLeadId && !leadHasBookedSale(active)) {
+          // Tell the parent which lead still owes an outcome — even if the
+          // user has since navigated away from this lead, the parent will
+          // snap back here and the modal will auto-open.
+          onPendingOutcomeArmed?.(armedLeadId);
+          if (armedLeadId === active.id) {
+            setCallDurationAtHangup(callTimerRef.current);
+            setOutcomePending(true);
+          }
         }
       }
       callAttemptLeadIdRef.current = null;
@@ -5562,6 +5609,7 @@ function RightPanel({
     callAttemptLeadIdRef.current = active.id;
     wasInCallRef.current = true;
     setOutcomePending(true);
+    onPendingOutcomeArmed?.(active.id);
     try {
       console.log("[callNow] placing call to", active.phone);
       await placeCall(active.phone, { leadId: active.id, repId: repId ?? "" });
