@@ -3,6 +3,10 @@ import { useEffect, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
 import { supabase } from "@/integrations/supabase/client";
 
+if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/sales-call") {
+  window.history.replaceState(null, "", `/sales-call${window.location.search}${window.location.hash}`);
+}
+
 function DefaultErrorComponent({
   error,
   reset,
