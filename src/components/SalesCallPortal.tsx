@@ -1937,10 +1937,7 @@ After you map the head, you're only halfway. Before you send the density image, 
 "Day to day, what are you doing to manage it at the moment — how you're styling it, any products, fibres, caps, that sort of thing?" [Wait for answer]
 "And appearance-wise — in photos, or meeting someone the first time — how's it sitting for you?" [Wait for answer]
 "Any sensitivity up top — scalp catching the sun, getting tender, anything like that?" [Wait for answer]
-
-
-
-👉 Amplification — everything reflected back in one concentrated statement, in their words. Then stop. Let them say "yeah, exactly."`}
+`}
       </div>
 
       {/* Notes */}
