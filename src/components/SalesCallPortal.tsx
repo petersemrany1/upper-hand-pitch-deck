@@ -1451,6 +1451,8 @@ function StepContent({
 
 👉 Wait for their answer — let them tell you where they're at
 
+When they say "Yes" or are giving you an idea they want to book instantly say "Excellent, I really want to book you in with Doctor [name], because based on what you told me about [Link to their specific situation] I think they would be perfect for you. They also [Drop 3 key selling points] and that's why I wouldn't want you seeing anyone else."
+
 👉 NEVER say "would you like to book" — that gives them a yes/no exit
 👉 NEVER say "do you want to think about it" — you just lost them
 👉 NEVER say "no pressure" or "no rush" — you're handing them the off-ramp
