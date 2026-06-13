@@ -1446,13 +1446,15 @@ function StepContent({
           color: COLORS.text,
           whiteSpace: "pre-wrap",
         }}>
-{`👉 Ask an OPEN question — "Based on all of that, is it something you wanna get sorted now? Where are you at with all of this?"
+<>
+<strong style={{ fontSize: "15px" }}>👉 "Based on all of that, is it something you wanna get sorted now? Where are you at with all of this?"</strong>
 
 👉 Wait for their answer — let them tell you where they're at
 
 👉 NEVER say "would you like to book" — that gives them a yes/no exit
 👉 NEVER say "do you want to think about it" — you just lost them
-👉 NEVER say "no pressure" or "no rush" — you're handing them the off-ramp`}
+👉 NEVER say "no pressure" or "no rush" — you're handing them the off-ramp
+</>
         </div>
       </div>
     );
