@@ -1914,6 +1914,7 @@ function DiscoveryStep({
 📍 THE MAP
  👉 Hairline — how far back → temples → crown/vertex → mid-scalp density → see-through in light → shedding rate → "anything else up top?"
 Transition to donor — explicit: "Now let's have a close look at the back and sides"
+**Send Norwood photo and clarify which stage of hair loss**
 
 
 
