@@ -2321,12 +2321,8 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
       <Eyebrow>Step 8 — Price & Sell The Specialist</Eyebrow>
       <StepHeading>Present Price</StepHeading>
 
-      {/* Scrollable content — matches Discovery/Education pattern */}
       <div style={{
         marginTop: 16,
-        maxHeight: 420,
-        overflowY: "auto",
-        paddingRight: 4,
       }}>
         {/* Walk the price journey */}
         <div style={{
