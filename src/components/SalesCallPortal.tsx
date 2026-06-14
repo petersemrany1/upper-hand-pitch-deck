@@ -2205,9 +2205,6 @@ DONOR CLOCK (NORWOOD 4+)
 
 
 
-ELIGIBILITY PIVOT ⭐ 
-
-"The real question isn't if you want it — it's if you're a good candidate. Comes down to your donor." "As much as I'd love to tell you now - I can't until you're assessed 
  
 
 
