@@ -1435,12 +1435,10 @@ function StepContent({
         {/* Commitment script — phone-friendly stacked blocks */}
         <div style={{
           marginTop: 16,
-          maxHeight: 480,
-          overflowY: "auto",
           display: "flex",
           flexDirection: "column",
           gap: 14,
-        }}>
+        }}
           {/* Step 1 — The ask */}
           <div style={{
             background: "#ffffff",
