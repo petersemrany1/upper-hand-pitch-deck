@@ -1237,7 +1237,7 @@ function StepContent({
           Hi <Pill name>{fname}</Pill>, it's <Pill name>{repName || "there"}</Pill> from Hair Transplant Group, how are you?
           I saw you made a Facebook enquiry about a hair transplant and I wanted to make sure I called you straight away
           — if I don't call you now I won't be able to call you back later, it's just been so busy in the clinic today.
-          So how can I help you with your hair situation, <Pill name>{fname}</Pill>?
+          So how can I help with your hair situation, <Pill name>{fname}</Pill>?
         </ScriptBody>
 
         <CalloutAmber title='"Call me back" handler'>
