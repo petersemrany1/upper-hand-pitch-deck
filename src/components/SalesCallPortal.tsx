@@ -2106,7 +2106,13 @@ If they give a surface answer, dig deeper:
       <style>{`
         textarea.discovery-history::placeholder { color: #bbbbbb !important; opacity: 1; }
         @keyframes discoverySpin { to { transform: rotate(360deg); } }
+        .always-scroll::-webkit-scrollbar { width: 12px; -webkit-appearance: none; }
+        .always-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 6px; }
+        .always-scroll::-webkit-scrollbar-thumb { background: #c4c4c4; border-radius: 6px; border: 2px solid #f1f1f1; }
+        .always-scroll::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+        .always-scroll { scrollbar-width: thin; scrollbar-color: #c4c4c4 #f1f1f1; }
       `}</style>
+
     </div>
   );
 }
