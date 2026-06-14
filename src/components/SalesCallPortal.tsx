@@ -2011,10 +2011,13 @@ After you map the head, you're only halfway. Before you send the density image, 
 
 
 
-👉 1. What's left — can it be saved? "Of the hair you've still got up top, do you feel like it's holding steady, or are you still losing it? And the back and sides — how's that holding up?"
-👉 2. Why is it happening? "What do you reckon's driving it — hereditary, who's it come from? Or stress, health stuff, just age?"
-👉 3. Have you looked into this before? "Have you looked into sorting it before — any clinics, Turkey, stuff online? What did they say?" If yes: "What stopped you going ahead at that point?"
-👉 4. Why now? "So you've been dealing with this for [use their own number] years — what's got you looking into it now? Why now do you think?"
+👉 "Of the hair you've still got up top, do you feel like it's holding steady, or are you still losing it? And the back and sides — how's that holding up?"
+
+👉 "What do you think is driving it — hereditary, who's it come from? Or stress, health stuff, just age?"
+
+👉 "Have you looked into sorting it before — any clinics, Turkey, stuff online? What did they say?" If yes: "What stopped you going ahead at that point?"
+
+**👉 4. Why now?** "So you've been dealing with this for [use their own number] years — what's got you looking into it now? Why now do you think?"
 
 If they give a surface answer, dig deeper:
 "That makes sense. I speak to people about this every day and everyone's different - but what is it specifically about YOUR situation that's made you say enough is enough?"
