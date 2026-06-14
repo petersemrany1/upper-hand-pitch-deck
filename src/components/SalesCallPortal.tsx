@@ -2175,7 +2175,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
   }, [lead.clinic_id]);
 
   const doctorName = doctor?.name ?? "your specialist";
-  const priceOriginal = clinic?.consult_price_original ?? 395;
+  
   const clinicLine = clinic
     ? [clinic.clinic_name, [clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ")
     : null;
@@ -2266,10 +2266,20 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
             exact order — do not skip
           </div>
           <PriceRow num={1}>"The consult includes a full medical assessment, hair design, imaging — all in one appointment."</PriceRow>
-          <PriceRow num={2}>"Normally this consult is <strong style={{ fontStyle: "normal" }}>${priceOriginal}</strong>..."</PriceRow>
-          <PriceRow num={3}>"...we do have some complimentary spots available..."</PriceRow>
-          <PriceRow num={4}>"...there is just a <strong style={{ fontStyle: "normal" }}>$75 deposit</strong> to secure your spot..."</PriceRow>
-          <PriceRow num={5}>"...which is <strong style={{ fontStyle: "normal" }}>fully refunded</strong> when you arrive..."</PriceRow>
+          <PriceRow num={2}>"Normally this consult is $395..."</PriceRow>
+          <PriceRow num={3}>"...we do have some complimentary spots available sometimes, let me just have a look and see if I can find any free ones"</PriceRow>
+          <div className="flex items-start gap-3" style={{ padding: "10px 0", borderBottom: "0.5px solid #f3f3f3" }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
+              color: "#fff", fontSize: 10, fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, marginTop: 2,
+            }}>4</div>
+            <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontWeight: 700 }}>
+              Agree on a time, give 2 options
+            </div>
+          </div>
+          <PriceRow num={5}>"...there is just a $75 deposit to secure your spot, which is fully refunded when you arrive..."</PriceRow>
           <div className="flex items-start gap-3" style={{ padding: "10px 0" }}>
             <div style={{
               width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
@@ -2279,6 +2289,17 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
             }}>6</div>
             <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontStyle: "italic" }}>
               "...we do this because we turn people away for these slots. <strong style={{ fontStyle: "normal" }}>Does that sound fair?</strong>"
+            </div>
+          </div>
+          <div className="flex items-start gap-3" style={{ padding: "10px 0" }}>
+            <div style={{
+              width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
+              color: "#fff", fontSize: 10, fontWeight: 700,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0, marginTop: 2,
+            }}>7</div>
+            <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontWeight: 700 }}>
+              Ask for their card details if they sound older otherwise send them a link
             </div>
           </div>
         </div>
