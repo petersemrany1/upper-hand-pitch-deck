@@ -2237,6 +2237,14 @@ UNDERSTANDING
 
 "Why do YOU think a hair transplant would work best for you?"`}
       </div>
+        <div style={{
+          position: "absolute", left: 0, right: 0, bottom: 0, height: 40,
+          background: "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))",
+          pointerEvents: "none", borderRadius: "0 0 8px 0",
+        }} />
+      </div>
+
+
 
       {/* Photo buttons */}
       <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
