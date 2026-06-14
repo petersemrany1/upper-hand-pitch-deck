@@ -2033,12 +2033,7 @@ If they give a surface answer, dig deeper:
 "Any sensitivity up top — scalp catching the sun, getting tender, anything like that?" [Wait for answer]
 `}
       </div>
-        <div style={{
-          position: "absolute", left: 0, right: 0, bottom: 0, height: 40,
-          background: "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))",
-          pointerEvents: "none", borderRadius: "0 0 8px 0",
-        }} />
-      </div>
+
 
 
 
