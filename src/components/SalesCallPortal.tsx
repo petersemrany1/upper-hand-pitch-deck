@@ -6862,29 +6862,36 @@ function RightPanel({
                   const transcript = (c.call_analysis?.transcript || "").trim();
                   const rawSummary = (c.call_analysis?.patient_summary || c.call_analysis?.summary || c.call_analysis?.notes || "").trim();
                   const dur = typeof c.duration === "number" ? c.duration : 0;
+                  const outcomeRaw = (c.outcome || "").toLowerCase();
+                  const outcomeVoicemail = /voicemail|no[_\s-]?answer|missed|no answer/.test(outcomeRaw);
                   const transcriptVoicemail = dur > 0 && dur <= 10 && /unable to (answer|come)|leave (a |your )?message|voicemail|you've called/i.test(transcript);
-                  const looksLikeVoicemail = transcriptVoicemail || (dur > 0 && dur <= 10);
-                  const isPlaceholder = /too brief to capture/i.test(rawSummary);
+                  const inbound = c.direction === "inbound";
+                  // Only treat outbound short calls (≤10s) as voicemail; never grey out inbound calls based on duration alone.
+                  const looksLikeVoicemail = outcomeVoicemail || transcriptVoicemail || (!inbound && dur > 0 && dur <= 10);
+                  const isPlaceholder = /too brief to capture|don'?t have enough information|not enough information/i.test(rawSummary);
                   let shortSummary = "";
-                  if (rawSummary && !isPlaceholder) {
+                  if (!looksLikeVoicemail && rawSummary && !isPlaceholder) {
                     const firstSentence = rawSummary.split(/(?<=[.!?])\s/)[0];
                     shortSummary = firstSentence.length > 160 ? firstSentence.slice(0, 160).trimEnd() + "…" : firstSentence;
                   }
-                  const fullDetail = rawSummary || transcript;
-                  const inbound = c.direction === "inbound";
-                  const accent = looksLikeVoicemail ? "#9ca3af" : inbound ? "#22c55e" : "#3b82f6";
+                  const fullDetail = looksLikeVoicemail ? "" : (rawSummary || transcript);
+                  const accent = looksLikeVoicemail ? "#d1d5db" : inbound ? "#22c55e" : "#3b82f6";
                   const icon = looksLikeVoicemail ? "📭" : inbound ? "📞" : "📱";
                   const label = looksLikeVoicemail ? "Voicemail / no answer" : (c.outcome || (inbound ? "Inbound call" : "Outbound call"));
                   const durStr = dur > 0 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : "";
+                  const bg = looksLikeVoicemail ? "#f9fafb" : "#fafafa";
+                  const labelColor = looksLikeVoicemail ? "#9ca3af" : "#111";
+                  const timeColor = looksLikeVoicemail ? "#b0b6c0" : "#666";
+                  const itemOpacity = looksLikeVoicemail ? 0.7 : 1;
                   items.push({
                     ts: c.called_at,
                     node: (
-                      <div key={`c-${c.id}`} style={{ display: "flex", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${accent}`, background: "#fafafa", borderRadius: 4, marginBottom: 6, alignItems: "flex-start" }}>
-                        <div style={{ fontSize: 14, lineHeight: "18px" }}>{icon}</div>
+                      <div key={`c-${c.id}`} style={{ display: "flex", gap: 8, padding: "8px 10px", borderLeft: `3px solid ${accent}`, background: bg, borderRadius: 4, marginBottom: 6, alignItems: "flex-start", opacity: itemOpacity }}>
+                        <div style={{ fontSize: 14, lineHeight: "18px", filter: looksLikeVoicemail ? "grayscale(1)" : undefined }}>{icon}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 12, display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
-                            <span style={{ color: "#666" }}>{fmtTime(c.called_at)}</span>
-                            <span style={{ fontWeight: 600, color: "#111" }}>{label}</span>
+                            <span style={{ color: timeColor }}>{fmtTime(c.called_at)}</span>
+                            <span style={{ fontWeight: 600, color: labelColor }}>{label}</span>
                             {durStr && <span style={{ color: "#9ca3af", fontSize: 11 }}>{durStr}</span>}
                           </div>
                           {shortSummary && <div style={{ fontSize: 12.5, marginTop: 2, color: "#374151", lineHeight: 1.4 }}>{shortSummary}</div>}
@@ -6915,6 +6922,7 @@ function RightPanel({
                     ),
                   });
                 });
+
                 smsHistory.forEach((s, i) => {
                   const inbound = s.direction === "inbound";
                   const accent = inbound ? "#a855f7" : "#f97316";
