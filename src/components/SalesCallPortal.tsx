@@ -2175,7 +2175,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
   }, [lead.clinic_id]);
 
   const doctorName = doctor?.name ?? "your specialist";
-  const priceOriginal = clinic?.consult_price_original ?? 395;
+  
   const clinicLine = clinic
     ? [clinic.clinic_name, [clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ")
     : null;
