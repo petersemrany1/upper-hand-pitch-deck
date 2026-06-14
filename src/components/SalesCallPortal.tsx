@@ -1991,7 +1991,7 @@ function DiscoveryStep({
         color: COLORS.text,
         whiteSpace: "pre-wrap",
       }}>
-      <>
+
 
 {`👉 So what's going on with your hair situation?
 
