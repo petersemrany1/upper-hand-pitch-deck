@@ -4133,6 +4133,53 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         </button>
       </Card>
 
+      {/* MUST DO'S — before you hang up */}
+      <div style={{ marginTop: 16, marginBottom: 16 }}>
+        <div className="flex items-center gap-2 mb-3">
+          <span style={{
+            background: COLORS.red,
+            color: "#fff",
+            fontSize: 10,
+            fontWeight: 700,
+            padding: "2px 8px",
+            borderRadius: 999,
+            textTransform: "uppercase",
+            letterSpacing: 0.5,
+          }}>
+            MUST DO'S
+          </span>
+          <span style={{ fontSize: 12, color: "#9ca3af" }}>
+            Before you hang up
+          </span>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {[
+            { label: "Quoted them an accurate price range", checked: mustDoPrice, set: setMustDoPrice },
+            { label: "Discussed how they plan to fund it", checked: mustDoFunding, set: setMustDoFunding },
+            { label: "Set realistic expectations about results", checked: mustDoExpectations, set: setMustDoExpectations, muted: " — if Norwood 6/7" },
+          ].map((item) => (
+            <label key={item.label} className="flex items-start gap-3 cursor-pointer">
+              <div
+                onClick={(e) => { e.preventDefault(); item.set(!item.checked); }}
+                style={{
+                  width: 16, height: 16, borderRadius: 3,
+                  border: `1.5px solid ${item.checked ? COLORS.green : "#d1d5db"}`,
+                  background: item.checked ? COLORS.green : "#fff",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0, marginTop: 2, cursor: "pointer",
+                }}
+              >
+                {item.checked && <Check size={11} color="#fff" strokeWidth={3} />}
+              </div>
+              <span style={{ fontSize: 13, color: COLORS.text, lineHeight: 1.4 }}>
+                {item.label}
+                {item.muted && <span style={{ color: "#9ca3af" }}>{item.muted}</span>}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
       {/* Patient confirmation SMS — 5s countdown popup */}
       {patientSmsDraftPopupNode}
 
