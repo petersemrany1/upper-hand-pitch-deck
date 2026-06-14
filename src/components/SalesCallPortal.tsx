@@ -709,12 +709,10 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     if (idx >= 0 && idx < STEPS.length - 1) setStep(STEPS[idx + 1].key);
   };
 
-  // Hydrate discovery notes from the active lead's saved call_notes
+  // Notes are intentionally left blank on every Discovery entry so the advisor
+  // fills them out live during the call rather than relying on old data.
   useEffect(() => {
-    if (active) {
-      setDiscoveryNotes(active.call_notes ?? "");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setDiscoveryNotes("");
   }, [activeId]);
 
   const callbackBanner = null;
@@ -1313,7 +1311,7 @@ function StepContent({
               padding: "12px 16px",
             }}>
               <div style={{ fontSize: 13, color: COLORS.amberDark, lineHeight: 1.6 }}>
-                Go back to Discovery and click "Use in next steps →" to generate a personalised summary from your notes.
+                Fill out your Discovery notes to personalise this summary.
               </div>
             </div>
           </>
@@ -2065,41 +2063,6 @@ If they give a surface answer, dig deeper:
           {savedAt ? "Saved" : ""}
         </div>
 
-        {/* AI pre-fill button */}
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 12 }}>
-          <button
-            onClick={() => void handleAi()}
-            disabled={aiLoading}
-            className="rounded-[8px] inline-flex items-center gap-2"
-            style={{
-              background: COLORS.coral,
-              color: "#fff",
-              fontSize: 14,
-              fontWeight: 500,
-              padding: "10px 18px",
-              cursor: aiLoading ? "wait" : "pointer",
-              opacity: aiLoading ? 0.7 : 1,
-            }}
-          >
-            {aiLoading && (
-              <span
-                style={{
-                  width: 14, height: 14, borderRadius: "50%",
-                  border: "2px solid rgba(255,255,255,0.4)",
-                  borderTopColor: "#fff",
-                  display: "inline-block",
-                  animation: "discoverySpin 0.8s linear infinite",
-                }}
-              />
-            )}
-            {aiLoading ? "Generating…" : "Use in next steps →"}
-          </button>
-          {aiDone && !aiLoading && (
-            <div style={{ fontSize: 13, color: COLORS.green }}>
-              ✓ Next steps updated
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Override the global #111 placeholder for this textarea so it reads light. */}
