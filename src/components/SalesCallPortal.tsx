@@ -1936,6 +1936,9 @@ After you map the head, you're only halfway. Before you send the density image, 
 👉 3. Have you looked into this before? "Have you looked into sorting it before — any clinics, Turkey, stuff online? What did they say?" If yes: "What stopped you going ahead at that point?"
 👉 4. Why now? "So you've been dealing with this for [use their own number] years — what's got you looking into it now? Why now do you think?"
 
+If they give a surface answer, dig deeper:
+"That makes sense. I speak to people about this every day and everyone's different - but what is it specifically about YOUR situation that's made you say enough is enough?"
+
 
 
 👉 5. Impact — ask these as three SEPARATE questions, not one:
