@@ -2248,35 +2248,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
         overflowY: "auto",
         paddingRight: 4,
       }}>
-        {/* Block 1 — Locate */}
-        <Block number="1" title="Locate them">
-          <Bullet>
-            Where do they live → pick clinic → <strong>{doctorName}</strong>, senior, sees patients like you
-          </Bullet>
-          {clinicLine && (
-            <Bullet>
-              <span style={{ color: "#555" }}>{clinicLine}</span>
-            </Bullet>
-          )}
-          {clinic?.nearby_landmarks && (
-            <Bullet>
-              <span style={{ color: "#555" }}>{clinic.nearby_landmarks}</span>
-            </Bullet>
-          )}
-        </Block>
-
-        {/* Block 2 — Name the specialist */}
-        <Block number="2" title="Name the specialist">
-          <SayThis>
-            "That would be with <strong>{doctorName}</strong> — she's one of our senior hair transplant specialists."
-          </SayThis>
-          <Bullet>Give their title — <em style={{ color: "#555" }}>"she's one of our seniors"</em></Bullet>
-          <Bullet amber>
-            Give a reason tied to what THEY said → <em style={{ color: "#555" }}>"based on what you told me, she's exactly the right person for you"</em>
-          </Bullet>
-        </Block>
-
-        {/* Block 3 — Price journey */}
+        {/* Walk the price journey */}
         <div style={{
           background: "#ffffff",
           border: `0.5px solid ${COLORS.line}`,
@@ -2288,7 +2260,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
             fontSize: 11, fontWeight: 600, textTransform: "uppercase",
             letterSpacing: "0.06em", color: "#999999", marginBottom: 4,
           }}>
-            3 — Walk the price journey
+            Walk the price journey
           </div>
           <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amber, marginBottom: 14 }}>
             exact order — do not skip
