@@ -2172,19 +2172,11 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         Educate &amp; Show
       </h1>
 
-      {/* Scroll hint */}
-      <div style={{
-        marginTop: 16, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 6, fontSize: 12, fontWeight: 600, color: COLORS.coral, textTransform: "uppercase", letterSpacing: "0.08em",
-      }}>
-        <span>↓ Scroll to read full script ↓</span>
-      </div>
       {/* Education script — scrollable box */}
-      <div style={{ position: "relative" }}>
-      <div style={{
+      <div className="always-scroll" style={{
+        marginTop: 16,
         background: "#ffffff",
         borderLeft: `2px solid ${COLORS.coral}`,
-        border: `1px dashed ${COLORS.coral}`,
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
         maxHeight: 420,
@@ -2194,6 +2186,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         color: COLORS.text,
         whiteSpace: "pre-wrap",
       }}>
+
 
 {`🎓 EDUCATION 
 
