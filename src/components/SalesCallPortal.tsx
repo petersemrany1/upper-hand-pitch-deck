@@ -1969,11 +1969,19 @@ function DiscoveryStep({
         Understand Their Pain <span style={{ fontSize: 16, fontWeight: 400, color: COLORS.text }}>(5–7 mins)</span>
       </h1>
 
-      {/* Discovery script — scrollable box */}
+      {/* Scroll hint */}
       <div style={{
-        marginTop: 16,
+        marginTop: 16, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center",
+        gap: 6, fontSize: 12, fontWeight: 600, color: COLORS.coral, textTransform: "uppercase", letterSpacing: "0.08em",
+      }}>
+        <span>↓ Scroll to read full script ↓</span>
+      </div>
+      {/* Discovery script — scrollable box */}
+      <div style={{ position: "relative" }}>
+      <div style={{
         background: "#ffffff",
         borderLeft: `2px solid ${COLORS.coral}`,
+        border: `1px dashed ${COLORS.coral}`,
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
         maxHeight: 420,
@@ -1983,6 +1991,8 @@ function DiscoveryStep({
         color: COLORS.text,
         whiteSpace: "pre-wrap",
       }}>
+
+
 {`👉 So what's going on with your hair situation?
 
 
@@ -2030,6 +2040,14 @@ If they give a surface answer, dig deeper:
 "Any sensitivity up top — scalp catching the sun, getting tender, anything like that?" [Wait for answer]
 `}
       </div>
+        <div style={{
+          position: "absolute", left: 0, right: 0, bottom: 0, height: 40,
+          background: "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))",
+          pointerEvents: "none", borderRadius: "0 0 8px 0",
+        }} />
+      </div>
+
+
 
       {/* Notes */}
       <div style={{ marginTop: 16 }}>
@@ -2166,11 +2184,19 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         Educate &amp; Show
       </h1>
 
-      {/* Education script — scrollable box */}
+      {/* Scroll hint */}
       <div style={{
-        marginTop: 16,
+        marginTop: 16, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center",
+        gap: 6, fontSize: 12, fontWeight: 600, color: COLORS.coral, textTransform: "uppercase", letterSpacing: "0.08em",
+      }}>
+        <span>↓ Scroll to read full script ↓</span>
+      </div>
+      {/* Education script — scrollable box */}
+      <div style={{ position: "relative" }}>
+      <div style={{
         background: "#ffffff",
         borderLeft: `2px solid ${COLORS.coral}`,
+        border: `1px dashed ${COLORS.coral}`,
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
         maxHeight: 420,
@@ -2180,6 +2206,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         color: COLORS.text,
         whiteSpace: "pre-wrap",
       }}>
+
 {`🎓 EDUCATION 
 
 
@@ -2210,6 +2237,14 @@ UNDERSTANDING
 
 "Why do YOU think a hair transplant would work best for you?"`}
       </div>
+        <div style={{
+          position: "absolute", left: 0, right: 0, bottom: 0, height: 40,
+          background: "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))",
+          pointerEvents: "none", borderRadius: "0 0 8px 0",
+        }} />
+      </div>
+
+
 
       {/* Photo buttons */}
       <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
