@@ -1969,19 +1969,11 @@ function DiscoveryStep({
         Understand Their Pain <span style={{ fontSize: 16, fontWeight: 400, color: COLORS.text }}>(5–7 mins)</span>
       </h1>
 
-      {/* Scroll hint */}
-      <div style={{
-        marginTop: 16, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 6, fontSize: 12, fontWeight: 600, color: COLORS.coral, textTransform: "uppercase", letterSpacing: "0.08em",
-      }}>
-        <span>↓ Scroll to read full script ↓</span>
-      </div>
       {/* Discovery script — scrollable box */}
-      <div style={{ position: "relative" }}>
-      <div style={{
+      <div className="always-scroll" style={{
+        marginTop: 16,
         background: "#ffffff",
         borderLeft: `2px solid ${COLORS.coral}`,
-        border: `1px dashed ${COLORS.coral}`,
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
         maxHeight: 420,
@@ -1991,6 +1983,7 @@ function DiscoveryStep({
         color: COLORS.text,
         whiteSpace: "pre-wrap",
       }}>
+
 
 
 {`👉 So what's going on with your hair situation?
@@ -2040,12 +2033,7 @@ If they give a surface answer, dig deeper:
 "Any sensitivity up top — scalp catching the sun, getting tender, anything like that?" [Wait for answer]
 `}
       </div>
-        <div style={{
-          position: "absolute", left: 0, right: 0, bottom: 0, height: 40,
-          background: "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))",
-          pointerEvents: "none", borderRadius: "0 0 8px 0",
-        }} />
-      </div>
+
 
 
 
@@ -2118,7 +2106,13 @@ If they give a surface answer, dig deeper:
       <style>{`
         textarea.discovery-history::placeholder { color: #bbbbbb !important; opacity: 1; }
         @keyframes discoverySpin { to { transform: rotate(360deg); } }
+        .always-scroll::-webkit-scrollbar { width: 12px; -webkit-appearance: none; }
+        .always-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 6px; }
+        .always-scroll::-webkit-scrollbar-thumb { background: #c4c4c4; border-radius: 6px; border: 2px solid #f1f1f1; }
+        .always-scroll::-webkit-scrollbar-thumb:hover { background: #a0a0a0; }
+        .always-scroll { scrollbar-width: thin; scrollbar-color: #c4c4c4 #f1f1f1; }
       `}</style>
+
     </div>
   );
 }
@@ -2184,19 +2178,11 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         Educate &amp; Show
       </h1>
 
-      {/* Scroll hint */}
-      <div style={{
-        marginTop: 16, marginBottom: 6, display: "flex", alignItems: "center", justifyContent: "center",
-        gap: 6, fontSize: 12, fontWeight: 600, color: COLORS.coral, textTransform: "uppercase", letterSpacing: "0.08em",
-      }}>
-        <span>↓ Scroll to read full script ↓</span>
-      </div>
       {/* Education script — scrollable box */}
-      <div style={{ position: "relative" }}>
-      <div style={{
+      <div className="always-scroll" style={{
+        marginTop: 16,
         background: "#ffffff",
         borderLeft: `2px solid ${COLORS.coral}`,
-        border: `1px dashed ${COLORS.coral}`,
         borderRadius: "0 8px 8px 0",
         padding: "16px 20px",
         maxHeight: 420,
@@ -2206,6 +2192,7 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
         color: COLORS.text,
         whiteSpace: "pre-wrap",
       }}>
+
 
 {`🎓 EDUCATION 
 
@@ -2237,12 +2224,7 @@ UNDERSTANDING
 
 "Why do YOU think a hair transplant would work best for you?"`}
       </div>
-        <div style={{
-          position: "absolute", left: 0, right: 0, bottom: 0, height: 40,
-          background: "linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0.95))",
-          pointerEvents: "none", borderRadius: "0 0 8px 0",
-        }} />
-      </div>
+
 
 
 
