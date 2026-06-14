@@ -2206,12 +2206,6 @@ DONOR CLOCK (NORWOOD 4+)
 
 "Think of it like a garden. The thick hair round the back and sides — that's your strong, healthy grass. The thin bit on top — that's bare dirt. A transplant just digs up a little of that strong grass and lays it over the bare dirt. Only thing is — you've only got so much strong grass. You can't just magically grow more. And the bare bit slowly spreads and gets bigger on its own. So no rush at all — right now you've just got the most hair you'll ever have to move around.
 
-
-
- 
-
-
-
 UNDERSTANDING
 
 "Why do YOU think a hair transplant would work best for you?"`}
