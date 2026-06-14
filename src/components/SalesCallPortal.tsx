@@ -1432,32 +1432,114 @@ function StepContent({
           Ask For Commitment
         </h1>
 
-        {/* Commitment script — scrollable box */}
+        {/* Commitment script — phone-friendly stacked blocks */}
         <div style={{
           marginTop: 16,
-          background: "#ffffff",
-          borderLeft: `2px solid ${COLORS.coral}`,
-          borderRadius: "0 8px 8px 0",
-          padding: "16px 20px",
-          maxHeight: 420,
+          maxHeight: 480,
           overflowY: "auto",
-          fontSize: 14,
-          lineHeight: 1.55,
-          color: COLORS.text,
-          whiteSpace: "pre-wrap",
+          display: "flex",
+          flexDirection: "column",
+          gap: 14,
         }}>
-<>
-<strong style={{ fontSize: "15px" }}>👉 "Based on all of that, is it something you wanna get sorted now? Where are you at with all of this?"</strong>
+          {/* Step 1 — The ask */}
+          <div style={{
+            background: "#ffffff",
+            borderLeft: `3px solid ${COLORS.coral}`,
+            borderRadius: "0 8px 8px 0",
+            padding: "14px 16px",
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 600, textTransform: "uppercase",
+              letterSpacing: "0.08em", color: COLORS.coral, marginBottom: 8,
+            }}>
+              1 — The Ask
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.5, color: COLORS.text }}>
+              👉 "Based on all of that, is it something you wanna get sorted now? Where are you at with all of this?"
+            </div>
+          </div>
 
-👉 Wait for their answer — let them tell you where they're at
+          {/* Step 2 — Wait */}
+          <div style={{
+            background: "#fafafa",
+            borderRadius: 8,
+            padding: "12px 16px",
+            fontSize: 14,
+            lineHeight: 1.5,
+            color: COLORS.text,
+            fontStyle: "italic",
+          }}>
+            👉 Wait for their answer — let them tell you where they're at.
+          </div>
 
-When they say "Yes" or are giving you an idea they want to book instantly say "Excellent, I really want to book you in with Doctor [name], because based on what you told me about [Link to their specific situation] I think they would be perfect for you. They also [Drop 3 key selling points] and that's why I wouldn't want you seeing anyone else."
+          {/* Step 3 — Their yes */}
+          <div style={{
+            background: "#ffffff",
+            borderLeft: `3px solid ${COLORS.coral}`,
+            borderRadius: "0 8px 8px 0",
+            padding: "14px 16px",
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 600, textTransform: "uppercase",
+              letterSpacing: "0.08em", color: COLORS.coral, marginBottom: 8,
+            }}>
+              2 — When they say yes
+            </div>
+            <div style={{ fontSize: 14, lineHeight: 1.6, color: COLORS.text }}>
+              Instantly say:
+            </div>
+            <div style={{
+              marginTop: 8,
+              fontSize: 15,
+              lineHeight: 1.6,
+              color: COLORS.text,
+              fontWeight: 500,
+            }}>
+              "Excellent, I really want to book you in with Doctor <span style={{ color: COLORS.hint }}>[name]</span>, because based on what you told me about <span style={{ color: COLORS.hint }}>[link to their specific situation]</span> I think they would be perfect for you."
+            </div>
+            <div style={{
+              marginTop: 10,
+              fontSize: 15,
+              lineHeight: 1.6,
+              color: COLORS.text,
+              fontWeight: 500,
+            }}>
+              "They also <span style={{ color: COLORS.hint }}>[drop 3 key selling points]</span> — and that's why I wouldn't want you seeing anyone else."
+            </div>
+          </div>
 
-Note:
-❌ NEVER say "would you like to book" — that gives them a yes/no exit
-❌ NEVER say "do you want to think about it" — you just lost them
-❌ NEVER say "no pressure" or "no rush" — you're handing them the off-ramp
-</>
+          {/* Step 4 — Never say */}
+          <div style={{
+            background: "#ffffff",
+            border: `0.5px solid ${COLORS.line}`,
+            borderRadius: 8,
+            padding: "14px 16px",
+          }}>
+            <div style={{
+              fontSize: 10, fontWeight: 600, textTransform: "uppercase",
+              letterSpacing: "0.08em", color: COLORS.red, marginBottom: 10,
+            }}>
+              Note — never say
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                ['"would you like to book"', "that gives them a yes/no exit"],
+                ['"do you want to think about it"', "you just lost them"],
+                ['"no pressure" or "no rush"', "you're handing them the off-ramp"],
+              ].map(([phrase, why]) => (
+                <div key={phrase} style={{
+                  display: "flex", alignItems: "flex-start", gap: 8,
+                  fontSize: 14, lineHeight: 1.5, color: COLORS.text,
+                }}>
+                  <span style={{ color: COLORS.red, fontSize: 14, marginTop: 1 }}>❌</span>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>NEVER say {phrase}</span>
+                    <span style={{ color: COLORS.hint }}> — {why}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     );
