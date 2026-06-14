@@ -5542,38 +5542,6 @@ function RightPanel({
   }, [active.id]);
 
 
-  // AI one-liner summary of where things are at with this lead.
-  // Pulled from call_records.call_analysis.summary, regenerated when the
-  // lead is selected and after each call ends (via the outcome modal).
-  const [leadCallSummary, setLeadCallSummary] = useState<string | null>(null);
-  const refreshLeadSummary = useCallback(async (mode: "cached" | "regenerate") => {
-    if (active.id === PRACTICE_LEAD_ID) { setLeadCallSummary(null); return; }
-    try {
-      const { data: latest } = await supabase
-        .from("call_records")
-        .select("call_analysis")
-        .eq("lead_id", active.id)
-        .order("called_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const cached = (latest?.call_analysis as { summary?: string } | null)?.summary;
-      if (cached) setLeadCallSummary(cached);
-      else if (mode === "cached") setLeadCallSummary(null);
-
-      if (mode === "regenerate") {
-        const { data, error } = await supabase.functions.invoke("generate-lead-summary", {
-          body: { leadId: active.id },
-        });
-        if (!error && (data as { summary?: string })?.summary) {
-          setLeadCallSummary((data as { summary: string }).summary);
-        }
-      }
-    } catch { /* noop */ }
-  }, [active.id]);
-  useEffect(() => {
-    setLeadCallSummary(null);
-    void refreshLeadSummary("regenerate");
-  }, [active.id, refreshLeadSummary]);
 
 
   // Customer journey modal
@@ -5915,20 +5883,6 @@ function RightPanel({
             </div>
           );
         })()}
-        {leadCallSummary && (
-          <div
-            style={{
-              fontSize: 12,
-              fontStyle: "italic",
-              color: "#888",
-              marginTop: 4,
-              lineHeight: 1.4,
-            }}
-            title={leadCallSummary}
-          >
-            {leadCallSummary}
-          </div>
-        )}
         <div style={{ marginTop: 10 }}>
           {active.funding_preference ? (
             <span
