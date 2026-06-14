@@ -1442,17 +1442,17 @@ function StepContent({
           {/* Step 1 — The ask */}
           <div style={{
             background: "#ffffff",
-            borderLeft: `3px solid ${COLORS.coral}`,
-            borderRadius: "0 8px 8px 0",
-            padding: "14px 16px",
+            borderLeft: `4px solid ${COLORS.coral}`,
+            borderRadius: "0 10px 10px 0",
+            padding: "22px 20px",
           }}>
             <div style={{
-              fontSize: 10, fontWeight: 600, textTransform: "uppercase",
-              letterSpacing: "0.08em", color: COLORS.coral, marginBottom: 8,
+              fontSize: 12, fontWeight: 700, textTransform: "uppercase",
+              letterSpacing: "0.08em", color: COLORS.coral, marginBottom: 10,
             }}>
               1 — The Ask
             </div>
-            <div style={{ fontSize: 16, fontWeight: 500, lineHeight: 1.5, color: COLORS.text }}>
+            <div style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.45, color: COLORS.text }}>
               👉 "Based on all of that, is it something you wanna get sorted now? Where are you at with all of this?"
             </div>
           </div>
