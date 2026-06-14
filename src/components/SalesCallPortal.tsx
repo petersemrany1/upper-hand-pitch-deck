@@ -7114,8 +7114,6 @@ function RightPanel({
             setOutcomeCallbackTime("");
             onOutcomeRequiredChange?.(false);
             toast.success("Status updated ✓");
-            // Regenerate the AI one-liner now that a new outcome is recorded
-            void refreshLeadSummary("regenerate");
             // If parent had a pending lead waiting, let it apply now
             onAfterOutcomeApplied?.(status === "booked_deposit_paid");
           }}
