@@ -5491,7 +5491,7 @@ function RightPanel({
   const [sellingPointsForDoctorId, setSellingPointsForDoctorId] = useState<string | null>(null);
 
   // Callback scheduling
-  const [showCallbackPicker, setShowCallbackPicker] = useState(false);
+  
   const [callbackDate, setCallbackDate] = useState("");
   const [callbackTime, setCallbackTime] = useState("");
   const [savingCallback, setSavingCallback] = useState(false);
