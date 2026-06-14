@@ -2260,7 +2260,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
             fontSize: 11, fontWeight: 600, textTransform: "uppercase",
             letterSpacing: "0.06em", color: "#999999", marginBottom: 4,
           }}>
-            3 — Walk the price journey
+            Walk the price journey
           </div>
           <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: COLORS.amber, marginBottom: 14 }}>
             exact order — do not skip
