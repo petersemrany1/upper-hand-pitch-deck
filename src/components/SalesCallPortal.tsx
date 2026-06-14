@@ -1438,7 +1438,7 @@ function StepContent({
           display: "flex",
           flexDirection: "column",
           gap: 14,
-        }}
+        }}>
           {/* Step 1 — The ask */}
           <div style={{
             background: "#ffffff",
