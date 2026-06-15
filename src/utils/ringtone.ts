@@ -17,6 +17,19 @@ function getCtx(): AudioContext {
   return ctx;
 }
 
+// Call from a user gesture (click/keydown) to unlock the AudioContext so a
+// later startRingtone() — fired from a non-gesture Twilio event — is allowed
+// to play under browser autoplay policies.
+export function primeRingtoneAudio(): void {
+  try {
+    const ac = getCtx();
+    if (ac.state === "suspended") void ac.resume();
+  } catch (e) {
+    console.warn("ringtone: prime failed", e);
+  }
+}
+
+
 export function startRingtone(): void {
   if (playing) return;
   try {
