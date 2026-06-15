@@ -107,6 +107,12 @@ export default function NorwoodPricingCalculator() {
               const lo = r.min * pricePerGraft;
               const hi = r.max * pricePerGraft;
               const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
+              const weeklyLo = lo / 260;
+              const weeklyHi = hi / 260;
+              const weeklyText =
+                lo === hi
+                  ? `≈ ${fmt(weeklyLo)}/week over 5 years`
+                  : `≈ ${fmt(weeklyLo)} – ${fmt(weeklyHi)}/week over 5 years`;
               return (
                 <div
                   key={r.label}
@@ -127,6 +133,7 @@ export default function NorwoodPricingCalculator() {
                     </div>
                   </div>
                   <div style={{ fontSize: 11, color: COLORS.muted }}>{fmtGrafts(r.min, r.max)}</div>
+                  <div style={{ fontSize: 11, color: COLORS.coral, fontWeight: 500 }}>{weeklyText}</div>
                   {r.note && (
                     <div style={{ fontSize: 10, color: "#9a6b00", fontStyle: "italic", marginTop: 2 }}>
                       ⚠ {r.note}
@@ -138,7 +145,7 @@ export default function NorwoodPricingCalculator() {
           </div>
 
           <div style={{ fontSize: 10, color: COLORS.muted, textAlign: "center" }}>
-            Estimates only · price = grafts × $/graft
+            Estimates only · price = grafts × $/graft · 5-year plan = 260 weeks
           </div>
         </div>
       )}
