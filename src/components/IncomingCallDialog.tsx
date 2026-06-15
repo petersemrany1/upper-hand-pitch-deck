@@ -5,6 +5,7 @@ import { sendSms } from "@/utils/sms.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Check, Phone } from "lucide-react";
 import { INCOMING_BANNER_HEIGHT } from "@/components/incoming-call-status";
+import { startRingtone, stopRingtone } from "@/utils/ringtone";
 
 // Slim incoming-call banner that slides in from the top of the screen.
 // Sits ABOVE app content (the dashboard layout reserves 64px when this
@@ -68,6 +69,16 @@ export function IncomingCallDialog() {
       setSmsSent(false);
       setSmsBusy(false);
     }
+  }, [isActive]);
+
+  // Audible ringtone while the call is ringing. Suppressed on /training.
+  useEffect(() => {
+    const inTraining = typeof window !== "undefined" && window.location.pathname.startsWith("/training");
+    if (isActive && !inTraining) {
+      startRingtone();
+      return () => stopRingtone();
+    }
+    stopRingtone();
   }, [isActive]);
 
   // Match incoming caller to a lead via phone tail
