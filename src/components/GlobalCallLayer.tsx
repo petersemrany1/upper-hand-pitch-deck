@@ -17,8 +17,8 @@ const FloatingCallWidget = lazy(() =>
 // Boots the Twilio Device singleton once the user is signed in so inbound
 // calls land regardless of which page Peter is currently looking at.
 export function GlobalCallLayer() {
-  const { session, ready } = useAuth();
-  const enabled = ready && !!session;
+  const { session, ready, role } = useAuth();
+  const enabled = ready && !!session && role === "admin";
   useTwilioDevice(enabled);
 
   // Browsers block AudioContext playback until a user gesture. Prime both
