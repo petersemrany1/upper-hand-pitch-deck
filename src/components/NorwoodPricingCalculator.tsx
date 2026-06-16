@@ -18,10 +18,20 @@ const ROWS: Row[] = [
   { label: "Norwood 3", min: 2000, max: 2000 },
   { label: "Norwood 3 Vertex", min: 2000, max: 3000 },
   { label: "Norwood 4", min: 3000, max: 4000 },
-  { label: "Norwood 5", min: 4000, max: 4500 },
-  { label: "Norwood 6", min: 4000, max: 5000, note: "Set expectations if pushing a Norwood 6–7" },
-  { label: "Norwood 7", min: 6000, max: 10000, note: "Set patient expectations" },
+  { label: "Norwood 5", min: 4000, max: 5000 },
+  { label: "Norwood 6", min: 5000, max: 6000, note: "Set expectations if pushing 6–7" },
+  { label: "Norwood 7", min: 6000, max: 8000, note: "Set patient expectations" },
 ];
+
+const NITAI_PRICES: Record<string, { min: number; max: number }> = {
+  "Norwood 2": { min: 8000, max: 10000 },
+  "Norwood 3": { min: 10000, max: 13000 },
+  "Norwood 3 Vertex": { min: 10000, max: 15000 },
+  "Norwood 4": { min: 12000, max: 15000 },
+  "Norwood 5": { min: 13000, max: 16000 },
+  "Norwood 6": { min: 15000, max: 18000 },
+  "Norwood 7": { min: 20000, max: 24000 },
+};
 
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 const fmtGrafts = (min: number, max: number) =>
@@ -29,6 +39,7 @@ const fmtGrafts = (min: number, max: number) =>
 
 export default function NorwoodPricingCalculator() {
   const [open, setOpen] = useState(false);
+  const [clinic, setClinic] = useState<"nitai" | "byron">("nitai");
   const [pricePerGraft, setPricePerGraft] = useState<number>(5);
 
   return (
@@ -52,60 +63,111 @@ export default function NorwoodPricingCalculator() {
 
       {open && (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Price per graft input */}
-          <div
-            style={{
-              background: "#fafaf9",
-              border: `0.5px solid ${COLORS.line}`,
-              borderRadius: 8,
-              padding: 10,
-            }}
-          >
-            <label
+          {/* Clinic selector */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["nitai", "byron"] as const).map((c) => {
+              const active = clinic === c;
+              return (
+                <button
+                  key={c}
+                  onClick={() => setClinic(c)}
+                  style={{
+                    flex: 1,
+                    background: active ? "#111" : "#fff",
+                    color: active ? "#fff" : "#111",
+                    border: "1px solid #111",
+                    borderRadius: 20,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {c === "nitai" ? "Nitai" : "Byron"}
+                </button>
+              );
+            })}
+          </div>
+
+          {clinic === "nitai" && (
+            <div
               style={{
                 fontSize: 11,
-                color: "#666",
-                fontWeight: 600,
-                textTransform: "uppercase",
-                letterSpacing: 0.4,
-                display: "block",
-                marginBottom: 6,
+                color: COLORS.muted,
+                background: "#fafaf9",
+                border: `0.5px solid ${COLORS.line}`,
+                borderRadius: 8,
+                padding: "8px 10px",
               }}
             >
-              Price per graft
-            </label>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>$</span>
-              <input
-                type="number"
-                min={0}
-                step={0.5}
-                value={Number.isFinite(pricePerGraft) ? pricePerGraft : 0}
-                onChange={(e) => {
-                  const v = parseFloat(e.target.value);
-                  setPricePerGraft(Number.isFinite(v) ? v : 0);
-                }}
-                style={{
-                  flex: 1,
-                  border: `0.5px solid ${COLORS.line}`,
-                  borderRadius: 6,
-                  padding: "6px 8px",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: "#111",
-                  background: "#fff",
-                  outline: "none",
-                }}
-              />
-              <span style={{ fontSize: 11, color: COLORS.muted }}>/ graft</span>
+              Nitai charges a fixed fee per procedure, not per graft
             </div>
-          </div>
+          )}
+
+          {clinic === "byron" && (
+            <div
+              style={{
+                background: "#fafaf9",
+                border: `0.5px solid ${COLORS.line}`,
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              <label
+                style={{
+                  fontSize: 11,
+                  color: "#666",
+                  fontWeight: 600,
+                  textTransform: "uppercase",
+                  letterSpacing: 0.4,
+                  display: "block",
+                  marginBottom: 6,
+                }}
+              >
+                Price per graft
+              </label>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>$</span>
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={Number.isFinite(pricePerGraft) ? pricePerGraft : 0}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    setPricePerGraft(Number.isFinite(v) ? v : 0);
+                  }}
+                  style={{
+                    flex: 1,
+                    border: `0.5px solid ${COLORS.line}`,
+                    borderRadius: 6,
+                    padding: "6px 8px",
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "#111",
+                    background: "#fff",
+                    outline: "none",
+                  }}
+                />
+                <span style={{ fontSize: 11, color: COLORS.muted }}>/ graft</span>
+              </div>
+            </div>
+          )}
 
           {/* Price rows */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {ROWS.map((r) => {
-              const lo = r.min * pricePerGraft;
-              const hi = r.max * pricePerGraft;
+              let lo: number;
+              let hi: number;
+              if (clinic === "nitai") {
+                const np = NITAI_PRICES[r.label];
+                lo = np.min;
+                hi = np.max;
+              } else {
+                lo = r.min * pricePerGraft;
+                hi = r.max * pricePerGraft;
+              }
               const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
               const weeklyLo = lo / 260;
               const weeklyHi = hi / 260;
@@ -145,7 +207,7 @@ export default function NorwoodPricingCalculator() {
           </div>
 
           <div style={{ fontSize: 10, color: COLORS.muted, textAlign: "center" }}>
-            Estimates only · price = grafts × $/graft · 5-year plan = 260 weeks
+            Estimates only · 5-year plan = 260 weeks
           </div>
         </div>
       )}
