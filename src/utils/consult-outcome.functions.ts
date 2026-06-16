@@ -141,12 +141,15 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
   return await searchStripeByContact(stripeKey, lead?.email ?? null, lead?.phone ?? null, appointmentId);
 }
 
-// Marks a clinic appointment as "show" or "proceeded" and, when not proceeded,
-// refunds the patient's deposit on the HTG Stripe account.
+// Marks a clinic appointment as "show" or "proceeded" and refunds the
+// patient's deposit on the HTG Stripe account. The deposit is always
+// refunded once the patient shows up — whether they proceeded with the
+// procedure or not. The only no-refund path is "no show" (handled
+// elsewhere) or when the refund was already processed.
 //
 // Hard rules:
-// - Re-fetches the appointment server-side and refuses to refund if
-//   stripe_refund_id is already set (double-refund prevention).
+// - Re-fetches the appointment server-side and refuses to double-refund
+//   if stripe_refund_id is already set.
 // - Outcome + summary are saved even if the refund call fails.
 // - On refund failure, sets refund_status='failed' but leaves
 //   stripe_refund_id null so the user can retry.
@@ -166,10 +169,6 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: false as const, error: fetchErr?.message || "Appointment not found" };
     }
 
-    if (!proceeded && appt.stripe_refund_id) {
-      return { success: false as const, error: "Refund already processed for this appointment" };
-    }
-
     const trimmedSummary = summary?.trim() || null;
     const newOutcome = proceeded ? "proceeded" : "show";
 
@@ -183,12 +182,13 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: false as const, error: updateErr.message };
     }
 
-    // 3. If proceeded, no refund.
-    if (proceeded) {
+    // 3. If already refunded previously, don't try again — just confirm.
+    if (appt.stripe_refund_id) {
       return { success: true as const, refunded: false as const };
     }
 
-    // 4. Fire Stripe refund. If older bookings don't have the payment ID saved,
+    // 4. Always fire Stripe refund (patient showed up — deposit comes back).
+    // If older bookings don't have the payment ID saved,
     // recover it from the latest paid HTG Checkout Sessions using the lead ID.
     const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
     if (!stripeKey) {
