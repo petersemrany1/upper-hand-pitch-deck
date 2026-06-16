@@ -786,7 +786,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
       <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
-      {appt.outcome === "show" && appt.refund_status === "refunded" && appt.stripe_refund_id && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded" && appt.stripe_refund_id && (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
             <span>✓</span> ${depositAmount} deposit refunded
@@ -798,7 +798,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
-      {appt.outcome === "show" && appt.refund_status === "failed" && !appt.stripe_refund_id && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "failed" && !appt.stripe_refund_id && (
         <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#b83232", marginBottom: 6 }}>Refund failed</div>
           <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The deposit refund did not go through. Try again or process it manually in Stripe.</div>
@@ -808,7 +808,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
-      {appt.outcome === "show" && appt.refund_status === "refunded_manual" && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded_manual" && (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
             <span>✓</span> ${depositAmount} deposit refunded (manual)
