@@ -1819,11 +1819,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         The patient booked their procedure today
       </label>
 
-      {proceeded ? (
-        <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: "#6b7785" }}>Deposit applied to procedure cost — no refund needed</div>
-        </div>
-      ) : alreadyRefunded ? (
+      {alreadyRefunded ? (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
