@@ -738,7 +738,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const todayStr = new Date().toISOString().slice(0, 10);
   const isPastOrToday = appt.appointment_date <= todayStr;
   const needsManualRefund =
-    appt.outcome === "show" &&
+    (appt.outcome === "show" || appt.outcome === "proceeded") &&
     !appt.stripe_payment_intent_id &&
     !appt.refund_status &&
     isPastOrToday;
@@ -786,7 +786,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
       <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
-      {appt.outcome === "show" && appt.refund_status === "refunded" && appt.stripe_refund_id && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded" && appt.stripe_refund_id && (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
             <span>✓</span> ${depositAmount} deposit refunded
@@ -798,7 +798,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
-      {appt.outcome === "show" && appt.refund_status === "failed" && !appt.stripe_refund_id && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "failed" && !appt.stripe_refund_id && (
         <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#b83232", marginBottom: 6 }}>Refund failed</div>
           <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The deposit refund did not go through. Try again or process it manually in Stripe.</div>
@@ -808,7 +808,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
-      {appt.outcome === "show" && appt.refund_status === "refunded_manual" && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded_manual" && (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
             <span>✓</span> ${depositAmount} deposit refunded (manual)
@@ -1761,15 +1761,13 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
   const alreadyRefunded = !!appt.stripe_refund_id;
   const noPaymentIntent = !resolvedPiId;
 
-  const submitLabel = proceeded
+  const submitLabel = alreadyRefunded
     ? "Save & close"
-    : alreadyRefunded
-      ? "Save & close"
-      : resolving
-        ? "Checking payment…"
-        : noPaymentIntent
-          ? "Save & notify Admin"
-          : `Save & refund $${depositAmount}`;
+    : resolving
+      ? "Checking payment…"
+      : noPaymentIntent
+        ? "Save & notify Admin"
+        : `Save & refund $${depositAmount}`;
 
   const save = async () => {
     setSaving(true);
@@ -1821,11 +1819,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         The patient booked their procedure today
       </label>
 
-      {proceeded ? (
-        <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: "#6b7785" }}>Deposit applied to procedure cost — no refund needed</div>
-        </div>
-      ) : alreadyRefunded ? (
+      {alreadyRefunded ? (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
