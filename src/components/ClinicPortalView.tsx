@@ -738,7 +738,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const todayStr = new Date().toISOString().slice(0, 10);
   const isPastOrToday = appt.appointment_date <= todayStr;
   const needsManualRefund =
-    appt.outcome === "show" &&
+    (appt.outcome === "show" || appt.outcome === "proceeded") &&
     !appt.stripe_payment_intent_id &&
     !appt.refund_status &&
     isPastOrToday;
