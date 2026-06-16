@@ -1761,15 +1761,13 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
   const alreadyRefunded = !!appt.stripe_refund_id;
   const noPaymentIntent = !resolvedPiId;
 
-  const submitLabel = proceeded
+  const submitLabel = alreadyRefunded
     ? "Save & close"
-    : alreadyRefunded
-      ? "Save & close"
-      : resolving
-        ? "Checking payment…"
-        : noPaymentIntent
-          ? "Save & notify Admin"
-          : `Save & refund $${depositAmount}`;
+    : resolving
+      ? "Checking payment…"
+      : noPaymentIntent
+        ? "Save & notify Admin"
+        : `Save & refund $${depositAmount}`;
 
   const save = async () => {
     setSaving(true);
