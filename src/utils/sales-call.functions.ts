@@ -1131,10 +1131,10 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     const bookedLeadIds = new Map<string, string | null>();
     for (const b of appointmentBookings ?? []) {
-      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.created_at as string | null);
+      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.booked_at as string | null);
     }
     for (const b of clinicAppointmentBookings ?? []) {
-      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.created_at as string | null);
+      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.booked_at as string | null);
     }
     for (const b of metaBookings ?? []) {
       bookedLeadIds.set(b.id as string, null);
