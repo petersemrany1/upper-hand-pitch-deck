@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
+import { APP_TIMEZONE } from "@/lib/timezone";
 
 // Gate helper: ensures the calling user is an admin in sales_reps.
 // Uses email matching (case-insensitive).
@@ -848,13 +849,12 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     let from: Date, to: Date;
     // BUG 2 FIX: compute day boundaries in Australia/Sydney rather than UTC,
     // so "today" on the leaderboard matches what the reps experience locally.
-    const AU_TZ = "Australia/Sydney";
     const dayStartAU = (d: Date): Date => {
       const ymd = new Intl.DateTimeFormat("sv-SE", {
-        timeZone: AU_TZ, year: "numeric", month: "2-digit", day: "2-digit",
+        timeZone: APP_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
       }).format(d); // e.g. "2026-05-13"
       const offPart = new Intl.DateTimeFormat("en-US", {
-        timeZone: AU_TZ, timeZoneName: "longOffset",
+        timeZone: APP_TIMEZONE, timeZoneName: "longOffset",
       }).formatToParts(d).find((p) => p.type === "timeZoneName")?.value ?? "GMT+10:00";
       const m = offPart.match(/GMT([+-])(\d{1,2}):?(\d{2})?/);
       const sign = m?.[1] ?? "+";
@@ -883,7 +883,8 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     const { data: calls } = await supabaseAdmin.from("call_records")
       .select("id, rep_id, lead_id, clinic_id, duration, duration_seconds, outcome, status, called_at")
       .gte("called_at", from.toISOString()).lte("called_at", to.toISOString())
-      .or("clinic_id.is.null,lead_id.not.is.null");
+      .or("clinic_id.is.null,lead_id.not.is.null")
+      .order("called_at", { ascending: true });
 
     // Bookings are counted from appointment rows, using created_at as the time
     // the booking was made. Do not use the appointment date itself — a booking
@@ -924,16 +925,31 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     };
     const leadRep = new Map((leadRows ?? []).map((l) => [l.id as string, l.rep_id as string | null]));
     const leadCallRep = new Map<string, string>();
+    const leadCallEvents = new Map<string, { repId: string; calledAt: string }[]>();
     for (const c of calls ?? []) {
-      if (c.lead_id && c.rep_id && repCanOwnAt(c.rep_id as string, c.called_at as string)) leadCallRep.set(c.lead_id as string, c.rep_id as string);
+      if (c.lead_id && c.rep_id && repCanOwnAt(c.rep_id as string, c.called_at as string)) {
+        const leadId = c.lead_id as string;
+        const repId = c.rep_id as string;
+        leadCallRep.set(leadId, repId);
+        const events = leadCallEvents.get(leadId) ?? [];
+        events.push({ repId, calledAt: c.called_at as string });
+        leadCallEvents.set(leadId, events);
+      }
     }
-    // BUG 3 FIX: credit the rep who actually called the lead in this window first;
-    // only fall back to the lead's current owner if no in-window call exists.
-    // This prevents a reassignment from stealing booking credit from the rep who
-    // actually closed it.
+    // Credit the rep who actually made the closest call BEFORE the booking was
+    // created. If another rep briefly touched the same lead earlier that day,
+    // they must not steal the booking from the closer. Fall back to the lead's
+    // current owner only when there is no matching in-window call.
     const repIdForLead = (leadId: string, at?: string | null) => {
-      const caller = leadCallRep.get(leadId);
-      if (caller) return caller;
+      const events = leadCallEvents.get(leadId) ?? [];
+      if (events.length > 0) {
+        const bookedMs = at ? new Date(at).getTime() : Number.POSITIVE_INFINITY;
+        const beforeBooking = events
+          .filter((event) => new Date(event.calledAt).getTime() <= bookedMs)
+          .sort((a, b) => new Date(b.calledAt).getTime() - new Date(a.calledAt).getTime());
+        const caller = beforeBooking[0]?.repId ?? events[events.length - 1]?.repId;
+        if (caller) return caller;
+      }
       const owner = leadRep.get(leadId) ?? null;
       if (owner && (!at || repCanOwnAt(owner, at))) return owner;
       return null;
@@ -1049,22 +1065,26 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       byRep.set(repId, s);
     }
 
-    // Break time = sum of gaps between consecutive calls per rep
-    const callsByRep = new Map<string, number[]>();
+    // Break time = idle gaps between consecutive calls per rep. Use the END of
+    // the previous call, not just start-to-start, otherwise call duration gets
+    // incorrectly counted as break.
+    const callsByRep = new Map<string, { start: number; end: number }[]>();
     for (const c of calls ?? []) {
       if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
       const repId = repIdForCall(c);
       if (!repId) continue;
-      const ts = new Date(c.called_at).getTime();
+      const start = new Date(c.called_at).getTime();
+      const durMs = Math.max(((c.duration ?? c.duration_seconds ?? 0) as number) * 1000, 0);
+      const end = start + durMs;
       if (!callsByRep.has(repId)) callsByRep.set(repId, []);
-      callsByRep.get(repId)!.push(ts);
+      callsByRep.get(repId)!.push({ start, end });
     }
-    for (const [repId, timestamps] of callsByRep.entries()) {
-      timestamps.sort((a, b) => a - b);
+    for (const [repId, repCalls] of callsByRep.entries()) {
+      repCalls.sort((a, b) => a.start - b.start);
       let breakSecs = 0;
       let gapCount = 0;
-      for (let i = 1; i < timestamps.length; i++) {
-        const gapSecs = (timestamps[i] - timestamps[i - 1]) / 1000;
+      for (let i = 1; i < repCalls.length; i++) {
+        const gapSecs = (repCalls[i].start - repCalls[i - 1].end) / 1000;
         // CRITICAL: only count gaps under 30 minutes (1800 seconds) as break.
         // Gaps longer than 30 minutes mean end of session — do not count them.
         if (gapSecs > 0 && gapSecs < 1800) {
@@ -1078,27 +1098,25 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       byRep.set(repId, s);
     }
 
-    // Work = sum of active segments, splitting whenever the gap between
-    // consecutive calls exceeds 30 minutes. Matches how Break is computed,
-    // so a stray morning dial doesn't anchor the whole day's shift.
-    // Each isolated call contributes a small minimum (60s) so a single
-    // dial still registers as some work, not zero.
+    // Work = sum of active segments from first call start to last call END,
+    // splitting whenever the idle gap between calls exceeds 30 minutes. Each
+    // isolated call contributes at least 60s so one quick dial is not zero.
     const MIN_SEGMENT_SECS = 60;
     const GAP_LIMIT_SECS = 1800;
-    for (const [repId, timestamps] of callsByRep.entries()) {
+    for (const [repId, repCalls] of callsByRep.entries()) {
       // already sorted above when computing breakSeconds
-      if (timestamps.length === 0) continue;
+      if (repCalls.length === 0) continue;
       let workSecs = 0;
-      let segStart = timestamps[0];
-      let segEnd = timestamps[0];
-      for (let i = 1; i < timestamps.length; i++) {
-        const gapSecs = (timestamps[i] - timestamps[i - 1]) / 1000;
+      let segStart = repCalls[0].start;
+      let segEnd = repCalls[0].end;
+      for (let i = 1; i < repCalls.length; i++) {
+        const gapSecs = (repCalls[i].start - segEnd) / 1000;
         if (gapSecs < GAP_LIMIT_SECS) {
-          segEnd = timestamps[i];
+          segEnd = Math.max(segEnd, repCalls[i].end);
         } else {
           workSecs += Math.max((segEnd - segStart) / 1000, MIN_SEGMENT_SECS);
-          segStart = timestamps[i];
-          segEnd = timestamps[i];
+          segStart = repCalls[i].start;
+          segEnd = repCalls[i].end;
         }
       }
       workSecs += Math.max((segEnd - segStart) / 1000, MIN_SEGMENT_SECS);
