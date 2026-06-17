@@ -1,0 +1,2 @@
+ALTER PUBLICATION supabase_realtime ADD TABLE public.appointment_reminders;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.clinic_appointments;
