@@ -34,6 +34,7 @@ export type Database = {
       }
       appointment_reminders: {
         Row: {
+          booked_at: string
           booking_date: string | null
           booking_time: string | null
           created_at: string
@@ -51,6 +52,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
           created_at?: string
@@ -68,6 +70,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
           created_at?: string
@@ -306,6 +309,7 @@ export type Database = {
         Row: {
           appointment_date: string
           appointment_time: string
+          booked_at: string
           clinic_id: string
           consult_summary: string | null
           created_at: string
@@ -325,6 +329,7 @@ export type Database = {
         Insert: {
           appointment_date: string
           appointment_time: string
+          booked_at?: string
           clinic_id: string
           consult_summary?: string | null
           created_at?: string
@@ -344,6 +349,7 @@ export type Database = {
         Update: {
           appointment_date?: string
           appointment_time?: string
+          booked_at?: string
           clinic_id?: string
           consult_summary?: string | null
           created_at?: string
