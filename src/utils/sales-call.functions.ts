@@ -288,6 +288,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         .select("id, deposit_amount, stripe_payment_intent_id")
         .eq("lead_id", data.leadId)
         .limit(1);
+      const nowIso = new Date().toISOString();
       const payload: any = {
         clinic_id: data.clinicId,
         lead_id: data.leadId,
@@ -304,12 +305,15 @@ export const saveBooking = createServerFn({ method: "POST" })
         // Don't overwrite deposit fields already set on the appointment.
         if (existing[0].stripe_payment_intent_id) delete payload.stripe_payment_intent_id;
         if (existing[0].deposit_amount != null) delete payload.deposit_amount;
+        // Stamp booked_at on re-book so leaderboard credits the moment the
+        // booking was (re)made, not the original row insert time.
+        payload.booked_at = nowIso;
         await supabaseAdmin.from("clinic_appointments").update(payload).eq("id", existing[0].id);
       } else {
         // Upsert on lead_id — DB unique index prevents race-condition duplicates.
         await supabaseAdmin
           .from("clinic_appointments")
-          .upsert({ ...payload, intel_notes: null }, { onConflict: "lead_id" });
+          .upsert({ ...payload, intel_notes: null, booked_at: nowIso }, { onConflict: "lead_id" });
       }
     }
 
