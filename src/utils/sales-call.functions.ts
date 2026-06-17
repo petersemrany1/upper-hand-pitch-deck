@@ -1078,24 +1078,32 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       byRep.set(repId, s);
     }
 
-    // Work = shift duration: time from first call to last call of the day per rep
-    const shiftByRep = new Map<string, { first: number; last: number }>();
-    for (const c of calls ?? []) {
-      if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
-      const repId = repIdForCall(c);
-      if (!repId) continue;
-      const ts = new Date(c.called_at).getTime();
-      const existing = shiftByRep.get(repId);
-      if (!existing) {
-        shiftByRep.set(repId, { first: ts, last: ts });
-      } else {
-        if (ts < existing.first) existing.first = ts;
-        if (ts > existing.last) existing.last = ts;
+    // Work = sum of active segments, splitting whenever the gap between
+    // consecutive calls exceeds 30 minutes. Matches how Break is computed,
+    // so a stray morning dial doesn't anchor the whole day's shift.
+    // Each isolated call contributes a small minimum (60s) so a single
+    // dial still registers as some work, not zero.
+    const MIN_SEGMENT_SECS = 60;
+    const GAP_LIMIT_SECS = 1800;
+    for (const [repId, timestamps] of callsByRep.entries()) {
+      // already sorted above when computing breakSeconds
+      if (timestamps.length === 0) continue;
+      let workSecs = 0;
+      let segStart = timestamps[0];
+      let segEnd = timestamps[0];
+      for (let i = 1; i < timestamps.length; i++) {
+        const gapSecs = (timestamps[i] - timestamps[i - 1]) / 1000;
+        if (gapSecs < GAP_LIMIT_SECS) {
+          segEnd = timestamps[i];
+        } else {
+          workSecs += Math.max((segEnd - segStart) / 1000, MIN_SEGMENT_SECS);
+          segStart = timestamps[i];
+          segEnd = timestamps[i];
+        }
       }
-    }
-    for (const [repId, shift] of shiftByRep.entries()) {
+      workSecs += Math.max((segEnd - segStart) / 1000, MIN_SEGMENT_SECS);
       const s = byRep.get(repId) ?? blank();
-      s.workSeconds = Math.round((shift.last - shift.first) / 1000);
+      s.workSeconds = Math.round(workSecs);
       byRep.set(repId, s);
     }
 
