@@ -48,6 +48,8 @@ function LeaderboardPage() {
     const ch = supabase.channel("leaderboard-stream")
       .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "appointment_reminders" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, () => void load())
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
     // eslint-disable-next-line
