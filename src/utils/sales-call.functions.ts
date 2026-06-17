@@ -288,6 +288,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         .select("id, deposit_amount, stripe_payment_intent_id")
         .eq("lead_id", data.leadId)
         .limit(1);
+      const nowIso = new Date().toISOString();
       const payload: any = {
         clinic_id: data.clinicId,
         lead_id: data.leadId,
@@ -304,12 +305,15 @@ export const saveBooking = createServerFn({ method: "POST" })
         // Don't overwrite deposit fields already set on the appointment.
         if (existing[0].stripe_payment_intent_id) delete payload.stripe_payment_intent_id;
         if (existing[0].deposit_amount != null) delete payload.deposit_amount;
+        // Stamp booked_at on re-book so leaderboard credits the moment the
+        // booking was (re)made, not the original row insert time.
+        payload.booked_at = nowIso;
         await supabaseAdmin.from("clinic_appointments").update(payload).eq("id", existing[0].id);
       } else {
         // Upsert on lead_id — DB unique index prevents race-condition duplicates.
         await supabaseAdmin
           .from("clinic_appointments")
-          .upsert({ ...payload, intel_notes: null }, { onConflict: "lead_id" });
+          .upsert({ ...payload, intel_notes: null, booked_at: nowIso }, { onConflict: "lead_id" });
       }
     }
 
@@ -335,6 +339,7 @@ export const saveBooking = createServerFn({ method: "POST" })
             three_day_sms_sent_at: null,
             twentyfour_hour_sms_sent: false,
             twentyfour_hour_sms_sent_at: null,
+            booked_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingReminder[0].id);
@@ -886,22 +891,21 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       .or("clinic_id.is.null,lead_id.not.is.null")
       .order("called_at", { ascending: true });
 
-    // Bookings are counted from appointment rows, using created_at as the time
-    // the booking was made. Do not use the appointment date itself — a booking
+    // Bookings are counted from appointment rows, using booked_at as the time
+    // the booking was made (dedicated field, falls back to created_at via
+    // backfill + default). Do not use the appointment date itself — a booking
     // made today for next week should still count on today's leaderboard.
     const { data: appointmentBookings } = await supabaseAdmin.from("appointment_reminders")
-      .select("id, lead_id, status, created_at")
+      .select("id, lead_id, status, booked_at")
       .neq("status", "cancelled")
-      .gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
+      .gte("booked_at", from.toISOString()).lte("booked_at", to.toISOString());
     const { data: clinicAppointmentBookings } = await supabaseAdmin.from("clinic_appointments")
-      .select("id, lead_id, created_at")
-      .gte("created_at", from.toISOString()).lte("created_at", to.toISOString());
+      .select("id, lead_id, booked_at")
+      .gte("booked_at", from.toISOString()).lte("booked_at", to.toISOString());
     // NOTE: we intentionally do NOT fall back to meta_leads.booking_date here.
-    // booking_date is the APPOINTMENT date, not when the booking was made, so
-    // using it inflated "today's" count whenever a lead's appointment happened
-    // to fall inside the window (e.g. a booking taken last week for today).
+    // booking_date is the APPOINTMENT date, not when the booking was made.
     // Bookings now only count from appointment_reminders / clinic_appointments,
-    // both of which have real created_at timestamps for when the booking was made.
+    // both of which have a dedicated booked_at timestamp.
     const metaBookings: { id: string; rep_id: string | null; status: string; booking_date: string }[] = [];
 
     const relevantLeadIds = Array.from(new Set([
@@ -1127,10 +1131,10 @@ export const getLeaderboard = createServerFn({ method: "POST" })
 
     const bookedLeadIds = new Map<string, string | null>();
     for (const b of appointmentBookings ?? []) {
-      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.created_at as string | null);
+      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.booked_at as string | null);
     }
     for (const b of clinicAppointmentBookings ?? []) {
-      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.created_at as string | null);
+      if (b.lead_id) bookedLeadIds.set(b.lead_id as string, b.booked_at as string | null);
     }
     for (const b of metaBookings ?? []) {
       bookedLeadIds.set(b.id as string, null);
