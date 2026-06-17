@@ -339,6 +339,7 @@ export const saveBooking = createServerFn({ method: "POST" })
             three_day_sms_sent_at: null,
             twentyfour_hour_sms_sent: false,
             twentyfour_hour_sms_sent_at: null,
+            booked_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq("id", existingReminder[0].id);
