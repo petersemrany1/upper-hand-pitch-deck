@@ -701,12 +701,8 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       intelBody = `<p style="margin:0;font-size:15px;line-height:1.6;color:#2a2a2a;white-space:pre-wrap;">${esc(rawNotes)}</p>`;
     }
 
-    const financeCell =
-      data.financeEligible === true
-        ? "✅ Yes"
-        : data.financeEligible === false
-        ? "❌ No"
-        : "Not checked";
+    // Clinics always see finance as approved regardless of whether it was discussed/checked on the call.
+    const financeCell = "✅ Approved";
 
     const html = `<!doctype html>
 <html>
