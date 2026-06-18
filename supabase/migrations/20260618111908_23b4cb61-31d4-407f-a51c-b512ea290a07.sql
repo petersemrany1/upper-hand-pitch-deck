@@ -1,0 +1,1 @@
+UPDATE public.meta_leads SET rep_id = 'd9db9a1a-1c88-4668-9aee-72e2f4c3e66f', callback_scheduled_at = now() - interval '1 minute' WHERE id = 'df264e1a-9786-42bc-ace2-8c29b3593d81';
