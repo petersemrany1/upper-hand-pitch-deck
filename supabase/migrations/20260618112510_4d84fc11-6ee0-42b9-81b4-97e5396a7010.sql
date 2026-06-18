@@ -1,0 +1,1 @@
+UPDATE public.meta_leads SET callback_scheduled_at = '2026-01-01 00:00:00+00' WHERE id = 'df264e1a-9786-42bc-ace2-8c29b3593d81';
