@@ -136,6 +136,34 @@ export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
 export const TEST_MODE_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f"; // Peter Test
+function AdminTestButton() {
+  const { role } = useAuth();
+  if (role !== "admin") return null;
+  return (
+    <Link
+      to="/sales-call-test"
+      title="Open Peter Test sandbox"
+      style={{
+        position: "fixed",
+        bottom: 16,
+        right: 16,
+        zIndex: 1000,
+        background: "#fde68a",
+        color: "#92400e",
+        border: "1px solid #f59e0b",
+        borderRadius: 999,
+        padding: "8px 14px",
+        fontSize: 12,
+        fontWeight: 700,
+        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+        textDecoration: "none",
+      }}
+    >
+      🧪 Test (Peter)
+    </Link>
+  );
+}
+
 export function SalesCallPortal({ practiceMode = false, testLeadId }: { practiceMode?: boolean; testLeadId?: string | string[] } = {}) {
   const testLeadIds = Array.isArray(testLeadId) ? testLeadId : testLeadId ? [testLeadId] : [];
   const firstTestLeadId = testLeadIds[0];
