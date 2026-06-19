@@ -128,6 +128,7 @@ function DashboardHome() {
   const [targetInput, setTargetInput] = useState("");
   const [repsList, setRepsList] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedRepId, setSelectedRepId] = useState<string>("");
+  const [repName, setRepName] = useState<string>("");
 
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
