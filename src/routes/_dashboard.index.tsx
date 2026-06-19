@@ -276,12 +276,16 @@ function DashboardHome() {
       if (fromIso) leadsTotalQ.gte("created_at", fromIso);
       if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
 
-      // Cohort-aligned: of leads CREATED in the period, how many are booked now
-      const bookingsQ = supabase
-        .from("meta_leads").select("id", { count: "exact", head: true })
-        .eq("status", "booked_deposit_paid");
-      if (fromIso) bookingsQ.gte("created_at", fromIso);
-      if (scopeId) bookingsQ.eq("rep_id", scopeId);
+      // Actual bookings made in period (clinic_appointments.booked_at)
+      const bookingsQ = scopeId
+        ? supabase
+            .from("clinic_appointments")
+            .select("id, meta_leads!inner(rep_id)", { count: "exact", head: true })
+            .eq("meta_leads.rep_id", scopeId)
+        : supabase
+            .from("clinic_appointments")
+            .select("id", { count: "exact", head: true });
+      if (fromIso) bookingsQ.gte("booked_at", fromIso);
 
       const [callsRes, leadsTotalRes, bookingsRes] = await Promise.all([callsQ, leadsTotalQ, bookingsQ]);
       if (cancelled) return;
