@@ -168,8 +168,9 @@ function DashboardHome() {
     const newLeadsQ = supabase
       .from("meta_leads")
       .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id")
+      .gte("created_at", todayIso)
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(10);
     if (scopeId) newLeadsQ.eq("rep_id", scopeId);
 
     const { year: curYear, month: curMonth } = currentYearMonth();
