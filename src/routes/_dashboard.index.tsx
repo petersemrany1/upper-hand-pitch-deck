@@ -535,9 +535,10 @@ function DashboardHome() {
             </div>
           </Card>
         </div>
-
+      </div>
 
       {/* Target modal */}
+
       {showTargetModal && (
         <div
           style={{
