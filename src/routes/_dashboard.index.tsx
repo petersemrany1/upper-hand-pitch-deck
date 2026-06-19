@@ -109,22 +109,19 @@ type SmsRow = {
 };
 
 
+type ClinicInfo = { id: string; clinic_name: string | null; city: string | null };
+
 function DashboardHome() {
   const { ready: authReady, session, role } = useAuth();
   const isAdmin = role === "admin";
-  // Boot Twilio device (kept from existing dashboard)
   useTwilioDevice(true);
 
-  const [callsToday, setCallsToday] = useState(0);
-  const [holdRate, setHoldRate] = useState(0);
   const [bookingsToday, setBookingsToday] = useState(0);
   const [bookingsMonth, setBookingsMonth] = useState(0);
   const [revenueMonth, setRevenueMonth] = useState(0);
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
-  const [overdueCallbacks, setOverdueCallbacks] = useState(0);
-  const [missedCalls, setMissedCalls] = useState<CallRow[]>([]);
-  const [unreadSms, setUnreadSms] = useState<SmsRow[]>([]);
-  const [missedOpen, setMissedOpen] = useState(false);
+  const [clinicMap, setClinicMap] = useState<Map<string, ClinicInfo>>(new Map());
+  const [leadClinicMap, setLeadClinicMap] = useState<Map<string, string | null>>(new Map());
 
   const [target, setTarget] = useState<number>(0);
   const [showTargetModal, setShowTargetModal] = useState(false);
@@ -132,19 +129,17 @@ function DashboardHome() {
   const [repsList, setRepsList] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedRepId, setSelectedRepId] = useState<string>("");
 
-  // Conversion rate widget state
+  // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
-  const [convLeads, setConvLeads] = useState(0);
+  const [convLeadsTotal, setConvLeadsTotal] = useState(0); // total leads created in period
+  const [convCallsUnique, setConvCallsUnique] = useState(0); // unique leads called in period
   const [convBookings, setConvBookings] = useState(0);
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
     const monthIso = startOfMonth().toISOString();
-    const nowIso = new Date().toISOString();
 
-    // Resolve rep_id for the current user. Admins see ALL activity; reps only
-    // see rows attributed to them (call_records.rep_id / meta_leads.rep_id).
     let repId: string | null = null;
     if (!isAdmin && session?.user?.email) {
       const { data: repRow } = await supabase
@@ -154,15 +149,7 @@ function DashboardHome() {
         .maybeSingle();
       repId = repRow?.id ?? null;
     }
-    // If a non-admin user has no sales_reps row, scope to a non-existent id so
-    // they see zeros rather than the whole company's data.
     const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
-
-    const callsTodayQ = supabase
-      .from("call_records")
-      .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
-      .gte("called_at", todayIso);
-    if (scopeId) callsTodayQ.eq("rep_id", scopeId);
 
     const bookingsTodayQ = supabase
       .from("meta_leads")
@@ -178,29 +165,12 @@ function DashboardHome() {
       .gte("updated_at", monthIso);
     if (scopeId) bookingsMonthQ.eq("rep_id", scopeId);
 
-
     const newLeadsQ = supabase
       .from("meta_leads")
-      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone")
+      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id")
       .order("created_at", { ascending: false })
       .limit(5);
     if (scopeId) newLeadsQ.eq("rep_id", scopeId);
-
-    const overdueQ = supabase
-      .from("meta_leads")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "callback_scheduled")
-      .lt("callback_scheduled_at", nowIso);
-    if (scopeId) overdueQ.eq("rep_id", scopeId);
-
-    const missedQ = supabase
-      .from("call_records")
-      .select("id, lead_id, duration, duration_seconds, called_at, outcome, phone")
-      .gte("called_at", new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-      .or("outcome.ilike.%missed%,outcome.ilike.%no_answer%,outcome.ilike.%no answer%")
-      .order("called_at", { ascending: false })
-      .limit(20);
-    if (scopeId) missedQ.eq("rep_id", scopeId);
 
     const { year: curYear, month: curMonth } = currentYearMonth();
     const targetQ = supabase
@@ -210,21 +180,12 @@ function DashboardHome() {
       .eq("month", curMonth);
     if (scopeId) targetQ.eq("rep_id", scopeId);
 
-    const [callsRes, bookingsTodayRes, bookingsMonthRes, newLeadsRes, overdueRes, missedRes, smsRes, clinicsRes, settingsRes, targetRes, repsRes] =
+    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes] =
       await Promise.all([
-        callsTodayQ,
         bookingsTodayQ,
         bookingsMonthQ,
         newLeadsQ,
-        overdueQ,
-        missedQ,
-        supabase
-          .from("sms_messages")
-          .select("id, body, from_number, created_at, direction")
-          .eq("direction", "inbound")
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase.from("partner_clinics").select("id, price_per_booking"),
+        supabase.from("partner_clinics").select("id, clinic_name, city, price_per_booking"),
         supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
         targetQ,
         isAdmin
@@ -238,37 +199,31 @@ function DashboardHome() {
       setRepsList(((repsRes.data ?? []) as Array<{ id: string; name: string }>) || []);
     }
 
-    const calls = (callsRes.data ?? []) as CallRow[];
-    const uniqueLeads = new Set(calls.map((c) => c.lead_id).filter(Boolean));
-    const heldCount = calls.filter((c) => {
-      const d = c.duration_seconds ?? c.duration ?? 0;
-      return d > 120;
-    }).length;
-    const totalUnique = uniqueLeads.size;
-    setCallsToday(totalUnique);
-    setHoldRate(totalUnique > 0 ? Math.round((heldCount / totalUnique) * 100) : 0);
-
     setBookingsToday(bookingsTodayRes.count ?? 0);
 
     const monthBookings = (bookingsMonthRes.data ?? []) as { id: string; clinic_id: string | null }[];
     setBookingsMonth(monthBookings.length);
 
+    const clinicsList = (clinicsRes.data ?? []) as Array<{ id: string; clinic_name: string | null; city: string | null; price_per_booking: number | null }>;
     const defaultPrice = Number((settingsRes.data?.value as unknown) ?? 800) || 800;
     const priceMap = new Map<string, number>();
-    for (const c of (clinicsRes.data ?? []) as { id: string; price_per_booking: number | null }[]) {
+    const cMap = new Map<string, ClinicInfo>();
+    for (const c of clinicsList) {
       priceMap.set(c.id, Number(c.price_per_booking) || defaultPrice);
+      cMap.set(c.id, { id: c.id, clinic_name: c.clinic_name, city: c.city });
     }
+    setClinicMap(cMap);
     const revenue = monthBookings.reduce(
       (sum, b) => sum + (b.clinic_id ? (priceMap.get(b.clinic_id) ?? defaultPrice) : defaultPrice),
       0
     );
     setRevenueMonth(revenue);
 
-
-    setNewLeads((newLeadsRes.data ?? []) as Lead[]);
-    setOverdueCallbacks(overdueRes.count ?? 0);
-    setMissedCalls((missedRes.data ?? []) as CallRow[]);
-    setUnreadSms((smsRes.data ?? []) as SmsRow[]);
+    const leadsArr = (newLeadsRes.data ?? []) as Array<Lead & { clinic_id: string | null }>;
+    setNewLeads(leadsArr);
+    const lcm = new Map<string, string | null>();
+    for (const l of leadsArr) lcm.set(l.id, l.clinic_id);
+    setLeadClinicMap(lcm);
   }, [isAdmin, session?.user?.email]);
 
   useEffect(() => {
@@ -276,9 +231,7 @@ function DashboardHome() {
     void loadData();
   }, [authReady, session, loadData]);
 
-  // Load conversion-rate data for the selected period.
-  // Unique leads = distinct lead_id on call_records in window (rep-scoped for non-admins).
-  // Bookings = meta_leads with status=booked_deposit_paid updated in window.
+  // Conversion widget data
   useEffect(() => {
     if (!authReady || !session) return;
     let cancelled = false;
@@ -307,17 +260,23 @@ function DashboardHome() {
       if (fromIso) callsQ.gte("called_at", fromIso);
       if (scopeId) callsQ.eq("rep_id", scopeId);
 
+      const leadsTotalQ = supabase
+        .from("meta_leads").select("id", { count: "exact", head: true });
+      if (fromIso) leadsTotalQ.gte("created_at", fromIso);
+      if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
+
       const bookingsQ = supabase
         .from("meta_leads").select("id", { count: "exact", head: true })
         .eq("status", "booked_deposit_paid");
       if (fromIso) bookingsQ.gte("updated_at", fromIso);
       if (scopeId) bookingsQ.eq("rep_id", scopeId);
 
-      const [callsRes, bookingsRes] = await Promise.all([callsQ, bookingsQ]);
+      const [callsRes, leadsTotalRes, bookingsRes] = await Promise.all([callsQ, leadsTotalQ, bookingsQ]);
       if (cancelled) return;
       const unique = new Set(((callsRes.data ?? []) as { lead_id: string | null }[])
         .map(c => c.lead_id).filter(Boolean));
-      setConvLeads(unique.size);
+      setConvCallsUnique(unique.size);
+      setConvLeadsTotal(leadsTotalRes.count ?? 0);
       setConvBookings(bookingsRes.count ?? 0);
     })();
     return () => { cancelled = true; };
@@ -331,8 +290,10 @@ function DashboardHome() {
     return email.split("@")[0].split(/[._]/)[0].replace(/^\w/, (c) => c.toUpperCase()) || "there";
   }, [session]);
 
-  const bonus = bookingsToday * 50;
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
+
+  const leadsPct = convLeadsTotal > 0 ? Math.round((convBookings / convLeadsTotal) * 1000) / 10 : 0;
+  const callsPct = convCallsUnique > 0 ? Math.round((convBookings / convCallsUnique) * 1000) / 10 : 0;
 
   const confirmTarget = async () => {
     const n = Number(targetInput);
@@ -355,79 +316,48 @@ function DashboardHome() {
     void loadData();
   };
 
-  const missedItems = useMemo(() => {
-    const items: Array<{ id: string; name: string; type: "call" | "sms"; time: string }> = [];
-    for (const c of missedCalls) {
-      items.push({ id: `c-${c.id}`, name: c.phone || "Unknown", type: "call", time: c.called_at });
-    }
-    for (const s of unreadSms) {
-      items.push({ id: `s-${s.id}`, name: s.from_number || "Unknown", type: "sms", time: s.created_at });
-    }
-    return items.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
-  }, [missedCalls, unreadSms]);
-
-  const missedCount = missedItems.length;
+  const leadLocation = (leadId: string): string | null => {
+    const cid = leadClinicMap.get(leadId);
+    if (!cid) return null;
+    const c = clinicMap.get(cid);
+    if (!c) return null;
+    return c.city || c.clinic_name || null;
+  };
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Top bar */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div>
-            <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
-              {getGreeting()}, {firstName}
-            </div>
-            <div style={{ fontSize: 13, color: "#999", marginTop: 4 }}>{formatDate()}</div>
+        <div>
+          <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
+            {getGreeting()}, {firstName}
           </div>
-          {overdueCallbacks > 0 && (
-            <div
-              style={{
-                background: "#fef2f2",
-                color: "#b91c1c",
-                fontSize: 12,
-                fontWeight: 600,
-                padding: "6px 12px",
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <AlertTriangle className="h-3.5 w-3.5" />
-              {overdueCallbacks} callback{overdueCallbacks === 1 ? "" : "s"} overdue
-            </div>
-          )}
+          <div style={{ fontSize: 13, color: "#999", marginTop: 4 }}>{formatDate()}</div>
         </div>
 
-        {/* Stats strip */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        {/* Stats strip — bookings today + bookings this month */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
           <StatCard
             label="Bookings Today"
             value={bookingsToday}
             valueColor="#f4522d"
-            sub={bonus > 0 ? `$${bonus} bonus earned` : "$0 bonus earned"}
+            sub=""
             borderLeft="3px solid #f4522d"
           />
           <StatCard
-            label="Calls Today"
-            value={callsToday}
+            label={`Bookings — ${monthYearLabel()}`}
+            value={bookingsMonth}
             valueColor="#111"
-            sub={`${callsToday} unique lead${callsToday === 1 ? "" : "s"}`}
-          />
-          <StatCard
-            label="Hold Rate"
-            value={`${holdRate}%`}
-            valueColor="#16a34a"
-            sub="past 2 minutes"
+            sub=""
           />
         </div>
 
-        {/* Conversion rate — unique leads called vs bookings */}
+        {/* Conversion rate — leads→bookings and calls→bookings */}
         <Card>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Conversion rate</div>
-              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>Unique leads called vs bookings</div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Conversion</div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How leads and calls convert into bookings</div>
             </div>
             <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
               {(["day","week","month","year","all"] as const).map((p) => (
@@ -453,32 +383,33 @@ function DashboardHome() {
               ))}
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
             <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: "#111", letterSpacing: "-0.03em", lineHeight: 1 }}>{convLeads}</div>
-              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>Unique leads called</div>
-            </div>
-            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: "#16a34a", letterSpacing: "-0.03em", lineHeight: 1 }}>{convBookings}</div>
-              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>Bookings</div>
+              <div style={{ fontSize: 32, fontWeight: 600, color: "#16a34a", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                {convLeadsTotal > 0 ? `${leadsPct}%` : "—"}
+              </div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
+                Leads to Bookings
+              </div>
+              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+                {convBookings} / {convLeadsTotal} leads
+              </div>
             </div>
             <div style={{ padding: "20px", textAlign: "center" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: "#f4522d", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {convBookings > 0
-                  ? `1 in ${(convLeads / convBookings).toFixed(convLeads / convBookings >= 10 ? 0 : 1)}`
-                  : convLeads > 0 ? "0%" : "—"}
+                {convCallsUnique > 0 ? `${callsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                {convLeads > 0 ? `${Math.round((convBookings / convLeads) * 100)}% conversion` : "Ratio"}
+                Calls to Bookings
+              </div>
+              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+                {convBookings} / {convCallsUnique} called
               </div>
             </div>
           </div>
         </Card>
 
-
-        {/* Two column row — admins see "New leads today" + Bookings/target.
-            Reps don't get the company-wide leads feed; instead they see their
-            own monthly bookings and the bonus they've earned ($50 per booking). */}
+        {/* Two column row — admins see New leads today + Bookings/target. */}
         <div style={{ display: "grid", gridTemplateColumns: isAdmin ? "1fr 1fr" : "1fr", gap: 16 }}>
           {isAdmin && (
             <Card>
@@ -492,7 +423,7 @@ function DashboardHome() {
                 ) : (
                   newLeads.map((l) => {
                     const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
-                    const badge = statusBadge(l.status);
+                    const loc = leadLocation(l.id);
                     return (
                       <Link
                         key={l.id}
@@ -524,21 +455,12 @@ function DashboardHome() {
                         >
                           {initials(name)}
                         </div>
-                        <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 600,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            padding: "3px 8px",
-                            borderRadius: 4,
-                            background: badge.bg,
-                            color: badge.fg,
-                          }}
-                        >
-                          {badge.label}
-                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
+                          {loc && (
+                            <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{loc}</div>
+                          )}
+                        </div>
                         <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
                           {relativeTime(l.created_at)}
                         </div>
@@ -614,98 +536,6 @@ function DashboardHome() {
           </Card>
         </div>
 
-        {/* Missed / SMS panel */}
-        <Card>
-          <button
-            onClick={() => setMissedOpen((o) => !o)}
-            style={{
-              width: "100%",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "14px 20px",
-              background: "none",
-              border: 0,
-              cursor: "pointer",
-              fontFamily: FONT,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#f4522d" }} />
-              <span style={{ fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>
-                Missed calls & unread SMS
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, color: "#f4522d", fontWeight: 600 }}>{missedCount}</span>
-              <ChevronDown
-                className="h-4 w-4"
-                style={{
-                  color: "#aaa",
-                  transform: missedOpen ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 200ms",
-                }}
-              />
-            </div>
-          </button>
-          {missedOpen && (
-            <div style={{ borderTop: "0.5px solid #f0f0ee" }}>
-              {missedItems.length === 0 ? (
-                <div style={{ padding: 20, fontSize: 13, color: "#999" }}>Nothing missed. Nice work.</div>
-              ) : (
-                missedItems.map((it) => (
-                  <div
-                    key={it.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "12px 20px",
-                      borderBottom: "0.5px solid #f6f6f4",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: "#fff1ee",
-                        color: "#f4522d",
-                        fontSize: 12,
-                        fontWeight: 600,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {initials(it.name)}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: "#111", fontWeight: 500 }}>{it.name}</div>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.05em",
-                        padding: "3px 8px",
-                        borderRadius: 4,
-                        background: it.type === "call" ? "#fef2f2" : "#eff6ff",
-                        color: it.type === "call" ? "#b91c1c" : "#1d4ed8",
-                      }}
-                    >
-                      {it.type === "call" ? "Missed call" : "SMS reply"}
-                    </span>
-                    <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
-                      {relativeTime(it.time)}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </Card>
-      </div>
 
       {/* Target modal */}
       {showTargetModal && (
