@@ -72,8 +72,8 @@ export type RoleKey = "admin" | "rep" | "caller";
 export function defaultTabsForRole(role: RoleKey): TabKey[] {
   if (role === "admin") return [...ALL_TAB_KEYS];
   if (role === "caller") return ["clinics", "phone"];
-  // rep
-  return ["dashboard", "training", "sales_portal", "phone"];
+  // rep — dashboard is admin-only
+  return ["training", "sales_portal", "phone"];
 }
 
 // Resolve effective tabs given the role and optional override.
