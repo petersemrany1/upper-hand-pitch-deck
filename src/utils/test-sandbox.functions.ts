@@ -52,16 +52,36 @@ export const simulateDepositPaid = createServerFn({ method: "POST" })
       .eq("id", data.leadId);
     if (updErr) throw updErr;
 
-    await supabase
+    // Mirror the real webhook: if a clinic appointment already exists,
+    // backfill it AND flip status to booked_deposit_paid. The DB trigger
+    // enforce_booking_before_status_lock requires an appointment to exist.
+    const { data: appt } = await supabase
       .from("clinic_appointments")
-      .update({
-        stripe_payment_intent_id: fakePiId,
-        deposit_amount: amount,
-      })
+      .select("id")
       .eq("lead_id", data.leadId)
-      .is("stripe_payment_intent_id", null);
+      .maybeSingle();
 
-    return { ok: true, simulated: true, sessionId: fakeSessionId };
+    if (appt) {
+      await supabase
+        .from("clinic_appointments")
+        .update({
+          stripe_payment_intent_id: fakePiId,
+          deposit_amount: amount,
+        })
+        .eq("lead_id", data.leadId)
+        .is("stripe_payment_intent_id", null);
+
+      const { error: statusErr } = await supabase
+        .from("meta_leads")
+        .update({ status: "booked_deposit_paid" })
+        .eq("id", data.leadId)
+        .neq("status", "booked_deposit_paid");
+      if (statusErr) {
+        console.warn("simulateDepositPaid: status flip failed", statusErr);
+      }
+    }
+
+    return { ok: true, simulated: true, sessionId: fakeSessionId, statusFlipped: Boolean(appt) };
   });
 
 /**
