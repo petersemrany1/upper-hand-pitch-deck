@@ -52,26 +52,45 @@ function relativeTime(dateStr: string): string {
   return `${days}d ago`;
 }
 
+// All "today" / "this month" math is anchored to Australia/Sydney (project hard rule).
+function sydneyParts(now: Date = new Date()): { year: number; month: number; day: number } {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const [y, m, d] = fmt.format(now).split("-").map((n) => parseInt(n, 10));
+  return { year: y, month: m, day: d };
+}
+
+// Returns the UTC instant equivalent to local midnight in Sydney on the given Y/M/D.
+function sydneyMidnightUTC(year: number, month: number, day: number): Date {
+  // Guess UTC midnight, then adjust by Sydney offset at that moment.
+  const guess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const sydStr = guess.toLocaleString("en-US", { timeZone: "Australia/Sydney" });
+  const sydAsLocal = new Date(sydStr);
+  const offsetMs = sydAsLocal.getTime() - guess.getTime();
+  return new Date(guess.getTime() - offsetMs);
+}
+
 function startOfToday(): Date {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const { year, month, day } = sydneyParts();
+  return sydneyMidnightUTC(year, month, day);
 }
 
 function startOfMonth(): Date {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  const { year, month } = sydneyParts();
+  return sydneyMidnightUTC(year, month, 1);
 }
 
 function monthYearLabel(): string {
-  return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+  return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "Australia/Sydney" });
 }
 
 function currentYearMonth(): { year: number; month: number } {
-  const d = new Date();
-  return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  const { year, month } = sydneyParts();
+  return { year, month };
 }
 
 function initials(name: string): string {
