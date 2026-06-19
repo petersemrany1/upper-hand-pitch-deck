@@ -20,6 +20,7 @@ import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
+import { Route as DashboardSalesCallTestRouteImport } from './routes/_dashboard.sales-call-test'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
@@ -105,6 +106,11 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
 const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
   id: '/sent-links',
   path: '/sent-links',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSalesCallTestRoute = DashboardSalesCallTestRouteImport.update({
+  id: '/sales-call-test',
+  path: '/sales-call-test',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
@@ -315,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
+  '/sales-call-test': typeof DashboardSalesCallTestRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/training': typeof DashboardTrainingRouteWithChildren
@@ -358,6 +365,7 @@ export interface FileRoutesByTo {
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
+  '/sales-call-test': typeof DashboardSalesCallTestRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
@@ -403,6 +411,7 @@ export interface FileRoutesById {
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
+  '/_dashboard/sales-call-test': typeof DashboardSalesCallTestRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
@@ -450,6 +459,7 @@ export interface FileRouteTypes {
     | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
+    | '/sales-call-test'
     | '/sent-links'
     | '/settings'
     | '/training'
@@ -493,6 +503,7 @@ export interface FileRouteTypes {
     | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
+    | '/sales-call-test'
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
@@ -537,6 +548,7 @@ export interface FileRouteTypes {
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sales-call'
+    | '/_dashboard/sales-call-test'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/_dashboard/training'
@@ -661,6 +673,13 @@ declare module '@tanstack/react-router' {
       path: '/sent-links'
       fullPath: '/sent-links'
       preLoaderRoute: typeof DashboardSentLinksRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sales-call-test': {
+      id: '/_dashboard/sales-call-test'
+      path: '/sales-call-test'
+      fullPath: '/sales-call-test'
+      preLoaderRoute: typeof DashboardSalesCallTestRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/sales-call': {
@@ -938,6 +957,7 @@ interface DashboardRouteChildren {
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
+  DashboardSalesCallTestRoute: typeof DashboardSalesCallTestRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardTrainingRoute: typeof DashboardTrainingRouteWithChildren
@@ -957,6 +977,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
+  DashboardSalesCallTestRoute: DashboardSalesCallTestRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardTrainingRoute: DashboardTrainingRouteWithChildren,

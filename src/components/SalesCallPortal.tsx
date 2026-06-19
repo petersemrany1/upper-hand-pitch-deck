@@ -133,7 +133,10 @@ function normalisePhoneDigits(phone: string | null | undefined) {
 }
 
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
-export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boolean } = {}) {
+// Admin-only Test mode: when set, the portal renders identically to the real
+// sales call but is scoped to this single lead so admins can sandbox the flow.
+export const TEST_MODE_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f"; // Peter Test
+export function SalesCallPortal({ practiceMode = false, testLeadId }: { practiceMode?: boolean; testLeadId?: string } = {}) {
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
@@ -273,6 +276,20 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
     if (!sessionStartedAt) setSessionStartedAt(new Date().toISOString());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceMode]);
+
+  // Test mode (admin sandbox): auto-pin to the single test lead and
+  // auto-start the session so the admin lands in the cockpit immediately.
+  useEffect(() => {
+    if (!testLeadId) return;
+    setActiveId(testLeadId);
+    setStep("mindset");
+    setCompleted(new Set());
+    setSessionActive(true);
+    setSessionQueue([testLeadId]);
+    setSessionIndex(0);
+    if (!sessionStartedAt) setSessionStartedAt(new Date().toISOString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testLeadId]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -545,11 +562,12 @@ export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boole
   // Load leads + realtime
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const baseQuery = supabase
         .from("meta_leads")
-        .select(SALES_CALL_LEAD_SELECT)
-        .order("created_at", { ascending: false })
-        .limit(SALES_CALL_LEAD_LIMIT);
+        .select(SALES_CALL_LEAD_SELECT);
+      const { data } = testLeadId
+        ? await baseQuery.eq("id", testLeadId).limit(1)
+        : await baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT);
       setLeads((prev) => {
         const fetched = (data ?? []) as Lead[];
         // Preserve the synthetic practice lead (Dave AI) so the supabase
