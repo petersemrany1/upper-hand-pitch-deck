@@ -132,9 +132,20 @@ type SmsRow = {
 type ClinicInfo = { id: string; clinic_name: string | null; city: string | null };
 
 function DashboardHome() {
-  const { ready: authReady, session, role } = useAuth();
+  const { ready: authReady, session, role, allowedTabs } = useAuth();
   const isAdmin = role === "admin";
+  const navigate = useNavigate();
   useTwilioDevice(true);
+
+  // Admin-only page: bounce anyone else to their first allowed tab.
+  useEffect(() => {
+    if (!authReady || !session) return;
+    if (role && role !== "admin") {
+      const fallback = allowedTabs[0] ? TAB_TO_URL[allowedTabs[0]] : "/training";
+      navigate({ to: fallback, replace: true });
+    }
+  }, [authReady, session, role, allowedTabs, navigate]);
+
 
   const [bookingsToday, setBookingsToday] = useState(0);
   const [bookingsMonth, setBookingsMonth] = useState(0);
