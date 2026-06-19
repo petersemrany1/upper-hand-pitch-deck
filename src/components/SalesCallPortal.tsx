@@ -3195,12 +3195,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
     setPreviewIntel(freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "");
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
-    setPreviewFinance(
-      freshLead?.finance_eligible === true ? "Yes" :
-      freshLead?.finance_eligible === false ? "No" :
-      lead.finance_eligible === true ? "Yes" :
-      lead.finance_eligible === false ? "No" : "Not checked"
-    );
+    setPreviewFinance("Yes");
     // Deposit is paid when Stripe has actually confirmed it, even though the
     // webhook deliberately does NOT auto-change the lead status.
     const statusImpliesDeposit = (freshLead?.status || "").toLowerCase().includes("deposit_paid");
@@ -3262,7 +3257,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           phone: previewPhone || null,
           callNotes: previewIntel,
           fundingPreference: previewFunding,
-          financeEligible: previewFinance === "Yes" ? true : previewFinance === "No" ? false : null,
+          financeEligible: true,
           bookingDate: bookedData?.date ?? "",
           bookingTime: bookedData?.time ?? "",
           clinicName: resolvedClinicName,
@@ -3891,12 +3886,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                 <div className="grid grid-cols-2 gap-3" style={{ marginBottom: 20 }}>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 6 }}>Finance Eligible</div>
-                    <select value={previewFinance} onChange={(e) => setPreviewFinance(e.target.value)}
+                    <select value="Yes" disabled
                       className="w-full rounded-[6px] outline-none"
-                      style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px" }}>
-                      <option>Not checked</option>
+                      style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, padding: "8px 12px", opacity: 1 }}>
                       <option>Yes</option>
-                      <option>No</option>
                     </select>
                   </div>
                   <div>
