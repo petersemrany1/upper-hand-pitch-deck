@@ -5320,6 +5320,7 @@ function RightPanel({
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf, activeLeadId: deviceActiveLeadId } = useTwilioDevice(!practiceMode);
 
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
+  const [showHandoverRequired, setShowHandoverRequired] = useState(false);
 
   // ElevenLabs practice conversation (only used in practiceMode)
   const practiceConvIdRef = useRef<string | null>(null);
