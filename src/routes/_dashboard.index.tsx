@@ -325,8 +325,9 @@ function DashboardHome() {
 
       setConvLeadsTotal(leadsTotal);
       setConvLeadsBooked(leadsBooked);
-      setConvConnectedUnique(connectedLeadIds.length);
+      setConvConnectedUnique(connectedUniqueFiltered);
       setConvConnectedBooked(connectedBooked);
+
     })();
     return () => { cancelled = true; };
   }, [authReady, session, isAdmin, convPeriod]);
