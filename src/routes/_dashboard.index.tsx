@@ -1,10 +1,9 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, AlertTriangle } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
-import { TAB_TO_URL } from "@/lib/tab-access";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -132,19 +131,10 @@ type SmsRow = {
 type ClinicInfo = { id: string; clinic_name: string | null; city: string | null };
 
 function DashboardHome() {
-  const { ready: authReady, session, role, allowedTabs } = useAuth();
+  const { ready: authReady, session, role } = useAuth();
   const isAdmin = role === "admin";
-  const navigate = useNavigate();
   useTwilioDevice(true);
 
-  // Admin-only page: bounce anyone else to their first allowed tab.
-  useEffect(() => {
-    if (!authReady || !session) return;
-    if (role && role !== "admin") {
-      const fallback = allowedTabs[0] ? TAB_TO_URL[allowedTabs[0]] : "/training";
-      navigate({ to: fallback, replace: true });
-    }
-  }, [authReady, session, role, allowedTabs, navigate]);
 
 
   const [bookingsToday, setBookingsToday] = useState(0);
@@ -404,6 +394,33 @@ function DashboardHome() {
     if (!c) return null;
     return c.city || c.clinic_name || null;
   };
+
+  // Non-admin reps see a slim dashboard: just their bookings + bonus.
+  if (authReady && session && role && role !== "admin") {
+    const bonusToday = bookingsToday * 50;
+    const bonusMonth = bookingsMonth * 50;
+    return (
+      <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
+              {getGreeting()}, {firstName}
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{formatDate()}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <StatCard label="Bookings today" value={bookingsToday} valueColor="#111" sub="" />
+            <StatCard label="Bonus today" value={`$${bonusToday.toLocaleString()}`} valueColor="#15803d" sub={`${bookingsToday} × $50`} />
+            <StatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth} valueColor="#111" sub="" />
+            <StatCard label={`Bonus — ${monthYearLabel()}`} value={`$${bonusMonth.toLocaleString()}`} valueColor="#15803d" sub={`${bookingsMonth} × $50`} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
