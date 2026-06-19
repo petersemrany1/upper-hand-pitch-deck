@@ -133,9 +133,10 @@ function DashboardHome() {
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
-  const [convLeadsTotal, setConvLeadsTotal] = useState(0); // total leads created in period
-  const [convCallsUnique, setConvCallsUnique] = useState(0); // unique leads called in period
-  const [convBookings, setConvBookings] = useState(0);
+  const [convLeadsTotal, setConvLeadsTotal] = useState(0);     // leads created in period
+  const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // of those leads, how many are booked
+  const [convConnectedUnique, setConvConnectedUnique] = useState(0); // unique leads we got through to (completed calls)
+  const [convConnectedBooked, setConvConnectedBooked] = useState(0); // of those, how many are booked
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
@@ -267,33 +268,53 @@ function DashboardHome() {
       }
       const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
-      const callsQ = supabase.from("call_records").select("lead_id").not("lead_id", "is", null);
+      // Leads created in period
+      const leadsQ = supabase
+        .from("meta_leads")
+        .select("id, status, rep_id");
+      if (fromIso) leadsQ.gte("created_at", fromIso);
+      if (scopeId) leadsQ.eq("rep_id", scopeId);
+
+      // Connected calls (status=completed) in period
+      const callsQ = supabase
+        .from("call_records")
+        .select("lead_id")
+        .not("lead_id", "is", null)
+        .eq("status", "completed");
       if (fromIso) callsQ.gte("called_at", fromIso);
       if (scopeId) callsQ.eq("rep_id", scopeId);
 
-      const leadsTotalQ = supabase
-        .from("meta_leads").select("id", { count: "exact", head: true });
-      if (fromIso) leadsTotalQ.gte("created_at", fromIso);
-      if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
-
-      // Actual bookings made in period (clinic_appointments.booked_at)
-      const bookingsQ = scopeId
-        ? supabase
-            .from("clinic_appointments")
-            .select("id, meta_leads!inner(rep_id)", { count: "exact", head: true })
-            .eq("meta_leads.rep_id", scopeId)
-        : supabase
-            .from("clinic_appointments")
-            .select("id", { count: "exact", head: true });
-      if (fromIso) bookingsQ.gte("booked_at", fromIso);
-
-      const [callsRes, leadsTotalRes, bookingsRes] = await Promise.all([callsQ, leadsTotalQ, bookingsQ]);
+      const [leadsRes, callsRes] = await Promise.all([leadsQ, callsQ]);
       if (cancelled) return;
-      const unique = new Set(((callsRes.data ?? []) as { lead_id: string | null }[])
-        .map(c => c.lead_id).filter(Boolean));
-      setConvCallsUnique(unique.size);
-      setConvLeadsTotal(leadsTotalRes.count ?? 0);
-      setConvBookings(bookingsRes.count ?? 0);
+
+      const leadsRows = (leadsRes.data ?? []) as Array<{ id: string; status: string | null }>;
+      const leadsTotal = leadsRows.length;
+      const leadsBooked = leadsRows.filter(l => l.status === "booked_deposit_paid").length;
+
+      const connectedLeadIds = Array.from(new Set(
+        ((callsRes.data ?? []) as { lead_id: string | null }[])
+          .map(c => c.lead_id).filter((v): v is string => !!v)
+      ));
+      let connectedBooked = 0;
+      if (connectedLeadIds.length > 0) {
+        // Chunk to keep URL length sane
+        const CHUNK = 200;
+        for (let i = 0; i < connectedLeadIds.length; i += CHUNK) {
+          const slice = connectedLeadIds.slice(i, i + CHUNK);
+          const { count } = await supabase
+            .from("meta_leads")
+            .select("id", { count: "exact", head: true })
+            .in("id", slice)
+            .eq("status", "booked_deposit_paid");
+          connectedBooked += count ?? 0;
+        }
+      }
+      if (cancelled) return;
+
+      setConvLeadsTotal(leadsTotal);
+      setConvLeadsBooked(leadsBooked);
+      setConvConnectedUnique(connectedLeadIds.length);
+      setConvConnectedBooked(connectedBooked);
     })();
     return () => { cancelled = true; };
   }, [authReady, session, isAdmin, convPeriod]);
@@ -308,8 +329,8 @@ function DashboardHome() {
 
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
 
-  const leadsPct = convLeadsTotal > 0 ? Math.round((convBookings / convLeadsTotal) * 1000) / 10 : 0;
-  const callsPct = convCallsUnique > 0 ? Math.round((convBookings / convCallsUnique) * 1000) / 10 : 0;
+  const leadsPct = convLeadsTotal > 0 ? Math.round((convLeadsBooked / convLeadsTotal) * 1000) / 10 : 0;
+  const connectsPct = convConnectedUnique > 0 ? Math.round((convConnectedBooked / convConnectedUnique) * 1000) / 10 : 0;
 
   const confirmTarget = async () => {
     const n = Number(targetInput);
@@ -408,18 +429,18 @@ function DashboardHome() {
                 Leads to Bookings
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convBookings} / {convLeadsTotal} leads
+                {convLeadsBooked} / {convLeadsTotal} leads
               </div>
             </div>
             <div style={{ padding: "20px", textAlign: "center" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: "#f4522d", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {convCallsUnique > 0 ? `${callsPct}%` : "—"}
+                {convConnectedUnique > 0 ? `${connectsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Calls to Bookings
+                Connects to Sales
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convBookings} / {convCallsUnique} called
+                {convConnectedBooked} / {convConnectedUnique} connected
               </div>
             </div>
           </div>
