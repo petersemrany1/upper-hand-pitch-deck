@@ -112,7 +112,9 @@ const DashboardSalesCallTestRoute = DashboardSalesCallTestRouteImport.update({
   id: '/sales-call-test',
   path: '/sales-call-test',
   getParentRoute: () => DashboardRoute,
-} as any)
+} as any).lazy(() =>
+  import('./routes/_dashboard.sales-call-test.lazy').then((d) => d.Route),
+)
 const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
   id: '/sales-call',
   path: '/sales-call',
