@@ -289,7 +289,8 @@ function DashboardHome() {
     const fromMeta = (meta?.first_name as string | undefined) || (meta?.full_name as string | undefined);
     if (fromMeta) return String(fromMeta).split(" ")[0];
     const email = session?.user?.email ?? "";
-    return email.split("@")[0].split(/[._]/)[0].replace(/^\w/, (c) => c.toUpperCase()) || "there";
+    const base = email.split("@")[0].split(/[._]/)[0].replace(/\d+$/, "");
+    return base ? base.replace(/^\w/, (c) => c.toUpperCase()) : "there";
   }, [session]);
 
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
