@@ -72,16 +72,20 @@ export type RoleKey = "admin" | "rep" | "caller";
 export function defaultTabsForRole(role: RoleKey): TabKey[] {
   if (role === "admin") return [...ALL_TAB_KEYS];
   if (role === "caller") return ["clinics", "phone"];
-  // rep
-  return ["dashboard", "training", "sales_portal", "phone"];
+  // rep — dashboard is admin-only
+  return ["training", "sales_portal", "phone"];
 }
 
 // Resolve effective tabs given the role and optional override.
 export function resolveAllowedTabs(role: RoleKey, override: string[] | null | undefined): TabKey[] {
   if (role === "admin") return [...ALL_TAB_KEYS];
-  if (!override || override.length === 0) return defaultTabsForRole(role);
-  const set = new Set(override.filter((t): t is TabKey => (ALL_TAB_KEYS as string[]).includes(t)));
-  return ALL_TAB_KEYS.filter((t) => set.has(t));
+  const base = !override || override.length === 0
+    ? defaultTabsForRole(role)
+    : ALL_TAB_KEYS.filter((t) =>
+        new Set(override.filter((x): x is TabKey => (ALL_TAB_KEYS as string[]).includes(x))).has(t),
+      );
+  // Dashboard is admin-only — never grant it to non-admins, even via override.
+  return base.filter((t) => t !== "dashboard");
 }
 
 export function isTabAllowed(tabs: TabKey[], tab: TabKey): boolean {
