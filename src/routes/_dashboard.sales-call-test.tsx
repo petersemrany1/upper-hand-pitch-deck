@@ -7,6 +7,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { simulateDepositPaid, resetPeterTestLead } from "@/utils/test-sandbox.functions";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
+const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
+const TEST_LEAD_IDS = [PETER_TEST_LEAD_ID, TEST_TESTED_LEAD_ID];
 
 function TestControlBar() {
   const simulate = useServerFn(simulateDepositPaid);
@@ -30,12 +32,12 @@ function TestControlBar() {
 
   async function onReset() {
     if (busy) return;
-    if (!confirm("Reset Peter Test back to a clean intake-stage lead? Clears payment + status only.")) return;
+    if (!confirm("Reset both test leads (Peter Test + Test Tested) back to clean intake stage? Clears payment + status only.")) return;
     setBusy("reset");
     setMsg(null);
     try {
-      await reset({ data: { leadId: PETER_TEST_LEAD_ID } });
-      setMsg("🧹 Peter reset. Reloading…");
+      await Promise.all(TEST_LEAD_IDS.map((id) => reset({ data: { leadId: id } })));
+      setMsg("🧹 Test leads reset. Reloading…");
       setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       setMsg(`❌ ${(e as Error).message}`);
@@ -138,7 +140,7 @@ function SalesCallTestRoute() {
         </Link>
       </div>
       <ConversationProvider>
-        <SalesCallPortal testLeadId={PETER_TEST_LEAD_ID} />
+        <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
       </ConversationProvider>
       <TestControlBar />
     </div>
