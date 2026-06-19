@@ -692,7 +692,7 @@ function StatCard({
       >
         {value}
       </div>
-      <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{sub}</div>
+      {sub ? <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{sub}</div> : null}
     </div>
   );
 }
