@@ -478,27 +478,26 @@ function DashboardHome() {
           <Card>
             <div style={{ padding: 20 }}>
               <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
-                Bookings — {monthYearLabel()}
-              </div>
-              <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
-                {bookingsMonth}
+                Revenue — {monthYearLabel()}
               </div>
               {isAdmin ? (
                 <>
-                  <div style={{ fontSize: 14, color: "#111", fontWeight: 600, marginTop: 6 }}>
-                    ${revenueMonth.toLocaleString()} revenue
+                  <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                    ${revenueMonth.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-                    Target: {target || 0} / month
+                  <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>
+                    From {bookingsMonth} booking{bookingsMonth === 1 ? "" : "s"}
+                    {target > 0 ? ` · target ${target}/mo` : ""}
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 14, color: "#16a34a", fontWeight: 600, marginTop: 6 }}>
-                    ${(bookingsMonth * 50).toLocaleString()} bonus earned
+                  <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#16a34a", marginTop: 8, lineHeight: 1 }}>
+                    ${(bookingsMonth * 50).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-                    $50 per booking{target > 0 ? ` · target ${target}/mo` : ""}
+                  <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>
+                    {bookingsMonth} booking{bookingsMonth === 1 ? "" : "s"} · $50 bonus each
+                    {target > 0 ? ` · target ${target}/mo` : ""}
                   </div>
                 </>
               )}
