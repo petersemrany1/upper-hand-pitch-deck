@@ -32,12 +32,12 @@ function TestControlBar() {
 
   async function onReset() {
     if (busy) return;
-    if (!confirm("Reset Peter Test back to a clean intake-stage lead? Clears payment + status only.")) return;
+    if (!confirm("Reset both test leads (Peter Test + Test Tested) back to clean intake stage? Clears payment + status only.")) return;
     setBusy("reset");
     setMsg(null);
     try {
-      await reset({ data: { leadId: PETER_TEST_LEAD_ID } });
-      setMsg("🧹 Peter reset. Reloading…");
+      await Promise.all(TEST_LEAD_IDS.map((id) => reset({ data: { leadId: id } })));
+      setMsg("🧹 Test leads reset. Reloading…");
       setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       setMsg(`❌ ${(e as Error).message}`);
