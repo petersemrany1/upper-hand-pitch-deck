@@ -277,6 +277,20 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [practiceMode]);
 
+  // Test mode (admin sandbox): auto-pin to the single test lead and
+  // auto-start the session so the admin lands in the cockpit immediately.
+  useEffect(() => {
+    if (!testLeadId) return;
+    setActiveId(testLeadId);
+    setStep("mindset");
+    setCompleted(new Set());
+    setSessionActive(true);
+    setSessionQueue([testLeadId]);
+    setSessionIndex(0);
+    if (!sessionStartedAt) setSessionStartedAt(new Date().toISOString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [testLeadId]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("salesCall.session", JSON.stringify({
