@@ -858,6 +858,7 @@ export type Database = {
           finance_form_answers: Json | null
           first_name: string | null
           funding_preference: string | null
+          handover_sent_at: string | null
           id: string
           last_name: string | null
           phone: string | null
@@ -889,6 +890,7 @@ export type Database = {
           finance_form_answers?: Json | null
           first_name?: string | null
           funding_preference?: string | null
+          handover_sent_at?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null
@@ -920,6 +922,7 @@ export type Database = {
           finance_form_answers?: Json | null
           first_name?: string | null
           funding_preference?: string | null
+          handover_sent_at?: string | null
           id?: string
           last_name?: string | null
           phone?: string | null

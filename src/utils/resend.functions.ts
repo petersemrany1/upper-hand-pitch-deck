@@ -834,6 +834,33 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         leadId: data.leadId,
         clinicName: data.clinicName,
       });
+      return result;
+    }
+
+    // Resend confirmed delivery — stamp handover_sent_at so the
+    // sales-call portal can unlock "Next Lead". If the deposit has
+    // already been paid, also promote the lead to booked_deposit_paid
+    // (this is the explicit rep action that closes the sale).
+    try {
+      const updatePayload: Record<string, unknown> = {
+        handover_sent_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const { data: leadRow } = await supabase
+        .from("meta_leads")
+        .select("deposit_paid_at, status")
+        .eq("id", data.leadId)
+        .maybeSingle();
+      if (leadRow?.deposit_paid_at && leadRow.status !== "booked_deposit_paid") {
+        updatePayload.status = "booked_deposit_paid";
+      }
+      await supabase.from("meta_leads").update(updatePayload).eq("id", data.leadId);
+    } catch (stampErr) {
+      await logError(
+        "sendClinicHandoverEmail.stamp",
+        stampErr instanceof Error ? stampErr.message : String(stampErr),
+        { leadId: data.leadId }
+      );
     }
 
     return result;

@@ -107,6 +107,15 @@ function PartnerClinicsPage() {
   const visibleClinics = showInactive ? clinics : clinics.filter((c) => c.is_active);
 
   const toggleClinicActive = async (c: PartnerClinic) => {
+    // Activating a clinic requires a valid email — otherwise reps
+    // can't send the clinic handover email and get stuck mid-booking.
+    if (!c.is_active) {
+      const email = (c.email ?? "").trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast.error("Add a valid clinic email before activating — the handover email needs it.");
+        return;
+      }
+    }
     await supabase.from("partner_clinics").update({ is_active: !c.is_active }).eq("id", c.id);
     toast.success(c.is_active ? "Clinic marked inactive" : "Clinic activated");
     void load();
@@ -547,6 +556,11 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
 
   const save = async () => {
     if (!form.clinic_name?.trim()) { toast.error("Clinic name is required"); return; }
+    const emailTrimmed = (form.email ?? "").trim();
+    if (!emailTrimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      toast.error("Clinic email is required — the rep handover email won't send without it.");
+      return;
+    }
     setSaving(true);
     const payload = {
       clinic_name: form.clinic_name.trim(),
@@ -554,7 +568,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       city: form.city || null,
       state: form.state || null,
       phone: form.phone || null,
-      email: form.email || null,
+      email: emailTrimmed,
       website: form.website || null,
       consult_price_original: form.consult_price_original ?? null,
       consult_price_deposit: form.consult_price_deposit ?? null,

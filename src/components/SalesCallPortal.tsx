@@ -55,7 +55,8 @@ const SALES_CALL_LEAD_SELECT = `
   callback_scheduled_at, day_number, finance_eligible, booking_date,
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
   pipeline_summary_updated_at,
-  deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id
+  deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id,
+  handover_sent_at
 `;
 
 type Clinic = {
@@ -5776,6 +5777,14 @@ function RightPanel({
           onClick={() => {
             if (inCall) {
               toast.error("End the call first");
+              return;
+            }
+            // Hard gate: if deposit has been paid, rep MUST send the
+            // clinic handover email before moving on to the next lead.
+            const depositPaidAt = (active as Lead & { deposit_paid_at?: string | null }).deposit_paid_at ?? null;
+            const handoverSentAt = (active as Lead & { handover_sent_at?: string | null }).handover_sent_at ?? null;
+            if (depositPaidAt && !handoverSentAt) {
+              toast.error("Deposit paid — send the clinic handover email before moving on.");
               return;
             }
             const alreadyBooked = leadHasBookedSale(active);
