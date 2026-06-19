@@ -33,7 +33,7 @@ export const simulateDepositPaid = createServerFn({ method: "POST" })
   .inputValidator((input: { leadId: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdminAndPeter(supabase, userId, data.leadId);
+    await assertAdminAndPeter(supabase, data.leadId);
 
     const fakeSessionId = `cs_test_sim_${Date.now()}`;
     const fakePiId = `pi_test_sim_${Date.now()}`;
@@ -74,7 +74,7 @@ export const resetPeterTestLead = createServerFn({ method: "POST" })
   .inputValidator((input: { leadId: string }) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertAdminAndPeter(supabase, userId, data.leadId);
+    await assertAdminAndPeter(supabase, data.leadId);
 
     const { error } = await supabase
       .from("meta_leads")
