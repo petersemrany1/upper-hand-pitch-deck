@@ -129,6 +129,8 @@ function BookedAppointmentsPage() {
     const { data, error } = await supabase
       .from("appointment_reminders")
       .select("*")
+      .not("patient_first_name", "ilike", "%test%")
+      .not("patient_last_name", "ilike", "%test%")
       .order("booking_date", { ascending: true });
     if (error) {
       toast.error("Failed to load appointments");
