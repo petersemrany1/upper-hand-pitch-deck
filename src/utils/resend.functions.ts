@@ -775,7 +775,14 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   </body>
 </html>`;
 
-    const clinicEmailTo = data.clinicEmail || "";
+    // Sandbox override: test leads always go to Peter’s inbox
+    const TEST_LEAD_IDS = new Set([
+      "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
+      "b2828129-1c28-4502-927a-11f43a0a8473",
+    ]);
+    const clinicEmailTo = TEST_LEAD_IDS.has(data.leadId)
+      ? "petersemrany1@gmail.com"
+      : (data.clinicEmail || "");
     if (!clinicEmailTo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmailTo)) {
       const err = "No clinic email on file — add one in Partner Clinics before sending the handover.";
       await logError("sendClinicHandoverEmail", err, { leadId: data.leadId, clinicName: data.clinicName });
