@@ -4916,9 +4916,9 @@ function LeadChooser({
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
               {(() => {
                 const a = (l.ad_set_name ?? "").toLowerCase();
-                const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : null;
+                const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : a.includes("sydney") ? "SYDNEY" : null;
                 if (!loc) return null;
-                const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : { bg: "#dcfce7", fg: "#166534" };
+                const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : loc === "SYDNEY" ? { bg: "#f3e8ff", fg: "#6b21a8" } : { bg: "#dcfce7", fg: "#166534" };
                 return (
                   <span style={{ background: c.bg, color: c.fg, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999 }}>
                     {loc}
@@ -5837,11 +5837,13 @@ function RightPanel({
         </div>
         {(() => {
           const adSetName = (active.ad_set_name ?? "").toLowerCase();
-          const location = adSetName.includes("melbourne") ? "MELBOURNE" : adSetName.includes("byron") ? "BYRON" : null;
+          const location = adSetName.includes("melbourne") ? "MELBOURNE" : adSetName.includes("byron") ? "BYRON" : adSetName.includes("sydney") ? "SYDNEY" : null;
           if (!location) return null;
           const colors = location === "MELBOURNE"
             ? { bg: "#e0f2fe", fg: "#075985" }
-            : { bg: "#dcfce7", fg: "#166534" };
+            : location === "SYDNEY"
+              ? { bg: "#f3e8ff", fg: "#6b21a8" }
+              : { bg: "#dcfce7", fg: "#166534" };
           return (
             <div style={{ marginTop: 6 }}>
               <span
