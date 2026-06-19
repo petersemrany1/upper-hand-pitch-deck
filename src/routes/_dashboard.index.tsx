@@ -429,18 +429,18 @@ function DashboardHome() {
                 Leads to Bookings
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convBookings} / {convLeadsTotal} leads
+                {convLeadsBooked} / {convLeadsTotal} leads
               </div>
             </div>
             <div style={{ padding: "20px", textAlign: "center" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: "#f4522d", letterSpacing: "-0.03em", lineHeight: 1 }}>
-                {convCallsUnique > 0 ? `${callsPct}%` : "—"}
+                {convConnectedUnique > 0 ? `${connectsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Calls to Bookings
+                Connects to Sales
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
-                {convBookings} / {convCallsUnique} called
+                {convConnectedBooked} / {convConnectedUnique} connected
               </div>
             </div>
           </div>
