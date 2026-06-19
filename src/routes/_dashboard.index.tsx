@@ -410,10 +410,10 @@ function DashboardHome() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <RepStatCard label="Bookings today" value={bookingsToday.toString()} />
-            <RepStatCard label="Bonus today" value={`$${bonusToday.toLocaleString()}`} accent />
-            <RepStatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth.toString()} />
-            <RepStatCard label={`Bonus — ${monthYearLabel()}`} value={`$${bonusMonth.toLocaleString()}`} accent />
+            <StatCard label="Bookings today" value={bookingsToday} valueColor="#111" sub="" />
+            <StatCard label="Bonus today" value={`$${bonusToday.toLocaleString()}`} valueColor="#15803d" sub={`${bookingsToday} × $50`} />
+            <StatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth} valueColor="#111" sub="" />
+            <StatCard label={`Bonus — ${monthYearLabel()}`} value={`$${bonusMonth.toLocaleString()}`} valueColor="#15803d" sub={`${bookingsMonth} × $50`} />
           </div>
         </div>
       </div>
