@@ -8,8 +8,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 
 async function assertAdminAndPeter(
-  supabase: Awaited<ReturnType<typeof getCtx>>["supabase"],
-  userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   leadId: string,
 ) {
   if (leadId !== PETER_TEST_LEAD_ID) {
@@ -18,12 +18,6 @@ async function assertAdminAndPeter(
   const { data: isAdmin, error } = await supabase.rpc("is_admin_user");
   if (error) throw error;
   if (!isAdmin) throw new Error("Forbidden: admin only.");
-  return userId;
-}
-
-// helper for type
-async function getCtx() {
-  return { supabase: null as never };
 }
 
 /**
