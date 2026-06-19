@@ -6,14 +6,16 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
+const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
+const ALLOWED_TEST_LEAD_IDS = new Set([PETER_TEST_LEAD_ID, TEST_TESTED_LEAD_ID]);
 
 async function assertAdminAndPeter(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   leadId: string,
 ) {
-  if (leadId !== PETER_TEST_LEAD_ID) {
-    throw new Error("Test sandbox functions only allowed on Peter Test lead.");
+  if (!ALLOWED_TEST_LEAD_IDS.has(leadId)) {
+    throw new Error("Test sandbox functions only allowed on test leads.");
   }
   const { data: isAdmin, error } = await supabase.rpc("is_admin_user");
   if (error) throw error;
