@@ -568,7 +568,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       city: form.city || null,
       state: form.state || null,
       phone: form.phone || null,
-      email: form.email || null,
+      email: emailTrimmed,
       website: form.website || null,
       consult_price_original: form.consult_price_original ?? null,
       consult_price_deposit: form.consult_price_deposit ?? null,
