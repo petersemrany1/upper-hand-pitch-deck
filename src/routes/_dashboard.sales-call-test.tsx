@@ -140,7 +140,7 @@ function SalesCallTestRoute() {
         </Link>
       </div>
       <ConversationProvider>
-        <SalesCallPortal testLeadId={PETER_TEST_LEAD_ID} />
+        <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
       </ConversationProvider>
       <TestControlBar />
     </div>
