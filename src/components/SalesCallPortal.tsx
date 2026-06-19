@@ -5320,6 +5320,7 @@ function RightPanel({
   const { status: deviceStatus, call: placeCall, hangup, sendDtmf, activeLeadId: deviceActiveLeadId } = useTwilioDevice(!practiceMode);
 
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
+  const [showHandoverRequired, setShowHandoverRequired] = useState(false);
 
   // ElevenLabs practice conversation (only used in practiceMode)
   const practiceConvIdRef = useRef<string | null>(null);
@@ -5804,7 +5805,7 @@ function RightPanel({
             const depositPaidAt = (active as Lead & { deposit_paid_at?: string | null }).deposit_paid_at ?? null;
             const handoverSentAt = (active as Lead & { handover_sent_at?: string | null }).handover_sent_at ?? null;
             if (depositPaidAt && !handoverSentAt) {
-              toast.error("Deposit paid — send the clinic handover email before moving on.");
+              setShowHandoverRequired(true);
               return;
             }
             const alreadyBooked = leadHasBookedSale(active);
@@ -5836,6 +5837,43 @@ function RightPanel({
           Next Lead →
         </button>
       </div>
+      )}
+
+      {showHandoverRequired && (
+        <div
+          onClick={() => setShowHandoverRequired(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 14, padding: 24, maxWidth: 420, width: "100%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)", textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 36, marginBottom: 8 }}>📧</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#111", marginBottom: 8 }}>
+              Send handover to clinic first
+            </div>
+            <div style={{ fontSize: 14, color: "#555", marginBottom: 20, lineHeight: 1.5 }}>
+              This lead has paid their deposit. You need to send the clinic handover email before moving on to the next lead.
+            </div>
+            <button
+              onClick={() => setShowHandoverRequired(false)}
+              style={{
+                background: "#111", color: "#fff", border: "none",
+                padding: "10px 20px", borderRadius: 8, fontWeight: 600,
+                fontSize: 14, cursor: "pointer", width: "100%",
+              }}
+            >
+              Got it — I'll send the handover
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Section 1 — Lead card */}
