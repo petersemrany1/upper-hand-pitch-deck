@@ -395,6 +395,33 @@ function DashboardHome() {
     return c.city || c.clinic_name || null;
   };
 
+  // Non-admin reps see a slim dashboard: just their bookings + bonus.
+  if (authReady && session && role && role !== "admin") {
+    const bonusToday = bookingsToday * 50;
+    const bonusMonth = bookingsMonth * 50;
+    return (
+      <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div>
+            <div style={{ fontSize: 26, fontWeight: 600, color: "#111", letterSpacing: "-0.02em" }}>
+              {getGreeting()}, {firstName}
+            </div>
+            <div style={{ fontSize: 13, color: "#6b7280", marginTop: 4 }}>{formatDate()}</div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <RepStatCard label="Bookings today" value={bookingsToday.toString()} />
+            <RepStatCard label="Bonus today" value={`$${bonusToday.toLocaleString()}`} accent />
+            <RepStatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth.toString()} />
+            <RepStatCard label={`Bonus — ${monthYearLabel()}`} value={`$${bonusMonth.toLocaleString()}`} accent />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+
+
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
