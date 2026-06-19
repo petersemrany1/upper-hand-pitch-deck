@@ -3216,7 +3216,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
     const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
-    setPreviewClinicEmail(sc?.email || "peter@gobold.com.au");
+    // Sandbox override: test leads always route to Peter's inbox (mirrors server-side override in resend.functions.ts).
+    const SANDBOX_LEAD_IDS = new Set([
+      "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
+      "b2828129-1c28-4502-927a-11f43a0a8473",
+    ]);
+    setPreviewClinicEmail(
+      SANDBOX_LEAD_IDS.has(lead.id) ? "petersemrany1@gmail.com" : (sc?.email || "peter@gobold.com.au")
+    );
     setShowPreview(true);
   };
 
