@@ -20,10 +20,10 @@ function TestControlBar() {
     setMsg(null);
     try {
       await simulate({ data: { leadId: PETER_TEST_LEAD_ID } });
-      setMsg("✅ Deposit marked as paid (simulated Stripe webhook).");
+      setMsg("✅ Deposit marked as paid. Reloading…");
+      setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       setMsg(`❌ ${(e as Error).message}`);
-    } finally {
       setBusy(null);
     }
   }
@@ -35,10 +35,10 @@ function TestControlBar() {
     setMsg(null);
     try {
       await reset({ data: { leadId: PETER_TEST_LEAD_ID } });
-      setMsg("🧹 Peter reset to clean intake-stage lead.");
+      setMsg("🧹 Peter reset. Reloading…");
+      setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       setMsg(`❌ ${(e as Error).message}`);
-    } finally {
       setBusy(null);
     }
   }
