@@ -157,24 +157,29 @@ function DashboardHome() {
     const bookingsTodayQ = scopeId
       ? supabase
           .from("clinic_appointments")
-          .select("id, meta_leads!inner(rep_id)", { count: "exact", head: true })
+          .select("id, patient_name, meta_leads!inner(rep_id)", { count: "exact", head: true })
           .gte("booked_at", todayIso)
           .eq("meta_leads.rep_id", scopeId)
+          .not("patient_name", "ilike", "%test%")
       : supabase
           .from("clinic_appointments")
-          .select("id", { count: "exact", head: true })
-          .gte("booked_at", todayIso);
+          .select("id, patient_name", { count: "exact", head: true })
+          .gte("booked_at", todayIso)
+          .not("patient_name", "ilike", "%test%");
 
     const bookingsMonthQ = scopeId
       ? supabase
           .from("clinic_appointments")
-          .select("id, clinic_id, meta_leads!inner(rep_id)")
+          .select("id, clinic_id, patient_name, meta_leads!inner(rep_id)")
           .gte("booked_at", monthIso)
           .eq("meta_leads.rep_id", scopeId)
+          .not("patient_name", "ilike", "%test%")
       : supabase
           .from("clinic_appointments")
-          .select("id, clinic_id")
-          .gte("booked_at", monthIso);
+          .select("id, clinic_id, patient_name")
+          .gte("booked_at", monthIso)
+          .not("patient_name", "ilike", "%test%");
+
 
     const newLeadsQ = supabase
       .from("meta_leads")
