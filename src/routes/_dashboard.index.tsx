@@ -153,19 +153,27 @@ function DashboardHome() {
     }
     const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
-    const bookingsTodayQ = supabase
-      .from("meta_leads")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "booked_deposit_paid")
-      .gte("updated_at", todayIso);
-    if (scopeId) bookingsTodayQ.eq("rep_id", scopeId);
+    const bookingsTodayQ = scopeId
+      ? supabase
+          .from("clinic_appointments")
+          .select("id, meta_leads!inner(rep_id)", { count: "exact", head: true })
+          .gte("booked_at", todayIso)
+          .eq("meta_leads.rep_id", scopeId)
+      : supabase
+          .from("clinic_appointments")
+          .select("id", { count: "exact", head: true })
+          .gte("booked_at", todayIso);
 
-    const bookingsMonthQ = supabase
-      .from("meta_leads")
-      .select("id, clinic_id")
-      .eq("status", "booked_deposit_paid")
-      .gte("updated_at", monthIso);
-    if (scopeId) bookingsMonthQ.eq("rep_id", scopeId);
+    const bookingsMonthQ = scopeId
+      ? supabase
+          .from("clinic_appointments")
+          .select("id, clinic_id, meta_leads!inner(rep_id)")
+          .gte("booked_at", monthIso)
+          .eq("meta_leads.rep_id", scopeId)
+      : supabase
+          .from("clinic_appointments")
+          .select("id, clinic_id")
+          .gte("booked_at", monthIso);
 
     const newLeadsQ = supabase
       .from("meta_leads")
