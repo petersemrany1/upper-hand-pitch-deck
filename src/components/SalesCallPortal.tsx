@@ -133,7 +133,10 @@ function normalisePhoneDigits(phone: string | null | undefined) {
 }
 
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
-export function SalesCallPortal({ practiceMode = false }: { practiceMode?: boolean } = {}) {
+// Admin-only Test mode: when set, the portal renders identically to the real
+// sales call but is scoped to this single lead so admins can sandbox the flow.
+export const TEST_MODE_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f"; // Peter Test
+export function SalesCallPortal({ practiceMode = false, testLeadId }: { practiceMode?: boolean; testLeadId?: string } = {}) {
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
