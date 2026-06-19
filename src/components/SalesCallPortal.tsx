@@ -567,8 +567,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const baseQuery = supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT);
-      const { data } = testLeadId
-        ? await baseQuery.eq("id", testLeadId).limit(1)
+      const { data } = testLeadIds.length > 0
+        ? await baseQuery.in("id", testLeadIds)
         : await baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT);
       setLeads((prev) => {
         const fetched = (data ?? []) as Lead[];
