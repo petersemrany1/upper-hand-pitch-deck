@@ -556,6 +556,11 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
 
   const save = async () => {
     if (!form.clinic_name?.trim()) { toast.error("Clinic name is required"); return; }
+    const emailTrimmed = (form.email ?? "").trim();
+    if (!emailTrimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed)) {
+      toast.error("Clinic email is required — the rep handover email won't send without it.");
+      return;
+    }
     setSaving(true);
     const payload = {
       clinic_name: form.clinic_name.trim(),
