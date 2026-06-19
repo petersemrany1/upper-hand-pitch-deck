@@ -133,9 +133,10 @@ function DashboardHome() {
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
-  const [convLeadsTotal, setConvLeadsTotal] = useState(0); // total leads created in period
-  const [convCallsUnique, setConvCallsUnique] = useState(0); // unique leads called in period
-  const [convBookings, setConvBookings] = useState(0);
+  const [convLeadsTotal, setConvLeadsTotal] = useState(0);     // leads created in period
+  const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // of those leads, how many are booked
+  const [convConnectedUnique, setConvConnectedUnique] = useState(0); // unique leads we got through to (completed calls)
+  const [convConnectedBooked, setConvConnectedBooked] = useState(0); // of those, how many are booked
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
