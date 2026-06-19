@@ -1,43 +1,13 @@
-import { createLazyFileRoute, useRouter, Link } from "@tanstack/react-router";
+import { createLazyFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-
-function AdminTestButton() {
-  const { role } = useAuth();
-  if (role !== "admin") return null;
-  return (
-    <Link
-      to="/sales-call-test"
-      title="Open Peter Test sandbox"
-      style={{
-        position: "fixed",
-        bottom: 16,
-        right: 16,
-        zIndex: 1000,
-        background: "#fde68a",
-        color: "#92400e",
-        border: "1px solid #f59e0b",
-        borderRadius: 999,
-        padding: "8px 14px",
-        fontSize: 12,
-        fontWeight: 700,
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        textDecoration: "none",
-      }}
-    >
-      🧪 Test (Peter)
-    </Link>
-  );
-}
 
 function SalesCallRoute() {
   return (
     <ConversationProvider>
       <SalesCallPortal />
-      <AdminTestButton />
     </ConversationProvider>
   );
 }
