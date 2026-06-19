@@ -168,8 +168,9 @@ function DashboardHome() {
     const newLeadsQ = supabase
       .from("meta_leads")
       .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id")
+      .gte("created_at", todayIso)
       .order("created_at", { ascending: false })
-      .limit(5);
+      .limit(10);
     if (scopeId) newLeadsQ.eq("rep_id", scopeId);
 
     const { year: curYear, month: curMonth } = currentYearMonth();
@@ -265,10 +266,11 @@ function DashboardHome() {
       if (fromIso) leadsTotalQ.gte("created_at", fromIso);
       if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
 
+      // Cohort-aligned: of leads CREATED in the period, how many are booked now
       const bookingsQ = supabase
         .from("meta_leads").select("id", { count: "exact", head: true })
         .eq("status", "booked_deposit_paid");
-      if (fromIso) bookingsQ.gte("updated_at", fromIso);
+      if (fromIso) bookingsQ.gte("created_at", fromIso);
       if (scopeId) bookingsQ.eq("rep_id", scopeId);
 
       const [callsRes, leadsTotalRes, bookingsRes] = await Promise.all([callsQ, leadsTotalQ, bookingsQ]);
@@ -287,7 +289,8 @@ function DashboardHome() {
     const fromMeta = (meta?.first_name as string | undefined) || (meta?.full_name as string | undefined);
     if (fromMeta) return String(fromMeta).split(" ")[0];
     const email = session?.user?.email ?? "";
-    return email.split("@")[0].split(/[._]/)[0].replace(/^\w/, (c) => c.toUpperCase()) || "there";
+    const base = email.split("@")[0].split(/[._]/)[0].replace(/\d+$/, "");
+    return base ? base.replace(/^\w/, (c) => c.toUpperCase()) : "there";
   }, [session]);
 
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
@@ -415,7 +418,7 @@ function DashboardHome() {
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
-                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} from Meta</div>
+                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} today</div>
               </div>
               <div>
                 {newLeads.length === 0 ? (
@@ -475,27 +478,26 @@ function DashboardHome() {
           <Card>
             <div style={{ padding: 20 }}>
               <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
-                Bookings — {monthYearLabel()}
-              </div>
-              <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
-                {bookingsMonth}
+                Revenue — {monthYearLabel()}
               </div>
               {isAdmin ? (
                 <>
-                  <div style={{ fontSize: 14, color: "#111", fontWeight: 600, marginTop: 6 }}>
-                    ${revenueMonth.toLocaleString()} revenue
+                  <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                    ${revenueMonth.toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-                    Target: {target || 0} / month
+                  <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>
+                    From {bookingsMonth} booking{bookingsMonth === 1 ? "" : "s"}
+                    {target > 0 ? ` · target ${target}/mo` : ""}
                   </div>
                 </>
               ) : (
                 <>
-                  <div style={{ fontSize: 14, color: "#16a34a", fontWeight: 600, marginTop: 6 }}>
-                    ${(bookingsMonth * 50).toLocaleString()} bonus earned
+                  <div style={{ fontSize: 40, fontWeight: 600, letterSpacing: "-0.03em", color: "#16a34a", marginTop: 8, lineHeight: 1 }}>
+                    ${(bookingsMonth * 50).toLocaleString()}
                   </div>
-                  <div style={{ fontSize: 12, color: "#999", marginTop: 4 }}>
-                    $50 per booking{target > 0 ? ` · target ${target}/mo` : ""}
+                  <div style={{ fontSize: 13, color: "#999", marginTop: 6 }}>
+                    {bookingsMonth} booking{bookingsMonth === 1 ? "" : "s"} · $50 bonus each
+                    {target > 0 ? ` · target ${target}/mo` : ""}
                   </div>
                 </>
               )}
@@ -690,7 +692,7 @@ function StatCard({
       >
         {value}
       </div>
-      <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{sub}</div>
+      {sub ? <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{sub}</div> : null}
     </div>
   );
 }
