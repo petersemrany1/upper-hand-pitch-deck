@@ -156,18 +156,39 @@ export const Route = createFileRoute("/api/public/hooks/stripe-deposit")({
           return new Response("DB update failed", { status: 500 });
         }
 
-        // Best-effort: also update clinic_appointments if a booking row already exists.
+        // If a clinic appointment row already exists for this lead, also:
+        //  (a) backfill the appointment with the payment intent / amount, and
+        //  (b) flip meta_leads.status to booked_deposit_paid.
+        // The DB trigger enforce_booking_before_status_lock only allows that
+        // status when an appointment row exists, so we check first.
         try {
-          await supabase
+          const { data: appt } = await supabase
             .from("clinic_appointments")
-            .update({
-              stripe_payment_intent_id: session.payment_intent ?? null,
-              deposit_amount: amount,
-            })
+            .select("id")
             .eq("lead_id", leadId)
-            .is("stripe_payment_intent_id", null);
-        } catch {
-          /* non-fatal */
+            .maybeSingle();
+
+          if (appt) {
+            await supabase
+              .from("clinic_appointments")
+              .update({
+                stripe_payment_intent_id: session.payment_intent ?? null,
+                deposit_amount: amount,
+              })
+              .eq("lead_id", leadId)
+              .is("stripe_payment_intent_id", null);
+
+            const { error: statusErr } = await supabase
+              .from("meta_leads")
+              .update({ status: "booked_deposit_paid" })
+              .eq("id", leadId)
+              .neq("status", "booked_deposit_paid");
+            if (statusErr) {
+              console.warn("stripe-deposit webhook: status flip failed", statusErr);
+            }
+          }
+        } catch (e) {
+          console.warn("stripe-deposit webhook: appointment/status update non-fatal error", e);
         }
 
         // Best-effort: notify ops via email on every successful deposit payment.
