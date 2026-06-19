@@ -142,13 +142,14 @@ function DashboardHome() {
     const monthIso = startOfMonth().toISOString();
 
     let repId: string | null = null;
-    if (!isAdmin && session?.user?.email) {
+    if (session?.user?.email) {
       const { data: repRow } = await supabase
         .from("sales_reps")
-        .select("id")
+        .select("id, name")
         .ilike("email", session.user.email)
         .maybeSingle();
       repId = repRow?.id ?? null;
+      if (repRow?.name) setRepName(repRow.name);
     }
     const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
