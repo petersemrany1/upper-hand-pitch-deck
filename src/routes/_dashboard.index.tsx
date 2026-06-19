@@ -287,13 +287,12 @@ function DashboardHome() {
   }, [authReady, session, isAdmin, convPeriod]);
 
   const firstName = useMemo(() => {
+    if (repName) return repName.split(/\s+/)[0];
     const meta = session?.user?.user_metadata as Record<string, unknown> | undefined;
     const fromMeta = (meta?.first_name as string | undefined) || (meta?.full_name as string | undefined);
     if (fromMeta) return String(fromMeta).split(" ")[0];
-    const email = session?.user?.email ?? "";
-    const base = email.split("@")[0].split(/[._]/)[0].replace(/\d+$/, "");
-    return base ? base.replace(/^\w/, (c) => c.toUpperCase()) : "there";
-  }, [session]);
+    return "there";
+  }, [session, repName]);
 
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
 
