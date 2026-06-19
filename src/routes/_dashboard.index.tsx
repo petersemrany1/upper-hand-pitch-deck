@@ -329,8 +329,8 @@ function DashboardHome() {
 
   const targetPct = target > 0 ? Math.min(100, Math.round((bookingsMonth / target) * 100)) : 0;
 
-  const leadsPct = convLeadsTotal > 0 ? Math.round((convBookings / convLeadsTotal) * 1000) / 10 : 0;
-  const callsPct = convCallsUnique > 0 ? Math.round((convBookings / convCallsUnique) * 1000) / 10 : 0;
+  const leadsPct = convLeadsTotal > 0 ? Math.round((convLeadsBooked / convLeadsTotal) * 1000) / 10 : 0;
+  const connectsPct = convConnectedUnique > 0 ? Math.round((convConnectedBooked / convConnectedUnique) * 1000) / 10 : 0;
 
   const confirmTarget = async () => {
     const n = Number(targetInput);
