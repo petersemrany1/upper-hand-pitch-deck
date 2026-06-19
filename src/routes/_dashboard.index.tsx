@@ -268,33 +268,53 @@ function DashboardHome() {
       }
       const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
-      const callsQ = supabase.from("call_records").select("lead_id").not("lead_id", "is", null);
+      // Leads created in period
+      const leadsQ = supabase
+        .from("meta_leads")
+        .select("id, status, rep_id");
+      if (fromIso) leadsQ.gte("created_at", fromIso);
+      if (scopeId) leadsQ.eq("rep_id", scopeId);
+
+      // Connected calls (status=completed) in period
+      const callsQ = supabase
+        .from("call_records")
+        .select("lead_id")
+        .not("lead_id", "is", null)
+        .eq("status", "completed");
       if (fromIso) callsQ.gte("called_at", fromIso);
       if (scopeId) callsQ.eq("rep_id", scopeId);
 
-      const leadsTotalQ = supabase
-        .from("meta_leads").select("id", { count: "exact", head: true });
-      if (fromIso) leadsTotalQ.gte("created_at", fromIso);
-      if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
-
-      // Actual bookings made in period (clinic_appointments.booked_at)
-      const bookingsQ = scopeId
-        ? supabase
-            .from("clinic_appointments")
-            .select("id, meta_leads!inner(rep_id)", { count: "exact", head: true })
-            .eq("meta_leads.rep_id", scopeId)
-        : supabase
-            .from("clinic_appointments")
-            .select("id", { count: "exact", head: true });
-      if (fromIso) bookingsQ.gte("booked_at", fromIso);
-
-      const [callsRes, leadsTotalRes, bookingsRes] = await Promise.all([callsQ, leadsTotalQ, bookingsQ]);
+      const [leadsRes, callsRes] = await Promise.all([leadsQ, callsQ]);
       if (cancelled) return;
-      const unique = new Set(((callsRes.data ?? []) as { lead_id: string | null }[])
-        .map(c => c.lead_id).filter(Boolean));
-      setConvCallsUnique(unique.size);
-      setConvLeadsTotal(leadsTotalRes.count ?? 0);
-      setConvBookings(bookingsRes.count ?? 0);
+
+      const leadsRows = (leadsRes.data ?? []) as Array<{ id: string; status: string | null }>;
+      const leadsTotal = leadsRows.length;
+      const leadsBooked = leadsRows.filter(l => l.status === "booked_deposit_paid").length;
+
+      const connectedLeadIds = Array.from(new Set(
+        ((callsRes.data ?? []) as { lead_id: string | null }[])
+          .map(c => c.lead_id).filter((v): v is string => !!v)
+      ));
+      let connectedBooked = 0;
+      if (connectedLeadIds.length > 0) {
+        // Chunk to keep URL length sane
+        const CHUNK = 200;
+        for (let i = 0; i < connectedLeadIds.length; i += CHUNK) {
+          const slice = connectedLeadIds.slice(i, i + CHUNK);
+          const { count } = await supabase
+            .from("meta_leads")
+            .select("id", { count: "exact", head: true })
+            .in("id", slice)
+            .eq("status", "booked_deposit_paid");
+          connectedBooked += count ?? 0;
+        }
+      }
+      if (cancelled) return;
+
+      setConvLeadsTotal(leadsTotal);
+      setConvLeadsBooked(leadsBooked);
+      setConvConnectedUnique(connectedLeadIds.length);
+      setConvConnectedBooked(connectedBooked);
     })();
     return () => { cancelled = true; };
   }, [authReady, session, isAdmin, convPeriod]);
