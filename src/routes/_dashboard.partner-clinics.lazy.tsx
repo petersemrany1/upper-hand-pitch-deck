@@ -107,6 +107,15 @@ function PartnerClinicsPage() {
   const visibleClinics = showInactive ? clinics : clinics.filter((c) => c.is_active);
 
   const toggleClinicActive = async (c: PartnerClinic) => {
+    // Activating a clinic requires a valid email — otherwise reps
+    // can't send the clinic handover email and get stuck mid-booking.
+    if (!c.is_active) {
+      const email = (c.email ?? "").trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        toast.error("Add a valid clinic email before activating — the handover email needs it.");
+        return;
+      }
+    }
     await supabase.from("partner_clinics").update({ is_active: !c.is_active }).eq("id", c.id);
     toast.success(c.is_active ? "Clinic marked inactive" : "Clinic activated");
     void load();
