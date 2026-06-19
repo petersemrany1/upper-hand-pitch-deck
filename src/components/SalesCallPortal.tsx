@@ -886,6 +886,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             >
               Start calling session
             </button>
+            <AdminTestButton />
           </div>
         </>
       );
