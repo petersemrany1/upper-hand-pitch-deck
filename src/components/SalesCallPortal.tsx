@@ -548,11 +548,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Load leads + realtime
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase
+      const baseQuery = supabase
         .from("meta_leads")
-        .select(SALES_CALL_LEAD_SELECT)
-        .order("created_at", { ascending: false })
-        .limit(SALES_CALL_LEAD_LIMIT);
+        .select(SALES_CALL_LEAD_SELECT);
+      const { data } = testLeadId
+        ? await baseQuery.eq("id", testLeadId).limit(1)
+        : await baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT);
       setLeads((prev) => {
         const fetched = (data ?? []) as Lead[];
         // Preserve the synthetic practice lead (Dave AI) so the supabase
