@@ -88,8 +88,14 @@ function LeaderboardPage() {
     const ac = new AbortController(); abortRef.current = ac;
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
       const res = await fetch("/api/coach-stream", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ notes }), signal: ac.signal,
       });
       if (!res.ok || !res.body) { toast.error("Coach failed"); setCoachLoading(false); return; }
