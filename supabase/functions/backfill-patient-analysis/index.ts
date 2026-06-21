@@ -144,10 +144,14 @@ async function callClaude(
   throw new Error("Claude failed: exhausted retries");
 }
 
+import { requireAuth } from "../_shared/require-auth.ts";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
+  const unauthorized = await requireAuth(req, corsHeaders);
+  if (unauthorized) return unauthorized;
 
   try {
     const supabase = createClient(
