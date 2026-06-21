@@ -22,10 +22,15 @@ interface DoctorInput {
   clinic_name?: string | null;
 }
 
+import { requireAuth } from "../_shared/require-auth.ts";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+  const unauthorized = await requireAuth(req, corsHeaders);
+  if (unauthorized) return unauthorized;
+
 
   try {
     const { doctor } = (await req.json()) as { doctor: DoctorInput };

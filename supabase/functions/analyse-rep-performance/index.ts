@@ -350,8 +350,12 @@ async function processJob(jobId: string, repId: string, dateFrom: string | null,
   }
 }
 
+import { requireAuth } from "../_shared/require-auth.ts";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  const unauthorized = await requireAuth(req, corsHeaders);
+  if (unauthorized) return unauthorized;
 
   try {
     const { repId, dateFrom, dateTo } = await req.json();
