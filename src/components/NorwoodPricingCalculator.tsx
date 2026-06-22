@@ -33,13 +33,23 @@ const NITAI_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 7": { min: 20000, max: 24000 },
 };
 
+const BIJAN_PRICES: Record<string, { min: number; max: number }> = {
+  "Norwood 2": { min: 6000, max: 6500 },
+  "Norwood 3": { min: 6500, max: 7500 },
+  "Norwood 3 Vertex": { min: 6500, max: 7500 },
+  "Norwood 4": { min: 7500, max: 8000 },
+  "Norwood 5": { min: 8000, max: 9000 },
+  "Norwood 6": { min: 14000, max: 16000 },
+  "Norwood 7": { min: 17000, max: 20000 },
+};
+
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 const fmtGrafts = (min: number, max: number) =>
   min === max ? `${min.toLocaleString()} grafts` : `${min.toLocaleString()}–${max.toLocaleString()} grafts`;
 
 export default function NorwoodPricingCalculator() {
   const [open, setOpen] = useState(false);
-  const [clinic, setClinic] = useState<"nitai" | "byron">("nitai");
+  const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan">("nitai");
   const [pricePerGraft, setPricePerGraft] = useState<number>(5);
 
   return (
@@ -65,7 +75,7 @@ export default function NorwoodPricingCalculator() {
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Clinic selector */}
           <div style={{ display: "flex", gap: 6 }}>
-            {(["nitai", "byron"] as const).map((c) => {
+            {(["nitai", "byron", "bijan"] as const).map((c) => {
               const active = clinic === c;
               return (
                 <button
@@ -84,13 +94,13 @@ export default function NorwoodPricingCalculator() {
                     textTransform: "capitalize",
                   }}
                 >
-                  {c === "nitai" ? "Nitai" : "Byron"}
+                  {c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : "Bijan"}
                 </button>
               );
             })}
           </div>
 
-          {clinic === "nitai" && (
+          {(clinic === "nitai" || clinic === "bijan") && (
             <div
               style={{
                 fontSize: 11,
@@ -101,7 +111,7 @@ export default function NorwoodPricingCalculator() {
                 padding: "8px 10px",
               }}
             >
-              Nitai charges a fixed fee per procedure, not per graft
+              {clinic === "nitai" ? "Nitai" : "Bijan"} charges a fixed fee per procedure, not per graft
             </div>
           )}
 
@@ -164,6 +174,10 @@ export default function NorwoodPricingCalculator() {
                 const np = NITAI_PRICES[r.label];
                 lo = np.min;
                 hi = np.max;
+              } else if (clinic === "bijan") {
+                const bp = BIJAN_PRICES[r.label];
+                lo = bp.min;
+                hi = bp.max;
               } else {
                 lo = r.min * pricePerGraft;
                 hi = r.max * pricePerGraft;
