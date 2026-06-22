@@ -34,11 +34,11 @@ const NITAI_PRICES: Record<string, { min: number; max: number }> = {
 };
 
 const BIJAN_PRICES: Record<string, { min: number; max: number }> = {
-  "Norwood 2": { min: 6000, max: 6500 },
-  "Norwood 3": { min: 6500, max: 7500 },
-  "Norwood 3 Vertex": { min: 6500, max: 7500 },
-  "Norwood 4": { min: 7500, max: 8000 },
-  "Norwood 5": { min: 8000, max: 9000 },
+  "Norwood 2": { min: 6000, max: 8500 },
+  "Norwood 3": { min: 6500, max: 9500 },
+  "Norwood 3 Vertex": { min: 6500, max: 9500 },
+  "Norwood 4": { min: 7500, max: 10000 },
+  "Norwood 5": { min: 8000, max: 11000 },
   "Norwood 6": { min: 14000, max: 16000 },
   "Norwood 7": { min: 17000, max: 20000 },
 };
