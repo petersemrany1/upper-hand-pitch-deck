@@ -78,7 +78,7 @@ const PIPELINE_STAGES = [
   "Zoom Set",
   "Contract Sent",
   "Signed",
-  "Lost",
+  "Pay on Conversion",
   "Not Applicable",
 ] as const;
 
@@ -99,7 +99,7 @@ const STAGE_COLORS: Record<string, { bg: string; text: string }> = {
   "Zoom Set": { bg: "#f5f3ff", text: "#c084fc" },
   "Contract Sent": { bg: "#fef3c7", text: "#b45309" },
   "Signed": { bg: "#064e3b", text: "#34d399" },
-  "Lost": { bg: "#fef2f2", text: "#dc2626" },
+  "Pay on Conversion": { bg: "#eef2ff", text: "#4f46e5" },
   "Not Applicable": { bg: "#f9f9f9", text: "#111111" },
 };
 
@@ -136,8 +136,8 @@ const OUTCOME_TO_STAGE: Record<string, string> = {
   "Not Applicable — Doesn't Do Transplants": "Not Applicable",
   "Qualified — Ready to Sign": "Signed",
   "Qualified — Needs Follow Up": "Contract Sent",
-  "Not Qualified — Budget": "Lost",
-  "Not Qualified — Wrong Fit": "Lost",
+  "Not Qualified — Budget": "Pay on Conversion",
+  "Not Qualified — Wrong Fit": "Pay on Conversion",
   "No Show": "Zoom Set",
   "Rescheduled": "Zoom Set",
   "Replied — Not Interested": "Contacted — Not Interested",
@@ -187,7 +187,7 @@ function getNextActionText(clinic: Clinic, lastContact: ClinicContact | null): {
   const today = new Date().toISOString().split("T")[0];
 
   if (clinic.status === "Not Started") return { text: "🆕 Not contacted", overdue: false };
-  if (clinic.status === "Signed" || clinic.status === "Lost" || clinic.status === "Contacted — Not Interested" || clinic.status === "Not Applicable") return { text: "—", overdue: false };
+  if (clinic.status === "Signed" || clinic.status === "Pay on Conversion" || clinic.status === "Contacted — Not Interested" || clinic.status === "Not Applicable") return { text: "—", overdue: false };
 
   if (clinic.status === "Zoom Set" && clinic.next_follow_up) {
     const isOverdue = clinic.next_follow_up < today;
@@ -1917,7 +1917,7 @@ function FilterDropdown({ label, options, value, onChange }: { label: string; op
 }
 
 // ============== Pipeline Kanban Board ==============
-// Reorder so "Contacted — Not Interested" sits at the end near "Lost"
+// Reorder so "Contacted — Not Interested" sits at the end near "Pay on Conversion"
 const PIPELINE_BOARD_STAGES = (() => {
   const base = PIPELINE_STAGES.filter((s) => s !== "TEST" && s !== "Not Applicable" && s !== "Contacted — Not Interested");
   const notStartedIdx = base.indexOf("Not Started");
