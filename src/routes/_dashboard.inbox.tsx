@@ -110,7 +110,7 @@ function InboxPage() {
 
   const sendSmsFn = useServerFn(sendSms);
   const markReadFn = useServerFn(markThreadRead);
-  const { call: dialerCall, dialerStatus } = useTwilioDevice();
+  const { call: dialerCall, dialerStatus } = useTwilioDevice(true);
   const myRepId = useCurrentRepId();
 
   const loadThreads = useCallback(async () => {
