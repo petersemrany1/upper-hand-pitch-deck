@@ -5369,6 +5369,7 @@ function RightPanel({
 
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
   const [showHandoverRequired, setShowHandoverRequired] = useState(false);
+  const handoverBlocksNextLead = Boolean(active.deposit_paid_at && !active.handover_sent_at);
 
   // ElevenLabs practice conversation (only used in practiceMode)
   const practiceConvIdRef = useRef<string | null>(null);
@@ -5842,6 +5843,7 @@ function RightPanel({
       {/* Lead navigation — top of right column */}
       {!practiceMode && (
       <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        {!handoverBlocksNextLead && (
         <button
           onClick={() => {
             if (inCall) {
@@ -5884,6 +5886,7 @@ function RightPanel({
         >
           Next Lead →
         </button>
+        )}
       </div>
       )}
 
