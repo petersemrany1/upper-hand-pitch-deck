@@ -41,6 +41,9 @@ type Lead = {
   finance_eligible: boolean | null; booking_date: string | null; booking_time: string | null;
   clinic_id: string | null; rep_id: string | null; raw_payload: Json | null;
   pipeline_summary?: string | null; pipeline_summary_updated_at?: string | null;
+  deposit_paid_at?: string | null; deposit_amount?: number | null;
+  stripe_payment_intent_id?: string | null; stripe_checkout_session_id?: string | null;
+  handover_sent_at?: string | null;
 };
 
 function leadHasBookedSale(lead: Lead) {
@@ -2938,7 +2941,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       },
     });
     setSendingHandover(false);
-    if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+    if (r.success) {
+      const handoverSentAt = new Date().toISOString();
+      setHandoverSent(true);
+      onBookedSaved?.(lead.id, {
+        handover_sent_at: handoverSentAt,
+        ...(paymentReceivedAt || depositPaid || depositSent ? { status: "booked_deposit_paid" } : {}),
+      });
+      toast.success("Clinic handover email sent ✓");
+    }
     else toast.error(`Handover failed: ${r.error}`);
   };
 
@@ -3296,7 +3307,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         },
       });
       setSendingHandover(false);
-      if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+      if (r.success) {
+        const handoverSentAt = new Date().toISOString();
+        setHandoverSent(true);
+        onBookedSaved?.(lead.id, {
+          handover_sent_at: handoverSentAt,
+          ...(previewDeposit ? { status: "booked_deposit_paid" } : {}),
+        });
+        toast.success("Clinic handover email sent ✓");
+      }
       else toast.error(`Handover failed: ${r.error ?? "unknown error"}`);
     } catch (err) {
       setSendingHandover(false);
@@ -5350,6 +5369,7 @@ function RightPanel({
 
   const inCall = deviceStatus === "in-call" || deviceStatus === "connecting";
   const [showHandoverRequired, setShowHandoverRequired] = useState(false);
+  const handoverBlocksNextLead = Boolean(active.deposit_paid_at && !active.handover_sent_at);
 
   // ElevenLabs practice conversation (only used in practiceMode)
   const practiceConvIdRef = useRef<string | null>(null);
@@ -5823,6 +5843,7 @@ function RightPanel({
       {/* Lead navigation — top of right column */}
       {!practiceMode && (
       <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
+        {!handoverBlocksNextLead && (
         <button
           onClick={() => {
             if (inCall) {
@@ -5865,6 +5886,7 @@ function RightPanel({
         >
           Next Lead →
         </button>
+        )}
       </div>
       )}
 

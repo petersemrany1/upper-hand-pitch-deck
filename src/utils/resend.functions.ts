@@ -868,13 +868,21 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       if (leadRow?.deposit_paid_at && leadRow.status !== "booked_deposit_paid") {
         updatePayload.status = "booked_deposit_paid";
       }
-      await supabase.from("meta_leads").update(updatePayload).eq("id", data.leadId);
+      const { error: stampUpdateErr } = await supabase
+        .from("meta_leads")
+        .update(updatePayload)
+        .eq("id", data.leadId);
+      if (stampUpdateErr) throw stampUpdateErr;
     } catch (stampErr) {
       await logError(
         "sendClinicHandoverEmail.stamp",
         stampErr instanceof Error ? stampErr.message : String(stampErr),
         { leadId: data.leadId }
       );
+      return {
+        success: false,
+        error: `Email sent, but the handover confirmation did not save: ${stampErr instanceof Error ? stampErr.message : String(stampErr)}`,
+      };
     }
 
     return result;
