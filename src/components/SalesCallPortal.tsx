@@ -41,6 +41,9 @@ type Lead = {
   finance_eligible: boolean | null; booking_date: string | null; booking_time: string | null;
   clinic_id: string | null; rep_id: string | null; raw_payload: Json | null;
   pipeline_summary?: string | null; pipeline_summary_updated_at?: string | null;
+  deposit_paid_at?: string | null; deposit_amount?: number | null;
+  stripe_payment_intent_id?: string | null; stripe_checkout_session_id?: string | null;
+  handover_sent_at?: string | null;
 };
 
 function leadHasBookedSale(lead: Lead) {
@@ -2938,7 +2941,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       },
     });
     setSendingHandover(false);
-    if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+    if (r.success) {
+      const handoverSentAt = new Date().toISOString();
+      setHandoverSent(true);
+      onBookedSaved?.(lead.id, {
+        handover_sent_at: handoverSentAt,
+        ...(paymentReceivedAt || depositPaid || depositSent ? { status: "booked_deposit_paid" } : {}),
+      });
+      toast.success("Clinic handover email sent ✓");
+    }
     else toast.error(`Handover failed: ${r.error}`);
   };
 
@@ -3296,7 +3307,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         },
       });
       setSendingHandover(false);
-      if (r.success) { setHandoverSent(true); toast.success("Clinic handover email sent ✓"); }
+      if (r.success) {
+        const handoverSentAt = new Date().toISOString();
+        setHandoverSent(true);
+        onBookedSaved?.(lead.id, {
+          handover_sent_at: handoverSentAt,
+          ...(previewDeposit ? { status: "booked_deposit_paid" } : {}),
+        });
+        toast.success("Clinic handover email sent ✓");
+      }
       else toast.error(`Handover failed: ${r.error ?? "unknown error"}`);
     } catch (err) {
       setSendingHandover(false);
