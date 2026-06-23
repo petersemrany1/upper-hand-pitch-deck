@@ -375,17 +375,35 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
       }
 
       if (data.leadId && result.id) {
+        const amountDollars = (result.amount ?? data.amountCents) / 100;
+
+        // Credit meta_leads so the booking UI stops showing "payment pending".
+        // Mirrors the stripe-deposit webhook (which only fires for hosted
+        // Checkout sessions, not for direct over-phone PaymentIntents).
+        // IMPORTANT: never touch meta_leads.status — rep still confirms booking.
+        // See mem://rules/lead-status-no-auto-change.
+        await supabaseAdmin
+          .from("meta_leads")
+          .update({
+            deposit_paid_at: new Date().toISOString(),
+            deposit_amount: amountDollars,
+            stripe_payment_intent_id: result.id,
+          })
+          .eq("id", data.leadId);
+
+        // If an appointment row already exists, backfill its payment fields too.
         await supabaseAdmin
           .from("clinic_appointments")
           .update({
             stripe_payment_intent_id: result.id,
-            deposit_amount: (result.amount ?? data.amountCents) / 100,
+            deposit_amount: amountDollars,
             refund_status: null,
             refund_processed_at: null,
             stripe_refund_id: null,
           })
           .eq("lead_id", data.leadId);
       }
+
 
       return {
         success: true as const,
