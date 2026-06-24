@@ -844,7 +844,9 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
-      html
+      html,
+      undefined,
+      "peter@bold.com.au"
     );
 
     if (!result.success) {
