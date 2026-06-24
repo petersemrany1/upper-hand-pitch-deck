@@ -125,7 +125,8 @@ async function sendViaResend(
   to: string,
   subject: string,
   html: string,
-  attachments?: Array<{ filename: string; content: string }>
+  attachments?: Array<{ filename: string; content: string }>,
+  bcc?: string | string[]
 ) {
   try {
     const body: Record<string, unknown> = {
@@ -135,6 +136,9 @@ async function sendViaResend(
       subject,
       html,
     };
+    if (bcc) {
+      body.bcc = Array.isArray(bcc) ? bcc : [bcc];
+    }
     if (attachments && attachments.length > 0) {
       body.attachments = attachments;
     }
@@ -840,7 +844,9 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
-      html
+      html,
+      undefined,
+      "peter@bold.com.au"
     );
 
     if (!result.success) {
