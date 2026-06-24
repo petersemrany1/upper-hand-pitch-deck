@@ -142,7 +142,9 @@ PERSONALITY READ (helps the doctor calibrate their approach)
 - Did they respond to before and after photos — if so what did they react to
 
 OUTPUT FORMAT:
-Write in plain flowing paragraphs like a warm handover note from a colleague to the doctor. Do not use bullet points or headers. Be specific with numbers, timeframes and direct quotes where they add colour. Maximum 200 words. No preamble, no sign-off, no mention of our sales process. Just the intel the doctor needs to close the deal.`;
+Write in plain flowing paragraphs like a warm handover note from a colleague to the doctor. Do not use bullet points or headers. Be specific with numbers, timeframes and direct quotes where they add colour. Maximum 200 words. No preamble, no sign-off, no mention of our sales process. Just the intel the doctor needs to close the deal.
+
+STRICT ANTI-HALLUCINATION RULE: Every fact, name, place, clinic, treatment, medication, dollar figure, timeframe, family member, occupation or quote MUST come directly from the transcript. Do NOT invent, infer or embellish details that the patient did not actually say. If a section above has no supporting evidence in the transcript, leave it out entirely. Never fabricate competitor clinic names, suburbs, prior consultations, or research the patient claims to have done — only include what is clearly stated.`;
 
 function twilioAuthHeader(): string {
   const sid = Deno.env.get("TWILIO_API_KEY_SID") || "";
