@@ -1,9 +1,9 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete, ArrowRight } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 
