@@ -241,16 +241,40 @@ export function MiniMessenger() {
             )}
           </div>
           {showConversation && activePhone && (
-            <button
-              type="button"
-              onClick={() => dialerCall(activePhone, myRepId ? { repId: myRepId } : undefined)}
-              disabled={dialerStatus !== "ready"}
-              title={dialerStatus === "ready" ? `Call ${activePhone}` : "Phone not ready"}
-              className="h-7 w-7 inline-flex items-center justify-center rounded-full disabled:opacity-40"
-              style={{ background: "#10b981", color: "#fff" }}
-            >
-              <Phone className="h-3.5 w-3.5" />
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const lead = await lookupLead({ data: { phone: activePhone } });
+                    if (lead?.id) {
+                      navigate({ to: "/sales-call", search: { leadId: lead.id } });
+                    } else {
+                      navigate({ to: "/sales-call", search: { phone: activePhone } });
+                    }
+                    closeMessenger();
+                  } catch {
+                    navigate({ to: "/sales-call", search: { phone: activePhone } });
+                    closeMessenger();
+                  }
+                }}
+                title="Open in Sales Call"
+                className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-white/10"
+                style={{ background: "#2563eb", color: "#fff" }}
+              >
+                <UserSquare2 className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => dialerCall(activePhone, myRepId ? { repId: myRepId } : undefined)}
+                disabled={dialerStatus !== "ready"}
+                title={dialerStatus === "ready" ? `Call ${activePhone}` : "Phone not ready"}
+                className="h-7 w-7 inline-flex items-center justify-center rounded-full disabled:opacity-40"
+                style={{ background: "#10b981", color: "#fff" }}
+              >
+                <Phone className="h-3.5 w-3.5" />
+              </button>
+            </>
           )}
           {!showConversation && (
             <button
