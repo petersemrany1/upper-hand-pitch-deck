@@ -59,6 +59,8 @@ export function MiniMessenger() {
   const markReadFn = useServerFn(markThreadRead);
   const { call: dialerCall, dialerStatus } = useTwilioDevice();
   const myRepId = useCurrentRepId();
+  const navigate = useNavigate();
+  const lookupLead = useServerFn(findLeadByPhone);
 
   const loadThreads = useCallback(async () => {
     const { data, error } = await supabase
