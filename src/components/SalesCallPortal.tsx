@@ -841,7 +841,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     };
     cbToday.sort(cbSort);
     overdue.sort(cbSort);
-    return [...overdue, ...cbToday, ...chase, ...noAns, ...newLeads, ...remaining].map((l) => l.id);
+    // TEMP (24–25 Jun 2026 Sydney only): start with brand-new leads first.
+    const sydToday = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
+    const newFirst = sydToday === "2026-06-24" || sydToday === "2026-06-25";
+    return (newFirst
+      ? [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining]
+      : [...overdue, ...cbToday, ...chase, ...noAns, ...newLeads, ...remaining]
+    ).map((l) => l.id);
   }, [leads, attemptsByDay]);
 
   // Show start-session screen / advance queue when no active lead
