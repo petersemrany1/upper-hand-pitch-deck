@@ -1,9 +1,9 @@
-import { createFileRoute, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete, ArrowRight } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 
@@ -581,6 +581,7 @@ function CallsPanel() {
   const [filter, setFilter] = useState("");
   const { call: dialerCall, dialerStatus, status, activePhone, hangup } = useTwilioDevice(true);
   const myRepId = useCurrentRepId();
+  const navigate = useNavigate();
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
@@ -835,6 +836,25 @@ function CallsPanel() {
                     </span>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Prefer exact lead_id (safe even when multiple leads share a number).
+                    // Fall back to phone-number lookup handled by the sales-call route.
+                    if (c.lead_id) {
+                      navigate({ to: "/sales-call", search: { leadId: c.lead_id } });
+                    } else if (phone) {
+                      navigate({ to: "/sales-call", search: { phone } });
+                    }
+                  }}
+                  disabled={!c.lead_id && !phone}
+                  className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-full text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition"
+                  style={{ background: "#0ea5e9" }}
+                  title="Open this person in the Sales Call portal"
+                >
+                  Open
+                  <ArrowRight className="h-3 w-3" />
+                </button>
                 <button
                   type="button"
                   onClick={() => {
