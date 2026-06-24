@@ -581,6 +581,7 @@ function CallsPanel() {
   const [filter, setFilter] = useState("");
   const { call: dialerCall, dialerStatus, status, activePhone, hangup } = useTwilioDevice(true);
   const myRepId = useCurrentRepId();
+  const navigate = useNavigate();
 
   const loadCalls = useCallback(async () => {
     setLoading(true);
