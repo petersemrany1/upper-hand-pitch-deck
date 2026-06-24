@@ -846,7 +846,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       `New Booking: ${fullName} — ${bookingDisplay}`,
       html,
       undefined,
-      "peter@bold.com.au"
+      "peter@gobold.com.au"
     );
 
     if (!result.success) {
