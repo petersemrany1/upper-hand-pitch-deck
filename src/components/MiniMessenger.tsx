@@ -248,9 +248,10 @@ export function MiniMessenger() {
                 type="button"
                 onClick={async () => {
                   try {
-                    const lead = await lookupLead({ data: { phone: activePhone } });
-                    if (lead?.id) {
-                      navigate({ to: "/sales-call", search: { leadId: lead.id } });
+                    const res = await lookupLead({ data: { phone: activePhone } });
+                    const leadId = res?.success && res.lead ? res.lead.id : null;
+                    if (leadId) {
+                      navigate({ to: "/sales-call", search: { leadId } });
                     } else {
                       navigate({ to: "/sales-call", search: { phone: activePhone } });
                     }
