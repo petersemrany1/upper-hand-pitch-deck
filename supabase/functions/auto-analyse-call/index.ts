@@ -110,7 +110,7 @@ TREATMENT EXPECTATIONS
 - What result they want — natural look, density, full coverage, hairline restoration
 - Specific concerns — doesn't want it to look fake, worried about scarring, recovery downtime concerns
 - Hair type (straight, curly, wavy) if mentioned
-- Whether they have researched overseas options or other clinics
+- Whether they have researched overseas options or other clinics — ONLY mention this if the patient explicitly said so in the transcript. NEVER name a specific competitor clinic (e.g. Bijan, Grow, Gro, any clinic name or suburb) unless that exact name appears in the transcript word-for-word. If unsure, omit it.
 - Technique preference if mentioned (FUE, DHI)
 
 WHAT THEY DON'T WANT (critical for the clinic to know before the consult)
