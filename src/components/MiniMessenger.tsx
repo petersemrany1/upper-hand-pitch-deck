@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
-import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, ArrowLeft, Minus, Phone } from "lucide-react";
+import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, ArrowLeft, Minus, Phone, UserSquare2 } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useCurrentRepId } from "@/hooks/useCurrentRepId";
 import { useMessenger, closeMessenger, setMessengerThread } from "@/hooks/useMessenger";
+import { useNavigate } from "@tanstack/react-router";
+import { findLeadByPhone } from "@/utils/sales-call.functions";
 
 type Thread = {
   id: string;
