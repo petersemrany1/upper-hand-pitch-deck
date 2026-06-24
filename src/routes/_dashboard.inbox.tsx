@@ -839,6 +839,25 @@ function CallsPanel() {
                 <button
                   type="button"
                   onClick={() => {
+                    // Prefer exact lead_id (safe even when multiple leads share a number).
+                    // Fall back to phone-number lookup handled by the sales-call route.
+                    if (c.lead_id) {
+                      navigate({ to: "/sales-call", search: { leadId: c.lead_id } });
+                    } else if (phone) {
+                      navigate({ to: "/sales-call", search: { phone } });
+                    }
+                  }}
+                  disabled={!c.lead_id && !phone}
+                  className="h-8 px-3 inline-flex items-center justify-center gap-1.5 rounded-full text-white text-xs font-semibold disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 transition"
+                  style={{ background: "#0ea5e9" }}
+                  title="Open this person in the Sales Call portal"
+                >
+                  Open
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
                     if (!phone) return;
                     const extra: Record<string, string> = {};
                     if (myRepId) extra.repId = myRepId;
