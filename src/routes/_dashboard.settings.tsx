@@ -213,10 +213,18 @@ function RepBookingsSection() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const [token, setToken] = useState<string>("");
+
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      setToken(data.session?.access_token ?? "");
+    });
+  }, []);
 
   const supabaseBase = import.meta.env.VITE_SUPABASE_URL as string;
   const proxy = (url: string, download = false) =>
-    `${supabaseBase}/functions/v1/twilio-recording?url=${encodeURIComponent(url)}${download ? "&download=1" : ""}`;
+    `${supabaseBase}/functions/v1/twilio-recording?url=${encodeURIComponent(url)}${download ? "&download=1" : ""}${token ? `&token=${encodeURIComponent(token)}` : ""}`;
+
 
   const load = async (selected?: string) => {
     setLoading(true);
