@@ -395,7 +395,7 @@ function DashboardHome() {
     return c.city || c.clinic_name || null;
   };
 
-  // Non-admin reps see a slim dashboard: just their bookings + bonus.
+  // Non-admin reps see a slim dashboard: bookings + bonus + conversion rates.
   if (authReady && session && role && role !== "admin") {
     const bonusToday = bookingsToday * 50;
     const bonusMonth = bookingsMonth * 50;
@@ -410,11 +410,44 @@ function DashboardHome() {
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <StatCard label="Bookings today" value={bookingsToday} valueColor="#111" sub="" />
-            <StatCard label="Bonus today" value={`$${bonusToday.toLocaleString()}`} valueColor="#15803d" sub={`${bookingsToday} × $50`} />
-            <StatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth} valueColor="#111" sub="" />
-            <StatCard label={`Bonus — ${monthYearLabel()}`} value={`$${bonusMonth.toLocaleString()}`} valueColor="#15803d" sub={`${bookingsMonth} × $50`} />
+            <StatCard label="Bookings today" value={bookingsToday} valueColor="#111" sub={`$${bonusToday.toLocaleString()} earned`} />
+            <StatCard label={`Bookings — ${monthYearLabel()}`} value={bookingsMonth} valueColor="#111" sub={`$${bonusMonth.toLocaleString()} earned`} />
           </div>
+
+          <Card>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee", flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
+                Conversion rates
+              </div>
+              <select
+                value={convPeriod}
+                onChange={(e) => setConvPeriod(e.target.value as typeof convPeriod)}
+                style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+              >
+                <option value="day">Today</option>
+                <option value="week">Last 7 days</option>
+                <option value="month">This month</option>
+                <option value="year">This year</option>
+                <option value="all">All time</option>
+              </select>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings</div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                  {leadsPct}%
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLeadsBooked} of {convLeadsTotal} leads</div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings</div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                  {connectsPct}%
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConnectedBooked} of {convConnectedUnique} connects</div>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
     );
