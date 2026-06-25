@@ -3032,12 +3032,22 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           const appointmentClinicId = form.clinicId || lead.clinic_id;
           if (appointmentClinicId) {
             const patientName = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Patient";
+            // Pull deposit info off the lead so a manual card-over-phone charge
+            // (which writes payment_intent_id to meta_leads BEFORE the appointment
+            // row exists) is carried onto the appointment. Without this, the
+            // "Showed up / Proceeded" refund button can't refund the card
+            // automatically and the rep has to log a manual refund.
+            const { data: leadDepositRow } = await supabase
+              .from("meta_leads")
+              .select("stripe_payment_intent_id, deposit_amount")
+              .eq("id", lead.id)
+              .maybeSingle();
             const { data: existingClinicAppt } = await supabase
               .from("clinic_appointments")
-              .select("id, intel_notes")
+              .select("id, intel_notes, stripe_payment_intent_id, deposit_amount")
               .eq("lead_id", lead.id)
               .limit(1);
-            const clinicPayloadBase = {
+            const clinicPayloadBase: Record<string, unknown> = {
               clinic_id: appointmentClinicId,
               lead_id: lead.id,
               patient_name: patientName,
@@ -3045,7 +3055,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               appointment_date: date,
               appointment_time: time,
             };
+            if (leadDepositRow?.stripe_payment_intent_id) clinicPayloadBase.stripe_payment_intent_id = leadDepositRow.stripe_payment_intent_id;
+            if (leadDepositRow?.deposit_amount != null) clinicPayloadBase.deposit_amount = leadDepositRow.deposit_amount;
             if (existingClinicAppt && existingClinicAppt.length > 0) {
+              // Don't overwrite deposit fields already set on the appointment.
+              if (existingClinicAppt[0].stripe_payment_intent_id) delete clinicPayloadBase.stripe_payment_intent_id;
+              if (existingClinicAppt[0].deposit_amount != null) delete clinicPayloadBase.deposit_amount;
               // Do not overwrite the handover email snapshot. The clinic portal
               // intel must stay exactly as sent in the handover email.
               await supabase.from("clinic_appointments").update(clinicPayloadBase).eq("id", existingClinicAppt[0].id);
