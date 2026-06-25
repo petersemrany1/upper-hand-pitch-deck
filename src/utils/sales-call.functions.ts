@@ -257,20 +257,26 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
   });
 
 export const saveBooking = createServerFn({ method: "POST" })
-  .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string }) => ({
+  .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
+    repId: data.repId ?? null,
   }))
   .handler(async ({ data }) => {
     if (!data.leadId || !data.date) return { success: false as const, error: "leadId and date required" };
     // NOTE: do NOT change status here. Status only flips to "booked_deposit_paid"
     // when the rep explicitly confirms the deposit. Booking date/time alone
     // should never auto-promote a lead to a "Booked" status.
-    const { error } = await supabaseAdmin.from("meta_leads").update({
+    // Also reassign rep_id to the rep actually booking — credits the booking
+    // to whoever closed it, not whoever first touched the lead.
+    const updatePayload: Record<string, unknown> = {
       booking_date: data.date, booking_time: data.time, clinic_id: data.clinicId,
       updated_at: new Date().toISOString(),
-    }).eq("id", data.leadId);
+    };
+    if (data.repId) updatePayload.rep_id = data.repId;
+    const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
+
 
     // Mirror into clinic_appointments immediately so the slot is reserved
     // in the clinic portal availability view (and prevents double-booking
