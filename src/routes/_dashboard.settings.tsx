@@ -103,6 +103,7 @@ function SettingsPage() {
           <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
           {isAdmin && <BackfillSection />}
+          {isAdmin && <RepBookingsSection />}
           <PracticeRecordingsSection />
           <LogsSection />
         </div>
