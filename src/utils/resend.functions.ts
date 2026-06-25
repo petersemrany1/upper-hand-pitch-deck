@@ -791,14 +791,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
       "b2828129-1c28-4502-927a-11f43a0a8473",
     ]);
-    const clinicEmailTo = TEST_LEAD_IDS.has(data.leadId)
-      ? "petersemrany1@gmail.com"
-      : (data.clinicEmail || "");
-    if (!clinicEmailTo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmailTo)) {
-      const err = "No clinic email on file — add one in Partner Clinics before sending the handover.";
-      await logError("sendClinicHandoverEmail", err, { leadId: data.leadId, clinicName: data.clinicName });
-      return { success: false, error: err };
-    }
+    // TEMP: handover emails are routed ONLY to Peter (not the clinic) per request.
+    // Original clinic recipient logic preserved above via TEST_LEAD_IDS for future revert.
+    void TEST_LEAD_IDS;
+    const clinicEmailTo = "peter@gobold.com.au";
     // Save the EXACT same Patient Intel to the clinic portal before sending.
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
