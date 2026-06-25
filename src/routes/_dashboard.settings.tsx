@@ -204,6 +204,143 @@ function PracticeRecordingsSection() {
   );
 }
 
+function RepBookingsSection() {
+  const [reps, setReps] = useState<Array<{ id: string; name: string }>>([]);
+  const [repId, setRepId] = useState<string>("");
+  const [bookings, setBookings] = useState<RepBookingRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+
+  const supabaseBase = import.meta.env.VITE_SUPABASE_URL as string;
+  const proxy = (url: string, download = false) =>
+    `${supabaseBase}/functions/v1/twilio-recording?url=${encodeURIComponent(url)}${download ? "&download=1" : ""}`;
+
+  const load = async (selected?: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await listRepBookingsWithRecordings({ data: { repId: selected || undefined } });
+      setReps(res.reps);
+      setBookings(res.bookings);
+      // Default to Aaron if no selection yet
+      if (!selected && !repId) {
+        const aaron = res.reps.find((r) => r.name.toLowerCase().startsWith("aaron"));
+        if (aaron) {
+          setRepId(aaron.id);
+          const r2 = await listRepBookingsWithRecordings({ data: { repId: aaron.id } });
+          setBookings(r2.bookings);
+        }
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { void load(); }, []);
+
+  const fmtDate = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" }) : "—";
+  const fmtDur = (s: number | null) => {
+    if (!s && s !== 0) return "—";
+    const m = Math.floor(s / 60);
+    return `${m}:${String(s % 60).padStart(2, "0")}`;
+  };
+  const fmtMoney = (n: number | null) =>
+    n == null ? "" : `$${Number(n).toLocaleString()}`;
+
+  return (
+    <SectionShell
+      icon={<CalendarCheck className="w-5 h-5" />}
+      title="Rep bookings & call recordings"
+      subtitle="Pick a rep to see every booking they made, with the call recordings attached."
+    >
+      <div className="flex items-center gap-3 mb-4">
+        <label className="text-sm text-muted-foreground">Rep:</label>
+        <select
+          value={repId}
+          onChange={(e) => { setRepId(e.target.value); void load(e.target.value); }}
+          className="px-3 py-2 rounded-md border border-border bg-white text-sm"
+        >
+          <option value="">— Select rep —</option>
+          {reps.map((r) => (
+            <option key={r.id} value={r.id}>{r.name}</option>
+          ))}
+        </select>
+        {loading && <span className="text-xs text-muted-foreground">Loading…</span>}
+      </div>
+
+      {error ? (
+        <div className="text-sm py-6 text-center border border-dashed border-destructive/40 rounded-lg text-destructive">{error}</div>
+      ) : !repId ? (
+        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+          Select a rep to view their bookings.
+        </div>
+      ) : bookings.length === 0 ? (
+        <div className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-lg">
+          No bookings found for this rep.
+        </div>
+      ) : (
+        <ul className="space-y-3">
+          {bookings.map((b) => (
+            <li key={b.appointment_id} className="rounded-lg border border-border p-4 bg-white">
+              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                <div>
+                  <div className="text-sm font-semibold text-foreground">{b.patient_name}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {fmtDate(b.appointment_date)}{b.appointment_time ? ` · ${b.appointment_time}` : ""}
+                    {b.patient_phone ? ` · ${b.patient_phone}` : ""}
+                    {b.deposit_amount ? ` · ${fmtMoney(b.deposit_amount)} deposit` : ""}
+                  </div>
+                </div>
+                <div className="text-xs text-muted-foreground">Booked {fmtDate(b.booked_at)}</div>
+              </div>
+
+              {b.recordings.length === 0 ? (
+                <div className="text-xs text-muted-foreground italic">No call recordings linked to this lead.</div>
+              ) : (
+                <ul className="divide-y divide-border border border-border rounded-md overflow-hidden">
+                  {b.recordings.map((rec) => {
+                    const url = proxy(rec.recording_url);
+                    const isPlaying = playingUrl === url;
+                    return (
+                      <li key={rec.id} className="px-3 py-2 flex flex-wrap items-center gap-3">
+                        <button
+                          onClick={() => setPlayingUrl(isPlaying ? null : url)}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                        >
+                          {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                          {isPlaying ? "Stop" : "Play"}
+                        </button>
+                        <span className="text-xs text-muted-foreground">
+                          {rec.called_at ? new Date(rec.called_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—"}
+                          {" · "}{fmtDur(rec.duration)}
+                        </span>
+                        <a
+                          href={proxy(rec.recording_url, true)}
+                          className="ml-auto text-xs font-semibold text-primary hover:underline"
+                        >
+                          Download
+                        </a>
+                        {isPlaying && (
+                          <audio src={url} controls autoPlay className="w-full mt-2" onEnded={() => setPlayingUrl(null)} />
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </SectionShell>
+  );
+}
+
+
+
 function SectionShell({
   icon,
   title,
