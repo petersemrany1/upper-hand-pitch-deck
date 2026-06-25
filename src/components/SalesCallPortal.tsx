@@ -3047,7 +3047,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               .select("id, intel_notes, stripe_payment_intent_id, deposit_amount")
               .eq("lead_id", lead.id)
               .limit(1);
-            const clinicPayloadBase: Record<string, unknown> = {
+            const clinicPayloadBase: any = {
               clinic_id: appointmentClinicId,
               lead_id: lead.id,
               patient_name: patientName,
