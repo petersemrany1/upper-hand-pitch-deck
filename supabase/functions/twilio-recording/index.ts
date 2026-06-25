@@ -83,13 +83,17 @@ serve(async (req) => {
   }
 
   try {
-    const response = await fetch(recordingUrl, {
-      headers: {
-        "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
-      },
-    });
+    // Forward Range header so the browser can seek (HTML <audio> requires
+    // 206 Partial Content + Accept-Ranges for the scrubber to be usable).
+    const rangeHeader = req.headers.get("Range") || req.headers.get("range");
+    const upstreamHeaders: Record<string, string> = {
+      "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
+    };
+    if (rangeHeader) upstreamHeaders["Range"] = rangeHeader;
 
-    if (!response.ok) {
+    const response = await fetch(recordingUrl, { headers: upstreamHeaders });
+
+    if (!response.ok && response.status !== 206) {
       return new Response(
         JSON.stringify({ error: `Twilio returned ${response.status}` }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -97,13 +101,21 @@ serve(async (req) => {
     }
 
     const download = url.searchParams.get("download") === "1";
+    const passthrough: Record<string, string> = {
+      ...corsHeaders,
+      "Content-Type": "audio/mpeg",
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "private, max-age=3600",
+    };
+    const contentLength = response.headers.get("Content-Length");
+    const contentRange = response.headers.get("Content-Range");
+    if (contentLength) passthrough["Content-Length"] = contentLength;
+    if (contentRange) passthrough["Content-Range"] = contentRange;
+    if (download) passthrough["Content-Disposition"] = "attachment; filename=recording.mp3";
+
     return new Response(response.body, {
-      status: 200,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "audio/mpeg",
-        ...(download ? { "Content-Disposition": "attachment; filename=recording.mp3" } : {}),
-      },
+      status: response.status,
+      headers: passthrough,
     });
   } catch (error) {
     return new Response(
