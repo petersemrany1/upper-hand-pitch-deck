@@ -2539,7 +2539,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved, repId }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void; repId?: string | null }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
