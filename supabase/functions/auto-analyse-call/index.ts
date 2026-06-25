@@ -118,6 +118,13 @@ WHAT THEY DON'T WANT (critical for the clinic to know before the consult)
 - Things that would put them off proceeding
 - Recovery concerns — e.g. needs to be back at work quickly, doesn't want to wear a hat during recovery
 
+PRICING DISCUSSED (CRITICAL — the clinic must know exactly what was quoted)
+- If the rep quoted any specific price, price range, or per-graft figure, you MUST include the exact numbers as discussed (e.g. "Quoted $14,000–$15,000 for Norwood 4–5", "Discussed $8/graft for ~2,500 grafts", "Package price of $12,500 mentioned").
+- Include what Norwood band or graft count the price was tied to.
+- Include the patient's reaction to the price (comfortable, hesitant, wants payment plan, said it was within budget, pushed back, etc).
+- Do NOT just say "aware of pricing" or "pricing was discussed" — that is useless to the clinic. Always state the actual dollar figures mentioned in the call.
+- If no specific price was quoted in the transcript, say so explicitly ("No specific price was quoted on this call").
+
 PAYMENT PLAN
 - Whether a payment plan is required — state clearly if it is a dealbreaker or just a preference
 - Budget range if the patient mentioned one (e.g. "$10,000–$20,000")
