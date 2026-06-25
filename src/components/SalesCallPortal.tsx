@@ -1609,7 +1609,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} />;
+    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} repId={repId} />;
   }
 
   return null;
