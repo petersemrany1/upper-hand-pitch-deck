@@ -3902,17 +3902,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                         }
                       }}
                       style={{
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: refreshingIntel ? "#999" : COLORS.coral,
-                        background: "transparent",
-                        border: `0.5px solid ${COLORS.line}`,
+                        fontSize: 13,
+                        fontWeight: 700,
+                        color: refreshingIntel ? "#fff" : "#fff",
+                        background: refreshingIntel ? "#999" : COLORS.coral,
+                        border: "none",
                         borderRadius: 6,
-                        padding: "4px 10px",
+                        padding: "8px 14px",
                         cursor: refreshingIntel ? "wait" : "pointer",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                       }}
                     >
-                      {refreshingIntel ? "Refreshing…" : "↻ Refresh from calls"}
+                      {refreshingIntel ? "Refreshing…" : "↻ Pull intel from call recording"}
                     </button>
                   </div>
                   <textarea
