@@ -170,35 +170,37 @@ function PracticeRecordingsSection() {
           No practice call recordings yet. Run a practice call from the training module to save one here.
         </div>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border overflow-hidden">
-          {recs.map((r) => (
-            <li key={r.id} className="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="text-sm font-semibold text-foreground">{fmtDate(r.created_at)}</div>
-                <div className="text-xs text-muted-foreground">
-                  {isAdmin && r.rep_name ? `${r.rep_name} · ` : ""}
-                  {fmtDuration(r.duration_seconds)}
+        <div className="max-h-[400px] overflow-y-auto rounded-lg border border-border">
+          <ul className="divide-y divide-border">
+            {recs.map((r) => (
+              <li key={r.id} className="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-foreground">{fmtDate(r.created_at)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {isAdmin && r.rep_name ? `${r.rep_name} · ` : ""}
+                    {fmtDuration(r.duration_seconds)}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {r.audio_url ? (
-                  <>
-                    <audio controls src={r.audio_url} className="h-8" preload="none" />
-                    <a
-                      href={r.audio_url}
-                      download={`practice-${r.conversation_id}.mp3`}
-                      className="text-xs font-semibold text-primary hover:underline"
-                    >
-                      Download
-                    </a>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground">Audio unavailable</span>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+                <div className="flex items-center gap-3">
+                  {r.audio_url ? (
+                    <>
+                      <audio controls src={r.audio_url} className="h-8" preload="none" />
+                      <a
+                        href={r.audio_url}
+                        download={`practice-${r.conversation_id}.mp3`}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        Download
+                      </a>
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Audio unavailable</span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </SectionShell>
   );
@@ -282,58 +284,60 @@ function RepBookingsSection() {
           No bookings found for this rep.
         </div>
       ) : (
-        <ul className="space-y-3">
-          {bookings.map((b) => (
-            <li key={b.appointment_id} className="rounded-lg border border-border p-4 bg-white">
-              <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-                <div>
-                  <div className="text-sm font-semibold text-foreground">{b.patient_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {fmtDate(b.appointment_date)}{b.appointment_time ? ` · ${b.appointment_time}` : ""}
-                    {b.patient_phone ? ` · ${b.patient_phone}` : ""}
-                    {b.deposit_amount ? ` · ${fmtMoney(b.deposit_amount)} deposit` : ""}
+        <div className="max-h-[480px] overflow-y-auto pr-1">
+          <ul className="space-y-3">
+            {bookings.map((b) => (
+              <li key={b.appointment_id} className="rounded-lg border border-border p-4 bg-white">
+                <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">{b.patient_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {fmtDate(b.appointment_date)}{b.appointment_time ? ` · ${b.appointment_time}` : ""}
+                      {b.patient_phone ? ` · ${b.patient_phone}` : ""}
+                      {b.deposit_amount ? ` · ${fmtMoney(b.deposit_amount)} deposit` : ""}
+                    </div>
                   </div>
+                  <div className="text-xs text-muted-foreground">Booked {fmtDate(b.booked_at)}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">Booked {fmtDate(b.booked_at)}</div>
-              </div>
 
-              {b.recordings.length === 0 ? (
-                <div className="text-xs text-muted-foreground italic">No call recordings linked to this lead.</div>
-              ) : (
-                <ul className="divide-y divide-border border border-border rounded-md overflow-hidden">
-                  {b.recordings.map((rec) => {
-                    const url = proxy(rec.recording_url);
-                    const isPlaying = playingUrl === url;
-                    return (
-                      <li key={rec.id} className="px-3 py-2 flex flex-wrap items-center gap-3">
-                        <button
-                          onClick={() => setPlayingUrl(isPlaying ? null : url)}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
-                        >
-                          {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                          {isPlaying ? "Stop" : "Play"}
-                        </button>
-                        <span className="text-xs text-muted-foreground">
-                          {rec.called_at ? new Date(rec.called_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—"}
-                          {" · "}{fmtDur(rec.duration)}
-                        </span>
-                        <a
-                          href={proxy(rec.recording_url, true)}
-                          className="ml-auto text-xs font-semibold text-primary hover:underline"
-                        >
-                          Download
-                        </a>
-                        {isPlaying && (
-                          <audio src={url} controls autoPlay className="w-full mt-2" onEnded={() => setPlayingUrl(null)} />
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
+                {b.recordings.length === 0 ? (
+                  <div className="text-xs text-muted-foreground italic">No call recordings linked to this lead.</div>
+                ) : (
+                  <ul className="divide-y divide-border border border-border rounded-md overflow-hidden">
+                    {b.recordings.map((rec) => {
+                      const url = proxy(rec.recording_url);
+                      const isPlaying = playingUrl === url;
+                      return (
+                        <li key={rec.id} className="px-3 py-2 flex flex-wrap items-center gap-3">
+                          <button
+                            onClick={() => setPlayingUrl(isPlaying ? null : url)}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline"
+                          >
+                            {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                            {isPlaying ? "Stop" : "Play"}
+                          </button>
+                          <span className="text-xs text-muted-foreground">
+                            {rec.called_at ? new Date(rec.called_at).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" }) : "—"}
+                            {" · "}{fmtDur(rec.duration)}
+                          </span>
+                          <a
+                            href={proxy(rec.recording_url, true)}
+                            className="ml-auto text-xs font-semibold text-primary hover:underline"
+                          >
+                            Download
+                          </a>
+                          {isPlaying && (
+                            <audio src={url} controls autoPlay className="w-full mt-2" onEnded={() => setPlayingUrl(null)} />
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </SectionShell>
   );
