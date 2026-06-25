@@ -65,8 +65,8 @@ serve(async (req) => {
     );
   }
 
-  const url = new URL(req.url);
   const recordingUrl = url.searchParams.get("url");
+
 
   if (!recordingUrl) {
     return new Response(
