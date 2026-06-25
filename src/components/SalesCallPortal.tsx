@@ -2859,7 +2859,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time, repId: repId ?? null } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
