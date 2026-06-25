@@ -1609,7 +1609,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} />;
+    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} repId={repId} />;
   }
 
   return null;
@@ -2539,7 +2539,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
   return <div><Label>{label}</Label><div className="mt-1.5">{children}</div></div>;
 }
 
-function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void }) {
+function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved, repId }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void; repId?: string | null }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
@@ -2859,7 +2859,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time, repId: repId ?? null } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
