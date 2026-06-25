@@ -3924,6 +3924,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
                     placeholder="Add call notes here..."
                   />
+                  {!previewIntel.trim() && (
+                    <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
+                      ⚠️ <strong>Patient Intel is empty.</strong> Click <strong>"↻ Pull intel from call recording"</strong> above to auto-generate it from the call, or type notes manually. Do <strong>not</strong> send to the clinic blank.
+                    </div>
+                  )}
                 </div>
 
                 {/* Funding */}
