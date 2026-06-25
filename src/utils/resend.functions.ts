@@ -840,9 +840,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
-      html,
-      undefined,
-      "peter@gobold.com.au"
+      html
     );
 
     if (!result.success) {
