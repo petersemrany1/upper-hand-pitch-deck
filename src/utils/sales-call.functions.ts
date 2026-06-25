@@ -269,12 +269,16 @@ export const saveBooking = createServerFn({ method: "POST" })
     // should never auto-promote a lead to a "Booked" status.
     // Also reassign rep_id to the rep actually booking — credits the booking
     // to whoever closed it, not whoever first touched the lead.
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: {
+      booking_date: string; booking_time: string; clinic_id: string | null;
+      updated_at: string; rep_id?: string;
+    } = {
       booking_date: data.date, booking_time: data.time, clinic_id: data.clinicId,
       updated_at: new Date().toISOString(),
     };
     if (data.repId) updatePayload.rep_id = data.repId;
     const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
+
     if (error) return { success: false as const, error: error.message };
 
 
