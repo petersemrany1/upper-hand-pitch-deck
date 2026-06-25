@@ -23,12 +23,20 @@ serve(async (req) => {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
-  // 1. Require Supabase auth
+  // 1. Require Supabase auth — accept either Authorization header OR ?token=
+  //    query param (needed for <audio src> / <a download> which can't set headers).
+  const url = new URL(req.url);
   const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
-  if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
-    return unauthorized("Missing Authorization header");
+  let userJwt = "";
+  if (authHeader && authHeader.toLowerCase().startsWith("bearer ")) {
+    userJwt = authHeader.slice(7).trim();
+  } else {
+    userJwt = (url.searchParams.get("token") || "").trim();
   }
-  const userJwt = authHeader.slice(7).trim();
+  if (!userJwt) {
+    return unauthorized("Missing Authorization");
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
   if (supabaseUrl && anonKey) {
@@ -57,8 +65,8 @@ serve(async (req) => {
     );
   }
 
-  const url = new URL(req.url);
   const recordingUrl = url.searchParams.get("url");
+
 
   if (!recordingUrl) {
     return new Response(
