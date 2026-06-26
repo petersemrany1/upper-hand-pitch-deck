@@ -84,39 +84,62 @@ serve(async (req) => {
   }
 
   try {
-    // Forward Range header so the browser can seek (HTML <audio> requires
-    // 206 Partial Content + Accept-Ranges for the scrubber to be usable).
-    const rangeHeader = req.headers.get("Range") || req.headers.get("range");
-    const upstreamHeaders: Record<string, string> = {
-      "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`),
-    };
-    if (rangeHeader) upstreamHeaders["Range"] = rangeHeader;
+    // Twilio's transcoded .mp3 endpoint does NOT return Content-Length or
+    // honor Range reliably, which breaks <audio> seeking (duration shows as
+    // a tiny number and the scrubber jumps to the wrong spot).
+    // Fix: always download the full file server-side, then serve it with a
+    // correct Content-Length and honor Range requests from the buffered bytes.
+    const upstream = await fetch(recordingUrl, {
+      headers: { "Authorization": "Basic " + btoa(`${accountSid}:${authToken}`) },
+    });
 
-    const response = await fetch(recordingUrl, { headers: upstreamHeaders });
-
-    if (!response.ok && response.status !== 206) {
+    if (!upstream.ok) {
       return new Response(
-        JSON.stringify({ error: `Twilio returned ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: `Twilio returned ${upstream.status}` }),
+        { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    const fullBuffer = new Uint8Array(await upstream.arrayBuffer());
+    const totalLength = fullBuffer.byteLength;
+
     const download = url.searchParams.get("download") === "1";
-    const passthrough: Record<string, string> = {
+    const baseHeaders: Record<string, string> = {
       ...corsHeaders,
       "Content-Type": "audio/mpeg",
       "Accept-Ranges": "bytes",
       "Cache-Control": "private, max-age=3600",
     };
-    const contentLength = response.headers.get("Content-Length");
-    const contentRange = response.headers.get("Content-Range");
-    if (contentLength) passthrough["Content-Length"] = contentLength;
-    if (contentRange) passthrough["Content-Range"] = contentRange;
-    if (download) passthrough["Content-Disposition"] = "attachment; filename=recording.mp3";
+    if (download) baseHeaders["Content-Disposition"] = "attachment; filename=recording.mp3";
 
-    return new Response(response.body, {
-      status: response.status,
-      headers: passthrough,
+    const rangeHeader = req.headers.get("Range") || req.headers.get("range");
+    if (rangeHeader) {
+      const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
+      if (match) {
+        let start = match[1] === "" ? 0 : parseInt(match[1], 10);
+        let end = match[2] === "" ? totalLength - 1 : parseInt(match[2], 10);
+        if (isNaN(start) || isNaN(end) || start > end || start >= totalLength) {
+          return new Response(null, {
+            status: 416,
+            headers: { ...baseHeaders, "Content-Range": `bytes */${totalLength}` },
+          });
+        }
+        if (end >= totalLength) end = totalLength - 1;
+        const slice = fullBuffer.subarray(start, end + 1);
+        return new Response(slice, {
+          status: 206,
+          headers: {
+            ...baseHeaders,
+            "Content-Range": `bytes ${start}-${end}/${totalLength}`,
+            "Content-Length": String(slice.byteLength),
+          },
+        });
+      }
+    }
+
+    return new Response(fullBuffer, {
+      status: 200,
+      headers: { ...baseHeaders, "Content-Length": String(totalLength) },
     });
   } catch (error) {
     return new Response(
