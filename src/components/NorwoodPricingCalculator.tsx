@@ -188,6 +188,10 @@ export default function NorwoodPricingCalculator() {
                 const bp = BIJAN_PRICES[r.label];
                 lo = bp.min;
                 hi = bp.max;
+              } else if (clinic === "byron") {
+                const byp = BYRON_PRICES[r.label];
+                lo = byp.min;
+                hi = byp.max;
               } else {
                 lo = r.min * pricePerGraft;
                 hi = r.max * pricePerGraft;
