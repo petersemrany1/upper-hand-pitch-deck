@@ -110,7 +110,7 @@ export default function NorwoodPricingCalculator() {
             })}
           </div>
 
-          {(clinic === "nitai" || clinic === "bijan") && (
+          {(clinic === "nitai" || clinic === "bijan" || clinic === "byron") && (
             <div
               style={{
                 fontSize: 11,
@@ -121,7 +121,7 @@ export default function NorwoodPricingCalculator() {
                 padding: "8px 10px",
               }}
             >
-              {clinic === "nitai" ? "Nitai" : "Bijan"} charges a fixed fee per procedure, not per graft
+              {clinic === "nitai" ? "Nitai" : clinic === "bijan" ? "Bijan" : "Byron"} charges a fixed fee per procedure, not per graft
             </div>
           )}
 
