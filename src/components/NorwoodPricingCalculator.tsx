@@ -43,6 +43,16 @@ const BIJAN_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 7": { min: 17000, max: 20000 },
 };
 
+const BYRON_PRICES: Record<string, { min: number; max: number }> = {
+  "Norwood 2": { min: 7500, max: 11000 },
+  "Norwood 3": { min: 10000, max: 13000 },
+  "Norwood 3 Vertex": { min: 10000, max: 14000 },
+  "Norwood 4": { min: 12000, max: 16000 },
+  "Norwood 5": { min: 15000, max: 18000 },
+  "Norwood 6": { min: 18000, max: 22000 },
+  "Norwood 7": { min: 22000, max: 28000 },
+};
+
 const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 const fmtGrafts = (min: number, max: number) =>
   min === max ? `${min.toLocaleString()} grafts` : `${min.toLocaleString()}–${max.toLocaleString()} grafts`;
