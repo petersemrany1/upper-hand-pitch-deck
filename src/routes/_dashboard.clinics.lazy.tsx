@@ -41,6 +41,15 @@ type Clinic = {
   email: string | null;
   website: string | null;
   owner_name: string | null;
+  owner_title: string | null;
+  linkedin_url: string | null;
+  owner_name_suggested: string | null;
+  owner_title_suggested: string | null;
+  linkedin_url_suggested: string | null;
+  owner_source_url: string | null;
+  owner_confidence: "high" | "medium" | "low" | null;
+  owner_enriched_at: string | null;
+  owner_enrichment_status: "none" | "suggested" | "confirmed" | "not_found" | "error";
   priority: string;
   status: string;
   next_follow_up: string | null;
@@ -50,6 +59,15 @@ type Clinic = {
   parent_clinic_id: string | null;
   is_parent: boolean;
 };
+
+const REACTIVATION_STAGES = new Set([
+  "Not Started",
+  "Contacted — No Answer",
+  "Contacted — Gatekeeper",
+  "Spoke — Gatekeeper",
+  "Contacted — Call Me Back",
+  "Spoke — Call Me Back",
+]);
 
 type ClinicContact = {
   id: string;
