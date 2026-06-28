@@ -253,6 +253,7 @@ function ClinicsPage() {
     init["Unknown"] = true;
     return init;
   });
+  const [reviewSuggestionsOnly, setReviewSuggestionsOnly] = useState(false);
 
   // Resizable column widths (persisted)
   type ColKey = "name" | "city" | "phone" | "note" | "stage" | "actions";
@@ -1003,11 +1004,13 @@ function ClinicsPage() {
   // Hide Signed clinics from the CRM list unless the user explicitly filters by Signed
   const hideSigned = filterStatus !== "Signed";
   const filtered = clinics.filter((c) => {
+    if (reviewSuggestionsOnly && c.owner_enrichment_status !== "suggested") return false;
     if (hideSigned && c.status === "Signed") return false;
     if (rowMatchesSelf(c)) return true;
     if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
     return false;
   });
+  const suggestedCount = clinics.filter((c) => c.owner_enrichment_status === "suggested").length;
   // Auto-expand parents when a child matches search/filter
   const autoExpandedParents = new Set<string>();
   if (q || filterState || filterStatus) {
@@ -1102,6 +1105,20 @@ function ClinicsPage() {
               <Sparkles className="w-3 h-3 mr-1" /> Find owners ({pendingEnrichClinics.length} pending)
             </Button>
           )}
+          <Button
+            onClick={() => setReviewSuggestionsOnly((v) => !v)}
+            size="sm"
+            variant="ghost"
+            className="text-xs h-9 border"
+            style={{
+              color: reviewSuggestionsOnly ? "#ffffff" : "#111111",
+              background: reviewSuggestionsOnly ? "#f59e0b" : "transparent",
+              borderColor: reviewSuggestionsOnly ? "#f59e0b" : "#ebebeb",
+            }}
+            title="Show only clinics with AI owner suggestions waiting for review"
+          >
+            {reviewSuggestionsOnly ? "✓ " : ""}Review suggestions ({suggestedCount})
+          </Button>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
             onClick={() => fileInputRef.current?.click()}
@@ -1177,7 +1194,7 @@ function ClinicsPage() {
         </div>
 
         {sortedStates.map((state) => {
-          const isCollapsed = collapsedStates[state] !== false;
+          const isCollapsed = reviewSuggestionsOnly ? false : (collapsedStates[state] !== false);
           const stateClinics = grouped[state];
           const abbr = STATES_ABBR[state] || state;
           return (
@@ -1428,6 +1445,15 @@ function ClinicsPage() {
                           </div>
                         </div>
                       </div>
+
+                      {c.owner_enrichment_status === "suggested" && c.owner_name_suggested && (
+                        <OwnerSuggestionReviewPanel
+                          clinic={c}
+                          isChild={isChild}
+                          onConfirm={() => confirmOwnerSuggestion(c)}
+                          onReject={() => rejectOwnerSuggestion(c)}
+                        />
+                      )}
 
                       {showCallbackDetail && (
                         <div
@@ -2439,6 +2465,115 @@ function OwnerDot({ clinic }: { clinic: Clinic }) {
     </span>
   );
 }
+
+function OwnerSuggestionReviewPanel({
+  clinic,
+  isChild,
+  onConfirm,
+  onReject,
+}: {
+  clinic: Clinic;
+  isChild: boolean;
+  onConfirm: () => void | Promise<void>;
+  onReject: () => void | Promise<void>;
+}) {
+  const [busy, setBusy] = useState<"confirm" | "reject" | null>(null);
+  const conf = clinic.owner_confidence ?? "low";
+  const confStyles: Record<string, { bg: string; text: string; label: string }> = {
+    high: { bg: "#dcfce7", text: "#15803d", label: "HIGH CONFIDENCE" },
+    medium: { bg: "#fef3c7", text: "#b45309", label: "MEDIUM CONFIDENCE" },
+    low: { bg: "#f3f4f6", text: "#4b5563", label: "LOW CONFIDENCE" },
+  };
+  const cs = confStyles[conf] || confStyles.low;
+  const handle = async (kind: "confirm" | "reject", fn: () => void | Promise<void>) => {
+    if (busy) return;
+    setBusy(kind);
+    try { await fn(); } finally { setBusy(null); }
+  };
+  return (
+    <div
+      className="px-3 md:px-4 py-2.5 text-[11px] leading-relaxed"
+      style={{
+        background: "#fffbeb",
+        borderTop: "1px dashed #f59e0b",
+        borderBottom: "1px solid #111",
+        color: "#111111",
+        paddingLeft: isChild ? 40 : 16,
+      }}
+    >
+      <div className="flex flex-wrap items-start gap-x-4 gap-y-1.5">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3" style={{ color: "#f59e0b" }} />
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#b45309" }}>AI Owner Suggestion</span>
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase" style={{ background: cs.bg, color: cs.text }}>
+            {cs.label}
+          </span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: "#6b7280" }}>Currently on file</span>
+          <span className="text-[12px]" style={{ color: "#111111" }}>{clinic.owner_name || "—"}</span>
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[9px] uppercase tracking-wider" style={{ color: "#6b7280" }}>AI suggests</span>
+          <span className="text-[12px] font-semibold" style={{ color: "#111111" }}>
+            {clinic.owner_name_suggested}
+            {clinic.owner_title_suggested ? <span className="font-normal" style={{ color: "#374151" }}> — {clinic.owner_title_suggested}</span> : null}
+          </span>
+        </div>
+        <div className="flex items-center gap-3">
+          {clinic.linkedin_url_suggested ? (
+            <a
+              href={clinic.linkedin_url_suggested}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] underline"
+              style={{ color: "#1d4ed8" }}
+            >
+              LinkedIn <ExternalLink className="w-3 h-3" />
+            </a>
+          ) : (
+            <span className="text-[11px]" style={{ color: "#9ca3af" }}>No LinkedIn found</span>
+          )}
+          {clinic.owner_source_url && (
+            <a
+              href={clinic.owner_source_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-[11px] underline"
+              style={{ color: "#6b7280" }}
+            >
+              source <ExternalLink className="w-3 h-3" />
+            </a>
+          )}
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            onClick={() => handle("confirm", onConfirm)}
+            disabled={!!busy}
+            size="sm"
+            className="h-7 text-[11px] border-0"
+            style={{ background: "#16a34a", color: "#ffffff" }}
+          >
+            {busy === "confirm" ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            Confirm
+          </Button>
+          <Button
+            onClick={() => handle("reject", onReject)}
+            disabled={!!busy}
+            size="sm"
+            variant="ghost"
+            className="h-7 text-[11px] border"
+            style={{ color: "#111111", borderColor: "#ebebeb" }}
+          >
+            {busy === "reject" ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+            Reject
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 
 
