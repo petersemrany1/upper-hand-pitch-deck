@@ -1251,7 +1251,8 @@ function ClinicsPage() {
                           <span className="w-4 shrink-0" />
                         )}
                         {/* Clinic Name */}
-                        <div className="shrink-0 px-2 truncate" style={{ width: colWidths.name }}>
+                        <div className="shrink-0 px-2 truncate flex items-center gap-1" style={{ width: colWidths.name }}>
+                          <OwnerDot clinic={c} />
                           <button onClick={() => openDetail(c)} className={`text-left hover:underline truncate block text-xs ${isParentRow ? "font-extrabold" : "font-semibold"}`} style={{ color: "#111111" }}>
                             {c.clinic_name}
                             {isParentRow && childCount > 0 && (
