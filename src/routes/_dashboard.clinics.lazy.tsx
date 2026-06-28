@@ -2413,4 +2413,32 @@ function PipelineBoard({
 
 declare module "react" {}
 
+function OwnerDot({ clinic }: { clinic: Clinic }) {
+  let color = "#d1d5db"; // grey = none
+  let title = "No owner on file";
+  let label = "";
+  if (clinic.owner_name || clinic.owner_enrichment_status === "confirmed") {
+    color = "#22c55e";
+    title = `Owner: ${clinic.owner_name ?? "confirmed"}`;
+  } else if (clinic.owner_enrichment_status === "suggested") {
+    color = "#f59e0b";
+    title = `Owner suggestion: ${clinic.owner_name_suggested ?? ""}`;
+    label = "?";
+  } else if (clinic.owner_enrichment_status === "not_found") {
+    color = "#e5e7eb";
+    title = "Owner research returned no match";
+    label = "—";
+  }
+  return (
+    <span
+      className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-full shrink-0 text-[8px] font-bold"
+      style={{ background: color, color: "#111111" }}
+      title={title}
+    >
+      {label}
+    </span>
+  );
+}
+
+
 
