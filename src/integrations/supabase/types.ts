@@ -609,9 +609,19 @@ export type Database = {
           letter_campaign_excluded: boolean
           letter_sent: boolean
           letter_sent_at: string | null
+          linkedin_url: string | null
+          linkedin_url_suggested: string | null
           next_follow_up: string | null
           notes: string | null
+          owner_confidence: string | null
+          owner_enriched_at: string | null
+          owner_enrichment_raw: Json | null
+          owner_enrichment_status: string
           owner_name: string | null
+          owner_name_suggested: string | null
+          owner_source_url: string | null
+          owner_title: string | null
+          owner_title_suggested: string | null
           parent_clinic_id: string | null
           phone: string | null
           priority: string
@@ -639,9 +649,19 @@ export type Database = {
           letter_campaign_excluded?: boolean
           letter_sent?: boolean
           letter_sent_at?: string | null
+          linkedin_url?: string | null
+          linkedin_url_suggested?: string | null
           next_follow_up?: string | null
           notes?: string | null
+          owner_confidence?: string | null
+          owner_enriched_at?: string | null
+          owner_enrichment_raw?: Json | null
+          owner_enrichment_status?: string
           owner_name?: string | null
+          owner_name_suggested?: string | null
+          owner_source_url?: string | null
+          owner_title?: string | null
+          owner_title_suggested?: string | null
           parent_clinic_id?: string | null
           phone?: string | null
           priority?: string
@@ -669,9 +689,19 @@ export type Database = {
           letter_campaign_excluded?: boolean
           letter_sent?: boolean
           letter_sent_at?: string | null
+          linkedin_url?: string | null
+          linkedin_url_suggested?: string | null
           next_follow_up?: string | null
           notes?: string | null
+          owner_confidence?: string | null
+          owner_enriched_at?: string | null
+          owner_enrichment_raw?: Json | null
+          owner_enrichment_status?: string
           owner_name?: string | null
+          owner_name_suggested?: string | null
+          owner_source_url?: string | null
+          owner_title?: string | null
+          owner_title_suggested?: string | null
           parent_clinic_id?: string | null
           phone?: string | null
           priority?: string

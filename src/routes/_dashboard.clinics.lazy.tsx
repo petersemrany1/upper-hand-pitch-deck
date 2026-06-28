@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Plus, Phone, Mail, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
-  Upload, Clock, AlertCircle, Trash2, Video, Send,
+  Upload, Clock, AlertCircle, Trash2, Video, Send, Sparkles, Check, ThumbsDown,
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { sendBoldContractEmail } from "@/utils/bold-contract.functions";
@@ -41,6 +41,15 @@ type Clinic = {
   email: string | null;
   website: string | null;
   owner_name: string | null;
+  owner_title: string | null;
+  linkedin_url: string | null;
+  owner_name_suggested: string | null;
+  owner_title_suggested: string | null;
+  linkedin_url_suggested: string | null;
+  owner_source_url: string | null;
+  owner_confidence: "high" | "medium" | "low" | null;
+  owner_enriched_at: string | null;
+  owner_enrichment_status: "none" | "suggested" | "confirmed" | "not_found" | "error";
   priority: string;
   status: string;
   next_follow_up: string | null;
@@ -50,6 +59,15 @@ type Clinic = {
   parent_clinic_id: string | null;
   is_parent: boolean;
 };
+
+const REACTIVATION_STAGES = new Set([
+  "Not Started",
+  "Contacted — No Answer",
+  "Contacted — Gatekeeper",
+  "Spoke — Gatekeeper",
+  "Contacted — Call Me Back",
+  "Spoke — Call Me Back",
+]);
 
 type ClinicContact = {
   id: string;
@@ -436,6 +454,93 @@ function ClinicsPage() {
     if (data) setClinics(data as Clinic[]);
     setLoading(false);
   }, []);
+
+  // ===== Owner enrichment =====
+  const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
+  const [batchEnrich, setBatchEnrich] = useState<{ running: boolean; current: number; total: number }>({ running: false, current: 0, total: 0 });
+  const batchCancelRef = useRef(false);
+
+  const refreshClinic = useCallback(async (clinicId: string) => {
+    const { data } = await supabase.from("clinics").select("*").eq("id", clinicId).maybeSingle();
+    if (!data) return;
+    const row = data as Clinic;
+    setClinics((prev) => prev.map((c) => c.id === clinicId ? row : c));
+    setSelectedClinic((prev) => prev && prev.id === clinicId ? row : prev);
+  }, []);
+
+  const enrichOwner = useCallback(async (clinicId: string): Promise<boolean> => {
+    setEnrichingIds((prev) => { const n = new Set(prev); n.add(clinicId); return n; });
+    try {
+      const { error } = await supabase.functions.invoke("enrich-clinic-owner", { body: { clinic_id: clinicId } });
+      if (error) { toast.error(`Owner research failed: ${error.message}`); return false; }
+      await refreshClinic(clinicId);
+      return true;
+    } catch (e) {
+      toast.error(`Owner research failed: ${(e as Error).message}`);
+      return false;
+    } finally {
+      setEnrichingIds((prev) => { const n = new Set(prev); n.delete(clinicId); return n; });
+    }
+  }, [refreshClinic]);
+
+  const confirmOwnerSuggestion = useCallback(async (clinic: Clinic) => {
+    const update = {
+      owner_name: clinic.owner_name_suggested,
+      owner_title: clinic.owner_title_suggested,
+      linkedin_url: clinic.linkedin_url_suggested,
+      owner_enrichment_status: "confirmed",
+      owner_name_suggested: null,
+      owner_title_suggested: null,
+      linkedin_url_suggested: null,
+    };
+    await supabase.from("clinics").update(update).eq("id", clinic.id);
+    await refreshClinic(clinic.id);
+    setEditOwner(clinic.owner_name_suggested || "");
+    toast.success("Owner confirmed");
+  }, [refreshClinic]);
+
+  const rejectOwnerSuggestion = useCallback(async (clinic: Clinic) => {
+    await supabase.from("clinics").update({
+      owner_enrichment_status: "none",
+      owner_name_suggested: null,
+      owner_title_suggested: null,
+      linkedin_url_suggested: null,
+    }).eq("id", clinic.id);
+    await refreshClinic(clinic.id);
+  }, [refreshClinic]);
+
+  const pendingEnrichClinics = clinics.filter((c) =>
+    REACTIVATION_STAGES.has(c.status)
+    && (c.owner_enrichment_status === "none" || c.owner_enrichment_status === "error")
+    && !c.owner_name
+  );
+
+  const startBatchEnrich = useCallback(async () => {
+    const targets = pendingEnrichClinics.map((c) => c.id);
+    if (targets.length === 0) return;
+    batchCancelRef.current = false;
+    setBatchEnrich({ running: true, current: 0, total: targets.length });
+    let done = 0;
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    const next = async () => {
+      while (true) {
+        if (batchCancelRef.current) return;
+        const i = cursor++;
+        if (i >= targets.length) return;
+        await enrichOwner(targets[i]);
+        done++;
+        setBatchEnrich((p) => ({ ...p, current: done }));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => next()));
+    setBatchEnrich({ running: false, current: 0, total: 0 });
+    await loadClinics();
+  }, [pendingEnrichClinics, enrichOwner, loadClinics]);
+
+  const cancelBatchEnrich = useCallback(() => { batchCancelRef.current = true; }, []);
+
+
 
 
   const loadLastContacts = useCallback(async () => {
@@ -980,6 +1085,23 @@ function ClinicsPage() {
           <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
             <Plus className="w-3 h-3 mr-1" /> Add
           </Button>
+          {batchEnrich.running ? (
+            <Button onClick={cancelBatchEnrich} size="sm" variant="ghost" className="text-xs h-9 border" style={{ color: "#111111", borderColor: "#ebebeb" }}>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Researching {batchEnrich.current} / {batchEnrich.total}… (cancel)
+            </Button>
+          ) : (
+            <Button
+              onClick={startBatchEnrich}
+              disabled={pendingEnrichClinics.length === 0}
+              size="sm"
+              variant="ghost"
+              className="text-xs h-9 border"
+              style={{ color: "#111111", borderColor: "#ebebeb" }}
+              title="Web search to find each clinic's owner / principal surgeon"
+            >
+              <Sparkles className="w-3 h-3 mr-1" /> Find owners ({pendingEnrichClinics.length} pending)
+            </Button>
+          )}
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
             onClick={() => fileInputRef.current?.click()}
@@ -1129,7 +1251,8 @@ function ClinicsPage() {
                           <span className="w-4 shrink-0" />
                         )}
                         {/* Clinic Name */}
-                        <div className="shrink-0 px-2 truncate" style={{ width: colWidths.name }}>
+                        <div className="shrink-0 px-2 truncate flex items-center gap-1" style={{ width: colWidths.name }}>
+                          <OwnerDot clinic={c} />
                           <button onClick={() => openDetail(c)} className={`text-left hover:underline truncate block text-xs ${isParentRow ? "font-extrabold" : "font-semibold"}`} style={{ color: "#111111" }}>
                             {c.clinic_name}
                             {isParentRow && childCount > 0 && (
@@ -1555,6 +1678,101 @@ function ClinicsPage() {
                   </div>
                 </div>
               </div>
+
+              {/* ===== OWNER INTEL ===== */}
+              <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] uppercase font-bold" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>OWNER INTEL</div>
+                  <button
+                    onClick={() => enrichOwner(selectedClinic.id)}
+                    disabled={enrichingIds.has(selectedClinic.id)}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border disabled:opacity-50"
+                    style={{ color: "#111111", borderColor: "#ebebeb", background: "#f9f9f9" }}
+                  >
+                    {enrichingIds.has(selectedClinic.id)
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Researching…</>
+                      : <><Sparkles className="w-3 h-3" /> Auto-find owner</>}
+                  </button>
+                </div>
+
+                {/* Confirmed owner */}
+                {(selectedClinic.owner_name || selectedClinic.owner_title || selectedClinic.linkedin_url) && (
+                  <div className="rounded p-2 mb-2 text-xs" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#111111" }}>
+                    <div className="font-semibold">{selectedClinic.owner_name || "—"}</div>
+                    {selectedClinic.owner_title && <div className="text-[11px] opacity-80">{selectedClinic.owner_title}</div>}
+                    {selectedClinic.linkedin_url && (
+                      <a href={selectedClinic.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] mt-1 underline" style={{ color: "#1d4ed8" }}>
+                        <ExternalLink className="w-3 h-3" /> LinkedIn
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Suggestion */}
+                {selectedClinic.owner_enrichment_status === "suggested" && selectedClinic.owner_name_suggested && (
+                  <div className="rounded p-3 text-xs" style={{ background: "#fffbeb", border: "1px solid #fde68a" }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded" style={{
+                        background: selectedClinic.owner_confidence === "high" ? "#dcfce7" : selectedClinic.owner_confidence === "medium" ? "#fef3c7" : "#e5e7eb",
+                        color: selectedClinic.owner_confidence === "high" ? "#166534" : selectedClinic.owner_confidence === "medium" ? "#92400e" : "#374151",
+                      }}>{selectedClinic.owner_confidence || "low"} confidence</span>
+                      <span className="text-[10px]" style={{ color: "#6b7280" }}>Suggestion</span>
+                    </div>
+                    <div className="font-semibold" style={{ color: "#111111" }}>{selectedClinic.owner_name_suggested}</div>
+                    {selectedClinic.owner_title_suggested && <div className="text-[11px]" style={{ color: "#374151" }}>{selectedClinic.owner_title_suggested}</div>}
+                    <div className="flex flex-wrap gap-3 mt-1">
+                      {selectedClinic.linkedin_url_suggested && (
+                        <a href={selectedClinic.linkedin_url_suggested} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] underline" style={{ color: "#1d4ed8" }}>
+                          <ExternalLink className="w-3 h-3" /> LinkedIn
+                        </a>
+                      )}
+                      {selectedClinic.owner_source_url && (
+                        <a href={selectedClinic.owner_source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] underline" style={{ color: "#6b7280" }}>
+                          <ExternalLink className="w-3 h-3" /> source
+                        </a>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => confirmOwnerSuggestion(selectedClinic)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded"
+                        style={{ background: "#16a34a", color: "#ffffff" }}
+                      >
+                        <Check className="w-3 h-3" /> Confirm
+                      </button>
+                      <button
+                        onClick={() => rejectOwnerSuggestion(selectedClinic)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border"
+                        style={{ color: "#111111", borderColor: "#ebebeb", background: "#ffffff" }}
+                      >
+                        <ThumbsDown className="w-3 h-3" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedClinic.owner_enrichment_status === "not_found" && (
+                  <div className="rounded p-2 text-xs flex items-center justify-between" style={{ background: "#f9f9f9", color: "#6b7280" }}>
+                    <span>No owner found — research manually.</span>
+                    <button onClick={() => enrichOwner(selectedClinic.id)} className="text-[11px] underline" style={{ color: "#111111" }}>Re-run</button>
+                  </div>
+                )}
+
+                {selectedClinic.owner_enrichment_status === "error" && (
+                  <div className="rounded p-2 text-xs flex items-center justify-between" style={{ background: "#fef2f2", color: "#991b1b" }}>
+                    <span>Research failed. Try again.</span>
+                    <button onClick={() => enrichOwner(selectedClinic.id)} className="text-[11px] underline" style={{ color: "#991b1b" }}>Re-run</button>
+                  </div>
+                )}
+
+                {selectedClinic.owner_enrichment_status === "none"
+                  && !selectedClinic.owner_name
+                  && !enrichingIds.has(selectedClinic.id) && (
+                  <div className="text-[11px]" style={{ color: "#6b7280" }}>No owner on file yet. Use Auto-find owner above.</div>
+                )}
+              </div>
+
+
 
               {/* ===== SECTION 2: LOG ACTIVITY ===== */}
               <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
@@ -2194,5 +2412,33 @@ function PipelineBoard({
 
 
 declare module "react" {}
+
+function OwnerDot({ clinic }: { clinic: Clinic }) {
+  let color = "#d1d5db"; // grey = none
+  let title = "No owner on file";
+  let label = "";
+  if (clinic.owner_name || clinic.owner_enrichment_status === "confirmed") {
+    color = "#22c55e";
+    title = `Owner: ${clinic.owner_name ?? "confirmed"}`;
+  } else if (clinic.owner_enrichment_status === "suggested") {
+    color = "#f59e0b";
+    title = `Owner suggestion: ${clinic.owner_name_suggested ?? ""}`;
+    label = "?";
+  } else if (clinic.owner_enrichment_status === "not_found") {
+    color = "#e5e7eb";
+    title = "Owner research returned no match";
+    label = "—";
+  }
+  return (
+    <span
+      className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-full shrink-0 text-[8px] font-bold"
+      style={{ background: color, color: "#111111" }}
+      title={title}
+    >
+      {label}
+    </span>
+  );
+}
+
 
 
