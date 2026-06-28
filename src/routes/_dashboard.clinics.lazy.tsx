@@ -1105,6 +1105,20 @@ function ClinicsPage() {
               <Sparkles className="w-3 h-3 mr-1" /> Find owners ({pendingEnrichClinics.length} pending)
             </Button>
           )}
+          <Button
+            onClick={() => setReviewSuggestionsOnly((v) => !v)}
+            size="sm"
+            variant="ghost"
+            className="text-xs h-9 border"
+            style={{
+              color: reviewSuggestionsOnly ? "#ffffff" : "#111111",
+              background: reviewSuggestionsOnly ? "#f59e0b" : "transparent",
+              borderColor: reviewSuggestionsOnly ? "#f59e0b" : "#ebebeb",
+            }}
+            title="Show only clinics with AI owner suggestions waiting for review"
+          >
+            {reviewSuggestionsOnly ? "✓ " : ""}Review suggestions ({suggestedCount})
+          </Button>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
             onClick={() => fileInputRef.current?.click()}
