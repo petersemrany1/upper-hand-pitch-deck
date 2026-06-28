@@ -455,6 +455,93 @@ function ClinicsPage() {
     setLoading(false);
   }, []);
 
+  // ===== Owner enrichment =====
+  const [enrichingIds, setEnrichingIds] = useState<Set<string>>(new Set());
+  const [batchEnrich, setBatchEnrich] = useState<{ running: boolean; current: number; total: number }>({ running: false, current: 0, total: 0 });
+  const batchCancelRef = useRef(false);
+
+  const refreshClinic = useCallback(async (clinicId: string) => {
+    const { data } = await supabase.from("clinics").select("*").eq("id", clinicId).maybeSingle();
+    if (!data) return;
+    const row = data as Clinic;
+    setClinics((prev) => prev.map((c) => c.id === clinicId ? row : c));
+    setSelectedClinic((prev) => prev && prev.id === clinicId ? row : prev);
+  }, []);
+
+  const enrichOwner = useCallback(async (clinicId: string): Promise<boolean> => {
+    setEnrichingIds((prev) => { const n = new Set(prev); n.add(clinicId); return n; });
+    try {
+      const { error } = await supabase.functions.invoke("enrich-clinic-owner", { body: { clinic_id: clinicId } });
+      if (error) { toast.error(`Owner research failed: ${error.message}`); return false; }
+      await refreshClinic(clinicId);
+      return true;
+    } catch (e) {
+      toast.error(`Owner research failed: ${(e as Error).message}`);
+      return false;
+    } finally {
+      setEnrichingIds((prev) => { const n = new Set(prev); n.delete(clinicId); return n; });
+    }
+  }, [refreshClinic]);
+
+  const confirmOwnerSuggestion = useCallback(async (clinic: Clinic) => {
+    const update = {
+      owner_name: clinic.owner_name_suggested,
+      owner_title: clinic.owner_title_suggested,
+      linkedin_url: clinic.linkedin_url_suggested,
+      owner_enrichment_status: "confirmed",
+      owner_name_suggested: null,
+      owner_title_suggested: null,
+      linkedin_url_suggested: null,
+    };
+    await supabase.from("clinics").update(update).eq("id", clinic.id);
+    await refreshClinic(clinic.id);
+    setEditOwner(clinic.owner_name_suggested || "");
+    toast.success("Owner confirmed");
+  }, [refreshClinic]);
+
+  const rejectOwnerSuggestion = useCallback(async (clinic: Clinic) => {
+    await supabase.from("clinics").update({
+      owner_enrichment_status: "none",
+      owner_name_suggested: null,
+      owner_title_suggested: null,
+      linkedin_url_suggested: null,
+    }).eq("id", clinic.id);
+    await refreshClinic(clinic.id);
+  }, [refreshClinic]);
+
+  const pendingEnrichClinics = clinics.filter((c) =>
+    REACTIVATION_STAGES.has(c.status)
+    && (c.owner_enrichment_status === "none" || c.owner_enrichment_status === "error")
+    && !c.owner_name
+  );
+
+  const startBatchEnrich = useCallback(async () => {
+    const targets = pendingEnrichClinics.map((c) => c.id);
+    if (targets.length === 0) return;
+    batchCancelRef.current = false;
+    setBatchEnrich({ running: true, current: 0, total: targets.length });
+    let done = 0;
+    const CONCURRENCY = 3;
+    let cursor = 0;
+    const next = async () => {
+      while (true) {
+        if (batchCancelRef.current) return;
+        const i = cursor++;
+        if (i >= targets.length) return;
+        await enrichOwner(targets[i]);
+        done++;
+        setBatchEnrich((p) => ({ ...p, current: done }));
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(CONCURRENCY, targets.length) }, () => next()));
+    setBatchEnrich({ running: false, current: 0, total: 0 });
+    await loadClinics();
+  }, [pendingEnrichClinics, enrichOwner, loadClinics]);
+
+  const cancelBatchEnrich = useCallback(() => { batchCancelRef.current = true; }, []);
+
+
+
 
   const loadLastContacts = useCallback(async () => {
     // Only fetch latest contact per clinic. Cap rows to avoid scanning the full
