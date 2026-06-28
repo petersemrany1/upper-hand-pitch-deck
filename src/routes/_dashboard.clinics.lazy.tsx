@@ -1446,6 +1446,15 @@ function ClinicsPage() {
                         </div>
                       </div>
 
+                      {c.owner_enrichment_status === "suggested" && c.owner_name_suggested && (
+                        <OwnerSuggestionReviewPanel
+                          clinic={c}
+                          isChild={isChild}
+                          onConfirm={() => confirmOwnerSuggestion(c)}
+                          onReject={() => rejectOwnerSuggestion(c)}
+                        />
+                      )}
+
                       {showCallbackDetail && (
                         <div
                           className="px-3 md:px-4 py-2 text-[11px] leading-relaxed"
