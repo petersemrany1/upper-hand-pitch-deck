@@ -1004,8 +1004,8 @@ function ClinicsPage() {
   // Hide Signed clinics from the CRM list unless the user explicitly filters by Signed
   const hideSigned = filterStatus !== "Signed";
   const filtered = clinics.filter((c) => {
-    if (ownerFilter === "hasOwner" && !c.owner_name) return false;
-    if (ownerFilter === "missingOwner" && !!c.owner_name) return false;
+    if (ownerFilter === "hasOwner" && c.owner_enrichment_status !== "confirmed") return false;
+    if (ownerFilter === "missingOwner" && c.owner_enrichment_status === "confirmed") return false;
     if (hideSigned && c.status === "Signed") return false;
     if (rowMatchesSelf(c)) return true;
     if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
@@ -1130,7 +1130,7 @@ function ClinicsPage() {
               borderColor: ownerFilter === "hasOwner" ? "#10b981" : "#ebebeb",
             }}
           >
-            Has owner ({clinics.filter((c) => !!c.owner_name).length})
+            Has owner ({clinics.filter((c) => c.owner_enrichment_status === "confirmed").length})
           </Button>
           <Button
             onClick={() => setOwnerFilter("missingOwner")}
@@ -1143,7 +1143,7 @@ function ClinicsPage() {
               borderColor: ownerFilter === "missingOwner" ? "#f59e0b" : "#ebebeb",
             }}
           >
-            Missing owner ({clinics.filter((c) => !c.owner_name).length})
+            Missing owner ({clinics.filter((c) => c.owner_enrichment_status !== "confirmed").length})
           </Button>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
@@ -2469,9 +2469,12 @@ function OwnerDot({ clinic }: { clinic: Clinic }) {
   let color = "#d1d5db"; // grey = none
   let title = "No owner on file";
   let label = "";
-  if (clinic.owner_name || clinic.owner_enrichment_status === "confirmed") {
+  if (clinic.owner_enrichment_status === "confirmed") {
     color = "#22c55e";
-    title = `Owner: ${clinic.owner_name ?? "confirmed"}`;
+    title = `Owner (confirmed): ${clinic.owner_name ?? ""}`;
+  } else if (clinic.owner_name) {
+    color = "#3b82f6";
+    title = `Manually entered: ${clinic.owner_name}`;
   } else if (clinic.owner_enrichment_status === "suggested") {
     color = "#f59e0b";
     title = `Owner suggestion: ${clinic.owner_name_suggested ?? ""}`;
