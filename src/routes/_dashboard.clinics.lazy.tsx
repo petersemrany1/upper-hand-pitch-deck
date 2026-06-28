@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Search, Plus, Phone, Mail, X, ChevronDown, ChevronRight,
   PhoneCall, Loader2, ExternalLink, Calendar, MessageSquare,
-  Upload, Clock, AlertCircle, Trash2, Video, Send,
+  Upload, Clock, AlertCircle, Trash2, Video, Send, Sparkles, Check, ThumbsDown,
 } from "lucide-react";
 import { sendPaymentLinkSMS } from "@/utils/twilio.functions";
 import { sendBoldContractEmail } from "@/utils/bold-contract.functions";
