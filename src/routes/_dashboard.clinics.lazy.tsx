@@ -2469,9 +2469,12 @@ function OwnerDot({ clinic }: { clinic: Clinic }) {
   let color = "#d1d5db"; // grey = none
   let title = "No owner on file";
   let label = "";
-  if (clinic.owner_name || clinic.owner_enrichment_status === "confirmed") {
+  if (clinic.owner_enrichment_status === "confirmed") {
     color = "#22c55e";
-    title = `Owner: ${clinic.owner_name ?? "confirmed"}`;
+    title = `Owner (confirmed): ${clinic.owner_name ?? ""}`;
+  } else if (clinic.owner_name && clinic.owner_enrichment_status !== "confirmed") {
+    color = "#3b82f6";
+    title = `Manually entered: ${clinic.owner_name}`;
   } else if (clinic.owner_enrichment_status === "suggested") {
     color = "#f59e0b";
     title = `Owner suggestion: ${clinic.owner_name_suggested ?? ""}`;
