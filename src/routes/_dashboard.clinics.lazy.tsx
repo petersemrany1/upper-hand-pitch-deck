@@ -2472,7 +2472,7 @@ function OwnerDot({ clinic }: { clinic: Clinic }) {
   if (clinic.owner_enrichment_status === "confirmed") {
     color = "#22c55e";
     title = `Owner (confirmed): ${clinic.owner_name ?? ""}`;
-  } else if (clinic.owner_name && clinic.owner_enrichment_status !== "confirmed") {
+  } else if (clinic.owner_name) {
     color = "#3b82f6";
     title = `Manually entered: ${clinic.owner_name}`;
   } else if (clinic.owner_enrichment_status === "suggested") {
