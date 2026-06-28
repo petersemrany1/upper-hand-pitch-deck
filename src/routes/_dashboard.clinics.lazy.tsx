@@ -253,6 +253,7 @@ function ClinicsPage() {
     init["Unknown"] = true;
     return init;
   });
+  const [reviewSuggestionsOnly, setReviewSuggestionsOnly] = useState(false);
 
   // Resizable column widths (persisted)
   type ColKey = "name" | "city" | "phone" | "note" | "stage" | "actions";
