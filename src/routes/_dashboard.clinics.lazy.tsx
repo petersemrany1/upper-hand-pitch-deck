@@ -1107,18 +1107,43 @@ function ClinicsPage() {
             </Button>
           )}
           <Button
-            onClick={() => setReviewSuggestionsOnly((v) => !v)}
+            onClick={() => setOwnerFilter("all")}
             size="sm"
             variant="ghost"
             className="text-xs h-9 border"
             style={{
-              color: reviewSuggestionsOnly ? "#ffffff" : "#111111",
-              background: reviewSuggestionsOnly ? "#f59e0b" : "transparent",
-              borderColor: reviewSuggestionsOnly ? "#f59e0b" : "#ebebeb",
+              color: ownerFilter === "all" ? "#ffffff" : "#111111",
+              background: ownerFilter === "all" ? "#111111" : "transparent",
+              borderColor: ownerFilter === "all" ? "#111111" : "#ebebeb",
             }}
-            title="Show only clinics with AI owner suggestions waiting for review"
           >
-            {reviewSuggestionsOnly ? "✓ " : ""}Review suggestions ({suggestedCount})
+            All
+          </Button>
+          <Button
+            onClick={() => setOwnerFilter("hasOwner")}
+            size="sm"
+            variant="ghost"
+            className="text-xs h-9 border"
+            style={{
+              color: ownerFilter === "hasOwner" ? "#ffffff" : "#111111",
+              background: ownerFilter === "hasOwner" ? "#10b981" : "transparent",
+              borderColor: ownerFilter === "hasOwner" ? "#10b981" : "#ebebeb",
+            }}
+          >
+            Has owner ({clinics.filter((c) => !!c.owner_name).length})
+          </Button>
+          <Button
+            onClick={() => setOwnerFilter("missingOwner")}
+            size="sm"
+            variant="ghost"
+            className="text-xs h-9 border"
+            style={{
+              color: ownerFilter === "missingOwner" ? "#ffffff" : "#111111",
+              background: ownerFilter === "missingOwner" ? "#f59e0b" : "transparent",
+              borderColor: ownerFilter === "missingOwner" ? "#f59e0b" : "#ebebeb",
+            }}
+          >
+            Missing owner ({clinics.filter((c) => !c.owner_name).length})
           </Button>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
