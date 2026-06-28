@@ -1678,6 +1678,101 @@ function ClinicsPage() {
                 </div>
               </div>
 
+              {/* ===== OWNER INTEL ===== */}
+              <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[10px] uppercase font-bold" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>OWNER INTEL</div>
+                  <button
+                    onClick={() => enrichOwner(selectedClinic.id)}
+                    disabled={enrichingIds.has(selectedClinic.id)}
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded border disabled:opacity-50"
+                    style={{ color: "#111111", borderColor: "#ebebeb", background: "#f9f9f9" }}
+                  >
+                    {enrichingIds.has(selectedClinic.id)
+                      ? <><Loader2 className="w-3 h-3 animate-spin" /> Researching…</>
+                      : <><Sparkles className="w-3 h-3" /> Auto-find owner</>}
+                  </button>
+                </div>
+
+                {/* Confirmed owner */}
+                {(selectedClinic.owner_name || selectedClinic.owner_title || selectedClinic.linkedin_url) && (
+                  <div className="rounded p-2 mb-2 text-xs" style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", color: "#111111" }}>
+                    <div className="font-semibold">{selectedClinic.owner_name || "—"}</div>
+                    {selectedClinic.owner_title && <div className="text-[11px] opacity-80">{selectedClinic.owner_title}</div>}
+                    {selectedClinic.linkedin_url && (
+                      <a href={selectedClinic.linkedin_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] mt-1 underline" style={{ color: "#1d4ed8" }}>
+                        <ExternalLink className="w-3 h-3" /> LinkedIn
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {/* Suggestion */}
+                {selectedClinic.owner_enrichment_status === "suggested" && selectedClinic.owner_name_suggested && (
+                  <div className="rounded p-3 text-xs" style={{ background: "#fffbeb", border: "1px solid #fde68a" }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded" style={{
+                        background: selectedClinic.owner_confidence === "high" ? "#dcfce7" : selectedClinic.owner_confidence === "medium" ? "#fef3c7" : "#e5e7eb",
+                        color: selectedClinic.owner_confidence === "high" ? "#166534" : selectedClinic.owner_confidence === "medium" ? "#92400e" : "#374151",
+                      }}>{selectedClinic.owner_confidence || "low"} confidence</span>
+                      <span className="text-[10px]" style={{ color: "#6b7280" }}>Suggestion</span>
+                    </div>
+                    <div className="font-semibold" style={{ color: "#111111" }}>{selectedClinic.owner_name_suggested}</div>
+                    {selectedClinic.owner_title_suggested && <div className="text-[11px]" style={{ color: "#374151" }}>{selectedClinic.owner_title_suggested}</div>}
+                    <div className="flex flex-wrap gap-3 mt-1">
+                      {selectedClinic.linkedin_url_suggested && (
+                        <a href={selectedClinic.linkedin_url_suggested} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] underline" style={{ color: "#1d4ed8" }}>
+                          <ExternalLink className="w-3 h-3" /> LinkedIn
+                        </a>
+                      )}
+                      {selectedClinic.owner_source_url && (
+                        <a href={selectedClinic.owner_source_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[11px] underline" style={{ color: "#6b7280" }}>
+                          <ExternalLink className="w-3 h-3" /> source
+                        </a>
+                      )}
+                    </div>
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={() => confirmOwnerSuggestion(selectedClinic)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded"
+                        style={{ background: "#16a34a", color: "#ffffff" }}
+                      >
+                        <Check className="w-3 h-3" /> Confirm
+                      </button>
+                      <button
+                        onClick={() => rejectOwnerSuggestion(selectedClinic)}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded border"
+                        style={{ color: "#111111", borderColor: "#ebebeb", background: "#ffffff" }}
+                      >
+                        <ThumbsDown className="w-3 h-3" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {selectedClinic.owner_enrichment_status === "not_found" && (
+                  <div className="rounded p-2 text-xs flex items-center justify-between" style={{ background: "#f9f9f9", color: "#6b7280" }}>
+                    <span>No owner found — research manually.</span>
+                    <button onClick={() => enrichOwner(selectedClinic.id)} className="text-[11px] underline" style={{ color: "#111111" }}>Re-run</button>
+                  </div>
+                )}
+
+                {selectedClinic.owner_enrichment_status === "error" && (
+                  <div className="rounded p-2 text-xs flex items-center justify-between" style={{ background: "#fef2f2", color: "#991b1b" }}>
+                    <span>Research failed. Try again.</span>
+                    <button onClick={() => enrichOwner(selectedClinic.id)} className="text-[11px] underline" style={{ color: "#991b1b" }}>Re-run</button>
+                  </div>
+                )}
+
+                {selectedClinic.owner_enrichment_status === "none"
+                  && !selectedClinic.owner_name
+                  && !enrichingIds.has(selectedClinic.id) && (
+                  <div className="text-[11px]" style={{ color: "#6b7280" }}>No owner on file yet. Use Auto-find owner above.</div>
+                )}
+              </div>
+
+
+
               {/* ===== SECTION 2: LOG ACTIVITY ===== */}
               <div className="rounded-lg p-4" style={{ background: "#ffffff", border: "1px solid #ebebeb" }}>
                 <div className="text-[10px] uppercase font-bold mb-3" style={{ color: "#f4522d", letterSpacing: "0.15em" }}>LOG ACTIVITY</div>
