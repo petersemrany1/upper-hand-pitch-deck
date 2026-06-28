@@ -1085,6 +1085,23 @@ function ClinicsPage() {
           <Button onClick={() => setShowAddModal(true)} size="sm" className="border-0 text-xs" style={{ background: "#f4522d", color: "#111111" }}>
             <Plus className="w-3 h-3 mr-1" /> Add
           </Button>
+          {batchEnrich.running ? (
+            <Button onClick={cancelBatchEnrich} size="sm" variant="ghost" className="text-xs h-9 border" style={{ color: "#111111", borderColor: "#ebebeb" }}>
+              <Loader2 className="w-3 h-3 mr-1 animate-spin" /> Researching {batchEnrich.current} / {batchEnrich.total}… (cancel)
+            </Button>
+          ) : (
+            <Button
+              onClick={startBatchEnrich}
+              disabled={pendingEnrichClinics.length === 0}
+              size="sm"
+              variant="ghost"
+              className="text-xs h-9 border"
+              style={{ color: "#111111", borderColor: "#ebebeb" }}
+              title="Web search to find each clinic's owner / principal surgeon"
+            >
+              <Sparkles className="w-3 h-3 mr-1" /> Find owners ({pendingEnrichClinics.length} pending)
+            </Button>
+          )}
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
             onClick={() => fileInputRef.current?.click()}
