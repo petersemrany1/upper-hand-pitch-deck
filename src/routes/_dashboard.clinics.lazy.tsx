@@ -1194,7 +1194,7 @@ function ClinicsPage() {
         </div>
 
         {sortedStates.map((state) => {
-          const isCollapsed = collapsedStates[state] !== false;
+          const isCollapsed = reviewSuggestionsOnly ? false : (collapsedStates[state] !== false);
           const stateClinics = grouped[state];
           const abbr = STATES_ABBR[state] || state;
           return (
