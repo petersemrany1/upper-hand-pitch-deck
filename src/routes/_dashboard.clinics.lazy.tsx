@@ -1004,11 +1004,13 @@ function ClinicsPage() {
   // Hide Signed clinics from the CRM list unless the user explicitly filters by Signed
   const hideSigned = filterStatus !== "Signed";
   const filtered = clinics.filter((c) => {
+    if (reviewSuggestionsOnly && c.owner_enrichment_status !== "suggested") return false;
     if (hideSigned && c.status === "Signed") return false;
     if (rowMatchesSelf(c)) return true;
     if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
     return false;
   });
+  const suggestedCount = clinics.filter((c) => c.owner_enrichment_status === "suggested").length;
   // Auto-expand parents when a child matches search/filter
   const autoExpandedParents = new Set<string>();
   if (q || filterState || filterStatus) {
