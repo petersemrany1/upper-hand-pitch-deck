@@ -1130,7 +1130,7 @@ function ClinicsPage() {
               borderColor: ownerFilter === "hasOwner" ? "#10b981" : "#ebebeb",
             }}
           >
-            Has owner ({clinics.filter((c) => !!c.owner_name).length})
+            Has owner ({clinics.filter((c) => c.owner_enrichment_status === "confirmed").length})
           </Button>
           <Button
             onClick={() => setOwnerFilter("missingOwner")}
@@ -1143,7 +1143,7 @@ function ClinicsPage() {
               borderColor: ownerFilter === "missingOwner" ? "#f59e0b" : "#ebebeb",
             }}
           >
-            Missing owner ({clinics.filter((c) => !c.owner_name).length})
+            Missing owner ({clinics.filter((c) => c.owner_enrichment_status !== "confirmed").length})
           </Button>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
