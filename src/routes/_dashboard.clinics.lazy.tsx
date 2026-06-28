@@ -1004,7 +1004,8 @@ function ClinicsPage() {
   // Hide Signed clinics from the CRM list unless the user explicitly filters by Signed
   const hideSigned = filterStatus !== "Signed";
   const filtered = clinics.filter((c) => {
-    if (reviewSuggestionsOnly && c.owner_enrichment_status !== "suggested") return false;
+    if (ownerFilter === "hasOwner" && !c.owner_name) return false;
+    if (ownerFilter === "missingOwner" && !!c.owner_name) return false;
     if (hideSigned && c.status === "Signed") return false;
     if (rowMatchesSelf(c)) return true;
     if (c.is_parent && (childrenByParent[c.id] || []).some(rowMatchesSelf)) return true;
