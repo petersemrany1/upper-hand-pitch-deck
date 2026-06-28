@@ -95,7 +95,7 @@ If you genuinely cannot find a named owner, return owner_name: null with confide
       body: JSON.stringify({
         model: "claude-sonnet-4-5",
         max_tokens: 1024,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
+        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
         messages: [{ role: "user", content: prompt }],
       }),
     });
