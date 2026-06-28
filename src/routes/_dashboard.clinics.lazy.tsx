@@ -1,4 +1,4 @@
-import { createLazyFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createLazyFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
@@ -1145,6 +1145,13 @@ function ClinicsPage() {
           >
             Missing owner ({clinics.filter((c) => c.owner_enrichment_status !== "confirmed").length})
           </Button>
+          <Link
+            to="/clinic-owner-review"
+            className="text-xs h-9 border inline-flex items-center px-3 rounded-md"
+            style={{ color: "#ffffff", background: "#7c3aed", borderColor: "#7c3aed", textDecoration: "none", fontWeight: 500 }}
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Bulk owner review
+          </Link>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
             onClick={() => fileInputRef.current?.click()}
