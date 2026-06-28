@@ -1152,6 +1152,13 @@ function ClinicsPage() {
           >
             <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Bulk owner review
           </Link>
+          <Link
+            to="/clinic-contact-review"
+            className="text-xs h-9 border inline-flex items-center px-3 rounded-md"
+            style={{ color: "#ffffff", background: "#0ea5e9", borderColor: "#0ea5e9", textDecoration: "none", fontWeight: 500 }}
+          >
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" /> Bulk contact review
+          </Link>
           <input ref={fileInputRef} type="file" accept=".csv" onChange={handleBulkUpload} className="hidden" />
           <Button
             onClick={() => fileInputRef.current?.click()}

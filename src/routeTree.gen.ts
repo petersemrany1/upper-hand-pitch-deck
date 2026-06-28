@@ -31,6 +31,7 @@ import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.le
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
+import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dashboard.clinic-contact-review'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
@@ -173,6 +174,12 @@ const DashboardClinicOwnerReviewRoute =
   DashboardClinicOwnerReviewRouteImport.update({
     id: '/clinic-owner-review',
     path: '/clinic-owner-review',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardClinicContactReviewRoute =
+  DashboardClinicContactReviewRouteImport.update({
+    id: '/clinic-contact-review',
+    path: '/clinic-contact-review',
     getParentRoute: () => DashboardRoute,
   } as any)
 const DashboardClientsRoute = DashboardClientsRouteImport.update({
@@ -321,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
+  '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
@@ -366,6 +374,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/clients': typeof DashboardClientsRoute
+  '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
@@ -413,6 +422,7 @@ export interface FileRoutesById {
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
+  '/_dashboard/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/_dashboard/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
@@ -462,6 +472,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/booked-appointments'
     | '/clients'
+    | '/clinic-contact-review'
     | '/clinic-owner-review'
     | '/clinics'
     | '/inbox'
@@ -507,6 +518,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/booked-appointments'
     | '/clients'
+    | '/clinic-contact-review'
     | '/clinic-owner-review'
     | '/clinics'
     | '/inbox'
@@ -553,6 +565,7 @@ export interface FileRouteTypes {
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
     | '/_dashboard/clients'
+    | '/_dashboard/clinic-contact-review'
     | '/_dashboard/clinic-owner-review'
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
@@ -767,6 +780,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardClinicOwnerReviewRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/clinic-contact-review': {
+      id: '/_dashboard/clinic-contact-review'
+      path: '/clinic-contact-review'
+      fullPath: '/clinic-contact-review'
+      preLoaderRoute: typeof DashboardClinicContactReviewRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/clients': {
       id: '/_dashboard/clients'
       path: '/clients'
@@ -970,6 +990,7 @@ interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBookedAppointmentsRoute: typeof DashboardBookedAppointmentsRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
+  DashboardClinicContactReviewRoute: typeof DashboardClinicContactReviewRoute
   DashboardClinicOwnerReviewRoute: typeof DashboardClinicOwnerReviewRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
@@ -991,6 +1012,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBookedAppointmentsRoute: DashboardBookedAppointmentsRoute,
   DashboardClientsRoute: DashboardClientsRoute,
+  DashboardClinicContactReviewRoute: DashboardClinicContactReviewRoute,
   DashboardClinicOwnerReviewRoute: DashboardClinicOwnerReviewRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
@@ -1036,12 +1058,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

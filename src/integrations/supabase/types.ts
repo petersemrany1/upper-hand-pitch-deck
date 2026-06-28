@@ -600,6 +600,11 @@ export type Database = {
           consult_price_deposit: number | null
           consult_price_free: boolean
           consult_price_original: number | null
+          contact_confidence: string | null
+          contact_enriched_at: string | null
+          contact_enrichment_raw: Json | null
+          contact_enrichment_status: string | null
+          contact_source_url: string | null
           created_at: string
           doctor_name: string | null
           email: string | null
@@ -614,9 +619,12 @@ export type Database = {
           next_follow_up: string | null
           notes: string | null
           owner_confidence: string | null
+          owner_email: string | null
+          owner_email_suggested: string | null
           owner_enriched_at: string | null
           owner_enrichment_raw: Json | null
           owner_enrichment_status: string
+          owner_linkedin_suggested: string | null
           owner_name: string | null
           owner_name_suggested: string | null
           owner_source_url: string | null
@@ -640,6 +648,11 @@ export type Database = {
           consult_price_deposit?: number | null
           consult_price_free?: boolean
           consult_price_original?: number | null
+          contact_confidence?: string | null
+          contact_enriched_at?: string | null
+          contact_enrichment_raw?: Json | null
+          contact_enrichment_status?: string | null
+          contact_source_url?: string | null
           created_at?: string
           doctor_name?: string | null
           email?: string | null
@@ -654,9 +667,12 @@ export type Database = {
           next_follow_up?: string | null
           notes?: string | null
           owner_confidence?: string | null
+          owner_email?: string | null
+          owner_email_suggested?: string | null
           owner_enriched_at?: string | null
           owner_enrichment_raw?: Json | null
           owner_enrichment_status?: string
+          owner_linkedin_suggested?: string | null
           owner_name?: string | null
           owner_name_suggested?: string | null
           owner_source_url?: string | null
@@ -680,6 +696,11 @@ export type Database = {
           consult_price_deposit?: number | null
           consult_price_free?: boolean
           consult_price_original?: number | null
+          contact_confidence?: string | null
+          contact_enriched_at?: string | null
+          contact_enrichment_raw?: Json | null
+          contact_enrichment_status?: string | null
+          contact_source_url?: string | null
           created_at?: string
           doctor_name?: string | null
           email?: string | null
@@ -694,9 +715,12 @@ export type Database = {
           next_follow_up?: string | null
           notes?: string | null
           owner_confidence?: string | null
+          owner_email?: string | null
+          owner_email_suggested?: string | null
           owner_enriched_at?: string | null
           owner_enrichment_raw?: Json | null
           owner_enrichment_status?: string
+          owner_linkedin_suggested?: string | null
           owner_name?: string | null
           owner_name_suggested?: string | null
           owner_source_url?: string | null
