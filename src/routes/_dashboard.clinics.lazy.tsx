@@ -1,4 +1,4 @@
-import { createLazyFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createLazyFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
