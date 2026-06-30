@@ -2878,23 +2878,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         clinic_id: form.clinicId || null,
         status: "booked_deposit_paid",
       };
-      onBookedSaved?.(lead.id, bookingPatch);
-      onBooked();
-      toast.success("Appointment booked!");
 
-      // NOTE: appointment reminders are NOT created here. They are created
-      // only once the deposit is confirmed (handleConfirmDepositPaid below),
-      // because no-deposit bookings are unreliable and shouldn't trigger SMS
-      // reminders or appear on the Booked Appointments dashboard.
-
-      // Clear persisted form draft now that booking is saved
-      try {
-        if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
-      } catch { /* ignore */ }
-
-      // Auto-fire patient booking SMS with a 5s Undo window so the rep
-      // gets the text out while still on the call. Rep can cancel via the
-      // toast action button if they fat-fingered something.
+      // FIRE CONFIRMATION SMS IMMEDIATELY (before navigating to next lead).
+      // Previously this ran via a 5s countdown popup that often got unmounted
+      // by onBooked()/screen-swap, killing the timer and silently dropping
+      // the SMS (e.g. Wisam — see chat history). Now we send fire-and-forget
+      // on the server so it can't be cancelled by a re-render.
       if (lead.phone) {
         const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
         const selectedClinic = clinics.find((c) => c.id === form.clinicId);
@@ -2915,9 +2904,43 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         })();
         const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
         const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
-        setPatientSmsCountdown(5);
-        setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
+        const phoneCapture = lead.phone;
+        const leadIdCapture = lead.id;
+        // Fire-and-forget — do NOT await; survives unmount because the
+        // network request is already in-flight on the server.
+        void sendManualSms({ data: { leadId: leadIdCapture, phone: phoneCapture, body: smsBody } })
+          .then((sres) => {
+            if (sres.success) {
+              setConfirmationSent(true);
+              setPatientSmsSentPopup({ phone: phoneCapture });
+              setPatientSmsSentPopupDismissed(false);
+              toast.success("Patient confirmation SMS sent ✓");
+            } else {
+              toast.error(`Patient SMS failed: ${sres.error ?? "unknown"} — resend manually from the inbox.`);
+            }
+          })
+          .catch((e) => {
+            console.error("[book] patient SMS failed", e);
+            toast.error("Patient SMS failed to send — resend manually from the inbox.");
+          });
+        // Optimistically show the "sent" pill so the rep sees confirmation
+        // even if the screen swaps to the next lead immediately.
+        setConfirmationSent(true);
       }
+
+      onBookedSaved?.(lead.id, bookingPatch);
+      onBooked();
+      toast.success("Appointment booked!");
+
+      // NOTE: appointment reminders are NOT created here. They are created
+      // only once the deposit is confirmed (handleConfirmDepositPaid below),
+      // because no-deposit bookings are unreliable and shouldn't trigger SMS
+      // reminders or appear on the Booked Appointments dashboard.
+
+      // Clear persisted form draft now that booking is saved
+      try {
+        if (typeof window !== "undefined") window.localStorage.removeItem(FORM_KEY);
+      } catch { /* ignore */ }
     } else {
       toast.error(r.error);
     }
