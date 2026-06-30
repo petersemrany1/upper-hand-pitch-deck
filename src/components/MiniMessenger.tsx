@@ -36,7 +36,7 @@ function fmtTime(iso: string | null): string {
   const d = new Date(iso);
   const now = new Date();
   const sameDay = d.toDateString() === now.toDateString();
-  if (sameDay) return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  if (sameDay) return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
   return d.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
