@@ -226,8 +226,10 @@ function BookedAppointmentsPage() {
       .eq("id", r.id);
     if (upd.error) { setBusy(null); toast.error("Cancel failed"); return; }
     if (r.lead_id) {
-      await updateLeadStatus({ data: { leadId: r.lead_id, status: "cancelled" } });
+      // Free the clinic slot first (clearBooking also resets status to "new"),
+      // THEN set status to "cancelled" so it isn't overwritten.
       await clearBooking({ data: { leadId: r.lead_id } });
+      await updateLeadStatus({ data: { leadId: r.lead_id, status: "cancelled" } });
     }
     setBusy(null);
     setConfirmCancel(null);
