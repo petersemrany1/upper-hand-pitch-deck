@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Trophy, Crown, Plus, Bot, X, Sparkles } from "lucide-react";
+import { Trophy, Crown, Plus, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { inviteRep, getLeaderboard, ensureRepForEmail } from "@/utils/sales-call.functions";
 import { analyseCallPatterns } from "@/utils/resend.functions";
@@ -12,15 +13,16 @@ export const Route = createFileRoute("/_dashboard/leaderboard")({
   component: LeaderboardPage,
 });
 
-const C = {
-  bg: "#f7f7f5", card: "#ffffff", line: "#ebebeb", text: "#111111", muted: "#111111",
-  coral: "#f4522d", green: "#16a34a", amber: "#f59e0b", red: "#ef4444", gold: "#fbbf24",
-};
-// Backwards-compat alias used in a few inline styles below
-const BLUE = "#f4522d";
-
 type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
 type Row = Awaited<ReturnType<typeof getLeaderboard>>["rows"][number];
+
+/** Traffic-light colour for a rate metric, as a token expression. */
+function rateTone(value: number, good: number, ok: number): string {
+  if (value === 0) return "var(--text-primary)";
+  if (value >= good) return "var(--pop-green)";
+  if (value >= ok) return "var(--pop-amber)";
+  return "var(--destructive)";
+}
 
 function LeaderboardPage() {
   const { user } = useAuth();
@@ -41,19 +43,13 @@ function LeaderboardPage() {
     const r = await getLeaderboard({ data: { range } });
     if (r.success) setRows(r.rows);
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range]);
+  useEffect(() => { void load();   }, [range]);
 
   // Realtime refresh on bookings/calls
-  useEffect(() => {
-    const ch = supabase.channel("leaderboard-stream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointment_reminders" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, () => void load())
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-    // eslint-disable-next-line
-  }, [range]);
+  useRealtimeSubscription({ table: "call_records" }, () => void load());
+  useRealtimeSubscription({ table: "meta_leads" }, () => void load());
+  useRealtimeSubscription({ table: "appointment_reminders" }, () => void load());
+  useRealtimeSubscription({ table: "clinic_appointments" }, () => void load());
 
   const onAddRep = async () => {
     if (!newRep.firstName.trim() || !newRep.lastName.trim() || !newRep.email.trim()) {
@@ -109,6 +105,7 @@ function LeaderboardPage() {
       if ((err as Error).name !== "AbortError") toast.error("Coach error");
     } finally { setCoachLoading(false); }
   };
+  void analyseLast; // kept for parity with previous build (coach entry point)
 
   const analysePatterns = async () => {
     setPatternOpen(true); setPatternText(""); setPatternLoading(true);
@@ -131,26 +128,23 @@ function LeaderboardPage() {
     { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
     { key: "30d", label: "30 Days" },
   ];
-  
 
   return (
-    <div className="h-full overflow-y-auto" style={{ background: C.bg, color: C.text }}>
+    <div className="h-full overflow-y-auto bg-surface-page text-foreground">
       <div className="px-6 py-6 max-w-7xl mx-auto">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <Trophy className="h-6 w-6" style={{ color: C.gold }} />
-            <h1 className="text-2xl font-bold">Leaderboard</h1>
+            <Trophy className="h-6 w-6 text-pop-amber" />
+            <h1 className="type-h1">Leaderboard</h1>
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
             <button onClick={() => void analysePatterns()} disabled={patternLoading}
-              className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-60"
-              style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6", border: "1px solid #8b5cf6" }}>
+              className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 disabled:opacity-60 bg-pop-purple-fill text-pop-purple border border-pop-purple">
               <Sparkles className="h-3.5 w-3.5" /> Call Patterns
             </button>
             <button onClick={() => setShowAdd(true)}
-              className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2"
-              style={{ background: BLUE, color: "#111111" }}>
+              className="px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-2 bg-primary text-primary-foreground">
               <Plus className="h-3.5 w-3.5" /> Add Rep
             </button>
           </div>
@@ -159,20 +153,19 @@ function LeaderboardPage() {
         <div className="mt-4 flex gap-1.5 flex-wrap">
           {ranges.map((r) => (
             <button key={r.key} onClick={() => setRange(r.key)}
-              className="px-3 py-1.5 text-xs font-bold rounded-md"
-              style={{
-                background: range === r.key ? BLUE : "transparent",
-                color: range === r.key ? "#fff" : C.muted,
-                border: `1px solid ${range === r.key ? BLUE : C.line}`,
-              }}>{r.label}</button>
+              className={`px-3 py-1.5 text-xs font-bold rounded-md border transition-colors ${
+                range === r.key
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-transparent text-muted-foreground border-line hover:text-foreground"
+              }`}>{r.label}</button>
           ))}
         </div>
 
-        <div className="mt-4 rounded-lg overflow-hidden" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+        <div className="mt-4 rounded-lg overflow-hidden bg-surface-card border border-line">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.muted, background: "#ffffff" }}>
+                <tr className="text-[10px] uppercase tracking-wider text-muted-foreground bg-surface-card">
                   <Th>Rank</Th>
                   <Th>Rep</Th>
                   <Th info="Twilio call attempts recorded in this period.">Calls</Th>
@@ -189,36 +182,40 @@ function LeaderboardPage() {
               </thead>
               <tbody>
                 {rows.map((r, i) => {
-                  const holdColor = r.holdRate === 0 ? "#111" : r.holdRate >= 60 ? C.green : r.holdRate >= 40 ? C.amber : C.red;
-                  const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : C.red;
+                  const holdColor = rateTone(r.holdRate, 60, 40);
+                  const convColor = rateTone(r.conversion, 70, 50);
                   const avgBreakMin = r.breakGaps > 0 ? r.breakMinutes / r.breakGaps : 0;
-                  const breakColor = avgBreakMin === 0 ? "#111" : avgBreakMin <= 1 ? C.green : avgBreakMin <= 3 ? C.amber : C.red;
+                  const breakColor =
+                    avgBreakMin === 0 ? "var(--text-primary)"
+                    : avgBreakMin <= 1 ? "var(--pop-green)"
+                    : avgBreakMin <= 3 ? "var(--pop-amber)"
+                    : "var(--destructive)";
                   // Peter Semrany develops the app, so his Work/Break aren't real shift data — hide them.
                   const isPeter = (r.name ?? "").trim().toLowerCase() === "peter semrany";
                   return (
-                    <tr key={r.id} className="border-t" style={{ borderColor: C.line, background: i === 0 ? "rgba(251,191,36,0.05)" : "transparent" }}>
+                    <tr key={r.id} className={`border-t border-line ${i === 0 ? "bg-pop-amber-fill/50" : ""}`}>
                       <Td>
                         <div className="flex items-center gap-1.5">
-                          {i === 0 ? <Crown className="h-4 w-4" style={{ color: C.gold }} /> : <span style={{ color: "#111" }}>#{i + 1}</span>}
-                          {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: C.gold, color: "#111" }}>Leader</span>}
+                          {i === 0 ? <Crown className="h-4 w-4 text-pop-amber" /> : <span className="text-foreground">#{i + 1}</span>}
+                          {i === 0 && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-pop-amber text-foreground">Leader</span>}
                         </div>
                       </Td>
-                      <Td><span className="font-semibold" style={{ color: "#111" }}>{r.name}</span></Td>
-                      <Td><span style={{ color: "#111" }}>{r.calls}</span></Td>
-                      <Td><span style={{ color: "#111" }}>{r.notReached}</span></Td>
-                      <Td><span style={{ color: "#111" }}>{r.short}</span></Td>
-                      <Td><span style={{ color: "#111" }}>{r.convos}</span></Td>
-                      <Td><span style={{ color: holdColor }}>{r.holdRate}%</span></Td>
-                      <Td><span style={{ color: convColor }}>{r.conversion}%</span></Td>
-                      <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
-                      <Td><span style={{ color: "#111" }}>{isPeter ? "—" : `${(r.workMinutes / 60).toFixed(1)}h`}</span></Td>
-                      <Td><span style={{ color: isPeter ? "#111" : breakColor }}>{isPeter ? "—" : (avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—")}</span></Td>
-                      <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
+                      <Td><span className="font-semibold text-foreground">{r.name}</span></Td>
+                      <Td><span className="text-foreground tabular-nums">{r.calls}</span></Td>
+                      <Td><span className="text-foreground tabular-nums">{r.notReached}</span></Td>
+                      <Td><span className="text-foreground tabular-nums">{r.short}</span></Td>
+                      <Td><span className="text-foreground tabular-nums">{r.convos}</span></Td>
+                      <Td><span className="tabular-nums" style={{ color: holdColor }}>{r.holdRate}%</span></Td>
+                      <Td><span className="tabular-nums" style={{ color: convColor }}>{r.conversion}%</span></Td>
+                      <Td><span className={`font-bold tabular-nums ${r.bookings > 0 ? "text-pop-green" : "text-foreground"}`}>{r.bookings}</span></Td>
+                      <Td><span className="text-foreground tabular-nums">{isPeter ? "—" : `${(r.workMinutes / 60).toFixed(1)}h`}</span></Td>
+                      <Td><span className="tabular-nums" style={{ color: isPeter ? "var(--text-primary)" : breakColor }}>{isPeter ? "—" : (avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—")}</span></Td>
+                      <Td><span className={`tabular-nums ${r.bonus > 0 ? "text-pop-green" : "text-foreground"}`}>${r.bonus}</span></Td>
                     </tr>
                   );
                 })}
                 {rows.length === 0 && (
-                  <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
+                  <tr><td colSpan={12} className="text-center py-6 text-xs text-muted-foreground">No data for this range yet.</td></tr>
                 )}
               </tbody>
             </table>
@@ -226,18 +223,18 @@ function LeaderboardPage() {
         </div>
 
         {patternOpen && (
-          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(139,92,246,0.06), transparent)", border: "1px solid #8b5cf6" }}>
-            <button onClick={() => setPatternOpen(false)} className="absolute top-3 right-3" style={{ color: C.muted }}>
+          <div className="anim-rise-in mt-6 rounded-lg p-5 relative border border-pop-purple bg-gradient-to-b from-pop-purple-fill to-transparent">
+            <button onClick={() => setPatternOpen(false)} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4" style={{ color: "#8b5cf6" }} />
-              <div className="text-sm font-bold" style={{ color: "#111" }}>Call Pattern Analysis</div>
-              {patternLoading && <span className="text-[10px]" style={{ color: "#888" }}>analysing…</span>}
+              <Sparkles className="h-4 w-4 text-pop-purple" />
+              <div className="text-sm font-bold text-foreground">Call Pattern Analysis</div>
+              {patternLoading && <span className="text-[10px] text-muted-foreground">analysing…</span>}
             </div>
-            <div className="text-sm leading-relaxed" style={{ color: "#111", fontFamily: "inherit" }}>
+            <div className="text-sm leading-relaxed text-foreground">
               {patternLoading && !patternText && (
-                <div style={{ color: "#888", fontSize: 13 }}>
+                <div className="type-small">
                   Analysing call transcripts — this takes about 10 seconds...
                 </div>
               )}
@@ -247,27 +244,11 @@ function LeaderboardPage() {
                 const body = lines.slice(1).join("\n").trim();
                 const isMissed = headingLine.toUpperCase().includes("MISSED");
                 return (
-                  <div key={i} style={{
-                    marginBottom: 24,
-                    paddingBottom: 24,
-                    borderBottom: i < 4 ? "0.5px solid #ebebeb" : "none",
-                  }}>
-                    <div style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.07em",
-                      color: isMissed ? "#f4522d" : "#8b5cf6",
-                      marginBottom: 8,
-                    }}>
+                  <div key={i} className={`mb-6 pb-6 ${i < 4 ? "border-b border-line" : ""}`}>
+                    <div className={`type-label mb-2 ${isMissed ? "text-primary" : "text-pop-purple"}`}>
                       {headingLine}
                     </div>
-                    <div style={{
-                      fontSize: 14,
-                      color: "#111",
-                      lineHeight: 1.9,
-                      whiteSpace: "pre-wrap",
-                    }}>
+                    <div className="text-sm text-foreground leading-[1.9] whitespace-pre-wrap">
                       {body}
                     </div>
                   </div>
@@ -278,41 +259,42 @@ function LeaderboardPage() {
         )}
 
         {coachOpen && (
-          <div className="mt-6 rounded-lg p-5 relative" style={{ background: "linear-gradient(180deg, rgba(45,107,228,0.06), transparent)", border: `1px solid ${BLUE}` }}>
-            <button onClick={() => setCoachOpen(false)} className="absolute top-3 right-3" style={{ color: C.muted }}>
+          <div className="anim-rise-in mt-6 rounded-lg p-5 relative border border-primary bg-gradient-to-b from-pop-coral-fill to-transparent">
+            <button onClick={() => setCoachOpen(false)} className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
               <X className="h-4 w-4" />
             </button>
             <div className="flex items-center gap-2 mb-3">
-              <Sparkles className="h-4 w-4" style={{ color: BLUE }} />
+              <Sparkles className="h-4 w-4 text-primary" />
               <div className="text-sm font-bold">AI Coach Analysis</div>
-              {coachLoading && <span className="text-[10px]" style={{ color: C.muted }}>streaming…</span>}
+              {coachLoading && <span className="text-[10px] text-muted-foreground">streaming…</span>}
             </div>
-            <pre className="text-sm whitespace-pre-wrap leading-relaxed" style={{ fontFamily: "inherit" }}>{coachText || (coachLoading ? "Thinking…" : "")}</pre>
+            <pre className="text-sm whitespace-pre-wrap leading-relaxed font-[inherit]">{coachText || (coachLoading ? "Thinking…" : "")}</pre>
           </div>
         )}
       </div>
 
       {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.6)" }}>
-          <div className="w-full max-w-sm rounded-lg p-5" style={{ background: C.card, border: `1px solid ${C.line}` }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="anim-rise-in w-full max-w-sm rounded-lg p-5 bg-surface-card border border-line">
             <div className="flex items-center justify-between mb-4">
               <div className="text-sm font-bold">Add Rep</div>
-              <button onClick={() => setShowAdd(false)} style={{ color: C.muted }}><X className="h-4 w-4" /></button>
+              <button onClick={() => setShowAdd(false)} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <p className="text-xs mb-3" style={{ color: C.muted }}>
+            <p className="text-xs mb-3 text-muted-foreground">
               We'll send an email invite. They click the link, set their own password, then they're on the team.
             </p>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <input value={newRep.firstName} onChange={(e) => setNewRep({ ...newRep, firstName: e.target.value })} placeholder="First name"
-                  className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
+                  className="w-full px-3 py-2 rounded-md text-sm bg-surface-soft border border-line text-foreground" />
                 <input value={newRep.lastName} onChange={(e) => setNewRep({ ...newRep, lastName: e.target.value })} placeholder="Last name"
-                  className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
+                  className="w-full px-3 py-2 rounded-md text-sm bg-surface-soft border border-line text-foreground" />
               </div>
               <input value={newRep.email} onChange={(e) => setNewRep({ ...newRep, email: e.target.value })} placeholder="Email" type="email"
-                className="w-full px-3 py-2 rounded-md text-sm" style={{ background: "#f9f9f9", border: `1px solid ${C.line}`, color: C.text }} />
-              <button onClick={() => void onAddRep()} disabled={inviting} className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-60"
-                style={{ background: BLUE, color: "#fff" }}>{inviting ? "Sending…" : "Send Invite"}</button>
+                className="w-full px-3 py-2 rounded-md text-sm bg-surface-soft border border-line text-foreground" />
+              <button onClick={() => void onAddRep()} disabled={inviting} className="w-full py-2 rounded-md text-xs font-bold disabled:opacity-60 bg-primary text-primary-foreground">
+                {inviting ? "Sending…" : "Send Invite"}
+              </button>
             </div>
           </div>
         </div>
@@ -325,23 +307,17 @@ function Th({ children, info }: { children: React.ReactNode; info?: string }) {
   const [show, setShow] = useState(false);
   return (
     <th className="text-left px-3 py-2.5 font-semibold relative">
-      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <div className="flex items-center gap-1">
         {children}
         {info && (
           <span
             onMouseEnter={() => setShow(true)}
             onMouseLeave={() => setShow(false)}
-            style={{ cursor: "help", fontSize: 10, color: "#aaa", userSelect: "none", position: "relative" }}
+            className="relative cursor-help select-none text-[10px] text-muted-foreground"
           >
             ⓘ
             {show && (
-              <span style={{
-                position: "absolute", top: "100%", left: 0, zIndex: 50,
-                background: "#111", color: "#fff", fontSize: 11,
-                padding: "5px 10px", borderRadius: 6, whiteSpace: "normal",
-                fontWeight: 400, textTransform: "none", letterSpacing: 0,
-                boxShadow: "0 4px 12px rgba(0,0,0,0.2)", width: 240, marginTop: 4,
-              }}>
+              <span className="absolute top-full left-0 z-50 mt-1 w-60 whitespace-normal rounded-md bg-foreground px-2.5 py-1.5 text-[11px] font-normal normal-case tracking-normal text-background">
                 {info}
               </span>
             )}

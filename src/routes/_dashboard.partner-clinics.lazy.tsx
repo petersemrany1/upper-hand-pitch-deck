@@ -508,7 +508,7 @@ const TIME_OPTIONS: { value: string; label: string }[] = (() => {
     const h24 = Math.floor(m / 60);
     const mm = m % 60;
     const value = `${String(h24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-    let h = h24 % 12 || 12;
+    const h = h24 % 12 || 12;
     const ap = h24 >= 12 ? "pm" : "am";
     out.push({ value, label: `${h}:${String(mm).padStart(2, "0")}${ap}` });
   }
@@ -547,7 +547,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
           setTrading(merged);
         }
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [mode, form.id]);
 
   const updateRow = (dow: number, patch: Partial<TradingHourRow>) => {

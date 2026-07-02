@@ -1,33 +1,16 @@
-import { supabase } from "@/integrations/supabase/client";
+import { reportError } from "@/lib/error-reporting";
 
 /**
  * Logs a frontend error to the shared error_logs table so it appears in /logs
- * alongside backend errors. Safe to call from browser code (table allows
- * anonymous inserts via RLS).
+ * alongside backend errors. Delegates to the central reporter, which scrubs
+ * PII and dedupes repeats before writing.
  */
 export async function logFrontendError(
   functionName: string,
   description: string,
   context: Record<string, unknown> = {}
 ) {
-  try {
-    // Console for live debugging
-    console.error(`[${functionName}] ${description}`, context);
-
-    await supabase.from("error_logs").insert({
-      function_name: functionName,
-      error_message: description,
-      context: {
-        ...context,
-        source: "frontend",
-        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
-        url: typeof window !== "undefined" ? window.location.href : "unknown",
-        loggedAt: new Date().toISOString(),
-      },
-    });
-  } catch (e) {
-    console.error("Failed to write frontend error to error_logs:", e);
-  }
+  await reportError(functionName, description, context);
 }
 
 /** Extract a Twilio-style error code from any error shape. */

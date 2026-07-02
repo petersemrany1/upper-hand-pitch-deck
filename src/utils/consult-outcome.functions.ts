@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logError } from "./error-logger.functions";
 
@@ -153,7 +153,7 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
 // - Outcome + summary are saved even if the refund call fails.
 // - On refund failure, sets refund_status='failed' but leaves
 //   stripe_refund_id null so the user can retry.
-export const processConsultOutcome = createServerFn({ method: "POST" })
+export const processConsultOutcome = authedServerFn({ method: "POST" })
   .inputValidator((data: ProcessInput) => data)
   .handler(async ({ data }) => {
     const { appointmentId, summary, proceeded } = data;
@@ -275,7 +275,7 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
 // flow created the appointment without the PI). The clinic-portal "show"
 // modal calls this when it opens so the refund button shows correctly
 // instead of the misleading "Patient didn't pay via Stripe" notice.
-export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
+export const resolveAppointmentDeposit = authedServerFn({ method: "POST" })
   .inputValidator((data: { appointmentId: string }) => data)
   .handler(async ({ data }) => {
     const { appointmentId } = data;

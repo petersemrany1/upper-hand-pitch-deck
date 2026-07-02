@@ -159,7 +159,7 @@ export function CallReviewPopup({
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4" style={{ color: "#60a5fa" }} />
           <div>
-            <div className="text-xs font-semibold text-[#111111]">
+            <div className="text-xs font-semibold text-foreground">
               {editing ? "Edit AI Summary" : "AI Call Summary"}
             </div>
             <div className="text-[11px]" style={{ color: "#111111" }}>
@@ -169,7 +169,7 @@ export function CallReviewPopup({
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded hover:bg-[#f9f9f9]"
+          className="p-1 rounded hover:bg-surface-soft"
           aria-label="Close"
         >
           <X className="w-4 h-4" style={{ color: "#111111" }} />
@@ -321,7 +321,7 @@ function Field({
         {label}
       </div>
       <div
-        className={multiline ? "text-[#111111] leading-relaxed" : "text-[#111111]"}
+        className={multiline ? "text-foreground leading-relaxed" : "text-foreground"}
         style={{ wordBreak: "break-word" }}
       >
         {value}

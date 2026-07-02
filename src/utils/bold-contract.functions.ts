@@ -1,9 +1,11 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
-const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+// No hard-coded fallbacks: committed keys must be treated as compromised and
+// rotated. Handlers fail with a clear error when the env vars are missing.
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
 const BOLD_TEMPLATE_ID = 3486637;
 const BOLD_BLUE = "#2020E8";
 
@@ -18,7 +20,7 @@ function fmtDollar(n: number) {
   return "$" + Math.round(n).toLocaleString();
 }
 
-export const sendBoldContractEmail = createServerFn({ method: "POST" })
+export const sendBoldContractEmail = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       to: string;

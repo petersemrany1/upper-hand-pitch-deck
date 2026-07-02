@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, ArrowLeft, Minus, Phone, UserSquare2 } from "lucide-react";
@@ -107,22 +108,17 @@ export function MiniMessenger() {
   }, [open, loadThreads]);
 
   // Realtime updates while open
-  useEffect(() => {
-    if (!open) return;
-    const ch = supabase
-      .channel("mini-messenger-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => {
-        void loadThreads();
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sms_messages" }, (payload) => {
-        const m = payload.new as Message;
-        if (threadId && m.thread_id === threadId) {
-          setMessages((prev) => [...prev, m]);
-        }
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [open, threadId, loadThreads]);
+  useRealtimeSubscription({ table: "sms_threads" }, () => void loadThreads(), open);
+  useRealtimeSubscription(
+    { table: "sms_messages", event: "INSERT" },
+    (payload) => {
+      const m = payload.new as Message;
+      if (threadId && m.thread_id === threadId) {
+        setMessages((prev) => [...prev, m]);
+      }
+    },
+    open
+  );
 
   // Load messages + mark read when threadId changes
   useEffect(() => {

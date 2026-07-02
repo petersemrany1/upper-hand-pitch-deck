@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { toast } from "sonner";
 
 // Global listener for inbound SMS. Shows a top-left toast on any page,
@@ -52,13 +53,10 @@ export function SmsNotifier() {
     }
   };
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("global-sms-notifier")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "sms_messages" },
-        async (payload) => {
+  useRealtimeSubscription(
+    { table: "sms_messages", event: "INSERT" },
+    (payload) => {
+      void (async () => {
           const m = payload.new as InboundMessage;
           if (m.direction !== "inbound") return;
 
@@ -87,11 +85,9 @@ export function SmsNotifier() {
               onClick: () => navigate({ to: "/inbox", search: { thread: m.thread_id } }),
             },
           });
-        },
-      )
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [navigate]);
+      })();
+    }
+  );
 
   return null;
 }

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Phone, MessageSquare, Calendar, TrendingUp, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { RepPerformancePanel, type OverallReport } from "@/components/RepPerformancePanel";
 
 export const Route = createFileRoute("/_dashboard/analytics")({
@@ -94,29 +95,27 @@ function AnalyticsPage() {
   }, []);
 
   // Subscribe to the in-flight job so progress + final report stream in via realtime.
+  useRealtimeSubscription(
+    { table: "rep_performance_jobs", event: "UPDATE", filter: `id=eq.${perfJobId}` },
+    (payload) => {
+      const row: any = payload.new;
+      setPerfCompleted(row.calls_completed ?? 0);
+      setPerfTotal(row.total_eligible ?? 0);
+      if (row.status === "completed" && row.report) {
+        setPerfReport(row.report as OverallReport);
+        setPerfLoading(false);
+        setPerfJobId(null);
+      } else if (row.status === "failed") {
+        setPerfError(row.error || "Analysis failed");
+        setPerfLoading(false);
+        setPerfJobId(null);
+      }
+    },
+    Boolean(perfJobId)
+  );
+
   useEffect(() => {
     if (!perfJobId) return;
-    const channel = supabase
-      .channel(`rep-perf-job-${perfJobId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "rep_performance_jobs", filter: `id=eq.${perfJobId}` },
-        (payload) => {
-          const row: any = payload.new;
-          setPerfCompleted(row.calls_completed ?? 0);
-          setPerfTotal(row.total_eligible ?? 0);
-          if (row.status === "completed" && row.report) {
-            setPerfReport(row.report as OverallReport);
-            setPerfLoading(false);
-            setPerfJobId(null);
-          } else if (row.status === "failed") {
-            setPerfError(row.error || "Analysis failed");
-            setPerfLoading(false);
-            setPerfJobId(null);
-          }
-        },
-      )
-      .subscribe();
 
     // Poll fallback every 4s in case realtime drops
     const poll = setInterval(async () => {
@@ -139,10 +138,7 @@ function AnalyticsPage() {
       }
     }, 4000);
 
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(poll);
-    };
+    return () => clearInterval(poll);
   }, [perfJobId]);
 
   const runRepAnalysis = async () => {
@@ -274,8 +270,8 @@ function AnalyticsPage() {
   // Summarise to a one-line label: keep meaning, drop filler, end on a real word.
   const summariseItem = (s: string, maxWords = 7): string => {
     let v = s.toLowerCase().trim();
-    v = v.replace(/b\s*[\/&]\s*a\b/g, "before and after");
-    v = v.replace(/before\s*[\/&]\s*after/g, "before and after");
+    v = v.replace(/b\s*[/&]\s*a\b/g, "before and after");
+    v = v.replace(/before\s*[/&]\s*after/g, "before and after");
     v = v.replace(/\bbefores?\s+and\s+afters?\b/g, "before and after");
     v = v.replace(/\bafter\s+pic(?:ture|s)?s?\b/g, "after photos");
     v = v.replace(/\bafter\s+images?\b/g, "after photos");
@@ -296,7 +292,7 @@ function AnalyticsPage() {
     if (parts.length <= maxWords) {
       return trimTrailingFragments(parts.join(" "));
     }
-    let kept = parts.slice(0, maxWords);
+    const kept = parts.slice(0, maxWords);
     // If trimming would leave a connector at the end, extend by one meaningful word.
     while (
       kept.length < parts.length &&
@@ -379,7 +375,7 @@ function AnalyticsPage() {
   );
 
   return (
-    <div className="min-h-full md:h-full md:overflow-y-auto bg-[#f7f7f5] px-6 py-10 md:px-10 md:py-12" style={{ fontFamily: "DM Sans, sans-serif" }}>
+    <div className="min-h-full md:h-full md:overflow-y-auto bg-surface-page px-6 py-10 md:px-10 md:py-12" style={{ fontFamily: "DM Sans, sans-serif" }}>
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div className="flex items-center gap-3">

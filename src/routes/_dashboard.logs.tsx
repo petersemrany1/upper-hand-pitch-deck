@@ -3,8 +3,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getErrorLogs, resolveErrorLog } from "@/utils/error-logger.functions";
+import { useErrorLogs, useResolveErrorLog } from "@/data/error-logs";
 import { CheckCircle, Copy, RefreshCw } from "lucide-react";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { ErrorState } from "@/components/app/ErrorState";
+import { EmptyState } from "@/components/app/EmptyState";
 
 export const Route = createFileRoute("/_dashboard/logs")({
   component: LogsPage,
@@ -44,26 +47,16 @@ interface ErrorLog {
 }
 
 function LogsPage() {
-  const [logs, setLogs] = useState<ErrorLog[]>([]);
-  const [loading, setLoading] = useState(true);
+  const logsQuery = useErrorLogs();
+  const logs = (logsQuery.data ?? []) as ErrorLog[];
+  const loading = logsQuery.isPending;
+  const resolveMutation = useResolveErrorLog();
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  const fetchLogs = async () => {
-    setLoading(true);
-    try {
-      const data = await getErrorLogs();
-      setLogs(data as ErrorLog[]);
-    } catch {
-      console.error("Failed to fetch logs");
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => { fetchLogs(); }, []);
+  const fetchLogs = () => void logsQuery.refetch();
 
   const handleResolve = async (id: string) => {
-    await resolveErrorLog({ data: { id } });
-    setLogs((prev) => prev.map((l) => (l.id === id ? { ...l, resolved: true } : l)));
+    await resolveMutation.mutateAsync(id);
   };
 
   const handleCopy = (log: ErrorLog) => {
@@ -92,8 +85,21 @@ Steps to reproduce: ${ctx.stepsToReproduce || "N/A"}`;
         </Button>
       </div>
 
-      {logs.length === 0 && !loading && (
-        <p className="text-muted-foreground text-center py-12">No errors logged yet — that's a good sign!</p>
+      {loading && logs.length === 0 && <ListSkeleton rows={5} />}
+
+      {logsQuery.isError && (
+        <ErrorState
+          title="Couldn't load the error log"
+          onRetry={() => void logsQuery.refetch()}
+        />
+      )}
+
+      {logs.length === 0 && !loading && !logsQuery.isError && (
+        <EmptyState
+          icon={CheckCircle}
+          title="No errors logged"
+          description="Nothing has failed recently — that's a good sign."
+        />
       )}
 
       {logs.map((log) => (

@@ -2,6 +2,7 @@ import { createLazyFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -599,44 +600,22 @@ function ClinicsPage() {
   }, []);
 
   // Realtime — only patch the changed row, never reload the whole list (fix #9).
-  useEffect(() => {
-    const channel = supabase
-      .channel("clinics_page_refresh")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "clinic_contacts" },
-        () => {
-          loadLastContacts();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "clinics" },
-        (payload) => {
-          const row = payload.new as { id?: string } | undefined;
-          if (row?.id) void patchClinicRow(row.id);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "call_records" },
-        (payload) => {
-          const row = payload.new as { clinic_id?: string | null } | undefined;
-          if (row?.clinic_id) {
-            setCalledTodayIds((prev) => {
-              if (prev.has(row.clinic_id!)) return prev;
-              const next = new Set(prev);
-              next.add(row.clinic_id!);
-              return next;
-            });
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [loadLastContacts, patchClinicRow]);
+  useRealtimeSubscription({ table: "clinic_contacts" }, () => loadLastContacts());
+  useRealtimeSubscription({ table: "clinics", event: "UPDATE" }, (payload) => {
+    const row = payload.new as { id?: string } | undefined;
+    if (row?.id) void patchClinicRow(row.id);
+  });
+  useRealtimeSubscription({ table: "call_records" }, (payload) => {
+    const row = payload.new as { clinic_id?: string | null } | undefined;
+    if (row?.clinic_id) {
+      setCalledTodayIds((prev) => {
+        if (prev.has(row.clinic_id!)) return prev;
+        const next = new Set(prev);
+        next.add(row.clinic_id!);
+        return next;
+      });
+    }
+  });
 
   // Fix #4 — listen for the AI review popup applying changes and patch local
   // CRM state instantly (no refetch needed).
@@ -1214,7 +1193,7 @@ function ClinicsPage() {
                 className="absolute -right-1 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center z-20"
                 title="Drag to resize"
               >
-                <span className="block h-3 w-px bg-[#c9c5b8] group-hover:bg-[#f4522d] group-hover:w-0.5" />
+                <span className="block h-3 w-px bg-[#c9c5b8] group-hover:bg-primary group-hover:w-0.5" />
               </div>
             </div>
           ))}
@@ -1228,7 +1207,7 @@ function ClinicsPage() {
               className="absolute -left-1 top-0 h-full w-2 cursor-col-resize group flex items-center justify-center z-20"
               title="Drag to resize"
             >
-              <span className="block h-3 w-px bg-[#c9c5b8] group-hover:bg-[#f4522d] group-hover:w-0.5" />
+              <span className="block h-3 w-px bg-[#c9c5b8] group-hover:bg-primary group-hover:w-0.5" />
             </div>
           </div>
         </div>
@@ -1363,16 +1342,16 @@ function ClinicsPage() {
                         {/* Actions */}
                         <div className="shrink-0 px-2 flex items-center gap-0.5" style={{ width: colWidths.actions }}>
                           {c.phone && !phoneInvalid && (
-                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-[#f9f9f9]" title="Call">
+                            <button onClick={() => handleCall(c)} className="p-1 rounded hover:bg-surface-soft" title="Call">
                               <PhoneCall className="w-3 h-3" style={{ color: "#22c55e" }} />
                             </button>
                           )}
                           {c.email && (
-                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-[#f9f9f9]" title="Email">
+                            <a href={`mailto:${c.email}`} className="p-1 rounded hover:bg-surface-soft" title="Email">
                               <Mail className="w-3 h-3" style={{ color: "#60a5fa" }} />
                             </a>
                           )}
-                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-[#f9f9f9]" title="Log">
+                          <button onClick={() => { openDetail(c); setTimeout(openLogModal, 100); }} className="p-1 rounded hover:bg-surface-soft" title="Log">
                             <MessageSquare className="w-3 h-3" style={{ color: "#a855f7" }} />
                           </button>
                         </div>
@@ -1660,7 +1639,7 @@ function ClinicsPage() {
             <div className="p-5 space-y-4">
               {/* Close button */}
               <div className="flex justify-end">
-                <button onClick={closeDetail} className="p-1 rounded hover:bg-[#f9f9f9]">
+                <button onClick={closeDetail} className="p-1 rounded hover:bg-surface-soft">
                   <X className="w-4 h-4" style={{ color: "#111111" }} />
                 </button>
               </div>

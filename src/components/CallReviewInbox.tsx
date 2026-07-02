@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Loader2, Phone, X, Sparkles, Check, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { CallReviewPopup, type AutoCallAnalysis, type AppliedReview } from "@/components/CallReviewPopup";
 
 // Stages that mean the call is still in flight through the auto-analysis chain.
@@ -176,31 +177,20 @@ export function CallReviewInbox() {
       setItems(enriched);
     };
     void load();
-
-    const channel = supabase
-      .channel("call_review_inbox")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "call_records" },
-        (payload) => {
-          const row =
-            (payload.new as CallRecordRow | undefined) ??
-            (payload.old as CallRecordRow | undefined);
-          if (!row) return;
-          if (payload.eventType === "DELETE") {
-            setItems((prev) => prev.filter((i) => i.callRecordId !== row.id));
-            return;
-          }
-          void upsertFromRow(payload.new as CallRecordRow);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useRealtimeSubscription({ table: "call_records" }, (payload) => {
+    const row =
+      (payload.new as CallRecordRow | undefined) ??
+      (payload.old as CallRecordRow | undefined);
+    if (!row) return;
+    if (payload.eventType === "DELETE") {
+      setItems((prev) => prev.filter((i) => i.callRecordId !== row.id));
+      return;
+    }
+    void upsertFromRow(payload.new as CallRecordRow);
+  });
 
   // Click-outside to close panel.
   useEffect(() => {
@@ -274,7 +264,7 @@ export function CallReviewInbox() {
         <button
           ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
-          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-[#f9f9f9] transition-colors"
+          className="relative inline-flex items-center justify-center h-9 w-9 rounded-md hover:bg-surface-soft transition-colors"
           style={{ color: "#111111" }}
           aria-label="Call review inbox"
           title="Call reviews"
@@ -282,7 +272,7 @@ export function CallReviewInbox() {
           <Bell className="w-3.5 h-3.5" />
           {badgeCount > 0 && (
             <span
-              className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-[#111111]"
+              className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full text-[9px] font-bold text-foreground"
               style={{ background: "#dc2626" }}
             >
               {badgeCount}
@@ -310,10 +300,10 @@ export function CallReviewInbox() {
             >
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4" style={{ color: "#60a5fa" }} />
-                <div className="text-sm font-semibold text-[#111111]">Call Reviews</div>
+                <div className="text-sm font-semibold text-foreground">Call Reviews</div>
                 {badgeCount > 0 && (
                   <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded text-[#111111]"
+                    className="text-[10px] font-bold px-1.5 py-0.5 rounded text-foreground"
                     style={{ background: "#dc2626" }}
                   >
                     {badgeCount}
@@ -322,7 +312,7 @@ export function CallReviewInbox() {
               </div>
               <button
                 onClick={() => setOpen(false)}
-                className="p-1 rounded hover:bg-[#f9f9f9]"
+                className="p-1 rounded hover:bg-surface-soft"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" style={{ color: "#111111" }} />
@@ -358,7 +348,7 @@ export function CallReviewInbox() {
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold text-[#111111] truncate">
+                          <div className="text-xs font-semibold text-foreground truncate">
                             {item.clinicName}
                             {isFailed && (
                               <span
@@ -383,7 +373,7 @@ export function CallReviewInbox() {
                       {/* Universal dismiss — always visible on every item */}
                       <button
                         onClick={() => void handleDeleteAny(item)}
-                        className="p-1 rounded hover:bg-[#f9f9f9] -mr-1"
+                        className="p-1 rounded hover:bg-surface-soft -mr-1"
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >
@@ -410,7 +400,7 @@ export function CallReviewInbox() {
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-xs font-semibold text-[#111111] truncate">
+                          <div className="text-xs font-semibold text-foreground truncate">
                             {item.clinicName}
                           </div>
                           <div className="text-[10px]" style={{ color: "#111111" }}>
@@ -459,7 +449,7 @@ export function CallReviewInbox() {
                       {/* Universal dismiss — always visible on every item */}
                       <button
                         onClick={() => void handleDeleteAny(item)}
-                        className="p-1 rounded hover:bg-[#f9f9f9] -mr-1"
+                        className="p-1 rounded hover:bg-surface-soft -mr-1"
                         aria-label="Delete from inbox"
                         title="Delete from inbox"
                       >

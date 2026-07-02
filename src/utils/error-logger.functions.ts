@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { scrubPii, scrubString } from "@/lib/pii";
 
 // These helpers run inside server functions. Read config from the environment
 // rather than hard-coding project URL / keys. `process` may be undefined in a
@@ -32,8 +34,8 @@ export async function logError(
       },
       body: JSON.stringify({
         function_name: functionName,
-        error_message: errorMessage,
-        context,
+        error_message: scrubString(errorMessage),
+        context: scrubPii(context),
       }),
     });
   } catch (e) {
@@ -41,8 +43,9 @@ export async function logError(
   }
 }
 
-export const getErrorLogs = createServerFn({ method: "GET" }).handler(
-  async () => {
+export const getErrorLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`,
       {
@@ -53,10 +56,10 @@ export const getErrorLogs = createServerFn({ method: "GET" }).handler(
       }
     );
     return res.json();
-  }
-);
+  });
 
 export const resolveErrorLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     await fetch(
@@ -75,8 +78,9 @@ export const resolveErrorLog = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-export const getUnresolvedCount = createServerFn({ method: "GET" }).handler(
-  async () => {
+export const getUnresolvedCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?resolved=eq.false&select=id`,
       {
@@ -89,5 +93,4 @@ export const getUnresolvedCount = createServerFn({ method: "GET" }).handler(
     );
     const count = res.headers.get("content-range")?.split("/")[1] || "0";
     return { count: parseInt(count) };
-  }
-);
+  });

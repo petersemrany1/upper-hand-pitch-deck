@@ -78,10 +78,10 @@ function ResetPasswordPage() {
           >
             <KeyRound className="h-5 w-5" />
           </div>
-          <h1 className="text-xl font-bold text-[#111111]">
+          <h1 className="text-xl font-bold text-foreground">
             {mode === "request" ? "Reset password" : "Set new password"}
           </h1>
-          <p className="mt-1 text-sm text-[#111111]">
+          <p className="mt-1 text-sm text-foreground">
             {mode === "request"
               ? "Enter your email and we'll send a recovery link."
               : "Enter a new password for your account."}
@@ -91,7 +91,7 @@ function ResetPasswordPage() {
         {mode === "request" ? (
           <form onSubmit={handleRequest} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-foreground">
                 Email
               </label>
               <input
@@ -100,7 +100,7 @@ function ResetPasswordPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
                 style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               />
             </div>
@@ -119,7 +119,7 @@ function ResetPasswordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-[#111111] transition active:scale-[0.99] disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-foreground transition active:scale-[0.99] disabled:opacity-50"
               style={{ background: "#f4522d" }}
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -129,7 +129,7 @@ function ResetPasswordPage() {
         ) : (
           <form onSubmit={handleUpdate} className="space-y-4">
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-foreground">
                 New password
               </label>
               <input
@@ -138,12 +138,12 @@ function ResetPasswordPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
                 style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#111111]">
+              <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-foreground">
                 Confirm password
               </label>
               <input
@@ -152,7 +152,7 @@ function ResetPasswordPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 autoComplete="new-password"
-                className="w-full rounded-md px-3 py-2 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-blue-500"
                 style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               />
             </div>
@@ -171,7 +171,7 @@ function ResetPasswordPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-[#111111] transition active:scale-[0.99] disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-md py-2.5 text-sm font-semibold text-foreground transition active:scale-[0.99] disabled:opacity-50"
               style={{ background: "#f4522d" }}
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -180,8 +180,8 @@ function ResetPasswordPage() {
           </form>
         )}
 
-        <p className="mt-6 text-center text-xs text-[#111111]">
-          <a href="/login" className="hover:text-[#111111]">Back to sign in</a>
+        <p className="mt-6 text-center text-xs text-foreground">
+          <a href="/login" className="hover:text-foreground">Back to sign in</a>
         </p>
       </div>
     </div>

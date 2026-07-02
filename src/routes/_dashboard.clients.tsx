@@ -1,7 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
+import { keys } from "@/data/keys";
+import { useClients, useCreateClient, useDeleteClient } from "@/data/clients";
+import { useRecentCalls, callsRepo } from "@/data/calls";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { ErrorState } from "@/components/app/ErrorState";
+import { EmptyState } from "@/components/app/EmptyState";
 import { Input } from "@/components/ui/input";
 import {
   Phone,
@@ -94,9 +100,14 @@ function ClientsPage() {
   const [newPhoneName, setNewPhoneName] = useState("");
   const [newPhoneNumber, setNewPhoneNumber] = useState("");
 
-  const [clients, setClients] = useState<Client[]>([]);
-  const [allRecords, setAllRecords] = useState<CallRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const clientsQuery = useClients();
+  const clients = (clientsQuery.data ?? []) as Client[];
+  const callsQuery = useRecentCalls(50);
+  const allRecords = (callsQuery.data ?? []) as CallRecord[];
+  const loading = clientsQuery.isPending;
+  const createClient = useCreateClient();
+  const deleteClient = useDeleteClient();
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [audioRef, setAudioRef] = useState<HTMLAudioElement | null>(null);
 
@@ -111,25 +122,13 @@ function ClientsPage() {
 
   const selectedPhone = savedPhones[selectedPhoneIdx] || savedPhones[0];
 
-  const loadClients = useCallback(async () => {
-    const { data } = await supabase.from("clients").select("*").order("created_at", { ascending: false });
-    if (data) setClients(data);
-    setLoading(false);
-  }, []);
+  const loadClients = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: keys.clients.all });
+  }, [queryClient]);
 
-  const loadAllRecords = useCallback(async () => {
-    const { data } = await supabase
-      .from("call_records")
-      .select("*")
-      .order("called_at", { ascending: false })
-      .limit(50);
-    if (data) setAllRecords(data as CallRecord[]);
-  }, []);
-
-  useEffect(() => {
-    loadClients();
-    loadAllRecords();
-  }, [loadClients, loadAllRecords]);
+  const loadAllRecords = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: keys.calls.all });
+  }, [queryClient]);
 
   // Keyboard support for dialer
   useEffect(() => {
@@ -231,29 +230,24 @@ function ClientsPage() {
   const handleSaveContact = async () => {
     if (!saveContactName || !dialNumber) return;
 
-    const { data } = await supabase
-      .from("clients")
-      .insert({
+    try {
+      const data = await createClient.mutateAsync({
         name: saveContactName,
         phone: dialNumber,
         email: saveContactEmail || null,
-      })
-      .select()
-      .single();
-
-    if (data && lastCallSid) {
-      // Link the call record to the new client
-      await supabase
-        .from("call_records")
-        .update({ client_id: data.id })
-        .eq("twilio_call_sid", lastCallSid);
+      });
+      if (data && lastCallSid) {
+        // Link the call record to the new client
+        await callsRepo.linkToClient(lastCallSid, data.id);
+      }
+    } catch {
+      // mutation state carries the error; keep the form open values cleared below
     }
 
     setSaveContactName("");
     setSaveContactEmail("");
     setShowSaveContact(false);
     setLastCallSid(null);
-    loadClients();
     loadAllRecords();
   };
 
@@ -263,8 +257,11 @@ function ClientsPage() {
   };
 
   const handleDeleteClient = async (id: string) => {
-    await supabase.from("clients").delete().eq("id", id);
-    loadClients();
+    try {
+      await deleteClient.mutateAsync(id);
+    } catch {
+      // surfaced via mutation state
+    }
     loadAllRecords();
   };
 
@@ -317,8 +314,20 @@ function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+        <ListSkeleton rows={6} />
+      </div>
+    );
+  }
+
+  if (clientsQuery.isError) {
+    return (
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+        <ErrorState
+          title="Couldn't load contacts"
+          description={clientsQuery.error instanceof Error ? clientsQuery.error.message : undefined}
+          onRetry={() => void clientsQuery.refetch()}
+        />
       </div>
     );
   }
@@ -392,11 +401,11 @@ function ClientsPage() {
                 }`}
               >
                 {deviceStatus === "loading" || calling ? (
-                  <Loader2 className="w-7 h-7 text-[#111111] animate-spin" />
+                  <Loader2 className="w-7 h-7 text-foreground animate-spin" />
                 ) : deviceStatus === "in-call" ? (
-                  <PhoneOff className="w-7 h-7 text-[#111111]" />
+                  <PhoneOff className="w-7 h-7 text-foreground" />
                 ) : (
-                  <PhoneCall className="w-7 h-7 text-[#111111]" />
+                  <PhoneCall className="w-7 h-7 text-foreground" />
                 )}
               </button>
               <div className="flex-1 flex justify-start">
@@ -459,9 +468,11 @@ function ClientsPage() {
       {activeTab === "contacts" && (
         <div className="space-y-2">
           {clients.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">
-              No saved contacts yet. Make a call and save the contact after.
-            </p>
+            <EmptyState
+              icon={Users}
+              title="No saved contacts yet"
+              description="Make a call and save the contact afterwards — it'll show up here."
+            />
           ) : (
             clients.map((client) => (
               <div
@@ -546,7 +557,11 @@ function ClientsPage() {
           )}
 
           {allRecords.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">No call history yet.</p>
+            <EmptyState
+              icon={Clock}
+              title="No call history yet"
+              description="Calls you place from the dialler will appear here with recordings and AI analysis."
+            />
           ) : (
             allRecords.map((record) => {
               const hasRecording = !!record.recording_url;
@@ -715,10 +730,7 @@ function ClientsPage() {
           existingAnalysis={analysisRecord.call_analysis}
           onClose={() => setAnalysisRecord(null)}
           onAnalysisSaved={(analysis) => {
-            // Update local cache so badge appears immediately
-            setAllRecords((prev) =>
-              prev.map((r) => (r.id === analysisRecord.id ? { ...r, call_analysis: analysis } : r)),
-            );
+            loadAllRecords();
             setAnalysisRecord((prev) => (prev ? { ...prev, call_analysis: analysis } : prev));
           }}
         />

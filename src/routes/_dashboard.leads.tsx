@@ -1,8 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { ErrorState } from "@/components/app/ErrorState";
+import { EmptyState } from "@/components/app/EmptyState";
+import { useQueryClient } from "@tanstack/react-query";
+import { keys } from "@/data/keys";
+import { useInfiniteLeads, useUpdateLead, useBulkAssignLeads, useDeleteLead, LEADS_PAGE_SIZE } from "@/data/leads";
+import { useReps } from "@/data/reps";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 export const Route = createFileRoute("/_dashboard/leads")({
   component: LeadsPage,
@@ -105,10 +112,26 @@ function saveCustomStatuses(list: string[]) {
 function LeadsPage() {
   const { user, role, ready } = useAuth();
   void role;
-  const [rows, setRows] = useState<Lead[]>([]);
-  const [reps, setReps] = useState<RepOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  void ready;
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(t);
+  }, [search]);
+  // Server-side search + keyset pagination — the table never loads whole.
+  const leadsQuery = useInfiniteLeads(debouncedSearch);
+  const rows = useMemo(
+    () => (leadsQuery.data?.pages ?? []).flatMap((p) => p.rows) as Lead[],
+    [leadsQuery.data],
+  );
+  const loading = leadsQuery.isPending;
+  const repsQuery = useReps();
+  const reps: RepOption[] = repsQuery.data ?? [];
+  const updateLead = useUpdateLead();
+  const bulkAssignLeads = useBulkAssignLeads();
+  const deleteLead = useDeleteLead();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -128,17 +151,6 @@ function LeadsPage() {
 
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
 
-  // Load reps list (for admin bulk-assign + name lookup + current-user mapping)
-  useEffect(() => {
-    if (!ready) return;
-    void (async () => {
-      const { data } = await supabase
-        .from("sales_reps")
-        .select("id, name, email")
-        .order("name", { ascending: true });
-      setReps((data ?? []) as RepOption[]);
-    })();
-  }, [ready]);
 
   const repNameById = (id: string | null | undefined) =>
     reps.find((r) => r.id === id)?.name ?? "—";
@@ -176,26 +188,9 @@ function LeadsPage() {
     setAddingStatus(false);
   };
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("meta_leads")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    setRows((data ?? []) as Lead[]);
-    setLoading(false);
-  };
-
-  useEffect(() => { void load(); }, []);
-
-  useEffect(() => {
-    const ch = supabase
-      .channel("meta-leads-stream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void load())
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, []);
+  useRealtimeSubscription({ table: "meta_leads" }, () => {
+    void queryClient.invalidateQueries({ queryKey: keys.leads.all });
+  });
 
   // Detect duplicates: same normalized phone, or same email when phone is missing.
   const normPhone = (p: string | null) => (p ?? "").replace(/\D/g, "");
@@ -259,24 +254,24 @@ function LeadsPage() {
   const bulkAssign = async () => {
     if (selected.size === 0) return;
     setAssigning(true);
-    const ids = Array.from(selected);
-    const newRepId = bulkRepId === "" ? null : bulkRepId;
-    const { error } = await supabase
-      .from("meta_leads")
-      .update({ rep_id: newRepId })
-      .in("id", ids);
-    if (!error) {
-      setRows((prev) => prev.map((r) => (selected.has(r.id) ? { ...r, rep_id: newRepId } : r)));
+    try {
+      await bulkAssignLeads.mutateAsync({
+        ids: Array.from(selected),
+        repId: bulkRepId === "" ? null : bulkRepId,
+      });
       setSelected(new Set());
+    } catch {
+      // error already surfaced via mutation state; leave selection intact
     }
     setAssigning(false);
   };
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
-    const { error } = await supabase.from("meta_leads").delete().eq("id", id);
-    if (!error) {
-      setRows((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await deleteLead.mutateAsync(id);
+    } catch {
+      // error surfaced via mutation state
     }
     setConfirmDeleteId(null);
     setBusyId(null);
@@ -310,19 +305,12 @@ function LeadsPage() {
       status: editForm.status.trim() || "New",
       call_notes: editForm.call_notes.trim() || null,
     };
-    const { data, error } = await supabase
-      .from("meta_leads")
-      .update(payload)
-      .eq("id", editLead.id)
-      .select()
-      .single();
-    if (error) {
-      setSaveError(error.message);
+    try {
+      await updateLead.mutateAsync({ id: editLead.id, patch: payload });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed");
       setSaving(false);
       return;
-    }
-    if (data) {
-      setRows((prev) => prev.map((r) => (r.id === editLead.id ? { ...r, ...(data as Lead) } : r)));
     }
     setSaving(false);
     setEditLead(null);
@@ -333,8 +321,8 @@ function LeadsPage() {
     <div className="h-full md:h-screen overflow-y-auto" style={{ background: "#ffffff" }}>
       <div className="px-6 py-8 max-w-[1600px] mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-[#111111]">Meta Leads</h1>
-          <p className="text-sm text-[#111111] mt-1">
+          <h1 className="text-2xl font-semibold text-foreground">Meta Leads</h1>
+          <p className="text-sm text-foreground mt-1">
             {loading
               ? "Loading…"
               : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
@@ -343,24 +331,24 @@ function LeadsPage() {
 
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#111111]" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, email, phone, status, rep, campaign…"
-              className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
+              className="w-full pl-10 pr-3 py-2 rounded-md bg-surface-soft border border-line/10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
             />
           </div>
 
           {selected.size > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#fff5f3] border border-[#f4522d]/30">
-              <UserCheck className="h-4 w-4 text-[#f4522d]" />
-              <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-pop-coral-fill border border-primary/30">
+              <UserCheck className="h-4 w-4 text-primary" />
+              <span className="text-sm text-foreground font-medium">{selected.size} selected</span>
               <select
                 value={bulkRepId}
                 onChange={(e) => setBulkRepId(e.target.value)}
-                className="px-2 py-1.5 rounded bg-white border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                className="px-2 py-1.5 rounded bg-white border border-line text-sm text-foreground focus:outline-none focus:border-primary"
               >
                 <option value="">— Unassigned —</option>
                 {reps.map((rep) => (
@@ -370,13 +358,13 @@ function LeadsPage() {
               <button
                 onClick={bulkAssign}
                 disabled={assigning}
-                className="px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+                className="px-3 py-1.5 rounded text-xs font-semibold text-white bg-primary hover:bg-[#dd431f] disabled:opacity-50"
               >
                 {assigning ? "Assigning…" : "Assign"}
               </button>
               <button
                 onClick={() => setSelected(new Set())}
-                className="px-2 py-1.5 rounded text-xs text-[#666] hover:text-[#111111]"
+                className="px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground"
               >
                 Clear
               </button>
@@ -384,18 +372,34 @@ function LeadsPage() {
           )}
         </div>
 
-        <div className="rounded-lg border border-[#ebebeb]/10 overflow-hidden" style={{ background: "#f9f9f9" }}>
+        <div className="rounded-lg border border-line/10 overflow-hidden" style={{ background: "#f9f9f9" }}>
           {loading ? (
-            <div className="p-12 text-center text-[#111111] text-sm">Loading leads…</div>
+            <div className="p-4"><ListSkeleton rows={8} /></div>
+          ) : leadsQuery.isError ? (
+            <ErrorState
+              title="Couldn't load leads"
+              description={leadsQuery.error instanceof Error ? leadsQuery.error.message : undefined}
+              onRetry={() => void leadsQuery.refetch()}
+            />
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-[#111111] text-sm">
-              {rows.length === 0 ? "No leads yet. Once Make.com posts to your webhook, they'll appear here." : "No leads match your search."}
-            </div>
+            rows.length === 0 ? (
+              <EmptyState
+                icon={Mail}
+                title="No leads yet"
+                description="Once Make.com posts to your webhook, new Meta leads will appear here automatically."
+              />
+            ) : (
+              <EmptyState
+                icon={Search}
+                title="No leads match your search"
+                description="Try a different name, phone number, status or campaign."
+              />
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
+                  <tr className="border-b border-line/10 text-xs uppercase tracking-wider text-foreground">
                     <th className="px-3 py-3 w-8">
                       <input
                         type="checkbox"
@@ -434,12 +438,12 @@ function LeadsPage() {
                       const collapsed = collapsedStatuses.has(statusKey);
                       const headBadge = statusBadge(statusKey);
                       const headerRow = (
-                        <tr key={`hdr-${statusKey}`} className="bg-[#f3f3f3] border-b border-[#ebebeb]">
+                        <tr key={`hdr-${statusKey}`} className="bg-[#f3f3f3] border-b border-line">
                           <td colSpan={colSpan} className="px-3 py-2">
                             <button
                               type="button"
                               onClick={() => toggleStatusGroup(statusKey)}
-                              className="flex items-center gap-2 w-full text-left text-[#111111]"
+                              className="flex items-center gap-2 w-full text-left text-foreground"
                             >
                               {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                               <span
@@ -448,7 +452,7 @@ function LeadsPage() {
                               >
                                 {statusKey}
                               </span>
-                              <span className="text-xs text-[#666]">{groupRows.length} lead{groupRows.length === 1 ? "" : "s"}</span>
+                              <span className="text-xs text-muted-foreground">{groupRows.length} lead{groupRows.length === 1 ? "" : "s"}</span>
                             </button>
                           </td>
                         </tr>
@@ -461,7 +465,7 @@ function LeadsPage() {
                     return (
                       <tr
                         key={r.id}
-                        className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
+                        className="border-b border-line/5 hover:bg-white/[0.02] transition-colors"
                         style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
                       >
                         <td className="px-3 py-3 w-8">
@@ -472,8 +476,8 @@ function LeadsPage() {
                             className="accent-[#f4522d] cursor-pointer"
                           />
                         </td>
-                        <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                        <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
+                        <td className="px-4 py-3 text-foreground whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                        <td className="px-4 py-3 text-foreground font-medium whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <span>{fullName}</span>
                             {dup && (
@@ -501,36 +505,36 @@ function LeadsPage() {
                               {repNameById(r.rep_id)}
                             </span>
                           ) : (
-                            <span className="text-xs text-[#999]">Unassigned</span>
+                            <span className="text-xs text-muted-foreground">Unassigned</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-[#111111]">
+                        <td className="px-4 py-3 text-foreground">
                           <div className="flex flex-col gap-1">
                             {r.email && (
-                              <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1.5 hover:text-[#f4522d]">
+                              <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1.5 hover:text-primary">
                                 <Mail className="h-3 w-3" />{r.email}
                               </a>
                             )}
                             {r.phone && (
-                              <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 hover:text-[#f4522d]">
+                              <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 hover:text-primary">
                                 <PhoneIcon className="h-3 w-3" />{r.phone}
                               </a>
                             )}
-                            {!r.email && !r.phone && <span className="text-[#111111]">—</span>}
+                            {!r.email && !r.phone && <span className="text-foreground">—</span>}
                           </div>
                         </td>
                         <td className="px-4 py-3">
                           {r.funding_preference ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[#f4522d]/15 text-[#7ba3ee] border border-[#f4522d]/30">
+                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-primary/15 text-[#7ba3ee] border border-primary/30">
                               {r.funding_preference}
                             </span>
-                          ) : <span className="text-[#111111]">—</span>}
+                          ) : <span className="text-foreground">—</span>}
                         </td>
-                        <td className="px-4 py-3 text-[#111111] text-xs">
+                        <td className="px-4 py-3 text-foreground text-xs">
                           <div className="flex flex-col gap-0.5 max-w-xs">
-                            <div className="text-[#111111]">{r.campaign_name || "—"}</div>
+                            <div className="text-foreground">{r.campaign_name || "—"}</div>
                             <div>{r.ad_set_name || "—"}</div>
-                            <div className="text-[#111111]">{r.ad_name || "—"}</div>
+                            <div className="text-foreground">{r.ad_name || "—"}</div>
                           </div>
                         </td>
                         <td className="px-4 py-3 text-right whitespace-nowrap">
@@ -545,7 +549,7 @@ function LeadsPage() {
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(null)}
-                                className="px-2 py-1 rounded text-xs bg-[#f9f9f9] text-[#111111] hover:bg-[#f9f9f9]"
+                                className="px-2 py-1 rounded text-xs bg-surface-soft text-foreground hover:bg-surface-soft"
                               >
                                 Cancel
                               </button>
@@ -554,14 +558,14 @@ function LeadsPage() {
                             <div className="inline-flex items-center gap-1">
                               <button
                                 onClick={() => openEdit(r)}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-[#f4522d] hover:bg-[#f4522d]/10"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-foreground hover:text-primary hover:bg-primary/10"
                                 title="Edit lead"
                               >
                                 <Pencil className="h-3.5 w-3.5" />
                               </button>
                               <button
                                 onClick={() => setConfirmDeleteId(r.id)}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-red-400 hover:bg-red-500/10"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-foreground hover:text-red-400 hover:bg-red-500/10"
                                 title="Delete lead"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
@@ -576,6 +580,13 @@ function LeadsPage() {
                   })()}
                 </tbody>
               </table>
+              <LoadMoreSentinel
+                hasNextPage={Boolean(leadsQuery.hasNextPage)}
+                isFetching={leadsQuery.isFetchingNextPage}
+                loadedCount={rows.length}
+                pageSize={LEADS_PAGE_SIZE}
+                onLoadMore={() => void leadsQuery.fetchNextPage()}
+              />
             </div>
           )}
         </div>
@@ -592,17 +603,17 @@ function LeadsPage() {
             className="relative ml-auto h-full w-full sm:max-w-md bg-white shadow-xl flex flex-col"
             style={{ background: "#ffffff" }}
           >
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#ebebeb]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-line">
               <div>
-                <h2 className="text-lg font-semibold text-[#111111]">Edit lead</h2>
-                <p className="text-xs text-[#666] mt-0.5">
+                <h2 className="text-lg font-semibold text-foreground">Edit lead</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {[editLead.first_name, editLead.last_name].filter(Boolean).join(" ") || "Untitled lead"}
                 </p>
               </div>
               <button
                 onClick={closeEdit}
                 disabled={saving}
-                className="p-1.5 rounded hover:bg-[#f3f3f3] text-[#111111] disabled:opacity-50"
+                className="p-1.5 rounded hover:bg-[#f3f3f3] text-foreground disabled:opacity-50"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
@@ -620,28 +631,28 @@ function LeadsPage() {
                 ] as [keyof EditableFields, string][]
               ).map(([key, label]) => (
                 <div key={key} className="flex flex-col gap-1.5">
-                  <label className="text-xs font-medium uppercase tracking-wider text-[#666]">{label}</label>
+                  <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</label>
                   <input
                     type="text"
                     value={editForm[key]}
                     onChange={(e) =>
                       setEditForm((prev) => (prev ? { ...prev, [key]: e.target.value } : prev))
                     }
-                    className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                    className="w-full px-3 py-2 rounded-md bg-surface-soft border border-line text-sm text-foreground focus:outline-none focus:border-primary"
                   />
                 </div>
               ))}
 
               {/* Status dropdown with + button */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Status</label>
+                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Status</label>
                 <div className="flex items-center gap-2">
                   <select
                     value={allStatuses.includes(editForm.status) ? editForm.status : "New"}
                     onChange={(e) =>
                       setEditForm((prev) => (prev ? { ...prev, status: e.target.value } : prev))
                     }
-                    className="flex-1 px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                    className="flex-1 px-3 py-2 rounded-md bg-surface-soft border border-line text-sm text-foreground focus:outline-none focus:border-primary"
                   >
                     {allStatuses.map((s) => (
                       <option key={s} value={s}>{s}</option>
@@ -650,7 +661,7 @@ function LeadsPage() {
                   <button
                     type="button"
                     onClick={() => setAddingStatus((v) => !v)}
-                    className="p-2 rounded-md bg-[#f4522d]/10 text-[#f4522d] hover:bg-[#f4522d]/20"
+                    className="p-2 rounded-md bg-primary/10 text-primary hover:bg-primary/20"
                     title="Add custom status"
                   >
                     <Plus className="h-4 w-4" />
@@ -673,12 +684,12 @@ function LeadsPage() {
                       onChange={(e) => setNewStatus(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomStatus(); } }}
                       placeholder="New status name"
-                      className="flex-1 px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+                      className="flex-1 px-3 py-2 rounded-md bg-surface-soft border border-line text-sm text-foreground focus:outline-none focus:border-primary"
                     />
                     <button
                       type="button"
                       onClick={addCustomStatus}
-                      className="px-3 py-2 rounded-md text-xs font-semibold bg-[#f4522d] text-white"
+                      className="px-3 py-2 rounded-md text-xs font-semibold bg-primary text-white"
                     >
                       Add
                     </button>
@@ -687,14 +698,14 @@ function LeadsPage() {
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Call notes</label>
+                <label className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Call notes</label>
                 <textarea
                   rows={5}
                   value={editForm.call_notes}
                   onChange={(e) =>
                     setEditForm((prev) => (prev ? { ...prev, call_notes: e.target.value } : prev))
                   }
-                  className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d] resize-y"
+                  className="w-full px-3 py-2 rounded-md bg-surface-soft border border-line text-sm text-foreground focus:outline-none focus:border-primary resize-y"
                 />
               </div>
 
@@ -705,24 +716,71 @@ function LeadsPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[#ebebeb] bg-white">
+            <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-line bg-white">
               <button
                 onClick={closeEdit}
                 disabled={saving}
-                className="px-3 py-2 rounded-md text-sm text-[#111111] bg-[#f3f3f3] hover:bg-[#e9e9e9] disabled:opacity-50"
+                className="px-3 py-2 rounded-md text-sm text-foreground bg-[#f3f3f3] hover:bg-[#e9e9e9] disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={saveEdit}
                 disabled={saving}
-                className="px-3 py-2 rounded-md text-sm text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+                className="px-3 py-2 rounded-md text-sm text-white bg-primary hover:bg-[#dd431f] disabled:opacity-50"
               >
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function LoadMoreSentinel({
+  hasNextPage,
+  isFetching,
+  loadedCount,
+  pageSize,
+  onLoadMore,
+}: {
+  hasNextPage: boolean;
+  isFetching: boolean;
+  loadedCount: number;
+  pageSize: number;
+  onLoadMore: () => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Auto-load the next page as the sentinel scrolls into view.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetching) onLoadMore();
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetching, onLoadMore]);
+
+  return (
+    <div ref={ref} className="flex items-center justify-center gap-3 py-4 text-xs text-muted-foreground">
+      {hasNextPage ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={isFetching}
+          className="px-3 py-1.5 rounded-md border border-line bg-surface-card hover:bg-surface-soft disabled:opacity-60"
+        >
+          {isFetching ? "Loading…" : `Load ${pageSize} more`}
+        </button>
+      ) : (
+        <span>All {loadedCount.toLocaleString()} loaded leads shown</span>
       )}
     </div>
   );

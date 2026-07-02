@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { lazy, Suspense, useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { CommandPalette } from "@/components/app/CommandPalette";
 import { useIncomingBannerActive, INCOMING_BANNER_HEIGHT } from "@/components/incoming-call-status";
 import { SmsNotifier } from "@/components/SmsNotifier";
 import { MissedCallNotifier } from "@/components/MissedCallNotifier";
@@ -155,6 +156,7 @@ function DashboardLayout() {
         <Suspense fallback={null}>
           <MiniMessenger />
         </Suspense>
+        <CommandPalette />
       </SidebarProvider>
     </NotificationsProvider>
   );

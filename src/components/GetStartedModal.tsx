@@ -380,14 +380,14 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
         >
           <button
             onClick={handleAttemptClose}
-            className="absolute top-4 right-4 text-[#999] hover:text-foreground transition-colors z-20"
+            className="absolute top-4 right-4 text-muted-foreground hover:text-foreground transition-colors z-20"
           >
             <X className="w-5 h-5" />
           </button>
 
           {/* Step indicator */}
           <div className="px-8 pt-8 pb-2">
-            <p className="text-xs text-[#999] font-medium tracking-wider uppercase">
+            <p className="text-xs text-muted-foreground font-medium tracking-wider uppercase">
               Step {currentStepDisplay} of 3
             </p>
             <div className="flex gap-1.5 mt-2">
@@ -483,7 +483,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
               <div>
                 <button
                   onClick={() => setStep(1)}
-                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
@@ -507,8 +507,8 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       <p className="text-sm font-extrabold text-foreground">{pack.name}</p>
                       <p className="text-xs text-[#CCCCCC] mt-1">{pack.shows} patients</p>
                       <p className="text-sm font-bold text-primary mt-2">{fmt(pack.totalExc)}</p>
-                      <p className="text-[10px] text-[#999]">exc GST</p>
-                      <p className="text-[10px] text-[#999]">{fmt(Math.round(pack.totalExc * 1.1))} inc GST</p>
+                      <p className="text-[10px] text-muted-foreground">exc GST</p>
+                      <p className="text-[10px] text-muted-foreground">{fmt(Math.round(pack.totalExc * 1.1))} inc GST</p>
                     </button>
                   ))}
                 </div>
@@ -554,7 +554,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                       />
                     </div>
                     {customExc > 0 && (
-                      <p className="col-span-2 text-[11px] text-[#999] -mt-1">
+                      <p className="col-span-2 text-[11px] text-muted-foreground -mt-1">
                         {customShows} shows × {fmt(customFee)} = {fmt(customExc)} exc · {fmt(Math.round(customExc * 1.1))} inc GST
                       </p>
                     )}
@@ -577,7 +577,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
               <div>
                 <button
                   onClick={() => setStep(2)}
-                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
@@ -587,34 +587,34 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 >
                   Summary
                 </h3>
-                <p className="text-sm text-[#999] mb-5">Review the details then send the agreement and payment link.</p>
+                <p className="text-sm text-muted-foreground mb-5">Review the details then send the agreement and payment link.</p>
 
                 {/* Summary card */}
                 <div className="rounded-xl border border-border bg-input/40 p-4 mb-5 text-sm">
                   <div className="grid grid-cols-[110px_1fr] gap-y-1.5 gap-x-3">
-                    <span className="text-[#999]">Clinic</span>
+                    <span className="text-muted-foreground">Clinic</span>
                     <span className="text-foreground font-medium">{clinicName}</span>
 
-                    <span className="text-[#999]">Contact</span>
+                    <span className="text-muted-foreground">Contact</span>
                     <span className="text-foreground font-medium">{fullName}</span>
 
-                    <span className="text-[#999]">Package</span>
+                    <span className="text-muted-foreground">Package</span>
                     <span className="text-foreground font-medium">
                       {summaryPackName} — {summaryShows} shows
                     </span>
 
-                    <span className="text-[#999]">Per show</span>
+                    <span className="text-muted-foreground">Per show</span>
                     <span className="text-foreground font-medium">{fmt(summaryPerShow)} + GST</span>
                   </div>
 
                   <div className="border-t border-border mt-3 pt-3 grid grid-cols-[110px_1fr] gap-y-1 gap-x-3">
-                    <span className="text-[#999]">Total exc GST</span>
+                    <span className="text-muted-foreground">Total exc GST</span>
                     <span className="text-foreground font-medium">{fmt(totalExcGst)}</span>
 
-                    <span className="text-[#999]">GST</span>
+                    <span className="text-muted-foreground">GST</span>
                     <span className="text-foreground font-medium">{fmt(gst)}</span>
 
-                    <span className="text-[#999]">Total inc GST</span>
+                    <span className="text-muted-foreground">Total inc GST</span>
                     <span className="text-primary font-extrabold">{fmt(totalIncGst)}</span>
                   </div>
                 </div>
@@ -733,7 +733,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
               <div>
                 <button
                   onClick={() => setStep(3)}
-                  className="flex items-center gap-1 text-sm text-[#999] hover:text-foreground transition-colors mb-4"
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors mb-4"
                 >
                   <ArrowLeft className="w-4 h-4" /> Back
                 </button>
@@ -743,7 +743,7 @@ export default function GetStartedModal({ open, onClose, pricePerShow = STANDARD
                 >
                   Send Payment Link
                 </h3>
-                <p className="text-sm text-[#999] mb-6">{fmt(totalIncGst)} inc GST · {summaryPackName}</p>
+                <p className="text-sm text-muted-foreground mb-6">{fmt(totalIncGst)} inc GST · {summaryPackName}</p>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={handleRequestInvoice}

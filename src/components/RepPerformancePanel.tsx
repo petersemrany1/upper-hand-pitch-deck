@@ -96,7 +96,7 @@ export function RepPerformancePanel({
       <div className="relative w-full max-w-2xl h-full overflow-y-auto bg-white border-l border-border shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b border-border bg-white">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-[#f4522d]" />
+            <Sparkles className="w-4 h-4 text-primary" />
             <h2 className="text-sm font-bold tracking-wide text-foreground">REP PERFORMANCE REPORT</h2>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-muted transition" aria-label="Close">
@@ -107,7 +107,7 @@ export function RepPerformancePanel({
         <div className="px-6 py-6 space-y-6">
           {loading && (
             <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-              <Loader2 className="w-10 h-10 animate-spin text-[#f4522d]" />
+              <Loader2 className="w-10 h-10 animate-spin text-primary" />
               <p className="text-base font-semibold text-foreground">
                 {loadingCount === 0
                   ? "Queuing your job…"
@@ -119,7 +119,7 @@ export function RepPerformancePanel({
                 <div className="w-full max-w-xs">
                   <div className="h-2 bg-muted rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-[#f4522d] transition-all duration-500"
+                      className="h-full bg-primary transition-all duration-500"
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -166,8 +166,8 @@ export function RepPerformancePanel({
               </div>
 
               {/* Coach verdict callout */}
-              <div className="rounded-xl p-5 border-2 border-[#f4522d]/30 bg-[#f4522d]/5">
-                <div className="text-[10px] font-bold tracking-wider uppercase text-[#f4522d] mb-2">
+              <div className="rounded-xl p-5 border-2 border-primary/30 bg-primary/5">
+                <div className="text-[10px] font-bold tracking-wider uppercase text-primary mb-2">
                   Coach Verdict
                 </div>
                 <p className="text-sm leading-relaxed text-foreground">{overall.coach_verdict}</p>

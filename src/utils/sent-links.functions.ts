@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
 import { createClient } from "@supabase/supabase-js";
 
 // Logs every send (payment link or contract) so it can be resent later
@@ -10,7 +10,7 @@ function getAdminClient() {
   return createClient(url, key);
 }
 
-export const recordSentLink = createServerFn({ method: "POST" })
+export const recordSentLink = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       kind: "payment_link" | "contract";
@@ -57,7 +57,7 @@ export const recordSentLink = createServerFn({ method: "POST" })
     return { success: true as const, id: row.id as string };
   });
 
-export const updateSentLinkMethod = createServerFn({ method: "POST" })
+export const updateSentLinkMethod = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; method: "email" | "sms" | "both" }) => data)
   .handler(async ({ data }) => {
     const supabase = getAdminClient();
@@ -69,7 +69,7 @@ export const updateSentLinkMethod = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const deleteSentLink = createServerFn({ method: "POST" })
+export const deleteSentLink = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     const supabase = getAdminClient();
@@ -78,7 +78,7 @@ export const deleteSentLink = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const updateSentLinkNotes = createServerFn({ method: "POST" })
+export const updateSentLinkNotes = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; notes: string }) => data)
   .handler(async ({ data }) => {
     const supabase = getAdminClient();
