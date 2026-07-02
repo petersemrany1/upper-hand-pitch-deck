@@ -195,3 +195,55 @@ describe("sameLocalDate", () => {
     expect(sameLocalDate(new Date(2026, 5, 1), new Date(2026, 5, 2))).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------
+// Queue ordering — the two locked product rules
+// ---------------------------------------------------------------
+import { buildQueueOrder, isQueueEligible } from "./logic";
+
+describe("buildQueueOrder", () => {
+  const mk = (id: string, patch: Partial<Lead>): Lead => ({ ...baseLead, id, ...patch });
+
+  test("callbacks due ALWAYS come first, soonest first", () => {
+    const now = new Date();
+    const in1h = new Date(now.getTime() + 3600_000).toISOString();
+    const overdue = new Date(now.getTime() - 3600_000).toISOString();
+    const leads = [
+      mk("new1", { status: "new", created_at: now.toISOString() }),
+      mk("cbLater", { status: "callback_scheduled", callback_scheduled_at: in1h }),
+      mk("cbOverdue", { status: "callback_scheduled", callback_scheduled_at: overdue }),
+    ];
+    const order = buildQueueOrder(leads, { now });
+    expect(order.slice(0, 2)).toEqual(["cbOverdue", "cbLater"]);
+    expect(order[2]).toBe("new1");
+  });
+
+  test("new leads come right after callbacks, newest first", () => {
+    const now = new Date();
+    const leads = [
+      mk("older", { status: "new", created_at: "2026-06-01T00:00:00Z" }),
+      mk("newest", { status: "new", created_at: "2026-06-20T00:00:00Z" }),
+      mk("chase", { status: "had_convo_chase_up" }),
+    ];
+    const order = buildQueueOrder(leads, { now });
+    expect(order).toEqual(["newest", "older", "chase"]);
+  });
+
+  test("closed-out leads never enter the queue", () => {
+    const leads = [
+      mk("ni", { status: "not_interested" }),
+      mk("paid", { status: "booked_deposit_paid" }),
+      mk("dropped", { status: "dropped" }),
+      mk("ok", { status: "new" }),
+    ];
+    expect(buildQueueOrder(leads)).toEqual(["ok"]);
+  });
+});
+
+describe("isQueueEligible", () => {
+  test("excludes cancelled/no_show raw statuses", () => {
+    expect(isQueueEligible({ ...baseLead, status: "cancelled" })).toBe(false);
+    expect(isQueueEligible({ ...baseLead, status: "no_show" })).toBe(false);
+    expect(isQueueEligible({ ...baseLead, status: "new" })).toBe(true);
+  });
+});

@@ -6,6 +6,7 @@ import {
   Check, AlertTriangle, Send, Search, X, ChevronDown, PhoneCall, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { announceDisposition, snapshotLead } from "./disposition";
 import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
@@ -432,6 +433,7 @@ export function LeadChooser({
   // Mutators
   const changeStatus = async (leadId: string, key: StatusKey) => {
     const lead = leads.find((l) => l.id === leadId);
+    const snapshot = lead ? snapshotLead(lead) : null;
     const patch: Partial<Lead> = {
       status: key,
       ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
@@ -451,7 +453,12 @@ export function LeadChooser({
         .update(dbPatch)
         .eq("id", leadId);
       if (error) throw error;
-      toast.success("Status updated");
+      if (lead) {
+        const meta = STATUS_OPTIONS.find((o) => o.key === key);
+        announceDisposition(snapshot!, `${meta?.emoji ?? ""} ${meta?.label ?? key}`.trim(), onLocalLeadUpdate);
+      } else {
+        toast.success("Status updated");
+      }
     } catch {
       onLocalLeadUpdate?.(leadId, {
         status: lead?.status ?? null,

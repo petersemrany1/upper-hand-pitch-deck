@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { subscribeRealtime } from "@/hooks/useRealtimeSubscription";
+import { applyStatusDisposition } from "@/components/sales-call/disposition";
 import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,6 +38,7 @@ import {
   type Clinic, type Lead, type LeadUrgency, type PartnerDoctor,
   type RawPayloadObject, type StatusKey,
   PRACTICE_AGENT_ID,
+  buildQueueOrder,
 } from "@/components/sales-call/logic";
 import { STEPS, StepContent, type StepKey } from "@/components/sales-call/steps";
 import { LeadChooser } from "@/components/sales-call/lead-chooser";
@@ -656,6 +658,55 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
   }, []);
 
+  // Single-key dispositions: 1–9 set the matching status on the active lead
+  // (undoable via the toast). Ignored while typing or with modifiers held.
+  const activeRef = useRef<Lead | null>(null);
+  useEffect(() => { activeRef.current = active; });
+  useEffect(() => {
+    if (practiceMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      const lead = activeRef.current;
+      if (!lead || lead.id === PRACTICE_LEAD_ID) return;
+      const n = Number(e.key);
+      if (!Number.isInteger(n) || n < 1 || n > STATUS_OPTIONS.length) return;
+      const opt = STATUS_OPTIONS[n - 1];
+      e.preventDefault();
+      void applyStatusDisposition({
+        lead,
+        statusKey: opt.key,
+        statusLabel: `${opt.emoji} ${opt.label}`,
+        onLocalLeadUpdate: updateLocalLead,
+      });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [practiceMode, updateLocalLead]);
+
+  // SMS interrupt: if the ACTIVE lead texts back mid-workflow, surface it
+  // immediately with a one-click jump into the thread.
+  useEffect(() => {
+    if (practiceMode) return;
+    return subscribeRealtime({ table: "sms_messages", event: "INSERT" }, (payload) => {
+      const m = payload.new as { direction?: string; from_number?: string | null; thread_id?: string; body?: string | null };
+      if (m.direction !== "inbound") return;
+      const lead = activeRef.current;
+      if (!lead?.phone) return;
+      if (normalisePhoneDigits(m.from_number) !== normalisePhoneDigits(lead.phone)) return;
+      const preview = (m.body ?? "").trim() || "📷 Media message";
+      toast(`💬 ${lead.first_name ?? "Lead"} just replied`, {
+        description: preview.length > 90 ? preview.slice(0, 90) + "…" : preview,
+        duration: 12000,
+        action: m.thread_id
+          ? { label: "Open thread", onClick: () => { setMessengerThread(m.thread_id!); openMessenger(); } }
+          : undefined,
+      });
+    });
+  }, [practiceMode]);
+
   const markStepComplete = (k: StepKey) => {
     setCompleted((prev) => { const n = new Set(prev); n.add(k); return n; });
   };
@@ -692,68 +743,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     );
   }, [leads]);
 
-  // Build the ordered session queue from the same buckets as LeadChooser
-  const buildSessionQueue = useCallback((): string[] => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
-    const todayKey = localDateKey(today);
-    const yesterdayKey = localDateKey(yesterday);
-    const callbackOverdue = (l: Lead) => {
-      if (!l.callback_scheduled_at) return false;
-      const t = new Date(l.callback_scheduled_at).getTime();
-      return !Number.isNaN(t) && t <= Date.now();
-    };
-    const callbackToday = (l: Lead) => {
-      if (!l.callback_scheduled_at) return false;
-      return sameLocalDate(new Date(l.callback_scheduled_at), today);
-    };
-    const noAnsYesterday = (l: Lead) => {
-      const slot = attemptsByDay[l.id]?.[yesterdayKey];
-      if (!slot) return false;
-      const o = (slot.lastOutcome ?? "").toLowerCase();
-      return o.includes("no") || o.includes("voicemail") || o.includes("missed") || o === "no-answer";
-    };
-    const newish = (l: Lead) =>
-      normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
-
-    const eligible = leads.filter((l) => {
-      const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
-      const raw = (l.status ?? "").toLowerCase();
-      if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
-      return true;
-    });
-
-    const overdue: Lead[] = [];
-    const cbToday: Lead[] = [];
-    const chase: Lead[] = [];
-    const noAns: Lead[] = [];
-    const newLeads: Lead[] = [];
-    const remaining: Lead[] = [];
-    const placed = new Set<string>();
-    for (const l of eligible) {
-      if (callbackOverdue(l)) { overdue.push(l); placed.add(l.id); continue; }
-      if (callbackToday(l)) { cbToday.push(l); placed.add(l.id); continue; }
-      if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); placed.add(l.id); continue; }
-      if (noAnsYesterday(l)) { noAns.push(l); placed.add(l.id); continue; }
-      if (newish(l)) { newLeads.push(l); placed.add(l.id); continue; }
-      remaining.push(l); placed.add(l.id);
-    }
-    const cbSort = (a: Lead, b: Lead) => {
-      const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : 0;
-      const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : 0;
-      return ta - tb;
-    };
-    cbToday.sort(cbSort);
-    overdue.sort(cbSort);
-    // TEMP (24–25 Jun 2026 Sydney only): start with brand-new leads first.
-    const sydToday = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
-    const newFirst = sydToday === "2026-06-24" || sydToday === "2026-06-25";
-    return (newFirst
-      ? [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining]
-      : [...overdue, ...cbToday, ...chase, ...noAns, ...newLeads, ...remaining]
-    ).map((l) => l.id);
-  }, [leads, attemptsByDay]);
+  // Build the ordered session queue.
+  // PRODUCT RULE (locked): callbacks due ALWAYS first, then new leads
+  // newest-first. Ordering logic lives in sales-call/logic.ts (unit tested).
+  const buildSessionQueue = useCallback(
+    (): string[] => buildQueueOrder(leads, { attemptsByDay }),
+    [leads, attemptsByDay],
+  );
 
   // Show start-session screen / advance queue when no active lead
   if (!active) {

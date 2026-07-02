@@ -6,6 +6,7 @@ import {
   Check, AlertTriangle, Send, Search, X, ChevronDown, PhoneCall, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { announceDisposition, snapshotLead } from "./disposition";
 import { subscribeRealtime } from "@/hooks/useRealtimeSubscription";
 import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -720,7 +721,7 @@ export function RightPanel({
                   value={meta.key}
                   onChange={async (e) => {
                     const key = e.target.value as StatusKey;
-                    const prev = active.status;
+                    const snapshot = snapshotLead(active);
                     onLocalLeadUpdate?.(active.id, {
                       status: key,
                       ...(key !== "callback_scheduled" ? { callback_scheduled_at: null } : {}),
@@ -732,9 +733,10 @@ export function RightPanel({
                         : { status: key, updated_at: nowIso };
                       const { error } = await supabase.from("meta_leads").update(dbPatch).eq("id", active.id);
                       if (error) throw error;
-                      toast.success("Status updated");
+                      const optMeta = STATUS_OPTIONS.find((o) => o.key === key);
+                      announceDisposition(snapshot, `${optMeta?.emoji ?? ""} ${optMeta?.label ?? key}`.trim(), onLocalLeadUpdate);
                     } catch {
-                      onLocalLeadUpdate?.(active.id, { status: prev });
+                      onLocalLeadUpdate?.(active.id, { status: snapshot.prevStatus, callback_scheduled_at: snapshot.prevCallbackAt });
                       toast.error("Couldn't update status");
                     }
                   }}
@@ -1811,6 +1813,7 @@ function ForcedOutcomeModal({
     }
     setBusy(true);
     try {
+      const snapshot = snapshotLead(active);
       const r = await updateLeadStatus({ data: { leadId: active.id, status } });
       if (!r?.success) {
         toast.error(r?.error ?? "Failed to update");
@@ -1818,6 +1821,8 @@ function ForcedOutcomeModal({
         return;
       }
       onLocalLeadUpdate?.(active.id, { status, ...(extra ?? {}) } as Partial<Lead>);
+      const optMeta = STATUS_OPTIONS.find((o) => o.key === status);
+      announceDisposition(snapshot, `${optMeta?.emoji ?? ""} ${optMeta?.label ?? status}`.trim(), onLocalLeadUpdate);
       onClosed(status);
     } finally {
       setBusy(false);
@@ -1831,6 +1836,7 @@ function ForcedOutcomeModal({
     if (busy) return;
     setBusy(true);
     try {
+      const snapshot = snapshotLead(active);
       const r = await updateLeadStatus({ data: { leadId: active.id, status: "callback_scheduled" } });
       if (!r?.success) {
         toast.error(r?.error ?? "Failed to update");
@@ -1847,6 +1853,7 @@ function ForcedOutcomeModal({
         return;
       }
       onLocalLeadUpdate?.(active.id, { status: "callback_scheduled", callback_scheduled_at: dt.toISOString() } as Partial<Lead>);
+      announceDisposition(snapshot, `🟠 Callback ${fmtTime(dt.toISOString())}`, onLocalLeadUpdate);
       onClosed("callback_scheduled");
     } finally {
       setBusy(false);

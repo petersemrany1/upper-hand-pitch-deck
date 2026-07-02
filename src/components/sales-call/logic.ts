@@ -203,3 +203,83 @@ export const rawPayloadObject = (raw: Json | null): RawPayloadObject => {
 
 export const sameLocalDate = (a: Date, b: Date) =>
   a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/* ------------------------------------------------------------------
+   Rep queue ordering.
+
+   PRODUCT RULE (locked): callbacks that are due come ALWAYS first
+   (soonest-scheduled first), then new leads newest-first. Everything
+   else (chase-ups, yesterday's no-answers, the rest) follows.
+   Phase 7 moves this same ordering into a Postgres RPC.
+   ------------------------------------------------------------------ */
+
+export type QueueInputs = {
+  /** call attempts per lead per localDateKey — used for "new today" checks */
+  attemptsByDay?: Record<string, Record<string, { count: number; lastOutcome?: string | null }>>;
+  now?: Date;
+};
+
+const QUEUE_EXCLUDED_STATUSES = new Set<StatusKey>([
+  "not_interested",
+  "booked_deposit_paid",
+  "had_convo_no_sale",
+]);
+const QUEUE_EXCLUDED_RAW = new Set(["cancelled", "no_show", "dropped"]);
+
+export function isQueueEligible(l: Lead): boolean {
+  if (QUEUE_EXCLUDED_STATUSES.has(normaliseStatus(l.status, l))) return false;
+  if (QUEUE_EXCLUDED_RAW.has((l.status ?? "").toLowerCase())) return false;
+  return true;
+}
+
+/** Callback exists and is due now or earlier today. */
+export function isCallbackDue(l: Lead, now: Date): boolean {
+  if (!l.callback_scheduled_at) return false;
+  const t = new Date(l.callback_scheduled_at).getTime();
+  if (Number.isNaN(t)) return false;
+  return t <= now.getTime() || sameLocalDate(new Date(l.callback_scheduled_at), now);
+}
+
+/**
+ * Order the rep's working queue. Returns lead ids.
+ */
+export function buildQueueOrder(leads: Lead[], inputs: QueueInputs = {}): string[] {
+  const now = inputs.now ?? new Date();
+  const attemptsByDay = inputs.attemptsByDay ?? {};
+  const today = new Date(now); today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+  const todayKey = localDateKey(today);
+  const yesterdayKey = localDateKey(yesterday);
+
+  const noAnsYesterday = (l: Lead) => {
+    const slot = attemptsByDay[l.id]?.[yesterdayKey];
+    if (!slot) return false;
+    const o = (slot.lastOutcome ?? "").toLowerCase();
+    return o.includes("no") || o.includes("voicemail") || o.includes("missed") || o === "no-answer";
+  };
+  const isNew = (l: Lead) =>
+    normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
+
+  const callbacksDue: Lead[] = [];
+  const newLeads: Lead[] = [];
+  const chase: Lead[] = [];
+  const noAns: Lead[] = [];
+  const remaining: Lead[] = [];
+
+  for (const l of leads) {
+    if (!isQueueEligible(l)) continue;
+    if (isCallbackDue(l, now)) { callbacksDue.push(l); continue; }
+    if (isNew(l)) { newLeads.push(l); continue; }
+    if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); continue; }
+    if (noAnsYesterday(l)) { noAns.push(l); continue; }
+    remaining.push(l);
+  }
+
+  // Callbacks: soonest scheduled first (overdue ones therefore lead).
+  callbacksDue.sort((a, b) =>
+    new Date(a.callback_scheduled_at!).getTime() - new Date(b.callback_scheduled_at!).getTime());
+  // New leads: newest first.
+  newLeads.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return [...callbacksDue, ...newLeads, ...chase, ...noAns, ...remaining].map((l) => l.id);
+}
