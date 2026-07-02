@@ -585,7 +585,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
     setLoading(false);
   };
 
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [appointmentId]);
+  useEffect(() => { void load();   }, [appointmentId]);
 
   const addNote = async () => {
     const body = draft.trim();

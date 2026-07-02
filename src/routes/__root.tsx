@@ -12,7 +12,7 @@ import htgLogo from "@/assets/htg-logo.png?url";
 if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched) {
   (window as unknown as { __serverFnAuthPatched?: boolean }).__serverFnAuthPatched = true;
   const origFetch = window.fetch.bind(window);
-  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     try {
       const url =
         typeof input === "string"
@@ -31,7 +31,7 @@ if (typeof window !== "undefined" && !(window as unknown as { __serverFnAuthPatc
       }
     } catch {}
     return origFetch(input, init);
-  };
+  }) as typeof window.fetch;
 }
 
 function NotFoundComponent() {

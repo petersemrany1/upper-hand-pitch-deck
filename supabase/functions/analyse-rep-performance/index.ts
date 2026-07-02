@@ -87,7 +87,7 @@ function repairTruncatedJson(raw: string): any | null {
   // Find the outermost opening brace
   const start = raw.indexOf("{");
   if (start === -1) return null;
-  let s = raw.slice(start);
+  const s = raw.slice(start);
   // Walk forward and remember the last position where the document was structurally "almost balanced"
   // Strategy: progressively trim from the end, close open arrays/objects, until JSON.parse succeeds.
   for (let end = s.length; end > 20; end--) {
@@ -383,7 +383,7 @@ serve(async (req) => {
     if (error) throw error;
 
     // Fire and forget — the Edge runtime keeps the worker alive
-    // @ts-ignore EdgeRuntime is provided by Supabase
+    // @ts-expect-error EdgeRuntime is provided by Supabase
     EdgeRuntime.waitUntil(processJob(job.id, repId, dateFrom || null, dateTo || null));
 
     return new Response(JSON.stringify({ jobId: job.id }), {

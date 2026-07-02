@@ -274,8 +274,8 @@ function AnalyticsPage() {
   // Summarise to a one-line label: keep meaning, drop filler, end on a real word.
   const summariseItem = (s: string, maxWords = 7): string => {
     let v = s.toLowerCase().trim();
-    v = v.replace(/b\s*[\/&]\s*a\b/g, "before and after");
-    v = v.replace(/before\s*[\/&]\s*after/g, "before and after");
+    v = v.replace(/b\s*[/&]\s*a\b/g, "before and after");
+    v = v.replace(/before\s*[/&]\s*after/g, "before and after");
     v = v.replace(/\bbefores?\s+and\s+afters?\b/g, "before and after");
     v = v.replace(/\bafter\s+pic(?:ture|s)?s?\b/g, "after photos");
     v = v.replace(/\bafter\s+images?\b/g, "after photos");
@@ -296,7 +296,7 @@ function AnalyticsPage() {
     if (parts.length <= maxWords) {
       return trimTrailingFragments(parts.join(" "));
     }
-    let kept = parts.slice(0, maxWords);
+    const kept = parts.slice(0, maxWords);
     // If trimming would leave a connector at the end, extend by one meaningful word.
     while (
       kept.length < parts.length &&

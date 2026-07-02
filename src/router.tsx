@@ -1,7 +1,7 @@
 import { createRouter, useRouter } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
-import { supabase } from "@/integrations/supabase/client";
+import { reportError } from "@/lib/error-reporting";
 
 if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/sales-call") {
   window.history.replaceState(null, "", `/sales-call${window.location.search}${window.location.hash}`);
@@ -20,19 +20,11 @@ function DefaultErrorComponent({
   useEffect(() => {
     if (logged.current) return;
     logged.current = true;
-    try {
-      void supabase.from("error_logs").insert({
-        function_name: "router-error-boundary",
-        error_message: `${error?.name ?? "Error"}: ${error?.message ?? "(no message)"}`,
-        context: {
-          source: "frontend",
-          url: typeof window !== "undefined" ? window.location.href : null,
-          userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-          stack: error?.stack ?? null,
-          loggedAt: new Date().toISOString(),
-        },
-      });
-    } catch { /* noop */ }
+    void reportError(
+      "router-error-boundary",
+      `${error?.name ?? "Error"}: ${error?.message ?? "(no message)"}`,
+      { stack: error?.stack ?? null }
+    );
   }, [error]);
 
 

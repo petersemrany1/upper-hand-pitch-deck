@@ -116,7 +116,7 @@ serve(async (req) => {
     if (rangeHeader) {
       const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim());
       if (match) {
-        let start = match[1] === "" ? 0 : parseInt(match[1], 10);
+        const start = match[1] === "" ? 0 : parseInt(match[1], 10);
         let end = match[2] === "" ? totalLength - 1 : parseInt(match[2], 10);
         if (isNaN(start) || isNaN(end) || start > end || start >= totalLength) {
           return new Response(null, {

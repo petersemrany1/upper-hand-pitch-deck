@@ -5665,7 +5665,7 @@ function RightPanel({
         .limit(50);
       setSmsHistory((data ?? []) as typeof smsHistory);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [active.id]);
 
   // Load call history for this lead (for the customer journey view)
@@ -5681,7 +5681,7 @@ function RightPanel({
       setJourneyCalls((data ?? []) as typeof journeyCalls);
       setLoadingJourney(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [active.id]);
 
   const loadDoctorForClinic = useCallback(async (clinicId: string | null) => {

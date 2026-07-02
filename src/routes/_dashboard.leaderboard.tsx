@@ -41,7 +41,7 @@ function LeaderboardPage() {
     const r = await getLeaderboard({ data: { range } });
     if (r.success) setRows(r.rows);
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range]);
+  useEffect(() => { void load();   }, [range]);
 
   // Realtime refresh on bookings/calls
   useEffect(() => {
