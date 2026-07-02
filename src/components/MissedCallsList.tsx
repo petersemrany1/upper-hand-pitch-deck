@@ -174,7 +174,7 @@ export function MissedCallsList() {
                   <PhoneIncoming className="h-3 w-3" />
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-medium text-[#111111] truncate leading-tight">
+                  <div className="text-[11px] font-medium text-foreground truncate leading-tight">
                     {label}
                   </div>
                   <div className="text-[9px] leading-tight" style={{ color: "#6b7280" }}>

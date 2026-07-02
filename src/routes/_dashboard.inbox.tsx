@@ -311,7 +311,7 @@ function InboxPage() {
                   if (activeId) await loadMessages(activeId);
                   setRefreshing(false);
                 }}
-                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#f9f9f9] disabled:opacity-50"
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-surface-soft disabled:opacity-50"
                 title="Refresh"
                 disabled={refreshing}
               >
@@ -319,7 +319,7 @@ function InboxPage() {
               </button>
               <button
                 onClick={() => { setShowNewThread(true); setActiveId(null); setNewPhone(""); }}
-                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-[#f9f9f9]"
+                className="h-8 w-8 inline-flex items-center justify-center rounded hover:bg-surface-soft"
                 title="New message"
               >
                 <MessageSquarePlus className="h-4 w-4" />
@@ -327,7 +327,7 @@ function InboxPage() {
             </div>
           </div>
           <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#111111]" />
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-foreground" />
             <input
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -339,7 +339,7 @@ function InboxPage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
-            <div className="p-6 text-center text-xs text-[#111111]">No conversations yet.</div>
+            <div className="p-6 text-center text-xs text-foreground">No conversations yet.</div>
           )}
           {filtered.map((t) => {
             const name = t.display_name || t.clinic?.clinic_name || "Unknown";
@@ -365,13 +365,13 @@ function InboxPage() {
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-[#111111] truncate">{t.phone}</div>
-                    <div className="text-xs text-[#111111] truncate mt-1">
+                    <div className="text-[11px] text-foreground truncate">{t.phone}</div>
+                    <div className="text-xs text-foreground truncate mt-1">
                       {t.last_direction === "outbound" ? "You: " : ""}{t.last_message_preview || "—"}
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <span className="text-[10px] text-[#111111]">{fmtTime(t.last_message_at)}</span>
+                    <span className="text-[10px] text-foreground">{fmtTime(t.last_message_at)}</span>
                     {t.unread_count > 0 && (
                       <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded-full bg-emerald-500 text-white text-[9px] font-bold">
                         {t.unread_count}
@@ -388,7 +388,7 @@ function InboxPage() {
       {/* Conversation pane */}
       <section className="flex-1 flex flex-col">
         {!active && !showNewThread && (
-          <div className="flex-1 flex items-center justify-center text-sm text-[#111111]">
+          <div className="flex-1 flex items-center justify-center text-sm text-foreground">
             Select a conversation or start a new one.
           </div>
         )}
@@ -402,11 +402,11 @@ function InboxPage() {
                     <div className="text-sm font-semibold">
                       {active.display_name || active.clinic?.clinic_name || "Unknown"}
                     </div>
-                    <div className="text-xs text-[#111111]">{active.phone}</div>
+                    <div className="text-xs text-foreground">{active.phone}</div>
                   </>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-[#111111]">To:</span>
+                    <span className="text-xs text-foreground">To:</span>
                     <input
                       value={newPhone}
                       onChange={(e) => setNewPhone(e.target.value)}
@@ -434,7 +434,7 @@ function InboxPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3" style={{ background: "#f7f7f5" }}>
               {active && messages.length === 0 && (
-                <div className="text-center text-xs text-[#111111] py-8">No messages in this conversation yet.</div>
+                <div className="text-center text-xs text-foreground py-8">No messages in this conversation yet.</div>
               )}
               {messages.map((m) => {
                 const out = m.direction === "outbound";
@@ -490,8 +490,8 @@ function InboxPage() {
                 </div>
               )}
               <div className="flex items-end gap-2">
-                <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-[#f9f9f9]" title="Attach image">
-                  <ImageIcon className="h-4 w-4 text-[#111111]" />
+                <label className="h-9 w-9 inline-flex items-center justify-center rounded cursor-pointer hover:bg-surface-soft" title="Attach image">
+                  <ImageIcon className="h-4 w-4 text-foreground" />
                   <input
                     type="file"
                     accept="image/*"
@@ -528,7 +528,7 @@ function InboxPage() {
                   Send
                 </button>
               </div>
-              <div className="text-[10px] text-[#111111] mt-2">
+              <div className="text-[10px] text-foreground mt-2">
                 Press Enter to send · Shift+Enter for new line · Sent from +61 468 031 075
               </div>
             </div>
@@ -692,7 +692,7 @@ function CallsPanel() {
       {/* Dialer */}
       <aside className="w-[340px] flex flex-col p-5" style={{ borderRight: "1px solid #ebebeb", background: "#ffffff" }}>
         <div className="mb-3">
-          <div className="text-[11px] uppercase tracking-wider font-semibold text-[#888] mb-2">Dialer</div>
+          <div className="text-[11px] uppercase tracking-wider font-semibold text-muted-foreground mb-2">Dialer</div>
           <input
             value={dialInput}
             onChange={(e) => setDialInput(e.target.value)}
@@ -746,12 +746,12 @@ function CallsPanel() {
             style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
             title="Backspace"
           >
-            <Delete className="h-4 w-4 text-[#666]" />
+            <Delete className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
-        <div className="text-[11px] text-[#888]">
+        <div className="text-[11px] text-muted-foreground">
           Status: <span style={{ color: dialerStatus === "ready" ? "#10b981" : "#f59e0b", fontWeight: 600 }}>{dialerStatus}</span>
-          {activePhone && <> · <span className="text-[#111]">{activePhone}</span></>}
+          {activePhone && <> · <span className="text-foreground">{activePhone}</span></>}
         </div>
       </aside>
 
@@ -760,11 +760,11 @@ function CallsPanel() {
         <div className="px-6 py-4 flex items-center justify-between gap-3" style={{ borderBottom: "1px solid #ebebeb", background: "#ffffff" }}>
           <div>
             <h2 className="text-base font-semibold tracking-tight">Call log</h2>
-            <div className="text-[11px] text-[#888]">Recent calls — who, when, how long</div>
+            <div className="text-[11px] text-muted-foreground">Recent calls — who, when, how long</div>
           </div>
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#999]" />
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
@@ -776,7 +776,7 @@ function CallsPanel() {
             <button
               type="button"
               onClick={() => void loadCalls()}
-              className="h-9 w-9 inline-flex items-center justify-center rounded hover:bg-[#f9f9f9]"
+              className="h-9 w-9 inline-flex items-center justify-center rounded hover:bg-surface-soft"
               title="Refresh"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
@@ -786,10 +786,10 @@ function CallsPanel() {
 
         <div className="flex-1 overflow-y-auto">
           {loading && calls.length === 0 && (
-            <div className="p-8 text-center text-sm text-[#888]">Loading…</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
           )}
           {!loading && filtered.length === 0 && (
-            <div className="p-8 text-center text-sm text-[#888]">No calls yet.</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">No calls yet.</div>
           )}
           {filtered.map((c) => {
             const isOutbound = (c.direction ?? "outbound") === "outbound";
@@ -802,18 +802,18 @@ function CallsPanel() {
             return (
               <div
                 key={c.id}
-                className="flex items-center gap-4 px-6 py-3 hover:bg-[#f9f9f9] transition-colors"
+                className="flex items-center gap-4 px-6 py-3 hover:bg-surface-soft transition-colors"
                 style={{ borderBottom: "1px solid #f1f1f1" }}
               >
                 <div className="h-9 w-9 inline-flex items-center justify-center rounded-full" style={{ background: `${iconColor}15` }}>
                   <Icon className="h-4 w-4" style={{ color: iconColor }} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold truncate text-[#111]">{name}</div>
-                  <div className="text-[11px] text-[#888] truncate">{phone}</div>
+                  <div className="text-sm font-semibold truncate text-foreground">{name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{phone}</div>
                 </div>
-                <div className="text-xs text-[#666] w-[140px] text-right">{fmtCallTime(c.called_at)}</div>
-                <div className="text-xs font-mono text-[#111] w-[60px] text-right">{fmtCallDuration(secs)}</div>
+                <div className="text-xs text-muted-foreground w-[140px] text-right">{fmtCallTime(c.called_at)}</div>
+                <div className="text-xs font-mono text-foreground w-[60px] text-right">{fmtCallDuration(secs)}</div>
                 <div className="w-[90px] flex justify-end">
                   {c.outcome && (
                     <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: "#f1f5f9", color: "#334155" }}>

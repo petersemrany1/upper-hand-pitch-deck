@@ -393,7 +393,7 @@ export function FloatingCallWidget() {
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
         </span>
         <div className="flex flex-col items-start min-w-0">
-          <span className="text-sm font-semibold text-[#111111] truncate max-w-[180px]">{primaryLabel}</span>
+          <span className="text-sm font-semibold text-foreground truncate max-w-[180px]">{primaryLabel}</span>
           {secondaryLabel && (
             <span className="text-[10px] truncate max-w-[180px]" style={{ color: "#111111" }}>{secondaryLabel}</span>
           )}
@@ -432,7 +432,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] hover:text-[#111111] hover:bg-[#f9f9f9]"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-foreground hover:text-foreground hover:bg-surface-soft"
           aria-label="Minimise call"
         >
           <Minus className="h-4 w-4" />
@@ -441,13 +441,13 @@ export function FloatingCallWidget() {
 
       {/* Caller info */}
       <div className="px-4 pb-3 text-center">
-        <div className="text-lg font-bold text-[#111111] truncate">{primaryLabel}</div>
+        <div className="text-lg font-bold text-foreground truncate">{primaryLabel}</div>
         {secondaryLabel && (
           <div className="text-xs truncate" style={{ color: "#111111" }}>{secondaryLabel}</div>
         )}
         <div className="font-mono text-2xl text-emerald-400 mt-1">{formatDuration(seconds)}</div>
         {dtmfTrail && (
-          <div className="mt-1 font-mono text-xs text-[#111111] tracking-widest">{dtmfTrail}</div>
+          <div className="mt-1 font-mono text-xs text-foreground tracking-widest">{dtmfTrail}</div>
         )}
       </div>
 
@@ -459,12 +459,12 @@ export function FloatingCallWidget() {
               key={k.d}
               type="button"
               onClick={() => handleDigit(k.d)}
-              className="flex flex-col items-center justify-center h-14 rounded-lg text-[#111111] active:scale-95 transition"
+              className="flex flex-col items-center justify-center h-14 rounded-lg text-foreground active:scale-95 transition"
               style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               aria-label={`Send digit ${k.d}`}
             >
               <span className="text-xl font-semibold leading-none">{k.d}</span>
-              {k.sub && <span className="text-[9px] text-[#111111] mt-0.5 tracking-widest">{k.sub}</span>}
+              {k.sub && <span className="text-[9px] text-foreground mt-0.5 tracking-widest">{k.sub}</span>}
             </button>
           ))}
         </div>
@@ -531,7 +531,7 @@ export function FloatingCallWidget() {
         <button
           type="button"
           onClick={handleHangup}
-          className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg bg-red-600 text-[#111111] shadow-lg hover:bg-red-500 active:scale-95 transition"
+          className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg bg-red-600 text-foreground shadow-lg hover:bg-red-500 active:scale-95 transition"
           aria-label="Hang up"
         >
           <PhoneOff className="h-5 w-5" />
@@ -549,7 +549,7 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg text-[#111111] active:scale-95 transition"
+      className="flex flex-col items-center justify-center gap-1 h-16 rounded-lg text-foreground active:scale-95 transition"
       style={{
         background: active ? "#f4522d" : "#f9f9f9",
         border: `1px solid ${active ? "#f4522d" : "#ebebeb"}`,
@@ -665,13 +665,13 @@ function CallOutcomePrompt({
     >
       <div className="flex items-start justify-between mb-3">
         <div>
-          <div className="text-base font-semibold text-[#111111]">How did that go?</div>
-          <div className="text-xs text-[#666] mt-0.5">Set the outcome to keep your pipeline accurate.</div>
+          <div className="text-base font-semibold text-foreground">How did that go?</div>
+          <div className="text-xs text-muted-foreground mt-0.5">Set the outcome to keep your pipeline accurate.</div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-[#111111] hover:bg-[#f9f9f9]"
+          className="flex h-7 w-7 items-center justify-center rounded-md text-foreground hover:bg-surface-soft"
           aria-label="Skip logging"
         >
           <X className="h-4 w-4" />
@@ -685,7 +685,7 @@ function CallOutcomePrompt({
             type="button"
             onClick={() => setPending(o)}
             disabled={saving}
-            className="flex items-center gap-2.5 h-10 px-3 rounded-md text-sm font-semibold text-[#111111] active:scale-[0.98] transition disabled:opacity-50 text-left"
+            className="flex items-center gap-2.5 h-10 px-3 rounded-md text-sm font-semibold text-foreground active:scale-[0.98] transition disabled:opacity-50 text-left"
             style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
           >
             <span
@@ -715,14 +715,14 @@ function CallOutcomePrompt({
                 className="inline-block h-3 w-3 rounded-full"
                 style={{ background: OUTCOME_DOT[pending] }}
               />
-              <span className="text-[11px] font-semibold uppercase tracking-widest text-[#666]">
+              <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
                 Confirm outcome
               </span>
             </div>
-            <div className="text-base font-semibold text-[#111111] mb-1">
+            <div className="text-base font-semibold text-foreground mb-1">
               {OUTCOME_LABELS[pending]}
             </div>
-            <div className="text-sm text-[#666] mb-4">
+            <div className="text-sm text-muted-foreground mb-4">
               Are you sure? Tap outside to pick a different outcome.
             </div>
             <div className="flex gap-2">
@@ -730,7 +730,7 @@ function CallOutcomePrompt({
                 type="button"
                 onClick={() => setPending(null)}
                 disabled={saving}
-                className="flex-1 h-10 rounded-md text-sm font-semibold text-[#111111] disabled:opacity-50"
+                className="flex-1 h-10 rounded-md text-sm font-semibold text-foreground disabled:opacity-50"
                 style={{ background: "#f9f9f9", border: "1px solid #ebebeb" }}
               >
                 Cancel
