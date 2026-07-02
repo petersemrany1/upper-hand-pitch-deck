@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
@@ -216,6 +217,16 @@ function InboxPage() {
   const active = threads.find((t) => t.id === activeId) ?? null;
   const activePhone = active?.phone || newPhone;
 
+  // Virtualized thread list: only visible rows render, so the sidebar stays
+  // instant with thousands of conversations.
+  const threadListRef = useRef<HTMLDivElement | null>(null);
+  const threadVirtualizer = useVirtualizer({
+    count: filtered.length,
+    getScrollElement: () => threadListRef.current,
+    estimateSize: () => 86,
+    overscan: 10,
+  });
+
   async function uploadAttachments(files: File[] = composeFiles): Promise<string[]> {
     if (files.length === 0) return [];
     const urls: string[] = [];
@@ -339,22 +350,31 @@ function InboxPage() {
             />
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" ref={threadListRef}>
           {filtered.length === 0 && (
             <EmptyState
               title="No conversations yet"
               description="Inbound and outbound SMS threads will appear here."
             />
           )}
-          {filtered.map((t) => {
+          <div style={{ height: threadVirtualizer.getTotalSize(), position: "relative" }}>
+          {threadVirtualizer.getVirtualItems().map((vi) => {
+            const t = filtered[vi.index];
+            if (!t) return null;
             const name = t.display_name || t.clinic?.clinic_name || "Unknown";
             const isActive = t.id === activeId;
             return (
               <button
                 key={t.id}
+                data-index={vi.index}
+                ref={threadVirtualizer.measureElement}
                 onClick={() => { setShowNewThread(false); setActiveId(t.id); }}
                 className="w-full text-left px-4 py-3 transition-colors"
                 style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  transform: `translateY(${vi.start}px)`,
                   background: isActive ? "#f9f9f9" : "transparent",
                   borderLeft: isActive ? "3px solid #f4522d" : "3px solid transparent",
                   borderBottom: "1px solid #ffffff",
@@ -387,6 +407,7 @@ function InboxPage() {
               </button>
             );
           })}
+          </div>
         </div>
       </aside>
 

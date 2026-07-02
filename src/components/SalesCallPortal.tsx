@@ -8,6 +8,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { subscribeRealtime } from "@/hooks/useRealtimeSubscription";
 import { applyStatusDisposition } from "@/components/sales-call/disposition";
+import { fetchRepQueue } from "@/data/leads";
 import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
@@ -503,14 +504,30 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Load leads + realtime
   useEffect(() => {
     const load = async () => {
-      const baseQuery = supabase
-        .from("meta_leads")
-        .select(SALES_CALL_LEAD_SELECT);
-      const { data } = testLeadIds.length > 0
-        ? await baseQuery.in("id", testLeadIds)
-        : await baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT);
+      let fetchedLeads: Lead[] | null = null;
+      if (testLeadIds.length > 0) {
+        const { data } = await supabase
+          .from("meta_leads")
+          .select(SALES_CALL_LEAD_SELECT)
+          .in("id", testLeadIds);
+        fetchedLeads = (data ?? []) as Lead[];
+      } else {
+        // Server-driven queue: Postgres picks the top-N by the locked
+        // priority (callbacks due first, then newest), so due callbacks on
+        // old leads are never dropped by a newest-created window.
+        fetchedLeads = await fetchRepQueue(SALES_CALL_LEAD_LIMIT);
+        if (!fetchedLeads) {
+          // RPC not deployed yet — fall back to the legacy window.
+          const { data } = await supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .order("created_at", { ascending: false })
+            .limit(SALES_CALL_LEAD_LIMIT);
+          fetchedLeads = (data ?? []) as Lead[];
+        }
+      }
       setLeads((prev) => {
-        const fetched = (data ?? []) as Lead[];
+        const fetched = fetchedLeads ?? [];
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { ListSkeleton } from "@/components/app/LoadingState";
@@ -7,7 +7,7 @@ import { ErrorState } from "@/components/app/ErrorState";
 import { EmptyState } from "@/components/app/EmptyState";
 import { useQueryClient } from "@tanstack/react-query";
 import { keys } from "@/data/keys";
-import { useLeads, useUpdateLead, useBulkAssignLeads, useDeleteLead } from "@/data/leads";
+import { useInfiniteLeads, useUpdateLead, useBulkAssignLeads, useDeleteLead, LEADS_PAGE_SIZE } from "@/data/leads";
 import { useReps } from "@/data/reps";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
@@ -114,15 +114,24 @@ function LeadsPage() {
   void role;
   void ready;
   const queryClient = useQueryClient();
-  const leadsQuery = useLeads();
-  const rows = (leadsQuery.data ?? []) as Lead[];
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => window.clearTimeout(t);
+  }, [search]);
+  // Server-side search + keyset pagination — the table never loads whole.
+  const leadsQuery = useInfiniteLeads(debouncedSearch);
+  const rows = useMemo(
+    () => (leadsQuery.data?.pages ?? []).flatMap((p) => p.rows) as Lead[],
+    [leadsQuery.data],
+  );
   const loading = leadsQuery.isPending;
   const repsQuery = useReps();
   const reps: RepOption[] = repsQuery.data ?? [];
   const updateLead = useUpdateLead();
   const bulkAssignLeads = useBulkAssignLeads();
   const deleteLead = useDeleteLead();
-  const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -571,6 +580,13 @@ function LeadsPage() {
                   })()}
                 </tbody>
               </table>
+              <LoadMoreSentinel
+                hasNextPage={Boolean(leadsQuery.hasNextPage)}
+                isFetching={leadsQuery.isFetchingNextPage}
+                loadedCount={rows.length}
+                pageSize={LEADS_PAGE_SIZE}
+                onLoadMore={() => void leadsQuery.fetchNextPage()}
+              />
             </div>
           )}
         </div>
@@ -718,6 +734,53 @@ function LeadsPage() {
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function LoadMoreSentinel({
+  hasNextPage,
+  isFetching,
+  loadedCount,
+  pageSize,
+  onLoadMore,
+}: {
+  hasNextPage: boolean;
+  isFetching: boolean;
+  loadedCount: number;
+  pageSize: number;
+  onLoadMore: () => void;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Auto-load the next page as the sentinel scrolls into view.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !hasNextPage) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting) && !isFetching) onLoadMore();
+      },
+      { rootMargin: "600px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasNextPage, isFetching, onLoadMore]);
+
+  return (
+    <div ref={ref} className="flex items-center justify-center gap-3 py-4 text-xs text-muted-foreground">
+      {hasNextPage ? (
+        <button
+          type="button"
+          onClick={onLoadMore}
+          disabled={isFetching}
+          className="px-3 py-1.5 rounded-md border border-line bg-surface-card hover:bg-surface-soft disabled:opacity-60"
+        >
+          {isFetching ? "Loading…" : `Load ${pageSize} more`}
+        </button>
+      ) : (
+        <span>All {loadedCount.toLocaleString()} loaded leads shown</span>
       )}
     </div>
   );
