@@ -2,6 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { ErrorState } from "@/components/app/ErrorState";
+import { EmptyState } from "@/components/app/EmptyState";
 import { useQueryClient } from "@tanstack/react-query";
 import { keys } from "@/data/keys";
 import { useLeads, useUpdateLead, useBulkAssignLeads, useDeleteLead } from "@/data/leads";
@@ -362,11 +365,27 @@ function LeadsPage() {
 
         <div className="rounded-lg border border-line/10 overflow-hidden" style={{ background: "#f9f9f9" }}>
           {loading ? (
-            <div className="p-12 text-center text-foreground text-sm">Loading leads…</div>
+            <div className="p-4"><ListSkeleton rows={8} /></div>
+          ) : leadsQuery.isError ? (
+            <ErrorState
+              title="Couldn't load leads"
+              description={leadsQuery.error instanceof Error ? leadsQuery.error.message : undefined}
+              onRetry={() => void leadsQuery.refetch()}
+            />
           ) : filtered.length === 0 ? (
-            <div className="p-12 text-center text-foreground text-sm">
-              {rows.length === 0 ? "No leads yet. Once Make.com posts to your webhook, they'll appear here." : "No leads match your search."}
-            </div>
+            rows.length === 0 ? (
+              <EmptyState
+                icon={Mail}
+                title="No leads yet"
+                description="Once Make.com posts to your webhook, new Meta leads will appear here automatically."
+              />
+            ) : (
+              <EmptyState
+                icon={Search}
+                title="No leads match your search"
+                description="Try a different name, phone number, status or campaign."
+              />
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

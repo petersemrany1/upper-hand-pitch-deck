@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useErrorLogs, useResolveErrorLog } from "@/data/error-logs";
 import { CheckCircle, Copy, RefreshCw } from "lucide-react";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { ErrorState } from "@/components/app/ErrorState";
+import { EmptyState } from "@/components/app/EmptyState";
 
 export const Route = createFileRoute("/_dashboard/logs")({
   component: LogsPage,
@@ -82,8 +85,21 @@ Steps to reproduce: ${ctx.stepsToReproduce || "N/A"}`;
         </Button>
       </div>
 
-      {logs.length === 0 && !loading && (
-        <p className="text-muted-foreground text-center py-12">No errors logged yet — that's a good sign!</p>
+      {loading && logs.length === 0 && <ListSkeleton rows={5} />}
+
+      {logsQuery.isError && (
+        <ErrorState
+          title="Couldn't load the error log"
+          onRetry={() => void logsQuery.refetch()}
+        />
+      )}
+
+      {logs.length === 0 && !loading && !logsQuery.isError && (
+        <EmptyState
+          icon={CheckCircle}
+          title="No errors logged"
+          description="Nothing has failed recently — that's a good sign."
+        />
       )}
 
       {logs.map((log) => (

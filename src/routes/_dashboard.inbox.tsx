@@ -2,6 +2,8 @@ import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router"
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { EmptyState } from "@/components/app/EmptyState";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete, ArrowRight } from "lucide-react";
@@ -339,7 +341,10 @@ function InboxPage() {
         </div>
         <div className="flex-1 overflow-y-auto">
           {filtered.length === 0 && (
-            <div className="p-6 text-center text-xs text-foreground">No conversations yet.</div>
+            <EmptyState
+              title="No conversations yet"
+              description="Inbound and outbound SMS threads will appear here."
+            />
           )}
           {filtered.map((t) => {
             const name = t.display_name || t.clinic?.clinic_name || "Unknown";
@@ -786,10 +791,13 @@ function CallsPanel() {
 
         <div className="flex-1 overflow-y-auto">
           {loading && calls.length === 0 && (
-            <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div>
+            <div className="p-4"><ListSkeleton rows={6} /></div>
           )}
           {!loading && filtered.length === 0 && (
-            <div className="p-8 text-center text-sm text-muted-foreground">No calls yet.</div>
+            <EmptyState
+              title="No calls yet"
+              description="Placed and received calls will show up here with their recordings."
+            />
           )}
           {filtered.map((c) => {
             const isOutbound = (c.direction ?? "outbound") === "outbound";

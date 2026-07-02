@@ -5,6 +5,9 @@ import { keys } from "@/data/keys";
 import { useClients, useCreateClient, useDeleteClient } from "@/data/clients";
 import { useRecentCalls, callsRepo } from "@/data/calls";
 import { Button } from "@/components/ui/button";
+import { ListSkeleton } from "@/components/app/LoadingState";
+import { ErrorState } from "@/components/app/ErrorState";
+import { EmptyState } from "@/components/app/EmptyState";
 import { Input } from "@/components/ui/input";
 import {
   Phone,
@@ -311,8 +314,20 @@ function ClientsPage() {
 
   if (loading) {
     return (
-      <div className="p-8 flex items-center justify-center">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+        <ListSkeleton rows={6} />
+      </div>
+    );
+  }
+
+  if (clientsQuery.isError) {
+    return (
+      <div className="p-4 md:p-8 max-w-5xl mx-auto">
+        <ErrorState
+          title="Couldn't load contacts"
+          description={clientsQuery.error instanceof Error ? clientsQuery.error.message : undefined}
+          onRetry={() => void clientsQuery.refetch()}
+        />
       </div>
     );
   }
@@ -453,9 +468,11 @@ function ClientsPage() {
       {activeTab === "contacts" && (
         <div className="space-y-2">
           {clients.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">
-              No saved contacts yet. Make a call and save the contact after.
-            </p>
+            <EmptyState
+              icon={Users}
+              title="No saved contacts yet"
+              description="Make a call and save the contact afterwards — it'll show up here."
+            />
           ) : (
             clients.map((client) => (
               <div
@@ -540,7 +557,11 @@ function ClientsPage() {
           )}
 
           {allRecords.length === 0 ? (
-            <p className="text-muted-foreground text-center py-12">No call history yet.</p>
+            <EmptyState
+              icon={Clock}
+              title="No call history yet"
+              description="Calls you place from the dialler will appear here with recordings and AI analysis."
+            />
           ) : (
             allRecords.map((record) => {
               const hasRecording = !!record.recording_url;
