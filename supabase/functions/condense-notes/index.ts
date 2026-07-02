@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireSalesRole } from "../_shared/authorize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -38,6 +39,11 @@ The patient explained their prior hair history and what they're hoping to achiev
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+
+  // Only authenticated sales staff (admin/rep) may condense/overwrite a lead's notes.
+  const denied = await requireSalesRole(req, corsHeaders);
+  if (denied) return denied;
+
   try {
     const { leadId, notes, dealFacts } = await req.json();
     if (!leadId) {

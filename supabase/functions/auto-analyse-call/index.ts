@@ -1,10 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { requireInternalOrSalesRole } from "../_shared/authorize.ts";
 
 // Auto CRM call logger.
-// Triggered by twilio-status after a recording is saved. Uses the SERVICE
-// ROLE — no end-user auth required, but only callable internally (the URL
-// is only invoked server-side by twilio-status with the service role key).
+// Triggered by twilio-status after a recording is saved (server-to-server with
+// the service-role key) and by reps in the app (rebuild-intel flow). Uses the
+// SERVICE ROLE for its own DB work, so access is gated below: either a trusted
+// internal caller (service-role key / INTERNAL_FUNCTION_SECRET) or an
+// authenticated admin/rep.
 //
 // Pipeline:
 //   1. Look up call_records row by id (passed as `callRecordId`).
@@ -17,7 +20,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info, x-internal-secret",
 };
 
 const ALLOWED_NO_SALE_REASONS = ["price too high", "didn't expect the cost", "needs payment plan", "payment plan terms don't work", "wants to save up first", "spent money on other treatments", "partner controls finances", "financial difficulty", "recent big expense", "comparing prices with other clinics", "cheaper overseas", "called at bad time", "too busy with work", "going on holiday soon", "big event coming up", "wants to lose weight first", "waiting for life event", "not ready mentally", "needs more time to think", "needs more research", "wasn't expecting a call", "needs to discuss with partner", "partner doesn't know they enquired", "partner is against it", "partner wants to attend consultation", "family thinks it's unnecessary", "worried what others will think", "doesn't want anyone to know", "booked with another clinic", "had consultation elsewhere", "going overseas for it", "knows someone with a clinic", "already on a waiting list", "considering second procedure elsewhere", "doesn't know who we are", "wants more before and after photos", "wants to read more reviews", "had bad experience at another clinic", "worried results won't look natural", "doesn't trust recommended clinic", "wants to speak to someone who has had it done", "seen bad results on someone they know", "worried about scams", "wants to verify surgeon credentials", "not sure if they're a candidate", "not enough donor hair", "health condition may prevent it", "on medication affecting eligibility", "worried about pain", "worried about scarring", "concerned about recovery period", "can't take time off work to recover", "worried it will be obvious", "anxious about medical procedures", "wants doctor consultation first", "bad reaction to anaesthetic before", "health condition affecting healing", "clinic too far away", "can't drive after procedure", "no one to take them", "can't get time off work", "public facing job", "works outdoors", "has young kids", "recovery clashes with event", "can't make appointment times", "lives interstate", "doesn't understand how it works", "confused about technique", "worried about graft count", "doesn't believe it's permanent", "thinks it will look fake", "seen bad transplants on others", "thinks too young or too old", "wants to try medication first", "doesn't want to shave head", "worried about shock loss"];
@@ -166,6 +169,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
+
+  // Trusted internal caller (twilio-status / cron via service-role key or
+  // INTERNAL_FUNCTION_SECRET) OR an authenticated admin/rep from the app.
+  const denied = await requireInternalOrSalesRole(req, corsHeaders);
+  if (denied) return denied;
 
   let callRecordId: string | undefined;
   let supabaseForCatch: ReturnType<typeof createClient<any>> | null = null;

@@ -8,10 +8,11 @@
 // Returns { summary: string }
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { requireInternalOrSalesRole } from "../_shared/authorize.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -32,6 +33,10 @@ function hasUsefulContent(transcript: string, analysisSummary: string): boolean 
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Authenticated admin/rep, or a trusted internal caller.
+  const denied = await requireInternalOrSalesRole(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const { lead_id, force } = await req.json().catch(() => ({}));

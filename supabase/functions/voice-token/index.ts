@@ -104,24 +104,22 @@ serve(async (req) => {
       );
     }
 
+    // A Twilio voice grant lets the holder place outbound calls on the company
+    // Twilio account. Only users with a real sales_reps row may mint one —
+    // otherwise any authenticated account (e.g. a clinic-portal user) could
+    // rack up telephony charges (toll fraud). No rep row → no token.
+    if (!resolvedRepId) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: no sales rep profile for this user" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Identity is required by Twilio; Voice JS only allows [A-Za-z0-9_].
     // We embed the rep_id so voice-outbound can attribute calls server-side
     // as a backup when the client forgets to pass repId in connect params.
-    const url = new URL(req.url);
-    let identity = "";
-    if (resolvedRepId) {
-      identity = `rep_${resolvedRepId.replace(/-/g, "")}`;
-    } else {
-      identity = url.searchParams.get("identity") || "";
-      if (!identity && req.method === "POST") {
-        const body = await req.json().catch(() => ({}));
-        identity = body.identity || "";
-      }
-      if (!identity) {
-        identity = `user_${crypto.randomUUID().replace(/-/g, "").slice(0, 8)}`;
-      }
-    }
     // Sanitize: replace any char outside [A-Za-z0-9_] with _, cap at 120 chars.
+    let identity = `rep_${resolvedRepId.replace(/-/g, "")}`;
     identity = identity.replace(/[^A-Za-z0-9_]/g, "_").slice(0, 120);
     if (!identity) identity = `user_${Date.now().toString(36)}`;
 
