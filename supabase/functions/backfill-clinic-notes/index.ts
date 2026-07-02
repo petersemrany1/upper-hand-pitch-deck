@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { requireInternalOrSalesRole } from "../_shared/authorize.ts";
 
 // One-off backfill: re-run Claude on every clinic call_record using the new
 // comprehensive-bullet notes prompt, then patch the matching clinic_contacts
@@ -12,7 +13,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info, x-internal-secret",
 };
 
 const SYSTEM_PROMPT = `You are analysing a sales call between Peter from Bold and a hair transplant clinic. Today's date is ${new Date().toISOString().slice(0, 10)} (UTC). Based on the transcript, return a JSON object with exactly these fields:
@@ -30,6 +31,11 @@ Return only valid JSON, no preamble.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Admin-only ops tool (or trusted internal caller with the shared secret /
+  // service-role key). Rewrites CRM notes across clinic call records.
+  const denied = await requireInternalOrSalesRole(req, corsHeaders, ["admin"]);
+  if (denied) return denied;
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,

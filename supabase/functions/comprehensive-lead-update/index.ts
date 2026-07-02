@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireSalesRole } from "../_shared/authorize.ts";
 
 // Generates a comprehensive recap of everything that's happened with a lead —
 // every call, every SMS, notes, status, booking, callback. Designed to be read
@@ -37,6 +38,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
+
+  // Only authenticated sales staff (admin/rep) may read a lead's full history.
+  // Clinic-portal users have no sales_reps row and are rejected here.
+  const denied = await requireSalesRole(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const { leadId } = await req.json().catch(() => ({ leadId: null }));

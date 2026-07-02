@@ -13,15 +13,16 @@ function formatAUPhone(raw: string): string {
 }
 
 function getAdminClient() {
-  const url =
-    process.env.SUPABASE_URL ??
-    process.env.VITE_SUPABASE_URL ??
-    "https://sfwokpeeffgrkxaptqji.supabase.co";
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
   const key =
     process.env.SUPABASE_SERVICE_ROLE_KEY ??
     process.env.SUPABASE_PUBLISHABLE_KEY ??
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmd29rcGVlZmZncmt4YXB0cWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTI0MTYsImV4cCI6MjA5MTcyODQxNn0.-I-IuBjfut2VVHLUYtGKO6sl4UnqpFbU1nWm4zQRD4E";
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase env not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or PUBLISHABLE_KEY).",
+    );
+  }
   return createClient(url, key);
 }
 

@@ -7,12 +7,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import { requireInternalOrSalesRole } from "../_shared/authorize.ts";
 
 const TWILIO_FROM = "+61483938205";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-internal-secret",
 };
 
 function formatAUPhone(raw: string | null | undefined): string | null {
@@ -122,6 +123,12 @@ async function logToInbox(sb: any, opts: {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Sends SMS on the company Twilio account. Restricted to the pg_cron job
+  // (service-role key / INTERNAL_FUNCTION_SECRET) or an authenticated admin
+  // (who may trigger test-mode sends).
+  const denied = await requireInternalOrSalesRole(req, corsHeaders, ["admin"]);
+  if (denied) return denied;
 
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
   const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireSalesRole } from "../_shared/authorize.ts";
 
 // Generates a one-sentence (≤15 words) sales summary of where things are
 // at with a lead, based on recent call_records + meta_leads context.
@@ -21,6 +22,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
+
+  // Only authenticated sales staff (admin/rep) may summarise a lead.
+  const denied = await requireSalesRole(req, corsHeaders);
+  if (denied) return denied;
 
   try {
     const { leadId } = await req.json().catch(() => ({ leadId: null }));

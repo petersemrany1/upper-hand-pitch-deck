@@ -6897,14 +6897,16 @@ function RightPanel({
                     setGeneratingUpdate(true);
                     setComprehensiveUpdate(null);
                     try {
-                      const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/comprehensive-lead-update`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-                        body: JSON.stringify({ leadId: active.id }),
-                      });
-                      const j = await r.json();
-                      if (!r.ok || !j?.summary) throw new Error(j?.error || "Failed");
-                      setComprehensiveUpdate(j.summary);
+                      // invoke() attaches the signed-in user's JWT so the
+                      // function's sales-role guard can authorise the caller.
+                      const { data: j, error: invErr } = await supabase.functions.invoke(
+                        "comprehensive-lead-update",
+                        { body: { leadId: active.id } },
+                      );
+                      if (invErr || !(j as { summary?: string } | null)?.summary) {
+                        throw new Error((j as { error?: string } | null)?.error || invErr?.message || "Failed");
+                      }
+                      setComprehensiveUpdate((j as { summary: string }).summary);
                     } catch (e) {
                       toast.error(`Couldn't generate update: ${e instanceof Error ? e.message : "unknown"}`);
                     } finally {
@@ -6949,14 +6951,16 @@ function RightPanel({
                           e.preventDefault();
                           setCondensingNotes(true);
                           try {
-                            const r = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/condense-notes`, {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-                              body: JSON.stringify({ leadId: active.id, notes: active.call_notes }),
-                            });
-                            const j = await r.json();
-                            if (!r.ok || !j?.condensed) throw new Error(j?.error || "Failed");
-                            onLocalLeadUpdate?.(active.id, { call_notes: j.condensed });
+                            // invoke() attaches the signed-in user's JWT so the
+                            // function's sales-role guard can authorise the caller.
+                            const { data: j, error: invErr } = await supabase.functions.invoke(
+                              "condense-notes",
+                              { body: { leadId: active.id, notes: active.call_notes } },
+                            );
+                            if (invErr || !(j as { condensed?: string } | null)?.condensed) {
+                              throw new Error((j as { error?: string } | null)?.error || invErr?.message || "Failed");
+                            }
+                            onLocalLeadUpdate?.(active.id, { call_notes: (j as { condensed: string }).condensed });
                             toast.success("Notes condensed");
                           } catch (e) {
                             toast.error(`Couldn't condense: ${e instanceof Error ? e.message : "unknown"}`);

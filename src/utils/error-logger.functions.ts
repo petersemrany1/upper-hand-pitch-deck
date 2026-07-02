@@ -1,7 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 
-const SUPABASE_URL = "https://sfwokpeeffgrkxaptqji.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNmd29rcGVlZmZncmt4YXB0cWppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxNTI0MTYsImV4cCI6MjA5MTcyODQxNn0.-I-IuBjfut2VVHLUYtGKO6sl4UnqpFbU1nWm4zQRD4E";
+// These helpers run inside server functions. Read config from the environment
+// rather than hard-coding project URL / keys. `process` may be undefined in a
+// client bundle, so access it defensively.
+function env(name: string): string | undefined {
+  return typeof process !== "undefined" ? process.env?.[name] : undefined;
+}
+
+const SUPABASE_URL = env("SUPABASE_URL") ?? env("VITE_SUPABASE_URL") ?? "";
+// error_logs writes require an authenticated/service context; prefer the
+// service-role key server-side, falling back to the publishable/anon key.
+const SUPABASE_ANON_KEY =
+  env("SUPABASE_SERVICE_ROLE_KEY") ??
+  env("SUPABASE_PUBLISHABLE_KEY") ??
+  env("VITE_SUPABASE_PUBLISHABLE_KEY") ??
+  "";
 
 export async function logError(
   functionName: string,
