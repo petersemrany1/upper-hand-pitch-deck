@@ -1,9 +1,11 @@
 import { Outlet, Link, createRootRoute, HeadContent, Scripts, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { AuthProvider } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { GlobalCallLayer } from "@/components/GlobalCallLayer";
+import { getQueryClient } from "@/data/query-client";
 
 import appCss from "../styles.css?url";
 import htgLogo from "@/assets/htg-logo.png?url";
@@ -158,9 +160,11 @@ function RootComponent() {
   }, []);
 
   return (
-    <AuthProvider>
-      <Outlet />
-      <GlobalCallLayer />
-    </AuthProvider>
+    <QueryClientProvider client={getQueryClient()}>
+      <AuthProvider>
+        <Outlet />
+        <GlobalCallLayer />
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }

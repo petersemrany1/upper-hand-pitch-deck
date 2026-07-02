@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { PhoneIncoming, PhoneCall, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { normalizeAUPhone } from "@/utils/phone";
 import { toast } from "sonner";
@@ -90,26 +91,14 @@ export function MissedCallsList() {
     setLoading(false);
   }, []);
 
+  // Realtime: any new inbound call_records row should appear instantly.
+  useRealtimeSubscription({ table: "call_records" }, () => void fetchRows());
+
   useEffect(() => {
     void fetchRows();
-
-    // Realtime: any new inbound call_records row should appear instantly.
-    const channel = supabase
-      .channel("missed-calls")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "call_records" },
-        () => void fetchRows(),
-      )
-      .subscribe();
-
     // Also poll every 30s as a safety net.
     const id = window.setInterval(() => void fetchRows(), 30_000);
-
-    return () => {
-      window.clearInterval(id);
-      void supabase.removeChannel(channel);
-    };
+    return () => window.clearInterval(id);
   }, [fetchRows]);
 
   const handleCallback = async (row: InboundRow) => {

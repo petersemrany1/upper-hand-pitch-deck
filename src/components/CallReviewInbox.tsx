@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bell, Loader2, Phone, X, Sparkles, Check, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { CallReviewPopup, type AutoCallAnalysis, type AppliedReview } from "@/components/CallReviewPopup";
 
 // Stages that mean the call is still in flight through the auto-analysis chain.
@@ -176,31 +177,20 @@ export function CallReviewInbox() {
       setItems(enriched);
     };
     void load();
-
-    const channel = supabase
-      .channel("call_review_inbox")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "call_records" },
-        (payload) => {
-          const row =
-            (payload.new as CallRecordRow | undefined) ??
-            (payload.old as CallRecordRow | undefined);
-          if (!row) return;
-          if (payload.eventType === "DELETE") {
-            setItems((prev) => prev.filter((i) => i.callRecordId !== row.id));
-            return;
-          }
-          void upsertFromRow(payload.new as CallRecordRow);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useRealtimeSubscription({ table: "call_records" }, (payload) => {
+    const row =
+      (payload.new as CallRecordRow | undefined) ??
+      (payload.old as CallRecordRow | undefined);
+    if (!row) return;
+    if (payload.eventType === "DELETE") {
+      setItems((prev) => prev.filter((i) => i.callRecordId !== row.id));
+      return;
+    }
+    void upsertFromRow(payload.new as CallRecordRow);
+  });
 
   // Click-outside to close panel.
   useEffect(() => {

@@ -15,9 +15,12 @@
   rules there (ESLint enforces them).
 - New client data access = React Query hook in `src/data`. Never call
   `supabase.from()` inside components or routes.
-- New server functions must use `requireSupabaseAuth`
-  (`src/integrations/supabase/auth-middleware.ts`) unless they are public
-  webhooks that verify a provider signature.
+- New server functions are declared with `authedServerFn`
+  (`src/lib/authed-fn.ts`) so auth is the default; bare `createServerFn` is
+  only for public webhooks that verify a provider signature.
+- Server-only modules use the `*.server.ts` suffix (see `src/services/`);
+  never put server-only code in a directory named `server` — the build's
+  import protection will reject it.
 - Anything written to `error_logs` must pass through the scrubbers in
   `src/lib/pii.ts` (client: `reportError`; server: `logError`).
 - No new `any` types; no new inline `style={{}}` — use design tokens /

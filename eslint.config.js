@@ -53,7 +53,7 @@ export default tseslint.config(
 
   // Server-side TanStack Start code runs on Node/workerd.
   {
-    files: ["src/**/*.functions.ts", "src/server/**/*.ts"],
+    files: ["src/**/*.functions.ts", "src/services/**/*.ts", "src/**/*.server.ts"],
     languageOptions: {
       globals: { ...globals.node },
     },
@@ -87,7 +87,7 @@ export default tseslint.config(
 
   // Shared low-level layers must never depend on UI.
   {
-    files: ["src/lib/**/*.{ts,tsx}", "src/utils/**/*.{ts,tsx}", "src/server/**/*.ts"],
+    files: ["src/lib/**/*.{ts,tsx}", "src/utils/**/*.{ts,tsx}", "src/services/**/*.ts"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -96,7 +96,7 @@ export default tseslint.config(
             {
               group: ["@/components/*", "@/routes/*", "**/routes/*"],
               message:
-                "lib/utils/server are foundation layers and must not import UI code.",
+                "lib/utils/services are foundation layers and must not import UI code.",
             },
           ],
         },

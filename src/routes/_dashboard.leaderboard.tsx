@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Trophy, Crown, Plus, Bot, X, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useAuth } from "@/hooks/useAuth";
 import { inviteRep, getLeaderboard, ensureRepForEmail } from "@/utils/sales-call.functions";
 import { analyseCallPatterns } from "@/utils/resend.functions";
@@ -44,16 +45,10 @@ function LeaderboardPage() {
   useEffect(() => { void load();   }, [range]);
 
   // Realtime refresh on bookings/calls
-  useEffect(() => {
-    const ch = supabase.channel("leaderboard-stream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "appointment_reminders" }, () => void load())
-      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, () => void load())
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-    // eslint-disable-next-line
-  }, [range]);
+  useRealtimeSubscription({ table: "call_records" }, () => void load());
+  useRealtimeSubscription({ table: "meta_leads" }, () => void load());
+  useRealtimeSubscription({ table: "appointment_reminders" }, () => void load());
+  useRealtimeSubscription({ table: "clinic_appointments" }, () => void load());
 
   const onAddRep = async () => {
     if (!newRep.firstName.trim() || !newRep.lastName.trim() || !newRep.email.trim()) {

@@ -2,6 +2,7 @@ import { createLazyFileRoute, getRouteApi, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -599,44 +600,22 @@ function ClinicsPage() {
   }, []);
 
   // Realtime — only patch the changed row, never reload the whole list (fix #9).
-  useEffect(() => {
-    const channel = supabase
-      .channel("clinics_page_refresh")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "clinic_contacts" },
-        () => {
-          loadLastContacts();
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "clinics" },
-        (payload) => {
-          const row = payload.new as { id?: string } | undefined;
-          if (row?.id) void patchClinicRow(row.id);
-        },
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "call_records" },
-        (payload) => {
-          const row = payload.new as { clinic_id?: string | null } | undefined;
-          if (row?.clinic_id) {
-            setCalledTodayIds((prev) => {
-              if (prev.has(row.clinic_id!)) return prev;
-              const next = new Set(prev);
-              next.add(row.clinic_id!);
-              return next;
-            });
-          }
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [loadLastContacts, patchClinicRow]);
+  useRealtimeSubscription({ table: "clinic_contacts" }, () => loadLastContacts());
+  useRealtimeSubscription({ table: "clinics", event: "UPDATE" }, (payload) => {
+    const row = payload.new as { id?: string } | undefined;
+    if (row?.id) void patchClinicRow(row.id);
+  });
+  useRealtimeSubscription({ table: "call_records" }, (payload) => {
+    const row = payload.new as { clinic_id?: string | null } | undefined;
+    if (row?.clinic_id) {
+      setCalledTodayIds((prev) => {
+        if (prev.has(row.clinic_id!)) return prev;
+        const next = new Set(prev);
+        next.add(row.clinic_id!);
+        return next;
+      });
+    }
+  });
 
   // Fix #4 — listen for the AI review popup applying changes and patch local
   // CRM state instantly (no refetch needed).

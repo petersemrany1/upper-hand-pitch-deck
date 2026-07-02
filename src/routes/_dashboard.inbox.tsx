@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete, ArrowRight } from "lucide-react";
@@ -177,21 +178,13 @@ function InboxPage() {
   }, [search.thread, search.phone, threads]);
 
   // Realtime: refresh thread list and active conversation on any change
-  useEffect(() => {
-    const ch = supabase
-      .channel("inbox-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => {
-        void loadThreads();
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "sms_messages" }, (payload) => {
-        const m = payload.new as Message;
-        if (activeId && m.thread_id === activeId) {
-          setMessages((prev) => [...prev, m]);
-        }
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [activeId, loadThreads]);
+  useRealtimeSubscription({ table: "sms_threads" }, () => void loadThreads());
+  useRealtimeSubscription({ table: "sms_messages", event: "INSERT" }, (payload) => {
+    const m = payload.new as Message;
+    if (activeId && m.thread_id === activeId) {
+      setMessages((prev) => [...prev, m]);
+    }
+  });
 
   // Load messages and mark read when activeId changes
   useEffect(() => {
@@ -663,15 +656,7 @@ function CallsPanel() {
 
   useEffect(() => { void loadCalls(); }, [loadCalls]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("calls-panel-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => {
-        void loadCalls();
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, [loadCalls]);
+  useRealtimeSubscription({ table: "call_records" }, () => void loadCalls());
 
   const resolveName = useCallback((c: CallRow): string => {
     if (c.lead_id && nameMap.get(c.lead_id)) return nameMap.get(c.lead_id)!;

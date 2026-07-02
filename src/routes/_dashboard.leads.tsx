@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
+import { keys } from "@/data/keys";
+import { useLeads, useUpdateLead, useBulkAssignLeads, useDeleteLead } from "@/data/leads";
+import { useReps } from "@/data/reps";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 
 export const Route = createFileRoute("/_dashboard/leads")({
   component: LeadsPage,
@@ -105,9 +109,16 @@ function saveCustomStatuses(list: string[]) {
 function LeadsPage() {
   const { user, role, ready } = useAuth();
   void role;
-  const [rows, setRows] = useState<Lead[]>([]);
-  const [reps, setReps] = useState<RepOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  void ready;
+  const queryClient = useQueryClient();
+  const leadsQuery = useLeads();
+  const rows = (leadsQuery.data ?? []) as Lead[];
+  const loading = leadsQuery.isPending;
+  const repsQuery = useReps();
+  const reps: RepOption[] = repsQuery.data ?? [];
+  const updateLead = useUpdateLead();
+  const bulkAssignLeads = useBulkAssignLeads();
+  const deleteLead = useDeleteLead();
   const [search, setSearch] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -128,17 +139,6 @@ function LeadsPage() {
 
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
 
-  // Load reps list (for admin bulk-assign + name lookup + current-user mapping)
-  useEffect(() => {
-    if (!ready) return;
-    void (async () => {
-      const { data } = await supabase
-        .from("sales_reps")
-        .select("id, name, email")
-        .order("name", { ascending: true });
-      setReps((data ?? []) as RepOption[]);
-    })();
-  }, [ready]);
 
   const repNameById = (id: string | null | undefined) =>
     reps.find((r) => r.id === id)?.name ?? "—";
@@ -176,26 +176,9 @@ function LeadsPage() {
     setAddingStatus(false);
   };
 
-  const load = async () => {
-    setLoading(true);
-    const { data } = await supabase
-      .from("meta_leads")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(1000);
-    setRows((data ?? []) as Lead[]);
-    setLoading(false);
-  };
-
-  useEffect(() => { void load(); }, []);
-
-  useEffect(() => {
-    const ch = supabase
-      .channel("meta-leads-stream")
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void load())
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-  }, []);
+  useRealtimeSubscription({ table: "meta_leads" }, () => {
+    void queryClient.invalidateQueries({ queryKey: keys.leads.all });
+  });
 
   // Detect duplicates: same normalized phone, or same email when phone is missing.
   const normPhone = (p: string | null) => (p ?? "").replace(/\D/g, "");
@@ -259,24 +242,24 @@ function LeadsPage() {
   const bulkAssign = async () => {
     if (selected.size === 0) return;
     setAssigning(true);
-    const ids = Array.from(selected);
-    const newRepId = bulkRepId === "" ? null : bulkRepId;
-    const { error } = await supabase
-      .from("meta_leads")
-      .update({ rep_id: newRepId })
-      .in("id", ids);
-    if (!error) {
-      setRows((prev) => prev.map((r) => (selected.has(r.id) ? { ...r, rep_id: newRepId } : r)));
+    try {
+      await bulkAssignLeads.mutateAsync({
+        ids: Array.from(selected),
+        repId: bulkRepId === "" ? null : bulkRepId,
+      });
       setSelected(new Set());
+    } catch {
+      // error already surfaced via mutation state; leave selection intact
     }
     setAssigning(false);
   };
 
   const handleDelete = async (id: string) => {
     setBusyId(id);
-    const { error } = await supabase.from("meta_leads").delete().eq("id", id);
-    if (!error) {
-      setRows((prev) => prev.filter((r) => r.id !== id));
+    try {
+      await deleteLead.mutateAsync(id);
+    } catch {
+      // error surfaced via mutation state
     }
     setConfirmDeleteId(null);
     setBusyId(null);
@@ -310,19 +293,12 @@ function LeadsPage() {
       status: editForm.status.trim() || "New",
       call_notes: editForm.call_notes.trim() || null,
     };
-    const { data, error } = await supabase
-      .from("meta_leads")
-      .update(payload)
-      .eq("id", editLead.id)
-      .select()
-      .single();
-    if (error) {
-      setSaveError(error.message);
+    try {
+      await updateLead.mutateAsync({ id: editLead.id, patch: payload });
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed");
       setSaving(false);
       return;
-    }
-    if (data) {
-      setRows((prev) => prev.map((r) => (r.id === editLead.id ? { ...r, ...(data as Lead) } : r)));
     }
     setSaving(false);
     setEditLead(null);

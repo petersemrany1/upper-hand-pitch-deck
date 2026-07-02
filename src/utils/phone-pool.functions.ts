@@ -1,11 +1,12 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
+import { pickNextPoolNumber } from "@/services/twilio.server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logError } from "./error-logger.functions";
 
 // Twilio outbound number pool. Rotates across numbers in `phone_numbers` so
 // outbound traffic isn't concentrated on one DID (helps reduce spam flagging).
 
-export const provisionNumber = createServerFn({ method: "POST" }).handler(async () => {
+export const provisionNumber = authedServerFn({ method: "POST" }).handler(async () => {
   try {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -147,30 +148,11 @@ export const provisionNumber = createServerFn({ method: "POST" }).handler(async 
   }
 });
 
-export const getNextNumber = createServerFn({ method: "POST" }).handler(async () => {
-  const fallback = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
-  const { data, error } = await supabaseAdmin
-    .from("phone_numbers")
-    .select("id, number, call_count")
-    .eq("status", "active")
-    .eq("mms_enabled", true)
-    .order("last_used_at", { ascending: true, nullsFirst: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error || !data) {
-    return { number: fallback };
-  }
-
-  await supabaseAdmin
-    .from("phone_numbers")
-    .update({ last_used_at: new Date().toISOString(), call_count: (data.call_count ?? 0) + 1 })
-    .eq("id", data.id);
-
-  return { number: data.number };
+export const getNextNumber = authedServerFn({ method: "POST" }).handler(async () => {
+  return pickNextPoolNumber();
 });
 
-export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async () => {
+export const listPhoneNumbers = authedServerFn({ method: "GET" }).handler(async () => {
   const { data, error } = await supabaseAdmin
     .from("phone_numbers")
     .select("*")
@@ -179,7 +161,7 @@ export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async 
   return { success: true as const, numbers: data ?? [] };
 });
 
-export const retireNumber = createServerFn({ method: "POST" })
+export const retireNumber = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; release?: boolean }) => data)
   .handler(async ({ data }) => {
     const { data: row, error: fetchErr } = await supabaseAdmin

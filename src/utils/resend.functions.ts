@@ -1,4 +1,4 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.functions";
@@ -7,11 +7,12 @@ import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.f
 // to a gateway key (`lovc_...`) which is NOT a real Resend API key and will
 // 401 against api.resend.com. Only accept values that look like a real Resend
 // key (`re_...`); otherwise fall back to the known-good account key.
+// No hard-coded fallbacks: a committed key must be treated as compromised and
+// rotated. Handlers fail with a clear logged error when the env var is
+// missing or (for Resend) holds a non-key connector marker value.
 const RAW_RESEND_ENV = process.env.RESEND_API_KEY ?? "";
-const RESEND_API_KEY = RAW_RESEND_ENV.startsWith("re_")
-  ? RAW_RESEND_ENV
-  : "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
-const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+const RESEND_API_KEY = RAW_RESEND_ENV.startsWith("re_") ? RAW_RESEND_ENV : "";
+const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
 const BOLD_BLUE = "#2020E8";
 
 function getAdminClient() {
@@ -169,7 +170,7 @@ async function sendViaResend(
 
 // ─── SERVER FUNCTIONS ───
 
-export const sendContractEmail = createServerFn({ method: "POST" })
+export const sendContractEmail = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       to: string;
@@ -386,7 +387,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
     }
   });
 
-export const sendContractSMS = createServerFn({ method: "POST" })
+export const sendContractSMS = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       to: string;
@@ -561,7 +562,7 @@ export const sendContractSMS = createServerFn({ method: "POST" })
     }
   });
 
-export const sendInvoiceEmail = createServerFn({ method: "POST" })
+export const sendInvoiceEmail = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       to: string;
@@ -633,7 +634,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
     return result;
   });
 
-export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
+export const sendClinicHandoverEmail = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       leadId: string;
@@ -888,7 +889,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     return result;
   });
 
-export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
+export const sendDepositSmsToPatient = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       leadId: string;
@@ -986,7 +987,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
     }
   });
 
-export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
+export const sendBookingConfirmationSms = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       leadId: string;
@@ -1097,7 +1098,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
 
 /* ──────────────── Manual SMS from sales call portal ──────────────── */
 
-export const sendManualSms = createServerFn({ method: "POST" })
+export const sendManualSms = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; phone: string; body: string }) => data)
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -1171,7 +1172,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
 
 /* ──────────────── Pattern analysis (Claude via Lovable AI Gateway) ──────────────── */
 
-export const analyseCallPatterns = createServerFn({ method: "POST" })
+export const analyseCallPatterns = authedServerFn({ method: "POST" })
   .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => data)
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -1305,7 +1306,7 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
 
 // Send a standalone $75 deposit Stripe payment link via SMS to a patient,
 // without requiring a confirmed booking (date/clinic/doctor).
-export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
+export const sendStandaloneDepositSms = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       leadId: string;

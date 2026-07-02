@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { toast } from "sonner";
 
 // Global listener for inbound missed calls. Pops a top-left toast on any page
@@ -101,23 +102,12 @@ export function MissedCallNotifier() {
     });
   };
 
-  useEffect(() => {
-    const ch = supabase
-      .channel("global-missed-call-notifier")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "call_records" },
-        (payload) => { void handleRow(payload.new as CallRow); },
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "call_records" },
-        (payload) => { void handleRow(payload.new as CallRow); },
-      )
-      .subscribe();
-    return () => { void supabase.removeChannel(ch); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useRealtimeSubscription({ table: "call_records", event: "INSERT" }, (payload) => {
+    void handleRow(payload.new as CallRow);
+  });
+  useRealtimeSubscription({ table: "call_records", event: "UPDATE" }, (payload) => {
+    void handleRow(payload.new as CallRow);
+  });
 
   return null;
 }

@@ -15,15 +15,22 @@ src/components/    Feature components and shared UI (src/components/ui is
 src/data/          React Query hooks + typed repositories. The ONLY place
                    that talks to Supabase from the client. Query keys live
                    here.
-src/server/        Server-only code. services/ (twilio, stripe, sms, email,
-                   leads, clinics) wrap external APIs and privileged DB
-                   access. Server functions must use requireSupabaseAuth
-                   (via the authedServerFn wrapper) unless the endpoint is
-                   deliberately public (webhooks with signature checks).
+src/services/      Server-only services (*.server.ts): twilio, stripe, sms,
+                   email, leads, clinics. They wrap external APIs and
+                   privileged (service-role) DB access, and may ONLY be
+                   imported inside server-function handlers or other
+                   *.server.ts modules. (The build's import-protection
+                   denies **/server/** directories in the client bundle,
+                   so server-only code uses the .server.ts suffix, matching
+                   the generated client.server.ts.) Server functions are
+                   declared with authedServerFn (src/lib/authed-fn.ts) so
+                   auth is the default; bare createServerFn is reserved for
+                   deliberately public endpoints (webhooks with signature
+                   checks).
 src/lib/           Pure shared logic (no UI imports, no side effects at
                    import time): pii scrubbing, timezone, slot generation.
 src/utils/         Legacy grab-bag being migrated into lib/, data/ and
-                   server/. Do not add new files here.
+                   services/. Do not add new files here.
 src/hooks/         Cross-cutting React hooks (auth, twilio device,
                    realtime subscription).
 src/integrations/  Generated Supabase client + types + auth middleware.
@@ -35,7 +42,7 @@ Import rules (enforced by ESLint `no-restricted-imports`):
 - `routes/` and `components/` must not import `@/integrations/supabase/client`
   directly — go through `src/data` hooks. (Warn until the data-layer
   migration completes, then error.)
-- `lib/`, `utils/`, `server/` must never import UI (`components/`, `routes/`).
+- `lib/`, `utils/`, `services/` must never import UI (`components/`, `routes/`).
 
 ## Data access
 

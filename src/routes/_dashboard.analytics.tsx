@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { BarChart3, Phone, MessageSquare, Calendar, TrendingUp, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { RepPerformancePanel, type OverallReport } from "@/components/RepPerformancePanel";
 
 export const Route = createFileRoute("/_dashboard/analytics")({
@@ -94,29 +95,27 @@ function AnalyticsPage() {
   }, []);
 
   // Subscribe to the in-flight job so progress + final report stream in via realtime.
+  useRealtimeSubscription(
+    { table: "rep_performance_jobs", event: "UPDATE", filter: `id=eq.${perfJobId}` },
+    (payload) => {
+      const row: any = payload.new;
+      setPerfCompleted(row.calls_completed ?? 0);
+      setPerfTotal(row.total_eligible ?? 0);
+      if (row.status === "completed" && row.report) {
+        setPerfReport(row.report as OverallReport);
+        setPerfLoading(false);
+        setPerfJobId(null);
+      } else if (row.status === "failed") {
+        setPerfError(row.error || "Analysis failed");
+        setPerfLoading(false);
+        setPerfJobId(null);
+      }
+    },
+    Boolean(perfJobId)
+  );
+
   useEffect(() => {
     if (!perfJobId) return;
-    const channel = supabase
-      .channel(`rep-perf-job-${perfJobId}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "rep_performance_jobs", filter: `id=eq.${perfJobId}` },
-        (payload) => {
-          const row: any = payload.new;
-          setPerfCompleted(row.calls_completed ?? 0);
-          setPerfTotal(row.total_eligible ?? 0);
-          if (row.status === "completed" && row.report) {
-            setPerfReport(row.report as OverallReport);
-            setPerfLoading(false);
-            setPerfJobId(null);
-          } else if (row.status === "failed") {
-            setPerfError(row.error || "Analysis failed");
-            setPerfLoading(false);
-            setPerfJobId(null);
-          }
-        },
-      )
-      .subscribe();
 
     // Poll fallback every 4s in case realtime drops
     const poll = setInterval(async () => {
@@ -139,10 +138,7 @@ function AnalyticsPage() {
       }
     }, 4000);
 
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(poll);
-    };
+    return () => clearInterval(poll);
   }, [perfJobId]);
 
   const runRepAnalysis = async () => {

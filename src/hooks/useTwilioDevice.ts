@@ -9,6 +9,7 @@ async function loadDeviceCtor(): Promise<typeof DeviceType> {
   return DeviceCtor;
 }
 import { supabase } from "@/integrations/supabase/client";
+import { subscribeRealtime } from "@/hooks/useRealtimeSubscription";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
 import { getNextNumber } from "@/utils/phone-pool.functions";
@@ -502,29 +503,25 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // Twilio's REST status reaches "ringing" — i.e. the destination carrier
     // has confirmed the phone is alerting. The SDK's "ringing" event fires
     // far earlier (as soon as Twilio places the call), so we ignore it here.
-    let statusChannel: ReturnType<typeof supabase.channel> | null = null;
+    let unsubscribeStatus: (() => void) | null = null;
     const subscribeToStatus = (sid: string) => {
-      if (statusChannel) return;
-      statusChannel = supabase
-        .channel(`call-status-${sid}`)
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "call_records", filter: `twilio_call_sid=eq.${sid}` },
-          (payload) => {
-            const newStatus = (payload.new as { status?: string } | null)?.status;
-            if (newStatus === "ringing") startRingback();
-            else if (newStatus && newStatus !== "ringing" && newStatus !== "initiated" && newStatus !== "queued") {
-              // in-progress, completed, busy, no-answer, failed, canceled
-              stopRingback();
-            }
-          },
-        )
-        .subscribe();
+      if (unsubscribeStatus) return;
+      unsubscribeStatus = subscribeRealtime(
+        { table: "call_records", event: "UPDATE", filter: `twilio_call_sid=eq.${sid}` },
+        (payload) => {
+          const newStatus = (payload.new as { status?: string } | null)?.status;
+          if (newStatus === "ringing") startRingback();
+          else if (newStatus && newStatus !== "ringing" && newStatus !== "initiated" && newStatus !== "queued") {
+            // in-progress, completed, busy, no-answer, failed, canceled
+            stopRingback();
+          }
+        },
+      );
     };
     const teardownStatus = () => {
-      if (statusChannel) {
-        try { supabase.removeChannel(statusChannel); } catch { /* noop */ }
-        statusChannel = null;
+      if (unsubscribeStatus) {
+        try { unsubscribeStatus(); } catch { /* noop */ }
+        unsubscribeStatus = null;
       }
     };
     if (earlySid) subscribeToStatus(earlySid);

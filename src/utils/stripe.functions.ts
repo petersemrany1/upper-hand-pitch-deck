@@ -1,20 +1,13 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
+import { stripeRequest, toCents } from "@/services/stripe.server";
+import { getClinicSummary } from "@/services/clinics.server";
+import { getLeadClinicId, recordLeadDeposit } from "@/services/leads.server";
 import { logError } from "./error-logger.functions";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
-
-type StripeApiResponse = {
-  id?: string;
-  url?: string;
-  amount?: number;
-  status?: string;
-  error?: { message?: string };
-  last_payment_error?: { message?: string };
-};
 
 // Creates a fresh Stripe Checkout Session for the given package + amount.
 // The amount is the TOTAL inc GST in AUD dollars (e.g. 8000 for $8,000).
 // Returns the hosted Checkout URL the client can be sent to.
-export const createStripeCheckoutSession = createServerFn({ method: "POST" })
+export const createStripeCheckoutSession = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       clinicName: string;
@@ -25,19 +18,8 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) {
-      const msg = "STRIPE_SECRET_KEY is not configured";
-      await logError("createStripeCheckoutSession", msg, {
-        email: data.email,
-        clinicName: data.clinicName,
-        packageName: data.packageName,
-      });
-      return { success: false as const, error: msg };
-    }
-
-    const amountCents = Math.round(Number(data.totalIncGst) * 100);
-    if (!Number.isFinite(amountCents) || amountCents < 50) {
+    const amountCents = toCents(data.totalIncGst);
+    if (amountCents === null) {
       return {
         success: false as const,
         error: "Invalid amount — must be at least $0.50 AUD.",
@@ -60,60 +42,24 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
     params.append("metadata[package_name]", data.packageName);
     params.append("metadata[total_inc_gst]", String(data.totalIncGst));
 
-    try {
-      const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + stripeKey,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
+    const res = await stripeRequest("bold", "checkout/sessions", params, "createStripeCheckoutSession");
+    if (!res.ok) return { success: false as const, error: res.error };
+
+    if (!res.data.url) {
+      await logError("createStripeCheckoutSession", "No URL returned by Stripe", {
+        rawResponse: res.data,
       });
-
-      const result = (await response.json()) as StripeApiResponse;
-
-      if (!response.ok) {
-        const errMsg =
-          (result && result.error && (result.error.message as string)) ||
-          "Stripe API error";
-        console.error("Stripe error:", JSON.stringify(result));
-        await logError("createStripeCheckoutSession", errMsg, {
-          email: data.email,
-          clinicName: data.clinicName,
-          packageName: data.packageName,
-          rawResponse: result,
-        });
-        return { success: false as const, error: errMsg };
-      }
-
-      if (!result.url) {
-        await logError("createStripeCheckoutSession", "No URL returned by Stripe", {
-          email: data.email,
-          clinicName: data.clinicName,
-          packageName: data.packageName,
-          rawResponse: result,
-        });
-        return { success: false as const, error: "Stripe did not return a checkout URL." };
-      }
-
-      return { success: true as const, url: result.url as string, id: result.id as string };
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("Stripe request failed:", err);
-      await logError("createStripeCheckoutSession", errMsg, {
-        email: data.email,
-        clinicName: data.clinicName,
-        packageName: data.packageName,
-      });
-      return { success: false as const, error: "Request failed" };
+      return { success: false as const, error: "Stripe did not return a checkout URL." };
     }
+
+    return { success: true as const, url: res.data.url, id: res.data.id as string };
   });
 
 // Creates a Stripe Checkout Session against the Hair Transplant Group (HTG)
 // Stripe account for patient consultation deposits ($75 refundable).
 // Intentionally never falls back to STRIPE_SECRET_KEY — that key belongs to the
 // separate Bold Patients account.
-export const createHtgDepositSession = createServerFn({ method: "POST" })
+export const createHtgDepositSession = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       firstName: string;
@@ -126,31 +72,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!stripeKey) {
-      const msg = "STRIPE_HTG_SECRET_KEY is not configured";
-      await logError("createHtgDepositSession", msg, {
-        email: data.email,
-        leadId: data.leadId,
-      });
-      return { success: false as const, error: msg };
-    }
-
-    const validPrefix =
-      stripeKey.startsWith("sk_live_") ||
-      stripeKey.startsWith("sk_test_") ||
-      stripeKey.startsWith("rk_live_");
-    if (!validPrefix) {
-      await logError(
-        "createHtgDepositSession",
-        `Invalid Stripe key format: starts with "${stripeKey.slice(0, 8)}"`,
-        { email: data.email, leadId: data.leadId },
-      );
-      return { success: false as const, error: "Stripe key is misconfigured — contact admin" };
-    }
-
-    const amountCents = Math.round(Number(data.amount) * 100);
-    if (!Number.isFinite(amountCents) || amountCents < 50) {
+    const amountCents = toCents(data.amount);
+    if (amountCents === null) {
       return {
         success: false as const,
         error: "Invalid amount — must be at least $0.50 AUD.",
@@ -159,7 +82,8 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
 
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ").trim();
     let productName = "Consultation Deposit";
-    let productDescription: string | null = "Fully refundable — returned in full when you attend your consultation.";
+    let productDescription: string | null =
+      "Fully refundable — returned in full when you attend your consultation.";
     let resolvedClinicName: string | null = null;
     let resolvedDoctorName: string | null = null;
 
@@ -168,49 +92,12 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       // which may not yet be persisted onto meta_leads.clinic_id).
       let clinicId: string | null = data.clinicId?.trim() || null;
       if (!clinicId && data.leadId) {
-        const { data: leadRow } = await supabaseAdmin
-          .from("meta_leads")
-          .select("clinic_id")
-          .eq("id", data.leadId)
-          .maybeSingle();
-        clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id || null;
+        clinicId = await getLeadClinicId(data.leadId);
       }
-      let clinicName: string | null = null;
-      let doctor: string | null = null;
-      let addrLine: string | null = null;
-      if (clinicId) {
-        let { data: clinicRow } = await supabaseAdmin
-          .from("clinics")
-          .select("clinic_name, doctor_name, address, city, state")
-          .eq("id", clinicId)
-          .maybeSingle();
-        if (!clinicRow) {
-          const { data: partnerClinicRow } = await supabaseAdmin
-            .from("partner_clinics")
-            .select("clinic_name, address, city, state")
-            .eq("id", clinicId)
-            .maybeSingle();
-          clinicRow = partnerClinicRow
-            ? { ...partnerClinicRow, doctor_name: data.doctorName ?? null }
-            : null;
-        }
-        if (clinicRow) {
-          const c = clinicRow as {
-            clinic_name?: string | null;
-            doctor_name?: string | null;
-            address?: string | null;
-            city?: string | null;
-            state?: string | null;
-          };
-          clinicName = c.clinic_name?.trim() || null;
-          doctor = (data.doctorName?.trim() || c.doctor_name?.trim()) || null;
-          const addrParts = [c.address, c.city, c.state]
-            .map((p) => (p ?? "").trim())
-            .filter(Boolean);
-          addrLine = addrParts.length ? addrParts.join(", ") : null;
-        }
-      }
-      if (!doctor && data.doctorName?.trim()) doctor = data.doctorName.trim();
+
+      const summary = clinicId ? await getClinicSummary(clinicId) : null;
+      const clinicName = summary?.clinicName ?? null;
+      let doctor = data.doctorName?.trim() || summary?.doctorName || null;
       if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
       resolvedClinicName = clinicName;
       resolvedDoctorName = doctor;
@@ -219,14 +106,12 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
       if (doctor) productName = `Consultation with ${doctor}`;
       else if (clinicName) productName = `Consultation at ${clinicName}`;
 
-      // Stripe renders newlines in description as line breaks — use them
-      // to give each piece of info its own line instead of one long sentence.
       // Stripe Checkout renders product_data.description as plain text and
-      // strips newlines, so we use " · " separators and keep it short so it
-      // isn't truncated with "..." on mobile.
+      // strips newlines, so we use separators and keep it short so it isn't
+      // truncated with "..." on mobile.
       const parts: string[] = [];
       if (clinicName) parts.push(clinicName);
-      if (addrLine) parts.push(addrLine);
+      if (summary?.addressLine) parts.push(summary.addressLine);
       parts.push("Fully refundable at your consultation");
       productDescription = parts.join("  |  ");
     } catch (err) {
@@ -256,55 +141,22 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     if (resolvedClinicName) params.append("metadata[clinic_name]", resolvedClinicName);
     if (resolvedDoctorName) params.append("metadata[doctor_name]", resolvedDoctorName);
 
-    try {
-      const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + stripeKey,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
+    const res = await stripeRequest("htg", "checkout/sessions", params, "createHtgDepositSession");
+    if (!res.ok) return { success: false as const, error: res.error };
+
+    if (!res.data.url) {
+      await logError("createHtgDepositSession", "No URL returned by Stripe", {
+        rawResponse: res.data,
       });
-
-      const result = (await response.json()) as StripeApiResponse;
-
-      if (!response.ok) {
-        const errMsg =
-          (result && result.error && (result.error.message as string)) ||
-          "Stripe API error";
-        console.error("Stripe HTG error:", JSON.stringify(result));
-        await logError("createHtgDepositSession", errMsg, {
-          email: data.email,
-          leadId: data.leadId,
-          rawResponse: result,
-        });
-        return { success: false as const, error: errMsg };
-      }
-
-      if (!result.url) {
-        await logError("createHtgDepositSession", "No URL returned by Stripe", {
-          email: data.email,
-          leadId: data.leadId,
-          rawResponse: result,
-        });
-        return { success: false as const, error: "Stripe did not return a checkout URL." };
-      }
-
-      return { success: true as const, url: result.url as string, id: result.id as string };
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("Stripe HTG request failed:", err);
-      await logError("createHtgDepositSession", errMsg, {
-        email: data.email,
-        leadId: data.leadId,
-      });
-      return { success: false as const, error: "Request failed" };
+      return { success: false as const, error: "Stripe did not return a checkout URL." };
     }
+
+    return { success: true as const, url: res.data.url, id: res.data.id as string };
   });
 
 // Returns the HTG Stripe publishable key for client-side Stripe.js initialisation.
 // Publishable keys are safe to expose to the browser.
-export const getHtgStripePublishableKey = createServerFn({ method: "GET" })
+export const getHtgStripePublishableKey = authedServerFn({ method: "GET" })
   .handler(async () => {
     const key = process.env.STRIPE_HTG_PUBLISHABLE_KEY || "";
     return { publishableKey: key };
@@ -312,7 +164,7 @@ export const getHtgStripePublishableKey = createServerFn({ method: "GET" })
 
 // Charges a card directly using a Stripe PaymentMethod ID created on the client
 // via Stripe Elements. The raw card details never touch the server.
-export const chargeCardOverPhone = createServerFn({ method: "POST" })
+export const chargeCardOverPhone = authedServerFn({ method: "POST" })
   .inputValidator(
     (data: {
       paymentMethodId: string;
@@ -322,13 +174,6 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!stripeKey) {
-      const msg = "STRIPE_HTG_SECRET_KEY is not configured";
-      await logError("chargeCardOverPhone", msg, { leadId: data.leadId, patientName: data.patientName });
-      return { success: false as const, error: msg };
-    }
-
     if (!Number.isFinite(data.amountCents) || data.amountCents < 50) {
       return { success: false as const, error: "Invalid amount — must be at least $0.50 AUD." };
     }
@@ -348,72 +193,32 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
     if (data.leadId) params.append("metadata[lead_id]", data.leadId);
     params.append("metadata[source]", "charge_card_over_phone");
 
-    try {
-      const response = await fetch("https://api.stripe.com/v1/payment_intents", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + stripeKey,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      });
+    const res = await stripeRequest("htg", "payment_intents", params, "chargeCardOverPhone");
+    if (!res.ok) return { success: false as const, error: res.error };
+    const result = res.data;
 
-      const result = (await response.json()) as StripeApiResponse;
-
-      if (!response.ok) {
-        const errMsg = (result && result.error && (result.error.message as string)) || "Stripe API error";
-        console.error("Stripe charge error:", JSON.stringify(result));
-        await logError("chargeCardOverPhone", errMsg, {
-          leadId: data.leadId, patientName: data.patientName, rawResponse: result,
-        });
-        return { success: false as const, error: errMsg };
-      }
-
-      if (result.status !== "succeeded") {
-        const errMsg = `Payment ${result.status}` + (result.last_payment_error?.message ? `: ${result.last_payment_error.message}` : "");
-        return { success: false as const, error: errMsg };
-      }
-
-      if (data.leadId && result.id) {
-        const amountDollars = (result.amount ?? data.amountCents) / 100;
-
-        // Credit meta_leads so the booking UI stops showing "payment pending".
-        // Mirrors the stripe-deposit webhook (which only fires for hosted
-        // Checkout sessions, not for direct over-phone PaymentIntents).
-        // IMPORTANT: never touch meta_leads.status — rep still confirms booking.
-        // See mem://rules/lead-status-no-auto-change.
-        await supabaseAdmin
-          .from("meta_leads")
-          .update({
-            deposit_paid_at: new Date().toISOString(),
-            deposit_amount: amountDollars,
-            stripe_payment_intent_id: result.id,
-          })
-          .eq("id", data.leadId);
-
-        // If an appointment row already exists, backfill its payment fields too.
-        await supabaseAdmin
-          .from("clinic_appointments")
-          .update({
-            stripe_payment_intent_id: result.id,
-            deposit_amount: amountDollars,
-            refund_status: null,
-            refund_processed_at: null,
-            stripe_refund_id: null,
-          })
-          .eq("lead_id", data.leadId);
-      }
-
-
-      return {
-        success: true as const,
-        paymentIntentId: result.id as string,
-        amountCents: result.amount as number,
-      };
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("Stripe charge request failed:", err);
-      await logError("chargeCardOverPhone", errMsg, { leadId: data.leadId, patientName: data.patientName });
-      return { success: false as const, error: "Request failed" };
+    if (result.status !== "succeeded") {
+      const errMsg =
+        `Payment ${result.status}` +
+        (result.last_payment_error?.message ? `: ${result.last_payment_error.message}` : "");
+      return { success: false as const, error: errMsg };
     }
+
+    if (data.leadId && result.id) {
+      // Credit meta_leads so the booking UI stops showing "payment pending".
+      // Mirrors the stripe-deposit webhook (which only fires for hosted
+      // Checkout sessions, not for direct over-phone PaymentIntents).
+      // IMPORTANT: never touch meta_leads.status — rep still confirms booking.
+      await recordLeadDeposit({
+        leadId: data.leadId,
+        paymentIntentId: result.id,
+        amountDollars: (result.amount ?? data.amountCents) / 100,
+      });
+    }
+
+    return {
+      success: true as const,
+      paymentIntentId: result.id as string,
+      amountCents: result.amount as number,
+    };
   });

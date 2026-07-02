@@ -1,6 +1,5 @@
-import { createServerFn } from "@tanstack/react-start";
+import { authedServerFn } from "@/lib/authed-fn";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
 
@@ -31,7 +30,7 @@ function formatAUPhone(raw: string): string {
 
 /* ───────────────────────── Distance Matrix ───────────────────────── */
 
-export const matchClinicsBySuburb = createServerFn({ method: "POST" })
+export const matchClinicsBySuburb = authedServerFn({ method: "POST" })
   .inputValidator((data: { suburb: string }) => ({ suburb: String(data.suburb ?? "").trim() }))
   .handler(async ({ data }) => {
     if (!data.suburb) return { success: false as const, error: "Suburb required", clinics: [] };
@@ -82,7 +81,7 @@ export const matchClinicsBySuburb = createServerFn({ method: "POST" })
 
 /* ───────────────────────── Send MMS ───────────────────────── */
 
-export const sendLeadMms = createServerFn({ method: "POST" })
+export const sendLeadMms = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; mediaUrl: string; body?: string }) => ({
     leadId: String(data.leadId ?? ""),
     mediaUrl: String(data.mediaUrl ?? ""),
@@ -152,7 +151,7 @@ export const sendLeadMms = createServerFn({ method: "POST" })
 
 /* ───────────────────────── List MMS images ───────────────────────── */
 
-export const listMmsImages = createServerFn({ method: "GET" }).handler(async () => {
+export const listMmsImages = authedServerFn({ method: "GET" }).handler(async () => {
   const { data, error } = await supabaseAdmin.storage.from("mms-images").list("", { limit: 100 });
   if (error) return { success: false as const, error: error.message, images: [] };
   const images = (data ?? [])
@@ -169,7 +168,7 @@ export const listMmsImages = createServerFn({ method: "GET" }).handler(async () 
 const COACH_SYSTEM = `You are an expert sales coach specialising in NEPQ (Neuro-Emotional Persuasion Questioning) and the following sales framework in this exact order: Mindset → Opening (name, who you are, reference enquiry, pre-empt callback) → Discovery (clinical questions + WHY NOW + echoing) → Amplification (reflect pain back in one sentence, get the yes) → Education (knowledge check, product simply explained, connect to their situation) → Audiobook (paint the picture using their exact words, 2+ specific references, frame as tomorrow without the problem, then silence) → Commitment (open question only, no off-ramps) → Price and Sell (personalise to doctor, price journey in exact order) → Finance Check → Booking. Analyse the following call notes and give direct specific feedback on: 1) Did they follow the framework in order? 2) Did they use the correct opening? 3) Did they find the WHY NOW? 4) Did they amplify correctly by reflecting pain back? 5) Did they paint a genuine audiobook picture using the lead's own words? 6) Did they ask for commitment the right way with no off-ramps? 7) What was the strongest part of this call? 8) What one thing would have changed the outcome most? Be direct. Be specific. Be motivating. No vague feedback. Talk to them like a coach who cares.`;
 
 // Server route handles streaming; this is a simple non-stream wrapper as fallback.
-export const analyseCallNotes = createServerFn({ method: "POST" })
+export const analyseCallNotes = authedServerFn({ method: "POST" })
   .inputValidator((data: { notes: string }) => ({ notes: String(data.notes ?? "") }))
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -199,7 +198,7 @@ export const analyseCallNotes = createServerFn({ method: "POST" })
   });
 
 /* Generate amplification + audiobook pre-fill from discovery notes */
-export const discoveryToAmpAudio = createServerFn({ method: "POST" })
+export const discoveryToAmpAudio = authedServerFn({ method: "POST" })
   .inputValidator((data: { notes: string }) => ({ notes: String(data.notes ?? "") }))
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -241,7 +240,7 @@ export const discoveryToAmpAudio = createServerFn({ method: "POST" })
 
 /* ───────────────────────── Finance check + booking persist ───────────────────────── */
 
-export const saveFinanceCheck = createServerFn({ method: "POST" })
+export const saveFinanceCheck = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; eligible: boolean; answers: Record<string, unknown> }) => ({
     leadId: String(data.leadId ?? ""), eligible: !!data.eligible, answers: data.answers ?? {},
   }))
@@ -256,7 +255,7 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const saveBooking = createServerFn({ method: "POST" })
+export const saveBooking = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
@@ -360,7 +359,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const clearBooking = createServerFn({ method: "POST" })
+export const clearBooking = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string }) => ({ leadId: String(data.leadId ?? "") }))
   .handler(async ({ data }) => {
     if (!data.leadId) return { success: false as const, error: "leadId required" };
@@ -376,7 +375,7 @@ export const clearBooking = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const updateLeadStatus = createServerFn({ method: "POST" })
+export const updateLeadStatus = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; status: string }) => ({
     leadId: String(data.leadId ?? ""), status: String(data.status ?? ""),
   }))
@@ -388,7 +387,7 @@ export const updateLeadStatus = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-export const saveCallNotes = createServerFn({ method: "POST" })
+export const saveCallNotes = authedServerFn({ method: "POST" })
   .inputValidator((data: { leadId: string; notes: string }) => ({
     leadId: String(data.leadId ?? ""), notes: String(data.notes ?? ""),
   }))
@@ -405,7 +404,7 @@ export const saveCallNotes = createServerFn({ method: "POST" })
 // browser Twilio SDK (useTwilioDevice.ts -> insertCallRow) and the
 // voice-outbound edge function, both of which now mirror the lead_id +
 // rep_id pattern below. Keep this in sync with those writers.
-export const logCallAttempt = createServerFn({ method: "POST" })
+export const logCallAttempt = authedServerFn({ method: "POST" })
   .inputValidator((data: {
     leadId: string; repId: string | null; outcome: "no_answer" | "connected";
     attemptNumber: number; dialNumber: number; dayNumber: number; timeSlot: string;
@@ -431,7 +430,7 @@ export const logCallAttempt = createServerFn({ method: "POST" })
 
 /* ───────────────────────── Rep mapping ───────────────────────── */
 
-export const ensureRepForEmail = createServerFn({ method: "POST" })
+export const ensureRepForEmail = authedServerFn({ method: "POST" })
   .inputValidator((data: { email: string; name?: string }) => ({
     email: String(data.email ?? "").toLowerCase().trim(), name: data.name ?? "",
   }))
@@ -445,7 +444,7 @@ export const ensureRepForEmail = createServerFn({ method: "POST" })
     return { success: true as const, rep: created };
   });
 
-export const addRep = createServerFn({ method: "POST" })
+export const addRep = authedServerFn({ method: "POST" })
   .inputValidator((data: { name: string; email: string }) => ({
     name: String(data.name ?? "").trim(), email: String(data.email ?? "").toLowerCase().trim(),
   }))
@@ -458,8 +457,7 @@ export const addRep = createServerFn({ method: "POST" })
   });
 
 /* Invite a new rep: sends Supabase auth invite email + creates sales_reps row */
-export const inviteRep = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const inviteRep = authedServerFn({ method: "POST" })
   .inputValidator((data: { firstName: string; lastName: string; email: string; role?: "rep" | "admin" | "caller"; password?: string; allowedTabs?: string[] | null }) => ({
     firstName: String(data.firstName ?? "").trim(),
     lastName: String(data.lastName ?? "").trim(),
@@ -656,8 +654,7 @@ export const inviteRep = createServerFn({ method: "POST" })
   });
 
 /* List reps for the team management screen — admin only */
-export const listReps = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const listReps = authedServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     try { await assertAdmin(context.userId); } catch (e) {
       return { success: false as const, error: (e as Error).message, reps: [] };
@@ -669,8 +666,7 @@ export const listReps = createServerFn({ method: "POST" })
   });
 
 /* Update an existing rep's name fields — admin only */
-export const updateRep = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const updateRep = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; firstName: string; lastName: string; allowedTabs?: string[] | null }) => ({
     id: String(data.id ?? ""),
     firstName: String(data.firstName ?? "").trim(),
@@ -697,8 +693,7 @@ export const updateRep = createServerFn({ method: "POST" })
   });
 
 /* Set/reset a rep's password — admin only */
-export const setRepPassword = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const setRepPassword = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; password: string }) => ({
     id: String(data.id ?? ""),
     password: String(data.password ?? ""),
@@ -727,8 +722,7 @@ export const setRepPassword = createServerFn({ method: "POST" })
   });
 
 /* Update a rep's email (both auth.users and sales_reps) — admin only */
-export const updateRepEmail = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const updateRepEmail = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; email: string }) => ({
     id: String(data.id ?? ""),
     email: String(data.email ?? "").trim().toLowerCase(),
@@ -764,8 +758,7 @@ export const updateRepEmail = createServerFn({ method: "POST" })
 
 
 
-export const updateRepRole = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const updateRepRole = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; role: "admin" | "rep" | "caller" }) => ({
     id: String(data.id ?? ""),
     role: data.role === "admin" ? ("admin" as const) : data.role === "caller" ? ("caller" as const) : ("rep" as const),
@@ -783,8 +776,7 @@ export const updateRepRole = createServerFn({ method: "POST" })
   });
 
 /* Activate / deactivate a rep — admin only. Deactivating also signs them out of all sessions. */
-export const setRepActive = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const setRepActive = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string; active: boolean }) => ({
     id: String(data.id ?? ""),
     active: Boolean(data.active),
@@ -821,8 +813,7 @@ export const setRepActive = createServerFn({ method: "POST" })
   });
 
 /* Remove a rep — admin only. Also deletes their auth user. */
-export const deleteRep = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const deleteRep = authedServerFn({ method: "POST" })
   .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "") }))
   .handler(async ({ data, context }) => {
     let callerEmail: string;
@@ -855,7 +846,7 @@ export const deleteRep = createServerFn({ method: "POST" })
 
 /* ───────────────────────── Leaderboard ───────────────────────── */
 
-export const getLeaderboard = createServerFn({ method: "POST" })
+export const getLeaderboard = authedServerFn({ method: "POST" })
   .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => ({
     range: data.range ?? "today",
   }))
@@ -1193,7 +1184,7 @@ function phoneTail9(raw: string | null | undefined): string {
   return digits.slice(-9);
 }
 
-export const findLeadByPhone = createServerFn({ method: "POST" })
+export const findLeadByPhone = authedServerFn({ method: "POST" })
   .inputValidator((data: { phone: string }) => ({ phone: String(data.phone ?? "") }))
   .handler(async ({ data }) => {
     const tail = phoneTail9(data.phone);
@@ -1252,8 +1243,7 @@ async function resolveRepIdForUser(userId: string): Promise<string> {
   return rep.id as string;
 }
 
-export const getCurrentRepSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const getCurrentRepSession = authedServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const repId = await resolveRepIdForUser((context as any).userId);
     // Auto-close stale opens (started on a previous calendar day, UTC). Keeps
@@ -1279,8 +1269,7 @@ export const getCurrentRepSession = createServerFn({ method: "POST" })
     return data ? { id: data.id as string, started_at: data.started_at as string } : null;
   });
 
-export const startRepSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const startRepSession = authedServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const repId = await resolveRepIdForUser((context as any).userId);
     // Close any still-open session defensively.
@@ -1298,8 +1287,7 @@ export const startRepSession = createServerFn({ method: "POST" })
     return { id: data.id as string, started_at: data.started_at as string };
   });
 
-export const endRepSession = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+export const endRepSession = authedServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const repId = await resolveRepIdForUser((context as any).userId);
     const { error } = await supabaseAdmin

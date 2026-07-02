@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import { useAuth } from "@/hooks/useAuth";
 
 // Global "sticky until acknowledged" notifications: unread SMS threads and
@@ -356,23 +357,14 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     void fetchMissed();
   }, [fetchThreads, fetchMissed]);
 
+  useRealtimeSubscription({ table: "sms_threads" }, () => void fetchThreads());
+  useRealtimeSubscription({ table: "call_records" }, () => void fetchMissed());
+
   useEffect(() => {
     refresh();
-    const ch1 = supabase
-      .channel("global-notif-threads")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => void fetchThreads())
-      .subscribe();
-    const ch2 = supabase
-      .channel("global-notif-calls")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void fetchMissed())
-      .subscribe();
     const id = window.setInterval(refresh, 60_000);
-    return () => {
-      window.clearInterval(id);
-      void supabase.removeChannel(ch1);
-      void supabase.removeChannel(ch2);
-    };
-  }, [refresh, fetchThreads, fetchMissed]);
+    return () => window.clearInterval(id);
+  }, [refresh]);
 
   const acknowledgeMissed = useCallback((id: string) => {
     ackedRef.current.add(id);
