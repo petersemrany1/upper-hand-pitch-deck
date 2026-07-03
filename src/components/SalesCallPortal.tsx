@@ -787,12 +787,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     );
   }, [leads]);
 
-  // Build the ordered session queue from the same buckets as LeadChooser
+  // Build the ordered session queue.
+  // Order: new (most recent first) → overdue callbacks → callbacks today
+  //        → had-convo chase-up → no answer (≤21 calling-days, most recent first)
+  //        → remaining (leftovers, kept at end).
+  // Excluded statuses: not_interested, booked_deposit_paid, had_convo_no_sale,
+  // cancelled, no_show, dropped.
   const buildSessionQueue = useCallback((): string[] => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
     const todayKey = localDateKey(today);
-    const yesterdayKey = localDateKey(yesterday);
+    const NO_ANSWER_MAX_CALLING_DAYS = 21;
+    const isNoAnswerOutcome = (o: string | null | undefined) => {
+      const x = (o ?? "").toLowerCase();
+      return x.includes("no") || x.includes("voicemail") || x.includes("missed") || x === "no-answer";
+    };
+    // Distinct calling-days we've attempted this lead (across all history we've loaded).
+    const callingDaysFor = (l: Lead) => Object.keys(attemptsByDay[l.id] ?? {}).length;
+    // Most recent day-key we attempted this lead (YYYY-MM-DD; string compare works).
+    const lastAttemptDayKey = (l: Lead): string | null => {
+      const keys = Object.keys(attemptsByDay[l.id] ?? {});
+      if (keys.length === 0) return null;
+      return keys.sort().at(-1)!;
+    };
     const callbackOverdue = (l: Lead) => {
       if (!l.callback_scheduled_at) return false;
       const t = new Date(l.callback_scheduled_at).getTime();
@@ -802,13 +818,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (!l.callback_scheduled_at) return false;
       return sameLocalDate(new Date(l.callback_scheduled_at), today);
     };
-    const noAnsYesterday = (l: Lead) => {
-      const slot = attemptsByDay[l.id]?.[yesterdayKey];
-      if (!slot) return false;
-      const o = (slot.lastOutcome ?? "").toLowerCase();
-      return o.includes("no") || o.includes("voicemail") || o.includes("missed") || o === "no-answer";
+    const isNoAnswer = (l: Lead) => {
+      const lastKey = lastAttemptDayKey(l);
+      if (!lastKey) return false;
+      if (!isNoAnswerOutcome(attemptsByDay[l.id]?.[lastKey]?.lastOutcome)) return false;
+      return callingDaysFor(l) <= NO_ANSWER_MAX_CALLING_DAYS;
     };
-    const newish = (l: Lead) =>
+    const isNewish = (l: Lead) =>
       normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
 
     const eligible = leads.filter((l) => {
@@ -825,15 +841,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const noAns: Lead[] = [];
     const newLeads: Lead[] = [];
     const remaining: Lead[] = [];
-    const placed = new Set<string>();
     for (const l of eligible) {
-      if (callbackOverdue(l)) { overdue.push(l); placed.add(l.id); continue; }
-      if (callbackToday(l)) { cbToday.push(l); placed.add(l.id); continue; }
-      if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); placed.add(l.id); continue; }
-      if (noAnsYesterday(l)) { noAns.push(l); placed.add(l.id); continue; }
-      if (newish(l)) { newLeads.push(l); placed.add(l.id); continue; }
-      remaining.push(l); placed.add(l.id);
+      // Priority order — first match wins.
+      if (isNewish(l)) { newLeads.push(l); continue; }
+      if (callbackOverdue(l)) { overdue.push(l); continue; }
+      if (callbackToday(l)) { cbToday.push(l); continue; }
+      if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); continue; }
+      if (isNoAnswer(l)) { noAns.push(l); continue; }
+      remaining.push(l);
     }
+
     const cbSort = (a: Lead, b: Lead) => {
       const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : 0;
       const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : 0;
@@ -841,14 +858,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     };
     cbToday.sort(cbSort);
     overdue.sort(cbSort);
-    // TEMP (24–25 Jun 2026 Sydney only): start with brand-new leads first.
-    const sydToday = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
-    const newFirst = sydToday === "2026-06-24" || sydToday === "2026-06-25";
-    return (newFirst
-      ? [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining]
-      : [...overdue, ...cbToday, ...chase, ...noAns, ...newLeads, ...remaining]
-    ).map((l) => l.id);
+    // New leads: most recent first (created_at desc).
+    newLeads.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    });
+    // No-answer: most recently attempted first, then least recent.
+    noAns.sort((a, b) => {
+      const ka = lastAttemptDayKey(a) ?? "";
+      const kb = lastAttemptDayKey(b) ?? "";
+      return kb.localeCompare(ka);
+    });
+
+    return [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining].map((l) => l.id);
   }, [leads, attemptsByDay]);
+
+
 
   // Show start-session screen / advance queue when no active lead
   if (!active) {
