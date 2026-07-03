@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -37,6 +37,112 @@ const OUTCOME_COLORS: Record<string, { bg: string; fg: string; border: string; l
 };
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+/* ---- Loading / error / empty-state primitives (navy branding) ---- */
+function SkeletonBlock({ height = 14, width = "100%", radius = 6, style }: { height?: number | string; width?: number | string; radius?: number; style?: React.CSSProperties }) {
+  return (
+    <div
+      style={{
+        height,
+        width,
+        borderRadius: radius,
+        background: "linear-gradient(90deg, #eef1f5 0%, #f7f9fc 50%, #eef1f5 100%)",
+        backgroundSize: "200% 100%",
+        animation: "clinicSkeletonShimmer 1.4s ease-in-out infinite",
+        ...style,
+      }}
+    />
+  );
+}
+
+function PortalSkeleton() {
+  return (
+    <div style={{ padding: 24 }} aria-busy="true" aria-live="polite">
+      <style>{`@keyframes clinicSkeletonShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+      {/* Filter bar skeleton */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <SkeletonBlock height={34} width={180} />
+        <SkeletonBlock height={34} width={140} />
+        <SkeletonBlock height={34} width={140} />
+      </div>
+      {/* Card skeleton */}
+      <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
+        <div style={{ padding: "10px 14px", background: "#f7f9fc", borderBottom: "1px solid #e2e6ec" }}>
+          <SkeletonBlock height={11} width={90} />
+        </div>
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} style={{ display: "flex", gap: 14, alignItems: "center", padding: "16px 18px", borderBottom: i < 3 ? "1px solid #eef1f5" : "none" }}>
+            <SkeletonBlock height={40} width={40} radius={10} />
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
+              <SkeletonBlock height={14} width="45%" />
+              <SkeletonBlock height={11} width="30%" />
+            </div>
+            <SkeletonBlock height={22} width={80} radius={999} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PortalErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div style={{ padding: 24 }} role="alert">
+      <div style={{
+        background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec",
+        padding: 32, textAlign: "center", maxWidth: 520, margin: "40px auto",
+        boxShadow: "0 1px 3px rgba(26,58,107,0.04)",
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%", background: "#fdf0f0",
+          display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+        }}>
+          <AlertCircle size={28} color="#b83232" />
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 700, color: NAVY, marginBottom: 8 }}>
+          Couldn't load your portal
+        </div>
+        <div style={{ fontSize: 13, color: "#6b7785", marginBottom: 24, lineHeight: 1.5 }}>
+          {message}
+        </div>
+        <button
+          onClick={onRetry}
+          style={{
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: NAVY, color: "#fff", border: "none",
+            padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+            cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          <RefreshCw size={14} /> Retry
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AppointmentsEmptyState({ filtered }: { filtered: boolean }) {
+  return (
+    <div style={{ padding: "56px 32px", textAlign: "center" }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: "50%", background: NAVY_PALE,
+        display: "inline-flex", alignItems: "center", justifyContent: "center", marginBottom: 18,
+      }}>
+        <CalendarClock size={30} color={NAVY} />
+      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
+        {filtered ? "No matching appointments" : "No appointments yet"}
+      </div>
+      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 380, margin: "0 auto", lineHeight: 1.55 }}>
+        {filtered
+          ? "Try clearing your filters or picking a different date range."
+          : "When patients are booked in, they'll appear here so you can manage them."}
+      </div>
+    </div>
+  );
+}
+
+
 
 function ymd(d: Date) { return ymdLocal(d); }
 
@@ -77,6 +183,7 @@ export function ClinicPortalView({
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
@@ -87,24 +194,35 @@ export function ClinicPortalView({
     (async () => {
       // Only show the full-screen loader on the very first fetch.
       if (refresh === 0) setLoading(true);
-      const [{ data: a }, { data: th }, { data: bs }, { data: ov }, { data: pc }] = await Promise.all([
-        supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
-        supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
-        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
-        supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-        supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
-      ]);
-      if (cancelled) return;
-      setAppts((a ?? []) as ClinicAppointment[]);
-      setTradingHours((th ?? []) as TradingHours[]);
-      setBlockedSlots((bs ?? []) as BlockedSlot[]);
-      setOverrides((ov ?? []) as AvailabilityOverride[]);
-      if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
-      setClinicState((pc as { state?: string | null } | null)?.state ?? null);
-      setLoading(false);
+      setLoadError(null);
+      try {
+        const results = await Promise.all([
+          supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
+          supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+          supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
+          supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
+          supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
+        ]);
+        if (cancelled) return;
+        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
+        const firstErr = aErr || thErr || bsErr || ovErr || pcErr;
+        if (firstErr) throw new Error(firstErr.message);
+        setAppts((a ?? []) as ClinicAppointment[]);
+        setTradingHours((th ?? []) as TradingHours[]);
+        setBlockedSlots((bs ?? []) as BlockedSlot[]);
+        setOverrides((ov ?? []) as AvailabilityOverride[]);
+        if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
+        setClinicState((pc as { state?: string | null } | null)?.state ?? null);
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Something went wrong loading your portal.");
+        setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [clinicId, refresh]);
+
 
   const reload = () => setRefresh((n) => n + 1);
 
@@ -125,7 +243,9 @@ export function ClinicPortalView({
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, color: "#6b7785", fontSize: 14 }}>Loading…</div>
+        <PortalSkeleton />
+      ) : loadError ? (
+        <PortalErrorCard message={loadError} onRetry={reload} />
       ) : tab === "appointments" ? (
         <AppointmentsTab
           appts={appts}
@@ -380,9 +500,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
         {sorted.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#6b7785" }}>
-            {appts.length === 0 ? "No appointments yet." : "No appointments match your filters."}
-          </div>
+          <AppointmentsEmptyState filtered={appts.length > 0} />
         ) : (
           order.filter((b) => groups.has(b)).map((bucket) => {
             const rows = groups.get(bucket)!;
@@ -653,7 +771,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
       </div>
 
       {loading ? (
-        <div style={{ fontSize: 12, color: "#6b7785" }}>Loading notes…</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }} aria-busy="true"><SkeletonBlock height={10} width="60%" /><SkeletonBlock height={10} width="40%" /></div>
       ) : notes.length === 0 ? (
         <div style={{ fontSize: 12, color: "#6b7785", fontStyle: "italic" }}>No notes yet.</div>
       ) : (
