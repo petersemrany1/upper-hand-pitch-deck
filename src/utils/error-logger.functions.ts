@@ -21,6 +21,11 @@ export async function logError(
   errorMessage: string,
   context: Record<string, unknown> = {}
 ) {
+  // Lazy-load to keep this file safe to import from client-adjacent code.
+  const { scrubPii, scrubMessage, shouldSuppressDuplicate } = await import("@/utils/scrub-pii");
+  const safeMessage = scrubMessage(errorMessage);
+  const safeContext = scrubPii(context);
+  if (shouldSuppressDuplicate(functionName, safeMessage)) return;
   try {
     await fetch(`${SUPABASE_URL}/rest/v1/error_logs`, {
       method: "POST",
@@ -32,8 +37,8 @@ export async function logError(
       },
       body: JSON.stringify({
         function_name: functionName,
-        error_message: errorMessage,
-        context,
+        error_message: safeMessage,
+        context: safeContext,
       }),
     });
   } catch (e) {
