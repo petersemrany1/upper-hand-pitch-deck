@@ -635,6 +635,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
   });
 
 export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       leadId: string;
