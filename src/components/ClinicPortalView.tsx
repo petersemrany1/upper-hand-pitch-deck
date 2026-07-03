@@ -771,7 +771,7 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
       </div>
 
       {loading ? (
-        <div style={{ fontSize: 12, color: "#6b7785" }}>Loading notes…</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }} aria-busy="true"><SkeletonBlock height={10} width="60%" /><SkeletonBlock height={10} width="40%" /></div>
       ) : notes.length === 0 ? (
         <div style={{ fontSize: 12, color: "#6b7785", fontStyle: "italic" }}>No notes yet.</div>
       ) : (
