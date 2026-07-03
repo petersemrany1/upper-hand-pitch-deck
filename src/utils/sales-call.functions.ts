@@ -257,6 +257,7 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
   });
 
 export const saveBooking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
