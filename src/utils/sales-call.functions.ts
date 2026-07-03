@@ -392,6 +392,7 @@ export const updateLeadStatus = createServerFn({ method: "POST" })
   });
 
 export const saveCallNotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; notes: string }) => ({
     leadId: String(data.leadId ?? ""), notes: String(data.notes ?? ""),
   }))
