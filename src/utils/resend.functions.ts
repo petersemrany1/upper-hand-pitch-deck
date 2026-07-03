@@ -1100,6 +1100,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
 /* ──────────────── Manual SMS from sales call portal ──────────────── */
 
 export const sendManualSms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; phone: string; body: string }) => data)
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
