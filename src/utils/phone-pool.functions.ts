@@ -6,7 +6,9 @@ import { logError } from "./error-logger.functions";
 // Twilio outbound number pool. Rotates across numbers in `phone_numbers` so
 // outbound traffic isn't concentrated on one DID (helps reduce spam flagging).
 
-export const provisionNumber = createServerFn({ method: "POST" }).handler(async () => {
+export const provisionNumber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
   try {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
