@@ -356,3 +356,34 @@ button:disabled,
   color: #9aa5b1 !important;
   opacity: 1;
 }
+
+/* =====================================================================
+   Subtle entrance animations for panels, modals, and empty states.
+   Scoped OUTSIDE .pitch-deck-root. Respects prefers-reduced-motion.
+   ===================================================================== */
+@keyframes app-rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.app-rise-in,
+body :not(.pitch-deck-root):not(.pitch-deck-root *) > [role="dialog"],
+body :not(.pitch-deck-root):not(.pitch-deck-root *) > [data-state="open"][data-radix-popper-content-wrapper],
+[data-empty-state]:not(.pitch-deck-root [data-empty-state]) {
+  animation: app-rise-in 180ms ease-out both;
+}
+
+/* Radix Dialog / Sheet / Popover / DropdownMenu content — exclude deck */
+[role="dialog"][data-state="open"]:not(.pitch-deck-root [role="dialog"]),
+[data-radix-popper-content-wrapper]:not(.pitch-deck-root [data-radix-popper-content-wrapper]) > * {
+  animation: app-rise-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-rise-in,
+  [role="dialog"][data-state="open"],
+  [data-radix-popper-content-wrapper] > *,
+  [data-empty-state] {
+    animation: none !important;
+  }
+}
