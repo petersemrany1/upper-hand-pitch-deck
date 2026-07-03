@@ -65,6 +65,7 @@ export const getErrorLogs = createServerFn({ method: "GET" })
 );
 
 export const resolveErrorLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     await fetch(
