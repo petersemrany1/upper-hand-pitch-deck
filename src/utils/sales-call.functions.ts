@@ -362,6 +362,7 @@ export const saveBooking = createServerFn({ method: "POST" })
   });
 
 export const clearBooking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string }) => ({ leadId: String(data.leadId ?? "") }))
   .handler(async ({ data }) => {
     if (!data.leadId) return { success: false as const, error: "leadId required" };
