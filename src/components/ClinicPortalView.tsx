@@ -77,6 +77,7 @@ export function ClinicPortalView({
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
@@ -87,24 +88,35 @@ export function ClinicPortalView({
     (async () => {
       // Only show the full-screen loader on the very first fetch.
       if (refresh === 0) setLoading(true);
-      const [{ data: a }, { data: th }, { data: bs }, { data: ov }, { data: pc }] = await Promise.all([
-        supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
-        supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
-        supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
-        supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-        supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
-      ]);
-      if (cancelled) return;
-      setAppts((a ?? []) as ClinicAppointment[]);
-      setTradingHours((th ?? []) as TradingHours[]);
-      setBlockedSlots((bs ?? []) as BlockedSlot[]);
-      setOverrides((ov ?? []) as AvailabilityOverride[]);
-      if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
-      setClinicState((pc as { state?: string | null } | null)?.state ?? null);
-      setLoading(false);
+      setLoadError(null);
+      try {
+        const results = await Promise.all([
+          supabase.from("clinic_appointments").select("*").eq("clinic_id", clinicId).not("patient_name", "ilike", "%test%").order("appointment_date"),
+          supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
+          supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
+          supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
+          supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
+        ]);
+        if (cancelled) return;
+        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
+        const firstErr = aErr || thErr || bsErr || ovErr || pcErr;
+        if (firstErr) throw new Error(firstErr.message);
+        setAppts((a ?? []) as ClinicAppointment[]);
+        setTradingHours((th ?? []) as TradingHours[]);
+        setBlockedSlots((bs ?? []) as BlockedSlot[]);
+        setOverrides((ov ?? []) as AvailabilityOverride[]);
+        if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
+        setClinicState((pc as { state?: string | null } | null)?.state ?? null);
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        setLoadError(e instanceof Error ? e.message : "Something went wrong loading your portal.");
+        setLoading(false);
+      }
     })();
     return () => { cancelled = true; };
   }, [clinicId, refresh]);
+
 
   const reload = () => setRefresh((n) => n + 1);
 
