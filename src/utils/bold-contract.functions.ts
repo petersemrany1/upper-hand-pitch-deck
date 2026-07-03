@@ -3,7 +3,7 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
-const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
 const BOLD_TEMPLATE_ID = 3486637;
 const BOLD_BLUE = "#2020E8";
 
