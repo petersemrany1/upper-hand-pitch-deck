@@ -500,9 +500,7 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
         {sorted.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center", color: "#6b7785" }}>
-            {appts.length === 0 ? "No appointments yet." : "No appointments match your filters."}
-          </div>
+          <AppointmentsEmptyState filtered={appts.length > 0} />
         ) : (
           order.filter((b) => groups.has(b)).map((bucket) => {
             const rows = groups.get(bucket)!;
