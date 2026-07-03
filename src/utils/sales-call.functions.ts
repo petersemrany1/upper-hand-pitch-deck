@@ -1198,6 +1198,7 @@ function phoneTail9(raw: string | null | undefined): string {
 }
 
 export const findLeadByPhone = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { phone: string }) => ({ phone: String(data.phone ?? "") }))
   .handler(async ({ data }) => {
     const tail = phoneTail9(data.phone);
