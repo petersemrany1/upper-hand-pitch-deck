@@ -47,7 +47,9 @@ export async function logError(
   }
 }
 
-export const getErrorLogs = createServerFn({ method: "GET" }).handler(
+export const getErrorLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(
   async () => {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`,
