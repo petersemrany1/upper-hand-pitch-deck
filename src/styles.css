@@ -50,7 +50,7 @@
 
   /* Muted */
   --muted: oklch(0.97 0 0);               /* #f5f5f5 */
-  --muted-foreground: oklch(0.55 0 0);    /* #111111 */
+  --muted-foreground: oklch(0.55 0 0);    /* #6b7280 readable grey */
 
   /* Accent */
   --accent: oklch(0.97 0 0);
