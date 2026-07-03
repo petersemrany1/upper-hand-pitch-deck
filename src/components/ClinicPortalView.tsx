@@ -137,7 +137,9 @@ export function ClinicPortalView({
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, color: "#6b7785", fontSize: 14 }}>Loading…</div>
+        <PortalSkeleton />
+      ) : loadError ? (
+        <PortalErrorCard message={loadError} onRetry={reload} />
       ) : tab === "appointments" ? (
         <AppointmentsTab
           appts={appts}
