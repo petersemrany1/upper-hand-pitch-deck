@@ -379,6 +379,7 @@ export const clearBooking = createServerFn({ method: "POST" })
   });
 
 export const updateLeadStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; status: string }) => ({
     leadId: String(data.leadId ?? ""), status: String(data.status ?? ""),
   }))
