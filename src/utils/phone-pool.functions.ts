@@ -183,6 +183,7 @@ export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const retireNumber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string; release?: boolean }) => data)
   .handler(async ({ data }) => {
     const { data: row, error: fetchErr } = await supabaseAdmin
