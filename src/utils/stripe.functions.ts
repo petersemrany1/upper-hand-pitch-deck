@@ -314,6 +314,7 @@ export const getHtgStripePublishableKey = createServerFn({ method: "GET" })
 // Charges a card directly using a Stripe PaymentMethod ID created on the client
 // via Stripe Elements. The raw card details never touch the server.
 export const chargeCardOverPhone = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       paymentMethodId: string;
