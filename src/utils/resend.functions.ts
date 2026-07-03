@@ -11,7 +11,7 @@ const RAW_RESEND_ENV = process.env.RESEND_API_KEY ?? "";
 const RESEND_API_KEY = RAW_RESEND_ENV.startsWith("re_")
   ? RAW_RESEND_ENV
   : "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
-const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "pF2cT3WqaK5YZGS6KYu8CXjWzrwW36PrKqNTeub1spt";
+const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
 const BOLD_BLUE = "#2020E8";
 
 function getAdminClient() {
