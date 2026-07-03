@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // These helpers run inside server functions. Read config from the environment
 // rather than hard-coding project URL / keys. `process` may be undefined in a
