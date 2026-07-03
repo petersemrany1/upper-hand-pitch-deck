@@ -84,7 +84,9 @@ export const resolveErrorLog = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-export const getUnresolvedCount = createServerFn({ method: "GET" }).handler(
+export const getUnresolvedCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(
   async () => {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?resolved=eq.false&select=id`,
