@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // These helpers run inside server functions. Read config from the environment
 // rather than hard-coding project URL / keys. `process` may be undefined in a
@@ -46,7 +47,9 @@ export async function logError(
   }
 }
 
-export const getErrorLogs = createServerFn({ method: "GET" }).handler(
+export const getErrorLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(
   async () => {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`,
@@ -62,6 +65,7 @@ export const getErrorLogs = createServerFn({ method: "GET" }).handler(
 );
 
 export const resolveErrorLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string }) => data)
   .handler(async ({ data }) => {
     await fetch(
@@ -80,7 +84,9 @@ export const resolveErrorLog = createServerFn({ method: "POST" })
     return { success: true };
   });
 
-export const getUnresolvedCount = createServerFn({ method: "GET" }).handler(
+export const getUnresolvedCount = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(
   async () => {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?resolved=eq.false&select=id`,

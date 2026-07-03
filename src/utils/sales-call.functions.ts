@@ -257,6 +257,7 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
   });
 
 export const saveBooking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
@@ -361,6 +362,7 @@ export const saveBooking = createServerFn({ method: "POST" })
   });
 
 export const clearBooking = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string }) => ({ leadId: String(data.leadId ?? "") }))
   .handler(async ({ data }) => {
     if (!data.leadId) return { success: false as const, error: "leadId required" };
@@ -377,6 +379,7 @@ export const clearBooking = createServerFn({ method: "POST" })
   });
 
 export const updateLeadStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; status: string }) => ({
     leadId: String(data.leadId ?? ""), status: String(data.status ?? ""),
   }))
@@ -389,6 +392,7 @@ export const updateLeadStatus = createServerFn({ method: "POST" })
   });
 
 export const saveCallNotes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; notes: string }) => ({
     leadId: String(data.leadId ?? ""), notes: String(data.notes ?? ""),
   }))
@@ -1194,6 +1198,7 @@ function phoneTail9(raw: string | null | undefined): string {
 }
 
 export const findLeadByPhone = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { phone: string }) => ({ phone: String(data.phone ?? "") }))
   .handler(async ({ data }) => {
     const tail = phoneTail9(data.phone);

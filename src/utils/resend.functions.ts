@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.functions";
@@ -634,6 +635,7 @@ export const sendInvoiceEmail = createServerFn({ method: "POST" })
   });
 
 export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       leadId: string;
@@ -1098,6 +1100,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
 /* ──────────────── Manual SMS from sales call portal ──────────────── */
 
 export const sendManualSms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; phone: string; body: string }) => data)
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;

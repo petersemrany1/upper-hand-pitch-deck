@@ -1,11 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { logError } from "./error-logger.functions";
 
 // Twilio outbound number pool. Rotates across numbers in `phone_numbers` so
 // outbound traffic isn't concentrated on one DID (helps reduce spam flagging).
 
-export const provisionNumber = createServerFn({ method: "POST" }).handler(async () => {
+export const provisionNumber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
   try {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
@@ -180,6 +183,7 @@ export const listPhoneNumbers = createServerFn({ method: "GET" }).handler(async 
 });
 
 export const retireNumber = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string; release?: boolean }) => data)
   .handler(async ({ data }) => {
     const { data: row, error: fetchErr } = await supabaseAdmin
