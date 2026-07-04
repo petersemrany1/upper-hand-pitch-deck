@@ -854,7 +854,16 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
     try {
       const { disqualifyAppointment } = await import("@/utils/consult-outcome.functions");
       const r = await disqualifyAppointment({ data: { appointmentId: appt.id, reason: trimmed } });
-      if (!r.success) { toast.error(r.error || "Failed to disqualify"); return; }
+      if (!r.success) {
+        if ("outcomeSaved" in r && r.outcomeSaved) {
+          toast.error(`Marked disqualified, but refund needs attention: ${r.error || "refund failed"}`);
+          onChange();
+          onClose();
+          return;
+        }
+        toast.error(r.error || "Failed to disqualify");
+        return;
+      }
       if ("alreadyRefunded" in r && r.alreadyRefunded) toast.success("Marked disqualified (already refunded)");
       else if ("refunded" in r && r.refunded) toast.success("Disqualified and refunded");
       else if ("manual" in r && r.manual) toast.success("Marked disqualified — no Stripe payment, refund manually");
@@ -992,7 +1001,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
-          {appt.outcome && !appt.stripe_refund_id && (
+          {appt.outcome && !appt.stripe_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && appt.outcome !== "disqualified" && (
