@@ -837,10 +837,33 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   };
 
   const resetOutcome = async () => {
-    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null }).eq("id", appt.id);
+    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null, disqualified_reason: null, disqualified_at: null, disqualified_by: null }).eq("id", appt.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Outcome reset");
     onChange();
+  };
+
+  const disqualify = async () => {
+    const reason = window.prompt(
+      `Disqualify ${appt.patient_name}?\n\nThis marks the lead as NOT a valid candidate, refunds the deposit, and does NOT count toward the clinic's pack quota.\n\nReason (required — will be logged):`,
+      "",
+    );
+    if (reason == null) return;
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) { toast.error("Reason must be at least 5 characters"); return; }
+    try {
+      const { disqualifyAppointment } = await import("@/utils/consult-outcome.functions");
+      const r = await disqualifyAppointment({ data: { appointmentId: appt.id, reason: trimmed } });
+      if (!r.success) { toast.error(r.error || "Failed to disqualify"); return; }
+      if ("alreadyRefunded" in r && r.alreadyRefunded) toast.success("Marked disqualified (already refunded)");
+      else if ("refunded" in r && r.refunded) toast.success("Disqualified and refunded");
+      else if ("manual" in r && r.manual) toast.success("Marked disqualified — no Stripe payment, refund manually");
+      else toast.success("Marked disqualified");
+      onChange();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
   };
 
   const deleteAppt = async () => {
