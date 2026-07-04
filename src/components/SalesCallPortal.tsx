@@ -2700,6 +2700,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         .limit(1);
       if (prior && prior.length > 0) {
         setConfirmationSent(true);
+        setPatientSmsSentPopupDismissed(true); // don't re-show success modal on remount
         autoConfirmTriggeredRef.current = true;
       }
     })();
