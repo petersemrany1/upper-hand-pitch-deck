@@ -17,13 +17,16 @@ export type ClinicAppointment = {
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string;
   intel_notes: string | null;
-  outcome: "show" | "noshow" | "proceeded" | null;
+  outcome: "show" | "noshow" | "proceeded" | "disqualified" | null;
   consult_summary: string | null;
   deposit_amount: number | null;
   stripe_payment_intent_id: string | null;
   refund_status: "refunded" | "refunded_manual" | "failed" | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
+  disqualified_reason?: string | null;
+  disqualified_at?: string | null;
+  disqualified_by?: string | null;
 };
 
 const NAVY = "#1a3a6b";
@@ -34,6 +37,7 @@ const OUTCOME_COLORS: Record<string, { bg: string; fg: string; border: string; l
   show: { bg: "#e8f5ef", fg: "#1a7a4a", border: "#9ed4b5", label: "Showed up" },
   noshow: { bg: "#fdf0f0", fg: "#b83232", border: "#f0b8b8", label: "No show" },
   proceeded: { bg: "#f3eefa", fg: "#6b3fa0", border: "#d6c5ec", label: "Booked procedure" },
+  disqualified: { bg: "#f4f4f5", fg: "#52525b", border: "#d4d4d8", label: "Disqualified" },
 };
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
