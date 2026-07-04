@@ -47,15 +47,11 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     let showed = 0;
-    let up = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
-      const d = (a as { appointment_date: string }).appointment_date;
       if (o === "show" || o === "proceeded") showed += 1;
-      else if (!o && d >= todayStr) up += 1;
     }
     setShowedUp(showed);
-    setUpcoming(up);
     setLoading(false);
   }, [clinicId]);
 
