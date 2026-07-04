@@ -160,7 +160,7 @@ export function effectiveHoursFor(
       open_time: ov.start_time,
       close_time: ov.end_time,
       is_closed: false,
-      consult_duration_mins: baseTh?.consult_duration_mins || 30,
+      consult_duration_mins: baseTh?.consult_duration_mins || 15,
     };
   }
   if (ov?.override_type === "closed") {
@@ -201,7 +201,7 @@ export function generateSlots(
 
   const openMin = hhmmToMin(th.open_time);
   const closeMin = hhmmToMin(th.close_time);
-  const step = th.consult_duration_mins || 30;
+  const step = th.consult_duration_mins || 15;
 
   // Build set of blocked minute-ranges that apply to this date
   const blocks: Array<[number, number]> = [];

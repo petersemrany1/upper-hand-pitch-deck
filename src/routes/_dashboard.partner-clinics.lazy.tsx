@@ -660,7 +660,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       <div style={{ marginTop: 18, marginBottom: 8, paddingTop: 14, borderTop: `0.5px solid ${COLORS.line}` }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 4 }}>Trading Hours</div>
         <div style={{ fontSize: 11, color: "#111", opacity: 0.6, marginBottom: 12 }}>
-          Base weekly schedule. Clinic can block individual slots from their portal. 30-min consult slots.
+          Base weekly schedule. Clinic can block individual slots from their portal. 15-min consult slots.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {trading.map((row) => (
