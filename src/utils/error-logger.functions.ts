@@ -91,7 +91,9 @@ export const resolveErrorLog = createServerFn({ method: "POST" })
 export const getUnresolvedCount = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(
-  async () => {
+  async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc('is_admin_user');
+    if (!isAdmin) throw new Error('Forbidden: admin access required');
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?resolved=eq.false&select=id`,
       {
