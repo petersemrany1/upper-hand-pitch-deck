@@ -526,6 +526,47 @@ export type Database = {
           },
         ]
       }
+      clinic_packs: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          pack_size: number
+          purchased_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pack_size: number
+          purchased_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pack_size?: number
+          purchased_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_packs_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinic_portal_users: {
         Row: {
           clinic_id: string
