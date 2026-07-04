@@ -328,11 +328,16 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       let resendResult: { success: boolean; id?: string; error?: string };
       let rawResendResponse: unknown = null;
       try {
-        const response = await fetch("https://api.resend.com/emails", {
+        if (!RESEND_CONNECTION_KEY || !LOVABLE_API_KEY) {
+          const missing = !RESEND_CONNECTION_KEY ? "RESEND_API_KEY" : "LOVABLE_API_KEY";
+          throw new Error(`Email service not configured (missing ${missing})`);
+        }
+        const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer " + RESEND_API_KEY,
+            Authorization: "Bearer " + LOVABLE_API_KEY,
+            "X-Connection-Api-Key": RESEND_CONNECTION_KEY,
           },
           body: JSON.stringify({
             from: "Bold Patients <admin@bold-patients.com>",
@@ -342,6 +347,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
             html,
           }),
         });
+
         const r = await response.json();
         rawResendResponse = r;
         if (!response.ok) {
