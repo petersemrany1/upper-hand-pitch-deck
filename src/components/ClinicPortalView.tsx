@@ -360,7 +360,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
       </div>
 
       {view === "list" ? (
-        <ListView appts={appts} onSelect={onSelect} />
+        <ListView appts={appts} onSelect={onSelect} isAdmin={isAdmin} />
       ) : (
         <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} clinicState={clinicState} onSelect={onSelect} />
       )}
@@ -391,7 +391,7 @@ function ViewToggleBtn({ active, onClick, icon, children }: { active: boolean; o
 
 /* ---------- LIST VIEW ---------- */
 
-function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void }) {
+function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void; isAdmin: boolean }) {
   const [tab, setTab] = useState<"upcoming" | "past" | "noshow" | "disqualified">("upcoming");
   const [query, setQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
@@ -488,7 +488,10 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
           <ViewToggleBtn active={tab === "upcoming"} onClick={() => setTab("upcoming")} icon={null}>Upcoming ({upcomingCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "past"} onClick={() => setTab("past")} icon={null}>Past ({pastCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "noshow"} onClick={() => setTab("noshow")} icon={null}>No shows ({noShowCount})</ViewToggleBtn>
-          <ViewToggleBtn active={tab === "disqualified"} onClick={() => setTab("disqualified")} icon={null}>Disqualified ({disqualifiedCount})</ViewToggleBtn>
+          {isAdmin && (
+            <ViewToggleBtn active={tab === "disqualified"} onClick={() => setTab("disqualified")} icon={null}>Disqualified ({disqualifiedCount})</ViewToggleBtn>
+          )}
+
         </div>
 
         <input
