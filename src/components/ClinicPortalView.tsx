@@ -928,6 +928,14 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
+      {appt.outcome === "disqualified" && appt.disqualified_reason && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: 12, borderRadius: 8, marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#991b1b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Disqualified by admin</div>
+          <div style={{ fontSize: 12, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{appt.disqualified_reason}</div>
+          <div style={{ fontSize: 10, color: "#7f1d1d", marginTop: 6 }}>Does not count toward clinic pack quota</div>
+        </div>
+      )}
+
       <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
