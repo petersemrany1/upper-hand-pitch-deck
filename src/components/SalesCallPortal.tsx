@@ -2974,7 +2974,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time, repId: repId ?? null } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
@@ -2982,17 +2982,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       const doctorName = sd?.name ?? "[DOCTOR NAME — fill in before sending]";
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
-      const statusResult = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_deposit_paid" } });
-      if (!statusResult.success) {
-        toast.error(statusResult.error || "Booked, but couldn’t update lead status — refresh before moving on.");
-        return;
-      }
+      // Status is promoted atomically inside saveBooking (promoteStatus: true)
+      // — no separate updateLeadStatus round-trip. The DB trigger
+      // enforce_booking_before_status_lock can never race us because
+      // clinic_appointments is verified present before the status UPDATE runs.
       const bookingPatch: Partial<Lead> = {
         booking_date: form.date,
         booking_time: form.time,
         clinic_id: form.clinicId || null,
         status: "booked_deposit_paid",
       };
+
 
       // NOTE: patient confirmation SMS is NOT fired here anymore. It is fired
       // automatically as soon as deposit_paid_at is set (with a 10-second

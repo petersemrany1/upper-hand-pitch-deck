@@ -4,15 +4,15 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.functions";
 
-// IMPORTANT: process.env.RESEND_API_KEY may be set by the Resend *connector*
-// to a gateway key (`lovc_...`) which is NOT a real Resend API key and will
-// 401 against api.resend.com. Only accept values that look like a real Resend
-// key (`re_...`); otherwise fall back to the known-good account key.
-const RAW_RESEND_ENV = process.env.RESEND_API_KEY ?? "";
-const RESEND_API_KEY = RAW_RESEND_ENV.startsWith("re_")
-  ? RAW_RESEND_ENV
-  : "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
+// Resend is accessed through the Lovable connector gateway, NOT api.resend.com
+// directly. The workspace's Resend connection injects RESEND_API_KEY as a
+// gateway credential (`lovc_...`); Lovable authenticates to Resend on our
+// behalf. Any attempt to hit api.resend.com with that value returns
+// 401 "API key is invalid". Keep everything routed through the gateway.
+const RESEND_CONNECTION_KEY = process.env.RESEND_API_KEY ?? "";
+const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY ?? "";
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
+
 const BOLD_BLUE = "#2020E8";
 
 function getAdminClient() {
@@ -144,14 +144,21 @@ async function sendViaResend(
       body.attachments = attachments;
     }
 
-    const response = await fetch("https://api.resend.com/emails", {
+    if (!RESEND_CONNECTION_KEY || !LOVABLE_API_KEY) {
+      const missing = !RESEND_CONNECTION_KEY ? "RESEND_API_KEY" : "LOVABLE_API_KEY";
+      console.error(`Resend gateway not configured: missing ${missing}`);
+      return { success: false, error: `Email service not configured (missing ${missing})` };
+    }
+    const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer " + RESEND_API_KEY,
+        Authorization: "Bearer " + LOVABLE_API_KEY,
+        "X-Connection-Api-Key": RESEND_CONNECTION_KEY,
       },
       body: JSON.stringify(body),
     });
+
 
     const result = await response.json();
 
@@ -321,11 +328,16 @@ export const sendContractEmail = createServerFn({ method: "POST" })
       let resendResult: { success: boolean; id?: string; error?: string };
       let rawResendResponse: unknown = null;
       try {
-        const response = await fetch("https://api.resend.com/emails", {
+        if (!RESEND_CONNECTION_KEY || !LOVABLE_API_KEY) {
+          const missing = !RESEND_CONNECTION_KEY ? "RESEND_API_KEY" : "LOVABLE_API_KEY";
+          throw new Error(`Email service not configured (missing ${missing})`);
+        }
+        const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: "Bearer " + RESEND_API_KEY,
+            Authorization: "Bearer " + LOVABLE_API_KEY,
+            "X-Connection-Api-Key": RESEND_CONNECTION_KEY,
           },
           body: JSON.stringify({
             from: "Bold Patients <admin@bold-patients.com>",
@@ -335,6 +347,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
             html,
           }),
         });
+
         const r = await response.json();
         rawResendResponse = r;
         if (!response.ok) {

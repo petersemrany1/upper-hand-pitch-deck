@@ -258,16 +258,18 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
 
 export const saveBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null }) => ({
+  .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
     repId: data.repId ?? null,
+    // When true (Book button click), the server also promotes meta_leads.status
+    // to "booked_deposit_paid" — atomically, only after clinic_appointments is
+    // confirmed to exist so enforce_booking_before_status_lock can never block us.
+    promoteStatus: data.promoteStatus === true,
   }))
   .handler(async ({ data }) => {
     if (!data.leadId || !data.date) return { success: false as const, error: "leadId and date required" };
-    // NOTE: do NOT change status here. Status only flips to "booked_deposit_paid"
-    // when the rep explicitly confirms the deposit. Booking date/time alone
-    // should never auto-promote a lead to a "Booked" status.
+    // Step 1: write booking fields on meta_leads (NOT status).
     // Also reassign rep_id to the rep actually booking — credits the booking
     // to whoever closed it, not whoever first touched the lead.
     const updatePayload: {
@@ -279,14 +281,12 @@ export const saveBooking = createServerFn({ method: "POST" })
     };
     if (data.repId) updatePayload.rep_id = data.repId;
     const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
-
     if (error) return { success: false as const, error: error.message };
 
-
-    // Mirror into clinic_appointments immediately so the slot is reserved
-    // in the clinic portal availability view (and prevents double-booking
-    // by other reps). Intel notes are NOT written here — they are snapshotted
-    // only when the handover email is sent.
+    // Step 2: mirror into clinic_appointments so the slot is reserved and the
+    // enforce_booking_before_status_lock trigger will accept our status change.
+    // Intel notes are NOT written here — they are snapshotted only when the
+    // handover email is sent.
     if (data.clinicId) {
       const { data: leadRow } = await supabaseAdmin
         .from("meta_leads")
@@ -316,15 +316,49 @@ export const saveBooking = createServerFn({ method: "POST" })
         // Don't overwrite deposit fields already set on the appointment.
         if (existing[0].stripe_payment_intent_id) delete payload.stripe_payment_intent_id;
         if (existing[0].deposit_amount != null) delete payload.deposit_amount;
-        // Stamp booked_at on re-book so leaderboard credits the moment the
-        // booking was (re)made, not the original row insert time.
         payload.booked_at = nowIso;
-        await supabaseAdmin.from("clinic_appointments").update(payload).eq("id", existing[0].id);
+        const { error: apptErr } = await supabaseAdmin
+          .from("clinic_appointments")
+          .update(payload)
+          .eq("id", existing[0].id);
+        if (apptErr) {
+          await logError("saveBooking.appointmentUpdate", apptErr.message, { leadId: data.leadId });
+          return { success: false as const, error: `Could not update clinic appointment: ${apptErr.message}` };
+        }
       } else {
         // Upsert on lead_id — DB unique index prevents race-condition duplicates.
-        await supabaseAdmin
+        const { error: apptErr } = await supabaseAdmin
           .from("clinic_appointments")
           .upsert({ ...payload, intel_notes: null, booked_at: nowIso }, { onConflict: "lead_id" });
+        if (apptErr) {
+          await logError("saveBooking.appointmentInsert", apptErr.message, { leadId: data.leadId });
+          return { success: false as const, error: `Could not create clinic appointment: ${apptErr.message}` };
+        }
+      }
+
+      // Verify the row actually exists before we try to promote status —
+      // otherwise enforce_booking_before_status_lock will reject us.
+      const { data: verifyAppt } = await supabaseAdmin
+        .from("clinic_appointments")
+        .select("id")
+        .eq("lead_id", data.leadId)
+        .limit(1);
+      if (!verifyAppt || verifyAppt.length === 0) {
+        await logError("saveBooking.appointmentMissing", "clinic_appointments row not found after upsert", { leadId: data.leadId });
+        return { success: false as const, error: "Clinic appointment could not be reserved. Please retry." };
+      }
+    }
+
+    // Step 3: promote status IF this call came from the Book button and a
+    // clinic is set (no clinic = no appointment = trigger would block us).
+    if (data.promoteStatus && data.clinicId) {
+      const { error: statusErr } = await supabaseAdmin
+        .from("meta_leads")
+        .update({ status: "booked_deposit_paid", updated_at: new Date().toISOString() })
+        .eq("id", data.leadId);
+      if (statusErr) {
+        await logError("saveBooking.statusPromote", statusErr.message, { leadId: data.leadId });
+        return { success: false as const, error: `Booked, but status update failed: ${statusErr.message}` };
       }
     }
 
@@ -360,6 +394,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     }
     return { success: true as const };
   });
+
 
 export const clearBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
