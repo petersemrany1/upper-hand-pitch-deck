@@ -11,7 +11,7 @@ async function loadDeviceCtor(): Promise<typeof DeviceType> {
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
-import { getNextNumber } from "@/utils/phone-pool.functions";
+
 
 // Browser-based Twilio softphone — module-level singleton.
 //
@@ -422,17 +422,11 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   setSnapshot({ error: null, status: "connecting", activeLeadId: extraParams?.leadId || null, activePhone: phone, activeCallStartedAt: null, activeCallInstanceId: instanceId });
   notifySalesSessionCallStarted();
   try {
-    // Pull the next available outbound number from the rotation pool so we
-    // spread call traffic across DIDs (reduces spam flagging).
-    let callerId: string | null = null;
-    try {
-      const r = await getNextNumber();
-      callerId = r?.number ?? null;
-    } catch (e) {
-      console.error("[placeCall] getNextNumber failed", e);
-    }
+    // Caller-ID rotation happens SERVER-SIDE in voice-outbound (single source
+    // of truth). Doing it client-side too would double-advance the round-robin
+    // and log a from_number that doesn't match the number Twilio actually
+    // dialled from.
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
-    if (callerId) params.callerId = callerId;
     await preferHeadsetMicrophone(device);
     const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
@@ -470,6 +464,8 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         phone,
       });
       try {
+        // from_number is deliberately omitted here — voice-outbound's upsert
+        // fills it with the real caller-ID it picked and dialled from.
         await supabase.from("call_records").upsert(
           {
             twilio_call_sid: callSid,
@@ -477,7 +473,6 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
             lead_id: leadId,
             rep_id: repId,
             phone,
-            from_number: callerId,
             status: "initiated",
             called_at: new Date().toISOString(),
           },

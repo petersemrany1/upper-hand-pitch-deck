@@ -141,13 +141,21 @@ serve(async (req) => {
   }
   const dialTo = escapeXml(formatted);
 
+  const childStatusCallbackUrl = escapeXml(
+    callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
+  );
+
+  // Pick the caller-ID BEFORE upserting call_records, so we can write the
+  // actual dialled from_number and get accurate per-number analytics.
+  const sbForCaller = (supabaseUrl && serviceKey) ? createClient(supabaseUrl, serviceKey) : null;
+  const callerId = sbForCaller ? await pickCallerId(sbForCaller) : FALLBACK_CALLER_ID;
+
   // Server-side safety net: ensure a call_records row exists tagged with
-  // clinic_id, lead_id and rep_id. The browser also inserts this row, but
-  // if that races or fails we still want the row to exist (with proper
-  // attribution) by the time twilio-status fires.
+  // clinic_id, lead_id, rep_id, and the REAL from_number (overwrites any
+  // stale from_number the browser may have optimistically inserted).
   if (callSid && supabaseUrl && serviceKey) {
     try {
-      const sb = createClient(supabaseUrl, serviceKey);
+      const sb = sbForCaller ?? createClient(supabaseUrl, serviceKey);
       const { error: upErr } = await sb.from("call_records").upsert(
         {
           twilio_call_sid: callSid,
@@ -156,6 +164,7 @@ serve(async (req) => {
           lead_id: leadId || null,
           rep_id: repId || null,
           phone: dialTo,
+          from_number: callerId,
         },
         { onConflict: "twilio_call_sid" },
       );
@@ -164,13 +173,6 @@ serve(async (req) => {
       console.error("voice-outbound: failed to upsert call_records", err);
     }
   }
-
-  const childStatusCallbackUrl = escapeXml(
-    callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
-  );
-
-  const sbForCaller = (supabaseUrl && serviceKey) ? createClient(supabaseUrl, serviceKey) : null;
-  const callerId = sbForCaller ? await pickCallerId(sbForCaller) : FALLBACK_CALLER_ID;
 
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>

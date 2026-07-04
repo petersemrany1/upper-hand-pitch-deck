@@ -150,13 +150,16 @@ export const provisionNumber = createServerFn({ method: "POST" })
   }
 });
 
+// Voice caller-ID rotation: pick least-recently-used ACTIVE number across
+// the WHOLE pool. Do NOT filter by mms_enabled here — caller-ID rotation is
+// for voice, not SMS/MMS. Filtering by MMS concentrates all voice traffic
+// on the single MMS-enabled DID, which gets it spam-flagged fast.
 export const getNextNumber = createServerFn({ method: "POST" }).handler(async () => {
-  const fallback = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
+  const fallback = process.env.TWILIO_FROM_NUMBER ?? "+61480844159";
   const { data, error } = await supabaseAdmin
     .from("phone_numbers")
     .select("id, number, call_count")
     .eq("status", "active")
-    .eq("mms_enabled", true)
     .order("last_used_at", { ascending: true, nullsFirst: true })
     .limit(1)
     .maybeSingle();
@@ -170,6 +173,22 @@ export const getNextNumber = createServerFn({ method: "POST" }).handler(async ()
     .update({ last_used_at: new Date().toISOString(), call_count: (data.call_count ?? 0) + 1 })
     .eq("id", data.id);
 
+  return { number: data.number };
+});
+
+// SMS/MMS sender selection: needs MMS capability (e.g. patient confirmation
+// SMS that may include media). Falls back to the platform TWILIO_FROM.
+export const getNextMmsNumber = createServerFn({ method: "POST" }).handler(async () => {
+  const fallback = process.env.TWILIO_FROM_NUMBER ?? "+61483938205";
+  const { data, error } = await supabaseAdmin
+    .from("phone_numbers")
+    .select("id, number")
+    .eq("status", "active")
+    .eq("mms_enabled", true)
+    .order("last_used_at", { ascending: true, nullsFirst: true })
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return { number: fallback };
   return { number: data.number };
 });
 
