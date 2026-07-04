@@ -69,7 +69,9 @@ export const getErrorLogs = createServerFn({ method: "GET" })
 export const resolveErrorLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { id: string }) => data)
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const { data: isAdmin } = await context.supabase.rpc('is_admin_user');
+    if (!isAdmin) throw new Error('Forbidden: admin access required');
     await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?id=eq.${data.id}`,
       {
