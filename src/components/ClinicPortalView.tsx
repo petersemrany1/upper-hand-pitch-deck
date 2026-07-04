@@ -488,7 +488,10 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
           <ViewToggleBtn active={tab === "upcoming"} onClick={() => setTab("upcoming")} icon={null}>Upcoming ({upcomingCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "past"} onClick={() => setTab("past")} icon={null}>Past ({pastCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "noshow"} onClick={() => setTab("noshow")} icon={null}>No shows ({noShowCount})</ViewToggleBtn>
-          <ViewToggleBtn active={tab === "disqualified"} onClick={() => setTab("disqualified")} icon={null}>Disqualified ({disqualifiedCount})</ViewToggleBtn>
+          {isAdmin && (
+            <ViewToggleBtn active={tab === "disqualified"} onClick={() => setTab("disqualified")} icon={null}>Disqualified ({disqualifiedCount})</ViewToggleBtn>
+          )}
+
         </div>
 
         <input
