@@ -50,7 +50,9 @@ export async function logError(
 export const getErrorLogs = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(
-  async () => {
+  async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc('is_admin_user');
+    if (!isAdmin) throw new Error('Forbidden: admin access required');
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/error_logs?order=created_at.desc&limit=100`,
       {
