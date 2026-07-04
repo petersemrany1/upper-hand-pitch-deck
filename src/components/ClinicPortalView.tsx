@@ -360,7 +360,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
       </div>
 
       {view === "list" ? (
-        <ListView appts={appts} onSelect={onSelect} />
+        <ListView appts={appts} onSelect={onSelect} isAdmin={isAdmin} />
       ) : (
         <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} clinicState={clinicState} onSelect={onSelect} />
       )}
