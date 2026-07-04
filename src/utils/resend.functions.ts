@@ -144,14 +144,21 @@ async function sendViaResend(
       body.attachments = attachments;
     }
 
-    const response = await fetch("https://api.resend.com/emails", {
+    if (!RESEND_CONNECTION_KEY || !LOVABLE_API_KEY) {
+      const missing = !RESEND_CONNECTION_KEY ? "RESEND_API_KEY" : "LOVABLE_API_KEY";
+      console.error(`Resend gateway not configured: missing ${missing}`);
+      return { success: false, error: `Email service not configured (missing ${missing})` };
+    }
+    const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: "Bearer " + RESEND_API_KEY,
+        Authorization: "Bearer " + LOVABLE_API_KEY,
+        "X-Connection-Api-Key": RESEND_CONNECTION_KEY,
       },
       body: JSON.stringify(body),
     });
+
 
     const result = await response.json();
 
