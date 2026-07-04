@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Package, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -23,7 +23,7 @@ type Props = {
 export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
-  const [upcoming, setUpcoming] = useState(0);
+  
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -47,22 +47,18 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
     const now = new Date();
     const todayStr = now.toISOString().slice(0, 10);
     let showed = 0;
-    let up = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
-      const d = (a as { appointment_date: string }).appointment_date;
       if (o === "show" || o === "proceeded") showed += 1;
-      else if (!o && d >= todayStr) up += 1;
     }
     setShowedUp(showed);
-    setUpcoming(up);
     setLoading(false);
   }, [clinicId]);
 
   useEffect(() => { void load(); }, [load]);
 
   // FIFO allocation: fill oldest packs first
-  const { activePack, deliveredInActive, sizeOfActive, remainingSlots, totalRemaining, totalCapacity } = useMemo(() => {
+  const { activePack, deliveredInActive, sizeOfActive, totalRemaining } = useMemo(() => {
     const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
     let remaining = showedUp;
     let active: Pack | null = null;
@@ -84,16 +80,13 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
     }
     const totalCap = sorted.reduce((s, p) => s + p.pack_size, 0);
     const totalRem = Math.max(0, totalCap - showedUp);
-    const slotsAvail = Math.max(0, totalRem - upcoming);
     return {
       activePack: active,
       deliveredInActive: deliveredIn,
       sizeOfActive: active?.pack_size ?? 0,
-      remainingSlots: slotsAvail,
       totalRemaining: totalRem,
-      totalCapacity: totalCap,
     };
-  }, [packs, showedUp, upcoming]);
+  }, [packs, showedUp]);
 
   const pct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
   const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive);
@@ -114,22 +107,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       margin: "16px 24px 0",
       boxShadow: "0 1px 3px rgba(26,58,107,0.04)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 8,
-            background: "#edf2f9", color: NAVY,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <Package size={18} />
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Patient Pack</div>
-            <div style={{ fontSize: 11, color: "#6b7785" }}>
-              {noPacks ? "No pack loaded yet" : `${totalRemaining} of ${totalCapacity} patients remaining across all packs`}
-            </div>
-          </div>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
         {isAdmin && (
           <div style={{ display: "flex", gap: 8 }}>
             <button
@@ -183,12 +161,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
               background: barColor,
               transition: "width 0.4s ease",
             }} />
-          </div>
-
-          <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap" }}>
-            <MiniStat label="Delivered (all packs)" value={showedUp} color="#1a7a4a" />
-            <MiniStat label="Upcoming booked" value={upcoming} color="#2d5fa0" />
-            <MiniStat label="Slots still open" value={remainingSlots} color={remainingSlots === 0 ? "#b83232" : NAVY} />
           </div>
 
           {exhausted && (
