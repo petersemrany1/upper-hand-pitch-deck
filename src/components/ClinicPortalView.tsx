@@ -17,13 +17,16 @@ export type ClinicAppointment = {
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string;
   intel_notes: string | null;
-  outcome: "show" | "noshow" | "proceeded" | null;
+  outcome: "show" | "noshow" | "proceeded" | "disqualified" | null;
   consult_summary: string | null;
   deposit_amount: number | null;
   stripe_payment_intent_id: string | null;
   refund_status: "refunded" | "refunded_manual" | "failed" | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
+  disqualified_reason?: string | null;
+  disqualified_at?: string | null;
+  disqualified_by?: string | null;
 };
 
 const NAVY = "#1a3a6b";
@@ -34,6 +37,7 @@ const OUTCOME_COLORS: Record<string, { bg: string; fg: string; border: string; l
   show: { bg: "#e8f5ef", fg: "#1a7a4a", border: "#9ed4b5", label: "Showed up" },
   noshow: { bg: "#fdf0f0", fg: "#b83232", border: "#f0b8b8", label: "No show" },
   proceeded: { bg: "#f3eefa", fg: "#6b3fa0", border: "#d6c5ec", label: "Booked procedure" },
+  disqualified: { bg: "#f4f4f5", fg: "#52525b", border: "#d4d4d8", label: "Disqualified" },
 };
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -833,10 +837,33 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   };
 
   const resetOutcome = async () => {
-    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null }).eq("id", appt.id);
+    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null, disqualified_reason: null, disqualified_at: null, disqualified_by: null }).eq("id", appt.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Outcome reset");
     onChange();
+  };
+
+  const disqualify = async () => {
+    const reason = window.prompt(
+      `Disqualify ${appt.patient_name}?\n\nThis marks the lead as NOT a valid candidate, refunds the deposit, and does NOT count toward the clinic's pack quota.\n\nReason (required — will be logged):`,
+      "",
+    );
+    if (reason == null) return;
+    const trimmed = reason.trim();
+    if (trimmed.length < 5) { toast.error("Reason must be at least 5 characters"); return; }
+    try {
+      const { disqualifyAppointment } = await import("@/utils/consult-outcome.functions");
+      const r = await disqualifyAppointment({ data: { appointmentId: appt.id, reason: trimmed } });
+      if (!r.success) { toast.error(r.error || "Failed to disqualify"); return; }
+      if ("alreadyRefunded" in r && r.alreadyRefunded) toast.success("Marked disqualified (already refunded)");
+      else if ("refunded" in r && r.refunded) toast.success("Disqualified and refunded");
+      else if ("manual" in r && r.manual) toast.success("Marked disqualified — no Stripe payment, refund manually");
+      else toast.success("Marked disqualified");
+      onChange();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
   };
 
   const deleteAppt = async () => {
@@ -901,6 +928,14 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         </div>
       )}
 
+      {appt.outcome === "disqualified" && appt.disqualified_reason && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", padding: 12, borderRadius: 8, marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "#991b1b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Disqualified by admin</div>
+          <div style={{ fontSize: 12, color: "#111", lineHeight: 1.5, whiteSpace: "pre-wrap" }}>{appt.disqualified_reason}</div>
+          <div style={{ fontSize: 10, color: "#7f1d1d", marginTop: 6 }}>Does not count toward clinic pack quota</div>
+        </div>
+      )}
+
       <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
@@ -959,6 +994,11 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
           {appt.outcome && !appt.stripe_refund_id && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
+          )}
+          {isAdmin && appt.outcome !== "disqualified" && (
+            <button onClick={disqualify} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#fef2f2", color: "#991b1b", borderColor: "#fecaca" }}>
+              🚫 Disqualify lead (Admin) — refund &amp; exclude from pack quota
+            </button>
           )}
           {isAdmin && (
             <button onClick={deleteAppt} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", color: "#b83232", borderColor: "#f0b8b8" }}>Delete appointment</button>

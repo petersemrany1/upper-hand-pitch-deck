@@ -314,6 +314,9 @@ export type Database = {
           consult_summary: string | null
           created_at: string
           deposit_amount: number | null
+          disqualified_at: string | null
+          disqualified_by: string | null
+          disqualified_reason: string | null
           id: string
           intel_notes: string | null
           lead_id: string | null
@@ -334,6 +337,9 @@ export type Database = {
           consult_summary?: string | null
           created_at?: string
           deposit_amount?: number | null
+          disqualified_at?: string | null
+          disqualified_by?: string | null
+          disqualified_reason?: string | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
@@ -354,6 +360,9 @@ export type Database = {
           consult_summary?: string | null
           created_at?: string
           deposit_amount?: number | null
+          disqualified_at?: string | null
+          disqualified_by?: string | null
+          disqualified_reason?: string | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
