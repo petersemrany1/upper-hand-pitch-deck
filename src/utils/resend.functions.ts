@@ -4,15 +4,15 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.functions";
 
-// IMPORTANT: process.env.RESEND_API_KEY may be set by the Resend *connector*
-// to a gateway key (`lovc_...`) which is NOT a real Resend API key and will
-// 401 against api.resend.com. Only accept values that look like a real Resend
-// key (`re_...`); otherwise fall back to the known-good account key.
-const RAW_RESEND_ENV = process.env.RESEND_API_KEY ?? "";
-const RESEND_API_KEY = RAW_RESEND_ENV.startsWith("re_")
-  ? RAW_RESEND_ENV
-  : "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
+// Resend is accessed through the Lovable connector gateway, NOT api.resend.com
+// directly. The workspace's Resend connection injects RESEND_API_KEY as a
+// gateway credential (`lovc_...`); Lovable authenticates to Resend on our
+// behalf. Any attempt to hit api.resend.com with that value returns
+// 401 "API key is invalid". Keep everything routed through the gateway.
+const RESEND_CONNECTION_KEY = process.env.RESEND_API_KEY ?? "";
+const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY ?? "";
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
+
 const BOLD_BLUE = "#2020E8";
 
 function getAdminClient() {
