@@ -316,3 +316,110 @@ export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
 
     return { success: true as const, paymentIntentId, depositAmount };
   });
+
+// Admin-only: mark an appointment as "disqualified" — patient showed up
+// but was not a valid candidate per the clinic. Does NOT count toward the
+// clinic's pack quota. Refunds the deposit if not already refunded.
+// Requires a written reason (audit trail so clinics can't quietly weaponise
+// this to dodge their pack numbers).
+export const disqualifyAppointment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { appointmentId: string; reason: string }) => data)
+  .handler(async ({ data, context }) => {
+    const email = (context.claims?.email as string | undefined)?.toLowerCase();
+    if (!email) return { success: false as const, error: "Not signed in" };
+
+    // Admin gate — same pattern as listRepBookingsWithRecordings.
+    const { data: me } = await supabaseAdmin
+      .from("sales_reps")
+      .select("role")
+      .ilike("email", email)
+      .maybeSingle();
+    if (me?.role !== "admin") {
+      return { success: false as const, error: "Forbidden — admin only" };
+    }
+
+    const reason = data.reason?.trim();
+    if (!reason || reason.length < 5) {
+      return { success: false as const, error: "Reason is required (min 5 chars)" };
+    }
+
+    const { data: appt, error: fetchErr } = await supabaseAdmin
+      .from("clinic_appointments")
+      .select("id, stripe_payment_intent_id, stripe_refund_id, refund_status, outcome")
+      .eq("id", data.appointmentId)
+      .maybeSingle();
+    if (fetchErr || !appt) {
+      return { success: false as const, error: fetchErr?.message || "Appointment not found" };
+    }
+
+    // Flip outcome + audit fields.
+    const { error: updateErr } = await supabaseAdmin
+      .from("clinic_appointments")
+      .update({
+        outcome: "disqualified",
+        disqualified_reason: reason,
+        disqualified_at: new Date().toISOString(),
+        disqualified_by: context.userId,
+      })
+      .eq("id", data.appointmentId);
+    if (updateErr) return { success: false as const, error: updateErr.message };
+
+    // Refund the deposit if it hasn't been refunded already.
+    if (appt.stripe_refund_id) {
+      return { success: true as const, refunded: false as const, alreadyRefunded: true as const };
+    }
+    if (!appt.stripe_payment_intent_id) {
+      // No Stripe payment on file — admin can mark manual refund separately.
+      return { success: true as const, refunded: false as const, manual: true as const };
+    }
+
+    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
+    if (!stripeKey) {
+      await supabaseAdmin
+        .from("clinic_appointments")
+        .update({ refund_status: "failed" })
+        .eq("id", data.appointmentId);
+      await logError("disqualifyAppointment", "STRIPE_HTG_SECRET_KEY not configured", { appointmentId: data.appointmentId });
+      return { success: false as const, error: "Stripe not configured", outcomeSaved: true as const };
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.append("payment_intent", appt.stripe_payment_intent_id);
+      params.append("metadata[appointment_id]", data.appointmentId);
+      params.append("metadata[reason]", "disqualified");
+
+      const response = await fetch("https://api.stripe.com/v1/refunds", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + stripeKey, "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+      });
+      const result = (await response.json()) as { id?: string; error?: { message?: string } };
+      if (!response.ok || !result.id) {
+        await supabaseAdmin
+          .from("clinic_appointments")
+          .update({ refund_status: "failed" })
+          .eq("id", data.appointmentId);
+        await logError("disqualifyAppointment", result?.error?.message || "Stripe refund failed", { appointmentId: data.appointmentId });
+        return { success: false as const, error: result?.error?.message || "Stripe refund failed", outcomeSaved: true as const };
+      }
+
+      const processedAt = new Date().toISOString();
+      await supabaseAdmin
+        .from("clinic_appointments")
+        .update({ refund_status: "refunded", stripe_refund_id: result.id, refund_processed_at: processedAt })
+        .eq("id", data.appointmentId);
+
+      return { success: true as const, refunded: true as const, refundId: result.id };
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      await supabaseAdmin
+        .from("clinic_appointments")
+        .update({ refund_status: "failed" })
+        .eq("id", data.appointmentId);
+      await logError("disqualifyAppointment", errMsg, { appointmentId: data.appointmentId });
+      return { success: false as const, error: errMsg, outcomeSaved: true as const };
+    }
+  });
+
