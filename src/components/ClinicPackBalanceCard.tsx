@@ -170,12 +170,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
             }} />
           </div>
 
-          <div style={{ display: "flex", gap: 20, marginTop: 14, flexWrap: "wrap" }}>
-            <MiniStat label="Delivered (all packs)" value={showedUp} color="#1a7a4a" />
-            <MiniStat label="Upcoming booked" value={upcoming} color="#2d5fa0" />
-            <MiniStat label="Slots still open" value={remainingSlots} color={remainingSlots === 0 ? "#b83232" : NAVY} />
-          </div>
-
           {exhausted && (
             <div style={{
               marginTop: 14, padding: "10px 12px",
