@@ -62,7 +62,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   useEffect(() => { void load(); }, [load]);
 
   // FIFO allocation: fill oldest packs first
-  const { activePack, deliveredInActive, sizeOfActive, remainingSlots, totalRemaining, totalCapacity } = useMemo(() => {
+  const { activePack, deliveredInActive, sizeOfActive, totalRemaining } = useMemo(() => {
     const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
     let remaining = showedUp;
     let active: Pack | null = null;
