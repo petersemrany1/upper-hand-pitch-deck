@@ -2679,6 +2679,95 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     };
   }, [lead.id]);
 
+  // --- Auto patient-confirmation SMS with 10-second cancel window ---------
+  // Trigger: deposit_paid_at is set AND we have a booking (date + time).
+  // Fires exactly once per lead per browser session. Idempotency across page
+  // refresh is enforced by (a) checking sms_messages on mount for a prior
+  // confirmation and (b) checking again just before opening the modal.
+  const autoConfirmTriggeredRef = useRef(false);
+
+  // On mount, check if a confirmation SMS was already sent for this lead so
+  // we don't fire a second one after a page refresh.
+  useEffect(() => {
+    autoConfirmTriggeredRef.current = false;
+    void (async () => {
+      const { data: prior } = await supabase
+        .from("sms_messages")
+        .select("id")
+        .eq("lead_id", lead.id)
+        .eq("direction", "outbound")
+        .ilike("body", "%consultation is confirmed for%")
+        .limit(1);
+      if (prior && prior.length > 0) {
+        setConfirmationSent(true);
+        autoConfirmTriggeredRef.current = true;
+      }
+    })();
+  }, [lead.id]);
+
+  const openPatientConfirmationDraft = useCallback(async () => {
+    if (autoConfirmTriggeredRef.current) return;
+    if (!lead.phone) return;
+    const bookingDate = form.date || lead.booking_date || "";
+    const bookingTime = form.time || lead.booking_time || "";
+    if (!bookingDate || !bookingTime) return;
+
+    // Final idempotency guard: re-check DB right before opening the modal
+    // (protects against realtime + mount effect racing each other).
+    const { data: prior } = await supabase
+      .from("sms_messages")
+      .select("id")
+      .eq("lead_id", lead.id)
+      .eq("direction", "outbound")
+      .ilike("body", "%consultation is confirmed for%")
+      .limit(1);
+    if (prior && prior.length > 0) {
+      setConfirmationSent(true);
+      autoConfirmTriggeredRef.current = true;
+      return;
+    }
+
+    autoConfirmTriggeredRef.current = true;
+
+    const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+    const selectedClinic =
+      clinics.find((c) => c.id === (form.clinicId || lead.clinic_id || "")) ?? null;
+    const dateStr = (() => {
+      try {
+        const d = new Date(`${bookingDate}T${bookingTime}`);
+        return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
+      } catch { return bookingDate; }
+    })();
+    const timeStr = (() => {
+      try {
+        const [h, m] = bookingTime.split(":");
+        const hh = parseInt(h, 10);
+        const ampm = hh >= 12 ? "PM" : "AM";
+        const hour12 = hh % 12 === 0 ? 12 : hh % 12;
+        return `${hour12}:${m} ${ampm}`;
+      } catch { return bookingTime; }
+    })();
+    const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
+    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
+
+    setPatientSmsCountdown(10);
+    setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
+    toast.message("💳 Deposit paid — sending patient confirmation in 10s (tap Cancel to stop)");
+  }, [lead.id, lead.phone, lead.first_name, lead.booking_date, lead.booking_time, lead.clinic_id, form.date, form.time, form.clinicId, form.doctorId, clinics, doctors]);
+
+  // Trigger the countdown modal as soon as deposit is paid AND we have a
+  // booking date/time. Works whether the deposit arrives while the rep is on
+  // this lead's screen, or the rep opens this lead after the deposit was
+  // already paid.
+  useEffect(() => {
+    if (!paymentReceivedAt) return;
+    if (confirmationSent) return;
+    if (patientSmsDraft) return; // already showing
+    if (autoConfirmTriggeredRef.current) return;
+    void openPatientConfirmationDraft();
+  }, [paymentReceivedAt, confirmationSent, patientSmsDraft, openPatientConfirmationDraft]);
+
+
   const sendPaymentLink = async () => {
     if (!lead.phone) { toast.error("No phone number on this lead"); return; }
     const missing: string[] = [];
@@ -2905,54 +2994,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         status: "booked_deposit_paid",
       };
 
-      // FIRE CONFIRMATION SMS IMMEDIATELY (before navigating to next lead).
-      // Previously this ran via a 5s countdown popup that often got unmounted
-      // by onBooked()/screen-swap, killing the timer and silently dropping
-      // the SMS (e.g. Wisam — see chat history). Now we send fire-and-forget
-      // on the server so it can't be cancelled by a re-render.
-      if (lead.phone) {
-        const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-        const selectedClinic = clinics.find((c) => c.id === form.clinicId);
-        const dateStr = (() => {
-          try {
-            const d = new Date(`${form.date}T${form.time}`);
-            return d.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
-          } catch { return form.date; }
-        })();
-        const timeStr = (() => {
-          try {
-            const [h, m] = form.time.split(":");
-            const hh = parseInt(h, 10);
-            const ampm = hh >= 12 ? "PM" : "AM";
-            const hour12 = hh % 12 === 0 ? 12 : hh % 12;
-            return `${hour12}:${m} ${ampm}`;
-          } catch { return form.time; }
-        })();
-        const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
-        const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
-        const phoneCapture = lead.phone;
-        const leadIdCapture = lead.id;
-        // Fire-and-forget — do NOT await; survives unmount because the
-        // network request is already in-flight on the server.
-        void sendManualSms({ data: { leadId: leadIdCapture, phone: phoneCapture, body: smsBody } })
-          .then((sres) => {
-            if (sres.success) {
-              setConfirmationSent(true);
-              setPatientSmsSentPopup({ phone: phoneCapture });
-              setPatientSmsSentPopupDismissed(false);
-              toast.success("Patient confirmation SMS sent ✓");
-            } else {
-              toast.error(`Patient SMS failed: ${sres.error ?? "unknown"} — resend manually from the inbox.`);
-            }
-          })
-          .catch((e) => {
-            console.error("[book] patient SMS failed", e);
-            toast.error("Patient SMS failed to send — resend manually from the inbox.");
-          });
-        // Optimistically show the "sent" pill so the rep sees confirmation
-        // even if the screen swaps to the next lead immediately.
-        setConfirmationSent(true);
-      }
+      // NOTE: patient confirmation SMS is NOT fired here anymore. It is fired
+      // automatically as soon as deposit_paid_at is set (with a 10-second
+      // cancel window). See the auto-confirm effect below. If the rep clicks
+      // Book AFTER the deposit was already paid, that same effect will trigger
+      // the countdown modal because `booked` just flipped true.
+
 
       onBookedSaved?.(lead.id, bookingPatch);
       onBooked();
