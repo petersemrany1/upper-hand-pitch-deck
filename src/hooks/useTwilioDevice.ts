@@ -11,7 +11,7 @@ async function loadDeviceCtor(): Promise<typeof DeviceType> {
 import { supabase } from "@/integrations/supabase/client";
 import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-error";
 import { startRingback, stopRingback } from "@/utils/ringback";
-import { getNextNumber } from "@/utils/phone-pool.functions";
+
 
 // Browser-based Twilio softphone — module-level singleton.
 //
