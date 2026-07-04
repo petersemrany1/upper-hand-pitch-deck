@@ -7,6 +7,7 @@ import {
   DAY_NAMES, DAY_SHORT,
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
+import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
 
 export type ClinicAppointment = {
   id: string;
