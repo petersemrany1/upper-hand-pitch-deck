@@ -995,6 +995,11 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           {appt.outcome && !appt.stripe_refund_id && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
+          {isAdmin && appt.outcome !== "disqualified" && (
+            <button onClick={disqualify} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#fef2f2", color: "#991b1b", borderColor: "#fecaca" }}>
+              🚫 Disqualify lead (Admin) — refund &amp; exclude from pack quota
+            </button>
+          )}
           {isAdmin && (
             <button onClick={deleteAppt} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", color: "#b83232", borderColor: "#f0b8b8" }}>Delete appointment</button>
           )}
