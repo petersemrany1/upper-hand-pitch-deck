@@ -501,10 +501,10 @@ const DEFAULT_TRADING: TradingHourRow[] = [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
   is_closed: dow >= 5, // Sat & Sun closed by default
 }));
 
-// 30-minute time options from 6:00am to 10:00pm
+// 15-minute time options from 6:00am to 10:00pm
 const TIME_OPTIONS: { value: string; label: string }[] = (() => {
   const out: { value: string; label: string }[] = [];
-  for (let m = 6 * 60; m <= 22 * 60; m += 30) {
+  for (let m = 6 * 60; m <= 22 * 60; m += 15) {
     const h24 = Math.floor(m / 60);
     const mm = m % 60;
     const value = `${String(h24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
@@ -593,7 +593,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
         open_time: r.open_time,
         close_time: r.close_time,
         is_closed: r.is_closed,
-        consult_duration_mins: 30,
+        consult_duration_mins: 15,
       }));
       const { error: thErr } = await supabase
         .from("clinic_trading_hours")
