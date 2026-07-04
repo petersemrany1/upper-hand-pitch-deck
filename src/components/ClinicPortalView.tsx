@@ -392,7 +392,7 @@ function ViewToggleBtn({ active, onClick, icon, children }: { active: boolean; o
 /* ---------- LIST VIEW ---------- */
 
 function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void }) {
-  const [tab, setTab] = useState<"upcoming" | "past" | "noshow">("upcoming");
+  const [tab, setTab] = useState<"upcoming" | "past" | "noshow" | "disqualified">("upcoming");
   const [query, setQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -412,16 +412,19 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
 
   const now = new Date();
   const isNoShow = (a: ClinicAppointment) => a.outcome === "noshow";
+  const isDisqualified = (a: ClinicAppointment) => a.outcome === "disqualified";
   const isPastAppointment = (a: ClinicAppointment) => Boolean(a.outcome) || parseAppointmentDateTime(a.appointment_date, a.appointment_time) < now;
 
   // Filter by tab + search + date range first.
   const q = query.trim().toLowerCase();
   const filtered = appts.filter((a) => {
     const noShow = isNoShow(a);
+    const disq = isDisqualified(a);
     const isPast = isPastAppointment(a);
-    if (tab === "upcoming" && (isPast || noShow)) return false;
-    if (tab === "past" && (!isPast || noShow)) return false;
+    if (tab === "upcoming" && (isPast || noShow || disq)) return false;
+    if (tab === "past" && (!isPast || noShow || disq)) return false;
     if (tab === "noshow" && !noShow) return false;
+    if (tab === "disqualified" && !disq) return false;
     if (fromDate && a.appointment_date < fromDate) return false;
     if (toDate && a.appointment_date > toDate) return false;
     if (q) {
@@ -439,9 +442,10 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   });
 
   // Group into buckets.
-  type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past" | "No shows";
+  type Bucket = "Today" | "Tomorrow" | "This week" | "Next week" | "Later" | "Past" | "No shows" | "Disqualified";
   const bucketOf = (appt: ClinicAppointment): Bucket => {
     if (tab === "noshow") return "No shows";
+    if (tab === "disqualified") return "Disqualified";
     if (tab === "past" || isPastAppointment(appt)) return "Past";
     const dateStr = appt.appointment_date;
     const d = startOfDay(parseDateOnly(dateStr));
@@ -454,6 +458,8 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   };
   const order: Bucket[] = tab === "noshow"
     ? ["No shows"]
+    : tab === "disqualified"
+    ? ["Disqualified"]
     : tab === "past"
     ? ["Past"]
     : ["Today", "Tomorrow", "This week", "Next week", "Later"];
@@ -465,8 +471,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
   }
 
   const noShowCount = appts.filter(isNoShow).length;
-  const upcomingCount = appts.filter((a) => !isPastAppointment(a) && !isNoShow(a)).length;
-  const pastCount = appts.filter((a) => isPastAppointment(a) && !isNoShow(a)).length;
+  const disqualifiedCount = appts.filter(isDisqualified).length;
+  const upcomingCount = appts.filter((a) => !isPastAppointment(a) && !isNoShow(a) && !isDisqualified(a)).length;
+  const pastCount = appts.filter((a) => isPastAppointment(a) && !isNoShow(a) && !isDisqualified(a)).length;
 
   const inputStyle: React.CSSProperties = {
     padding: "7px 10px", fontSize: 12, border: "1px solid #e2e6ec", borderRadius: 8,
@@ -481,7 +488,9 @@ function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (
           <ViewToggleBtn active={tab === "upcoming"} onClick={() => setTab("upcoming")} icon={null}>Upcoming ({upcomingCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "past"} onClick={() => setTab("past")} icon={null}>Past ({pastCount})</ViewToggleBtn>
           <ViewToggleBtn active={tab === "noshow"} onClick={() => setTab("noshow")} icon={null}>No shows ({noShowCount})</ViewToggleBtn>
+          <ViewToggleBtn active={tab === "disqualified"} onClick={() => setTab("disqualified")} icon={null}>Disqualified ({disqualifiedCount})</ViewToggleBtn>
         </div>
+
         <input
           type="text"
           placeholder="Search name or phone…"
