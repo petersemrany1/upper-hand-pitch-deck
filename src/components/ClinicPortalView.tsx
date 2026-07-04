@@ -1166,7 +1166,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           return;
         }
       }
-      const dur = selectedTH?.consult_duration_mins ?? 30;
+      const dur = selectedTH?.consult_duration_mins ?? 15;
       const [lh, lm] = last.time.split(":").map(Number);
       const endMin = lh * 60 + lm + dur;
       const endTime = `${String(Math.floor(endMin / 60)).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;

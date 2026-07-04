@@ -501,10 +501,10 @@ const DEFAULT_TRADING: TradingHourRow[] = [0, 1, 2, 3, 4, 5, 6].map((dow) => ({
   is_closed: dow >= 5, // Sat & Sun closed by default
 }));
 
-// 30-minute time options from 6:00am to 10:00pm
+// 15-minute time options from 6:00am to 10:00pm
 const TIME_OPTIONS: { value: string; label: string }[] = (() => {
   const out: { value: string; label: string }[] = [];
-  for (let m = 6 * 60; m <= 22 * 60; m += 30) {
+  for (let m = 6 * 60; m <= 22 * 60; m += 15) {
     const h24 = Math.floor(m / 60);
     const mm = m % 60;
     const value = `${String(h24).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
@@ -593,7 +593,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
         open_time: r.open_time,
         close_time: r.close_time,
         is_closed: r.is_closed,
-        consult_duration_mins: 30,
+        consult_duration_mins: 15,
       }));
       const { error: thErr } = await supabase
         .from("clinic_trading_hours")
@@ -660,7 +660,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       <div style={{ marginTop: 18, marginBottom: 8, paddingTop: 14, borderTop: `0.5px solid ${COLORS.line}` }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text, marginBottom: 4 }}>Trading Hours</div>
         <div style={{ fontSize: 11, color: "#111", opacity: 0.6, marginBottom: 12 }}>
-          Base weekly schedule. Clinic can block individual slots from their portal. 30-min consult slots.
+          Base weekly schedule. Clinic can block individual slots from their portal. 15-min consult slots.
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {trading.map((row) => (
