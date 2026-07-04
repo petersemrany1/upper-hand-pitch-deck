@@ -391,7 +391,7 @@ function ViewToggleBtn({ active, onClick, icon, children }: { active: boolean; o
 
 /* ---------- LIST VIEW ---------- */
 
-function ListView({ appts, onSelect }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void }) {
+function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; onSelect: (a: ClinicAppointment) => void; isAdmin: boolean }) {
   const [tab, setTab] = useState<"upcoming" | "past" | "noshow" | "disqualified">("upcoming");
   const [query, setQuery] = useState("");
   const [fromDate, setFromDate] = useState("");
