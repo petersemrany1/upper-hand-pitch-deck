@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 
@@ -8,6 +7,11 @@ type ProcessInput = {
   summary: string;
   proceeded: boolean;
 };
+
+async function getSupabaseAdmin() {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin;
+}
 
 function normalizePhone(p: string | null | undefined): string {
   return (p || "").replace(/[^0-9]/g, "");
@@ -77,6 +81,8 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
   if (!leadId) {
     return null;
   }
+
+  const supabaseAdmin = await getSupabaseAdmin();
 
   const { data: smsRows } = await supabaseAdmin
     .from("sms_messages")
@@ -158,6 +164,7 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
   .inputValidator((data: ProcessInput) => data)
   .handler(async ({ data }) => {
     const { appointmentId, summary, proceeded } = data;
+    const supabaseAdmin = await getSupabaseAdmin();
 
     // 1. Re-fetch authoritative appointment state.
     const { data: appt, error: fetchErr } = await supabaseAdmin
@@ -280,6 +287,7 @@ export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
   .inputValidator((data: { appointmentId: string }) => data)
   .handler(async ({ data }) => {
     const { appointmentId } = data;
+    const supabaseAdmin = await getSupabaseAdmin();
     const { data: appt } = await supabaseAdmin
       .from("clinic_appointments")
       .select("id, lead_id, stripe_payment_intent_id, deposit_amount, stripe_refund_id")
@@ -326,6 +334,7 @@ export const disqualifyAppointment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { appointmentId: string; reason: string }) => data)
   .handler(async ({ data, context }) => {
+    const supabaseAdmin = await getSupabaseAdmin();
     const email = (context.claims?.email as string | undefined)?.toLowerCase();
     if (!email) return { success: false as const, error: "Not signed in" };
 
@@ -364,6 +373,18 @@ export const disqualifyAppointment = createServerFn({ method: "POST" })
       })
       .eq("id", data.appointmentId);
     if (updateErr) return { success: false as const, error: updateErr.message };
+
+    const { data: saved, error: verifyErr } = await supabaseAdmin
+      .from("clinic_appointments")
+      .select("outcome, disqualified_reason")
+      .eq("id", data.appointmentId)
+      .maybeSingle();
+    if (verifyErr || saved?.outcome !== "disqualified" || saved.disqualified_reason !== reason) {
+      return {
+        success: false as const,
+        error: verifyErr?.message || "Disqualification did not save correctly",
+      };
+    }
 
     // Refund the deposit if it hasn't been refunded already.
     if (appt.stripe_refund_id) {

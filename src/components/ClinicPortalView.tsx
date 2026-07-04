@@ -992,7 +992,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
-          {appt.outcome && !appt.stripe_refund_id && (
+          {appt.outcome && !appt.stripe_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && appt.outcome !== "disqualified" && (
