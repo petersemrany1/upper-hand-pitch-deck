@@ -114,22 +114,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       margin: "16px 24px 0",
       boxShadow: "0 1px 3px rgba(26,58,107,0.04)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{
-            width: 34, height: 34, borderRadius: 8,
-            background: "#edf2f9", color: NAVY,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <Package size={18} />
-          </div>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Patient Pack</div>
-            <div style={{ fontSize: 11, color: "#6b7785" }}>
-              {noPacks ? "No pack loaded yet" : `${totalRemaining} of ${totalCapacity} patients remaining across all packs`}
-            </div>
-          </div>
-        </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
         {isAdmin && (
           <div style={{ display: "flex", gap: 8 }}>
             <button
