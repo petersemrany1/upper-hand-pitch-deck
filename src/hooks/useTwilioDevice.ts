@@ -464,6 +464,8 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         phone,
       });
       try {
+        // from_number is deliberately omitted here — voice-outbound's upsert
+        // fills it with the real caller-ID it picked and dialled from.
         await supabase.from("call_records").upsert(
           {
             twilio_call_sid: callSid,
@@ -471,7 +473,6 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
             lead_id: leadId,
             rep_id: repId,
             phone,
-            from_number: callerId,
             status: "initiated",
             called_at: new Date().toISOString(),
           },
