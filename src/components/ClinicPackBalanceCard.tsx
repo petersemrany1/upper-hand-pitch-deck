@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { sydneyTodayISO } from "@/lib/timezone";
 
 const NAVY = "#1a3a6b";
+const GREEN = "#1a7a4a";
+const AMBER = "#d97706";
 
 type Pack = {
   id: string;
@@ -23,13 +26,15 @@ type Props = {
 export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
-  
+  const [upcoming, setUpcoming] = useState(0);
+
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
+    const todayStr = sydneyTodayISO();
     const [{ data: packRows }, { data: apptRows }] = await Promise.all([
       supabase
         .from("clinic_packs")
@@ -38,20 +43,28 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         .order("purchased_at", { ascending: true }),
       supabase
         .from("clinic_appointments")
-        .select("appointment_date, outcome")
+        .select("appointment_date, outcome, disqualified_at")
         .eq("clinic_id", clinicId)
         .not("patient_name", "ilike", "%test%"),
     ]);
     setPacks((packRows ?? []) as Pack[]);
     const appts = apptRows ?? [];
-    const now = new Date();
-    const todayStr = now.toISOString().slice(0, 10);
+
     let showed = 0;
+    let up = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
-      if (o === "show" || o === "proceeded") showed += 1;
+      const d = (a as { disqualified_at: string | null }).disqualified_at;
+      const date = (a as { appointment_date: string }).appointment_date;
+      if (d) continue;
+      if (o === "show" || o === "proceeded") {
+        showed += 1;
+      } else if (date >= todayStr) {
+        up += 1;
+      }
     }
     setShowedUp(showed);
+    setUpcoming(up);
     setLoading(false);
   }, [clinicId]);
 
@@ -88,15 +101,14 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
     };
   }, [packs, showedUp]);
 
-  const pct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
-  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive);
-  const barColor = remainingInActive === 0 ? "#b83232"
-    : remainingInActive / Math.max(1, sizeOfActive) < 0.1 ? "#b83232"
-    : remainingInActive / Math.max(1, sizeOfActive) < 0.3 ? "#d97706"
-    : "#1a7a4a";
+  const deliveredPct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
+  const upcomingInActive = sizeOfActive > 0 ? Math.min(upcoming, sizeOfActive - deliveredInActive) : 0;
+  const upcomingPct = sizeOfActive > 0 ? Math.min(100 - deliveredPct, (upcomingInActive / sizeOfActive) * 100) : 0;
+  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - upcomingInActive);
 
   const noPacks = packs.length === 0;
   const exhausted = !noPacks && totalRemaining === 0;
+  const packFull = !noPacks && remainingInActive === 0;
 
   return (
     <div style={{
@@ -152,15 +164,40 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
               Current pack: <strong style={{ color: NAVY }}>{deliveredInActive} / {sizeOfActive}</strong> delivered
             </div>
             <div style={{ fontSize: 12, color: "#6b7785" }}>
-              {remainingInActive} remaining in this pack
+              {remainingInActive} slot{remainingInActive !== 1 ? "s" : ""} still open
             </div>
           </div>
-          <div style={{ height: 12, background: "#eef1f5", borderRadius: 999, overflow: "hidden" }}>
+
+          {/* Two-tone progress bar */}
+          <div style={{ height: 12, background: "#eef1f5", borderRadius: 999, overflow: "hidden", display: "flex" }}>
             <div style={{
-              width: `${pct}%`, height: "100%",
-              background: barColor,
+              width: `${deliveredPct}%`, height: "100%",
+              background: GREEN,
               transition: "width 0.4s ease",
             }} />
+            <div style={{
+              width: `${upcomingPct}%`, height: "100%",
+              background: AMBER,
+              transition: "width 0.4s ease",
+            }} />
+          </div>
+
+          {/* Legend */}
+          <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: GREEN, display: "inline-block" }} />
+              <span style={{ fontSize: 11, color: "#6b7785" }}>{deliveredInActive} delivered</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: AMBER, display: "inline-block" }} />
+              <span style={{ fontSize: 11, color: "#6b7785" }}>{upcomingInActive} upcoming booked</span>
+            </div>
+            {upcoming > upcomingInActive && (
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#b83232", display: "inline-block" }} />
+                <span style={{ fontSize: 11, color: "#b83232" }}>{upcoming - upcomingInActive} overflow to next pack</span>
+              </div>
+            )}
           </div>
 
           {exhausted && (
@@ -170,6 +207,16 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
               borderRadius: 6, fontSize: 12, color: "#b83232",
             }}>
               This pack is complete. {isAdmin ? "Load a new pack to keep sending patients." : "Please contact your account manager to reload."}
+            </div>
+          )}
+
+          {packFull && !exhausted && (
+            <div style={{
+              marginTop: 14, padding: "10px 12px",
+              background: "#fef9e7", border: "1px solid #f4d97a",
+              borderRadius: 6, fontSize: 12, color: "#7a5a00",
+            }}>
+              This pack is fully booked. {isAdmin ? "Add another pack so new bookings don't stack up." : "Please contact your account manager to add capacity."}
             </div>
           )}
 
@@ -186,15 +233,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           onSaved={() => { setShowAdd(false); void load(); }}
         />
       )}
-    </div>
-  );
-}
-
-function MiniStat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div>
-      <div style={{ fontSize: 20, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 11, color: "#6b7785", marginTop: 3 }}>{label}</div>
     </div>
   );
 }
