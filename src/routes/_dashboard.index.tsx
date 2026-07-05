@@ -704,6 +704,25 @@ function DashboardHome() {
             </div>
           </Card>
         </div>
+
+        {isAdmin && packBreakdown.length > 0 && (
+          <Card>
+            <div style={{ padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Pack balance by clinic</div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How many shows are needed to fill remaining slots</div>
+            </div>
+            <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {packBreakdown.map((p) => (
+                <div key={p.clinicName} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{p.clinicName}</div>
+                  <div style={{ fontSize: 13, color: p.remaining > 0 ? "#16a34a" : "#f4522d", fontWeight: 600 }}>
+                    {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Target modal */}
