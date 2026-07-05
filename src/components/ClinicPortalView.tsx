@@ -1118,14 +1118,6 @@ function outcomeBtn(color: string, bg: string): React.CSSProperties {
   };
 }
 
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
-    </div>
-  );
-}
 
 /* ============== AVAILABILITY TAB ============== */
 
