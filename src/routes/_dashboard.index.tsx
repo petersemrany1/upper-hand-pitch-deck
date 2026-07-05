@@ -131,7 +131,9 @@ type Lead = {
   updated_at: string;
   callback_scheduled_at: string | null;
   phone: string | null;
+  campaign_name: string | null;
 };
+
 
 type CallRow = {
   id: string;
@@ -231,10 +233,11 @@ function DashboardHome() {
 
     const newLeadsQ = supabase
       .from("meta_leads")
-      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id")
+      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name")
       .gte("created_at", todayIso)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(100);
+
     if (scopeId) newLeadsQ.eq("rep_id", scopeId);
 
     const newLeadsCountQ = supabase
@@ -517,6 +520,19 @@ function DashboardHome() {
     return c.city || c.clinic_name || null;
   };
 
+  // Derive the city/source a lead came from — Meta campaigns are named like
+  // "Hair Transplant Melbourne", so strip the prefix. Fall back to the
+  // assigned clinic's city if the campaign name isn't parseable.
+  const leadSource = (l: Lead): string | null => {
+    const camp = (l.campaign_name ?? "").trim();
+    if (camp) {
+      const cleaned = camp.replace(/^hair\s+transplant\s+/i, "").trim();
+      if (cleaned) return cleaned;
+    }
+    return leadLocation(l.id);
+  };
+
+
   // Non-admin reps see a slim dashboard: bookings + bonus + conversion rates.
   if (authReady && session && role && role !== "admin") {
     const bonusToday = bookingsToday * 50;
@@ -670,13 +686,13 @@ function DashboardHome() {
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
                 <div style={{ fontSize: 12, color: "#aaa" }}>{newLeadsCount} today</div>
               </div>
-              <div>
+              <div style={{ maxHeight: 3 * 57, overflowY: "auto" }}>
                 {newLeads.length === 0 ? (
                   <div style={{ padding: 20, fontSize: 13, color: "#999" }}>No new leads yet.</div>
                 ) : (
                   newLeads.map((l) => {
                     const name = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
-                    const loc = leadLocation(l.id);
+                    const src = leadSource(l);
                     return (
                       <Link
                         key={l.id}
@@ -710,8 +726,8 @@ function DashboardHome() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
-                          {loc && (
-                            <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>{loc}</div>
+                          {src && (
+                            <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>From {src}</div>
                           )}
                         </div>
                         <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
@@ -722,6 +738,7 @@ function DashboardHome() {
                   })
                 )}
               </div>
+
             </Card>
           )}
 
