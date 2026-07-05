@@ -214,6 +214,12 @@ function DashboardHome() {
       .limit(10);
     if (scopeId) newLeadsQ.eq("rep_id", scopeId);
 
+    const newLeadsCountQ = supabase
+      .from("meta_leads")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayIso);
+    if (scopeId) newLeadsCountQ.eq("rep_id", scopeId);
+
     const { year: curYear, month: curMonth } = currentYearMonth();
     const targetQ = supabase
       .from("rep_booking_targets")
