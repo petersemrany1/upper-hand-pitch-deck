@@ -292,12 +292,13 @@ function PackHistoryList({ packs, showedUp, onChange }: {
 function AddPackModal({ clinicId, onClose, onSaved }: {
   clinicId: string; onClose: () => void; onSaved: () => void;
 }) {
-  const [size, setSize] = useState<number>(10);
+  const [sizeStr, setSizeStr] = useState<string>("10");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const size = parseInt(sizeStr, 10);
 
   const save = async () => {
-    if (size <= 0) { toast.error("Pack size must be greater than 0"); return; }
+    if (!Number.isFinite(size) || size <= 0) { toast.error("Pack size must be greater than 0"); return; }
     setSaving(true);
     const { error } = await supabase.from("clinic_packs").insert({
       clinic_id: clinicId,
@@ -311,11 +312,14 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
   };
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
-    }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+    <div
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100,
+      }}
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div onMouseDown={(e) => e.stopPropagation()} style={{
         background: "#fff", borderRadius: 12, padding: 24, width: "90%", maxWidth: 420,
       }}>
         <h3 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>Add patient pack</h3>
@@ -330,7 +334,7 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
           {[10, 20, 30, 50].map((n) => (
             <button
               key={n}
-              onClick={() => setSize(n)}
+              onClick={() => setSizeStr(String(n))}
               style={{
                 padding: "8px 14px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
                 background: size === n ? NAVY : "#fff",
@@ -344,10 +348,12 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
         </div>
         <input
           type="number"
-          value={size}
-          onChange={(e) => setSize(Math.max(1, Number(e.target.value) || 0))}
+          min={1}
+          value={sizeStr}
+          onChange={(e) => setSizeStr(e.target.value.replace(/[^0-9]/g, ""))}
           style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
         />
+
 
         <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
           Notes (optional)
