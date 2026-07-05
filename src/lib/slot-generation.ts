@@ -186,6 +186,13 @@ export function holidayLabelFor(
   return getHolidayName(dateStr, clinicState);
 }
 
+/** How long a real consultation actually takes, regardless of how often
+ *  we offer a new start-time slot. Slot interval (e.g. every 15 min) comes
+ *  from `consult_duration_mins` on trading hours; this is the true duration
+ *  used for overlap math so a 9:00 booking correctly blocks 8:45 / 9:00 /
+ *  9:15 (and doesn't let us offer a slot that would run past close time). */
+export const CONSULT_LENGTH_MIN = 30;
+
 export function generateSlots(
   date: Date,
   tradingHours: TradingHours[],
@@ -202,6 +209,7 @@ export function generateSlots(
   const openMin = hhmmToMin(th.open_time);
   const closeMin = hhmmToMin(th.close_time);
   const step = th.consult_duration_mins || 15;
+  const consultLen = CONSULT_LENGTH_MIN;
 
   // Build set of blocked minute-ranges that apply to this date
   const blocks: Array<[number, number]> = [];
@@ -215,30 +223,39 @@ export function generateSlots(
     }
   }
 
-  // Index existing appointments for this date
+  // Index existing appointments for this date — both an exact-start map (for
+  // showing the patient name on the "booked" chip) and a range list (for
+  // overlap checks against every candidate slot).
   const apptByMin = new Map<number, string | null | undefined>();
+  const apptRanges: Array<[number, number]> = [];
   for (const a of existingAppts) {
     if (a.appointment_date !== dateStr) continue;
-    apptByMin.set(hhmmToMin(a.appointment_time), a.patient_name);
+    const start = hhmmToMin(a.appointment_time);
+    apptByMin.set(start, a.patient_name);
+    apptRanges.push([start, start + consultLen]);
   }
 
   const slots: Slot[] = [];
-  for (let m = openMin; m + step <= closeMin; m += step) {
-    const slotEnd = m + step;
+  // Only offer a starting slot whose full consult fits before close time.
+  for (let m = openMin; m + consultLen <= closeMin; m += step) {
+    const slotEnd = m + consultLen;
     const blocked = blocks.some(([s, e]) => m < e && slotEnd > s);
+    // Any overlapping appointment counts as booked, not just an exact-start match.
+    const overlapping = apptRanges.some(([s, e]) => m < e && slotEnd > s);
     const apptMatch = apptByMin.has(m);
-    const booked = apptMatch;
+    const booked = overlapping;
     slots.push({
       time: minToHHMM(m),
       label: minToLabel(m),
       available: !blocked && !booked,
       blocked,
       booked,
-      patientName: booked ? apptByMin.get(m) : undefined,
+      patientName: apptMatch ? apptByMin.get(m) : undefined,
     });
   }
   return slots;
 }
+
 
 /** Quick summary used by the calendar tile colours. */
 export function summarizeDay(
