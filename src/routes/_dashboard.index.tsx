@@ -151,6 +151,8 @@ function DashboardHome() {
   const [selectedRepId, setSelectedRepId] = useState<string>("");
   const [repName, setRepName] = useState<string>("");
 
+  const [packBreakdown, setPackBreakdown] = useState<Array<{ clinicName: string; remaining: number; total: number }>>([]);
+
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
