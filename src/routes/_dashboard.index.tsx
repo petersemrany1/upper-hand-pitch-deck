@@ -728,6 +728,7 @@ function DashboardHome() {
         )}
 
         {isAdmin && <PickupRateCard />}
+        {isAdmin && <SpeedToLeadCard />}
       </div>
 
 
