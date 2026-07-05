@@ -192,10 +192,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: SPACE_12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>
-              {remainingInActive} slot{remainingInActive !== 1 ? "s" : ""} open
-            </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", marginBottom: SPACE_12 }}>
             <div style={{ fontSize: 12, color: GREY_TEXT }}>
               {totalRemaining} slot{totalRemaining !== 1 ? "s" : ""} open across all packs
             </div>
