@@ -203,6 +203,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (activeId) sessionStorage.setItem("salesCall.activeId", activeId);
     else sessionStorage.removeItem("salesCall.activeId");
   }, [activeId]);
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("salesCall.step", step);
