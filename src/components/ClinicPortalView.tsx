@@ -327,28 +327,8 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
   const [view, setView] = useState<"list" | "calendar">("list");
   const [showAdd, setShowAdd] = useState(false);
 
-  const now = new Date();
-  const month = now.getMonth(), year = now.getFullYear();
-  const monthAppts = appts.filter((a) => {
-    const d = parseDateOnly(a.appointment_date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
-  const counts = {
-    upcoming: monthAppts.filter((a) => !a.outcome && parseAppointmentDateTime(a.appointment_date, a.appointment_time) >= now).length,
-    show: monthAppts.filter((a) => a.outcome === "show").length,
-    proceeded: monthAppts.filter((a) => a.outcome === "proceeded").length,
-    noshow: monthAppts.filter((a) => a.outcome === "noshow").length,
-  };
-
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        <Stat label="Upcoming" value={counts.upcoming} color="#2d5fa0" />
-        <Stat label="Showed up" value={counts.show} color="#1a7a4a" />
-        <Stat label="Booked" value={counts.proceeded} color="#6b3fa0" />
-        <Stat label="No shows" value={counts.noshow} color="#b83232" />
-      </div>
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
           <ViewToggleBtn active={view === "list"} onClick={() => setView("list")} icon={<ListIcon size={14} />}>List</ViewToggleBtn>
@@ -1138,14 +1118,6 @@ function outcomeBtn(color: string, bg: string): React.CSSProperties {
   };
 }
 
-function Stat({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", padding: 16 }}>
-      <div style={{ fontSize: 11, fontWeight: 600, color: "#6b7785", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 28, fontWeight: 700, color }}>{value}</div>
-    </div>
-  );
-}
 
 /* ============== AVAILABILITY TAB ============== */
 
