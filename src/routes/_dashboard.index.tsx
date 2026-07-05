@@ -226,9 +226,9 @@ function DashboardHome() {
     const apptsAllQ = isAdmin
       ? supabase
           .from("clinic_appointments")
-          .select("clinic_id")
+          .select("clinic_id, outcome, disqualified_at")
           .not("patient_name", "ilike", "%test%")
-      : Promise.resolve({ data: [] as Array<{ clinic_id: string }>, error: null });
+      : Promise.resolve({ data: [] as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>, error: null });
 
     const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
@@ -279,9 +279,11 @@ function DashboardHome() {
 
     if (isAdmin) {
       const packsRows = (packsRes.data ?? []) as Array<{ clinic_id: string; pack_size: number }>;
-      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string }>;
+      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>;
       const bookedByClinic = new Map<string, number>();
       for (const a of apptsRows) {
+        if (!a.clinic_id) continue;
+        if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
         bookedByClinic.set(a.clinic_id, (bookedByClinic.get(a.clinic_id) ?? 0) + 1);
       }
       const capacityByClinic = new Map<string, number>();
