@@ -356,6 +356,15 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
           style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
         />
 
+        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
+          Date of purchase
+        </label>
+        <input
+          type="date"
+          value={purchasedAt}
+          onChange={(e) => setPurchasedAt(e.target.value)}
+          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
+        />
 
         <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
           Notes (optional)
