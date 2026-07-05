@@ -8,6 +8,25 @@ const NAVY = "#1a3a6b";
 const GREEN = "#1a7a4a";
 const AMBER = "#d97706";
 
+const RED = "#b83232";
+const GREY_TEXT = "#6b7785";
+const GREY_TEXT_DARK = "#4b5563";
+const GREY_BORDER = "#d1d5db";
+const GREY_BG = "#f7f9fc";
+const GREY_TRACK = "#eef1f5";
+
+const RADIUS_CARD = 14;
+const RADIUS_BTN = 8;
+const RADIUS_BAR = 999;
+
+const SPACE_4 = 4;
+const SPACE_6 = 6;
+const SPACE_8 = 8;
+const SPACE_12 = 12;
+const SPACE_16 = 16;
+const SPACE_20 = 20;
+const SPACE_24 = 24;
+
 type Pack = {
   id: string;
   clinic_id: string;
@@ -113,21 +132,34 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   return (
     <div style={{
       background: "#fff",
-      borderRadius: 12,
-      border: "1px solid #e2e6ec",
-      padding: 20,
+      borderRadius: RADIUS_CARD,
+      border: `1px solid ${GREY_BORDER}`,
+      padding: SPACE_24,
       margin: "16px 24px 0",
-      boxShadow: "0 1px 3px rgba(26,58,107,0.04)",
+      boxShadow: "0 4px 16px rgba(26,58,107,0.07)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+      {/* Row: title info on left, admin buttons on right */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: SPACE_16, gap: SPACE_12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: SPACE_4 }}>
+            Pack Balance
+          </div>
+          {!noPacks && (
+            <div style={{ fontSize: 13, color: GREY_TEXT }}>
+              <strong style={{ color: NAVY }}>{deliveredInActive} / {sizeOfActive}</strong> delivered in current pack
+            </div>
+          )}
+        </div>
+
         {isAdmin && (
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: SPACE_8, flexShrink: 0 }}>
             <button
               onClick={() => setShowAdd(true)}
               style={{
-                display: "inline-flex", alignItems: "center", gap: 6,
+                display: "inline-flex", alignItems: "center", gap: SPACE_6,
                 background: NAVY, color: "#fff", border: "none",
-                padding: "8px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                lineHeight: 1,
               }}
             >
               <Plus size={14} /> Add pack
@@ -136,9 +168,10 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
               <button
                 onClick={() => setShowHistory((v) => !v)}
                 style={{
-                  display: "inline-flex", alignItems: "center", gap: 6,
+                  display: "inline-flex", alignItems: "center", gap: SPACE_6,
                   background: "#fff", color: NAVY, border: `1px solid ${NAVY}`,
-                  padding: "8px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: "pointer",
+                  padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  lineHeight: 1,
                 }}
               >
                 History {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -149,7 +182,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       </div>
 
       {loading ? (
-        <div style={{ height: 42, background: "#f7f9fc", borderRadius: 6 }} />
+        <div style={{ height: 42, background: GREY_BG, borderRadius: 6 }} />
       ) : noPacks ? (
         <div style={{
           padding: "16px 14px", background: "#fef9e7", borderRadius: 8,
@@ -159,17 +192,17 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-            <div style={{ fontSize: 13, color: "#4b5563" }}>
-              Current pack: <strong style={{ color: NAVY }}>{deliveredInActive} / {sizeOfActive}</strong> delivered
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: SPACE_12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: NAVY }}>
+              {remainingInActive} slot{remainingInActive !== 1 ? "s" : ""} open
             </div>
-            <div style={{ fontSize: 12, color: "#6b7785" }}>
-              {remainingInActive} slot{remainingInActive !== 1 ? "s" : ""} still open
+            <div style={{ fontSize: 12, color: GREY_TEXT }}>
+              {totalRemaining} remaining across all packs
             </div>
           </div>
 
           {/* Two-tone progress bar */}
-          <div style={{ height: 12, background: "#eef1f5", borderRadius: 999, overflow: "hidden", display: "flex" }}>
+          <div style={{ height: 16, background: GREY_TRACK, borderRadius: RADIUS_BAR, overflow: "hidden", display: "flex" }}>
             <div style={{
               width: `${deliveredPct}%`, height: "100%",
               background: GREEN,
@@ -183,28 +216,19 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           </div>
 
           {/* Legend */}
-          <div style={{ display: "flex", gap: 14, marginTop: 8, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: GREEN, display: "inline-block" }} />
-              <span style={{ fontSize: 11, color: "#6b7785" }}>{deliveredInActive} delivered</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: AMBER, display: "inline-block" }} />
-              <span style={{ fontSize: 11, color: "#6b7785" }}>{upcomingInActive} upcoming booked</span>
-            </div>
+          <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap" }}>
+            <LegendItem color={GREEN} label={`${deliveredInActive} delivered`} />
+            <LegendItem color={AMBER} label={`${upcomingInActive} upcoming booked`} />
             {upcoming > upcomingInActive && (
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <span style={{ width: 10, height: 10, borderRadius: "50%", background: "#b83232", display: "inline-block" }} />
-                <span style={{ fontSize: 11, color: "#b83232" }}>{upcoming - upcomingInActive} overflow to next pack</span>
-              </div>
+              <LegendItem color={RED} label={`${upcoming - upcomingInActive} overflow to next pack`} />
             )}
           </div>
 
           {exhausted && (
             <div style={{
-              marginTop: 14, padding: "10px 12px",
+              marginTop: SPACE_16, padding: "12px 14px",
               background: "#fdf0f0", border: "1px solid #f0b8b8",
-              borderRadius: 6, fontSize: 12, color: "#b83232",
+              borderRadius: 8, fontSize: 13, color: RED,
             }}>
               This pack is complete. {isAdmin ? "Load a new pack to keep sending patients." : "Please contact your account manager to reload."}
             </div>
@@ -212,9 +236,9 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
           {packFull && !exhausted && (
             <div style={{
-              marginTop: 14, padding: "10px 12px",
+              marginTop: SPACE_16, padding: "12px 14px",
               background: "#fef9e7", border: "1px solid #f4d97a",
-              borderRadius: 6, fontSize: 12, color: "#7a5a00",
+              borderRadius: 8, fontSize: 13, color: "#7a5a00",
             }}>
               This pack is fully booked. {isAdmin ? "Add another pack so new bookings don't stack up." : "Please contact your account manager to add capacity."}
             </div>
@@ -233,6 +257,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           onSaved={() => { setShowAdd(false); void load(); }}
         />
       )}
+    </div>
+  );
+}
+
+function LegendItem({ color, label }: { color: string; label: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: SPACE_6 }}>
+      <span style={{ width: 12, height: 12, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
+      <span style={{ fontSize: 12, color: GREY_TEXT, fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
@@ -258,26 +291,26 @@ function PackHistoryList({ packs, showedUp, onChange }: {
   };
 
   return (
-    <div style={{ marginTop: 16, borderTop: "1px solid #eef1f5", paddingTop: 12 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: "#6b7785", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 }}>
+    <div style={{ marginTop: SPACE_24, borderTop: `1px solid ${GREY_TRACK}`, paddingTop: SPACE_16 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, color: GREY_TEXT, marginBottom: SPACE_12, textTransform: "uppercase", letterSpacing: 0.5 }}>
         Pack history
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: SPACE_8 }}>
         {rows.map(({ p, delivered }) => (
           <div key={p.id} style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "8px 12px", background: "#f7f9fc", borderRadius: 6, fontSize: 12,
+            padding: "10px 14px", background: GREY_BG, borderRadius: 8, fontSize: 13,
           }}>
             <div>
               <strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered
-              <span style={{ color: "#6b7785", marginLeft: 10 }}>
+              <span style={{ color: GREY_TEXT, marginLeft: 10 }}>
                 purchased {new Date(p.purchased_at).toLocaleDateString()}
               </span>
-              {p.notes && <span style={{ color: "#6b7785", marginLeft: 10, fontStyle: "italic" }}>· {p.notes}</span>}
+              {p.notes && <span style={{ color: GREY_TEXT, marginLeft: 10, fontStyle: "italic" }}>· {p.notes}</span>}
             </div>
             <button
               onClick={() => del(p.id)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: "#b83232", padding: 4 }}
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }}
               title="Delete pack"
             >
               <Trash2 size={14} />
@@ -322,23 +355,23 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div onMouseDown={(e) => e.stopPropagation()} style={{
-        background: "#fff", borderRadius: 12, padding: 24, width: "90%", maxWidth: 420,
+        background: "#fff", borderRadius: RADIUS_CARD, padding: SPACE_24, width: "90%", maxWidth: 420,
       }}>
-        <h3 style={{ fontSize: 17, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>Add patient pack</h3>
-        <p style={{ fontSize: 12, color: "#6b7785", margin: "0 0 16px" }}>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>Add patient pack</h3>
+        <p style={{ fontSize: 13, color: GREY_TEXT, margin: "0 0 20px" }}>
           The clinic will see this balance in their portal. A credit is consumed each time a patient shows up.
         </p>
 
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Pack size (number of patients)
         </label>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: SPACE_8, marginBottom: SPACE_12, flexWrap: "wrap" }}>
           {[10, 20, 30, 50].map((n) => (
             <button
               key={n}
               onClick={() => setSizeStr(String(n))}
               style={{
-                padding: "8px 14px", borderRadius: 6, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                padding: "8px 16px", borderRadius: RADIUS_BTN, fontSize: 14, fontWeight: 600, cursor: "pointer",
                 background: size === n ? NAVY : "#fff",
                 color: size === n ? "#fff" : NAVY,
                 border: `1px solid ${NAVY}`,
@@ -353,20 +386,20 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
           min={1}
           value={sizeStr}
           onChange={(e) => setSizeStr(e.target.value.replace(/[^0-9]/g, ""))}
-          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16 }}
         />
 
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Date of purchase
         </label>
         <input
           type="date"
           value={purchasedAt}
           onChange={(e) => setPurchasedAt(e.target.value)}
-          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16 }}
         />
 
-        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Notes (optional)
         </label>
         <textarea
@@ -374,17 +407,17 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Invoice #123, $X per patient"
           rows={2}
-          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 16, fontFamily: "inherit", resize: "vertical" }}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_20, fontFamily: "inherit", resize: "vertical" }}
         />
 
-        <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", gap: SPACE_8, justifyContent: "flex-end" }}>
           <button onClick={onClose} disabled={saving} style={{
-            padding: "8px 14px", borderRadius: 6, border: "1px solid #d4d4d8",
-            background: "#fff", color: "#4b5563", fontSize: 13, fontWeight: 600, cursor: "pointer",
+            padding: "10px 16px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`,
+            background: "#fff", color: GREY_TEXT_DARK, fontSize: 14, fontWeight: 600, cursor: "pointer",
           }}>Cancel</button>
           <button onClick={save} disabled={saving} style={{
-            padding: "8px 14px", borderRadius: 6, border: "none",
-            background: NAVY, color: "#fff", fontSize: 13, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
+            padding: "10px 16px", borderRadius: RADIUS_BTN, border: "none",
+            background: NAVY, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.6 : 1,
           }}>{saving ? "Saving…" : "Add pack"}</button>
         </div>
