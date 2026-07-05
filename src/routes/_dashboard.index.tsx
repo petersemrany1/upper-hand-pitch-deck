@@ -238,11 +238,12 @@ function DashboardHome() {
           .not("patient_name", "ilike", "%test%")
       : Promise.resolve({ data: [] as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>, error: null });
 
-    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
+    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
         bookingsTodayQ,
         bookingsMonthQ,
         newLeadsQ,
+        newLeadsCountQ,
         supabase.from("partner_clinics").select("id, clinic_name, city, price_per_booking"),
         supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
         targetQ,
