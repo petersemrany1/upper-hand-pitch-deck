@@ -188,7 +188,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const missedCallQueueRef = useRef<string[]>([]);
   useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
   const activeIdRef = useRef<string | null>(null);
-  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem("salesCall.activeId") || null;
