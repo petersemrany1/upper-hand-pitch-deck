@@ -111,14 +111,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       deliveredIn = active.pack_size;
     }
     const totalCap = sorted.reduce((s, p) => s + p.pack_size, 0);
-    const totalRem = Math.max(0, totalCap - showedUp);
+    const totalBooked = showedUp + upcoming;
+    const totalRem = Math.max(0, totalCap - totalBooked);
     return {
       activePack: active,
       deliveredInActive: deliveredIn,
       sizeOfActive: active?.pack_size ?? 0,
       totalRemaining: totalRem,
     };
-  }, [packs, showedUp]);
+  }, [packs, showedUp, upcoming]);
 
   const deliveredPct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
   const upcomingInActive = sizeOfActive > 0 ? Math.min(upcoming, sizeOfActive - deliveredInActive) : 0;
