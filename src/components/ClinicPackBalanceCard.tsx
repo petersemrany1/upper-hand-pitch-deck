@@ -197,7 +197,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
               {remainingInActive} slot{remainingInActive !== 1 ? "s" : ""} open
             </div>
             <div style={{ fontSize: 12, color: GREY_TEXT }}>
-              {totalRemaining} remaining across all packs
+              {totalRemaining} slot{totalRemaining !== 1 ? "s" : ""} open across all packs
             </div>
           </div>
 
