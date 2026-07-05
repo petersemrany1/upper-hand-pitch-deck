@@ -327,12 +327,6 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
   const [view, setView] = useState<"list" | "calendar">("list");
   const [showAdd, setShowAdd] = useState(false);
 
-  const now = new Date();
-  const month = now.getMonth(), year = now.getFullYear();
-  const monthAppts = appts.filter((a) => {
-    const d = parseDateOnly(a.appointment_date);
-    return d.getMonth() === month && d.getFullYear() === year;
-  });
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
