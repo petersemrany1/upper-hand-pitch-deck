@@ -315,6 +315,18 @@ function DashboardHome() {
   useEffect(() => {
     if (!authReady || !session) return;
     void loadData();
+    // Auto-refresh so new leads/bookings that arrive via webhooks show up
+    // without needing a manual page reload.
+    const interval = setInterval(() => { void loadData(); }, 60_000);
+    const onFocus = () => { void loadData(); };
+    const onVisible = () => { if (document.visibilityState === "visible") void loadData(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [authReady, session, loadData]);
 
   // Conversion widget data
