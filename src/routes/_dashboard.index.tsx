@@ -724,8 +724,9 @@ function DashboardHome() {
               </div>
             </div>
           </Card>
-        )}
+        {isAdmin && <PickupRateCard />}
       </div>
+
 
       {/* Target modal */}
 
