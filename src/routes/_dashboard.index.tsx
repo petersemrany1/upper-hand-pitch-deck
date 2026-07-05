@@ -5,6 +5,7 @@ import { ChevronDown, AlertTriangle } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { PickupRateCard } from "@/components/PickupRateCard";
+import { SpeedToLeadCard } from "@/components/SpeedToLeadCard";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -727,6 +728,7 @@ function DashboardHome() {
         )}
 
         {isAdmin && <PickupRateCard />}
+        {isAdmin && <SpeedToLeadCard />}
       </div>
 
 
