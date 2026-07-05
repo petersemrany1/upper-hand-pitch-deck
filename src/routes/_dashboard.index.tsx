@@ -151,6 +151,8 @@ function DashboardHome() {
   const [selectedRepId, setSelectedRepId] = useState<string>("");
   const [repName, setRepName] = useState<string>("");
 
+  const [packBreakdown, setPackBreakdown] = useState<Array<{ clinicName: string; remaining: number; total: number }>>([]);
+
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
@@ -218,7 +220,17 @@ function DashboardHome() {
       .eq("month", curMonth);
     if (scopeId) targetQ.eq("rep_id", scopeId);
 
-    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes] =
+    const packsAllQ = isAdmin
+      ? supabase.from("clinic_packs").select("clinic_id, pack_size")
+      : Promise.resolve({ data: [] as Array<{ clinic_id: string; pack_size: number }>, error: null });
+    const apptsAllQ = isAdmin
+      ? supabase
+          .from("clinic_appointments")
+          .select("clinic_id, outcome, disqualified_at")
+          .not("patient_name", "ilike", "%test%")
+      : Promise.resolve({ data: [] as Array<{ clinic_id: string; outcome: string | null; disqualified_at: string | null }>, error: null });
+
+    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
         bookingsTodayQ,
         bookingsMonthQ,
@@ -229,6 +241,8 @@ function DashboardHome() {
         isAdmin
           ? supabase.from("sales_reps").select("id, name").eq("role", "rep").order("name")
           : Promise.resolve({ data: [] as Array<{ id: string; name: string }>, error: null }),
+        packsAllQ,
+        apptsAllQ,
       ]);
 
     const targetRows = (targetRes.data ?? []) as Array<{ rep_id: string; target: number }>;
@@ -262,6 +276,31 @@ function DashboardHome() {
     const lcm = new Map<string, string | null>();
     for (const l of leadsArr) lcm.set(l.id, l.clinic_id);
     setLeadClinicMap(lcm);
+
+    if (isAdmin) {
+      const packsRows = (packsRes.data ?? []) as Array<{ clinic_id: string; pack_size: number }>;
+      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string; outcome: string | null; disqualified_at: string | null }>;
+      const showedByClinic = new Map<string, number>();
+      for (const a of apptsRows) {
+        if (a.disqualified_at) continue;
+        if (a.outcome === "show" || a.outcome === "proceeded") {
+          showedByClinic.set(a.clinic_id, (showedByClinic.get(a.clinic_id) ?? 0) + 1);
+        }
+      }
+      const capacityByClinic = new Map<string, number>();
+      for (const p of packsRows) {
+        capacityByClinic.set(p.clinic_id, (capacityByClinic.get(p.clinic_id) ?? 0) + p.pack_size);
+      }
+      const breakdown: Array<{ clinicName: string; remaining: number; total: number }> = [];
+      for (const c of clinicsList) {
+        const total = capacityByClinic.get(c.id) ?? 0;
+        if (total === 0) continue;
+        const showed = showedByClinic.get(c.id) ?? 0;
+        const remaining = Math.max(0, total - showed);
+        breakdown.push({ clinicName: c.clinic_name || "Unknown", remaining, total });
+      }
+      setPackBreakdown(breakdown);
+    }
   }, [isAdmin, session?.user?.email]);
 
   useEffect(() => {
@@ -665,6 +704,25 @@ function DashboardHome() {
             </div>
           </Card>
         </div>
+
+        {isAdmin && packBreakdown.length > 0 && (
+          <Card>
+            <div style={{ padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Pack balance by clinic</div>
+              <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How many shows are needed to fill remaining slots</div>
+            </div>
+            <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              {packBreakdown.map((p) => (
+                <div key={p.clinicName} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{p.clinicName}</div>
+                  <div style={{ fontSize: 13, color: p.remaining > 0 ? "#16a34a" : "#f4522d", fontWeight: 600 }}>
+                    {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
       </div>
 
       {/* Target modal */}
