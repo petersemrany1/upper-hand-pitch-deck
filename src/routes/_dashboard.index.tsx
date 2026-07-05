@@ -282,6 +282,7 @@ function DashboardHome() {
 
     const leadsArr = (newLeadsRes.data ?? []) as Array<Lead & { clinic_id: string | null }>;
     setNewLeads(leadsArr);
+    setNewLeadsCount(newLeadsCountRes.count ?? leadsArr.length);
     const lcm = new Map<string, string | null>();
     for (const l of leadsArr) lcm.set(l.id, l.clinic_id);
     setLeadClinicMap(lcm);
