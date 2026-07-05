@@ -333,13 +333,6 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
     const d = parseDateOnly(a.appointment_date);
     return d.getMonth() === month && d.getFullYear() === year;
   });
-  const counts = {
-    upcoming: monthAppts.filter((a) => !a.outcome && parseAppointmentDateTime(a.appointment_date, a.appointment_time) >= now).length,
-    show: monthAppts.filter((a) => a.outcome === "show").length,
-    proceeded: monthAppts.filter((a) => a.outcome === "proceeded").length,
-    noshow: monthAppts.filter((a) => a.outcome === "noshow").length,
-  };
-
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
