@@ -293,6 +293,7 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
   clinicId: string; onClose: () => void; onSaved: () => void;
 }) {
   const [sizeStr, setSizeStr] = useState<string>("10");
+  const [purchasedAt, setPurchasedAt] = useState<string>(sydneyTodayISO());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const size = parseInt(sizeStr, 10);
@@ -303,6 +304,7 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
     const { error } = await supabase.from("clinic_packs").insert({
       clinic_id: clinicId,
       pack_size: size,
+      purchased_at: purchasedAt,
       notes: notes.trim() || null,
     });
     setSaving(false);
@@ -354,6 +356,15 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
           style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
         />
 
+        <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
+          Date of purchase
+        </label>
+        <input
+          type="date"
+          value={purchasedAt}
+          onChange={(e) => setPurchasedAt(e.target.value)}
+          style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid #d4d4d8", fontSize: 13, marginBottom: 14 }}
+        />
 
         <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "#4b5563", marginBottom: 6 }}>
           Notes (optional)
