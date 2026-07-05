@@ -342,13 +342,6 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        <Stat label="Upcoming" value={counts.upcoming} color="#2d5fa0" />
-        <Stat label="Showed up" value={counts.show} color="#1a7a4a" />
-        <Stat label="Booked" value={counts.proceeded} color="#6b3fa0" />
-        <Stat label="No shows" value={counts.noshow} color="#b83232" />
-      </div>
-
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3 }}>
           <ViewToggleBtn active={view === "list"} onClick={() => setView("list")} icon={<ListIcon size={14} />}>List</ViewToggleBtn>
