@@ -293,6 +293,7 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
   clinicId: string; onClose: () => void; onSaved: () => void;
 }) {
   const [sizeStr, setSizeStr] = useState<string>("10");
+  const [purchasedAt, setPurchasedAt] = useState<string>(sydneyTodayISO());
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const size = parseInt(sizeStr, 10);
@@ -303,6 +304,7 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
     const { error } = await supabase.from("clinic_packs").insert({
       clinic_id: clinicId,
       pack_size: size,
+      purchased_at: purchasedAt,
       notes: notes.trim() || null,
     });
     setSaving(false);
