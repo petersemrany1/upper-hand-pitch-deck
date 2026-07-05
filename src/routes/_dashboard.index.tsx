@@ -5,6 +5,7 @@ import { ChevronDown, AlertTriangle } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { PickupRateCard } from "@/components/PickupRateCard";
+import { APP_TIMEZONE } from "@/lib/timezone";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -56,7 +57,7 @@ function relativeTime(dateStr: string): string {
 // All "today" / "this month" math is anchored to Australia/Sydney (project hard rule).
 function sydneyParts(now: Date = new Date()): { year: number; month: number; day: number } {
   const fmt = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Australia/Sydney",
+    timeZone: APP_TIMEZONE,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -65,14 +66,36 @@ function sydneyParts(now: Date = new Date()): { year: number; month: number; day
   return { year: y, month: m, day: d };
 }
 
+function timeZoneOffsetMs(utcDate: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(utcDate);
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const zonedAsUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+
+  return zonedAsUtc - utcDate.getTime();
+}
+
 // Returns the UTC instant equivalent to local midnight in Sydney on the given Y/M/D.
 function sydneyMidnightUTC(year: number, month: number, day: number): Date {
-  // Guess UTC midnight, then adjust by Sydney offset at that moment.
-  const guess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
-  const sydStr = guess.toLocaleString("en-US", { timeZone: "Australia/Sydney" });
-  const sydAsLocal = new Date(sydStr);
-  const offsetMs = sydAsLocal.getTime() - guess.getTime();
-  return new Date(guess.getTime() - offsetMs);
+  const utcMidnight = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+  const firstPass = new Date(utcMidnight.getTime() - timeZoneOffsetMs(utcMidnight, APP_TIMEZONE));
+  return new Date(utcMidnight.getTime() - timeZoneOffsetMs(firstPass, APP_TIMEZONE));
 }
 
 function startOfToday(): Date {
@@ -86,7 +109,7 @@ function startOfMonth(): Date {
 }
 
 function monthYearLabel(): string {
-  return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: "Australia/Sydney" });
+  return new Date().toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: APP_TIMEZONE });
 }
 
 function currentYearMonth(): { year: number; month: number } {
