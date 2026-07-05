@@ -226,9 +226,9 @@ function DashboardHome() {
     const apptsAllQ = isAdmin
       ? supabase
           .from("clinic_appointments")
-          .select("clinic_id, outcome, disqualified_at")
+          .select("clinic_id")
           .not("patient_name", "ilike", "%test%")
-      : Promise.resolve({ data: [] as Array<{ clinic_id: string; outcome: string | null; disqualified_at: string | null }>, error: null });
+      : Promise.resolve({ data: [] as Array<{ clinic_id: string }>, error: null });
 
     const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
@@ -279,13 +279,10 @@ function DashboardHome() {
 
     if (isAdmin) {
       const packsRows = (packsRes.data ?? []) as Array<{ clinic_id: string; pack_size: number }>;
-      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string; outcome: string | null; disqualified_at: string | null }>;
-      const showedByClinic = new Map<string, number>();
+      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string }>;
+      const bookedByClinic = new Map<string, number>();
       for (const a of apptsRows) {
-        if (a.disqualified_at) continue;
-        if (a.outcome === "show" || a.outcome === "proceeded") {
-          showedByClinic.set(a.clinic_id, (showedByClinic.get(a.clinic_id) ?? 0) + 1);
-        }
+        bookedByClinic.set(a.clinic_id, (bookedByClinic.get(a.clinic_id) ?? 0) + 1);
       }
       const capacityByClinic = new Map<string, number>();
       for (const p of packsRows) {
@@ -295,8 +292,8 @@ function DashboardHome() {
       for (const c of clinicsList) {
         const total = capacityByClinic.get(c.id) ?? 0;
         if (total === 0) continue;
-        const showed = showedByClinic.get(c.id) ?? 0;
-        const remaining = Math.max(0, total - showed);
+        const booked = bookedByClinic.get(c.id) ?? 0;
+        const remaining = Math.max(0, total - booked);
         breakdown.push({ clinicName: c.clinic_name || "Unknown", remaining, total });
       }
       setPackBreakdown(breakdown);
