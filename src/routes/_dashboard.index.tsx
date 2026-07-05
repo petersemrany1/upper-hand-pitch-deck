@@ -726,10 +726,30 @@ function DashboardHome() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{name}</div>
-                          {src && (
-                            <div style={{ fontSize: 11, color: "#999", marginTop: 2 }}>From {src}</div>
-                          )}
+                          {src && (() => {
+                            const key = src.toLowerCase();
+                            const c = key.includes("melbourne")
+                              ? { bg: "#e0f2fe", fg: "#075985" }
+                              : key.includes("sydney")
+                              ? { bg: "#f3e8ff", fg: "#6b21a8" }
+                              : { bg: "#dcfce7", fg: "#166534" };
+                            return (
+                              <span style={{
+                                display: "inline-block",
+                                marginTop: 4,
+                                background: c.bg,
+                                color: c.fg,
+                                fontSize: 10,
+                                fontWeight: 600,
+                                letterSpacing: "0.05em",
+                                textTransform: "uppercase",
+                                padding: "2px 6px",
+                                borderRadius: 4,
+                              }}>{src}</span>
+                            );
+                          })()}
                         </div>
+
                         <div style={{ fontSize: 11, color: "#ccc", minWidth: 60, textAlign: "right" }}>
                           {relativeTime(l.created_at)}
                         </div>
