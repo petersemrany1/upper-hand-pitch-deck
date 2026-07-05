@@ -334,16 +334,23 @@ function DashboardHome() {
     if (!authReady || !session) return;
     let cancelled = false;
     (async () => {
+      // Period boundaries anchored to Australia/Sydney (project hard rule).
+      // - day   = since Sydney midnight today
+      // - week  = rolling last 7 days (Sydney midnight 7d ago)
+      // - month = since Sydney 1st of current month
+      // - year  = since Sydney Jan 1 of current year
+      // - all   = no lower bound
       let fromIso: string | null = null;
-      const now = new Date();
+      const { year, month, day } = sydneyParts();
       if (convPeriod === "day") {
-        const d = new Date(now); d.setHours(0,0,0,0); fromIso = d.toISOString();
+        fromIso = sydneyMidnightUTC(year, month, day).toISOString();
       } else if (convPeriod === "week") {
-        const d = new Date(now); d.setDate(d.getDate() - 7); fromIso = d.toISOString();
+        const base = sydneyMidnightUTC(year, month, day);
+        fromIso = new Date(base.getTime() - 7 * 86400_000).toISOString();
       } else if (convPeriod === "month") {
-        const d = new Date(now.getFullYear(), now.getMonth(), 1); fromIso = d.toISOString();
+        fromIso = sydneyMidnightUTC(year, month, 1).toISOString();
       } else if (convPeriod === "year") {
-        const d = new Date(now.getFullYear(), 0, 1); fromIso = d.toISOString();
+        fromIso = sydneyMidnightUTC(year, 1, 1).toISOString();
       }
 
       let repId: string | null = null;
@@ -354,52 +361,84 @@ function DashboardHome() {
       }
       const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
-      // Leads created in period (exclude test leads)
-      const leadsQ = supabase
+      // === Leads to Bookings ===
+      // Denominator: leads created in period, excluding test leads.
+      // Numerator:   of those leads, how many currently have status = 'booked_deposit_paid'.
+      // Uses exact count queries to avoid the 1000-row PostgREST default that
+      // would silently truncate "all-time" totals.
+      const leadsTotalQ = supabase
         .from("meta_leads")
-        .select("id, status, rep_id, first_name, last_name")
+        .select("id", { count: "exact", head: true })
         .not("first_name", "ilike", "%test%")
         .not("last_name", "ilike", "%test%");
-      if (fromIso) leadsQ.gte("created_at", fromIso);
-      if (scopeId) leadsQ.eq("rep_id", scopeId);
+      if (fromIso) leadsTotalQ.gte("created_at", fromIso);
+      if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
 
-      // Connected calls (status=completed) in period
-      const callsQ = supabase
-        .from("call_records")
-        .select("lead_id")
-        .not("lead_id", "is", null)
-        .eq("status", "completed");
-      if (fromIso) callsQ.gte("called_at", fromIso);
-      if (scopeId) callsQ.eq("rep_id", scopeId);
+      const leadsBookedQ = supabase
+        .from("meta_leads")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "booked_deposit_paid")
+        .not("first_name", "ilike", "%test%")
+        .not("last_name", "ilike", "%test%");
+      if (fromIso) leadsBookedQ.gte("created_at", fromIso);
+      if (scopeId) leadsBookedQ.eq("rep_id", scopeId);
 
-      const [leadsRes, callsRes] = await Promise.all([leadsQ, callsQ]);
+      // === Connects to Sales ===
+      // Denominator: unique leads we actually got through to in period.
+      //   A call counts as "connected" only when status='completed' AND
+      //   duration >= 10s. Twilio marks voicemails as 'completed' too, so
+      //   without the duration floor the denominator was inflated ~2.6x by
+      //   sub-10s voicemails/hang-ups (752 of 1220 completed calls in DB).
+      // Numerator: of those unique leads, how many currently have
+      //   status='booked_deposit_paid'.
+      // Page through all matching call_records to avoid the 1000-row cap;
+      // outbound-only so inbound "returned my call" doesn't double-count.
+      const connectedLeadIds = new Set<string>();
+      const PAGE = 1000;
+      let offset = 0;
+      while (true) {
+        const callsQ = supabase
+          .from("call_records")
+          .select("lead_id")
+          .not("lead_id", "is", null)
+          .eq("status", "completed")
+          .eq("direction", "outbound")
+          .gte("duration", 10)
+          .order("called_at", { ascending: false })
+          .range(offset, offset + PAGE - 1);
+        if (fromIso) callsQ.gte("called_at", fromIso);
+        if (scopeId) callsQ.eq("rep_id", scopeId);
+        const { data, error } = await callsQ;
+        if (error || !data || data.length === 0) break;
+        for (const row of data as { lead_id: string | null }[]) {
+          if (row.lead_id) connectedLeadIds.add(row.lead_id);
+        }
+        if (data.length < PAGE) break;
+        offset += PAGE;
+      }
+
+      const [leadsTotalRes, leadsBookedRes] = await Promise.all([leadsTotalQ, leadsBookedQ]);
       if (cancelled) return;
 
-      const leadsRows = (leadsRes.data ?? []) as Array<{ id: string; status: string | null }>;
-      const leadsTotal = leadsRows.length;
-      const leadsBooked = leadsRows.filter(l => l.status === "booked_deposit_paid").length;
+      const leadsTotal = leadsTotalRes.count ?? 0;
+      const leadsBooked = leadsBookedRes.count ?? 0;
 
-      const connectedLeadIds = Array.from(new Set(
-        ((callsRes.data ?? []) as { lead_id: string | null }[])
-          .map(c => c.lead_id).filter((v): v is string => !!v)
-      ));
+      // Resolve statuses for connected leads in chunks, applying test filter.
       let connectedBooked = 0;
       let connectedUniqueFiltered = 0;
-      if (connectedLeadIds.length > 0) {
-        const CHUNK = 200;
-        for (let i = 0; i < connectedLeadIds.length; i += CHUNK) {
-          const slice = connectedLeadIds.slice(i, i + CHUNK);
-          // Pull lead rows in slice, exclude test, then count + count booked
-          const { data: leadRows } = await supabase
-            .from("meta_leads")
-            .select("id, status, first_name, last_name")
-            .in("id", slice)
-            .not("first_name", "ilike", "%test%")
-            .not("last_name", "ilike", "%test%");
-          const rows = (leadRows ?? []) as Array<{ id: string; status: string | null }>;
-          connectedUniqueFiltered += rows.length;
-          connectedBooked += rows.filter(r => r.status === "booked_deposit_paid").length;
-        }
+      const ids = Array.from(connectedLeadIds);
+      const CHUNK = 200;
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const slice = ids.slice(i, i + CHUNK);
+        const { data: leadRows } = await supabase
+          .from("meta_leads")
+          .select("id, status")
+          .in("id", slice)
+          .not("first_name", "ilike", "%test%")
+          .not("last_name", "ilike", "%test%");
+        const rows = (leadRows ?? []) as Array<{ id: string; status: string | null }>;
+        connectedUniqueFiltered += rows.length;
+        connectedBooked += rows.filter(r => r.status === "booked_deposit_paid").length;
       }
 
       if (cancelled) return;
