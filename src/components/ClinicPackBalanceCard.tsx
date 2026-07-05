@@ -46,6 +46,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
+  const [bookedSlots, setBookedSlots] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -71,19 +72,22 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
     let showed = 0;
     let up = 0;
+    let booked = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
       const d = (a as { disqualified_at: string | null }).disqualified_at;
       const date = (a as { appointment_date: string }).appointment_date;
-      if (d) continue;
+      if (d || o === "disqualified" || o === "noshow") continue;
+      booked += 1;
       if (o === "show" || o === "proceeded") {
         showed += 1;
-      } else if (date >= todayStr) {
+      } else if (!o && date >= todayStr) {
         up += 1;
       }
     }
     setShowedUp(showed);
     setUpcoming(up);
+    setBookedSlots(booked);
     setLoading(false);
   }, [clinicId]);
 
@@ -111,15 +115,14 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       deliveredIn = active.pack_size;
     }
     const totalCap = sorted.reduce((s, p) => s + p.pack_size, 0);
-    const totalBooked = showedUp + upcoming;
-    const totalRem = Math.max(0, totalCap - totalBooked);
+    const totalRem = Math.max(0, totalCap - bookedSlots);
     return {
       activePack: active,
       deliveredInActive: deliveredIn,
       sizeOfActive: active?.pack_size ?? 0,
       totalRemaining: totalRem,
     };
-  }, [packs, showedUp, upcoming]);
+  }, [packs, showedUp, bookedSlots]);
 
   const deliveredPct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
   const upcomingInActive = sizeOfActive > 0 ? Math.min(upcoming, sizeOfActive - deliveredInActive) : 0;
