@@ -594,7 +594,7 @@ function DashboardHome() {
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
-                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} today</div>
+                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeadsCount} today</div>
               </div>
               <div>
                 {newLeads.length === 0 ? (
