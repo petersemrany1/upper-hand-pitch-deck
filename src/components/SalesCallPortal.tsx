@@ -181,6 +181,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // to land in.
   const { activeLeadId: liveCallLeadId } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Queue of lead ids that missed-called us and should be jumped-to on the
+  // next "Next Lead" click (both in and out of session mode). Excludes
+  // booked_deposit_paid / dropped / not_interested leads.
+  const [missedCallQueue, setMissedCallQueue] = useState<string[]>([]);
+  const missedCallQueueRef = useRef<string[]>([]);
+  useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
+  const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem("salesCall.activeId") || null;
@@ -196,6 +203,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     if (activeId) sessionStorage.setItem("salesCall.activeId", activeId);
     else sessionStorage.removeItem("salesCall.activeId");
   }, [activeId]);
+  useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
   useEffect(() => {
     if (typeof window === "undefined") return;
     sessionStorage.setItem("salesCall.step", step);
@@ -653,23 +661,40 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (tail.length < 6) return;
       const lead = leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail);
       if (!lead) return;
+
+      // Exclusion: don't jump back to leads we've closed out.
+      const rawStatus = (lead.status ?? "").toLowerCase();
+      const normStatus = normaliseStatus(lead.status, lead);
+      const excluded =
+        normStatus === "booked_deposit_paid" ||
+        normStatus === "not_interested" ||
+        rawStatus === "dropped" ||
+        rawStatus === "cancelled" ||
+        rawStatus === "no_show";
+      if (excluded) return;
+      // Don't queue the lead the rep is currently on.
+      if (lead.id === activeIdRef.current) return;
+
+      // Always add to the missed-call queue so "Next Lead" jumps here next,
+      // even outside of session mode. Dedupe + keep FIFO order.
+      setMissedCallQueue((prev) => (prev.includes(lead.id) ? prev : [...prev, lead.id]));
+
+      // In session mode, also splice into the session queue so the session
+      // counter/progress stays consistent.
       const queue = sessionQueueRef.current;
       const idx = queue.indexOf(lead.id);
       const cur = sessionIndexRef.current;
-      if (idx === -1) {
-        // Not in queue yet — insert right after current position
-        if (!sessionActiveRef.current) return;
-        const next = [...queue];
-        next.splice(cur + 1, 0, lead.id);
-        setSessionQueue(next);
-      } else if (idx > cur + 1) {
-        // Already queued later — move to next-in-line
-        const next = [...queue];
-        next.splice(idx, 1);
-        next.splice(cur + 1, 0, lead.id);
-        setSessionQueue(next);
-      } else {
-        return; // already next or current
+      if (sessionActiveRef.current) {
+        if (idx === -1) {
+          const next = [...queue];
+          next.splice(cur + 1, 0, lead.id);
+          setSessionQueue(next);
+        } else if (idx > cur + 1) {
+          const next = [...queue];
+          next.splice(idx, 1);
+          next.splice(cur + 1, 0, lead.id);
+          setSessionQueue(next);
+        }
       }
       const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
       toast.success(`📞 ${name} called back — queued next`);
@@ -1165,6 +1190,33 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           firstCallAt={firstCallByLead[active.id] ?? null}
           onLocalLeadUpdate={updateLocalLead}
           onChangeLead={() => {
+            // Missed-call priority: if anyone rang us back, jump to them
+            // FIRST — regardless of whether a formal session is running.
+            const mcq = missedCallQueue;
+            if (mcq.length > 0) {
+              const [nextMissedId, ...restMissed] = mcq;
+              setMissedCallQueue(restMissed);
+              // Keep the session queue in sync if we're in one.
+              if (sessionActive) {
+                const q = sessionQueue;
+                const existingIdx = q.indexOf(nextMissedId);
+                let newQueue = q;
+                let newIndex = sessionIndex + 1;
+                if (existingIdx === -1) {
+                  newQueue = [...q];
+                  newQueue.splice(newIndex, 0, nextMissedId);
+                } else {
+                  newIndex = existingIdx;
+                }
+                setSessionQueue(newQueue);
+                setSessionIndex(newIndex);
+              }
+              setActiveId(nextMissedId);
+              setStep("mindset");
+              setCompleted(new Set());
+              setAmpPrefill(""); setAudioPrefill("");
+              return;
+            }
             if (sessionActive) {
               const nextIndex = sessionIndex + 1;
               setSessionIndex(nextIndex);
@@ -1216,6 +1268,32 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
+            // Missed-call priority also applies right after logging an outcome.
+            const mcq = missedCallQueue;
+            if (mcq.length > 0) {
+              if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
+              const [nextMissedId, ...restMissed] = mcq;
+              setMissedCallQueue(restMissed);
+              if (sessionActive) {
+                const q = sessionQueue;
+                const existingIdx = q.indexOf(nextMissedId);
+                let newQueue = q;
+                let newIndex = sessionIndex + 1;
+                if (existingIdx === -1) {
+                  newQueue = [...q];
+                  newQueue.splice(newIndex, 0, nextMissedId);
+                } else {
+                  newIndex = existingIdx;
+                }
+                setSessionQueue(newQueue);
+                setSessionIndex(newIndex);
+              }
+              setActiveId(nextMissedId);
+              setStep("mindset");
+              setCompleted(new Set());
+              setAmpPrefill(""); setAudioPrefill("");
+              return;
+            }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
               const nextIndex = sessionIndex + 1;
