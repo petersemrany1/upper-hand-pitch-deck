@@ -142,6 +142,7 @@ function DashboardHome() {
   const [bookingsMonth, setBookingsMonth] = useState(0);
   const [revenueMonth, setRevenueMonth] = useState(0);
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [clinicMap, setClinicMap] = useState<Map<string, ClinicInfo>>(new Map());
   const [leadClinicMap, setLeadClinicMap] = useState<Map<string, string | null>>(new Map());
 
