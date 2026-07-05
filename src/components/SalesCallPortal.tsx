@@ -181,6 +181,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // to land in.
   const { activeLeadId: liveCallLeadId } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Queue of lead ids that missed-called us and should be jumped-to on the
+  // next "Next Lead" click (both in and out of session mode). Excludes
+  // booked_deposit_paid / dropped / not_interested leads.
+  const [missedCallQueue, setMissedCallQueue] = useState<string[]>([]);
+  const missedCallQueueRef = useRef<string[]>([]);
+  useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     return sessionStorage.getItem("salesCall.activeId") || null;
