@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ChevronDown, AlertTriangle } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
+import { PickupRateCard } from "@/components/PickupRateCard";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -724,7 +725,10 @@ function DashboardHome() {
             </div>
           </Card>
         )}
+
+        {isAdmin && <PickupRateCard />}
       </div>
+
 
       {/* Target modal */}
 
