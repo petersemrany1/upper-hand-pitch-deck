@@ -1268,6 +1268,32 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
+            // Missed-call priority also applies right after logging an outcome.
+            const mcq = missedCallQueue;
+            if (mcq.length > 0) {
+              if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
+              const [nextMissedId, ...restMissed] = mcq;
+              setMissedCallQueue(restMissed);
+              if (sessionActive) {
+                const q = sessionQueue;
+                const existingIdx = q.indexOf(nextMissedId);
+                let newQueue = q;
+                let newIndex = sessionIndex + 1;
+                if (existingIdx === -1) {
+                  newQueue = [...q];
+                  newQueue.splice(newIndex, 0, nextMissedId);
+                } else {
+                  newIndex = existingIdx;
+                }
+                setSessionQueue(newQueue);
+                setSessionIndex(newIndex);
+              }
+              setActiveId(nextMissedId);
+              setStep("mindset");
+              setCompleted(new Set());
+              setAmpPrefill(""); setAudioPrefill("");
+              return;
+            }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
               const nextIndex = sessionIndex + 1;
