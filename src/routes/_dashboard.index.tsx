@@ -142,6 +142,7 @@ function DashboardHome() {
   const [bookingsMonth, setBookingsMonth] = useState(0);
   const [revenueMonth, setRevenueMonth] = useState(0);
   const [newLeads, setNewLeads] = useState<Lead[]>([]);
+  const [newLeadsCount, setNewLeadsCount] = useState(0);
   const [clinicMap, setClinicMap] = useState<Map<string, ClinicInfo>>(new Map());
   const [leadClinicMap, setLeadClinicMap] = useState<Map<string, string | null>>(new Map());
 
@@ -213,6 +214,12 @@ function DashboardHome() {
       .limit(10);
     if (scopeId) newLeadsQ.eq("rep_id", scopeId);
 
+    const newLeadsCountQ = supabase
+      .from("meta_leads")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", todayIso);
+    if (scopeId) newLeadsCountQ.eq("rep_id", scopeId);
+
     const { year: curYear, month: curMonth } = currentYearMonth();
     const targetQ = supabase
       .from("rep_booking_targets")
@@ -231,11 +238,12 @@ function DashboardHome() {
           .not("patient_name", "ilike", "%test%")
       : Promise.resolve({ data: [] as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>, error: null });
 
-    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
+    const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
         bookingsTodayQ,
         bookingsMonthQ,
         newLeadsQ,
+        newLeadsCountQ,
         supabase.from("partner_clinics").select("id, clinic_name, city, price_per_booking"),
         supabase.from("app_settings").select("value").eq("key", "default_booking_price").maybeSingle(),
         targetQ,
@@ -274,6 +282,7 @@ function DashboardHome() {
 
     const leadsArr = (newLeadsRes.data ?? []) as Array<Lead & { clinic_id: string | null }>;
     setNewLeads(leadsArr);
+    setNewLeadsCount(newLeadsCountRes.count ?? leadsArr.length);
     const lcm = new Map<string, string | null>();
     for (const l of leadsArr) lcm.set(l.id, l.clinic_id);
     setLeadClinicMap(lcm);
@@ -585,7 +594,7 @@ function DashboardHome() {
             <Card>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>New leads today</div>
-                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeads.length} today</div>
+                <div style={{ fontSize: 12, color: "#aaa" }}>{newLeadsCount} today</div>
               </div>
               <div>
                 {newLeads.length === 0 ? (
