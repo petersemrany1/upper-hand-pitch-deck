@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
@@ -20,6 +21,7 @@ async function assertAdmin(userId: string): Promise<string> {
 }
 
 const TWILIO_FROM = "+61468031075";
+const MMS_STATUS_CALLBACK_PATH = "/api/public/hooks/twilio-message-status";
 
 function formatAUPhone(raw: string): string {
   const cleaned = raw.replace(/[\s\-()]/g, "");
@@ -27,6 +29,16 @@ function formatAUPhone(raw: string): string {
   if (cleaned.startsWith("0")) return "+61" + cleaned.slice(1);
   if (cleaned.startsWith("61")) return "+" + cleaned;
   return "+61" + cleaned;
+}
+
+function getMessageStatusCallbackUrl(): string | null {
+  try {
+    const request = getRequest();
+    if (!request?.url) return null;
+    return new URL(MMS_STATUS_CALLBACK_PATH, request.url).toString();
+  } catch {
+    return null;
+  }
 }
 
 /* ───────────────────────── Distance Matrix ───────────────────────── */
@@ -105,6 +117,8 @@ export const sendLeadMms = createServerFn({ method: "POST" })
     params.set("From", TWILIO_FROM);
     if (data.body) params.set("Body", data.body);
     params.append("MediaUrl", data.mediaUrl);
+    const statusCallback = getMessageStatusCallbackUrl();
+    if (statusCallback) params.set("StatusCallback", statusCallback);
 
     const basicAuth = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
     const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
