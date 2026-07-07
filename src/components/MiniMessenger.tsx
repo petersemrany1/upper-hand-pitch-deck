@@ -158,9 +158,9 @@ export function MiniMessenger() {
     for (const f of files) {
       const ext = f.name.split(".").pop() || "bin";
       const path = `outbound/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("sms-media").upload(path, f, { contentType: f.type, upsert: false });
+      const { error: upErr } = await supabase.storage.from("mms-images").upload(path, f, { contentType: f.type, upsert: false });
       if (upErr) throw new Error(upErr.message);
-      const { data } = supabase.storage.from("sms-media").getPublicUrl(path);
+      const { data } = supabase.storage.from("mms-images").getPublicUrl(path);
       urls.push(data.publicUrl);
     }
     return urls;
