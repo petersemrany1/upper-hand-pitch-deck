@@ -51,6 +51,7 @@ import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './rout
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
+import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
 import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
@@ -294,6 +295,12 @@ const LovableEmailQueueProcessRoute =
     path: '/lovable/email/queue/process',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksTwilioMessageStatusRoute =
+  ApiPublicHooksTwilioMessageStatusRouteImport.update({
+    id: '/api/public/hooks/twilio-message-status',
+    path: '/api/public/hooks/twilio-message-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksStripeDepositRoute =
   ApiPublicHooksStripeDepositRouteImport.update({
     id: '/api/public/hooks/stripe-deposit',
@@ -361,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -407,6 +415,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -456,6 +465,7 @@ export interface FileRoutesById {
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -505,6 +515,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/api/public/hooks/twilio-message-status'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -551,6 +562,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/api/public/hooks/twilio-message-status'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -599,6 +611,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/api/public/hooks/twilio-message-status'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -619,6 +632,7 @@ export interface RootRouteChildren {
   ApiPublicHooksProcessPracticeRecordingsRoute: typeof ApiPublicHooksProcessPracticeRecordingsRoute
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
+  ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
@@ -920,6 +934,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/twilio-message-status': {
+      id: '/api/public/hooks/twilio-message-status'
+      path: '/api/public/hooks/twilio-message-status'
+      fullPath: '/api/public/hooks/twilio-message-status'
+      preLoaderRoute: typeof ApiPublicHooksTwilioMessageStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/stripe-deposit': {
       id: '/api/public/hooks/stripe-deposit'
       path: '/api/public/hooks/stripe-deposit'
@@ -1051,6 +1072,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksReconcileCallDurationsRoute:
     ApiPublicHooksReconcileCallDurationsRoute,
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
+  ApiPublicHooksTwilioMessageStatusRoute:
+    ApiPublicHooksTwilioMessageStatusRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
