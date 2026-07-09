@@ -20,8 +20,8 @@ function normalizePhone(p: string | null | undefined): string {
 async function searchStripeByContact(stripeKey: string, email: string | null, phone: string | null, appointmentId: string): Promise<string | null> {
   // Use Stripe Search API to find paid PaymentIntents for this contact (last 90 days).
   const queries: string[] = [];
-  if (email) queries.push(`status:"succeeded" AND metadata["lead_id"]:"${email}"`); // unlikely but cheap
   if (email) queries.push(`status:"succeeded" AND customer.email:"${email}"`);
+  if (email) queries.push(`status:"succeeded" AND receipt_email:"${email}"`);
 
   for (const q of queries) {
     const url = "https://api.stripe.com/v1/payment_intents/search?" + new URLSearchParams({ query: q, limit: "10" }).toString();
