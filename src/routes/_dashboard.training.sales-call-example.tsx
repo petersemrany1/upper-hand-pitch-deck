@@ -42,6 +42,20 @@ function SalesCallExample() {
 function Inner() {
   const [selected, setSelected] = useState<number | null>(null);
   const [endedAny, setEndedAny] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string>("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSessionToken(data.session?.access_token ?? "");
+    });
+  }, []);
+
+  const resolveSrc = (r: Recording): string => {
+    if (!r.requiresToken) return r.url;
+    if (!sessionToken) return "";
+    const base = import.meta.env.VITE_SUPABASE_URL;
+    return `${base}/functions/v1/twilio-recording?url=${encodeURIComponent(r.url)}&token=${encodeURIComponent(sessionToken)}`;
+  };
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const a = e.currentTarget;
