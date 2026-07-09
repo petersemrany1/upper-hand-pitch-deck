@@ -747,6 +747,24 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       setActiveId(found.id);
       setStep("mindset");
       setCompleted(new Set());
+
+      // If a session is active, sync the session queue so "Next Lead"
+      // continues from THIS lead's position — not from wherever the queue
+      // was before the deeplink. Without this, Next jumps back to the
+      // original session order (e.g. top of today's list).
+      if (sessionActiveRef.current) {
+        const queue = sessionQueueRef.current;
+        const existingIdx = queue.indexOf(found.id);
+        if (existingIdx !== -1) {
+          setSessionIndex(existingIdx);
+        } else {
+          const insertAt = sessionIndexRef.current + 1;
+          const next = [...queue];
+          next.splice(insertAt, 0, found.id);
+          setSessionQueue(next);
+          setSessionIndex(insertAt);
+        }
+      }
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
     // same lead from the widget still fires this effect again.
