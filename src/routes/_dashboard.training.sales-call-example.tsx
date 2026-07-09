@@ -146,8 +146,9 @@ function Inner() {
                         onTimeUpdate={handleTimeUpdate}
                         style={{ width: "100%" }}
                       >
-                      Your browser does not support audio playback.
-                    </audio>
+                        Your browser does not support audio playback.
+                      </audio>
+                    )}
                   </div>
                 )}
               </div>
