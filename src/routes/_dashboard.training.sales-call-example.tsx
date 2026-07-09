@@ -135,14 +135,17 @@ function Inner() {
                 </button>
                 {isOpen && (
                   <div style={{ padding: "0 20px 20px 20px" }}>
-                    <audio
-                      controls
-                      autoPlay
-                      src={r.url}
-                      onEnded={() => setEndedAny(true)}
-                      onTimeUpdate={handleTimeUpdate}
-                      style={{ width: "100%" }}
-                    >
+                    {r.requiresToken && !sessionToken ? (
+                      <div style={{ fontSize: 13, color: "#6b6b6b" }}>Loading…</div>
+                    ) : (
+                      <audio
+                        controls
+                        autoPlay
+                        src={resolveSrc(r)}
+                        onEnded={() => setEndedAny(true)}
+                        onTimeUpdate={handleTimeUpdate}
+                        style={{ width: "100%" }}
+                      >
                       Your browser does not support audio playback.
                     </audio>
                   </div>
