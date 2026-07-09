@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ahmedAsset from "@/assets/sales-call-ahmed.mp3.asset.json";
 import jonoAsset from "@/assets/sales-call-jono.mp3.asset.json";
 import rajAsset from "@/assets/sales-call-raj.mp3.asset.json";
 import nathanAsset from "@/assets/sales-call-nathan.mp3.asset.json";
 import angusAsset from "@/assets/sales-call-angus.mp3.asset.json";
+import { supabase } from "@/integrations/supabase/client";
 import { ModuleGate, CompleteModuleBar } from "@/components/ModuleProgress";
 
 export const Route = createFileRoute("/_dashboard/training/sales-call-example")({
@@ -13,12 +14,21 @@ export const Route = createFileRoute("/_dashboard/training/sales-call-example")(
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
-const recordings = [
+// Darmalingum's live call from 9 Jul 2026 — streamed through the
+// twilio-recording proxy so Twilio credentials stay server-side. Token
+// is appended client-side once the Supabase session is available.
+const DARMA_TWILIO_URL =
+  "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/RE1f300baefb5966cdff137f8e01fceeb1.mp3";
+
+type Recording = { name: string; url: string; requiresToken?: boolean };
+
+const recordings: Recording[] = [
   { name: "Ahmed", url: ahmedAsset.url },
   { name: "Jono", url: jonoAsset.url },
   { name: "Raj", url: rajAsset.url },
   { name: "Nathan", url: nathanAsset.url },
   { name: "Angus", url: angusAsset.url },
+  { name: "Darmalingum", url: DARMA_TWILIO_URL, requiresToken: true },
 ];
 
 function SalesCallExample() {
@@ -32,6 +42,20 @@ function SalesCallExample() {
 function Inner() {
   const [selected, setSelected] = useState<number | null>(null);
   const [endedAny, setEndedAny] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string>("");
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSessionToken(data.session?.access_token ?? "");
+    });
+  }, []);
+
+  const resolveSrc = (r: Recording): string => {
+    if (!r.requiresToken) return r.url;
+    if (!sessionToken) return "";
+    const base = import.meta.env.VITE_SUPABASE_URL;
+    return `${base}/functions/v1/twilio-recording?url=${encodeURIComponent(r.url)}&token=${encodeURIComponent(sessionToken)}`;
+  };
 
   const handleTimeUpdate = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const a = e.currentTarget;
@@ -111,16 +135,20 @@ function Inner() {
                 </button>
                 {isOpen && (
                   <div style={{ padding: "0 20px 20px 20px" }}>
-                    <audio
-                      controls
-                      autoPlay
-                      src={r.url}
-                      onEnded={() => setEndedAny(true)}
-                      onTimeUpdate={handleTimeUpdate}
-                      style={{ width: "100%" }}
-                    >
-                      Your browser does not support audio playback.
-                    </audio>
+                    {r.requiresToken && !sessionToken ? (
+                      <div style={{ fontSize: 13, color: "#6b6b6b" }}>Loading…</div>
+                    ) : (
+                      <audio
+                        controls
+                        autoPlay
+                        src={resolveSrc(r)}
+                        onEnded={() => setEndedAny(true)}
+                        onTimeUpdate={handleTimeUpdate}
+                        style={{ width: "100%" }}
+                      >
+                        Your browser does not support audio playback.
+                      </audio>
+                    )}
                   </div>
                 )}
               </div>
