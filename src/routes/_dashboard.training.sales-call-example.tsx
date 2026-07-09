@@ -20,6 +20,10 @@ const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 const DARMA_TWILIO_URL =
   "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/RE1f300baefb5966cdff137f8e01fceeb1.mp3";
 
+// Clint's live call from 29 Jun 2026 (26min) — proxied via twilio-recording.
+const CLINT_TWILIO_URL =
+  "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/RE5b15c6a9b8b723678a334c6dcecc0ad9.mp3";
+
 type Recording = { name: string; url: string; requiresToken?: boolean };
 
 const recordings: Recording[] = [
@@ -29,6 +33,7 @@ const recordings: Recording[] = [
   { name: "Nathan", url: nathanAsset.url },
   { name: "Angus", url: angusAsset.url },
   { name: "Darmalingum", url: DARMA_TWILIO_URL, requiresToken: true },
+  { name: "Clint", url: CLINT_TWILIO_URL, requiresToken: true },
 ];
 
 function SalesCallExample() {
