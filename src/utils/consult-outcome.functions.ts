@@ -20,8 +20,8 @@ function normalizePhone(p: string | null | undefined): string {
 async function searchStripeByContact(stripeKey: string, email: string | null, phone: string | null, appointmentId: string): Promise<string | null> {
   // Use Stripe Search API to find paid PaymentIntents for this contact (last 90 days).
   const queries: string[] = [];
-  if (email) queries.push(`status:"succeeded" AND metadata["lead_id"]:"${email}"`); // unlikely but cheap
   if (email) queries.push(`status:"succeeded" AND customer.email:"${email}"`);
+  if (email) queries.push(`status:"succeeded" AND receipt_email:"${email}"`);
 
   for (const q of queries) {
     const url = "https://api.stripe.com/v1/payment_intents/search?" + new URLSearchParams({ query: q, limit: "10" }).toString();
@@ -84,6 +84,48 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
 
   const supabaseAdmin = await getSupabaseAdmin();
 
+  // 1. Fastest path — the charge-over-phone flow already saves the PI on the
+  // lead row. It never creates a Checkout Session, so the SMS/session
+  // fallbacks below can't recover it. Check this before hitting Stripe.
+  const { data: leadRow } = await supabaseAdmin
+    .from("meta_leads")
+    .select("email, phone, stripe_payment_intent_id")
+    .eq("id", leadId)
+    .maybeSingle();
+
+  if (leadRow?.stripe_payment_intent_id) {
+    // Verify it's actually succeeded before returning (defensive — a failed
+    // PI could theoretically be stored, though the current write path only
+    // sets it after status === "succeeded").
+    try {
+      const verifyResp = await fetch(
+        `https://api.stripe.com/v1/payment_intents/${encodeURIComponent(leadRow.stripe_payment_intent_id)}`,
+        { headers: { Authorization: "Bearer " + stripeKey } },
+      );
+      const verifyJson = (await verifyResp.json()) as { status?: string };
+      if (verifyResp.ok && verifyJson.status === "succeeded") {
+        return leadRow.stripe_payment_intent_id;
+      }
+    } catch { /* fall through to other lookups */ }
+  }
+
+  // 2. Search Stripe PIs by metadata.lead_id — covers charge-over-phone PIs
+  // (which set metadata[lead_id]) even if the lead row somehow lost the ID.
+  try {
+    const q = `status:"succeeded" AND metadata["lead_id"]:"${leadId}"`;
+    const url = "https://api.stripe.com/v1/payment_intents/search?" + new URLSearchParams({ query: q, limit: "10" }).toString();
+    const resp = await fetch(url, { headers: { Authorization: "Bearer " + stripeKey } });
+    const json = (await resp.json()) as { data?: Array<{ id: string; created?: number }>; error?: { message?: string } };
+    if (resp.ok && json.data && json.data.length > 0) {
+      const sorted = [...json.data].sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+      return sorted[0].id;
+    }
+    if (!resp.ok) {
+      await logError("processConsultOutcome", json.error?.message || "Stripe PI metadata search failed", { appointmentId, leadId });
+    }
+  } catch { /* fall through */ }
+
+  // 3. Original path — look for the Stripe Checkout Session link we texted.
   const { data: smsRows } = await supabaseAdmin
     .from("sms_messages")
     .select("body")
@@ -138,14 +180,9 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
   const fromSession = typeof intent === "string" ? intent : intent?.id || null;
   if (fromSession) return fromSession;
 
-  // Final fallback: search Stripe directly by the lead's email/phone.
-  const { data: lead } = await supabaseAdmin
-    .from("meta_leads")
-    .select("email, phone")
-    .eq("id", leadId)
-    .maybeSingle();
-
-  return await searchStripeByContact(stripeKey, lead?.email ?? null, lead?.phone ?? null, appointmentId);
+  // Final fallback: search Stripe directly by the lead's email/phone
+  // (reuses the lead row we already fetched at the top of this function).
+  return await searchStripeByContact(stripeKey, leadRow?.email ?? null, leadRow?.phone ?? null, appointmentId);
 }
 
 // Marks a clinic appointment as "show" or "proceeded" and refunds the
