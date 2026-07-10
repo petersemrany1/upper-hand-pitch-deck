@@ -148,7 +148,23 @@ function PortalErrorCard({ message, onRetry }: { message: string; onRetry: () =>
   );
 }
 
-function AppointmentsEmptyState({ filtered }: { filtered: boolean }) {
+function AppointmentsEmptyState({ variant, tab }: { variant: "no-filter-match" | "empty-tab" | "empty-all"; tab: "upcoming" | "past" | "noshow" | "disqualified" }) {
+  const tabLabel =
+    tab === "upcoming" ? "upcoming appointments"
+    : tab === "past" ? "past appointments"
+    : tab === "noshow" ? "no-shows"
+    : "disqualified patients";
+  const title =
+    variant === "no-filter-match" ? "No matching appointments"
+    : variant === "empty-tab" ? `No ${tabLabel}`
+    : "No appointments yet";
+  const body =
+    variant === "no-filter-match" ? "Try clearing your filters or picking a different date range."
+    : variant === "empty-tab"
+      ? (tab === "upcoming"
+          ? "You're all caught up — nothing booked in yet. New bookings will appear here automatically."
+          : `Nothing in ${tabLabel} right now.`)
+      : "When patients are booked in, they'll appear here so you can manage them.";
   return (
     <div style={{ padding: "56px 32px", textAlign: "center" }}>
       <div style={{
@@ -157,14 +173,8 @@ function AppointmentsEmptyState({ filtered }: { filtered: boolean }) {
       }}>
         <CalendarClock size={30} color={NAVY} />
       </div>
-      <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>
-        {filtered ? "No matching appointments" : "No appointments yet"}
-      </div>
-      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 380, margin: "0 auto", lineHeight: 1.55 }}>
-        {filtered
-          ? "Try clearing your filters or picking a different date range."
-          : "When patients are booked in, they'll appear here so you can manage them."}
-      </div>
+      <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 6 }}>{title}</div>
+      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 380, margin: "0 auto", lineHeight: 1.55 }}>{body}</div>
     </div>
   );
 }
@@ -520,7 +530,16 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
         {sorted.length === 0 ? (
-          <AppointmentsEmptyState filtered={appts.length > 0} />
+          <AppointmentsEmptyState
+            tab={tab}
+            variant={
+              appts.length === 0
+                ? "empty-all"
+                : (query.trim() || fromDate || toDate)
+                  ? "no-filter-match"
+                  : "empty-tab"
+            }
+          />
         ) : (
           order.filter((b) => groups.has(b)).map((bucket) => {
             const rows = groups.get(bucket)!;
