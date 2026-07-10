@@ -310,6 +310,12 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           booked_at: string
+          chase_note: string | null
+          chase_requested_at: string | null
+          chase_requested_by: string | null
+          chase_result_at: string | null
+          chase_result_by: string | null
+          chase_status: string | null
           clinic_id: string
           consult_summary: string | null
           created_at: string
@@ -333,6 +339,12 @@ export type Database = {
           appointment_date: string
           appointment_time: string
           booked_at?: string
+          chase_note?: string | null
+          chase_requested_at?: string | null
+          chase_requested_by?: string | null
+          chase_result_at?: string | null
+          chase_result_by?: string | null
+          chase_status?: string | null
           clinic_id: string
           consult_summary?: string | null
           created_at?: string
@@ -356,6 +368,12 @@ export type Database = {
           appointment_date?: string
           appointment_time?: string
           booked_at?: string
+          chase_note?: string | null
+          chase_requested_at?: string | null
+          chase_requested_by?: string | null
+          chase_result_at?: string | null
+          chase_result_by?: string | null
+          chase_status?: string | null
           clinic_id?: string
           consult_summary?: string | null
           created_at?: string
