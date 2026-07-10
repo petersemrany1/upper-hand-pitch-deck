@@ -530,7 +530,16 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
 
       <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e6ec", overflow: "hidden" }}>
         {sorted.length === 0 ? (
-          <AppointmentsEmptyState filtered={appts.length > 0} />
+          <AppointmentsEmptyState
+            tab={tab}
+            variant={
+              appts.length === 0
+                ? "empty-all"
+                : (query.trim() || fromDate || toDate)
+                  ? "no-filter-match"
+                  : "empty-tab"
+            }
+          />
         ) : (
           order.filter((b) => groups.has(b)).map((bucket) => {
             const rows = groups.get(bucket)!;
