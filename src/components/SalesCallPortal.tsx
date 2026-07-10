@@ -1222,18 +1222,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setMissedCallQueue(restMissed);
               // Keep the session queue in sync if we're in one.
               if (sessionActive) {
-                const q = sessionQueue;
-                const existingIdx = q.indexOf(nextMissedId);
-                let newQueue = q;
-                let newIndex = sessionIndex + 1;
-                if (existingIdx === -1) {
-                  newQueue = [...q];
-                  newQueue.splice(newIndex, 0, nextMissedId);
-                } else {
-                  newIndex = existingIdx;
-                }
-                setSessionQueue(newQueue);
-                setSessionIndex(newIndex);
+                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                setSessionQueue(placement.queue);
+                setSessionIndex(placement.index);
               }
               setActiveId(nextMissedId);
               setStep("mindset");
@@ -1242,7 +1233,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               return;
             }
             if (sessionActive) {
-              const nextIndex = sessionIndex + 1;
+              const nextIndex = nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex);
               setSessionIndex(nextIndex);
               const nextId = sessionQueue[nextIndex];
               if (nextId) {
@@ -1299,18 +1290,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               const [nextMissedId, ...restMissed] = mcq;
               setMissedCallQueue(restMissed);
               if (sessionActive) {
-                const q = sessionQueue;
-                const existingIdx = q.indexOf(nextMissedId);
-                let newQueue = q;
-                let newIndex = sessionIndex + 1;
-                if (existingIdx === -1) {
-                  newQueue = [...q];
-                  newQueue.splice(newIndex, 0, nextMissedId);
-                } else {
-                  newIndex = existingIdx;
-                }
-                setSessionQueue(newQueue);
-                setSessionIndex(newIndex);
+                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                setSessionQueue(placement.queue);
+                setSessionIndex(placement.index);
               }
               setActiveId(nextMissedId);
               setStep("mindset");
@@ -1320,7 +1302,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
-              const nextIndex = sessionIndex + 1;
+              const nextIndex = nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex);
               setSessionIndex(nextIndex);
               const nextId = sessionQueue[nextIndex];
               if (nextId) {
