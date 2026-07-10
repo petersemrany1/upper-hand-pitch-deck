@@ -842,6 +842,83 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
 
 /* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
+function ChaseSection({ appt, onChange }: { appt: ClinicAppointment; onChange: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const status = appt.chase_status ?? null;
+
+  if (status) {
+    const c = CHASE_COLORS[status];
+    return (
+      <div style={{ marginTop: 14, background: c.bg, border: `1px solid ${c.fg}33`, borderRadius: 10, padding: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: c.fg, marginBottom: 4 }}>{CHASE_LABELS[status]}</div>
+        {appt.chase_note && (
+          <div style={{ fontSize: 12, color: "#111", whiteSpace: "pre-wrap", marginTop: 4 }}>“{appt.chase_note}”</div>
+        )}
+        {appt.chase_requested_at && (
+          <div style={{ fontSize: 10, color: "#6b7785", marginTop: 6 }}>
+            Requested {new Date(appt.chase_requested_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+            {appt.chase_result_at ? ` · resolved ${new Date(appt.chase_result_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const { requestChase } = await import("@/utils/chase.functions");
+      const r = await requestChase({ data: { appointmentId: appt.id, note: note.trim() || undefined } });
+      if (!r.success) { toast.error(r.error || "Failed"); return; }
+      if (!r.emailSent) toast.warning("Marked, but email notification failed");
+      else toast.success("GoBold has been asked to chase");
+      setExpanded(false);
+      setNote("");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      {!expanded ? (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{ ...navBtn, fontSize: 12, padding: "8px 12px", background: "#fff7ed", color: "#9a3412", borderColor: "#fcd9a8", width: "100%" }}
+        >
+          🔔 Ask Bold to chase
+        </button>
+      ) : (
+        <div style={{ background: "#fff7ed", border: "1px solid #fcd9a8", borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#9a3412", marginBottom: 8 }}>Ask GoBold to chase this patient</div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value.slice(0, 2000))}
+            placeholder="Anything we should know? (optional)"
+            rows={3}
+            style={{ width: "100%", padding: 8, fontSize: 13, border: "1px solid #d4dae3", borderRadius: 6, fontFamily: "inherit", resize: "vertical" }}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+            <button onClick={() => { setExpanded(false); setNote(""); }} disabled={saving} style={{ ...navBtn, fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              style={{ ...navBtn, fontSize: 12, padding: "6px 12px", background: "#9a3412", color: "#fff", borderColor: "#9a3412", opacity: saving ? 0.6 : 1 }}
+            >
+              {saving ? "Sending…" : "Send to GoBold"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
