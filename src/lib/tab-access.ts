@@ -12,7 +12,8 @@ export type TabKey =
   | "phone"
   | "pitch_deck"
   | "clinics"
-  | "sent_links";
+  | "sent_links"
+  | "chase_queue";
 
 export const ALL_TAB_KEYS: TabKey[] = [
   "dashboard",
@@ -27,6 +28,7 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "pitch_deck",
   "clinics",
   "sent_links",
+  "chase_queue",
 ];
 
 export const TAB_LABELS: Record<TabKey, string> = {
@@ -42,11 +44,12 @@ export const TAB_LABELS: Record<TabKey, string> = {
   pitch_deck: "Pitch Deck",
   clinics: "Clinics",
   sent_links: "Sent Links",
+  chase_queue: "Chase Queue",
 };
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "phone"] },
+  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "phone", "chase_queue"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links"] },
 ];
 
@@ -63,6 +66,7 @@ export const TAB_TO_URL: Record<TabKey, string> = {
   pitch_deck: "/pitch-deck",
   clinics: "/clinics",
   sent_links: "/sent-links",
+  chase_queue: "/chase-queue",
 };
 
 export type RoleKey = "admin" | "rep" | "caller";
