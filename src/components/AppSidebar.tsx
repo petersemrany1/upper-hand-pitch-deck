@@ -1,4 +1,4 @@
-import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor } from "lucide-react";
+import { Presentation, LayoutDashboard, Phone, Building2, LogOut, Settings as SettingsIcon, Send, Users, Headphones, Trophy, ChevronDown, Calendar, BarChart3, GraduationCap, BookOpen, UserSearch, PhoneCall, Brain, Monitor, Bell } from "lucide-react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import {
@@ -37,6 +37,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Leads", url: "/leads", icon: Users, tab: "leads" },
       { title: "Analytics", url: "/analytics", icon: BarChart3, tab: "analytics" },
       { title: "Phone", url: "/inbox", icon: Phone, tab: "phone" },
+      { title: "Chase Queue", url: "/chase-queue", icon: Bell, tab: "chase_queue" },
     ],
   },
   {

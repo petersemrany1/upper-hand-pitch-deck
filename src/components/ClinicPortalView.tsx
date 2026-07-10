@@ -9,6 +9,8 @@ import {
 } from "@/lib/slot-generation";
 import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
 
+export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
+
 export type ClinicAppointment = {
   id: string;
   clinic_id: string;
@@ -28,6 +30,26 @@ export type ClinicAppointment = {
   disqualified_reason?: string | null;
   disqualified_at?: string | null;
   disqualified_by?: string | null;
+  chase_status?: ChaseStatus | null;
+  chase_requested_at?: string | null;
+  chase_note?: string | null;
+  chase_result_at?: string | null;
+};
+
+export const CHASE_LABELS: Record<ChaseStatus, string> = {
+  requested: "GoBold following up",
+  rebooked: "GoBold: rebooked",
+  not_proceeding: "GoBold: not proceeding",
+  no_answer: "GoBold: no answer",
+  voicemail: "GoBold: voicemail left",
+};
+
+export const CHASE_COLORS: Record<ChaseStatus, { bg: string; fg: string }> = {
+  requested: { bg: "#fff7ed", fg: "#9a3412" },
+  rebooked: { bg: "#e8f5ef", fg: "#1a7a4a" },
+  not_proceeding: { bg: "#f4f4f5", fg: "#52525b" },
+  no_answer: { bg: "#fdf0f0", fg: "#b83232" },
+  voicemail: { bg: "#edf2f9", fg: "#2d5fa0" },
 };
 
 const NAVY = "#1a3a6b";
@@ -544,6 +566,11 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                         {a.refund_status === "failed" && (
                           <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
                         )}
+                        {a.chase_status && (
+                          <span style={{ background: CHASE_COLORS[a.chase_status].bg, color: CHASE_COLORS[a.chase_status].fg, padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
+                            {CHASE_LABELS[a.chase_status]}
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
@@ -815,6 +842,83 @@ function NotesTrail({ appointmentId, clinicId, isAdmin }: {
 
 /* ============== UNIFIED APPOINTMENT DETAIL MODAL ============== */
 
+function ChaseSection({ appt, onChange }: { appt: ClinicAppointment; onChange: () => void }) {
+  const [expanded, setExpanded] = useState(false);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const status = appt.chase_status ?? null;
+
+  if (status) {
+    const c = CHASE_COLORS[status];
+    return (
+      <div style={{ marginTop: 14, background: c.bg, border: `1px solid ${c.fg}33`, borderRadius: 10, padding: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: c.fg, marginBottom: 4 }}>{CHASE_LABELS[status]}</div>
+        {appt.chase_note && (
+          <div style={{ fontSize: 12, color: "#111", whiteSpace: "pre-wrap", marginTop: 4 }}>“{appt.chase_note}”</div>
+        )}
+        {appt.chase_requested_at && (
+          <div style={{ fontSize: 10, color: "#6b7785", marginTop: 6 }}>
+            Requested {new Date(appt.chase_requested_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+            {appt.chase_result_at ? ` · resolved ${new Date(appt.chase_result_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}` : ""}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const submit = async () => {
+    setSaving(true);
+    try {
+      const { requestChase } = await import("@/utils/chase.functions");
+      const r = await requestChase({ data: { appointmentId: appt.id, note: note.trim() || undefined } });
+      if (!r.success) { toast.error(r.error || "Failed"); return; }
+      if (!r.emailSent) toast.warning("Marked, but email notification failed");
+      else toast.success("GoBold has been asked to chase");
+      setExpanded(false);
+      setNote("");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 14 }}>
+      {!expanded ? (
+        <button
+          onClick={() => setExpanded(true)}
+          style={{ ...navBtn, fontSize: 12, padding: "8px 12px", background: "#fff7ed", color: "#9a3412", borderColor: "#fcd9a8", width: "100%" }}
+        >
+          🔔 Ask Bold to chase
+        </button>
+      ) : (
+        <div style={{ background: "#fff7ed", border: "1px solid #fcd9a8", borderRadius: 10, padding: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#9a3412", marginBottom: 8 }}>Ask GoBold to chase this patient</div>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value.slice(0, 2000))}
+            placeholder="Anything we should know? (optional)"
+            rows={3}
+            style={{ width: "100%", padding: 8, fontSize: 13, border: "1px solid #d4dae3", borderRadius: 6, fontFamily: "inherit", resize: "vertical" }}
+          />
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 10 }}>
+            <button onClick={() => { setExpanded(false); setNote(""); }} disabled={saving} style={{ ...navBtn, fontSize: 12, padding: "6px 12px" }}>Cancel</button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              style={{ ...navBtn, fontSize: 12, padding: "6px 12px", background: "#9a3412", color: "#fff", borderColor: "#9a3412", opacity: saving ? 0.6 : 1 }}
+            >
+              {saving ? "Sending…" : "Send to GoBold"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaultDeposit }: {
   appt: ClinicAppointment; isAdmin: boolean; onClose: () => void; onChange: () => void; clinicDefaultDeposit: number;
 }) {
@@ -940,6 +1044,8 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
       )}
 
       <NotesTrail appointmentId={appt.id} clinicId={appt.clinic_id} isAdmin={isAdmin} />
+
+      <ChaseSection appt={appt} onChange={onChange} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
       {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded" && appt.stripe_refund_id && (
