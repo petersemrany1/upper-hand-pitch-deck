@@ -135,6 +135,21 @@ function normalisePhoneDigits(phone: string | null | undefined) {
   return digits;
 }
 
+function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | undefined, fallbackIndex: number, leadId: string) {
+  const withoutLead = queue.filter((id) => id !== leadId);
+  let currentIdx = currentLeadId ? withoutLead.indexOf(currentLeadId) : -1;
+  if (currentIdx === -1) currentIdx = Math.min(Math.max(fallbackIndex, -1), withoutLead.length - 1);
+  const insertAt = Math.min(currentIdx + 1, withoutLead.length);
+  const nextQueue = [...withoutLead];
+  nextQueue.splice(insertAt, 0, leadId);
+  return { queue: nextQueue, index: insertAt };
+}
+
+function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
+  const activeIdx = activeLeadId ? queue.indexOf(activeLeadId) : -1;
+  return (activeIdx !== -1 ? activeIdx : fallbackIndex) + 1;
+}
+
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
@@ -681,20 +696,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
-      const queue = sessionQueueRef.current;
-      const idx = queue.indexOf(lead.id);
-      const cur = sessionIndexRef.current;
       if (sessionActiveRef.current) {
-        if (idx === -1) {
-          const next = [...queue];
-          next.splice(cur + 1, 0, lead.id);
-          setSessionQueue(next);
-        } else if (idx > cur + 1) {
-          const next = [...queue];
-          next.splice(idx, 1);
-          next.splice(cur + 1, 0, lead.id);
-          setSessionQueue(next);
-        }
+        const placement = placeLeadAfterCurrent(
+          sessionQueueRef.current,
+          activeIdRef.current,
+          sessionIndexRef.current,
+          lead.id,
+        );
+        setSessionQueue(placement.queue);
       }
       const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
       toast.success(`📞 ${name} called back — queued next`);
@@ -753,17 +762,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       // was before the deeplink. Without this, Next jumps back to the
       // original session order (e.g. top of today's list).
       if (sessionActiveRef.current) {
-        const queue = sessionQueueRef.current;
-        const existingIdx = queue.indexOf(found.id);
-        if (existingIdx !== -1) {
-          setSessionIndex(existingIdx);
-        } else {
-          const insertAt = sessionIndexRef.current + 1;
-          const next = [...queue];
-          next.splice(insertAt, 0, found.id);
-          setSessionQueue(next);
-          setSessionIndex(insertAt);
-        }
+        const placement = placeLeadAfterCurrent(
+          sessionQueueRef.current,
+          activeIdRef.current,
+          sessionIndexRef.current,
+          found.id,
+        );
+        setSessionQueue(placement.queue);
+        setSessionIndex(placement.index);
       }
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
@@ -1216,18 +1222,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setMissedCallQueue(restMissed);
               // Keep the session queue in sync if we're in one.
               if (sessionActive) {
-                const q = sessionQueue;
-                const existingIdx = q.indexOf(nextMissedId);
-                let newQueue = q;
-                let newIndex = sessionIndex + 1;
-                if (existingIdx === -1) {
-                  newQueue = [...q];
-                  newQueue.splice(newIndex, 0, nextMissedId);
-                } else {
-                  newIndex = existingIdx;
-                }
-                setSessionQueue(newQueue);
-                setSessionIndex(newIndex);
+                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                setSessionQueue(placement.queue);
+                setSessionIndex(placement.index);
               }
               setActiveId(nextMissedId);
               setStep("mindset");
@@ -1236,7 +1233,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               return;
             }
             if (sessionActive) {
-              const nextIndex = sessionIndex + 1;
+              const nextIndex = nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex);
               setSessionIndex(nextIndex);
               const nextId = sessionQueue[nextIndex];
               if (nextId) {
@@ -1293,18 +1290,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               const [nextMissedId, ...restMissed] = mcq;
               setMissedCallQueue(restMissed);
               if (sessionActive) {
-                const q = sessionQueue;
-                const existingIdx = q.indexOf(nextMissedId);
-                let newQueue = q;
-                let newIndex = sessionIndex + 1;
-                if (existingIdx === -1) {
-                  newQueue = [...q];
-                  newQueue.splice(newIndex, 0, nextMissedId);
-                } else {
-                  newIndex = existingIdx;
-                }
-                setSessionQueue(newQueue);
-                setSessionIndex(newIndex);
+                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                setSessionQueue(placement.queue);
+                setSessionIndex(placement.index);
               }
               setActiveId(nextMissedId);
               setStep("mindset");
@@ -1314,7 +1302,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
-              const nextIndex = sessionIndex + 1;
+              const nextIndex = nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex);
               setSessionIndex(nextIndex);
               const nextId = sessionQueue[nextIndex];
               if (nextId) {
