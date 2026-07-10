@@ -33,6 +33,7 @@ import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinic
 import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
 import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dashboard.clinic-contact-review'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
+import { Route as DashboardChaseQueueRouteImport } from './routes/_dashboard.chase-queue'
 import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
@@ -188,6 +189,11 @@ const DashboardClientsRoute = DashboardClientsRouteImport.update({
   path: '/clients',
   getParentRoute: () => DashboardRoute,
 } as any)
+const DashboardChaseQueueRoute = DashboardChaseQueueRouteImport.update({
+  id: '/chase-queue',
+  path: '/chase-queue',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardBookedAppointmentsRoute =
   DashboardBookedAppointmentsRouteImport.update({
     id: '/booked-appointments',
@@ -334,6 +340,7 @@ export interface FileRoutesByFullPath {
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
+  '/chase-queue': typeof DashboardChaseQueueRoute
   '/clients': typeof DashboardClientsRoute
   '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
@@ -381,6 +388,7 @@ export interface FileRoutesByTo {
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
+  '/chase-queue': typeof DashboardChaseQueueRoute
   '/clients': typeof DashboardClientsRoute
   '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
@@ -430,6 +438,7 @@ export interface FileRoutesById {
   '/thank-you': typeof ThankYouRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
+  '/_dashboard/chase-queue': typeof DashboardChaseQueueRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinic-contact-review': typeof DashboardClinicContactReviewRoute
   '/_dashboard/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
@@ -481,6 +490,7 @@ export interface FileRouteTypes {
     | '/thank-you'
     | '/analytics'
     | '/booked-appointments'
+    | '/chase-queue'
     | '/clients'
     | '/clinic-contact-review'
     | '/clinic-owner-review'
@@ -528,6 +538,7 @@ export interface FileRouteTypes {
     | '/thank-you'
     | '/analytics'
     | '/booked-appointments'
+    | '/chase-queue'
     | '/clients'
     | '/clinic-contact-review'
     | '/clinic-owner-review'
@@ -576,6 +587,7 @@ export interface FileRouteTypes {
     | '/thank-you'
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
+    | '/_dashboard/chase-queue'
     | '/_dashboard/clients'
     | '/_dashboard/clinic-contact-review'
     | '/_dashboard/clinic-owner-review'
@@ -808,6 +820,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardClientsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/chase-queue': {
+      id: '/_dashboard/chase-queue'
+      path: '/chase-queue'
+      fullPath: '/chase-queue'
+      preLoaderRoute: typeof DashboardChaseQueueRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/booked-appointments': {
       id: '/_dashboard/booked-appointments'
       path: '/booked-appointments'
@@ -1010,6 +1029,7 @@ const DashboardTrainingRouteWithChildren =
 interface DashboardRouteChildren {
   DashboardAnalyticsRoute: typeof DashboardAnalyticsRoute
   DashboardBookedAppointmentsRoute: typeof DashboardBookedAppointmentsRoute
+  DashboardChaseQueueRoute: typeof DashboardChaseQueueRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicContactReviewRoute: typeof DashboardClinicContactReviewRoute
   DashboardClinicOwnerReviewRoute: typeof DashboardClinicOwnerReviewRoute
@@ -1032,6 +1052,7 @@ interface DashboardRouteChildren {
 const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardAnalyticsRoute: DashboardAnalyticsRoute,
   DashboardBookedAppointmentsRoute: DashboardBookedAppointmentsRoute,
+  DashboardChaseQueueRoute: DashboardChaseQueueRoute,
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicContactReviewRoute: DashboardClinicContactReviewRoute,
   DashboardClinicOwnerReviewRoute: DashboardClinicOwnerReviewRoute,
