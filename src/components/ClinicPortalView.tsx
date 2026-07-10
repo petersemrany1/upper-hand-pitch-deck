@@ -9,6 +9,8 @@ import {
 } from "@/lib/slot-generation";
 import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
 
+export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
+
 export type ClinicAppointment = {
   id: string;
   clinic_id: string;
@@ -28,6 +30,26 @@ export type ClinicAppointment = {
   disqualified_reason?: string | null;
   disqualified_at?: string | null;
   disqualified_by?: string | null;
+  chase_status?: ChaseStatus | null;
+  chase_requested_at?: string | null;
+  chase_note?: string | null;
+  chase_result_at?: string | null;
+};
+
+export const CHASE_LABELS: Record<ChaseStatus, string> = {
+  requested: "GoBold following up",
+  rebooked: "GoBold: rebooked",
+  not_proceeding: "GoBold: not proceeding",
+  no_answer: "GoBold: no answer",
+  voicemail: "GoBold: voicemail left",
+};
+
+export const CHASE_COLORS: Record<ChaseStatus, { bg: string; fg: string }> = {
+  requested: { bg: "#fff7ed", fg: "#9a3412" },
+  rebooked: { bg: "#e8f5ef", fg: "#1a7a4a" },
+  not_proceeding: { bg: "#f4f4f5", fg: "#52525b" },
+  no_answer: { bg: "#fdf0f0", fg: "#b83232" },
+  voicemail: { bg: "#edf2f9", fg: "#2d5fa0" },
 };
 
 const NAVY = "#1a3a6b";
