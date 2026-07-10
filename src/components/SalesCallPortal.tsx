@@ -135,6 +135,21 @@ function normalisePhoneDigits(phone: string | null | undefined) {
   return digits;
 }
 
+function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | undefined, fallbackIndex: number, leadId: string) {
+  const withoutLead = queue.filter((id) => id !== leadId);
+  let currentIdx = currentLeadId ? withoutLead.indexOf(currentLeadId) : -1;
+  if (currentIdx === -1) currentIdx = Math.min(Math.max(fallbackIndex, -1), withoutLead.length - 1);
+  const insertAt = Math.min(currentIdx + 1, withoutLead.length);
+  const nextQueue = [...withoutLead];
+  nextQueue.splice(insertAt, 0, leadId);
+  return { queue: nextQueue, index: insertAt };
+}
+
+function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null | undefined, fallbackIndex: number) {
+  const activeIdx = activeLeadId ? queue.indexOf(activeLeadId) : -1;
+  return (activeIdx !== -1 ? activeIdx : fallbackIndex) + 1;
+}
+
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
