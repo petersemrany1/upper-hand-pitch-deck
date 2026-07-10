@@ -566,6 +566,11 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                         {a.refund_status === "failed" && (
                           <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
                         )}
+                        {a.chase_status && (
+                          <span style={{ background: CHASE_COLORS[a.chase_status].bg, color: CHASE_COLORS[a.chase_status].fg, padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>
+                            {CHASE_LABELS[a.chase_status]}
+                          </span>
+                        )}
                       </div>
                     </button>
                   );
