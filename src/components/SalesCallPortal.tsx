@@ -696,20 +696,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
-      const queue = sessionQueueRef.current;
-      const idx = queue.indexOf(lead.id);
-      const cur = sessionIndexRef.current;
       if (sessionActiveRef.current) {
-        if (idx === -1) {
-          const next = [...queue];
-          next.splice(cur + 1, 0, lead.id);
-          setSessionQueue(next);
-        } else if (idx > cur + 1) {
-          const next = [...queue];
-          next.splice(idx, 1);
-          next.splice(cur + 1, 0, lead.id);
-          setSessionQueue(next);
-        }
+        const placement = placeLeadAfterCurrent(
+          sessionQueueRef.current,
+          activeIdRef.current,
+          sessionIndexRef.current,
+          lead.id,
+        );
+        setSessionQueue(placement.queue);
       }
       const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
       toast.success(`📞 ${name} called back — queued next`);
@@ -768,17 +762,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       // was before the deeplink. Without this, Next jumps back to the
       // original session order (e.g. top of today's list).
       if (sessionActiveRef.current) {
-        const queue = sessionQueueRef.current;
-        const existingIdx = queue.indexOf(found.id);
-        if (existingIdx !== -1) {
-          setSessionIndex(existingIdx);
-        } else {
-          const insertAt = sessionIndexRef.current + 1;
-          const next = [...queue];
-          next.splice(insertAt, 0, found.id);
-          setSessionQueue(next);
-          setSessionIndex(insertAt);
-        }
+        const placement = placeLeadAfterCurrent(
+          sessionQueueRef.current,
+          activeIdRef.current,
+          sessionIndexRef.current,
+          found.id,
+        );
+        setSessionQueue(placement.queue);
+        setSessionIndex(placement.index);
       }
     }
     // Clear the param so a refresh doesn't re-trigger and so re-clicking the
