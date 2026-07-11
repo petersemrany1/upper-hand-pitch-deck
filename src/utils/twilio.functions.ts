@@ -1,6 +1,56 @@
 import { createServerFn } from "@tanstack/react-start";
+import { createClient } from "@supabase/supabase-js";
 import { logError } from "./error-logger.functions";
 import { getNextNumber } from "./phone-pool.functions";
+
+function getAdminClient() {
+  const url = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+    process.env.SUPABASE_PUBLISHABLE_KEY ??
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error("Supabase env not configured");
+  return createClient(url, key);
+}
+
+async function persistOutboundSms(params: {
+  to: string;
+  from: string;
+  body: string;
+  sid?: string;
+  status?: string;
+}) {
+  try {
+    const sb = getAdminClient();
+    const { data: existing } = await sb
+      .from("sms_threads")
+      .select("id")
+      .eq("phone", params.to)
+      .maybeSingle();
+    let threadId = existing?.id as string | undefined;
+    if (!threadId) {
+      const { data: created, error: cErr } = await sb
+        .from("sms_threads")
+        .insert({ phone: params.to })
+        .select("id")
+        .single();
+      if (cErr || !created) return;
+      threadId = created.id;
+    }
+    await sb.from("sms_messages").insert({
+      thread_id: threadId,
+      direction: "outbound",
+      body: params.body,
+      media_urls: [],
+      twilio_message_sid: params.sid ?? null,
+      status: params.status ?? "queued",
+      from_number: params.from,
+      to_number: params.to,
+    });
+  } catch (err) {
+    await logError("persistOutboundSms", err instanceof Error ? err.message : "persist failed", { to: params.to });
+  }
+}
 
 // Sends the Stripe payment-link SMS via Twilio. Credentials come from server
 // env vars only — never hard-coded.
