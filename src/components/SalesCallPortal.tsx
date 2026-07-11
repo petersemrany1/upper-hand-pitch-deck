@@ -4597,6 +4597,7 @@ const sameLocalDate = (a: Date, b: Date) =>
 
 function LeadChooser({
   leads,
+  pausedLocations = [],
   attemptCounts,
   attemptsByDay,
   firstCallByLead,
@@ -4604,12 +4605,18 @@ function LeadChooser({
   onPick,
 }: {
   leads: Lead[];
+  pausedLocations?: string[];
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
   firstCallByLead: Record<string, string>;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onPick: (id: string) => void;
 }) {
+  const isLeadLocationPaused = useCallback((l: Lead) => {
+    if (pausedLocations.length === 0) return false;
+    const a = (l.ad_set_name ?? "").toLowerCase();
+    return pausedLocations.some((loc) => a.includes(loc));
+  }, [pausedLocations]);
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
