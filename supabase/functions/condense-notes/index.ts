@@ -41,7 +41,49 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
 - Objections: Shopping around, price-sensitive — asked about using super
 
+Final quality check before you answer: the last bullet MUST be a complete sentence/thought. Never stop mid-phrase like "shopping around for a".
+
 Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling. Never name our rep — say "we" or "our team".`;
+
+function extractAiText(aiJson: unknown): string {
+  const choice = (aiJson as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0];
+  return typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
+}
+
+function getFinishReason(aiJson: unknown): string {
+  const choice = (aiJson as { choices?: Array<{ finish_reason?: unknown; finishReason?: unknown }> })?.choices?.[0];
+  return String(choice?.finish_reason ?? choice?.finishReason ?? "");
+}
+
+function looksTruncated(text: string): boolean {
+  const lines = text.trim().split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return true;
+  const last = lines[lines.length - 1].replace(/[\s.]+$/g, "").trim();
+  if (!last) return true;
+  if (/[,:;\-–—]$/.test(last)) return true;
+  if (/\b(?:a|an|the|for|to|with|from|about|around|as|of|in|on|at|and|or|but|because|which|that|who|his|her|their|our|your|another|other)$/i.test(last)) return true;
+  if (/\b(?:shopping around for a|looking for a|waiting for a|asked about a|concerned about a)$/i.test(last)) return true;
+  return false;
+}
+
+async function callIntelModel(LOVABLE_API_KEY: string, messages: Array<{ role: "system" | "user"; content: string }>) {
+  const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-pro",
+      temperature: 0.1,
+      max_tokens: 8192,
+      maxOutputTokens: 8192,
+      messages,
+    }),
+  });
+  if (!aiResp.ok) {
+    const t = await aiResp.text();
+    throw new Error(`AI gateway failed (${aiResp.status}): ${t.slice(0, 200)}`);
+  }
+  return await aiResp.json();
+}
 
 
 
