@@ -19,7 +19,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: <what they want done — procedure, area, Norwood stage, graft count if mentioned>
 - History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
 - Question for doctor: <the specific thing they want answered on the consult>
-- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. Quote numbers verbatim. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
+- Price discussed: <EVERY dollar figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. ALWAYS write dollar amounts in full numeric form with a $ sign: "$12,000" NOT "12 grand", "$8,000–$13,000" NOT "8k to 13k", "$750/month" NOT "750 a month". Convert any spoken shorthand ("12 grand", "8k", "twelve thousand") into "$12,000" style. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
 - Personal: <work, travel, motivation, deadline, self-consciousness, why now>
 - Objections / risks: <any hesitation, shopping around, timing concerns — only if raised>
 
@@ -37,7 +37,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: Norwood 2, wants to address receding hairline at temples plus some crown thinning
 - History: On TRT since age 27; dad started receding at 35, now bald at 62
 - Question for doctor: Will TRT affect graft survival or accelerate further loss?
-- Price discussed: Has a competing quote of $10k for ~3,500 grafts from a South Yarra clinic; we quoted $8k–$13k depending on density, plus a payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
+- Price discussed: Has a competing quote of $10,000 for ~3,500 grafts from a South Yarra clinic; we quoted $8,000–$13,000 depending on density, plus a payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
 - Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
 - Objections: Shopping around, price-sensitive — asked about using super
 
@@ -229,6 +229,14 @@ serve(async (req) => {
     } catch (e) {
       console.warn("rep-name scrub failed", e);
     }
+
+    // Normalize spoken money shorthand to full dollar amounts.
+    // "12 grand" / "12k" / "12K" -> "$12,000"; "$12k" -> "$12,000"; "$1.5k" -> "$1,500"
+    const formatDollars = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+    finalText = finalText.replace(/\$?\b(\d+(?:\.\d+)?)\s*(?:k|K|grand)\b/g, (_m, num) => formatDollars(parseFloat(num) * 1000));
+    // Bare "twelve thousand" style — leave alone; the "\d+ thousand" case:
+    finalText = finalText.replace(/\$?\b(\d+(?:\.\d+)?)\s*thousand\b/gi, (_m, num) => formatDollars(parseFloat(num) * 1000));
+
 
     if (looksTruncated(finalText)) {
       throw new Error("Patient intel still looks incomplete after cleanup; keeping existing notes.");
