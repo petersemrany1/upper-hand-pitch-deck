@@ -28,7 +28,7 @@ function escapeXml(s: string): string {
 function voicemailTwiml(statusCallbackUrl: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="alice">Sorry, Peter is unavailable right now. Please leave a message after the tone.</Say>
+  <Say voice="alice">Sorry, we can't take your call right now. Please leave a message after the tone and we'll get back to you.</Say>
   <Record maxLength="120" playBeep="true" trim="trim-silence" recordingStatusCallback="${statusCallbackUrl}" recordingStatusCallbackMethod="POST" />
   <Hangup/>
 </Response>`;
