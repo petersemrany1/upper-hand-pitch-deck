@@ -954,7 +954,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     });
 
     return [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining].map((l) => l.id);
-  }, [leads, attemptsByDay]);
+  }, [leads, attemptsByDay, isLeadLocationPaused]);
 
 
 
