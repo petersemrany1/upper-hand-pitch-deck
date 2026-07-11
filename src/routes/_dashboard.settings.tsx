@@ -102,6 +102,7 @@ function SettingsPage() {
           <AccountSection user={user} />
           <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
+          {isAdmin && <PausedLocationsSection />}
           {isAdmin && <BackfillSection />}
           {isAdmin && <RepBookingsSection />}
           <PracticeRecordingsSection />
