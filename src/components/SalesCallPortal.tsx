@@ -196,6 +196,36 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // to land in.
   const { activeLeadId: liveCallLeadId } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Locations (from ad_set_name) that the admin has paused. Leads matching
+  // any of these are hidden from the pipeline, session queue, and callback
+  // panel. Managed in Settings → "Paused lead locations". Value stored in
+  // app_settings key "paused_lead_locations" as a JSON array of lowercase
+  // strings, e.g. ["sydney"].
+  const [pausedLocations, setPausedLocations] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "paused_lead_locations")
+        .maybeSingle();
+      if (cancelled) return;
+      const raw = (data?.value ?? []) as unknown;
+      const arr = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+      setPausedLocations(arr.map((s) => s.toLowerCase()));
+    };
+    void load();
+    const ch = supabase.channel("paused-locations")
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.paused_lead_locations" }, () => void load())
+      .subscribe();
+    return () => { cancelled = true; void supabase.removeChannel(ch); };
+  }, []);
+  const isLeadLocationPaused = useCallback((l: Lead) => {
+    if (pausedLocations.length === 0) return false;
+    const a = (l.ad_set_name ?? "").toLowerCase();
+    return pausedLocations.some((loc) => a.includes(loc));
+  }, [pausedLocations]);
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
