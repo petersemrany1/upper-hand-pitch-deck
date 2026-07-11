@@ -1183,6 +1183,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
       try {
         const admin = getAdminClient();
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
+        if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
           thread_id: threadId,
           lead_id: data.leadId,
@@ -1420,6 +1421,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       try {
         const admin = getAdminClient();
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
+        if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
           thread_id: threadId,
           lead_id: data.leadId,
