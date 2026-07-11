@@ -127,25 +127,27 @@ serve(async (req) => {
       }
     }
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        max_tokens: 4000,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userBlocks.join("\n\n") },
-        ],
-      }),
-    });
-    if (!aiResp.ok) {
-      const t = await aiResp.text();
-      throw new Error(`AI gateway failed (${aiResp.status}): ${t.slice(0, 200)}`);
+    const sourceText = userBlocks.join("\n\n");
+    let aiJson = await callIntelModel(LOVABLE_API_KEY, [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: sourceText },
+    ]);
+    let condensed = extractAiText(aiJson);
+    let finishReason = getFinishReason(aiJson);
+
+    if (/length|max_tokens|max_output_tokens/i.test(finishReason) || looksTruncated(condensed)) {
+      console.warn("condense-notes: retrying incomplete AI output", { finishReason, length: condensed.length, tail: condensed.slice(-120) });
+      aiJson = await callIntelModel(LOVABLE_API_KEY, [
+        { role: "system", content: `${SYSTEM_PROMPT}\n\nREPAIR MODE: The previous draft was incomplete. Return the full bullet list again from scratch. Do not continue mid-sentence. Make every bullet complete, especially Objections / risks.` },
+        { role: "user", content: `${sourceText}\n\nINCOMPLETE_DRAFT_TO_REPAIR:\n${condensed}` },
+      ]);
+      condensed = extractAiText(aiJson);
+      finishReason = getFinishReason(aiJson);
     }
-    const aiJson = await aiResp.json();
-    const condensed: string = (aiJson?.choices?.[0]?.message?.content || "").trim();
     if (!condensed) throw new Error("Empty AI response");
+    if (/length|max_tokens|max_output_tokens/i.test(finishReason) || looksTruncated(condensed)) {
+      throw new Error("AI returned incomplete patient intel; keeping existing notes so the clinic does not receive a cut-off handover.");
+    }
 
     // Reject AI refusals / non-answers — never overwrite real notes with junk like
     // "I can't process this transcript" or "Please provide a transcript".
