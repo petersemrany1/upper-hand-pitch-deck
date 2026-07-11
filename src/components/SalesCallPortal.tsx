@@ -4091,7 +4091,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                             status: leadFacts?.status || null,
                           };
 
-                          const patientFirstName = (lead.first_name || "").trim() || (lead.name || "").trim().split(" ")[0] || "";
+                          const patientFirstName = (lead.first_name || "").trim() || "";
                           const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
                             body: { leadId: lead.id, notes: notesBlock, dealFacts, patientFirstName },
                           });
