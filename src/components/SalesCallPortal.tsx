@@ -4675,6 +4675,8 @@ function LeadChooser({
       // Hide closed-out leads (not interested / had convo no sale) from the main pipeline.
       const ns = normaliseStatus(l.status, l);
       if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
+      // Hide leads from admin-paused locations (Settings → Paused lead locations).
+      if (isLeadLocationPaused(l)) return false;
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
       return (
@@ -4686,7 +4688,7 @@ function LeadChooser({
     return [...list].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [leads, q]);
+  }, [leads, q, isLeadLocationPaused]);
 
   // Bucketing helpers
   const callbackOn = (l: Lead, when: Date) => {
