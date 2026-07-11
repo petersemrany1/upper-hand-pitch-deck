@@ -19,7 +19,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: <what they want done — procedure, area, Norwood stage, graft count if mentioned>
 - History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
 - Question for doctor: <the specific thing they want answered on the consult>
-- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. Quote numbers verbatim. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
+- Price discussed: <EVERY dollar figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. ALWAYS write dollar amounts in full numeric form with a $ sign: "$12,000" NOT "12 grand", "$8,000–$13,000" NOT "8k to 13k", "$750/month" NOT "750 a month". Convert any spoken shorthand ("12 grand", "8k", "twelve thousand") into "$12,000" style. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
 - Personal: <work, travel, motivation, deadline, self-consciousness, why now>
 - Objections / risks: <any hesitation, shopping around, timing concerns — only if raised>
 
