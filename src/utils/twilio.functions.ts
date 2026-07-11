@@ -108,6 +108,13 @@ export const sendPaymentLinkSMS = createServerFn({ method: "POST" })
       });
       return { success: false as const, error: result.message || "Failed to send SMS" };
     }
+    await persistOutboundSms({
+      to: formattedPhone,
+      from,
+      body: message,
+      sid: result.sid,
+      status: result.status,
+    });
 
     return { success: true as const, sid: result.sid };
   });
