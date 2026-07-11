@@ -908,12 +908,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
 
     const eligible = leads.filter((l) => {
+      if (isLeadLocationPaused(l)) return false;
       const s = normaliseStatus(l.status, l);
       if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       return true;
     });
+
 
     const overdue: Lead[] = [];
     const cbToday: Lead[] = [];
