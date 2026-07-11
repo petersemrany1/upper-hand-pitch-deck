@@ -102,6 +102,7 @@ function SettingsPage() {
           <AccountSection user={user} />
           <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
+          {isAdmin && <PausedLocationsSection />}
           {isAdmin && <BackfillSection />}
           {isAdmin && <RepBookingsSection />}
           <PracticeRecordingsSection />
@@ -834,3 +835,93 @@ function BackfillSection() {
   );
 }
 
+
+const LOCATION_OPTIONS = ["Sydney", "Melbourne", "Byron"] as const;
+
+function PausedLocationsSection() {
+  const [selected, setSelected] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "paused_lead_locations")
+        .maybeSingle();
+      const raw = (data?.value ?? []) as unknown;
+      const arr = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+      setSelected(arr.map((s) => s.toLowerCase()));
+      setLoading(false);
+    })();
+  }, []);
+
+  const toggle = (loc: string) => {
+    const key = loc.toLowerCase();
+    setSelected((prev) => prev.includes(key) ? prev.filter((x) => x !== key) : [...prev, key]);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "paused_lead_locations", value: selected }, { onConflict: "key" });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(selected.length === 0 ? "All locations active" : `Paused: ${selected.join(", ")}`);
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
+      <div className="flex items-center gap-3 mb-5">
+        <Pause className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Paused lead locations</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Hide leads from these cities in the Sales Call queue while a clinic is on a break. Untick to resume.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
+      ) : (
+        <div className="space-y-3">
+          {LOCATION_OPTIONS.map((loc) => {
+            const key = loc.toLowerCase();
+            const on = selected.includes(key);
+            return (
+              <label key={loc} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={on}
+                  onChange={() => toggle(loc)}
+                  className="w-4 h-4"
+                />
+                <span className="text-sm font-medium text-foreground">
+                  Pause {loc} leads
+                </span>
+                {on && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
+                    Hidden from Sales Call
+                  </span>
+                )}
+              </label>
+            );
+          })}
+          <div className="pt-2">
+            <button
+              onClick={() => void save()}
+              disabled={saving}
+              className="px-4 py-2 rounded-md text-sm font-bold disabled:opacity-50"
+              style={{ background: "#f4522d", color: "#fff" }}
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}

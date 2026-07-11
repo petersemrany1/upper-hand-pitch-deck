@@ -196,6 +196,36 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // to land in.
   const { activeLeadId: liveCallLeadId } = useTwilioDevice();
   const [leads, setLeads] = useState<Lead[]>([]);
+  // Locations (from ad_set_name) that the admin has paused. Leads matching
+  // any of these are hidden from the pipeline, session queue, and callback
+  // panel. Managed in Settings → "Paused lead locations". Value stored in
+  // app_settings key "paused_lead_locations" as a JSON array of lowercase
+  // strings, e.g. ["sydney"].
+  const [pausedLocations, setPausedLocations] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "paused_lead_locations")
+        .maybeSingle();
+      if (cancelled) return;
+      const raw = (data?.value ?? []) as unknown;
+      const arr = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
+      setPausedLocations(arr.map((s) => s.toLowerCase()));
+    };
+    void load();
+    const ch = supabase.channel("paused-locations")
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.paused_lead_locations" }, () => void load())
+      .subscribe();
+    return () => { cancelled = true; void supabase.removeChannel(ch); };
+  }, []);
+  const isLeadLocationPaused = useCallback((l: Lead) => {
+    if (pausedLocations.length === 0) return false;
+    const a = (l.ad_set_name ?? "").toLowerCase();
+    return pausedLocations.some((loc) => a.includes(loc));
+  }, [pausedLocations]);
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
@@ -824,6 +854,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const end = new Date(start); end.setDate(end.getDate() + 1);
     const list = leads.filter((l) => {
       if (!l.callback_scheduled_at) return false;
+      if (isLeadLocationPaused(l)) return false;
       const s = normaliseStatus(l.status, l);
       if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
@@ -834,7 +865,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return list.sort((a, b) =>
       new Date(a.callback_scheduled_at!).getTime() - new Date(b.callback_scheduled_at!).getTime()
     );
-  }, [leads]);
+  }, [leads, isLeadLocationPaused]);
 
   // Build the ordered session queue.
   // Order: new (most recent first) → overdue callbacks → callbacks today
@@ -877,12 +908,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
 
     const eligible = leads.filter((l) => {
+      if (isLeadLocationPaused(l)) return false;
       const s = normaliseStatus(l.status, l);
       if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       return true;
     });
+
 
     const overdue: Lead[] = [];
     const cbToday: Lead[] = [];
@@ -921,7 +954,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     });
 
     return [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining].map((l) => l.id);
-  }, [leads, attemptsByDay]);
+  }, [leads, attemptsByDay, isLeadLocationPaused]);
 
 
 
@@ -992,6 +1025,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               <LeadChooser
                 leads={leads}
+                pausedLocations={pausedLocations}
                 attemptCounts={attemptCounts}
                 attemptsByDay={attemptsByDay}
                 firstCallByLead={firstCallByLead}
@@ -4563,6 +4597,7 @@ const sameLocalDate = (a: Date, b: Date) =>
 
 function LeadChooser({
   leads,
+  pausedLocations = [],
   attemptCounts,
   attemptsByDay,
   firstCallByLead,
@@ -4570,12 +4605,18 @@ function LeadChooser({
   onPick,
 }: {
   leads: Lead[];
+  pausedLocations?: string[];
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
   firstCallByLead: Record<string, string>;
   onLocalLeadUpdate?: (id: string, patch: Partial<Lead>) => void;
   onPick: (id: string) => void;
 }) {
+  const isLeadLocationPaused = useCallback((l: Lead) => {
+    if (pausedLocations.length === 0) return false;
+    const a = (l.ad_set_name ?? "").toLowerCase();
+    return pausedLocations.some((loc) => a.includes(loc));
+  }, [pausedLocations]);
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -4642,6 +4683,8 @@ function LeadChooser({
       // Hide closed-out leads (not interested / had convo no sale) from the main pipeline.
       const ns = normaliseStatus(l.status, l);
       if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
+      // Hide leads from admin-paused locations (Settings → Paused lead locations).
+      if (isLeadLocationPaused(l)) return false;
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
       return (
@@ -4653,7 +4696,7 @@ function LeadChooser({
     return [...list].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [leads, q]);
+  }, [leads, q, isLeadLocationPaused]);
 
   // Bucketing helpers
   const callbackOn = (l: Lead, when: Date) => {
