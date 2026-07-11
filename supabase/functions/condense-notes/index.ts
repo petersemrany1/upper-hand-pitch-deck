@@ -19,7 +19,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: <what they want done — procedure, area, Norwood stage, graft count if mentioned>
 - History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
 - Question for doctor: <the specific thing they want answered on the consult>
-- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what Peter (our rep) quoted them, objections about cost. Quote the numbers verbatim.>
+- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. Quote numbers verbatim. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
 - Personal: <work, travel, motivation, deadline, self-consciousness, why now>
 - Objections / risks: <any hesitation, shopping around, timing concerns — only if raised>
 
