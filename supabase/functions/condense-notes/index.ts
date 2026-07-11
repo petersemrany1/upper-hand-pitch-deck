@@ -124,10 +124,40 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    await supabase.from("meta_leads").update({ call_notes: condensed, updated_at: new Date().toISOString() }).eq("id", leadId);
+    // Post-process: force the CRM first-name spelling. The transcript often has
+    // homophone misspellings (Marc→Mark, Aleks→Alex, Sean→Shawn) that the model
+    // parrots even when told not to. Do a case-insensitive whole-word swap.
+    let finalText = condensed;
+    if (cleanName) {
+      // Build a set of likely transcript variants of the CRM name and rewrite
+      // any of them back to the CRM spelling as a whole word.
+      const variants = new Set<string>([cleanName]);
+      const lower = cleanName.toLowerCase();
+      const homophones: Record<string, string[]> = {
+        marc: ["mark"],
+        mark: ["marc"],
+        aleks: ["alex"],
+        alex: ["aleks"],
+        sean: ["shawn", "shaun"],
+        shawn: ["sean", "shaun"],
+        shaun: ["sean", "shawn"],
+        stephen: ["steven"],
+        steven: ["stephen"],
+        eric: ["erik"],
+        erik: ["eric"],
+      };
+      for (const v of homophones[lower] ?? []) variants.add(v);
+      for (const v of variants) {
+        if (v.toLowerCase() === cleanName.toLowerCase()) continue;
+        const re = new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+        finalText = finalText.replace(re, cleanName);
+      }
+    }
 
-    return new Response(JSON.stringify({ ok: true, condensed }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
+
+    return new Response(JSON.stringify({ ok: true, condensed: finalText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
