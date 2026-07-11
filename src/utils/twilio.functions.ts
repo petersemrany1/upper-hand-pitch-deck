@@ -22,10 +22,11 @@ async function persistOutboundSms(params: {
 }) {
   try {
     const sb = getAdminClient();
+    const normalizedPhone = params.to.replace(/\D/g, "");
     const { data: existing } = await sb
       .from("sms_threads")
       .select("id")
-      .eq("phone", params.to)
+      .eq("phone_normalized", normalizedPhone)
       .maybeSingle();
     let threadId = existing?.id as string | undefined;
     if (!threadId) {
@@ -37,6 +38,7 @@ async function persistOutboundSms(params: {
       if (cErr || !created) return;
       threadId = created.id;
     }
+    if (!threadId) throw new Error("Could not create or find SMS thread");
     await sb.from("sms_messages").insert({
       thread_id: threadId,
       direction: "outbound",
