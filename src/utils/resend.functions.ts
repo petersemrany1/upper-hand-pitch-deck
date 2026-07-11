@@ -1416,7 +1416,9 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       // Log to sms_messages so it shows up in history
       try {
         const admin = getAdminClient();
+        const threadId = await ensureSmsThread(admin, formatted, data.leadId);
         await admin.from("sms_messages").insert({
+          thread_id: threadId,
           lead_id: data.leadId,
           phone: formatted,
           direction: "outbound",
