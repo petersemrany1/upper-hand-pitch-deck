@@ -8,36 +8,41 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `You write PATIENT INTEL BULLETS for the clinic consultant about to see this patient. The consultant already has a "Key Facts" table below the intel showing booking date/time, doctor, deposit, funding method and finance status — so DO NOT repeat any of that. Your job is the patient story only.
+const SYSTEM_PROMPT = `You are writing PATIENT INTEL BULLETS for a hair-transplant clinic consultant. This is a strict, structured format — NOT a summary essay.
 
-INPUT: One or more call transcripts/summaries with this lead (chronological), structured deal facts (for context only), and PATIENT_FIRST_NAME (the correct spelling from the CRM).
+## OUTPUT FORMAT (NON-NEGOTIABLE)
 
-OUTPUT FORMAT — STRICT:
+Return ONLY a bullet list. Each bullet starts with "- " on its own line. NO paragraphs. NO headings. NO preamble. NO closing sentence. If you write a paragraph you have failed the task.
 
-Return 4–7 short bullet points, each starting with "- " on its own line. No paragraphs, no headings, no preamble, no sign-off. Cover ONLY these categories, in this order, and only include a bullet if the calls actually contain that info:
+Use these labelled bullets in this order (omit a bullet only if the calls have literally nothing on that topic):
 
-- Goal — what they want done (procedure, area, Norwood stage, density goal)
-- History / medical — previous transplants, meds (finasteride, minoxidil, TRT, etc.), family history, anything the doctor needs to know
-- Key concern or question for the doctor — the one thing they specifically want answered on the consult
-- Price discussed — EVERY dollar figure, quote, competitor quote, payment-plan number, per-graft price, or objection about cost that came up on the call. If Peter quoted them a price, INCLUDE THAT PRICE. This bullet is mandatory whenever any $ figure was mentioned on the call.
-- Personal context — work, travel, timing, motivation, deadline (only if relevant)
+- Goal: <what they want done — procedure, area, Norwood stage, graft count if mentioned>
+- History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
+- Question for doctor: <the specific thing they want answered on the consult>
+- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what Peter (our rep) quoted them, objections about cost. Quote the numbers verbatim.>
+- Personal: <work, travel, motivation, deadline, self-consciousness, why now>
+- Objections / risks: <any hesitation, shopping around, timing concerns — only if raised>
 
-CRITICAL RULES:
-- Use PATIENT_FIRST_NAME exactly as supplied. Do NOT re-spell the name from the transcript (e.g. if PATIENT_FIRST_NAME is "Marc", never write "Mark").
-- DO NOT include a bullet about booking date, doctor, clinic location, deposit status, funding method, or finance eligibility. Those live in the Key Facts table.
-- NEVER invent facts — only use what's in the call summaries. If a category has no info, omit that bullet entirely.
-- Scan the transcripts hard for MONEY talk — any number followed by "k", "grand", "dollars", "$", "per month", "per graft", "quote", "deposit", "package" — and put it in the Price bullet verbatim. Missing price info is the #1 failure mode.
-- IGNORE calls that were voicemail, no answer, hangup, or had no useful intel.
-- Third person. Tight, scannable, no filler words like "keen to finalise a path forward".
-- Each bullet one sentence max. Be specific with names, places, $ amounts.
+## HARD RULES
 
-EXAMPLE OUTPUT (illustrative — use the real facts from the calls):
+1. NAME: Use PATIENT_FIRST_NAME exactly as supplied in the input. The transcript may have misspelled it (e.g. Marc → Mark, Aleks → Alex). ALWAYS use the CRM spelling. Never re-spell from audio.
+2. DO NOT repeat booking date, appointment time, doctor name, clinic name, deposit status, funding tag, or finance eligibility. Those are already displayed to the clinic in a separate Key Facts table below your bullets — repeating them is duplicated noise.
+3. PRICE IS MANDATORY when any dollar figure appears in the transcripts. Scan for: "$", "k" after a number, "grand", "per week", "per month", "per graft", "quote", "quoted", "package", "$X/week", "$X/month". If Peter quoted a range (e.g. "$8k–$13k" or "$30–$60 per week"), include it exactly. Missing price info is the #1 failure — treat it as critical.
+4. NEVER invent facts. Use only what's in the call summaries.
+5. Third person. One sentence per bullet, max. Tight and specific. No filler ("keen to finalise a path forward", "ready for his consultation", "excited to proceed" — all banned).
+6. IGNORE voicemail/no-answer/hangup calls entirely.
 
-- Goal: Norwood 3, wants density restored to hairline and temples, ~2,500 grafts
-- History: On finasteride 2 years, also on TRT — wants to know if TRT affects graft survival
-- Question for doctor: Will TRT impact transplant longevity?
-- Price discussed: Quoted $10k for 3,500 grafts by a South Yarra clinic, said their $750/month plan felt too high; Peter quoted him $8,500 all-in
-- Personal: Dad started receding at 35, wants to act early; travels for work so needs a Friday appointment`;
+## EXAMPLE (illustrative — use the ACTUAL facts from the input calls, not these)
+
+- Goal: Norwood 2, wants to address receding hairline at temples plus some crown thinning
+- History: On TRT since age 27; dad started receding at 35, now bald at 62
+- Question for doctor: Will TRT affect graft survival or accelerate further loss?
+- Price discussed: Has a competing quote of $10k for ~3,500 grafts from a South Yarra clinic; Peter quoted him $8k–$13k depending on density, plus payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
+- Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
+- Objections: Shopping around, price-sensitive — asked about using super
+
+Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling.`;
+
 
 
 serve(async (req) => {
@@ -119,10 +124,40 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    await supabase.from("meta_leads").update({ call_notes: condensed, updated_at: new Date().toISOString() }).eq("id", leadId);
+    // Post-process: force the CRM first-name spelling. The transcript often has
+    // homophone misspellings (Marc→Mark, Aleks→Alex, Sean→Shawn) that the model
+    // parrots even when told not to. Do a case-insensitive whole-word swap.
+    let finalText = condensed;
+    if (cleanName) {
+      // Build a set of likely transcript variants of the CRM name and rewrite
+      // any of them back to the CRM spelling as a whole word.
+      const variants = new Set<string>([cleanName]);
+      const lower = cleanName.toLowerCase();
+      const homophones: Record<string, string[]> = {
+        marc: ["mark"],
+        mark: ["marc"],
+        aleks: ["alex"],
+        alex: ["aleks"],
+        sean: ["shawn", "shaun"],
+        shawn: ["sean", "shaun"],
+        shaun: ["sean", "shawn"],
+        stephen: ["steven"],
+        steven: ["stephen"],
+        eric: ["erik"],
+        erik: ["eric"],
+      };
+      for (const v of homophones[lower] ?? []) variants.add(v);
+      for (const v of variants) {
+        if (v.toLowerCase() === cleanName.toLowerCase()) continue;
+        const re = new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
+        finalText = finalText.replace(re, cleanName);
+      }
+    }
 
-    return new Response(JSON.stringify({ ok: true, condensed }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
+
+    return new Response(JSON.stringify({ ok: true, condensed: finalText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
