@@ -154,6 +154,38 @@ serve(async (req) => {
       }
     }
 
+    // Scrub internal rep first names — the clinic never needs to know which of
+    // our team spoke to the patient. Rewrite "<Rep> quoted/said/mentioned/…"
+    // patterns to "we <verb>". Fetch the current rep roster from sales_reps.
+    try {
+      const scrubClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: reps } = await scrubClient.from("sales_reps").select("name,email");
+      const repFirstNames = new Set<string>();
+      for (const r of reps ?? []) {
+        const n = String((r as { name?: string }).name ?? "").trim().split(/\s+/)[0];
+        if (n && n.length >= 2 && n.toLowerCase() !== cleanName.toLowerCase()) {
+          repFirstNames.add(n);
+        }
+      }
+      // Also strip common hardcoded rep names as a safety net.
+      for (const n of ["Peter", "Jason"]) {
+        if (n.toLowerCase() !== cleanName.toLowerCase()) repFirstNames.add(n);
+      }
+      const verbs = "(quoted|said|mentioned|explained|told|offered|proposed|suggested|noted|advised|walked|showed|gave|discussed|floated)";
+      for (const name of repFirstNames) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // "Peter quoted him" → "we quoted him"; "Peter's" → "our"
+        finalText = finalText.replace(new RegExp(`\\b${escaped}\\s+${verbs}\\b`, "gi"), "we $1");
+        finalText = finalText.replace(new RegExp(`\\b${escaped}'s\\b`, "gi"), "our");
+        // Standalone mentions like "with Peter" → "with our team"
+        finalText = finalText.replace(new RegExp(`\\bwith\\s+${escaped}\\b`, "gi"), "with our team");
+        // Any remaining bare "Peter" → "we"
+        finalText = finalText.replace(new RegExp(`\\b${escaped}\\b`, "g"), "we");
+      }
+    } catch (e) {
+      console.warn("rep-name scrub failed", e);
+    }
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
 
