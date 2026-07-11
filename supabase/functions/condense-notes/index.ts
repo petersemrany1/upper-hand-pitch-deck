@@ -19,7 +19,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: <what they want done — procedure, area, Norwood stage, graft count if mentioned>
 - History: <previous transplants, meds like finasteride/minoxidil/TRT, family history, health notes>
 - Question for doctor: <the specific thing they want answered on the consult>
-- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what Peter (our rep) quoted them, objections about cost. Quote the numbers verbatim.>
+- Price discussed: <EVERY $ figure that came up — competitor quotes, per-graft prices, per-week/per-month payment plan numbers, what our team quoted them, objections about cost. Quote numbers verbatim. Refer to our side as "we" or "our team" — NEVER name the rep (no "Peter", no "Jason", no rep first names).>
 - Personal: <work, travel, motivation, deadline, self-consciousness, why now>
 - Objections / risks: <any hesitation, shopping around, timing concerns — only if raised>
 
@@ -37,11 +37,11 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: Norwood 2, wants to address receding hairline at temples plus some crown thinning
 - History: On TRT since age 27; dad started receding at 35, now bald at 62
 - Question for doctor: Will TRT affect graft survival or accelerate further loss?
-- Price discussed: Has a competing quote of $10k for ~3,500 grafts from a South Yarra clinic; Peter quoted him $8k–$13k depending on density, plus payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
+- Price discussed: Has a competing quote of $10k for ~3,500 grafts from a South Yarra clinic; we quoted $8k–$13k depending on density, plus a payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
 - Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
 - Objections: Shopping around, price-sensitive — asked about using super
 
-Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling.`;
+Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling. Never name our rep — say "we" or "our team".`;
 
 
 
@@ -90,7 +90,7 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
-        max_tokens: 2000,
+        max_tokens: 4000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userBlocks.join("\n\n") },
@@ -152,6 +152,38 @@ serve(async (req) => {
         const re = new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi");
         finalText = finalText.replace(re, cleanName);
       }
+    }
+
+    // Scrub internal rep first names — the clinic never needs to know which of
+    // our team spoke to the patient. Rewrite "<Rep> quoted/said/mentioned/…"
+    // patterns to "we <verb>". Fetch the current rep roster from sales_reps.
+    try {
+      const scrubClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const { data: reps } = await scrubClient.from("sales_reps").select("name,email");
+      const repFirstNames = new Set<string>();
+      for (const r of reps ?? []) {
+        const n = String((r as { name?: string }).name ?? "").trim().split(/\s+/)[0];
+        if (n && n.length >= 2 && n.toLowerCase() !== cleanName.toLowerCase()) {
+          repFirstNames.add(n);
+        }
+      }
+      // Also strip common hardcoded rep names as a safety net.
+      for (const n of ["Peter", "Jason"]) {
+        if (n.toLowerCase() !== cleanName.toLowerCase()) repFirstNames.add(n);
+      }
+      const verbs = "(quoted|said|mentioned|explained|told|offered|proposed|suggested|noted|advised|walked|showed|gave|discussed|floated)";
+      for (const name of repFirstNames) {
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        // "Peter quoted him" → "we quoted him"; "Peter's" → "our"
+        finalText = finalText.replace(new RegExp(`\\b${escaped}\\s+${verbs}\\b`, "gi"), "we $1");
+        finalText = finalText.replace(new RegExp(`\\b${escaped}'s\\b`, "gi"), "our");
+        // Standalone mentions like "with Peter" → "with our team"
+        finalText = finalText.replace(new RegExp(`\\bwith\\s+${escaped}\\b`, "gi"), "with our team");
+        // Any remaining bare "Peter" → "we"
+        finalText = finalText.replace(new RegExp(`\\b${escaped}\\b`, "g"), "we");
+      }
+    } catch (e) {
+      console.warn("rep-name scrub failed", e);
     }
 
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
