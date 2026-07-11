@@ -41,7 +41,49 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
 - Objections: Shopping around, price-sensitive — asked about using super
 
+Final quality check before you answer: the last bullet MUST be a complete sentence/thought. Never stop mid-phrase like "shopping around for a".
+
 Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling. Never name our rep — say "we" or "our team".`;
+
+function extractAiText(aiJson: unknown): string {
+  const choice = (aiJson as { choices?: Array<{ message?: { content?: unknown } }> })?.choices?.[0];
+  return typeof choice?.message?.content === "string" ? choice.message.content.trim() : "";
+}
+
+function getFinishReason(aiJson: unknown): string {
+  const choice = (aiJson as { choices?: Array<{ finish_reason?: unknown; finishReason?: unknown }> })?.choices?.[0];
+  return String(choice?.finish_reason ?? choice?.finishReason ?? "");
+}
+
+function looksTruncated(text: string): boolean {
+  const lines = text.trim().split(/\n+/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return true;
+  const last = lines[lines.length - 1].replace(/[\s.]+$/g, "").trim();
+  if (!last) return true;
+  if (/[,:;\-–—]$/.test(last)) return true;
+  if (/\b(?:a|an|the|for|to|with|from|about|around|as|of|in|on|at|and|or|but|because|which|that|who|his|her|their|our|your|another|other)$/i.test(last)) return true;
+  if (/\b(?:shopping around for a|looking for a|waiting for a|asked about a|concerned about a)$/i.test(last)) return true;
+  return false;
+}
+
+async function callIntelModel(LOVABLE_API_KEY: string, messages: Array<{ role: "system" | "user"; content: string }>) {
+  const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-pro",
+      temperature: 0.1,
+      max_tokens: 8192,
+      maxOutputTokens: 8192,
+      messages,
+    }),
+  });
+  if (!aiResp.ok) {
+    const t = await aiResp.text();
+    throw new Error(`AI gateway failed (${aiResp.status}): ${t.slice(0, 200)}`);
+  }
+  return await aiResp.json();
+}
 
 
 
@@ -85,25 +127,27 @@ serve(async (req) => {
       }
     }
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        max_tokens: 4000,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userBlocks.join("\n\n") },
-        ],
-      }),
-    });
-    if (!aiResp.ok) {
-      const t = await aiResp.text();
-      throw new Error(`AI gateway failed (${aiResp.status}): ${t.slice(0, 200)}`);
+    const sourceText = userBlocks.join("\n\n");
+    let aiJson = await callIntelModel(LOVABLE_API_KEY, [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: sourceText },
+    ]);
+    let condensed = extractAiText(aiJson);
+    let finishReason = getFinishReason(aiJson);
+
+    if (/length|max_tokens|max_output_tokens/i.test(finishReason) || looksTruncated(condensed)) {
+      console.warn("condense-notes: retrying incomplete AI output", { finishReason, length: condensed.length, tail: condensed.slice(-120) });
+      aiJson = await callIntelModel(LOVABLE_API_KEY, [
+        { role: "system", content: `${SYSTEM_PROMPT}\n\nREPAIR MODE: The previous draft was incomplete. Return the full bullet list again from scratch. Do not continue mid-sentence. Make every bullet complete, especially Objections / risks.` },
+        { role: "user", content: `${sourceText}\n\nINCOMPLETE_DRAFT_TO_REPAIR:\n${condensed}` },
+      ]);
+      condensed = extractAiText(aiJson);
+      finishReason = getFinishReason(aiJson);
     }
-    const aiJson = await aiResp.json();
-    const condensed: string = (aiJson?.choices?.[0]?.message?.content || "").trim();
     if (!condensed) throw new Error("Empty AI response");
+    if (/length|max_tokens|max_output_tokens/i.test(finishReason) || looksTruncated(condensed)) {
+      throw new Error("AI returned incomplete patient intel; keeping existing notes so the clinic does not receive a cut-off handover.");
+    }
 
     // Reject AI refusals / non-answers — never overwrite real notes with junk like
     // "I can't process this transcript" or "Please provide a transcript".
@@ -180,14 +224,19 @@ serve(async (req) => {
         // Standalone mentions like "with Peter" → "with our team"
         finalText = finalText.replace(new RegExp(`\\bwith\\s+${escaped}\\b`, "gi"), "with our team");
         // Any remaining bare "Peter" → "we"
-        finalText = finalText.replace(new RegExp(`\\b${escaped}\\b`, "g"), "we");
+        finalText = finalText.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "we");
       }
     } catch (e) {
       console.warn("rep-name scrub failed", e);
     }
 
+    if (looksTruncated(finalText)) {
+      throw new Error("Patient intel still looks incomplete after cleanup; keeping existing notes.");
+    }
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
+    const { error: updateError } = await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
+    if (updateError) throw updateError;
 
     return new Response(JSON.stringify({ ok: true, condensed: finalText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
