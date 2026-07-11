@@ -1025,6 +1025,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
               <LeadChooser
                 leads={leads}
+                pausedLocations={pausedLocations}
                 attemptCounts={attemptCounts}
                 attemptsByDay={attemptsByDay}
                 firstCallByLead={firstCallByLead}
