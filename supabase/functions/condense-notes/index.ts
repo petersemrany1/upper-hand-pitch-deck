@@ -37,11 +37,11 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 - Goal: Norwood 2, wants to address receding hairline at temples plus some crown thinning
 - History: On TRT since age 27; dad started receding at 35, now bald at 62
 - Question for doctor: Will TRT affect graft survival or accelerate further loss?
-- Price discussed: Has a competing quote of $10k for ~3,500 grafts from a South Yarra clinic; Peter quoted him $8k–$13k depending on density, plus payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
+- Price discussed: Has a competing quote of $10k for ~3,500 grafts from a South Yarra clinic; we quoted $8k–$13k depending on density, plus a payment plan around $30–$60/week interest-free; balked at other clinic's $750/month for 12 months
 - Personal: Self-conscious about scalp visibility due to curly hair; wants to act early because of family history
 - Objections: Shopping around, price-sensitive — asked about using super
 
-Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling.`;
+Remember: BULLETS ONLY. No paragraph. Use the CRM name spelling. Never name our rep — say "we" or "our team".`;
 
 
 
