@@ -87,10 +87,11 @@ async function ensureSmsThread(
   leadId?: string | null,
 ): Promise<string | null> {
   try {
+    const normalizedPhone = phone.replace(/\D/g, "");
     const { data: existing } = await admin
       .from("sms_threads")
       .select("id")
-      .eq("phone", phone)
+      .eq("phone_normalized", normalizedPhone)
       .maybeSingle();
     if (existing?.id) return existing.id as string;
 
@@ -997,6 +998,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       try {
         const admin = getAdminClient();
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
+        if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
           thread_id: threadId,
           lead_id: data.leadId,
@@ -1106,6 +1108,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       try {
         const admin = getAdminClient();
         const threadId = await ensureSmsThread(admin, formatted, data.leadId);
+        if (!threadId) throw new Error("Could not create or find SMS thread");
         await admin.from("sms_messages").insert({
           thread_id: threadId,
           lead_id: data.leadId,
