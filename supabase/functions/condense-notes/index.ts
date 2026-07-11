@@ -8,34 +8,37 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `You write a PATIENT INTEL HANDOVER for the clinic consultant who is about to see this patient. The consultant needs to walk in feeling like they already know the patient — what they want, what they've agreed to, what they've paid, and exactly where the deal stands.
+const SYSTEM_PROMPT = `You write PATIENT INTEL BULLETS for the clinic consultant about to see this patient. The consultant already has a "Key Facts" table below the intel showing booking date/time, doctor, deposit, funding method and finance status — so DO NOT repeat any of that. Your job is the patient story only.
 
-THE CONSULTANT'S GOAL: CLOSE THE DEAL. They need confidence that the patient is comfortable with the price, has paid their deposit, is finance-checked, and is ready to go — plus all the personal/medical context to make the consult feel personal.
-
-INPUT: One or more call transcripts/summaries with this lead (chronological), plus structured deal facts.
+INPUT: One or more call transcripts/summaries with this lead (chronological), structured deal facts (for context only), and PATIENT_FIRST_NAME (the correct spelling from the CRM).
 
 OUTPUT FORMAT — STRICT:
 
-Write ONE flowing narrative paragraph (4-8 sentences) weaving together everything useful from across ALL the calls into a single cohesive patient story. Cover (when present in the input):
-- What they want done (procedure, area, density goal, specific concerns)
-- Their history (previous transplants, medications tried, what's worked / not worked)
-- Personal context that helps the consult feel personal (work, travel ability, motivation, deadline, secondary concerns)
-- Price/objection handling — what price they're comfortable with, any pushback resolved
-- Booking details — date, time, doctor, clinic location
-- Deal status — deposit status, finance status, funding method, and that they're ready to attend (weave these naturally into the narrative, not as a separate bullet)
+Return 4–7 short bullet points, each starting with "- " on its own line. No paragraphs, no headings, no preamble, no sign-off. Cover ONLY these categories, in this order, and only include a bullet if the calls actually contain that info:
+
+- Goal — what they want done (procedure, area, Norwood stage, density goal)
+- History / medical — previous transplants, meds (finasteride, minoxidil, TRT, etc.), family history, anything the doctor needs to know
+- Key concern or question for the doctor — the one thing they specifically want answered on the consult
+- Price discussed — EVERY dollar figure, quote, competitor quote, payment-plan number, per-graft price, or objection about cost that came up on the call. If Peter quoted them a price, INCLUDE THAT PRICE. This bullet is mandatory whenever any $ figure was mentioned on the call.
+- Personal context — work, travel, timing, motivation, deadline (only if relevant)
 
 CRITICAL RULES:
-- IGNORE entirely any call that was voicemail, no answer, hangup, didn't connect, or had no useful patient intel. Do NOT mention them at all.
-- If NO calls had useful intel, output a single paragraph built ONLY from the structured deal facts — still covering booking details and deal status naturally in the prose.
-- NEVER invent facts — only use what's in the call summaries and deal facts.
-- FUNDING METHOD RULE: The "Funding method" in STRUCTURED DEAL FACTS is an internal CRM tag, NOT a patient confirmation. Do NOT write phrases like "confirmed he plans to pay with $X from savings", "agreed to fund via super", or "has $12,000 ready in savings" unless the CALL SUMMARIES explicitly say the patient stated this on the phone. If only the CRM tag is present, refer to it neutrally — e.g. "tagged for the payment plan option" or "noted as a savings payer" — and never attach dollar amounts ($12,000, $38/week, etc.) to the funding method unless the patient said the amount on the call.
-- Be SPECIFIC with names, places, $ amounts, dates, times, doctors, clinics — these details build trust with the consultant, but only when they came from the call.
-- Third person. Natural prose only — no bullet points, no separate summary lines.
-- No preamble, no sign-off, no headings — just the single flowing paragraph.
+- Use PATIENT_FIRST_NAME exactly as supplied. Do NOT re-spell the name from the transcript (e.g. if PATIENT_FIRST_NAME is "Marc", never write "Mark").
+- DO NOT include a bullet about booking date, doctor, clinic location, deposit status, funding method, or finance eligibility. Those live in the Key Facts table.
+- NEVER invent facts — only use what's in the call summaries. If a category has no info, omit that bullet entirely.
+- Scan the transcripts hard for MONEY talk — any number followed by "k", "grand", "dollars", "$", "per month", "per graft", "quote", "deposit", "package" — and put it in the Price bullet verbatim. Missing price info is the #1 failure mode.
+- IGNORE calls that were voicemail, no answer, hangup, or had no useful intel.
+- Third person. Tight, scannable, no filler words like "keen to finalise a path forward".
+- Each bullet one sentence max. Be specific with names, places, $ amounts.
 
-EXAMPLE STYLE (illustrative only — do NOT copy specific names, clinics, doctors, suburbs, dollar amounts, or dates; always use the actual facts from the call summaries and deal facts):
+EXAMPLE OUTPUT (illustrative — use the real facts from the calls):
 
-The patient explained their prior hair history and what they're hoping to achieve from the procedure, including the specific areas of concern and any constraints (medications, travel, timing). Any additional health notes raised on the call are mentioned for the consultant. They're locked in for their consult at the booked clinic with the assigned doctor, deposit status and finance position are noted as per the deal facts, and they're ready to attend.`;
+- Goal: Norwood 3, wants density restored to hairline and temples, ~2,500 grafts
+- History: On finasteride 2 years, also on TRT — wants to know if TRT affects graft survival
+- Question for doctor: Will TRT impact transplant longevity?
+- Price discussed: Quoted $10k for 3,500 grafts by a South Yarra clinic, said their $750/month plan felt too high; Peter quoted him $8,500 all-in
+- Personal: Dad started receding at 35, wants to act early; travels for work so needs a Friday appointment`;
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
@@ -45,7 +48,7 @@ serve(async (req) => {
   if (denied) return denied;
 
   try {
-    const { leadId, notes, dealFacts } = await req.json();
+    const { leadId, notes, dealFacts, patientFirstName } = await req.json();
     if (!leadId) {
       return new Response(JSON.stringify({ error: "leadId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -54,21 +57,26 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
     const userBlocks: string[] = [];
+    const cleanName = typeof patientFirstName === "string" ? patientFirstName.trim() : "";
+    if (cleanName) {
+      userBlocks.push(`PATIENT_FIRST_NAME: ${cleanName}\n(Use this exact spelling — do not re-spell from the transcript.)`);
+    }
     if (typeof notes === "string" && notes.trim()) {
       userBlocks.push(`CALL SUMMARIES (skip any that are too brief / had no useful intel):\n\n${notes.trim()}`);
     } else {
       userBlocks.push(`CALL SUMMARIES: (none — no useful call intel)`);
     }
     if (dealFacts && typeof dealFacts === "object") {
+      // Deal facts are CONTEXT ONLY — the clinic sees these in the Key Facts table
+      // below the intel, so the model must NOT repeat them in the bullets.
       const factLines: string[] = [];
       const df = dealFacts as Record<string, unknown>;
       if (df.deposit_paid !== undefined) factLines.push(`- Deposit paid: ${df.deposit_paid ? "YES" : "NO"}`);
       if (df.finance_eligible !== undefined && df.finance_eligible !== null) factLines.push(`- Finance checked: ${df.finance_eligible ? "YES" : "NO"}`);
-      if (df.funding_preference) factLines.push(`- Funding method (CRM tag only — do NOT claim the patient confirmed this on the call unless the transcripts say so): ${String(df.funding_preference).replaceAll("_", " ")}`);
+      if (df.funding_preference) factLines.push(`- Funding method: ${String(df.funding_preference).replaceAll("_", " ")}`);
       if (df.booking_date) factLines.push(`- Booking: ${df.booking_date}${df.booking_time ? ` at ${df.booking_time}` : ""}`);
-      if (df.status) factLines.push(`- Lead status: ${String(df.status).replaceAll("_", " ")}`);
       if (factLines.length > 0) {
-        userBlocks.push(`STRUCTURED DEAL FACTS (always reflect these in the "Where they are now" bullet):\n\n${factLines.join("\n")}`);
+        userBlocks.push(`STRUCTURED DEAL FACTS (context only — DO NOT include these in the output bullets, they are already shown in the Key Facts table below):\n\n${factLines.join("\n")}`);
       }
     }
 
@@ -77,6 +85,7 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
+        max_tokens: 2000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userBlocks.join("\n\n") },
