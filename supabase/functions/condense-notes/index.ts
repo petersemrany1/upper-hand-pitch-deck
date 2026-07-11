@@ -48,7 +48,7 @@ serve(async (req) => {
   if (denied) return denied;
 
   try {
-    const { leadId, notes, dealFacts } = await req.json();
+    const { leadId, notes, dealFacts, patientFirstName } = await req.json();
     if (!leadId) {
       return new Response(JSON.stringify({ error: "leadId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
@@ -57,21 +57,26 @@ serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
     const userBlocks: string[] = [];
+    const cleanName = typeof patientFirstName === "string" ? patientFirstName.trim() : "";
+    if (cleanName) {
+      userBlocks.push(`PATIENT_FIRST_NAME: ${cleanName}\n(Use this exact spelling — do not re-spell from the transcript.)`);
+    }
     if (typeof notes === "string" && notes.trim()) {
       userBlocks.push(`CALL SUMMARIES (skip any that are too brief / had no useful intel):\n\n${notes.trim()}`);
     } else {
       userBlocks.push(`CALL SUMMARIES: (none — no useful call intel)`);
     }
     if (dealFacts && typeof dealFacts === "object") {
+      // Deal facts are CONTEXT ONLY — the clinic sees these in the Key Facts table
+      // below the intel, so the model must NOT repeat them in the bullets.
       const factLines: string[] = [];
       const df = dealFacts as Record<string, unknown>;
       if (df.deposit_paid !== undefined) factLines.push(`- Deposit paid: ${df.deposit_paid ? "YES" : "NO"}`);
       if (df.finance_eligible !== undefined && df.finance_eligible !== null) factLines.push(`- Finance checked: ${df.finance_eligible ? "YES" : "NO"}`);
-      if (df.funding_preference) factLines.push(`- Funding method (CRM tag only — do NOT claim the patient confirmed this on the call unless the transcripts say so): ${String(df.funding_preference).replaceAll("_", " ")}`);
+      if (df.funding_preference) factLines.push(`- Funding method: ${String(df.funding_preference).replaceAll("_", " ")}`);
       if (df.booking_date) factLines.push(`- Booking: ${df.booking_date}${df.booking_time ? ` at ${df.booking_time}` : ""}`);
-      if (df.status) factLines.push(`- Lead status: ${String(df.status).replaceAll("_", " ")}`);
       if (factLines.length > 0) {
-        userBlocks.push(`STRUCTURED DEAL FACTS (always reflect these in the "Where they are now" bullet):\n\n${factLines.join("\n")}`);
+        userBlocks.push(`STRUCTURED DEAL FACTS (context only — DO NOT include these in the output bullets, they are already shown in the Key Facts table below):\n\n${factLines.join("\n")}`);
       }
     }
 
@@ -80,6 +85,7 @@ serve(async (req) => {
       headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: "google/gemini-2.5-pro",
+        max_tokens: 2000,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userBlocks.join("\n\n") },
