@@ -230,6 +230,14 @@ serve(async (req) => {
       console.warn("rep-name scrub failed", e);
     }
 
+    // Normalize spoken money shorthand to full dollar amounts.
+    // "12 grand" / "12k" / "12K" -> "$12,000"; "$12k" -> "$12,000"; "$1.5k" -> "$1,500"
+    const formatDollars = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+    finalText = finalText.replace(/\$?\b(\d+(?:\.\d+)?)\s*(?:k|K|grand)\b/g, (_m, num) => formatDollars(parseFloat(num) * 1000));
+    // Bare "twelve thousand" style — leave alone; the "\d+ thousand" case:
+    finalText = finalText.replace(/\$?\b(\d+(?:\.\d+)?)\s*thousand\b/gi, (_m, num) => formatDollars(parseFloat(num) * 1000));
+
+
     if (looksTruncated(finalText)) {
       throw new Error("Patient intel still looks incomplete after cleanup; keeping existing notes.");
     }
