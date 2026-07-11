@@ -224,14 +224,19 @@ serve(async (req) => {
         // Standalone mentions like "with Peter" → "with our team"
         finalText = finalText.replace(new RegExp(`\\bwith\\s+${escaped}\\b`, "gi"), "with our team");
         // Any remaining bare "Peter" → "we"
-        finalText = finalText.replace(new RegExp(`\\b${escaped}\\b`, "g"), "we");
+        finalText = finalText.replace(new RegExp(`\\b${escaped}\\b`, "gi"), "we");
       }
     } catch (e) {
       console.warn("rep-name scrub failed", e);
     }
 
+    if (looksTruncated(finalText)) {
+      throw new Error("Patient intel still looks incomplete after cleanup; keeping existing notes.");
+    }
+
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
+    const { error: updateError } = await supabase.from("meta_leads").update({ call_notes: finalText, updated_at: new Date().toISOString() }).eq("id", leadId);
+    if (updateError) throw updateError;
 
     return new Response(JSON.stringify({ ok: true, condensed: finalText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
