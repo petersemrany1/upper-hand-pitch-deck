@@ -854,6 +854,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const end = new Date(start); end.setDate(end.getDate() + 1);
     const list = leads.filter((l) => {
       if (!l.callback_scheduled_at) return false;
+      if (isLeadLocationPaused(l)) return false;
       const s = normaliseStatus(l.status, l);
       if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
@@ -864,7 +865,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return list.sort((a, b) =>
       new Date(a.callback_scheduled_at!).getTime() - new Date(b.callback_scheduled_at!).getTime()
     );
-  }, [leads]);
+  }, [leads, isLeadLocationPaused]);
 
   // Build the ordered session queue.
   // Order: new (most recent first) → overdue callbacks → callbacks today
