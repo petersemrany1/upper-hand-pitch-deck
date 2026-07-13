@@ -651,11 +651,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const baseQuery = supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT);
-      const { data } = testLeadIds.length > 0
-        ? await baseQuery.in("id", testLeadIds)
-        : await baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT);
+      let fetched: Lead[] = [];
+      if (testLeadIds.length > 0) {
+        const { data } = await baseQuery.in("id", testLeadIds);
+        fetched = (data ?? []) as Lead[];
+      } else {
+        // Fetch the most recent N leads AND every lead still in "new" status
+        // (regardless of age) so older untouched leads never fall off the queue.
+        const [{ data: recent }, { data: news }] = await Promise.all([
+          baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT),
+          supabase.from("meta_leads").select(SALES_CALL_LEAD_SELECT).eq("status", "new"),
+        ]);
+        const byId = new Map<string, Lead>();
+        for (const l of (recent ?? []) as Lead[]) byId.set(l.id, l);
+        for (const l of (news ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
+        fetched = Array.from(byId.values());
+      }
       setLeads((prev) => {
-        const fetched = (data ?? []) as Lead[];
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
