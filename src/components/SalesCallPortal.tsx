@@ -3098,24 +3098,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const clinic = clinics.find((c) => c.id === form.clinicId);
   const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
 
-  const saveManualNotes = async () => {
-    if (!manualNotes.trim()) return;
-    setSavingManualNotes(true);
-    try {
-      await supabase
-        .from("meta_leads")
-        .update({ call_notes: manualNotes.trim(), updated_at: new Date().toISOString() })
-        .eq("id", lead.id);
-      setPreviewIntel(manualNotes.trim());
-      setIntelStatus("ready");
-      setShowManualNotes(false);
-      toast.success("Notes saved ✓");
-    } catch {
-      toast.error("Failed to save notes");
-    } finally {
-      setSavingManualNotes(false);
-    }
-  };
+  // Manual notes flow removed — handover intel now comes strictly from the
+  // AI-analysed call recordings (see handoverGate + auto-condense effect).
+
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
