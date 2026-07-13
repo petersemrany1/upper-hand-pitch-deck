@@ -14,9 +14,15 @@ function twilioSignatureFor(url: string, params: URLSearchParams, token: string)
   return createHmac("sha1", token).update(payload).digest("base64");
 }
 
+// The StatusCallback URL we register with Twilio (see src/utils/sms.functions.ts).
+// Twilio signs THIS exact URL, so it must always be in the candidate list —
+// regardless of what host/proto the Worker sees on the incoming request.
+const CANONICAL_CALLBACK_URL =
+  "https://hairtransplantgroup.lovable.app/api/public/hooks/twilio-message-status";
+
 function candidateUrls(request: Request): string[] {
   const url = new URL(request.url);
-  const candidates = new Set<string>([url.toString()]);
+  const candidates = new Set<string>([CANONICAL_CALLBACK_URL, url.toString()]);
   const xfProto = request.headers.get("x-forwarded-proto");
   const xfHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
   if (xfProto || xfHost) {
@@ -27,6 +33,12 @@ function candidateUrls(request: Request): string[] {
   }
   const origin = request.headers.get("origin");
   if (origin) candidates.add(new URL(url.pathname + url.search, origin).toString());
+  // Also try https variant of the raw request URL (Workers may report http internally).
+  if (url.protocol !== "https:") {
+    const httpsUrl = new URL(url.toString());
+    httpsUrl.protocol = "https:";
+    candidates.add(httpsUrl.toString());
+  }
   return Array.from(candidates);
 }
 
@@ -35,6 +47,7 @@ function verifyTwilioSignature(request: Request, params: URLSearchParams, token:
   if (!signature) return false;
   return candidateUrls(request).some((url) => safeEqualHexOrBase64(twilioSignatureFor(url, params, token), signature));
 }
+
 
 export const Route = createFileRoute("/api/public/hooks/twilio-message-status")({
   server: {
@@ -49,7 +62,12 @@ export const Route = createFileRoute("/api/public/hooks/twilio-message-status")(
         const rawBody = await request.text();
         const params = new URLSearchParams(rawBody);
         if (!verifyTwilioSignature(request, params, authToken)) {
-          console.warn("twilio-message-status: invalid signature");
+          console.warn("twilio-message-status: invalid signature", {
+            receivedSig: request.headers.get("x-twilio-signature"),
+            candidates: candidateUrls(request),
+            messageSid: params.get("MessageSid"),
+            status: params.get("MessageStatus"),
+          });
           return new Response("Forbidden", { status: 403 });
         }
 
