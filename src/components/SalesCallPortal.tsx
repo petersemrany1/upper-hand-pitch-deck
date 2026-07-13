@@ -140,13 +140,16 @@ function isBlockingPatientIntelText(value: string | null | undefined) {
   if (!text) return true;
   return [
     /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript/i,
+    /\bi (?:can'?t|cannot|am unable to)\b.*\b(?:generate|produce|create|write)\b.*\b(?:summary|intake|intel|handover)/i,
     /\bplease (?:provide|paste|share)\b.*\btranscript/i,
     /\b(?:no|without|missing)\b.*\btranscript/i,
-    /\bcontain no substantive patient information\b/i,
+    /\bcontain(?:s)? (?:no|only)\b.*\b(?:substantive|patient information|system prompts|incomplete)/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
     /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
+    /\bto produce a useful summary\b/i,
+    /\bprovide (?:the )?(?:full|complete) (?:call )?transcript\b/i,
     /^no data yet$/i,
     /^no call notes recorded\.?$/i,
   ].some((pattern) => pattern.test(text));
