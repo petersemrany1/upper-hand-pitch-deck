@@ -138,9 +138,16 @@ function ChaseQueuePage() {
                     </div>
                     {r.patient_phone && (
                       <div className="mt-1 text-[12px]">
-                        <a href={`tel:${r.patient_phone}`} className="inline-flex items-center gap-1 text-primary font-medium">
+                        <button
+                          type="button"
+                          onClick={() => handleCall(r)}
+                          disabled={callingId === r.id || dialerStatus !== "ready"}
+                          className="inline-flex items-center gap-1 text-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={dialerStatus === "ready" ? "Call via dialler" : "Dialler not ready yet"}
+                        >
                           <Phone className="w-3 h-3" /> {r.patient_phone}
-                        </a>
+                          {callingId === r.id && <span className="ml-1">…</span>}
+                        </button>
                       </div>
                     )}
                     {r.chase_note && (
