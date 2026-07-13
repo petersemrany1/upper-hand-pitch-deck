@@ -4116,7 +4116,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                   </div>
                   <textarea
                     value={previewIntel}
-                    onChange={(e) => setPreviewIntel(e.target.value)}
+                    onChange={(e) => { setPreviewIntel(e.target.value); setIntelBuildError(""); }}
                     rows={5}
                     className="w-full rounded-[6px] outline-none"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
