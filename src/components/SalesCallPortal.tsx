@@ -3633,7 +3633,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       .limit(1)
       .maybeSingle();
 
-    setPreviewIntel(freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "");
+    const seedIntel = freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "";
+    // If the previously-saved call_notes is an AI refusal/error, don't seed the
+    // textarea with it — let the auto-condense effect populate a fresh intel.
+    setPreviewIntel(isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
     setPreviewFinance("Yes");
     // Deposit is paid when Stripe has actually confirmed it, even though the
