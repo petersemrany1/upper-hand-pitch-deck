@@ -3609,6 +3609,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   const openPreview = async () => {
     setIntelBuildError("");
+    lastCondensedKeyRef.current = "";
     const { data: freshLead } = await supabase
       .from("meta_leads")
       .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
