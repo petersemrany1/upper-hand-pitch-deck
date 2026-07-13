@@ -3032,11 +3032,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       return { ready: false, reason: "Call in progress — wait for it to end" };
     }
     // A row is only "actively connecting" if its status is in-progress AND it
-    // was started recently. Twilio occasionally never sends the final status
-    // callback (network hiccup, dev/test row), leaving a row stuck in
+    // was started very recently. Twilio occasionally never sends the final
+    // status callback (network hiccup, dev/test row), leaving a row stuck in
     // `initiated`/`ringing` forever — those must not block handovers.
-    // 10 minutes covers any realistic call ring/connect window.
-    const STALE_MS = 10 * 60 * 1000;
+    // 2 minutes covers any realistic ring/connect window; anything older is
+    // a stuck row.
+    const STALE_MS = 2 * 60 * 1000;
     const now = Date.now();
     const active = leadCalls.find((c) => {
       if (!CALL_IN_PROGRESS_STATUSES.has(String(c.status ?? "").toLowerCase())) return false;
@@ -3047,7 +3048,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       if (!started || now - started > STALE_MS) return false;
       return true;
     });
-    if (active) {
+    // If we already have a usable completed call for this lead, don't block
+    // on a separate in-progress row — the rep has real intel to send.
+    if (active && usableCompletedCalls.length === 0) {
       return { ready: false, reason: "A call for this lead is still connecting" };
     }
     const completed = leadCalls.filter(
