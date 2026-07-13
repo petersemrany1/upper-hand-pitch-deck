@@ -28,11 +28,12 @@ function getAdminClient() {
   return createClient(url, key);
 }
 
+// Always use the stable published domain so Twilio's status webhook can
+// reach us regardless of which host (preview/prod) initiated the send.
+const PUBLIC_STATUS_CALLBACK_BASE = "https://hairtransplantgroup.lovable.app";
 function getMessageStatusCallbackUrl(): string | null {
   try {
-    const request = getRequest();
-    if (!request?.url) return null;
-    return new URL(MMS_STATUS_CALLBACK_PATH, request.url).toString();
+    return new URL(MMS_STATUS_CALLBACK_PATH, PUBLIC_STATUS_CALLBACK_BASE).toString();
   } catch {
     return null;
   }
