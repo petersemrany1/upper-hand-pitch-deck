@@ -3727,59 +3727,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           </div>
         </div>
 
-        {/* Single handover card */}
+        {/* Single handover card — gated on live call state + recording + transcript readiness */}
         <div className="flex flex-col gap-2.5">
-          {/* Manual notes fallback when no recording was detected */}
-          {showManualNotes && !handoverSent && (
-            <div style={{
-              background: "#fffbeb",
-              border: `0.5px solid ${COLORS.amber}`,
-              borderRadius: 10,
-              padding: "16px 20px",
-              marginBottom: 4,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amberDark, marginBottom: 8 }}>
-                ⚠️ No recording detected — type your notes while they're fresh
-              </div>
-              <textarea
-                value={manualNotes}
-                onChange={(e) => setManualNotes(e.target.value)}
-                rows={4}
-                placeholder="What did they tell you? Pain points, motivation, budget, timeline..."
-                className="w-full rounded-[6px] outline-none"
-                style={{
-                  background: "#ffffff",
-                  border: `0.5px solid ${COLORS.line}`,
-                  color: "#111",
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  padding: "10px 12px",
-                  resize: "vertical",
-                  marginBottom: 10,
-                }}
-              />
-              <button
-                onClick={() => void saveManualNotes()}
-                disabled={savingManualNotes || !manualNotes.trim()}
-                style={{
-                  background: COLORS.coral,
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  border: "none",
-                  opacity: savingManualNotes || !manualNotes.trim() ? 0.5 : 1,
-                  cursor: savingManualNotes || !manualNotes.trim() ? "default" : "pointer",
-                }}
-              >
-                {savingManualNotes ? "Saving..." : "Save notes →"}
-              </button>
-            </div>
-          )}
-
-          {/* Unified card: analysing state OR send handover button */}
-          {intelStatus === "waiting" ? (
+          {!handoverGate.ready && !handoverSent ? (
             <div
               className="w-full rounded-[8px] flex items-center gap-3"
               style={{
@@ -3795,18 +3745,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.amberDark, marginBottom: 2 }}>
-                  Please wait to send handover video
+                  Send handover — not ready yet
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
-                  Analysing call recording ({pollAttempt}/18)
+                  {handoverGate.reason}
                 </div>
               </div>
-              <button
-                onClick={() => setIntelStatus("timeout")}
-                style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", flexShrink: 0 }}
-              >
-                Skip
-              </button>
             </div>
           ) : (
             <button
@@ -3828,7 +3772,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
                   {handoverSent
                     ? "Tap to review what was sent or resend with updates"
-                    : "Patient intel, funding, booking details → peter@gobold.com.au"}
+                    : `Patient intel from ${usableCompletedCalls.length} call${usableCompletedCalls.length === 1 ? "" : "s"} → peter@gobold.com.au`}
                 </div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 500, color: handoverSent ? COLORS.green : COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
@@ -3839,7 +3783,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
           {/* Patient confirmation SMS auto-fires on Book appointment (with 5s Undo).
               Status is shown as a pill in the confirmation card above. */}
-          {confirmationSent === false && intelStatus !== "waiting" && lead.phone && (
+          {confirmationSent === false && handoverGate.ready && lead.phone && (
+
             <button
               onClick={() => {
                 if (!lead.phone) return;
