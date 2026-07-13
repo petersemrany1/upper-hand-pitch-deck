@@ -2742,18 +2742,36 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [patientSmsSending, setPatientSmsSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
-  const [refreshingIntel, setRefreshingIntel] = useState(false);
+  const [autoRefreshingIntel, setAutoRefreshingIntel] = useState(false);
   const [previewFunding, setPreviewFunding] = useState("");
   const [previewFinance, setPreviewFinance] = useState("");
   const [previewDeposit, setPreviewDeposit] = useState(false);
   const [previewPhone, setPreviewPhone] = useState("");
   const [previewEmail, setPreviewEmail] = useState("");
   const [previewClinicEmail, setPreviewClinicEmail] = useState("");
-  const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
-  const [pollAttempt, setPollAttempt] = useState(0);
-  const [showManualNotes, setShowManualNotes] = useState(false);
-  const [manualNotes, setManualNotes] = useState("");
-  const [savingManualNotes, setSavingManualNotes] = useState(false);
+
+  // Live Twilio state — used to hard-block "Send handover" while a call is active.
+  const { status: liveCallStatus } = useTwilioDevice();
+  const isRepOnCall =
+    liveCallStatus === "in-call" ||
+    liveCallStatus === "connecting" ||
+    liveCallStatus === "ringing-incoming";
+
+  // All call_records for this lead. Live-subscribed via realtime so the modal
+  // auto-updates the second a transcript lands — no manual refresh button.
+  type LeadCallRow = {
+    id: string;
+    twilio_call_sid: string | null;
+    status: string | null;
+    recording_url: string | null;
+    analysis_stage: string | null;
+    call_analysis: { transcript?: string; patient_summary?: string; summary?: string; notes?: string } | null;
+    called_at: string;
+    duration: number | null;
+  };
+  const [leadCalls, setLeadCalls] = useState<LeadCallRow[]>([]);
+  const lastCondensedKeyRef = useRef<string>("");
+
 
   // Payment-link gate: rep must send link and Stripe must confirm payment
   // before "Book appointment" unlocks. Driven by meta_leads.deposit_paid_at
