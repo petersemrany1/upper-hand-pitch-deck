@@ -3128,12 +3128,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         if (cancelled) return;
         if (condErr) {
           console.error("auto condense-notes failed", condErr);
+          lastCondensedKeyRef.current = key;
           setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
           return;
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
         if (!finalText || isBlockingPatientIntelText(finalText)) {
           if (finalText) setPreviewIntel(finalText);
+          lastCondensedKeyRef.current = key;
           setIntelBuildError("Patient Intel is not ready yet — the transcript summary is empty or unusable.");
           return;
         }
@@ -3141,6 +3143,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         lastCondensedKeyRef.current = key;
       } catch (err) {
         console.error("auto condense-notes exception", err);
+        lastCondensedKeyRef.current = key;
         setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
       } finally {
         if (!cancelled) setAutoRefreshingIntel(false);
