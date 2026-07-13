@@ -47,7 +47,31 @@ function ChaseQueuePage() {
   const [rows, setRows] = useState<ChaseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [callingId, setCallingId] = useState<string | null>(null);
   const resolveFn = useServerFn(resolveChase);
+  const { call, dialerStatus } = useTwilioDevice();
+
+  const handleCall = async (row: ChaseRow) => {
+    if (!row.patient_phone) {
+      toast.error("No phone number on file");
+      return;
+    }
+    if (dialerStatus !== "ready") {
+      toast.error("Dialler not ready yet");
+      return;
+    }
+    const normalised = normalizeAUPhone(row.patient_phone) || row.patient_phone;
+    setCallingId(row.id);
+    try {
+      await call(normalised, row.clinic_id ? { clinicId: row.clinic_id } : undefined);
+      toast.success(`Calling ${row.patient_name}…`);
+    } catch (e) {
+      console.error("Chase call failed", e);
+      toast.error("Could not start call");
+    } finally {
+      setCallingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
