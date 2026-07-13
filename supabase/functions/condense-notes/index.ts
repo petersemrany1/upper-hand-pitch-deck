@@ -26,7 +26,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 ## HARD RULES
 
 1. NAME: Use PATIENT_FIRST_NAME exactly as supplied in the input. The transcript may have misspelled it (e.g. Marc → Mark, Aleks → Alex). ALWAYS use the CRM spelling. Never re-spell from audio.
-2. DO NOT repeat booking date, appointment time, doctor name, clinic name, deposit status, funding tag, or finance eligibility. Those are already displayed to the clinic in a separate Key Facts table below your bullets — repeating them is duplicated noise.
+2. DO NOT repeat booking date, appointment time, doctor name, clinic name, deposit status, funding tag, or finance eligibility. Those are already displayed to the clinic in a separate Key Facts table below your bullets — repeating them is duplicated noise. NEVER mention that we have held / taken / collected a deposit, the deposit amount ($75 or any other figure), the deposit percentage (75%, or "usually X%"), how the deposit was paid, Stripe, payment links, or anything about our internal deposit-handling process. The handover email already shows deposit status — do not restate it in the intel under any circumstance.
 3. PRICE IS MANDATORY when any dollar figure appears in the transcripts. Scan for: "$", "k" after a number, "grand", "per week", "per month", "per graft", "quote", "quoted", "package", "$X/week", "$X/month". If Peter quoted a range (e.g. "$8k–$13k" or "$30–$60 per week"), include it exactly. Missing price info is the #1 failure — treat it as critical.
 4. NEVER invent facts. Use only what's in the call summaries.
 5. Third person. One sentence per bullet, max. Tight and specific. No filler ("keen to finalise a path forward", "ready for his consultation", "excited to proceed" — all banned).
