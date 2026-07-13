@@ -2953,71 +2953,85 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
   };
 
+  // Load + live-subscribe to every call_records row for this lead. The
+  // handover-readiness gate below derives everything from this — no polling,
+  // no manual refresh, no stale-notes bypass.
   useEffect(() => {
-    if (!booked) return;
-    if (lead.call_notes?.trim() || discoveryNotes?.trim()) {
-      setIntelStatus("ready");
-      return;
-    }
-
-    let attempts = 0;
-    const MAX_ATTEMPTS = 18; // 3 minutes at 10s intervals
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const poll = async () => {
-      if (stopped) return;
-      attempts += 1;
-      setPollAttempt(attempts);
-
-      try {
-        const { data, error } = await supabase
-          .from("meta_leads")
-          .select("call_notes")
-          .eq("id", lead.id)
-          .single();
-
-        if (stopped) return;
-
-        if (error) {
-          setIntelStatus("timeout");
-          toast.error("Could not check call intel — you can still send manually");
-          return;
-        }
-
-        if (data?.call_notes?.trim()) {
-          setIntelStatus("ready");
-          setPreviewIntel(data.call_notes);
-          toast.success("Patient intel ready ✓");
-          return;
-        }
-      } catch {
-        if (stopped) return;
-        setIntelStatus("timeout");
-        toast.error("Error checking call intel — you can still send manually");
-        return;
-      }
-
-      if (attempts >= MAX_ATTEMPTS) {
-        if (!stopped) {
-          setIntelStatus("timeout");
-          setShowManualNotes(true);
-        }
-        return;
-      }
-
-      timer = setTimeout(poll, 10000);
+    if (!lead.id) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("call_records")
+        .select("id, twilio_call_sid, status, recording_url, analysis_stage, call_analysis, called_at, duration")
+        .eq("lead_id", lead.id)
+        .order("called_at", { ascending: true });
+      if (!cancelled) setLeadCalls((data ?? []) as LeadCallRow[]);
     };
-
-    // First poll after 15 seconds to give Twilio time to process
-    const initialTimer = setTimeout(poll, 15000);
-
+    void load();
+    const channel = supabase
+      .channel(`handover-calls-${lead.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "call_records", filter: `lead_id=eq.${lead.id}` },
+        () => void load(),
+      )
+      .subscribe();
     return () => {
-      stopped = true;
-      clearTimeout(initialTimer);
-      if (timer) clearTimeout(timer);
+      cancelled = true;
+      supabase.removeChannel(channel);
     };
-  }, [booked, lead.id]);
+  }, [lead.id]);
+
+  // Derived: can we send the handover right now, and if not, why?
+  const CALL_IN_PROGRESS_STATUSES = useMemo(
+    () => new Set(["initiated", "ringing", "in-progress", "queued"]),
+    [],
+  );
+  const usableCompletedCalls = useMemo(
+    () =>
+      leadCalls.filter((c) => {
+        if (String(c.status ?? "").toLowerCase() !== "completed") return false;
+        if (!c.recording_url) return false;
+        const a = c.call_analysis;
+        return Boolean((a?.transcript ?? "").trim() || (a?.patient_summary ?? "").trim());
+      }),
+    [leadCalls],
+  );
+  const handoverGate = useMemo<{ ready: boolean; reason: string }>(() => {
+    if (isRepOnCall) {
+      return { ready: false, reason: "Call in progress — wait for it to end" };
+    }
+    const active = leadCalls.find((c) =>
+      CALL_IN_PROGRESS_STATUSES.has(String(c.status ?? "").toLowerCase()),
+    );
+    if (active) {
+      return { ready: false, reason: "A call for this lead is still connecting" };
+    }
+    const completed = leadCalls.filter(
+      (c) => String(c.status ?? "").toLowerCase() === "completed",
+    );
+    if (completed.length === 0) {
+      return { ready: false, reason: "No completed call yet for this lead" };
+    }
+    const missingRecording = completed.find((c) => !c.recording_url);
+    if (missingRecording) {
+      return { ready: false, reason: "Processing recording…" };
+    }
+    const stillAnalysing = completed.find(
+      (c) => c.recording_url && c.analysis_stage !== "complete" && c.analysis_stage !== "failed",
+    );
+    if (stillAnalysing) {
+      return { ready: false, reason: "Generating transcript…" };
+    }
+    if (usableCompletedCalls.length === 0) {
+      return {
+        ready: false,
+        reason: "AI analysis finished but produced no usable transcript (voicemail/no answer)",
+      };
+    }
+    return { ready: true, reason: "" };
+  }, [isRepOnCall, leadCalls, usableCompletedCalls, CALL_IN_PROGRESS_STATUSES]);
+
 
   useEffect(() => {
     void supabase.from("partner_clinics")
