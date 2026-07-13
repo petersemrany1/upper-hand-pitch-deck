@@ -680,7 +680,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     {
       const { data: guardCalls, error: guardErr } = await supabase
         .from("call_records")
-        .select("id, status, recording_url, analysis_stage, call_analysis")
+        .select("id, status, recording_url, analysis_stage, call_analysis, called_at")
         .eq("lead_id", data.leadId);
       if (guardErr) {
         return { success: false, error: `Cannot verify call state: ${guardErr.message}` };
@@ -691,9 +691,22 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         recording_url: string | null;
         analysis_stage: string | null;
         call_analysis: { transcript?: string; patient_summary?: string } | null;
+        called_at: string | null;
       }>;
       const IN_PROGRESS = new Set(["initiated", "ringing", "in-progress", "queued"]);
-      const inProgress = rows.find((c) => IN_PROGRESS.has(String(c.status ?? "").toLowerCase()));
+      const STALE_MS = 10 * 60 * 1000;
+      const now = Date.now();
+      // Only rows that are actively connecting RIGHT NOW should block. A row
+      // stuck in `initiated` from days ago (Twilio never sent the final status
+      // callback) is abandoned, not live.
+      const inProgress = rows.find((c) => {
+        if (!IN_PROGRESS.has(String(c.status ?? "").toLowerCase())) return false;
+        const stage = String(c.analysis_stage ?? "").toLowerCase();
+        if (stage === "recording_missing" || stage === "failed" || stage === "complete") return false;
+        const started = c.called_at ? new Date(c.called_at).getTime() : 0;
+        if (!started || now - started > STALE_MS) return false;
+        return true;
+      });
       if (inProgress) {
         return { success: false, error: "A call for this lead is still in progress. Wait for it to end before sending the handover." };
       }
@@ -701,11 +714,15 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       if (completed.length === 0) {
         return { success: false, error: "No completed call exists for this lead yet — cannot send handover." };
       }
-      const missingRecording = completed.find((c) => !c.recording_url);
+      const recentCompleted = completed.filter((c) => {
+        const started = c.called_at ? new Date(c.called_at).getTime() : 0;
+        return started && now - started <= STALE_MS;
+      });
+      const missingRecording = recentCompleted.find((c) => !c.recording_url);
       if (missingRecording) {
         return { success: false, error: "A completed call is still uploading its recording. Try again in a moment." };
       }
-      const stillAnalysing = completed.find(
+      const stillAnalysing = recentCompleted.find(
         (c) => c.recording_url && c.analysis_stage !== "complete" && c.analysis_stage !== "failed",
       );
       if (stillAnalysing) {

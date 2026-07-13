@@ -3001,9 +3001,22 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (isRepOnCall) {
       return { ready: false, reason: "Call in progress — wait for it to end" };
     }
-    const active = leadCalls.find((c) =>
-      CALL_IN_PROGRESS_STATUSES.has(String(c.status ?? "").toLowerCase()),
-    );
+    // A row is only "actively connecting" if its status is in-progress AND it
+    // was started recently. Twilio occasionally never sends the final status
+    // callback (network hiccup, dev/test row), leaving a row stuck in
+    // `initiated`/`ringing` forever — those must not block handovers.
+    // 10 minutes covers any realistic call ring/connect window.
+    const STALE_MS = 10 * 60 * 1000;
+    const now = Date.now();
+    const active = leadCalls.find((c) => {
+      if (!CALL_IN_PROGRESS_STATUSES.has(String(c.status ?? "").toLowerCase())) return false;
+      // Terminal analysis stages mean the pipeline gave up — not actually live.
+      const stage = String(c.analysis_stage ?? "").toLowerCase();
+      if (stage === "recording_missing" || stage === "failed" || stage === "complete") return false;
+      const started = c.called_at ? new Date(c.called_at).getTime() : 0;
+      if (!started || now - started > STALE_MS) return false;
+      return true;
+    });
     if (active) {
       return { ready: false, reason: "A call for this lead is still connecting" };
     }
@@ -3013,11 +3026,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (completed.length === 0) {
       return { ready: false, reason: "No completed call yet for this lead" };
     }
-    const missingRecording = completed.find((c) => !c.recording_url);
+    // Only wait on RECENT completed rows for recording/transcript — an old
+    // completed row without a recording (voicemail, hung up early) shouldn't
+    // block a fresh handover.
+    const recentCompleted = completed.filter((c) => {
+      const started = c.called_at ? new Date(c.called_at).getTime() : 0;
+      return started && now - started <= STALE_MS;
+    });
+    const missingRecording = recentCompleted.find((c) => !c.recording_url);
     if (missingRecording) {
       return { ready: false, reason: "Processing recording…" };
     }
-    const stillAnalysing = completed.find(
+    const stillAnalysing = recentCompleted.find(
       (c) => c.recording_url && c.analysis_stage !== "complete" && c.analysis_stage !== "failed",
     );
     if (stillAnalysing) {
