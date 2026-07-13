@@ -5,6 +5,8 @@ import { Bell, ExternalLink, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveChase } from "@/utils/chase.functions";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { normalizeAUPhone } from "@/utils/phone";
 
 export const Route = createFileRoute("/_dashboard/chase-queue")({
   head: () => ({ meta: [{ title: "Chase Queue" }] }),
