@@ -3630,8 +3630,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       setPatientSmsSentPopup(null);
       setPatientSmsSentPopupDismissed(false);
       setSendingDeposit(false);
-      setIntelStatus("waiting");
-      setPollAttempt(0);
+      lastCondensedKeyRef.current = "";
+
       setShowResetConfirm(false);
       setResetting(false);
       toast.success("Booking permanently cleared — fresh slate");
