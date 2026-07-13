@@ -140,13 +140,16 @@ function isBlockingPatientIntelText(value: string | null | undefined) {
   if (!text) return true;
   return [
     /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript/i,
+    /\bi (?:can'?t|cannot|am unable to)\b.*\b(?:generate|produce|create|write)\b.*\b(?:summary|intake|intel|handover)/i,
     /\bplease (?:provide|paste|share)\b.*\btranscript/i,
     /\b(?:no|without|missing)\b.*\btranscript/i,
-    /\bcontain no substantive patient information\b/i,
+    /\bcontain(?:s)? (?:no|only)\b.*\b(?:substantive|patient information|system prompts|incomplete)/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
     /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
+    /\bto produce a useful summary\b/i,
+    /\bprovide (?:the )?(?:full|complete) (?:call )?transcript\b/i,
     /^no data yet$/i,
     /^no call notes recorded\.?$/i,
   ].some((pattern) => pattern.test(text));
@@ -3633,7 +3636,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       .limit(1)
       .maybeSingle();
 
-    setPreviewIntel(freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "");
+    const seedIntel = freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "";
+    // If the previously-saved call_notes is an AI refusal/error, don't seed the
+    // textarea with it — let the auto-condense effect populate a fresh intel.
+    setPreviewIntel(isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
     setPreviewFinance("Yes");
     // Deposit is paid when Stripe has actually confirmed it, even though the
