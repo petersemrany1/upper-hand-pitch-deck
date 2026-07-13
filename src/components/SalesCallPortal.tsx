@@ -135,6 +135,23 @@ function normalisePhoneDigits(phone: string | null | undefined) {
   return digits;
 }
 
+function isBlockingPatientIntelText(value: string | null | undefined) {
+  const text = (value ?? "").trim();
+  if (!text) return true;
+  return [
+    /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript/i,
+    /\bplease (?:provide|paste|share)\b.*\btranscript/i,
+    /\b(?:no|without|missing)\b.*\btranscript/i,
+    /\bcontain no substantive patient information\b/i,
+    /\bplaceholder text\b/i,
+    /\bcorrupted audio\b/i,
+    /\bvoicemail notification\b/i,
+    /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
+    /^no data yet$/i,
+    /^no call notes recorded\.?$/i,
+  ].some((pattern) => pattern.test(text));
+}
+
 function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | undefined, fallbackIndex: number, leadId: string) {
   const withoutLead = queue.filter((id) => id !== leadId);
   let currentIdx = currentLeadId ? withoutLead.indexOf(currentLeadId) : -1;
@@ -2743,6 +2760,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
   const [autoRefreshingIntel, setAutoRefreshingIntel] = useState(false);
+  const [intelBuildError, setIntelBuildError] = useState("");
   const [previewFunding, setPreviewFunding] = useState("");
   const [previewFinance, setPreviewFinance] = useState("");
   const [previewDeposit, setPreviewDeposit] = useState(false);
@@ -2997,6 +3015,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       }),
     [leadCalls],
   );
+  const usableCompletedCallsKey = useMemo(
+    () =>
+      usableCompletedCalls
+        .map((c) => `${c.id}:${(c.call_analysis?.transcript ?? "").length}:${(c.call_analysis?.patient_summary ?? "").length}`)
+        .join("|"),
+    [usableCompletedCalls],
+  );
   const handoverGate = useMemo<{ ready: boolean; reason: string }>(() => {
     if (isRepOnCall) {
       return { ready: false, reason: "Call in progress — wait for it to end" };
@@ -3062,15 +3087,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!handoverGate.ready) return;
     if (usableCompletedCalls.length === 0) return;
 
-    const key = usableCompletedCalls
-      .map((c) => `${c.id}:${(c.call_analysis?.transcript ?? "").length}:${(c.call_analysis?.patient_summary ?? "").length}`)
-      .join("|");
+    const key = usableCompletedCallsKey;
     if (lastCondensedKeyRef.current === key) return;
-    lastCondensedKeyRef.current = key;
 
     let cancelled = false;
     (async () => {
       setAutoRefreshingIntel(true);
+      setIntelBuildError("");
       try {
         const notesBlock = usableCompletedCalls
           .map((c, i) => {
@@ -3105,19 +3128,27 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         if (cancelled) return;
         if (condErr) {
           console.error("auto condense-notes failed", condErr);
+          setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
           return;
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
-        if (finalText) setPreviewIntel(finalText);
+        if (!finalText || isBlockingPatientIntelText(finalText)) {
+          if (finalText) setPreviewIntel(finalText);
+          setIntelBuildError("Patient Intel is not ready yet — the transcript summary is empty or unusable.");
+          return;
+        }
+        setPreviewIntel(finalText);
+        lastCondensedKeyRef.current = key;
       } catch (err) {
         console.error("auto condense-notes exception", err);
+        setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
       } finally {
         if (!cancelled) setAutoRefreshingIntel(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [showPreview, handoverGate.ready, usableCompletedCalls, lead.id, lead.first_name, previewDeposit, previewFunding]);
+  }, [showPreview, handoverGate.ready, usableCompletedCalls, usableCompletedCallsKey, lead.id, lead.first_name, previewDeposit, previewFunding]);
 
 
 
@@ -3574,6 +3605,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   ) : null;
 
   const openPreview = async () => {
+    setIntelBuildError("");
     const { data: freshLead } = await supabase
       .from("meta_leads")
       .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
@@ -3617,7 +3649,26 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setShowPreview(true);
   };
 
+  const previewIntelNeedsBuild =
+    showPreview &&
+    handoverGate.ready &&
+    usableCompletedCalls.length > 0 &&
+    lastCondensedKeyRef.current !== usableCompletedCallsKey;
+  const confirmBlockedReason = (() => {
+    if (!handoverGate.ready) return handoverGate.reason;
+    if (autoRefreshingIntel || previewIntelNeedsBuild) return "Patient Intel is still building from transcripts — wait until it finishes.";
+    if (intelBuildError) return intelBuildError;
+    if (isBlockingPatientIntelText(previewIntel)) return "Patient Intel is not ready yet.";
+    if (sendingHandover) return "Sending handover…";
+    return "";
+  })();
+  const canConfirmAndSend = !confirmBlockedReason;
+
   const confirmAndSend = async () => {
+    if (!canConfirmAndSend) {
+      toast.error(confirmBlockedReason);
+      return;
+    }
     const clinicEmail = (previewClinicEmail.trim() || "peter@gobold.com.au");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clinicEmail)) {
       toast.error("Enter a valid clinic email before sending.");
@@ -4052,7 +4103,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                     <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999" }}>
                       Patient Intel <span style={{ color: COLORS.coral }}>— editable</span>
                     </div>
-                    {autoRefreshingIntel && (
+                    {(autoRefreshingIntel || previewIntelNeedsBuild) && (
                       <div style={{ fontSize: 11, color: COLORS.muted, display: "flex", alignItems: "center", gap: 6 }}>
                         <div style={{ width: 10, height: 10, borderRadius: "50%", border: `1.5px solid ${COLORS.coral}`, borderTopColor: "transparent", animation: "discoverySpin 0.8s linear infinite" }} />
                         Building from transcripts…
@@ -4065,11 +4116,16 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                     rows={5}
                     className="w-full rounded-[6px] outline-none"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
-                    placeholder={autoRefreshingIntel ? "Auto-generating from call transcripts…" : "Patient intel will appear here once the AI condenses the transcripts"}
+                    placeholder={(autoRefreshingIntel || previewIntelNeedsBuild) ? "Auto-generating from call transcripts…" : "Patient intel will appear here once the AI condenses the transcripts"}
                   />
-                  {!previewIntel.trim() && !autoRefreshingIntel && (
+                  {!previewIntel.trim() && !(autoRefreshingIntel || previewIntelNeedsBuild) && (
                     <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
                       ⚠️ <strong>Patient Intel is empty.</strong> The AI hasn't produced usable notes yet — wait a moment or edit manually before sending.
+                    </div>
+                  )}
+                  {confirmBlockedReason && !sendingHandover && (
+                    <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
+                      ⚠️ {confirmBlockedReason}
                     </div>
                   )}
                 </div>
@@ -4135,9 +4191,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                   {handoverSent ? "Close" : "Cancel"}
                 </button>
                 <button onClick={() => void confirmAndSend()}
+                  disabled={!canConfirmAndSend}
                   className="flex-1 rounded-[8px]"
-                  style={{ background: COLORS.coral, color: "#fff", fontSize: 14, fontWeight: 500, padding: "12px 0" }}>
-                  {handoverSent ? "Resend with updates →" : "Confirm & Send →"}
+                  style={{ background: canConfirmAndSend ? COLORS.coral : "#f3f3f3", color: canConfirmAndSend ? "#fff" : "#999", fontSize: 14, fontWeight: 500, padding: "12px 0", cursor: canConfirmAndSend ? "pointer" : "not-allowed" }}>
+                  {autoRefreshingIntel || previewIntelNeedsBuild ? "Building intel…" : handoverSent ? "Resend with updates →" : "Confirm & Send →"}
                 </button>
               </div>
             </div>

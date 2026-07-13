@@ -735,6 +735,9 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       if (!withTranscript) {
         return { success: false, error: "None of the completed calls produced a usable transcript (voicemail/no answer). Cannot build patient intel." };
       }
+      if (isBadPatientIntel(data.callNotes)) {
+        return { success: false, error: "Patient Intel is still being generated or is unusable. Wait for it to finish before sending the handover." };
+      }
     }
 
 
