@@ -5,6 +5,8 @@ import { Bell, ExternalLink, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { resolveChase } from "@/utils/chase.functions";
+import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { normalizeAUPhone } from "@/utils/phone";
 
 export const Route = createFileRoute("/_dashboard/chase-queue")({
   head: () => ({ meta: [{ title: "Chase Queue" }] }),
@@ -45,7 +47,31 @@ function ChaseQueuePage() {
   const [rows, setRows] = useState<ChaseRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [callingId, setCallingId] = useState<string | null>(null);
   const resolveFn = useServerFn(resolveChase);
+  const { call, dialerStatus } = useTwilioDevice();
+
+  const handleCall = async (row: ChaseRow) => {
+    if (!row.patient_phone) {
+      toast.error("No phone number on file");
+      return;
+    }
+    if (dialerStatus !== "ready") {
+      toast.error("Dialler not ready yet");
+      return;
+    }
+    const normalised = normalizeAUPhone(row.patient_phone) || row.patient_phone;
+    setCallingId(row.id);
+    try {
+      await call(normalised, row.clinic_id ? { clinicId: row.clinic_id } : undefined);
+      toast.success(`Calling ${row.patient_name}…`);
+    } catch (e) {
+      console.error("Chase call failed", e);
+      toast.error("Could not start call");
+    } finally {
+      setCallingId(null);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -112,9 +138,16 @@ function ChaseQueuePage() {
                     </div>
                     {r.patient_phone && (
                       <div className="mt-1 text-[12px]">
-                        <a href={`tel:${r.patient_phone}`} className="inline-flex items-center gap-1 text-primary font-medium">
+                        <button
+                          type="button"
+                          onClick={() => handleCall(r)}
+                          disabled={callingId === r.id || dialerStatus !== "ready"}
+                          className="inline-flex items-center gap-1 text-primary font-medium hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={dialerStatus === "ready" ? "Call via dialler" : "Dialler not ready yet"}
+                        >
                           <Phone className="w-3 h-3" /> {r.patient_phone}
-                        </a>
+                          {callingId === r.id && <span className="ml-1">…</span>}
+                        </button>
                       </div>
                     )}
                     {r.chase_note && (
