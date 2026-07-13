@@ -62,7 +62,12 @@ export const Route = createFileRoute("/api/public/hooks/twilio-message-status")(
         const rawBody = await request.text();
         const params = new URLSearchParams(rawBody);
         if (!verifyTwilioSignature(request, params, authToken)) {
-          console.warn("twilio-message-status: invalid signature");
+          console.warn("twilio-message-status: invalid signature", {
+            receivedSig: request.headers.get("x-twilio-signature"),
+            candidates: candidateUrls(request),
+            messageSid: params.get("MessageSid"),
+            status: params.get("MessageStatus"),
+          });
           return new Response("Forbidden", { status: 403 });
         }
 
