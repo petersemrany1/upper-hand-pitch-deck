@@ -673,6 +673,55 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const supabase = getAdminClient();
 
+    // Server-side guard: refuse to send if this lead is still mid-call, still
+    // uploading a recording, or still generating a transcript. Even if the UI
+    // is bypassed, the clinic must never receive a handover missing the
+    // latest patient intel.
+    {
+      const { data: guardCalls, error: guardErr } = await supabase
+        .from("call_records")
+        .select("id, status, recording_url, analysis_stage, call_analysis")
+        .eq("lead_id", data.leadId);
+      if (guardErr) {
+        return { success: false, error: `Cannot verify call state: ${guardErr.message}` };
+      }
+      const rows = (guardCalls ?? []) as Array<{
+        id: string;
+        status: string | null;
+        recording_url: string | null;
+        analysis_stage: string | null;
+        call_analysis: { transcript?: string; patient_summary?: string } | null;
+      }>;
+      const IN_PROGRESS = new Set(["initiated", "ringing", "in-progress", "queued"]);
+      const inProgress = rows.find((c) => IN_PROGRESS.has(String(c.status ?? "").toLowerCase()));
+      if (inProgress) {
+        return { success: false, error: "A call for this lead is still in progress. Wait for it to end before sending the handover." };
+      }
+      const completed = rows.filter((c) => String(c.status ?? "").toLowerCase() === "completed");
+      if (completed.length === 0) {
+        return { success: false, error: "No completed call exists for this lead yet — cannot send handover." };
+      }
+      const missingRecording = completed.find((c) => !c.recording_url);
+      if (missingRecording) {
+        return { success: false, error: "A completed call is still uploading its recording. Try again in a moment." };
+      }
+      const stillAnalysing = completed.find(
+        (c) => c.recording_url && c.analysis_stage !== "complete" && c.analysis_stage !== "failed",
+      );
+      if (stillAnalysing) {
+        return { success: false, error: "The AI transcript for a recent call is still being generated. Try again in a moment." };
+      }
+      const withTranscript = completed.some((c) => {
+        const a = c.call_analysis;
+        return Boolean((a?.transcript ?? "").trim() || (a?.patient_summary ?? "").trim());
+      });
+      if (!withTranscript) {
+        return { success: false, error: "None of the completed calls produced a usable transcript (voicemail/no answer). Cannot build patient intel." };
+      }
+    }
+
+
+
     const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ");
     const bookingDisplay = (() => {
       try {

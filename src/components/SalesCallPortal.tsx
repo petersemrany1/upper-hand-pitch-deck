@@ -2742,18 +2742,36 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [patientSmsSending, setPatientSmsSending] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [previewIntel, setPreviewIntel] = useState("");
-  const [refreshingIntel, setRefreshingIntel] = useState(false);
+  const [autoRefreshingIntel, setAutoRefreshingIntel] = useState(false);
   const [previewFunding, setPreviewFunding] = useState("");
   const [previewFinance, setPreviewFinance] = useState("");
   const [previewDeposit, setPreviewDeposit] = useState(false);
   const [previewPhone, setPreviewPhone] = useState("");
   const [previewEmail, setPreviewEmail] = useState("");
   const [previewClinicEmail, setPreviewClinicEmail] = useState("");
-  const [intelStatus, setIntelStatus] = useState<"waiting" | "ready" | "timeout">("waiting");
-  const [pollAttempt, setPollAttempt] = useState(0);
-  const [showManualNotes, setShowManualNotes] = useState(false);
-  const [manualNotes, setManualNotes] = useState("");
-  const [savingManualNotes, setSavingManualNotes] = useState(false);
+
+  // Live Twilio state — used to hard-block "Send handover" while a call is active.
+  const { status: liveCallStatus } = useTwilioDevice();
+  const isRepOnCall =
+    liveCallStatus === "in-call" ||
+    liveCallStatus === "connecting" ||
+    liveCallStatus === "ringing-incoming";
+
+  // All call_records for this lead. Live-subscribed via realtime so the modal
+  // auto-updates the second a transcript lands — no manual refresh button.
+  type LeadCallRow = {
+    id: string;
+    twilio_call_sid: string | null;
+    status: string | null;
+    recording_url: string | null;
+    analysis_stage: string | null;
+    call_analysis: { transcript?: string; patient_summary?: string; summary?: string; notes?: string } | null;
+    called_at: string;
+    duration: number | null;
+  };
+  const [leadCalls, setLeadCalls] = useState<LeadCallRow[]>([]);
+  const lastCondensedKeyRef = useRef<string>("");
+
 
   // Payment-link gate: rep must send link and Stripe must confirm payment
   // before "Book appointment" unlocks. Driven by meta_leads.deposit_paid_at
@@ -2935,71 +2953,154 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
   };
 
+  // Load + live-subscribe to every call_records row for this lead. The
+  // handover-readiness gate below derives everything from this — no polling,
+  // no manual refresh, no stale-notes bypass.
   useEffect(() => {
-    if (!booked) return;
-    if (lead.call_notes?.trim() || discoveryNotes?.trim()) {
-      setIntelStatus("ready");
-      return;
-    }
-
-    let attempts = 0;
-    const MAX_ATTEMPTS = 18; // 3 minutes at 10s intervals
-    let stopped = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
-
-    const poll = async () => {
-      if (stopped) return;
-      attempts += 1;
-      setPollAttempt(attempts);
-
-      try {
-        const { data, error } = await supabase
-          .from("meta_leads")
-          .select("call_notes")
-          .eq("id", lead.id)
-          .single();
-
-        if (stopped) return;
-
-        if (error) {
-          setIntelStatus("timeout");
-          toast.error("Could not check call intel — you can still send manually");
-          return;
-        }
-
-        if (data?.call_notes?.trim()) {
-          setIntelStatus("ready");
-          setPreviewIntel(data.call_notes);
-          toast.success("Patient intel ready ✓");
-          return;
-        }
-      } catch {
-        if (stopped) return;
-        setIntelStatus("timeout");
-        toast.error("Error checking call intel — you can still send manually");
-        return;
-      }
-
-      if (attempts >= MAX_ATTEMPTS) {
-        if (!stopped) {
-          setIntelStatus("timeout");
-          setShowManualNotes(true);
-        }
-        return;
-      }
-
-      timer = setTimeout(poll, 10000);
+    if (!lead.id) return;
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("call_records")
+        .select("id, twilio_call_sid, status, recording_url, analysis_stage, call_analysis, called_at, duration")
+        .eq("lead_id", lead.id)
+        .order("called_at", { ascending: true });
+      if (!cancelled) setLeadCalls((data ?? []) as LeadCallRow[]);
     };
-
-    // First poll after 15 seconds to give Twilio time to process
-    const initialTimer = setTimeout(poll, 15000);
-
+    void load();
+    const channel = supabase
+      .channel(`handover-calls-${lead.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "call_records", filter: `lead_id=eq.${lead.id}` },
+        () => void load(),
+      )
+      .subscribe();
     return () => {
-      stopped = true;
-      clearTimeout(initialTimer);
-      if (timer) clearTimeout(timer);
+      cancelled = true;
+      supabase.removeChannel(channel);
     };
-  }, [booked, lead.id]);
+  }, [lead.id]);
+
+  // Derived: can we send the handover right now, and if not, why?
+  const CALL_IN_PROGRESS_STATUSES = useMemo(
+    () => new Set(["initiated", "ringing", "in-progress", "queued"]),
+    [],
+  );
+  const usableCompletedCalls = useMemo(
+    () =>
+      leadCalls.filter((c) => {
+        if (String(c.status ?? "").toLowerCase() !== "completed") return false;
+        if (!c.recording_url) return false;
+        const a = c.call_analysis;
+        return Boolean((a?.transcript ?? "").trim() || (a?.patient_summary ?? "").trim());
+      }),
+    [leadCalls],
+  );
+  const handoverGate = useMemo<{ ready: boolean; reason: string }>(() => {
+    if (isRepOnCall) {
+      return { ready: false, reason: "Call in progress — wait for it to end" };
+    }
+    const active = leadCalls.find((c) =>
+      CALL_IN_PROGRESS_STATUSES.has(String(c.status ?? "").toLowerCase()),
+    );
+    if (active) {
+      return { ready: false, reason: "A call for this lead is still connecting" };
+    }
+    const completed = leadCalls.filter(
+      (c) => String(c.status ?? "").toLowerCase() === "completed",
+    );
+    if (completed.length === 0) {
+      return { ready: false, reason: "No completed call yet for this lead" };
+    }
+    const missingRecording = completed.find((c) => !c.recording_url);
+    if (missingRecording) {
+      return { ready: false, reason: "Processing recording…" };
+    }
+    const stillAnalysing = completed.find(
+      (c) => c.recording_url && c.analysis_stage !== "complete" && c.analysis_stage !== "failed",
+    );
+    if (stillAnalysing) {
+      return { ready: false, reason: "Generating transcript…" };
+    }
+    if (usableCompletedCalls.length === 0) {
+      return {
+        ready: false,
+        reason: "AI analysis finished but produced no usable transcript (voicemail/no answer)",
+      };
+    }
+    return { ready: true, reason: "" };
+  }, [isRepOnCall, leadCalls, usableCompletedCalls, CALL_IN_PROGRESS_STATUSES]);
+
+  // Auto-condense: whenever the modal is open + gate is ready + the set of
+  // usable transcripts changes, re-run condense-notes across ALL of them so
+  // the intel reflects every call (including info from earlier calls or a
+  // call that got cut off). Guarded by a fingerprint so we don't re-run on
+  // every render.
+  useEffect(() => {
+    if (!showPreview) return;
+    if (!handoverGate.ready) return;
+    if (usableCompletedCalls.length === 0) return;
+
+    const key = usableCompletedCalls
+      .map((c) => `${c.id}:${(c.call_analysis?.transcript ?? "").length}:${(c.call_analysis?.patient_summary ?? "").length}`)
+      .join("|");
+    if (lastCondensedKeyRef.current === key) return;
+    lastCondensedKeyRef.current = key;
+
+    let cancelled = false;
+    (async () => {
+      setAutoRefreshingIntel(true);
+      try {
+        const notesBlock = usableCompletedCalls
+          .map((c, i) => {
+            const when = (() => {
+              try {
+                return new Date(c.called_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+              } catch { return ""; }
+            })();
+            const label = i === usableCompletedCalls.length - 1 && usableCompletedCalls.length > 1 ? "Latest Call" : `Call ${i + 1}`;
+            const body = ((c.call_analysis?.transcript ?? "").trim() || (c.call_analysis?.patient_summary ?? "").trim());
+            return `--- ${label}${when ? ` (${when})` : ""} ---\n${body}`;
+          })
+          .join("\n\n");
+
+        const { data: leadFacts } = await supabase
+          .from("meta_leads")
+          .select("funding_preference, finance_eligible, status, booking_date, booking_time")
+          .eq("id", lead.id)
+          .maybeSingle();
+        const dealFacts = {
+          deposit_paid: previewDeposit,
+          finance_eligible: leadFacts?.finance_eligible ?? null,
+          funding_preference: previewFunding || leadFacts?.funding_preference || null,
+          booking_date: leadFacts?.booking_date || null,
+          booking_time: leadFacts?.booking_time || null,
+          status: leadFacts?.status || null,
+        };
+        const patientFirstName = (lead.first_name || "").trim() || "";
+        const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
+          body: { leadId: lead.id, notes: notesBlock, dealFacts, patientFirstName },
+        });
+        if (cancelled) return;
+        if (condErr) {
+          console.error("auto condense-notes failed", condErr);
+          return;
+        }
+        const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
+        if (finalText) setPreviewIntel(finalText);
+      } catch (err) {
+        console.error("auto condense-notes exception", err);
+      } finally {
+        if (!cancelled) setAutoRefreshingIntel(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [showPreview, handoverGate.ready, usableCompletedCalls, lead.id, lead.first_name, previewDeposit, previewFunding]);
+
+
+
 
   useEffect(() => {
     void supabase.from("partner_clinics")
@@ -3066,24 +3167,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const clinic = clinics.find((c) => c.id === form.clinicId);
   const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
 
-  const saveManualNotes = async () => {
-    if (!manualNotes.trim()) return;
-    setSavingManualNotes(true);
-    try {
-      await supabase
-        .from("meta_leads")
-        .update({ call_notes: manualNotes.trim(), updated_at: new Date().toISOString() })
-        .eq("id", lead.id);
-      setPreviewIntel(manualNotes.trim());
-      setIntelStatus("ready");
-      setShowManualNotes(false);
-      toast.success("Notes saved ✓");
-    } catch {
-      toast.error("Failed to save notes");
-    } finally {
-      setSavingManualNotes(false);
-    }
-  };
+  // Manual notes flow removed — handover intel now comes strictly from the
+  // AI-analysed call recordings (see handoverGate + auto-condense effect).
+
 
   const book = async () => {
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
@@ -3613,8 +3699,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       setPatientSmsSentPopup(null);
       setPatientSmsSentPopupDismissed(false);
       setSendingDeposit(false);
-      setIntelStatus("waiting");
-      setPollAttempt(0);
+      lastCondensedKeyRef.current = "";
+
       setShowResetConfirm(false);
       setResetting(false);
       toast.success("Booking permanently cleared — fresh slate");
@@ -3710,59 +3796,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           </div>
         </div>
 
-        {/* Single handover card */}
+        {/* Single handover card — gated on live call state + recording + transcript readiness */}
         <div className="flex flex-col gap-2.5">
-          {/* Manual notes fallback when no recording was detected */}
-          {showManualNotes && !handoverSent && (
-            <div style={{
-              background: "#fffbeb",
-              border: `0.5px solid ${COLORS.amber}`,
-              borderRadius: 10,
-              padding: "16px 20px",
-              marginBottom: 4,
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.amberDark, marginBottom: 8 }}>
-                ⚠️ No recording detected — type your notes while they're fresh
-              </div>
-              <textarea
-                value={manualNotes}
-                onChange={(e) => setManualNotes(e.target.value)}
-                rows={4}
-                placeholder="What did they tell you? Pain points, motivation, budget, timeline..."
-                className="w-full rounded-[6px] outline-none"
-                style={{
-                  background: "#ffffff",
-                  border: `0.5px solid ${COLORS.line}`,
-                  color: "#111",
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  padding: "10px 12px",
-                  resize: "vertical",
-                  marginBottom: 10,
-                }}
-              />
-              <button
-                onClick={() => void saveManualNotes()}
-                disabled={savingManualNotes || !manualNotes.trim()}
-                style={{
-                  background: COLORS.coral,
-                  color: "#fff",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  padding: "8px 20px",
-                  borderRadius: 6,
-                  border: "none",
-                  opacity: savingManualNotes || !manualNotes.trim() ? 0.5 : 1,
-                  cursor: savingManualNotes || !manualNotes.trim() ? "default" : "pointer",
-                }}
-              >
-                {savingManualNotes ? "Saving..." : "Save notes →"}
-              </button>
-            </div>
-          )}
-
-          {/* Unified card: analysing state OR send handover button */}
-          {intelStatus === "waiting" ? (
+          {!handoverGate.ready && !handoverSent ? (
             <div
               className="w-full rounded-[8px] flex items-center gap-3"
               style={{
@@ -3778,18 +3814,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: COLORS.amberDark, marginBottom: 2 }}>
-                  Please wait to send handover video
+                  Send handover — not ready yet
                 </div>
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
-                  Analysing call recording ({pollAttempt}/18)
+                  {handoverGate.reason}
                 </div>
               </div>
-              <button
-                onClick={() => setIntelStatus("timeout")}
-                style={{ fontSize: 12, color: "#888", textDecoration: "underline", background: "transparent", flexShrink: 0 }}
-              >
-                Skip
-              </button>
             </div>
           ) : (
             <button
@@ -3811,7 +3841,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                 <div style={{ fontSize: 12, color: COLORS.muted }}>
                   {handoverSent
                     ? "Tap to review what was sent or resend with updates"
-                    : "Patient intel, funding, booking details → peter@gobold.com.au"}
+                    : `Patient intel from ${usableCompletedCalls.length} call${usableCompletedCalls.length === 1 ? "" : "s"} → peter@gobold.com.au`}
                 </div>
               </div>
               <div style={{ fontSize: 13, fontWeight: 500, color: handoverSent ? COLORS.green : COLORS.coral, flexShrink: 0, marginLeft: 12 }}>
@@ -3822,7 +3852,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
           {/* Patient confirmation SMS auto-fires on Book appointment (with 5s Undo).
               Status is shown as a pill in the confirmation card above. */}
-          {confirmationSent === false && intelStatus !== "waiting" && lead.phone && (
+          {confirmationSent === false && handoverGate.ready && lead.phone && (
+
             <button
               onClick={() => {
                 if (!lead.phone) return;
@@ -3971,194 +4002,42 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                   <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>with {bookedData?.doctorName} · {bookedData?.clinicName}</div>
                 </div>
 
+                {/* Sources: which call recordings this intel was built from */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+                    Built from {usableCompletedCalls.length} call{usableCompletedCalls.length === 1 ? "" : "s"}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {usableCompletedCalls.map((c) => {
+                      const when = (() => {
+                        try {
+                          return new Date(c.called_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+                        } catch { return c.called_at; }
+                      })();
+                      const dur = c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : "—";
+                      const sidShort = c.twilio_call_sid ? c.twilio_call_sid.slice(-6) : c.id.slice(0, 6);
+                      return (
+                        <div key={c.id} style={{ fontSize: 12, color: "#555", display: "flex", justifyContent: "space-between", padding: "4px 8px", background: "#f5f5f5", borderRadius: 4 }}>
+                          <span>✓ {when} · {dur}</span>
+                          <span style={{ color: "#999", fontFamily: "monospace" }}>#{sidShort}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Patient Intel */}
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999" }}>Patient Intel <span style={{ color: COLORS.coral }}>— editable</span></div>
-                    <button
-                      type="button"
-                      disabled={refreshingIntel}
-                      onClick={async () => {
-                        setRefreshingIntel(true);
-                        try {
-                          // 1. Fetch ALL call records for this lead, plus any same-phone orphaned rows.
-                          type CallRow = {
-                            id: string;
-                            recording_url: string | null;
-                            call_analysis: { patient_summary?: string; transcript?: string } | null;
-                            called_at: string;
-                            duration?: number | null;
-                            phone?: string | null;
-                          };
-                          const callSelect = "id, recording_url, call_analysis, called_at, duration, phone";
-                          const normalizePhone = (value?: string | null) => (value || "").replace(/[^0-9]/g, "");
-                          const byId = new Map<string, CallRow>();
-                          const addRows = (rows?: CallRow[] | null) => rows?.forEach((row) => byId.set(row.id, row));
-
-                          const { data: leadCalls, error: callsErr } = await supabase
-                            .from("call_records")
-                            .select(callSelect)
-                            .eq("lead_id", lead.id)
-                            .order("called_at", { ascending: true });
-                          if (callsErr) throw callsErr;
-                          addRows(leadCalls as CallRow[] | null);
-
-                          const phoneTail = normalizePhone(lead.phone).slice(-9);
-                          if (phoneTail.length >= 6) {
-                            const { data: phoneCalls, error: phoneErr } = await supabase
-                              .from("call_records")
-                              .select(callSelect)
-                              .ilike("phone", `%${phoneTail}%`)
-                              .order("called_at", { ascending: true });
-                            if (phoneErr) throw phoneErr;
-                            addRows(phoneCalls as CallRow[] | null);
-                          }
-
-                          const allCalls = Array.from(byId.values()).sort((a, b) => new Date(a.called_at).getTime() - new Date(b.called_at).getTime());
-                          const calls = allCalls.filter((c) => !!c.recording_url);
-                          const longUnrecorded = allCalls.filter((c) => !c.recording_url && (c.duration ?? 0) >= 60);
-                          if (allCalls.length === 0) {
-                            toast.error("No calls found for this lead");
-                            return;
-                          }
-                          if (calls.length === 0) {
-                            toast.error(longUnrecorded.length > 0
-                              ? "Found a real call, but it was not recorded so Patient Intel cannot be rebuilt from audio. Add the patient details manually for this old call."
-                              : "No call recordings found for this lead");
-                            return;
-                          }
-
-                          // 2. Ensure each recorded call has been analysed (so we have a transcript). Analyse any that haven't.
-                          const enriched: { idx: number; transcript: string; summary: string; when: string }[] = [];
-                          for (let i = 0; i < calls.length; i++) {
-                            const c = calls[i] as CallRow;
-                            let analysis = c.call_analysis;
-                            if (!analysis?.transcript) {
-                              const { error: invErr } = await supabase.functions.invoke("auto-analyse-call", {
-                                body: { callRecordId: c.id },
-                              });
-                              if (invErr) {
-                                console.error("auto-analyse-call failed for", c.id, invErr);
-                                continue;
-                              }
-                              const { data: refreshed } = await supabase
-                                .from("call_records")
-                                .select("call_analysis")
-                                .eq("id", c.id)
-                                .maybeSingle();
-                              analysis = refreshed?.call_analysis as CallRow["call_analysis"];
-                            }
-                            const transcript = (analysis?.transcript || "").trim();
-                            const summary = (analysis?.patient_summary || "").trim();
-                            // Skip calls that produced nothing useful
-                            if (!transcript && !summary) continue;
-                            enriched.push({ idx: i + 1, transcript, summary, when: c.called_at });
-                          }
-
-                          // Filter out calls that clearly had no useful patient intel (voicemail, no answer, very short transcripts)
-                          const isUseless = (t: string, s: string) => {
-                            const blob = `${t}\n${s}`.toLowerCase();
-                            if (
-                              blob.includes("too brief") ||
-                              blob.includes("no useful intel") ||
-                              blob.includes("not enough patient intel")
-                            ) return true;
-                            // If we have NO transcript and only a short summary mentioning voicemail/no-answer, skip
-                            if (!t && (s.toLowerCase().includes("voicemail") || s.toLowerCase().includes("no answer") || s.length < 40)) return true;
-                            // Very short transcripts (under ~120 chars of speech) are almost always useless
-                            if (t && t.replace(/\s+/g, " ").length < 120 && !s) return true;
-                            return false;
-                          };
-                          const useful = enriched.filter((e) => !isUseless(e.transcript, e.summary));
-
-                          if (useful.length === 0 && longUnrecorded.length > 0) {
-                            toast.error(
-                              "Found a real call for this patient, but that old inbound call was not recorded. Add the patient story manually for this one; future inbound calls are now recorded automatically.",
-                              { duration: 9000 },
-                            );
-                            return;
-                          }
-
-                          // 3. Build chronological notes block. Prefer raw transcript (richer source) and fall back to summary.
-                          const notesBlock = useful
-                            .map((e, i) => {
-                              const label = i === useful.length - 1 && useful.length > 1 ? "Latest Call" : `Call ${i + 1}`;
-                              const when = (() => { try { return new Date(e.when).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }); } catch { return ""; } })();
-                              const body = e.transcript || e.summary;
-                              return `--- ${label}${when ? ` (${when})` : ""} ---\n${body}`;
-                            })
-                            .join("\n\n");
-
-                          const { data: leadFacts } = await supabase
-                            .from("meta_leads")
-                            .select("funding_preference, finance_eligible, status, booking_date, booking_time")
-                            .eq("id", lead.id)
-                            .maybeSingle();
-                          const dealFacts = {
-                            deposit_paid: previewDeposit,
-                            finance_eligible: leadFacts?.finance_eligible ?? null,
-                            funding_preference: previewFunding || leadFacts?.funding_preference || null,
-                            booking_date: leadFacts?.booking_date || null,
-                            booking_time: leadFacts?.booking_time || null,
-                            status: leadFacts?.status || null,
-                          };
-
-                          const patientFirstName = (lead.first_name || "").trim() || "";
-                          const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
-                            body: { leadId: lead.id, notes: notesBlock, dealFacts, patientFirstName },
-                          });
-                          if (condErr) throw condErr;
-                          const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
-
-                          if (finalText) {
-                            setPreviewIntel(finalText);
-                            const usedCount = useful.length;
-                            const totalCount = enriched.length;
-                            const skipped = totalCount - usedCount;
-                            if (usedCount === 0) {
-                              toast.warning(
-                                `No usable call recordings (${totalCount} found — all voicemail/no-answer). Add patient details manually before sending.`,
-                                { duration: 7000 },
-                              );
-                            } else {
-                              toast.success(
-                                `Patient intel refreshed from ${usedCount} call${usedCount === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""} ✓`,
-                              );
-                            }
-                          } else {
-                            const { data: fresh } = await supabase
-                              .from("meta_leads")
-                              .select("call_notes")
-                              .eq("id", lead.id)
-                              .single();
-                            if (fresh?.call_notes?.trim()) {
-                              setPreviewIntel(fresh.call_notes);
-                              toast.success("Patient intel refreshed ✓");
-                            } else {
-                              toast.message("Refresh complete — no summary returned");
-                            }
-                          }
-                        } catch (e) {
-                          const msg = e instanceof Error ? e.message : "Failed to refresh intel";
-                          toast.error(msg);
-                        } finally {
-                          setRefreshingIntel(false);
-                        }
-                      }}
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: refreshingIntel ? "#fff" : "#fff",
-                        background: refreshingIntel ? "#999" : COLORS.coral,
-                        border: "none",
-                        borderRadius: 6,
-                        padding: "8px 14px",
-                        cursor: refreshingIntel ? "wait" : "pointer",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                      }}
-                    >
-                      {refreshingIntel ? "Refreshing…" : "↻ Pull intel from call recording"}
-                    </button>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999" }}>
+                      Patient Intel <span style={{ color: COLORS.coral }}>— editable</span>
+                    </div>
+                    {autoRefreshingIntel && (
+                      <div style={{ fontSize: 11, color: COLORS.muted, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", border: `1.5px solid ${COLORS.coral}`, borderTopColor: "transparent", animation: "discoverySpin 0.8s linear infinite" }} />
+                        Building from transcripts…
+                      </div>
+                    )}
                   </div>
                   <textarea
                     value={previewIntel}
@@ -4166,14 +4045,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                     rows={5}
                     className="w-full rounded-[6px] outline-none"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
-                    placeholder="Add call notes here..."
+                    placeholder={autoRefreshingIntel ? "Auto-generating from call transcripts…" : "Patient intel will appear here once the AI condenses the transcripts"}
                   />
-                  {!previewIntel.trim() && (
+                  {!previewIntel.trim() && !autoRefreshingIntel && (
                     <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
-                      ⚠️ <strong>Patient Intel is empty.</strong> Click <strong>"↻ Pull intel from call recording"</strong> above to auto-generate it from the call, or type notes manually. Do <strong>not</strong> send to the clinic blank.
+                      ⚠️ <strong>Patient Intel is empty.</strong> The AI hasn't produced usable notes yet — wait a moment or edit manually before sending.
                     </div>
                   )}
                 </div>
+
 
                 {/* Funding */}
                 <div style={{ marginBottom: 20 }}>
