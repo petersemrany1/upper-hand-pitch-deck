@@ -3933,194 +3933,42 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                   <div style={{ fontSize: 13, color: "#555", marginTop: 2 }}>with {bookedData?.doctorName} · {bookedData?.clinicName}</div>
                 </div>
 
+                {/* Sources: which call recordings this intel was built from */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999", marginBottom: 8 }}>
+                    Built from {usableCompletedCalls.length} call{usableCompletedCalls.length === 1 ? "" : "s"}
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {usableCompletedCalls.map((c) => {
+                      const when = (() => {
+                        try {
+                          return new Date(c.called_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+                        } catch { return c.called_at; }
+                      })();
+                      const dur = c.duration ? `${Math.floor(c.duration / 60)}m ${c.duration % 60}s` : "—";
+                      const sidShort = c.twilio_call_sid ? c.twilio_call_sid.slice(-6) : c.id.slice(0, 6);
+                      return (
+                        <div key={c.id} style={{ fontSize: 12, color: "#555", display: "flex", justifyContent: "space-between", padding: "4px 8px", background: "#f5f5f5", borderRadius: 4 }}>
+                          <span>✓ {when} · {dur}</span>
+                          <span style={{ color: "#999", fontFamily: "monospace" }}>#{sidShort}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Patient Intel */}
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999" }}>Patient Intel <span style={{ color: COLORS.coral }}>— editable</span></div>
-                    <button
-                      type="button"
-                      disabled={refreshingIntel}
-                      onClick={async () => {
-                        setRefreshingIntel(true);
-                        try {
-                          // 1. Fetch ALL call records for this lead, plus any same-phone orphaned rows.
-                          type CallRow = {
-                            id: string;
-                            recording_url: string | null;
-                            call_analysis: { patient_summary?: string; transcript?: string } | null;
-                            called_at: string;
-                            duration?: number | null;
-                            phone?: string | null;
-                          };
-                          const callSelect = "id, recording_url, call_analysis, called_at, duration, phone";
-                          const normalizePhone = (value?: string | null) => (value || "").replace(/[^0-9]/g, "");
-                          const byId = new Map<string, CallRow>();
-                          const addRows = (rows?: CallRow[] | null) => rows?.forEach((row) => byId.set(row.id, row));
-
-                          const { data: leadCalls, error: callsErr } = await supabase
-                            .from("call_records")
-                            .select(callSelect)
-                            .eq("lead_id", lead.id)
-                            .order("called_at", { ascending: true });
-                          if (callsErr) throw callsErr;
-                          addRows(leadCalls as CallRow[] | null);
-
-                          const phoneTail = normalizePhone(lead.phone).slice(-9);
-                          if (phoneTail.length >= 6) {
-                            const { data: phoneCalls, error: phoneErr } = await supabase
-                              .from("call_records")
-                              .select(callSelect)
-                              .ilike("phone", `%${phoneTail}%`)
-                              .order("called_at", { ascending: true });
-                            if (phoneErr) throw phoneErr;
-                            addRows(phoneCalls as CallRow[] | null);
-                          }
-
-                          const allCalls = Array.from(byId.values()).sort((a, b) => new Date(a.called_at).getTime() - new Date(b.called_at).getTime());
-                          const calls = allCalls.filter((c) => !!c.recording_url);
-                          const longUnrecorded = allCalls.filter((c) => !c.recording_url && (c.duration ?? 0) >= 60);
-                          if (allCalls.length === 0) {
-                            toast.error("No calls found for this lead");
-                            return;
-                          }
-                          if (calls.length === 0) {
-                            toast.error(longUnrecorded.length > 0
-                              ? "Found a real call, but it was not recorded so Patient Intel cannot be rebuilt from audio. Add the patient details manually for this old call."
-                              : "No call recordings found for this lead");
-                            return;
-                          }
-
-                          // 2. Ensure each recorded call has been analysed (so we have a transcript). Analyse any that haven't.
-                          const enriched: { idx: number; transcript: string; summary: string; when: string }[] = [];
-                          for (let i = 0; i < calls.length; i++) {
-                            const c = calls[i] as CallRow;
-                            let analysis = c.call_analysis;
-                            if (!analysis?.transcript) {
-                              const { error: invErr } = await supabase.functions.invoke("auto-analyse-call", {
-                                body: { callRecordId: c.id },
-                              });
-                              if (invErr) {
-                                console.error("auto-analyse-call failed for", c.id, invErr);
-                                continue;
-                              }
-                              const { data: refreshed } = await supabase
-                                .from("call_records")
-                                .select("call_analysis")
-                                .eq("id", c.id)
-                                .maybeSingle();
-                              analysis = refreshed?.call_analysis as CallRow["call_analysis"];
-                            }
-                            const transcript = (analysis?.transcript || "").trim();
-                            const summary = (analysis?.patient_summary || "").trim();
-                            // Skip calls that produced nothing useful
-                            if (!transcript && !summary) continue;
-                            enriched.push({ idx: i + 1, transcript, summary, when: c.called_at });
-                          }
-
-                          // Filter out calls that clearly had no useful patient intel (voicemail, no answer, very short transcripts)
-                          const isUseless = (t: string, s: string) => {
-                            const blob = `${t}\n${s}`.toLowerCase();
-                            if (
-                              blob.includes("too brief") ||
-                              blob.includes("no useful intel") ||
-                              blob.includes("not enough patient intel")
-                            ) return true;
-                            // If we have NO transcript and only a short summary mentioning voicemail/no-answer, skip
-                            if (!t && (s.toLowerCase().includes("voicemail") || s.toLowerCase().includes("no answer") || s.length < 40)) return true;
-                            // Very short transcripts (under ~120 chars of speech) are almost always useless
-                            if (t && t.replace(/\s+/g, " ").length < 120 && !s) return true;
-                            return false;
-                          };
-                          const useful = enriched.filter((e) => !isUseless(e.transcript, e.summary));
-
-                          if (useful.length === 0 && longUnrecorded.length > 0) {
-                            toast.error(
-                              "Found a real call for this patient, but that old inbound call was not recorded. Add the patient story manually for this one; future inbound calls are now recorded automatically.",
-                              { duration: 9000 },
-                            );
-                            return;
-                          }
-
-                          // 3. Build chronological notes block. Prefer raw transcript (richer source) and fall back to summary.
-                          const notesBlock = useful
-                            .map((e, i) => {
-                              const label = i === useful.length - 1 && useful.length > 1 ? "Latest Call" : `Call ${i + 1}`;
-                              const when = (() => { try { return new Date(e.when).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }); } catch { return ""; } })();
-                              const body = e.transcript || e.summary;
-                              return `--- ${label}${when ? ` (${when})` : ""} ---\n${body}`;
-                            })
-                            .join("\n\n");
-
-                          const { data: leadFacts } = await supabase
-                            .from("meta_leads")
-                            .select("funding_preference, finance_eligible, status, booking_date, booking_time")
-                            .eq("id", lead.id)
-                            .maybeSingle();
-                          const dealFacts = {
-                            deposit_paid: previewDeposit,
-                            finance_eligible: leadFacts?.finance_eligible ?? null,
-                            funding_preference: previewFunding || leadFacts?.funding_preference || null,
-                            booking_date: leadFacts?.booking_date || null,
-                            booking_time: leadFacts?.booking_time || null,
-                            status: leadFacts?.status || null,
-                          };
-
-                          const patientFirstName = (lead.first_name || "").trim() || "";
-                          const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
-                            body: { leadId: lead.id, notes: notesBlock, dealFacts, patientFirstName },
-                          });
-                          if (condErr) throw condErr;
-                          const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
-
-                          if (finalText) {
-                            setPreviewIntel(finalText);
-                            const usedCount = useful.length;
-                            const totalCount = enriched.length;
-                            const skipped = totalCount - usedCount;
-                            if (usedCount === 0) {
-                              toast.warning(
-                                `No usable call recordings (${totalCount} found — all voicemail/no-answer). Add patient details manually before sending.`,
-                                { duration: 7000 },
-                              );
-                            } else {
-                              toast.success(
-                                `Patient intel refreshed from ${usedCount} call${usedCount === 1 ? "" : "s"}${skipped > 0 ? ` (${skipped} skipped)` : ""} ✓`,
-                              );
-                            }
-                          } else {
-                            const { data: fresh } = await supabase
-                              .from("meta_leads")
-                              .select("call_notes")
-                              .eq("id", lead.id)
-                              .single();
-                            if (fresh?.call_notes?.trim()) {
-                              setPreviewIntel(fresh.call_notes);
-                              toast.success("Patient intel refreshed ✓");
-                            } else {
-                              toast.message("Refresh complete — no summary returned");
-                            }
-                          }
-                        } catch (e) {
-                          const msg = e instanceof Error ? e.message : "Failed to refresh intel";
-                          toast.error(msg);
-                        } finally {
-                          setRefreshingIntel(false);
-                        }
-                      }}
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 700,
-                        color: refreshingIntel ? "#fff" : "#fff",
-                        background: refreshingIntel ? "#999" : COLORS.coral,
-                        border: "none",
-                        borderRadius: 6,
-                        padding: "8px 14px",
-                        cursor: refreshingIntel ? "wait" : "pointer",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
-                      }}
-                    >
-                      {refreshingIntel ? "Refreshing…" : "↻ Pull intel from call recording"}
-                    </button>
+                    <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#999" }}>
+                      Patient Intel <span style={{ color: COLORS.coral }}>— editable</span>
+                    </div>
+                    {autoRefreshingIntel && (
+                      <div style={{ fontSize: 11, color: COLORS.muted, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", border: `1.5px solid ${COLORS.coral}`, borderTopColor: "transparent", animation: "discoverySpin 0.8s linear infinite" }} />
+                        Building from transcripts…
+                      </div>
+                    )}
                   </div>
                   <textarea
                     value={previewIntel}
@@ -4128,14 +3976,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                     rows={5}
                     className="w-full rounded-[6px] outline-none"
                     style={{ background: "#f9f9f9", border: `0.5px solid ${COLORS.line}`, color: "#111", fontSize: 14, lineHeight: 1.6, padding: "10px 12px", resize: "vertical" }}
-                    placeholder="Add call notes here..."
+                    placeholder={autoRefreshingIntel ? "Auto-generating from call transcripts…" : "Patient intel will appear here once the AI condenses the transcripts"}
                   />
-                  {!previewIntel.trim() && (
+                  {!previewIntel.trim() && !autoRefreshingIntel && (
                     <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
-                      ⚠️ <strong>Patient Intel is empty.</strong> Click <strong>"↻ Pull intel from call recording"</strong> above to auto-generate it from the call, or type notes manually. Do <strong>not</strong> send to the clinic blank.
+                      ⚠️ <strong>Patient Intel is empty.</strong> The AI hasn't produced usable notes yet — wait a moment or edit manually before sending.
                     </div>
                   )}
                 </div>
+
 
                 {/* Funding */}
                 <div style={{ marginBottom: 20 }}>
