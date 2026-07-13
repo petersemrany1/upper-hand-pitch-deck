@@ -3134,7 +3134,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
         if (!finalText || isBlockingPatientIntelText(finalText)) {
-          if (finalText) setPreviewIntel(finalText);
+          // Don't pollute the textarea with an AI refusal/error while building.
+          // The warning below the textarea will tell the user the intel isn't ready.
           lastCondensedKeyRef.current = key;
           setIntelBuildError("Patient Intel is not ready yet — the transcript summary is empty or unusable.");
           return;
