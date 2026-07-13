@@ -3032,6 +3032,75 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     return { ready: true, reason: "" };
   }, [isRepOnCall, leadCalls, usableCompletedCalls, CALL_IN_PROGRESS_STATUSES]);
 
+  // Auto-condense: whenever the modal is open + gate is ready + the set of
+  // usable transcripts changes, re-run condense-notes across ALL of them so
+  // the intel reflects every call (including info from earlier calls or a
+  // call that got cut off). Guarded by a fingerprint so we don't re-run on
+  // every render.
+  useEffect(() => {
+    if (!showPreview) return;
+    if (!handoverGate.ready) return;
+    if (usableCompletedCalls.length === 0) return;
+
+    const key = usableCompletedCalls
+      .map((c) => `${c.id}:${(c.call_analysis?.transcript ?? "").length}:${(c.call_analysis?.patient_summary ?? "").length}`)
+      .join("|");
+    if (lastCondensedKeyRef.current === key) return;
+    lastCondensedKeyRef.current = key;
+
+    let cancelled = false;
+    (async () => {
+      setAutoRefreshingIntel(true);
+      try {
+        const notesBlock = usableCompletedCalls
+          .map((c, i) => {
+            const when = (() => {
+              try {
+                return new Date(c.called_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+              } catch { return ""; }
+            })();
+            const label = i === usableCompletedCalls.length - 1 && usableCompletedCalls.length > 1 ? "Latest Call" : `Call ${i + 1}`;
+            const body = ((c.call_analysis?.transcript ?? "").trim() || (c.call_analysis?.patient_summary ?? "").trim());
+            return `--- ${label}${when ? ` (${when})` : ""} ---\n${body}`;
+          })
+          .join("\n\n");
+
+        const { data: leadFacts } = await supabase
+          .from("meta_leads")
+          .select("funding_preference, finance_eligible, status, booking_date, booking_time")
+          .eq("id", lead.id)
+          .maybeSingle();
+        const dealFacts = {
+          deposit_paid: previewDeposit,
+          finance_eligible: leadFacts?.finance_eligible ?? null,
+          funding_preference: previewFunding || leadFacts?.funding_preference || null,
+          booking_date: leadFacts?.booking_date || null,
+          booking_time: leadFacts?.booking_time || null,
+          status: leadFacts?.status || null,
+        };
+        const patientFirstName = (lead.first_name || "").trim() || "";
+        const { data: condensed, error: condErr } = await supabase.functions.invoke("condense-notes", {
+          body: { leadId: lead.id, notes: notesBlock, dealFacts, patientFirstName },
+        });
+        if (cancelled) return;
+        if (condErr) {
+          console.error("auto condense-notes failed", condErr);
+          return;
+        }
+        const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
+        if (finalText) setPreviewIntel(finalText);
+      } catch (err) {
+        console.error("auto condense-notes exception", err);
+      } finally {
+        if (!cancelled) setAutoRefreshingIntel(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [showPreview, handoverGate.ready, usableCompletedCalls, lead.id, lead.first_name, previewDeposit, previewFunding]);
+
+
+
 
   useEffect(() => {
     void supabase.from("partner_clinics")
