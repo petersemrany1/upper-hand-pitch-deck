@@ -2301,6 +2301,11 @@ If they give a surface answer, dig deeper:
       <style>{`
         textarea.discovery-history::placeholder { color: #bbbbbb !important; opacity: 1; }
         @keyframes discoverySpin { to { transform: rotate(360deg); } }
+        @keyframes intelIndeterminate {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
         .always-scroll::-webkit-scrollbar { width: 12px; -webkit-appearance: none; }
         .always-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 6px; }
         .always-scroll::-webkit-scrollbar-thumb { background: #c4c4c4; border-radius: 6px; border: 2px solid #f1f1f1; }
@@ -4115,6 +4120,19 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                       </div>
                     )}
                   </div>
+                  {(autoRefreshingIntel || previewIntelNeedsBuild) && (
+                    <div style={{ height: 4, width: "100%", background: "#f0f0f0", borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: "60%",
+                          background: COLORS.coral,
+                          borderRadius: 2,
+                          animation: "intelIndeterminate 1.4s ease-in-out infinite",
+                        }}
+                      />
+                    </div>
+                  )}
                   <textarea
                     value={previewIntel}
                     onChange={(e) => { setPreviewIntel(e.target.value); setIntelBuildError(""); }}
