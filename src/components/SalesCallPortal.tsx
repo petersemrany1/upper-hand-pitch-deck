@@ -4120,6 +4120,19 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                       </div>
                     )}
                   </div>
+                  {(autoRefreshingIntel || previewIntelNeedsBuild) && (
+                    <div style={{ height: 4, width: "100%", background: "#f0f0f0", borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
+                      <div
+                        style={{
+                          height: "100%",
+                          width: "60%",
+                          background: COLORS.coral,
+                          borderRadius: 2,
+                          animation: "intelIndeterminate 1.4s ease-in-out infinite",
+                        }}
+                      />
+                    </div>
+                  )}
                   <textarea
                     value={previewIntel}
                     onChange={(e) => { setPreviewIntel(e.target.value); setIntelBuildError(""); }}
