@@ -2827,6 +2827,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   };
   const [leadCalls, setLeadCalls] = useState<LeadCallRow[]>([]);
   const lastCondensedKeyRef = useRef<string>("");
+  const buildingIntelKeyRef = useRef<string>("");
+  const [completedIntelKey, setCompletedIntelKey] = useState("");
 
 
   // Payment-link gate: rep must send link and Stripe must confirm payment
