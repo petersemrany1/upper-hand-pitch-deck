@@ -4222,6 +4222,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                       ⚠️ {confirmBlockedReason}
                     </div>
                   )}
+                  {intelBuildError && hasUsablePreviewIntel && !confirmBlockedReason && !sendingHandover && (
+                    <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
+                      ⚠️ {intelBuildError}
+                    </div>
+                  )}
                 </div>
 
 
