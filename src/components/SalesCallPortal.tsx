@@ -3117,6 +3117,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
     const key = usableCompletedCallsKey;
     if (lastCondensedKeyRef.current === key) return;
+    // Once we've successfully built intel for this modal session, don't
+    // silently wipe it and rebuild when a new transcript lands. The user
+    // can hit the manual "Rebuild from calls" action if they want a redo.
+    if (lastCondensedKeyRef.current && previewIntel && !isBlockingPatientIntelText(previewIntel)) {
+      lastCondensedKeyRef.current = key;
+      return;
+    }
+
 
     let cancelled = false;
     (async () => {
