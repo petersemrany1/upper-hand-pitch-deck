@@ -202,6 +202,11 @@ function patientIntelBuildFailureMessage(error: unknown, hasCurrentIntel: boolea
     : "Patient Intel could not be built from transcripts. Try again in a moment.";
 }
 
+function isNonBlockingPatientIntelWarning(value: string | null | undefined) {
+  const text = (value ?? "").toLowerCase();
+  return /saved patient intel|current usable notes|saved patient intel below|ai credits are exhausted/.test(text);
+}
+
 function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | undefined, fallbackIndex: number, leadId: string) {
   const withoutLead = queue.filter((id) => id !== leadId);
   let currentIdx = currentLeadId ? withoutLead.indexOf(currentLeadId) : -1;
@@ -3744,10 +3749,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     usableCompletedCalls.length > 0 &&
     completedIntelKey !== usableCompletedCallsKey;
   const hasUsablePreviewIntel = previewIntel.trim().length > 0 && !isBlockingPatientIntelText(previewIntel);
+  const visibleIntelBuildError = hasUsablePreviewIntel && isNonBlockingPatientIntelWarning(intelBuildError) ? "" : intelBuildError;
   const confirmBlockedReason = (() => {
     if (!handoverGate.ready) return handoverGate.reason;
     if (autoRefreshingIntel || previewIntelNeedsBuild) return "Patient Intel is still building from transcripts — wait until it finishes.";
-    if (!hasUsablePreviewIntel) return intelBuildError || "Patient Intel is not ready yet.";
+    if (!hasUsablePreviewIntel) return visibleIntelBuildError || "Patient Intel is not ready yet.";
     if (sendingHandover) return "Sending handover…";
     return "";
   })();
@@ -4230,9 +4236,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                       ⚠️ {confirmBlockedReason}
                     </div>
                   )}
-                  {intelBuildError && hasUsablePreviewIntel && !confirmBlockedReason && !sendingHandover && (
+                  {visibleIntelBuildError && hasUsablePreviewIntel && !confirmBlockedReason && !sendingHandover && (
                     <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
-                      ⚠️ {intelBuildError}
+                      ⚠️ {visibleIntelBuildError}
                     </div>
                   )}
                 </div>
