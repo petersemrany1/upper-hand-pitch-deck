@@ -266,7 +266,7 @@ export default function NorwoodPricingCalculator() {
           </div>
 
           <div style={{ fontSize: 10, color: COLORS.muted, textAlign: "center" }}>
-            Estimates only · 5-year plan = 260 weeks
+            Finance estimates use Shailandra's 5-year plan (fortnightly payments shown as weekly)
           </div>
         </div>
       )}
