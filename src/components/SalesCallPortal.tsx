@@ -140,18 +140,26 @@ function isBlockingPatientIntelText(value: string | null | undefined) {
   if (!text) return true;
   return [
     /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript/i,
+    /\bi don'?t see\b.*\btranscript/i,
     /\bi (?:can'?t|cannot|am unable to)\b.*\b(?:generate|produce|create|write)\b.*\b(?:summary|intake|intel|handover)/i,
     /\bplease (?:provide|paste|share)\b.*\btranscript/i,
+    /\bplease paste\b.*\b(?:full|complete)?\s*(?:sales )?call transcript/i,
     /\b(?:no|without|missing)\b.*\btranscript/i,
+    /\bneed more information\b.*\b(?:call|transcript|analy[sz]e)/i,
+    /\blooks like the transcript didn'?t come through/i,
     /\bcontain(?:s)? (?:no|only)\b.*\b(?:substantive|patient information|system prompts|incomplete)/i,
+    /\bno actual conversation data\b/i,
     /\bno substantive patient information\b/i,
     /\bno information available from (?:the )?calls?\b/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
+    /\bsystem message about voicemail\b/i,
     /\bmessage bank\b/i,
     /^you have reached\b/i,
     /^i have reached the message bank\b/i,
+    /\bonly (?:provided|shows|showing)\b.*\b(?:you have reached|transcript|message)/i,
+    /\bbeginning of (?:a )?voicemail/i,
     /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
     /\bto produce a useful summary\b/i,
     /\bprovide (?:the )?(?:full|complete) (?:call )?transcript\b/i,
@@ -2819,6 +2827,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   };
   const [leadCalls, setLeadCalls] = useState<LeadCallRow[]>([]);
   const lastCondensedKeyRef = useRef<string>("");
+  const buildingIntelKeyRef = useRef<string>("");
+  const [completedIntelKey, setCompletedIntelKey] = useState("");
 
 
   // Payment-link gate: rep must send link and Stripe must confirm payment
@@ -3116,18 +3126,21 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (usableCompletedCalls.length === 0) return;
 
     const key = usableCompletedCallsKey;
-    if (lastCondensedKeyRef.current === key) return;
+    if (lastCondensedKeyRef.current === key || buildingIntelKeyRef.current === key) return;
     // Once we've successfully built intel for this modal session, don't
     // silently wipe it and rebuild when a new transcript lands. The user
     // can hit the manual "Rebuild from calls" action if they want a redo.
     if (lastCondensedKeyRef.current && previewIntel && !isBlockingPatientIntelText(previewIntel)) {
       lastCondensedKeyRef.current = key;
+      setCompletedIntelKey(key);
+      setIntelBuildError("");
       return;
     }
 
 
     let cancelled = false;
     (async () => {
+      buildingIntelKeyRef.current = key;
       setAutoRefreshingIntel(true);
       setIntelBuildError("");
       try {
@@ -3165,7 +3178,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         if (condErr) {
           console.error("auto condense-notes failed", condErr);
           lastCondensedKeyRef.current = key;
-          setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
+          setCompletedIntelKey(key);
+          setIntelBuildError(
+            previewIntel && !isBlockingPatientIntelText(previewIntel)
+              ? "Patient Intel rebuild failed, so the current usable notes will be sent."
+              : "Patient Intel could not be built from transcripts. Try again in a moment.",
+          );
           return;
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
@@ -3173,22 +3191,31 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           // Don't pollute the textarea with an AI refusal/error while building.
           // The warning below the textarea will tell the user the intel isn't ready.
           lastCondensedKeyRef.current = key;
+          setCompletedIntelKey(key);
           setIntelBuildError("Patient Intel is not ready yet — the transcript summary is empty or unusable.");
           return;
         }
         setPreviewIntel(finalText);
+        setIntelBuildError("");
         lastCondensedKeyRef.current = key;
+        setCompletedIntelKey(key);
       } catch (err) {
         console.error("auto condense-notes exception", err);
         lastCondensedKeyRef.current = key;
-        setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
+        setCompletedIntelKey(key);
+        setIntelBuildError(
+          previewIntel && !isBlockingPatientIntelText(previewIntel)
+            ? "Patient Intel rebuild failed, so the current usable notes will be sent."
+            : "Patient Intel could not be built from transcripts. Try again in a moment.",
+        );
       } finally {
+        if (buildingIntelKeyRef.current === key) buildingIntelKeyRef.current = "";
         if (!cancelled) setAutoRefreshingIntel(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [showPreview, handoverGate.ready, usableCompletedCalls, usableCompletedCallsKey, lead.id, lead.first_name, previewDeposit, previewFunding]);
+  }, [showPreview, handoverGate.ready, usableCompletedCalls, usableCompletedCallsKey, lead.id, lead.first_name, previewDeposit, previewFunding, previewIntel]);
 
 
 
@@ -3340,7 +3367,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
         phone: lead.phone ?? null,
-        callNotes: discoveryNotes || lead.call_notes || "",
+        callNotes: previewIntel || discoveryNotes || lead.call_notes || "",
         fundingPreference: lead.funding_preference ?? form.funding,
         financeEligible: lead.finance_eligible ?? null,
         bookingDate: bookedData.date,
@@ -3647,6 +3674,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const openPreview = async () => {
     setIntelBuildError("");
     lastCondensedKeyRef.current = "";
+    buildingIntelKeyRef.current = "";
+    setCompletedIntelKey("");
     const [{ data: freshLead }, { data: freshAppointment }, { data: freshCalls }] = await Promise.all([
       supabase
         .from("meta_leads")
@@ -3669,8 +3698,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setLeadCalls((freshCalls ?? []) as LeadCallRow[]);
 
     const seedIntel = freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "";
-    // If the previously-saved call_notes is an AI refusal/error, don't seed the
-    // textarea with it — let the auto-condense effect populate a fresh intel.
+    // Keep any valid existing notes visible while the fresh rebuild runs, but
+    // never seed an old AI refusal/voicemail placeholder into the review box.
     setPreviewIntel(isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
     setPreviewFinance("Yes");
@@ -3704,12 +3733,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     showPreview &&
     handoverGate.ready &&
     usableCompletedCalls.length > 0 &&
-    lastCondensedKeyRef.current !== usableCompletedCallsKey;
+    completedIntelKey !== usableCompletedCallsKey;
+  const hasUsablePreviewIntel = previewIntel.trim().length > 0 && !isBlockingPatientIntelText(previewIntel);
   const confirmBlockedReason = (() => {
     if (!handoverGate.ready) return handoverGate.reason;
     if (autoRefreshingIntel || previewIntelNeedsBuild) return "Patient Intel is still building from transcripts — wait until it finishes.";
-    if (intelBuildError) return intelBuildError;
-    if (isBlockingPatientIntelText(previewIntel)) return "Patient Intel is not ready yet.";
+    if (!hasUsablePreviewIntel) return intelBuildError || "Patient Intel is not ready yet.";
     if (sendingHandover) return "Sending handover…";
     return "";
   })();
@@ -4190,6 +4219,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                   {confirmBlockedReason && !sendingHandover && (
                     <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
                       ⚠️ {confirmBlockedReason}
+                    </div>
+                  )}
+                  {intelBuildError && hasUsablePreviewIntel && !confirmBlockedReason && !sendingHandover && (
+                    <div style={{ marginTop: 8, padding: "10px 12px", background: "#fff8e1", border: "1px solid #f5c842", borderRadius: 6, fontSize: 13, color: "#7a5b00", lineHeight: 1.5 }}>
+                      ⚠️ {intelBuildError}
                     </div>
                   )}
                 </div>

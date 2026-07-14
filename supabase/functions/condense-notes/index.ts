@@ -153,11 +153,19 @@ serve(async (req) => {
     // "I can't process this transcript" or "Please provide a transcript".
     const refusalPatterns = [
       /\bi (?:can'?t|cannot|am unable to|won'?t be able to|don'?t have)\b/i,
+      /\bi don'?t see\b.*\btranscript/i,
       /\b(?:no|without|missing|provide|paste|share)\b.*\btranscript\b/i,
+      /\bplease paste\b.*\b(?:full|complete)?\s*(?:sales )?call transcript/i,
       /\btranscript\b.*\b(?:to analyze|to process|wasn'?t provided|not provided|isn'?t (?:included|provided))\b/i,
+      /\bneed more information\b.*\b(?:call|transcript|analy[sz]e)/i,
+      /\blooks like the transcript didn'?t come through/i,
+      /\bno actual conversation data\b/i,
       /\bplaceholder text\b/i,
       /\bcorrupted audio\b/i,
       /\bvoicemail notification\b/i,
+      /\bsystem message about voicemail\b/i,
+      /\bonly (?:provided|shows|showing)\b.*\b(?:you have reached|transcript|message)/i,
+      /\bbeginning of (?:a )?voicemail/i,
       /\bdoesn'?t contain (?:intelligible|a sales call|patient information|any (?:dialogue|conversation))\b/i,
     ];
     const isRefusal = refusalPatterns.some((re) => re.test(condensed));

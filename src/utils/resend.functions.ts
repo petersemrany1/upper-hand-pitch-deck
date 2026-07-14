@@ -31,18 +31,26 @@ function isBadPatientIntel(value: string | null | undefined) {
   if (!text) return true;
   return [
     /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript\b/i,
+    /\bi don'?t see\b.*\btranscript/i,
     /\bi (?:can'?t|cannot|am unable to)\b.*\b(?:generate|produce|create|write)\b.*\b(?:summary|intake|intel|handover)/i,
     /\bplease (?:provide|paste|share)\b.*\btranscript\b/i,
+    /\bplease paste\b.*\b(?:full|complete)?\s*(?:sales )?call transcript/i,
     /\b(?:no|without|missing)\b.*\btranscript\b/i,
+    /\bneed more information\b.*\b(?:call|transcript|analy[sz]e)/i,
+    /\blooks like the transcript didn'?t come through/i,
     /\bcontain(?:s)? (?:no|only)\b.*\b(?:substantive|patient information|system prompts|incomplete)/i,
+    /\bno actual conversation data\b/i,
     /\bno substantive patient information\b/i,
     /\bno information available from (?:the )?calls?\b/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
+    /\bsystem message about voicemail\b/i,
     /\bmessage bank\b/i,
     /^you have reached\b/i,
     /^i have reached the message bank\b/i,
+    /\bonly (?:provided|shows|showing)\b.*\b(?:you have reached|transcript|message)/i,
+    /\bbeginning of (?:a )?voicemail/i,
     /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
     /\bto produce a useful summary\b/i,
     /\bprovide (?:the )?(?:full|complete) (?:call )?transcript\b/i,
@@ -759,7 +767,8 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       if (!hasUsableCompleted) {
         return { success: false, error: "None of the completed calls produced a usable transcript (voicemail/no answer). Cannot build patient intel." };
       }
-      if (isBadPatientIntel(data.callNotes)) {
+      const verifiedNotes = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
+      if (isBadPatientIntel(verifiedNotes)) {
         return { success: false, error: "Patient Intel is still being generated or is unusable. Wait for it to finish before sending the handover." };
       }
     }
