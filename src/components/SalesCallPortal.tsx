@@ -3126,18 +3126,21 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (usableCompletedCalls.length === 0) return;
 
     const key = usableCompletedCallsKey;
-    if (lastCondensedKeyRef.current === key) return;
+    if (lastCondensedKeyRef.current === key || buildingIntelKeyRef.current === key) return;
     // Once we've successfully built intel for this modal session, don't
     // silently wipe it and rebuild when a new transcript lands. The user
     // can hit the manual "Rebuild from calls" action if they want a redo.
     if (lastCondensedKeyRef.current && previewIntel && !isBlockingPatientIntelText(previewIntel)) {
       lastCondensedKeyRef.current = key;
+      setCompletedIntelKey(key);
+      setIntelBuildError("");
       return;
     }
 
 
     let cancelled = false;
     (async () => {
+      buildingIntelKeyRef.current = key;
       setAutoRefreshingIntel(true);
       setIntelBuildError("");
       try {
@@ -3175,7 +3178,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         if (condErr) {
           console.error("auto condense-notes failed", condErr);
           lastCondensedKeyRef.current = key;
-          setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
+          setCompletedIntelKey(key);
+          setIntelBuildError(
+            previewIntel && !isBlockingPatientIntelText(previewIntel)
+              ? "Patient Intel rebuild failed, so the current usable notes will be sent."
+              : "Patient Intel could not be built from transcripts. Try again in a moment.",
+          );
           return;
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
@@ -3183,22 +3191,31 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           // Don't pollute the textarea with an AI refusal/error while building.
           // The warning below the textarea will tell the user the intel isn't ready.
           lastCondensedKeyRef.current = key;
+          setCompletedIntelKey(key);
           setIntelBuildError("Patient Intel is not ready yet — the transcript summary is empty or unusable.");
           return;
         }
         setPreviewIntel(finalText);
+        setIntelBuildError("");
         lastCondensedKeyRef.current = key;
+        setCompletedIntelKey(key);
       } catch (err) {
         console.error("auto condense-notes exception", err);
         lastCondensedKeyRef.current = key;
-        setIntelBuildError("Patient Intel could not be built from transcripts. Try again in a moment.");
+        setCompletedIntelKey(key);
+        setIntelBuildError(
+          previewIntel && !isBlockingPatientIntelText(previewIntel)
+            ? "Patient Intel rebuild failed, so the current usable notes will be sent."
+            : "Patient Intel could not be built from transcripts. Try again in a moment.",
+        );
       } finally {
+        if (buildingIntelKeyRef.current === key) buildingIntelKeyRef.current = "";
         if (!cancelled) setAutoRefreshingIntel(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [showPreview, handoverGate.ready, usableCompletedCalls, usableCompletedCallsKey, lead.id, lead.first_name, previewDeposit, previewFunding]);
+  }, [showPreview, handoverGate.ready, usableCompletedCalls, usableCompletedCallsKey, lead.id, lead.first_name, previewDeposit, previewFunding, previewIntel]);
 
 
 
