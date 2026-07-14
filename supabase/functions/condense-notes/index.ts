@@ -256,6 +256,8 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true, condensed: finalText }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "unknown" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const message = e instanceof Error ? e.message : "unknown";
+    const status = /AI gateway failed \(402\)|payment_required|not enough credits/i.test(message) ? 402 : 500;
+    return new Response(JSON.stringify({ error: message }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
