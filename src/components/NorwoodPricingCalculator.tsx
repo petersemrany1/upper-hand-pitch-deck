@@ -231,12 +231,9 @@ export default function NorwoodPricingCalculator() {
                 hi = r.max * pricePerGraft;
               }
               const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
-              const weeklyLo = lo / 260;
-              const weeklyHi = hi / 260;
               const weeklyText =
-                lo === hi
-                  ? `≈ ${fmt(weeklyLo)}/week over 5 years`
-                  : `≈ ${fmt(weeklyLo)} – ${fmt(weeklyHi)}/week over 5 years`;
+                financeWeeklyText(lo, hi) ??
+                "Outside standard finance range ($8k–$30k)";
               return (
                 <div
                   key={r.label}
