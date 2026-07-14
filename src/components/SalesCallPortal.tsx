@@ -3674,6 +3674,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const openPreview = async () => {
     setIntelBuildError("");
     lastCondensedKeyRef.current = "";
+    buildingIntelKeyRef.current = "";
+    setCompletedIntelKey("");
     const [{ data: freshLead }, { data: freshAppointment }, { data: freshCalls }] = await Promise.all([
       supabase
         .from("meta_leads")
@@ -3695,10 +3697,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     ]);
     setLeadCalls((freshCalls ?? []) as LeadCallRow[]);
 
+    const freshUsableCalls = ((freshCalls ?? []) as LeadCallRow[]).filter((c) => hasUsablePatientCallIntel(c));
     const seedIntel = freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "";
-    // If the previously-saved call_notes is an AI refusal/error, don't seed the
-    // textarea with it — let the auto-condense effect populate a fresh intel.
-    setPreviewIntel(isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
+    // Opening the handover must rebuild from the latest usable calls. Only seed
+    // old notes when there are no usable transcripts to build from.
+    setPreviewIntel(freshUsableCalls.length > 0 || isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
     setPreviewFinance("Yes");
     // Deposit is paid when Stripe has actually confirmed it, even though the
@@ -3731,12 +3734,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     showPreview &&
     handoverGate.ready &&
     usableCompletedCalls.length > 0 &&
-    lastCondensedKeyRef.current !== usableCompletedCallsKey;
+    completedIntelKey !== usableCompletedCallsKey;
+  const hasUsablePreviewIntel = previewIntel.trim().length > 0 && !isBlockingPatientIntelText(previewIntel);
   const confirmBlockedReason = (() => {
     if (!handoverGate.ready) return handoverGate.reason;
     if (autoRefreshingIntel || previewIntelNeedsBuild) return "Patient Intel is still building from transcripts — wait until it finishes.";
-    if (intelBuildError) return intelBuildError;
-    if (isBlockingPatientIntelText(previewIntel)) return "Patient Intel is not ready yet.";
+    if (!hasUsablePreviewIntel) return intelBuildError || "Patient Intel is not ready yet.";
     if (sendingHandover) return "Sending handover…";
     return "";
   })();
