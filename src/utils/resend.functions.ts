@@ -31,15 +31,41 @@ function isBadPatientIntel(value: string | null | undefined) {
   if (!text) return true;
   return [
     /\bi (?:can'?t|cannot|am unable to|don'?t have)\b.*\btranscript\b/i,
+    /\bi (?:can'?t|cannot|am unable to)\b.*\b(?:generate|produce|create|write)\b.*\b(?:summary|intake|intel|handover)/i,
     /\bplease (?:provide|paste|share)\b.*\btranscript\b/i,
     /\b(?:no|without|missing)\b.*\btranscript\b/i,
+    /\bcontain(?:s)? (?:no|only)\b.*\b(?:substantive|patient information|system prompts|incomplete)/i,
+    /\bno substantive patient information\b/i,
+    /\bno information available from (?:the )?calls?\b/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
+    /\bmessage bank\b/i,
+    /^you have reached\b/i,
+    /^i have reached the message bank\b/i,
     /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
+    /\bto produce a useful summary\b/i,
+    /\bprovide (?:the )?(?:full|complete) (?:call )?transcript\b/i,
     /^no data yet$/i,
     /^no call notes recorded\.?$/i,
   ].some((pattern) => pattern.test(text));
+}
+
+function hasUsablePatientCallIntel(call: {
+  status: string | null;
+  recording_url: string | null;
+  duration?: number | null;
+  call_analysis: { transcript?: string; patient_summary?: string; summary?: string; notes?: string } | null;
+}) {
+  if (String(call.status ?? "").toLowerCase() !== "completed") return false;
+  if (!call.recording_url) return false;
+  const analysis = call.call_analysis;
+  const transcript = (analysis?.transcript ?? "").trim();
+  const summary = (analysis?.patient_summary ?? analysis?.summary ?? analysis?.notes ?? "").trim();
+  const transcriptWordCount = transcript.split(/\s+/).filter(Boolean).length;
+  if (summary && !isBadPatientIntel(summary)) return true;
+  if (transcript && !isBadPatientIntel(transcript) && (transcriptWordCount >= 35 || (call.duration ?? 0) >= 30)) return true;
+  return false;
 }
 
 async function resolveHandoverPatientIntel(
@@ -680,7 +706,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     {
       const { data: guardCalls, error: guardErr } = await supabase
         .from("call_records")
-        .select("id, status, recording_url, analysis_stage, call_analysis, called_at")
+        .select("id, status, recording_url, analysis_stage, call_analysis, called_at, duration")
         .eq("lead_id", data.leadId);
       if (guardErr) {
         return { success: false, error: `Cannot verify call state: ${guardErr.message}` };
@@ -690,12 +716,14 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         status: string | null;
         recording_url: string | null;
         analysis_stage: string | null;
-        call_analysis: { transcript?: string; patient_summary?: string } | null;
+        call_analysis: { transcript?: string; patient_summary?: string; summary?: string; notes?: string } | null;
         called_at: string | null;
+        duration: number | null;
       }>;
       const IN_PROGRESS = new Set(["initiated", "ringing", "in-progress", "queued"]);
-      const STALE_MS = 10 * 60 * 1000;
+      const STALE_MS = 2 * 60 * 1000;
       const now = Date.now();
+      const hasUsableCompleted = rows.some((c) => hasUsablePatientCallIntel(c));
       // Only rows that are actively connecting RIGHT NOW should block. A row
       // stuck in `initiated` from days ago (Twilio never sent the final status
       // callback) is abandoned, not live.
@@ -707,7 +735,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         if (!started || now - started > STALE_MS) return false;
         return true;
       });
-      if (inProgress) {
+      if (inProgress && !hasUsableCompleted) {
         return { success: false, error: "A call for this lead is still in progress. Wait for it to end before sending the handover." };
       }
       const completed = rows.filter((c) => String(c.status ?? "").toLowerCase() === "completed");
@@ -728,11 +756,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       if (stillAnalysing) {
         return { success: false, error: "The AI transcript for a recent call is still being generated. Try again in a moment." };
       }
-      const withTranscript = completed.some((c) => {
-        const a = c.call_analysis;
-        return Boolean((a?.transcript ?? "").trim() || (a?.patient_summary ?? "").trim());
-      });
-      if (!withTranscript) {
+      if (!hasUsableCompleted) {
         return { success: false, error: "None of the completed calls produced a usable transcript (voicemail/no answer). Cannot build patient intel." };
       }
       if (isBadPatientIntel(data.callNotes)) {
