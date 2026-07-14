@@ -3697,11 +3697,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     ]);
     setLeadCalls((freshCalls ?? []) as LeadCallRow[]);
 
-    const freshUsableCalls = ((freshCalls ?? []) as LeadCallRow[]).filter((c) => hasUsablePatientCallIntel(c));
     const seedIntel = freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "";
-    // Opening the handover must rebuild from the latest usable calls. Only seed
-    // old notes when there are no usable transcripts to build from.
-    setPreviewIntel(freshUsableCalls.length > 0 || isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
+    // Keep any valid existing notes visible while the fresh rebuild runs, but
+    // never seed an old AI refusal/voicemail placeholder into the review box.
+    setPreviewIntel(isBlockingPatientIntelText(seedIntel) ? "" : seedIntel);
     setPreviewFunding(freshLead?.funding_preference || form.funding || lead.funding_preference || "");
     setPreviewFinance("Yes");
     // Deposit is paid when Stripe has actually confirmed it, even though the
