@@ -3367,7 +3367,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
         phone: lead.phone ?? null,
-        callNotes: discoveryNotes || lead.call_notes || "",
+        callNotes: previewIntel || discoveryNotes || lead.call_notes || "",
         fundingPreference: lead.funding_preference ?? form.funding,
         financeEligible: lead.finance_eligible ?? null,
         bookingDate: bookedData.date,
