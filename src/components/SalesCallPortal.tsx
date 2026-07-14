@@ -185,6 +185,23 @@ function hasUsablePatientCallIntel(call: {
   return false;
 }
 
+function patientIntelBuildFailureMessage(error: unknown, hasCurrentIntel: boolean) {
+  const text = String(
+    (error as { message?: unknown })?.message ??
+    (error as { error?: unknown })?.error ??
+    error ??
+    "",
+  ).toLowerCase();
+  if (/402|payment_required|not enough credits|credits exhausted/.test(text)) {
+    return hasCurrentIntel
+      ? "AI credits are exhausted, so the saved Patient Intel below will be sent."
+      : "AI credits are exhausted, so Patient Intel cannot be built right now.";
+  }
+  return hasCurrentIntel
+    ? "Patient Intel rebuild failed, so the saved Patient Intel below will be sent."
+    : "Patient Intel could not be built from transcripts. Try again in a moment.";
+}
+
 function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | undefined, fallbackIndex: number, leadId: string) {
   const withoutLead = queue.filter((id) => id !== leadId);
   let currentIdx = currentLeadId ? withoutLead.indexOf(currentLeadId) : -1;
@@ -3179,11 +3196,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           console.error("auto condense-notes failed", condErr);
           lastCondensedKeyRef.current = key;
           setCompletedIntelKey(key);
-          setIntelBuildError(
-            previewIntel && !isBlockingPatientIntelText(previewIntel)
-              ? "Patient Intel rebuild failed, so the current usable notes will be sent."
-              : "Patient Intel could not be built from transcripts. Try again in a moment.",
-          );
+          setIntelBuildError(patientIntelBuildFailureMessage(condErr, previewIntel && !isBlockingPatientIntelText(previewIntel)));
           return;
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
@@ -3203,11 +3216,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         console.error("auto condense-notes exception", err);
         lastCondensedKeyRef.current = key;
         setCompletedIntelKey(key);
-        setIntelBuildError(
-          previewIntel && !isBlockingPatientIntelText(previewIntel)
-            ? "Patient Intel rebuild failed, so the current usable notes will be sent."
-            : "Patient Intel could not be built from transcripts. Try again in a moment.",
-        );
+        setIntelBuildError(patientIntelBuildFailureMessage(err, previewIntel && !isBlockingPatientIntelText(previewIntel)));
       } finally {
         if (buildingIntelKeyRef.current === key) buildingIntelKeyRef.current = "";
         if (!cancelled) setAutoRefreshingIntel(false);
