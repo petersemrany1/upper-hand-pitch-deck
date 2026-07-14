@@ -3196,7 +3196,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           console.error("auto condense-notes failed", condErr);
           lastCondensedKeyRef.current = key;
           setCompletedIntelKey(key);
-          setIntelBuildError(patientIntelBuildFailureMessage(condErr, previewIntel && !isBlockingPatientIntelText(previewIntel)));
+          setIntelBuildError(patientIntelBuildFailureMessage(condErr, Boolean(previewIntel && !isBlockingPatientIntelText(previewIntel))));
           return;
         }
         const finalText = (condensed as { condensed?: string } | null)?.condensed?.trim() || "";
@@ -3216,7 +3216,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         console.error("auto condense-notes exception", err);
         lastCondensedKeyRef.current = key;
         setCompletedIntelKey(key);
-        setIntelBuildError(patientIntelBuildFailureMessage(err, previewIntel && !isBlockingPatientIntelText(previewIntel)));
+        setIntelBuildError(patientIntelBuildFailureMessage(err, Boolean(previewIntel && !isBlockingPatientIntelText(previewIntel))));
       } finally {
         if (buildingIntelKeyRef.current === key) buildingIntelKeyRef.current = "";
         if (!cancelled) setAutoRefreshingIntel(false);
