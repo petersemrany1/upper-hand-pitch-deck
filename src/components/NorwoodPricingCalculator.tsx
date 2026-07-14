@@ -57,6 +57,40 @@ const fmt = (n: number) => "$" + Math.round(n).toLocaleString();
 const fmtGrafts = (min: number, max: number) =>
   min === max ? `${min.toLocaleString()} grafts` : `${min.toLocaleString()}–${max.toLocaleString()} grafts`;
 
+// Shailandra 5-year finance plan brackets (always use 5-year)
+const FINANCE_BRACKETS: { min: number; max: number; wMin: number; wMax: number }[] = [
+  { min: 8000, max: 12000, wMin: 41, wMax: 62 },
+  { min: 13000, max: 16000, wMin: 67, wMax: 82 },
+  { min: 17000, max: 20000, wMin: 88, wMax: 103 },
+  { min: 21000, max: 25000, wMin: 108, wMax: 128 },
+  { min: 26000, max: 30000, wMin: 134, wMax: 154 },
+];
+
+function financeWeeklyFor(price: number): number | null {
+  for (const b of FINANCE_BRACKETS) {
+    if (price >= b.min && price <= b.max) {
+      // linear interpolate within the bracket
+      if (b.max === b.min) return b.wMin;
+      const t = (price - b.min) / (b.max - b.min);
+      return Math.round(b.wMin + t * (b.wMax - b.wMin));
+    }
+  }
+  return null;
+}
+
+function financeWeeklyText(lo: number, hi: number): string | null {
+  const wLo = financeWeeklyFor(lo);
+  const wHi = financeWeeklyFor(hi);
+  if (wLo == null && wHi == null) return null;
+  if (wLo != null && wHi != null) {
+    return wLo === wHi
+      ? `≈ $${wLo}/week on 5-yr finance`
+      : `≈ $${wLo} – $${wHi}/week on 5-yr finance`;
+  }
+  const w = (wLo ?? wHi) as number;
+  return `≈ $${w}/week on 5-yr finance (partial range)`;
+}
+
 export default function NorwoodPricingCalculator() {
   const [open, setOpen] = useState(false);
   const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan">("nitai");
@@ -197,12 +231,9 @@ export default function NorwoodPricingCalculator() {
                 hi = r.max * pricePerGraft;
               }
               const priceText = lo === hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
-              const weeklyLo = lo / 260;
-              const weeklyHi = hi / 260;
               const weeklyText =
-                lo === hi
-                  ? `≈ ${fmt(weeklyLo)}/week over 5 years`
-                  : `≈ ${fmt(weeklyLo)} – ${fmt(weeklyHi)}/week over 5 years`;
+                financeWeeklyText(lo, hi) ??
+                "Outside standard finance range ($8k–$30k)";
               return (
                 <div
                   key={r.label}
@@ -235,7 +266,7 @@ export default function NorwoodPricingCalculator() {
           </div>
 
           <div style={{ fontSize: 10, color: COLORS.muted, textAlign: "center" }}>
-            Estimates only · 5-year plan = 260 weeks
+            Finance estimates use Shailandra's 5-year plan (fortnightly payments shown as weekly)
           </div>
         </div>
       )}
