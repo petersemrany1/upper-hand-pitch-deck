@@ -144,15 +144,37 @@ function isBlockingPatientIntelText(value: string | null | undefined) {
     /\bplease (?:provide|paste|share)\b.*\btranscript/i,
     /\b(?:no|without|missing)\b.*\btranscript/i,
     /\bcontain(?:s)? (?:no|only)\b.*\b(?:substantive|patient information|system prompts|incomplete)/i,
+    /\bno substantive patient information\b/i,
+    /\bno information available from (?:the )?calls?\b/i,
     /\bplaceholder text\b/i,
     /\bcorrupted audio\b/i,
     /\bvoicemail notification\b/i,
+    /\bmessage bank\b/i,
+    /^you have reached\b/i,
+    /^i have reached the message bank\b/i,
     /\bdoesn'?t contain (?:intelligible|patient information|any (?:dialogue|conversation))\b/i,
     /\bto produce a useful summary\b/i,
     /\bprovide (?:the )?(?:full|complete) (?:call )?transcript\b/i,
     /^no data yet$/i,
     /^no call notes recorded\.?$/i,
   ].some((pattern) => pattern.test(text));
+}
+
+function hasUsablePatientCallIntel(call: {
+  status: string | null;
+  recording_url: string | null;
+  duration: number | null;
+  call_analysis: { transcript?: string; patient_summary?: string; summary?: string; notes?: string } | null;
+}) {
+  if (String(call.status ?? "").toLowerCase() !== "completed") return false;
+  if (!call.recording_url) return false;
+  const analysis = call.call_analysis;
+  const transcript = (analysis?.transcript ?? "").trim();
+  const summary = (analysis?.patient_summary ?? analysis?.summary ?? analysis?.notes ?? "").trim();
+  const transcriptWordCount = transcript.split(/\s+/).filter(Boolean).length;
+  if (summary && !isBlockingPatientIntelText(summary)) return true;
+  if (transcript && !isBlockingPatientIntelText(transcript) && (transcriptWordCount >= 35 || (call.duration ?? 0) >= 30)) return true;
+  return false;
 }
 
 function placeLeadAfterCurrent(queue: string[], currentLeadId: string | null | undefined, fallbackIndex: number, leadId: string) {
@@ -3015,12 +3037,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   );
   const usableCompletedCalls = useMemo(
     () =>
-      leadCalls.filter((c) => {
-        if (String(c.status ?? "").toLowerCase() !== "completed") return false;
-        if (!c.recording_url) return false;
-        const a = c.call_analysis;
-        return Boolean((a?.transcript ?? "").trim() || (a?.patient_summary ?? "").trim());
-      }),
+      leadCalls.filter((c) => hasUsablePatientCallIntel(c)),
     [leadCalls],
   );
   const usableCompletedCallsKey = useMemo(
@@ -3622,19 +3639,26 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const openPreview = async () => {
     setIntelBuildError("");
     lastCondensedKeyRef.current = "";
-    const { data: freshLead } = await supabase
-      .from("meta_leads")
-      .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
-      .eq("id", lead.id)
-      .single();
-
-    const { data: freshAppointment } = await supabase
-      .from("clinic_appointments")
-      .select("stripe_payment_intent_id")
-      .eq("lead_id", lead.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const [{ data: freshLead }, { data: freshAppointment }, { data: freshCalls }] = await Promise.all([
+      supabase
+        .from("meta_leads")
+        .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
+        .eq("id", lead.id)
+        .single(),
+      supabase
+        .from("clinic_appointments")
+        .select("stripe_payment_intent_id")
+        .eq("lead_id", lead.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("call_records")
+        .select("id, twilio_call_sid, status, recording_url, analysis_stage, call_analysis, called_at, duration")
+        .eq("lead_id", lead.id)
+        .order("called_at", { ascending: true }),
+    ]);
+    setLeadCalls((freshCalls ?? []) as LeadCallRow[]);
 
     const seedIntel = freshLead?.call_notes?.trim() || discoveryNotes?.trim() || "";
     // If the previously-saved call_notes is an AI refusal/error, don't seed the
