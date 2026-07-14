@@ -71,7 +71,7 @@ async function callIntelModel(LOVABLE_API_KEY: string, messages: Array<{ role: "
     method: "POST",
     headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "google/gemini-2.5-pro",
+      model: "google/gemini-3-flash-preview",
       temperature: 0.1,
       max_tokens: 8192,
       maxOutputTokens: 8192,
@@ -83,6 +83,55 @@ async function callIntelModel(LOVABLE_API_KEY: string, messages: Array<{ role: "
     throw new Error(`AI gateway failed (${aiResp.status}): ${t.slice(0, 200)}`);
   }
   return await aiResp.json();
+}
+
+async function callAnthropicIntelModel(ANTHROPIC_API_KEY: string, messages: Array<{ role: "system" | "user"; content: string }>) {
+  const system = messages.find((m) => m.role === "system")?.content ?? SYSTEM_PROMPT;
+  const user = messages.filter((m) => m.role === "user").map((m) => m.content).join("\n\n");
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 3000,
+      temperature: 0.1,
+      system,
+      messages: [{ role: "user", content: user }],
+    }),
+  });
+  if (!resp.ok) {
+    const t = await resp.text();
+    throw new Error(`Anthropic fallback failed (${resp.status}): ${t.slice(0, 300)}`);
+  }
+  const j = await resp.json();
+  const text = String(j?.content?.[0]?.text ?? "").trim();
+  return {
+    choices: [{ message: { content: text }, finish_reason: "stop" }],
+  };
+}
+
+async function generateIntel(messages: Array<{ role: "system" | "user"; content: string }>) {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!LOVABLE_API_KEY && !ANTHROPIC_API_KEY) throw new Error("No AI provider configured");
+
+  if (LOVABLE_API_KEY) {
+    try {
+      return await callIntelModel(LOVABLE_API_KEY, messages);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (!ANTHROPIC_API_KEY || !/AI gateway failed \((?:402|429|5\d\d)\)|payment_required|not enough credits|credits exhausted|rate limit/i.test(msg)) {
+        throw e;
+      }
+      console.warn("condense-notes: Lovable AI unavailable, using Anthropic fallback", msg.slice(0, 180));
+    }
+  }
+
+  return await callAnthropicIntelModel(ANTHROPIC_API_KEY!, messages);
 }
 
 
@@ -99,9 +148,6 @@ serve(async (req) => {
     if (!leadId) {
       return new Response(JSON.stringify({ error: "leadId required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
     const userBlocks: string[] = [];
     const cleanName = typeof patientFirstName === "string" ? patientFirstName.trim() : "";
@@ -128,7 +174,7 @@ serve(async (req) => {
     }
 
     const sourceText = userBlocks.join("\n\n");
-    let aiJson = await callIntelModel(LOVABLE_API_KEY, [
+    let aiJson = await generateIntel([
       { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content: sourceText },
     ]);
@@ -137,7 +183,7 @@ serve(async (req) => {
 
     if (/length|max_tokens|max_output_tokens/i.test(finishReason) || looksTruncated(condensed)) {
       console.warn("condense-notes: retrying incomplete AI output", { finishReason, length: condensed.length, tail: condensed.slice(-120) });
-      aiJson = await callIntelModel(LOVABLE_API_KEY, [
+      aiJson = await generateIntel([
         { role: "system", content: `${SYSTEM_PROMPT}\n\nREPAIR MODE: The previous draft was incomplete. Return the full bullet list again from scratch. Do not continue mid-sentence. Make every bullet complete, especially Objections / risks.` },
         { role: "user", content: `${sourceText}\n\nINCOMPLETE_DRAFT_TO_REPAIR:\n${condensed}` },
       ]);
