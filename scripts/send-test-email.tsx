@@ -1,5 +1,7 @@
+import React from 'react'
 import { render } from '@react-email/render'
 import { template } from '../src/lib/email-templates/pack-renewal'
+
 
 const RESEND_CONNECTION_KEY = process.env.RESEND_API_KEY ?? ''
 const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY ?? ''
