@@ -9,20 +9,21 @@ const clinicName = 'Absolute Cosmetic'
 const contactName = 'Peter'
 
 const Component = template.component
-const html = render(<Component clinicName={clinicName} contactName={contactName} />, {
-  pretty: true,
-})
-
-const subject =
-  typeof template.subject === 'function'
-    ? template.subject({ clinicName, contactName })
-    : template.subject
 
 async function send() {
   if (!RESEND_CONNECTION_KEY || !LOVABLE_API_KEY) {
     console.error('Missing RESEND_API_KEY or LOVABLE_API_KEY')
     process.exit(1)
   }
+
+  const html = await render(<Component clinicName={clinicName} contactName={contactName} />, {
+    pretty: true,
+  })
+
+  const subject =
+    typeof template.subject === 'function'
+      ? template.subject({ clinicName, contactName })
+      : template.subject
 
   const response = await fetch('https://connector-gateway.lovable.dev/resend/emails', {
     method: 'POST',
