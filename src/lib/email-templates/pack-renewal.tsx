@@ -1,7 +1,9 @@
 import {
-  Body, Button, Container, Head, Heading, Hr, Html, Preview, Section, Text,
+  Body, Button, Container, Head, Heading, Hr, Html, Img, Preview, Section, Text,
 } from '@react-email/components'
 import type { TemplateEntry } from './registry'
+
+const LOGO_URL = 'https://hairtransplantgroup.lovable.app/__l5e/assets-v1/f218f3b7-4be4-4997-8e23-ec25d318af9d/bold-logo.png'
 
 interface PackRenewalProps {
   clinicName?: string
