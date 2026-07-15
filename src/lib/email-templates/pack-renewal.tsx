@@ -42,19 +42,19 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
         </Section>
 
 
-        <Heading style={h1}>Your pack is empty</Heading>
+        <Heading style={h1} className="pack-h1">Your pack is empty</Heading>
 
-        <Text style={text}>
+        <Text style={text} className="pack-side">
           {contactName ? `Hi ${contactName},` : 'Hi there,'}
         </Text>
 
-        <Text style={text}>
+        <Text style={text} className="pack-side">
           {clinicName ? `${clinicName} has used ` : "You've used "}
           all of the patient credits in your current pack. To keep receiving
           new patient bookings without interruption, choose a top-up below.
         </Text>
 
-        <Section style={packGrid}>
+        <Section style={packGrid} className="pack-grid">
           <Section style={packBox}>
             <Text style={packTitle}>10 Patient Pack</Text>
             <Button href={STRIPE_LINKS.ten} style={btnSecondary}>
@@ -78,22 +78,23 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
           </Section>
         </Section>
 
-        <Hr style={hr} />
+        <Hr style={hr} className="pack-hr" />
 
-        <Text style={smallText}>
+        <Text style={smallText} className="pack-side">
           Payment is processed securely through Stripe. Your next pack activates
           the moment payment clears — no waiting, no paperwork.
         </Text>
 
-        <Text style={smallText}>
+        <Text style={smallText} className="pack-side">
           Questions or need a custom quote? Just reply to this email.
         </Text>
 
-        <Text style={footer}>Bold — Patient acquisition for clinics</Text>
+        <Text style={footer} className="pack-side">Bold — Patient acquisition for clinics</Text>
       </Container>
     </Body>
   </Html>
 )
+
 
 export const template = {
   component: PackRenewalEmail,
