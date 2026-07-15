@@ -842,18 +842,39 @@ function DashboardHome() {
                 <div>
                   {packBreakdown.map((p) => (
                     <div
-                      key={p.clinicName}
+                      key={p.clinicId}
                       style={{
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "space-between",
+                        gap: 12,
                         padding: "12px 20px",
                         borderBottom: "0.5px solid #f6f6f4",
                       }}
                     >
-                      <div style={{ fontSize: 13, color: "#111", fontWeight: 500 }}>{p.clinicName}</div>
-                      <div style={{ fontSize: 13, color: p.remaining > 0 ? "#16a34a" : "#f4522d", fontWeight: 600 }}>
-                        {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                      <div style={{ fontSize: 13, color: "#111", fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clinicName}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ fontSize: 13, color: p.remaining > 0 ? "#16a34a" : "#f4522d", fontWeight: 600 }}>
+                          {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                        </div>
+                        {p.remaining === 0 && (
+                          <button
+                            onClick={() => setRenewalStep({ clinicId: p.clinicId, clinicName: p.clinicName, step: 1 })}
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "#fff",
+                              background: "#f4522d",
+                              border: 0,
+                              borderRadius: 6,
+                              padding: "6px 10px",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            Send renewal
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
