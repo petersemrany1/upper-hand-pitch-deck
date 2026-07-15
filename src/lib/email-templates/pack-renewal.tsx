@@ -122,6 +122,7 @@ const packBadge = { fontSize: '11px', fontWeight: 'bold' as const, color: '#b453
 const packTitle = { fontSize: '20px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '0 0 14px', textAlign: 'center' as const }
 const btnPrimary = { backgroundColor: '#111', color: '#fff', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block' }
 const btnSecondary = { backgroundColor: '#fff', color: '#111', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block', border: '1.5px solid #111' }
-const hr = { borderColor: '#e5e7eb', margin: '24px 24px 18px' }
-const smallText = { fontSize: '13px', color: '#6b7280', lineHeight: '1.5', margin: '0 24px 12px' }
-const footer = { fontSize: '12px', color: '#9ca3af', margin: '22px 24px 26px', paddingTop: '10px' }
+const hr = { borderColor: '#e5e7eb', margin: '24px 32px 18px' }
+const smallText = { fontSize: '13px', color: '#6b7280', lineHeight: '1.5', margin: '0 32px 12px' }
+const footer = { fontSize: '12px', color: '#9ca3af', margin: '22px 32px 28px', paddingTop: '10px' }
+
