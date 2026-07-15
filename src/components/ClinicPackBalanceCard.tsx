@@ -218,13 +218,11 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
             }} />
           </div>
 
-          {/* Legend */}
+          {/* Legend — totals across all packs */}
           <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap" }}>
-            <LegendItem color={GREEN} label={`${deliveredInActive} delivered`} />
-            <LegendItem color={AMBER} label={`${upcomingInActive} upcoming booked`} />
-            {upcoming > upcomingInActive && (
-              <LegendItem color={RED} label={`${upcoming - upcomingInActive} overflow to next pack`} />
-            )}
+            <LegendItem color={GREEN} label={`${showedUp} delivered`} />
+            <LegendItem color={AMBER} label={`${upcoming} upcoming booked`} />
+            <LegendItem color={GREY_TRACK} label={`${totalRemaining} open`} />
           </div>
 
           {exhausted && (
