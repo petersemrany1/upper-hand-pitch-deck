@@ -3244,7 +3244,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   useEffect(() => {
     void supabase.from("partner_clinics")
-      .select("id, clinic_name, address, city, state, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+      .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
       .eq("is_active", true)
       .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
