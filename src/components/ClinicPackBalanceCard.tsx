@@ -198,7 +198,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         <>
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", marginBottom: SPACE_12 }}>
             <div style={{ fontSize: 12, color: GREY_TEXT }}>
-              {totalRemaining} slot{totalRemaining !== 1 ? "s" : ""} open
+              {totalRemaining} slot{totalRemaining !== 1 ? "s" : ""} open{packFull && totalRemaining > 0 ? " in next pack" : ""}
             </div>
           </div>
 
