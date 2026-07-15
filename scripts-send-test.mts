@@ -20,6 +20,7 @@ const res = await sendLovableEmail(
     purpose: 'transactional',
     label: 'pack-renewal',
     idempotency_key: `pack-renewal-test-${Date.now()}`,
+    unsubscribe_token: 'dd5632fd262873565b08ce5124c4ee112768bf808b9c639d38928b27288da4ac',
   },
   { apiKey: process.env.LOVABLE_API_KEY! }
 )
