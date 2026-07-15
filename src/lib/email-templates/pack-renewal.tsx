@@ -23,7 +23,7 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
     <Body style={main}>
       <Container style={container}>
         <Section style={brandBar}>
-          <Text style={brandText}>BOLD PATIENTS</Text>
+          <Text style={brandText}>BOLD</Text>
         </Section>
 
         <Heading style={h1}>Your pack is empty</Heading>
