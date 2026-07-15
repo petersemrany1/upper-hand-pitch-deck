@@ -198,6 +198,7 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
 // - On refund failure, sets refund_status='failed' but leaves
 //   stripe_refund_id null so the user can retry.
 export const processConsultOutcome = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: ProcessInput) => data)
   .handler(async ({ data }) => {
     const { appointmentId, summary, proceeded } = data;
@@ -321,6 +322,7 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
 // modal calls this when it opens so the refund button shows correctly
 // instead of the misleading "Patient didn't pay via Stripe" notice.
 export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { appointmentId: string }) => data)
   .handler(async ({ data }) => {
     const { appointmentId } = data;

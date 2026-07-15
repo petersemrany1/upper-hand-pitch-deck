@@ -1,8 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "re_dxcYHrZP_6hcbp9cubtwmL72hA55zYBuv";
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? "";
 const BOLD_TEMPLATE_ID = 3486637;
 const BOLD_BLUE = "#2020E8";
@@ -19,6 +20,7 @@ function fmtDollar(n: number) {
 }
 
 export const sendBoldContractEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       to: string;

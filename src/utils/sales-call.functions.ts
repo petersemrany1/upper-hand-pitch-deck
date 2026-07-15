@@ -257,6 +257,7 @@ export const discoveryToAmpAudio = createServerFn({ method: "POST" })
 /* ───────────────────────── Finance check + booking persist ───────────────────────── */
 
 export const saveFinanceCheck = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; eligible: boolean; answers: Record<string, unknown> }) => ({
     leadId: String(data.leadId ?? ""), eligible: !!data.eligible, answers: data.answers ?? {},
   }))
@@ -460,6 +461,7 @@ export const saveCallNotes = createServerFn({ method: "POST" })
 // voice-outbound edge function, both of which now mirror the lead_id +
 // rep_id pattern below. Keep this in sync with those writers.
 export const logCallAttempt = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: {
     leadId: string; repId: string | null; outcome: "no_answer" | "connected";
     attemptNumber: number; dialNumber: number; dayNumber: number; timeSlot: string;
@@ -486,6 +488,7 @@ export const logCallAttempt = createServerFn({ method: "POST" })
 /* ───────────────────────── Rep mapping ───────────────────────── */
 
 export const ensureRepForEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { email: string; name?: string }) => ({
     email: String(data.email ?? "").toLowerCase().trim(), name: data.name ?? "",
   }))
@@ -500,10 +503,14 @@ export const ensureRepForEmail = createServerFn({ method: "POST" })
   });
 
 export const addRep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { name: string; email: string }) => ({
     name: String(data.name ?? "").trim(), email: String(data.email ?? "").toLowerCase().trim(),
   }))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    try { await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: e instanceof Error ? e.message : "Forbidden" };
+    }
     if (!data.name) return { success: false as const, error: "Name required" };
     const { data: created, error } = await supabaseAdmin.from("sales_reps")
       .insert({ name: data.name, email: data.email || null }).select("*").single();

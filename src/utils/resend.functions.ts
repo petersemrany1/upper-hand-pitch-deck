@@ -213,6 +213,7 @@ async function sendViaResend(
 // ─── SERVER FUNCTIONS ───
 
 export const sendContractEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       to: string;
@@ -436,6 +437,7 @@ export const sendContractEmail = createServerFn({ method: "POST" })
   });
 
 export const sendContractSMS = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       to: string;
@@ -611,6 +613,7 @@ export const sendContractSMS = createServerFn({ method: "POST" })
   });
 
 export const sendInvoiceEmail = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       to: string;
@@ -1007,6 +1010,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   });
 
 export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       leadId: string;
@@ -1126,6 +1130,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
   });
 
 export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       leadId: string;
@@ -1314,6 +1319,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
 /* ──────────────── Pattern analysis (Claude via Lovable AI Gateway) ──────────────── */
 
 export const analyseCallPatterns = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => data)
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -1448,6 +1454,7 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
 // Send a standalone $75 deposit Stripe payment link via SMS to a patient,
 // without requiring a confirmed booking (date/clinic/doctor).
 export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
       leadId: string;
