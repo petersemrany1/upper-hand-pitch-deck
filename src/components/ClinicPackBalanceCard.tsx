@@ -152,7 +152,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           </div>
           {!noPacks && (
             <div style={{ fontSize: 13, color: GREY_TEXT }}>
-              <strong style={{ color: NAVY }}>{deliveredInActive} / {sizeOfActive}</strong> delivered in current pack
+              <strong style={{ color: NAVY }}>{showedUp} / {totalCapacity}</strong> delivered
             </div>
           )}
         </div>
