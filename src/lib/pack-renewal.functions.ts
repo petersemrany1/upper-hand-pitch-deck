@@ -22,14 +22,14 @@ export const sendPackRenewalEmail = createServerFn({ method: "POST" })
     if (me?.role !== "admin") throw new Error("Forbidden");
 
     const { data: clinic, error: clinicErr } = await supabaseAdmin
-      .from("clinics")
-      .select("id, clinic_name, email, owner_email, owner_name")
+      .from("partner_clinics")
+      .select("id, clinic_name, email")
       .eq("id", data.clinicId)
       .maybeSingle();
     if (clinicErr) throw new Error(clinicErr.message);
     if (!clinic) throw new Error("Clinic not found");
 
-    const recipient = (clinic.owner_email || clinic.email || "").trim();
+    const recipient = (clinic.email || "").trim();
     if (!recipient) throw new Error("No email on file for this clinic");
 
     const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY;
@@ -42,7 +42,7 @@ export const sendPackRenewalEmail = createServerFn({ method: "POST" })
     const { render } = await import("@react-email/render");
     const { template } = await import("./email-templates/pack-renewal");
 
-    const contactName = (clinic.owner_name || "").split(" ")[0] || undefined;
+    const contactName: string | undefined = undefined;
     const clinicName = clinic.clinic_name || undefined;
 
     const html = await render(
