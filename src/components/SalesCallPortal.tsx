@@ -2979,7 +2979,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       } catch { return bookingTime; }
     })();
     const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
-    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
+    const reschedulePart = selectedClinic?.phone ? ` If you need to reschedule, call ${selectedClinic.clinic_name} on ${selectedClinic.phone}.` : "";
+    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.${reschedulePart}`;
 
     setPatientSmsCountdown(10);
     setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
