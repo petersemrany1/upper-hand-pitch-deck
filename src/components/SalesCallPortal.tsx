@@ -65,6 +65,7 @@ const SALES_CALL_LEAD_SELECT = `
 type Clinic = {
   id: string; clinic_name: string; address: string | null;
   city: string | null; state: string | null;
+  phone: string | null;
   consult_price_original: number | null; consult_price_deposit: number | null;
   parking_info: string | null; nearby_landmarks: string | null;
 };
@@ -2502,7 +2503,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
       // Pick the lead's selected partner clinic if set, otherwise the first active partner clinic.
       const { data: clinics } = await supabase
         .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
         .eq("is_active", true);
       const list = (clinics ?? []) as Clinic[];
       // Only auto-pick when the lead has a clinic_id, or when there's exactly one active partner clinic.
@@ -2978,7 +2979,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       } catch { return bookingTime; }
     })();
     const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
-    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.`;
+    const reschedulePart = selectedClinic?.phone ? ` If you need to reschedule, call ${selectedClinic.clinic_name} on ${selectedClinic.phone}.` : "";
+    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.${reschedulePart}`;
 
     setPatientSmsCountdown(10);
     setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
@@ -3243,7 +3245,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   useEffect(() => {
     void supabase.from("partner_clinics")
-      .select("id, clinic_name, address, city, state, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+      .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
       .eq("is_active", true)
       .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
