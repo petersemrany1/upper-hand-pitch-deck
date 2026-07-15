@@ -79,7 +79,7 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
           Questions or need a custom quote? Just reply to this email.
         </Text>
 
-        <Text style={footer}>Bold Patients — Patient acquisition for clinics</Text>
+        <Text style={footer}>Bold — Patient acquisition for clinics</Text>
       </Container>
     </Body>
   </Html>
@@ -98,19 +98,19 @@ export const template = {
   },
 } satisfies TemplateEntry
 
-const main = { backgroundColor: '#ffffff', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif' }
-const container = { padding: '0', maxWidth: '580px', margin: '0 auto' }
-const brandBar = { padding: '20px 28px', borderBottom: '3px solid #111', marginBottom: '8px' }
-const brandText = { fontSize: '13px', fontWeight: 'bold' as const, color: '#111', letterSpacing: '2px', margin: '0' }
-const h1 = { fontSize: '28px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '24px 28px 20px', lineHeight: '1.2' }
-const text = { fontSize: '15px', color: '#333', lineHeight: '1.6', margin: '0 28px 16px' }
-const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px 22px', margin: '14px 28px' }
-const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '20px 22px', margin: '14px 28px' }
+const main = { backgroundColor: '#f4f4f5', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif', padding: '16px 12px', margin: '0' }
+const container = { padding: '0', maxWidth: '580px', margin: '0 auto', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden' as const }
+const brandBar = { padding: '18px 24px', borderBottom: '3px solid #111', marginBottom: '4px' }
+const brandText = { fontSize: '14px', fontWeight: 'bold' as const, color: '#111', letterSpacing: '3px', margin: '0' }
+const h1 = { fontSize: '26px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '22px 24px 18px', lineHeight: '1.2' }
+const text = { fontSize: '15px', color: '#333', lineHeight: '1.6', margin: '0 24px 14px' }
+const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '18px 20px', margin: '12px 20px' }
+const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '18px 20px', margin: '12px 20px' }
 const packBadge = { fontSize: '11px', fontWeight: 'bold' as const, color: '#b45309', letterSpacing: '1.5px', margin: '0 0 6px' }
 const packTitle = { fontSize: '20px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '0 0 6px' }
 const packBlurb = { fontSize: '14px', color: '#6b7280', margin: '0 0 14px', lineHeight: '1.4' }
 const btnPrimary = { backgroundColor: '#111', color: '#fff', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block' }
 const btnSecondary = { backgroundColor: '#fff', color: '#111', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block', border: '1.5px solid #111' }
-const hr = { borderColor: '#e5e7eb', margin: '28px 28px 20px' }
-const smallText = { fontSize: '13px', color: '#6b7280', lineHeight: '1.5', margin: '0 28px 12px' }
-const footer = { fontSize: '12px', color: '#9ca3af', margin: '24px 28px 28px', paddingTop: '12px' }
+const hr = { borderColor: '#e5e7eb', margin: '24px 24px 18px' }
+const smallText = { fontSize: '13px', color: '#6b7280', lineHeight: '1.5', margin: '0 24px 12px' }
+const footer = { fontSize: '12px', color: '#9ca3af', margin: '22px 24px 26px', paddingTop: '10px' }
