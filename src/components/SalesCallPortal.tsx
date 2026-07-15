@@ -2676,7 +2676,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
   const check = async () => {
     const missing: string[] = [];
     if (form.citizen !== "yes" && form.citizen !== "no") missing.push("Australian citizen or PR");
-    if (form.earning !== "yes" && form.earning !== "no") missing.push("Employed and earning $50,000+");
+    if (form.earning !== "yes" && form.earning !== "no") missing.push("Employed and earning $80,000+");
     if (form.bankrupt !== "yes" && form.bankrupt !== "no") missing.push("Bankrupt or in a debt agreement");
     if (missing.length > 0) {
       toast.error(`Please answer: ${missing.join(", ")}`);
@@ -2727,7 +2727,7 @@ function FinanceStep({ lead, onComplete }: { lead: Lead; onComplete: () => void 
         </div>
 
         <CompactRow label="Australian citizen or PR?"><YN k="citizen" /></CompactRow>
-        <CompactRow label="Employed and earning $50,000+ per year?"><YN k="earning" /></CompactRow>
+        <CompactRow label="Employed and earning $80,000+ per year?"><YN k="earning" /></CompactRow>
         <CompactRow label="Bankrupt or in a debt agreement?"><YN k="bankrupt" /></CompactRow>
         <div>
           <Label>Date of Birth</Label>
