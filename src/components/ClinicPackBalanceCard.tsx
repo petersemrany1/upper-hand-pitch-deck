@@ -121,13 +121,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       deliveredInActive: deliveredIn,
       sizeOfActive: active?.pack_size ?? 0,
       totalRemaining: totalRem,
+      totalCapacity: totalCap,
     };
   }, [packs, showedUp, bookedSlots]);
 
-  const deliveredPct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
-  const upcomingInActive = sizeOfActive > 0 ? Math.min(upcoming, sizeOfActive - deliveredInActive) : 0;
-  const upcomingPct = sizeOfActive > 0 ? Math.min(100 - deliveredPct, (upcomingInActive / sizeOfActive) * 100) : 0;
-  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - upcomingInActive);
+  // Progress bar is based on TOTAL capacity across all packs so it doesn't
+  // read as "100% full" while another pack still has open slots.
+  const deliveredPct = totalCapacity > 0 ? Math.min(100, (showedUp / totalCapacity) * 100) : 0;
+  const upcomingPct = totalCapacity > 0 ? Math.min(100 - deliveredPct, (upcoming / totalCapacity) * 100) : 0;
+  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - Math.min(upcoming, sizeOfActive - deliveredInActive));
 
   const noPacks = packs.length === 0;
   const exhausted = !noPacks && totalRemaining === 0;
