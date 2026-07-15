@@ -18,7 +18,9 @@ export interface TemplateEntry {
  *   // then add to TEMPLATES: 'welcome': welcomeTemplate
  */
 import { template as paymentReceivedTemplate } from './payment-received'
+import { template as packRenewalTemplate } from './pack-renewal'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'payment-received': paymentReceivedTemplate,
+  'pack-renewal': packRenewalTemplate,
 }
