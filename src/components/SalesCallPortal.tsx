@@ -65,6 +65,7 @@ const SALES_CALL_LEAD_SELECT = `
 type Clinic = {
   id: string; clinic_name: string; address: string | null;
   city: string | null; state: string | null;
+  phone: string | null;
   consult_price_original: number | null; consult_price_deposit: number | null;
   parking_info: string | null; nearby_landmarks: string | null;
 };
