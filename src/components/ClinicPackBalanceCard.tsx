@@ -94,7 +94,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   useEffect(() => { void load(); }, [load]);
 
   // FIFO allocation: fill oldest packs first
-  const { activePack, deliveredInActive, sizeOfActive, totalRemaining } = useMemo(() => {
+  const { activePack, deliveredInActive, sizeOfActive, totalRemaining, totalCapacity } = useMemo(() => {
     const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
     let remaining = showedUp;
     let active: Pack | null = null;
@@ -121,13 +121,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       deliveredInActive: deliveredIn,
       sizeOfActive: active?.pack_size ?? 0,
       totalRemaining: totalRem,
+      totalCapacity: totalCap,
     };
   }, [packs, showedUp, bookedSlots]);
 
-  const deliveredPct = sizeOfActive > 0 ? Math.min(100, (deliveredInActive / sizeOfActive) * 100) : 0;
-  const upcomingInActive = sizeOfActive > 0 ? Math.min(upcoming, sizeOfActive - deliveredInActive) : 0;
-  const upcomingPct = sizeOfActive > 0 ? Math.min(100 - deliveredPct, (upcomingInActive / sizeOfActive) * 100) : 0;
-  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - upcomingInActive);
+  // Progress bar is based on TOTAL capacity across all packs so it doesn't
+  // read as "100% full" while another pack still has open slots.
+  const deliveredPct = totalCapacity > 0 ? Math.min(100, (showedUp / totalCapacity) * 100) : 0;
+  const upcomingPct = totalCapacity > 0 ? Math.min(100 - deliveredPct, (upcoming / totalCapacity) * 100) : 0;
+  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - Math.min(upcoming, sizeOfActive - deliveredInActive));
 
   const noPacks = packs.length === 0;
   const exhausted = !noPacks && totalRemaining === 0;
@@ -216,13 +218,11 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
             }} />
           </div>
 
-          {/* Legend */}
+          {/* Legend — totals across all packs */}
           <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap" }}>
-            <LegendItem color={GREEN} label={`${deliveredInActive} delivered`} />
-            <LegendItem color={AMBER} label={`${upcomingInActive} upcoming booked`} />
-            {upcoming > upcomingInActive && (
-              <LegendItem color={RED} label={`${upcoming - upcomingInActive} overflow to next pack`} />
-            )}
+            <LegendItem color={GREEN} label={`${showedUp} delivered`} />
+            <LegendItem color={AMBER} label={`${upcoming} upcoming booked`} />
+            <LegendItem color={GREY_TRACK} label={`${totalRemaining} open`} />
           </div>
 
           {exhausted && (
