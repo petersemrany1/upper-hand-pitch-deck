@@ -40,31 +40,28 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
           new patient bookings without interruption, choose a top-up below.
         </Text>
 
-        <Text style={text}>
-          Every credit = one confirmed patient who shows up to their
-          consultation. Bigger packs = better per-patient pricing.
-        </Text>
+        <Section style={packGrid}>
+          <Section style={packBox}>
+            <Text style={packTitle}>10 Patient Pack</Text>
+            <Button href={STRIPE_LINKS.ten} style={btnSecondary}>
+              Buy 10 Pack →
+            </Button>
+          </Section>
 
-        <Section style={packBox}>
-          <Text style={packTitle}>10 Patient Pack</Text>
-          <Button href={STRIPE_LINKS.ten} style={btnSecondary}>
-            Buy 10 Pack →
-          </Button>
-        </Section>
+          <Section style={packBoxHighlight}>
+            <Text style={packBadge}>MOST POPULAR</Text>
+            <Text style={packTitle}>20 Patient Pack</Text>
+            <Button href={STRIPE_LINKS.twenty} style={btnPrimary}>
+              Buy 20 Pack →
+            </Button>
+          </Section>
 
-        <Section style={packBoxHighlight}>
-          <Text style={packBadge}>MOST POPULAR</Text>
-          <Text style={packTitle}>20 Patient Pack</Text>
-          <Button href={STRIPE_LINKS.twenty} style={btnPrimary}>
-            Buy 20 Pack →
-          </Button>
-        </Section>
-
-        <Section style={packBox}>
-          <Text style={packTitle}>40 Patient Pack</Text>
-          <Button href={STRIPE_LINKS.forty} style={btnSecondary}>
-            Buy 40 Pack →
-          </Button>
+          <Section style={packBox}>
+            <Text style={packTitle}>40 Patient Pack</Text>
+            <Button href={STRIPE_LINKS.forty} style={btnSecondary}>
+              Buy 40 Pack →
+            </Button>
+          </Section>
         </Section>
 
         <Hr style={hr} />
@@ -102,8 +99,9 @@ const container = { padding: '0', maxWidth: '580px', margin: '0 auto', backgroun
 const brandBar = { padding: '20px 24px 16px', borderBottom: '3px solid #111', textAlign: 'center' as const }
 const h1 = { fontSize: '26px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '22px 24px 18px', lineHeight: '1.2' }
 const text = { fontSize: '15px', color: '#333', lineHeight: '1.6', margin: '0 24px 14px' }
-const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px 16px', margin: '12px 24px', textAlign: 'center' as const }
-const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '20px 16px', margin: '12px 24px', textAlign: 'center' as const }
+const packGrid = { padding: '16px 48px 24px', textAlign: 'center' as const }
+const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px 16px', margin: '0 0 16px', textAlign: 'center' as const }
+const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '20px 16px', margin: '0 0 16px', textAlign: 'center' as const }
 const packBadge = { fontSize: '11px', fontWeight: 'bold' as const, color: '#b45309', letterSpacing: '1.5px', margin: '0 0 6px', textAlign: 'center' as const }
 const packTitle = { fontSize: '20px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '0 0 14px', textAlign: 'center' as const }
 const btnPrimary = { backgroundColor: '#111', color: '#fff', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block' }
