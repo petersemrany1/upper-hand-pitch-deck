@@ -329,13 +329,13 @@ function DashboardHome() {
       for (const p of packsRows) {
         capacityByClinic.set(p.clinic_id, (capacityByClinic.get(p.clinic_id) ?? 0) + p.pack_size);
       }
-      const breakdown: Array<{ clinicName: string; remaining: number; total: number }> = [];
+      const breakdown: Array<{ clinicId: string; clinicName: string; remaining: number; total: number }> = [];
       for (const c of clinicsList) {
         const total = capacityByClinic.get(c.id) ?? 0;
         if (total === 0) continue;
         const booked = bookedByClinic.get(c.id) ?? 0;
         const remaining = Math.max(0, total - booked);
-        breakdown.push({ clinicName: c.clinic_name || "Unknown", remaining, total });
+        breakdown.push({ clinicId: c.id, clinicName: c.clinic_name || "Unknown", remaining, total });
       }
       setPackBreakdown(breakdown);
     }
