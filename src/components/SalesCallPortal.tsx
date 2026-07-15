@@ -2503,7 +2503,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
       // Pick the lead's selected partner clinic if set, otherwise the first active partner clinic.
       const { data: clinics } = await supabase
         .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
         .eq("is_active", true);
       const list = (clinics ?? []) as Clinic[];
       // Only auto-pick when the lead has a clinic_id, or when there's exactly one active partner clinic.
