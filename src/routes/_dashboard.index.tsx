@@ -178,7 +178,10 @@ function DashboardHome() {
   const [selectedRepId, setSelectedRepId] = useState<string>("");
   const [repName, setRepName] = useState<string>("");
 
-  const [packBreakdown, setPackBreakdown] = useState<Array<{ clinicName: string; remaining: number; total: number }>>([]);
+  const [packBreakdown, setPackBreakdown] = useState<Array<{ clinicId: string; clinicName: string; remaining: number; total: number }>>([]);
+  const [renewalStep, setRenewalStep] = useState<null | { clinicId: string; clinicName: string; step: 1 | 2 }>(null);
+  const [renewalSending, setRenewalSending] = useState(false);
+  const [renewalToast, setRenewalToast] = useState<string | null>(null);
 
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "month" | "year" | "all";
