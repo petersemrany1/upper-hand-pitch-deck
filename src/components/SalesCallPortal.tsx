@@ -3111,20 +3111,27 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (completed.length === 0) {
       return { ready: false, reason: "No completed call yet for this lead" };
     }
-    // Only wait on RECENT completed rows for recording/transcript — an old
-    // completed row without a recording (voicemail, hung up early) shouldn't
-    // block a fresh handover.
-    const recentCompleted = completed.filter((c) => {
-      const started = c.called_at ? new Date(c.called_at).getTime() : 0;
-      return started && now - started <= STALE_MS;
-    });
-    const missingRecording = recentCompleted.find((c) => !c.recording_url);
+    // A call is still being processed if its analysis pipeline hasn't reached
+    // a terminal stage yet. Base this on the stage itself, NOT a fixed time
+    // window — long calls (20+ min) take Twilio a while to make the recording
+    // available and can easily exceed any short "recent" cutoff. Any of these
+    // stages means "give it more time, don't fall back to 'no transcript'".
+    const IN_FLIGHT_STAGES = new Set([
+      "waiting_for_recording",
+      "recording_pending",
+      "transcribing",
+      "analysing",
+    ]);
+    const missingRecording = completed.find(
+      (c) => !c.recording_url && IN_FLIGHT_STAGES.has(String(c.analysis_stage ?? "").toLowerCase()),
+    );
     if (missingRecording) {
       return { ready: false, reason: "Processing recording…" };
     }
-    const stillAnalysing = recentCompleted.find(
-      (c) => c.recording_url && c.analysis_stage !== "complete" && c.analysis_stage !== "failed",
-    );
+    const stillAnalysing = completed.find((c) => {
+      const stage = String(c.analysis_stage ?? "").toLowerCase();
+      return IN_FLIGHT_STAGES.has(stage);
+    });
     if (stillAnalysing) {
       return { ready: false, reason: "Generating transcript…" };
     }
