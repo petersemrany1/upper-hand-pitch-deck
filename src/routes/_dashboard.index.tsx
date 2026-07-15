@@ -900,8 +900,103 @@ function DashboardHome() {
         )}
       </div>
 
+      {/* Pack renewal confirmation (2 steps) */}
+      {renewalStep && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            zIndex: 1100, fontFamily: FONT, padding: 16,
+          }}
+          onClick={() => !renewalSending && setRenewalStep(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#fff", borderRadius: 16, padding: 28,
+              maxWidth: 440, width: "100%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            }}
+          >
+            {renewalStep.step === 1 ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#111", letterSpacing: "-0.01em" }}>
+                  Send pack renewal email?
+                </div>
+                <div style={{ fontSize: 14, color: "#666", marginTop: 10, lineHeight: 1.5 }}>
+                  This will email <strong>{renewalStep.clinicName}</strong> to top up their pack. Continue?
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "flex-end" }}>
+                  <button
+                    onClick={() => setRenewalStep(null)}
+                    style={{ fontSize: 14, fontWeight: 500, color: "#666", background: "#f6f6f4", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => setRenewalStep({ ...renewalStep, step: 2 })}
+                    style={{ fontSize: 14, fontWeight: 600, color: "#fff", background: "#111", border: 0, borderRadius: 8, padding: "10px 16px", cursor: "pointer" }}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 600, color: "#111", letterSpacing: "-0.01em" }}>
+                  Are you sure?
+                </div>
+                <div style={{ fontSize: 14, color: "#666", marginTop: 10, lineHeight: 1.5 }}>
+                  Final check — the renewal email will be sent to <strong>{renewalStep.clinicName}</strong> right now.
+                </div>
+                <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "flex-end" }}>
+                  <button
+                    disabled={renewalSending}
+                    onClick={() => setRenewalStep(null)}
+                    style={{ fontSize: 14, fontWeight: 500, color: "#666", background: "#f6f6f4", border: 0, borderRadius: 8, padding: "10px 16px", cursor: renewalSending ? "not-allowed" : "pointer" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={renewalSending}
+                    onClick={async () => {
+                      setRenewalSending(true);
+                      try {
+                        const res = await sendPackRenewalEmail({ data: { clinicId: renewalStep.clinicId } });
+                        setRenewalToast(`Sent to ${res.recipient}`);
+                        setRenewalStep(null);
+                      } catch (err) {
+                        setRenewalToast(err instanceof Error ? err.message : "Send failed");
+                      } finally {
+                        setRenewalSending(false);
+                        setTimeout(() => setRenewalToast(null), 5000);
+                      }
+                    }}
+                    style={{ fontSize: 14, fontWeight: 600, color: "#fff", background: "#f4522d", border: 0, borderRadius: 8, padding: "10px 16px", cursor: renewalSending ? "not-allowed" : "pointer", opacity: renewalSending ? 0.6 : 1 }}
+                  >
+                    {renewalSending ? "Sending…" : "Yes, send now"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {renewalToast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          background: "#111", color: "#fff", padding: "12px 18px", borderRadius: 10,
+          fontSize: 14, fontFamily: FONT, zIndex: 1200, boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+          maxWidth: "90vw",
+        }}>
+          {renewalToast}
+        </div>
+      )}
 
       {/* Target modal */}
+
+
 
       {showTargetModal && (
         <div
