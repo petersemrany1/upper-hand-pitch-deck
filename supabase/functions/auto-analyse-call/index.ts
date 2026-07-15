@@ -246,16 +246,56 @@ serve(async (req) => {
       throw new Error("ANTHROPIC_API_KEY not configured");
     }
 
-    // 1. Download audio from Twilio
+    // 1. Download audio from Twilio.
+    // Twilio fires the recording status webhook the moment it BEGINS processing
+    // the recording — but for long calls the .mp3 isn't downloadable for
+    // another 30–120s and returns 404 (RestException 20404) in the meantime.
+    // Retry with backoff before giving up so a real conversation never gets
+    // marked as "failed" just because we asked too early.
     console.log("auto-analyse-call: fetching recording", row.recording_url);
-    const audioResp = await fetch(row.recording_url, {
-      headers: { Authorization: twilioAuthHeader() },
-    });
-    if (!audioResp.ok) {
-      const t = await audioResp.text();
-      throw new Error(`Recording download failed (${audioResp.status}): ${t.slice(0, 200)}`);
+    const BACKOFF_MS = [0, 8_000, 15_000, 25_000, 40_000, 60_000]; // ~148s total
+    let audioBlob: Blob | null = null;
+    let lastStatus = 0;
+    let lastBody = "";
+    for (let attempt = 0; attempt < BACKOFF_MS.length; attempt++) {
+      if (BACKOFF_MS[attempt] > 0) {
+        await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
+      }
+      const audioResp = await fetch(row.recording_url, {
+        headers: { Authorization: twilioAuthHeader() },
+      });
+      if (audioResp.ok) {
+        audioBlob = await audioResp.blob();
+        if (audioBlob.size > 0) {
+          if (attempt > 0) {
+            console.log(`auto-analyse-call: recording ready on attempt ${attempt + 1}`);
+          }
+          break;
+        }
+        audioBlob = null;
+        lastStatus = 200;
+        lastBody = "empty body";
+      } else {
+        lastStatus = audioResp.status;
+        lastBody = (await audioResp.text()).slice(0, 200);
+        // Only retry transient states (recording still processing or upstream hiccup).
+        if (audioResp.status !== 404 && audioResp.status < 500) {
+          throw new Error(`Recording download failed (${audioResp.status}): ${lastBody}`);
+        }
+        console.log(`auto-analyse-call: recording not ready (attempt ${attempt + 1}, status ${audioResp.status}) — will retry`);
+      }
     }
-    const audioBlob = await audioResp.blob();
+    if (!audioBlob) {
+      // Mark as pending (not failed) so the UI shows "still processing" instead
+      // of "no usable transcript" — the call will be picked up again if Twilio
+      // re-fires the status callback.
+      await setStage("recording_pending");
+      await logErr(`Recording still not available after retries (last status ${lastStatus}): ${lastBody}`);
+      return new Response(
+        JSON.stringify({ error: "recording_not_ready", lastStatus }),
+        { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     // 2. Whisper
     const fd = new FormData();
