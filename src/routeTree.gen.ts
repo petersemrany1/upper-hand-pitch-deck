@@ -53,6 +53,7 @@ import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lova
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
+import { Route as ApiPublicHooksTestPackRenewalRouteImport } from './routes/api.public.hooks.test-pack-renewal'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
 import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
@@ -307,6 +308,12 @@ const ApiPublicHooksTwilioMessageStatusRoute =
     path: '/api/public/hooks/twilio-message-status',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksTestPackRenewalRoute =
+  ApiPublicHooksTestPackRenewalRouteImport.update({
+    id: '/api/public/hooks/test-pack-renewal',
+    path: '/api/public/hooks/test-pack-renewal',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksStripeDepositRoute =
   ApiPublicHooksStripeDepositRouteImport.update({
     id: '/api/public/hooks/stripe-deposit',
@@ -375,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/api/public/hooks/test-pack-renewal': typeof ApiPublicHooksTestPackRenewalRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -423,6 +431,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/api/public/hooks/test-pack-renewal': typeof ApiPublicHooksTestPackRenewalRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -474,6 +483,7 @@ export interface FileRoutesById {
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
+  '/api/public/hooks/test-pack-renewal': typeof ApiPublicHooksTestPackRenewalRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -525,6 +535,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/api/public/hooks/test-pack-renewal'
     | '/api/public/hooks/twilio-message-status'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
@@ -573,6 +584,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/api/public/hooks/test-pack-renewal'
     | '/api/public/hooks/twilio-message-status'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
@@ -623,6 +635,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
+    | '/api/public/hooks/test-pack-renewal'
     | '/api/public/hooks/twilio-message-status'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
@@ -644,6 +657,7 @@ export interface RootRouteChildren {
   ApiPublicHooksProcessPracticeRecordingsRoute: typeof ApiPublicHooksProcessPracticeRecordingsRoute
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
+  ApiPublicHooksTestPackRenewalRoute: typeof ApiPublicHooksTestPackRenewalRoute
   ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -960,6 +974,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksTwilioMessageStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/test-pack-renewal': {
+      id: '/api/public/hooks/test-pack-renewal'
+      path: '/api/public/hooks/test-pack-renewal'
+      fullPath: '/api/public/hooks/test-pack-renewal'
+      preLoaderRoute: typeof ApiPublicHooksTestPackRenewalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/stripe-deposit': {
       id: '/api/public/hooks/stripe-deposit'
       path: '/api/public/hooks/stripe-deposit'
@@ -1093,6 +1114,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksReconcileCallDurationsRoute:
     ApiPublicHooksReconcileCallDurationsRoute,
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
+  ApiPublicHooksTestPackRenewalRoute: ApiPublicHooksTestPackRenewalRoute,
   ApiPublicHooksTwilioMessageStatusRoute:
     ApiPublicHooksTwilioMessageStatusRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
