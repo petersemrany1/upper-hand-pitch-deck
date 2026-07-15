@@ -25,7 +25,7 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
     <Body style={main}>
       <Container style={container}>
         <Section style={brandBar}>
-          <Text style={brandText}>BOLD</Text>
+          <Img src={LOGO_URL} alt="Bold" width="56" height="56" style={{ display: 'block', margin: '0 auto', borderRadius: '50%' }} />
         </Section>
 
         <Heading style={h1}>Your pack is empty</Heading>
@@ -47,7 +47,6 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
 
         <Section style={packBox}>
           <Text style={packTitle}>10 Patient Pack</Text>
-          <Text style={packBlurb}>Great for topping up between larger orders.</Text>
           <Button href={STRIPE_LINKS.ten} style={btnSecondary}>
             Buy 10 Pack →
           </Button>
@@ -56,7 +55,6 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
         <Section style={packBoxHighlight}>
           <Text style={packBadge}>MOST POPULAR</Text>
           <Text style={packTitle}>20 Patient Pack</Text>
-          <Text style={packBlurb}>The sweet spot — better value, steady flow.</Text>
           <Button href={STRIPE_LINKS.twenty} style={btnPrimary}>
             Buy 20 Pack →
           </Button>
@@ -64,7 +62,6 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
 
         <Section style={packBox}>
           <Text style={packTitle}>40 Patient Pack</Text>
-          <Text style={packBlurb}>Best value per patient. Built for busy clinics.</Text>
           <Button href={STRIPE_LINKS.forty} style={btnSecondary}>
             Buy 40 Pack →
           </Button>
