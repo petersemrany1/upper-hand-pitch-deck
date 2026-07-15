@@ -6,6 +6,7 @@ import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { PickupRateCard } from "@/components/PickupRateCard";
 import { APP_TIMEZONE } from "@/lib/timezone";
+import { sendPackRenewalEmail } from "@/lib/pack-renewal.functions";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
