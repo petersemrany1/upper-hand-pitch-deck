@@ -17,6 +17,7 @@ const STRIPE_LINKS = {
 }
 
 const responsiveCss = `
+  .pack-container { width: 100% !important; max-width: 100% !important; }
   @media only screen and (max-width: 620px) {
     .pack-container { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
     .pack-grid { padding: 8px 16px 20px !important; }
@@ -110,11 +111,11 @@ export const template = {
 } satisfies TemplateEntry
 
 const main = { backgroundColor: '#f4f4f5', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif', padding: '16px 12px', margin: '0' }
-const container = { padding: '0', width: '680px', maxWidth: '680px', margin: '0 auto', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden' as const }
-const brandBar = { padding: '24px 32px 20px', borderBottom: '3px solid #111', textAlign: 'center' as const }
-const h1 = { fontSize: '28px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '26px 32px 18px', lineHeight: '1.2' }
-const text = { fontSize: '15px', color: '#333', lineHeight: '1.6', margin: '0 32px 14px' }
-const packGrid = { padding: '18px 32px 28px', textAlign: 'center' as const }
+const container = { padding: '0', width: '100%', maxWidth: '100%', margin: '0', backgroundColor: '#ffffff', borderRadius: '0', overflow: 'hidden' as const }
+const brandBar = { padding: '28px 48px 24px', borderBottom: '3px solid #111', textAlign: 'center' as const }
+const h1 = { fontSize: '30px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '30px 48px 18px', lineHeight: '1.2' }
+const text = { fontSize: '16px', color: '#333', lineHeight: '1.6', margin: '0 48px 14px' }
+const packGrid = { padding: '20px 48px 30px', textAlign: 'center' as const }
 
 const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px 16px', margin: '0 0 16px', textAlign: 'center' as const }
 const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '20px 16px', margin: '0 0 16px', textAlign: 'center' as const }
@@ -122,7 +123,7 @@ const packBadge = { fontSize: '11px', fontWeight: 'bold' as const, color: '#b453
 const packTitle = { fontSize: '20px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '0 0 14px', textAlign: 'center' as const }
 const btnPrimary = { backgroundColor: '#111', color: '#fff', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block' }
 const btnSecondary = { backgroundColor: '#fff', color: '#111', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block', border: '1.5px solid #111' }
-const hr = { borderColor: '#e5e7eb', margin: '24px 32px 18px' }
-const smallText = { fontSize: '13px', color: '#6b7280', lineHeight: '1.5', margin: '0 32px 12px' }
-const footer = { fontSize: '12px', color: '#9ca3af', margin: '22px 32px 28px', paddingTop: '10px' }
+const hr = { borderColor: '#e5e7eb', margin: '26px 48px 18px' }
+const smallText = { fontSize: '13px', color: '#6b7280', lineHeight: '1.5', margin: '0 48px 12px' }
+const footer = { fontSize: '12px', color: '#9ca3af', margin: '22px 48px 32px', paddingTop: '10px' }
 
