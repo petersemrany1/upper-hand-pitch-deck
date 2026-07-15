@@ -1,7 +1,9 @@
 import {
-  Body, Button, Container, Head, Heading, Hr, Html, Preview, Section, Text,
+  Body, Button, Container, Head, Heading, Hr, Html, Img, Preview, Section, Text,
 } from '@react-email/components'
 import type { TemplateEntry } from './registry'
+
+const LOGO_URL = 'https://hairtransplantgroup.lovable.app/__l5e/assets-v1/f218f3b7-4be4-4997-8e23-ec25d318af9d/bold-logo.png'
 
 interface PackRenewalProps {
   clinicName?: string
@@ -23,7 +25,7 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
     <Body style={main}>
       <Container style={container}>
         <Section style={brandBar}>
-          <Text style={brandText}>BOLD</Text>
+          <Img src={LOGO_URL} alt="Bold" width="56" height="56" style={{ display: 'block', margin: '0 auto', borderRadius: '50%' }} />
         </Section>
 
         <Heading style={h1}>Your pack is empty</Heading>
@@ -45,7 +47,6 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
 
         <Section style={packBox}>
           <Text style={packTitle}>10 Patient Pack</Text>
-          <Text style={packBlurb}>Great for topping up between larger orders.</Text>
           <Button href={STRIPE_LINKS.ten} style={btnSecondary}>
             Buy 10 Pack →
           </Button>
@@ -54,7 +55,6 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
         <Section style={packBoxHighlight}>
           <Text style={packBadge}>MOST POPULAR</Text>
           <Text style={packTitle}>20 Patient Pack</Text>
-          <Text style={packBlurb}>The sweet spot — better value, steady flow.</Text>
           <Button href={STRIPE_LINKS.twenty} style={btnPrimary}>
             Buy 20 Pack →
           </Button>
@@ -62,7 +62,6 @@ const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
 
         <Section style={packBox}>
           <Text style={packTitle}>40 Patient Pack</Text>
-          <Text style={packBlurb}>Best value per patient. Built for busy clinics.</Text>
           <Button href={STRIPE_LINKS.forty} style={btnSecondary}>
             Buy 40 Pack →
           </Button>
@@ -100,15 +99,13 @@ export const template = {
 
 const main = { backgroundColor: '#f4f4f5', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif', padding: '16px 12px', margin: '0' }
 const container = { padding: '0', maxWidth: '580px', margin: '0 auto', backgroundColor: '#ffffff', borderRadius: '12px', overflow: 'hidden' as const }
-const brandBar = { padding: '18px 24px', borderBottom: '3px solid #111', marginBottom: '4px' }
-const brandText = { fontSize: '14px', fontWeight: 'bold' as const, color: '#111', letterSpacing: '3px', margin: '0' }
+const brandBar = { padding: '20px 24px 16px', borderBottom: '3px solid #111', textAlign: 'center' as const }
 const h1 = { fontSize: '26px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '22px 24px 18px', lineHeight: '1.2' }
 const text = { fontSize: '15px', color: '#333', lineHeight: '1.6', margin: '0 24px 14px' }
-const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '18px 20px', margin: '12px 20px' }
-const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '18px 20px', margin: '12px 20px' }
-const packBadge = { fontSize: '11px', fontWeight: 'bold' as const, color: '#b45309', letterSpacing: '1.5px', margin: '0 0 6px' }
-const packTitle = { fontSize: '20px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '0 0 6px' }
-const packBlurb = { fontSize: '14px', color: '#6b7280', margin: '0 0 14px', lineHeight: '1.4' }
+const packBox = { backgroundColor: '#fafafa', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '20px 16px', margin: '12px 24px', textAlign: 'center' as const }
+const packBoxHighlight = { backgroundColor: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '10px', padding: '20px 16px', margin: '12px 24px', textAlign: 'center' as const }
+const packBadge = { fontSize: '11px', fontWeight: 'bold' as const, color: '#b45309', letterSpacing: '1.5px', margin: '0 0 6px', textAlign: 'center' as const }
+const packTitle = { fontSize: '20px', fontWeight: 'bold' as const, color: '#0a0a0a', margin: '0 0 14px', textAlign: 'center' as const }
 const btnPrimary = { backgroundColor: '#111', color: '#fff', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block' }
 const btnSecondary = { backgroundColor: '#fff', color: '#111', padding: '12px 22px', borderRadius: '8px', fontSize: '14px', fontWeight: 'bold' as const, textDecoration: 'none', display: 'inline-block', border: '1.5px solid #111' }
 const hr = { borderColor: '#e5e7eb', margin: '24px 24px 18px' }
