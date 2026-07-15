@@ -16,17 +16,31 @@ const STRIPE_LINKS = {
   forty: 'https://buy.stripe.com/8x28wRdEc2oL9Mp7Paffy06',
 }
 
+const responsiveCss = `
+  @media only screen and (max-width: 620px) {
+    .pack-container { width: 100% !important; max-width: 100% !important; border-radius: 0 !important; }
+    .pack-grid { padding: 8px 16px 20px !important; }
+    .pack-side { margin-left: 18px !important; margin-right: 18px !important; }
+    .pack-hr { margin-left: 18px !important; margin-right: 18px !important; }
+    .pack-h1 { font-size: 22px !important; margin-left: 18px !important; margin-right: 18px !important; }
+    body { padding: 0 !important; }
+  }
+`
+
 const PackRenewalEmail = ({ clinicName, contactName }: PackRenewalProps) => (
   <Html lang="en" dir="ltr">
-    <Head />
+    <Head>
+      <style dangerouslySetInnerHTML={{ __html: responsiveCss }} />
+    </Head>
     <Preview>
       You've used all your patient credits — top up to keep the bookings coming.
     </Preview>
     <Body style={main}>
-      <Container style={container}>
+      <Container style={container} className="pack-container">
         <Section style={brandBar}>
           <Img src={LOGO_URL} alt="Bold" width="56" height="56" style={{ display: 'block', margin: '0 auto', borderRadius: '50%' }} />
         </Section>
+
 
         <Heading style={h1}>Your pack is empty</Heading>
 
