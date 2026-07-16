@@ -1,0 +1,1 @@
+DELETE FROM public.meta_leads WHERE id = '9db6ce59-6dac-4f31-82cf-bc2be7d781f9';
