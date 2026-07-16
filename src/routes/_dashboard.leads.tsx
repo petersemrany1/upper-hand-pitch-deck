@@ -23,6 +23,7 @@ type Lead = {
   status?: string | null;
   call_notes?: string | null;
   rep_id?: string | null;
+  raw_payload?: unknown;
 };
 
 type RepOption = { id: string; name: string; email: string | null };
@@ -56,6 +57,14 @@ const CUSTOM_STATUS_COLOR = { bg: "#fff5f3", fg: "#f4522d" };
 function statusBadge(s: string | null | undefined) {
   const value = (s ?? "").trim() || "New";
   return STATUS_COLORS[value] ?? CUSTOM_STATUS_COLOR;
+}
+
+function readRawString(payload: unknown, key: string): string | null {
+  if (payload === null || typeof payload !== "object") return null;
+  const value = (payload as Record<string, unknown>)[key];
+  if (value === null || value === undefined) return null;
+  const s = String(value).trim();
+  return s.length > 0 ? s : null;
 }
 
 const fmtDate = (s: string | null) => {
@@ -631,6 +640,33 @@ function LeadsPage() {
                   />
                 </div>
               ))}
+
+              {/* Read-only raw_payload fields */}
+              {(() => {
+                const treatmentTimeline = readRawString(editLead.raw_payload, "treatment_timeline");
+                const hairLossLevel = readRawString(editLead.raw_payload, "hair_loss_level");
+                if (!treatmentTimeline && !hairLossLevel) return null;
+                return (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {treatmentTimeline && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Treatment timeline</label>
+                        <div className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111]">
+                          {treatmentTimeline}
+                        </div>
+                      </div>
+                    )}
+                    {hairLossLevel && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Hair loss level</label>
+                        <div className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111]">
+                          {hairLossLevel}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Status dropdown with + button */}
               <div className="flex flex-col gap-1.5">
