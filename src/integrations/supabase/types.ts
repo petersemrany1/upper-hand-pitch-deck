@@ -983,6 +983,7 @@ export type Database = {
           handover_sent_at: string | null
           id: string
           last_name: string | null
+          lead_id: string | null
           phone: string | null
           pipeline_summary: string | null
           pipeline_summary_updated_at: string | null
@@ -1015,6 +1016,7 @@ export type Database = {
           handover_sent_at?: string | null
           id?: string
           last_name?: string | null
+          lead_id?: string | null
           phone?: string | null
           pipeline_summary?: string | null
           pipeline_summary_updated_at?: string | null
@@ -1047,6 +1049,7 @@ export type Database = {
           handover_sent_at?: string | null
           id?: string
           last_name?: string | null
+          lead_id?: string | null
           phone?: string | null
           pipeline_summary?: string | null
           pipeline_summary_updated_at?: string | null
