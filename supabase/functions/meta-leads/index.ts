@@ -198,6 +198,11 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (error) {
+    // Unique violation on lead_id → treat as duplicate, not an error.
+    if ((error as { code?: string }).code === "23505") {
+      console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
+      return jsonResponse({ success: true, duplicate: true }, 200);
+    }
     console.error("meta-leads insert error:", error);
     return jsonResponse({ error: error.message }, 500);
   }
