@@ -1,4 +1,5 @@
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? ""
+const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY ?? ""
 const DOCUSEAL_API_KEY = process.env.DOCUSEAL_API_KEY ?? ""
 const BOLD_TEMPLATE_ID = 3486637
 const BOLD_BLUE = "#2020E8"
