@@ -37,7 +37,7 @@ async function sendContract() {
       send_email: false,
       submitters: [
         {
-          role: "First Party",
+          role: "Agency",
           email: "admin@bold-patients.com",
           name: "Bold Patients",
           completed: true,
@@ -55,7 +55,7 @@ async function sendContract() {
           },
         },
         {
-          role: "client",
+          role: "Client",
           email: to,
           name: contactName,
           values: {},
