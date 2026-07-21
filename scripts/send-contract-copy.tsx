@@ -21,8 +21,8 @@ function fmtDollar(n: number) {
 }
 
 async function sendContract() {
-  if (!RESEND_API_KEY || !DOCUSEAL_API_KEY) {
-    console.error("Missing RESEND_API_KEY or DOCUSEAL_API_KEY")
+  if (!RESEND_API_KEY || !LOVABLE_API_KEY || !DOCUSEAL_API_KEY) {
+    console.error("Missing RESEND_API_KEY, LOVABLE_API_KEY or DOCUSEAL_API_KEY")
     process.exit(1)
   }
 
