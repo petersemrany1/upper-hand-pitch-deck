@@ -112,11 +112,12 @@ async function sendContract() {
     "</td></tr></table></td></tr></table></body></html>",
   ].join("")
 
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + RESEND_API_KEY,
+      Authorization: "Bearer " + LOVABLE_API_KEY,
+      "X-Connection-Api-Key": RESEND_API_KEY,
     },
     body: JSON.stringify({
       from: "Bold Patients <admin@bold-patients.com>",
