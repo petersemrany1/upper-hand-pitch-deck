@@ -650,7 +650,7 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const summary = summarizeDay(d, tradingHours, blockedSlots, [], [], clinicState);
+          const summary = summarizeDay(d, tradingHours, blockedSlots, [], [], clinicState, minGapMins);
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
