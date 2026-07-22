@@ -1,0 +1,2 @@
+ALTER TABLE public.partner_clinics ADD COLUMN IF NOT EXISTS min_appointment_gap_mins integer NOT NULL DEFAULT 0;
+UPDATE public.partner_clinics SET min_appointment_gap_mins = 60 WHERE id = '086c8283-756a-4e10-a341-a6b9f5cf6d33';
