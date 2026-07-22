@@ -295,6 +295,7 @@ export function ClinicPortalView({
           blockedSlots={blockedSlots}
           clinicId={clinicId}
           clinicState={clinicState}
+          minGapMins={minGapMins}
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
@@ -307,8 +308,10 @@ export function ClinicPortalView({
           appts={appts}
           clinicId={clinicId}
           clinicState={clinicState}
+          minGapMins={minGapMins}
           onChange={reload}
         />
+
       )}
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
