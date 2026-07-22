@@ -250,8 +250,11 @@ export function generateSlots(
     const blocked = blocks.some(([s, e]) => m < e && slotEnd > s);
     // Any overlapping appointment counts as booked, not just an exact-start match.
     const overlapping = apptRanges.some(([s, e]) => m < e && slotEnd > s);
+    // Within the min-gap window of an existing appointment — hide as unavailable,
+    // but keep it visually as "booked" so the UI stays clean.
+    const withinGap = !overlapping && gap > 0 && gapRanges.some(([s, e]) => m < e && slotEnd > s);
     const apptMatch = apptByMin.has(m);
-    const booked = overlapping;
+    const booked = overlapping || withinGap;
     slots.push({
       time: minToHHMM(m),
       label: minToLabel(m),
@@ -263,6 +266,7 @@ export function generateSlots(
   }
   return slots;
 }
+
 
 
 /** Quick summary used by the calendar tile colours. */
