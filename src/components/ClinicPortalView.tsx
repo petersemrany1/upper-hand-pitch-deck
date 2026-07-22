@@ -238,7 +238,7 @@ export function ClinicPortalView({
           supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
           supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
           supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-          supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
+          supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
         ]);
         if (cancelled) return;
         const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
