@@ -277,6 +277,8 @@ export function summarizeDay(
   existingAppts: ExistingAppt[] = [],
   overrides: AvailabilityOverride[] = [],
   clinicState?: string | null,
+  minGapMins: number = 0,
+
 ): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; openedOverride: boolean; holidayName: string | null } {
   const th = effectiveHoursFor(date, tradingHours, overrides, clinicState);
   const dateStr = ymdLocal(date);
