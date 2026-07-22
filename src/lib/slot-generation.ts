@@ -286,7 +286,7 @@ export function summarizeDay(
   const openedOverride = ov?.override_type === "open";
   const holidayName = holidayLabelFor(date, overrides, clinicState);
   if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, openedOverride: false, holidayName };
-  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState);
+  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState, minGapMins);
   const blockedCount = slots.filter((s) => s.blocked).length;
   const bookedCount = slots.filter((s) => s.booked).length;
   return {
