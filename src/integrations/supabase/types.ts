@@ -1097,6 +1097,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          min_appointment_gap_mins: number
           nearby_landmarks: string | null
           parking_info: string | null
           phone: string | null
@@ -1115,6 +1116,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          min_appointment_gap_mins?: number
           nearby_landmarks?: string | null
           parking_info?: string | null
           phone?: string | null
@@ -1133,6 +1135,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          min_appointment_gap_mins?: number
           nearby_landmarks?: string | null
           parking_info?: string | null
           phone?: string | null

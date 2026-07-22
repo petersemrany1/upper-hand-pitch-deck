@@ -200,6 +200,7 @@ export function generateSlots(
   existingAppts: ExistingAppt[] = [],
   overrides: AvailabilityOverride[] = [],
   clinicState?: string | null,
+  minGapMins: number = 0,
 ): Slot[] {
   const dow = dayOfWeekMonFirst(date);
   const dateStr = ymdLocal(date);
@@ -210,6 +211,7 @@ export function generateSlots(
   const closeMin = hhmmToMin(th.close_time);
   const step = th.consult_duration_mins || 15;
   const consultLen = CONSULT_LENGTH_MIN;
+  const gap = Math.max(0, minGapMins | 0);
 
   // Build set of blocked minute-ranges that apply to this date
   const blocks: Array<[number, number]> = [];
@@ -225,15 +227,21 @@ export function generateSlots(
 
   // Index existing appointments for this date — both an exact-start map (for
   // showing the patient name on the "booked" chip) and a range list (for
-  // overlap checks against every candidate slot).
+  // overlap checks against every candidate slot). When a clinic has a
+  // minimum-gap-between-appointments rule, we expand each existing appt's
+  // range by `gap` minutes on each side so no new slot can start within
+  // that window.
   const apptByMin = new Map<number, string | null | undefined>();
   const apptRanges: Array<[number, number]> = [];
+  const gapRanges: Array<[number, number]> = [];
   for (const a of existingAppts) {
     if (a.appointment_date !== dateStr) continue;
     const start = hhmmToMin(a.appointment_time);
     apptByMin.set(start, a.patient_name);
     apptRanges.push([start, start + consultLen]);
+    gapRanges.push([start - gap, start + consultLen + gap]);
   }
+
 
   const slots: Slot[] = [];
   // Only offer a starting slot whose full consult fits before close time.
@@ -242,8 +250,11 @@ export function generateSlots(
     const blocked = blocks.some(([s, e]) => m < e && slotEnd > s);
     // Any overlapping appointment counts as booked, not just an exact-start match.
     const overlapping = apptRanges.some(([s, e]) => m < e && slotEnd > s);
+    // Within the min-gap window of an existing appointment — hide as unavailable,
+    // but keep it visually as "booked" so the UI stays clean.
+    const withinGap = !overlapping && gap > 0 && gapRanges.some(([s, e]) => m < e && slotEnd > s);
     const apptMatch = apptByMin.has(m);
-    const booked = overlapping;
+    const booked = overlapping || withinGap;
     slots.push({
       time: minToHHMM(m),
       label: minToLabel(m),
@@ -257,6 +268,7 @@ export function generateSlots(
 }
 
 
+
 /** Quick summary used by the calendar tile colours. */
 export function summarizeDay(
   date: Date,
@@ -265,6 +277,8 @@ export function summarizeDay(
   existingAppts: ExistingAppt[] = [],
   overrides: AvailabilityOverride[] = [],
   clinicState?: string | null,
+  minGapMins: number = 0,
+
 ): { closed: boolean; allBlocked: boolean; someBlocked: boolean; total: number; bookedCount: number; openedOverride: boolean; holidayName: string | null } {
   const th = effectiveHoursFor(date, tradingHours, overrides, clinicState);
   const dateStr = ymdLocal(date);
@@ -272,7 +286,7 @@ export function summarizeDay(
   const openedOverride = ov?.override_type === "open";
   const holidayName = holidayLabelFor(date, overrides, clinicState);
   if (!th || th.is_closed) return { closed: true, allBlocked: false, someBlocked: false, total: 0, bookedCount: 0, openedOverride: false, holidayName };
-  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState);
+  const slots = generateSlots(date, tradingHours, blockedSlots, existingAppts, overrides, clinicState, minGapMins);
   const blockedCount = slots.filter((s) => s.blocked).length;
   const bookedCount = slots.filter((s) => s.booked).length;
   return {

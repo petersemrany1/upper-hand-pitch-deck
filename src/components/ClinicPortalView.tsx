@@ -225,6 +225,8 @@ export function ClinicPortalView({
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
   const [clinicState, setClinicState] = useState<string | null>(null);
+  const [minGapMins, setMinGapMins] = useState<number>(0);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -238,7 +240,7 @@ export function ClinicPortalView({
           supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
           supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
           supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-          supabase.from("partner_clinics").select("consult_price_deposit, state").eq("id", clinicId).maybeSingle(),
+          supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
         ]);
         if (cancelled) return;
         const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
@@ -250,6 +252,8 @@ export function ClinicPortalView({
         setOverrides((ov ?? []) as AvailabilityOverride[]);
         if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
         setClinicState((pc as { state?: string | null } | null)?.state ?? null);
+        setMinGapMins(Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
+
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
@@ -291,6 +295,7 @@ export function ClinicPortalView({
           blockedSlots={blockedSlots}
           clinicId={clinicId}
           clinicState={clinicState}
+          minGapMins={minGapMins}
           isAdmin={isAdmin}
           onChange={reload}
           onSelect={setSelected}
@@ -303,8 +308,10 @@ export function ClinicPortalView({
           appts={appts}
           clinicId={clinicId}
           clinicState={clinicState}
+          minGapMins={minGapMins}
           onChange={reload}
         />
+
       )}
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
@@ -346,16 +353,18 @@ function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick:
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
-function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicState, isAdmin, onChange, onSelect }: {
+function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicState, minGapMins, isAdmin, onChange, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   clinicId: string;
   clinicState: string | null;
+  minGapMins: number;
   isAdmin: boolean;
   onChange: () => void;
   onSelect: (a: ClinicAppointment) => void;
 }) {
+
   const [view, setView] = useState<"list" | "calendar">("list");
   const [showAdd, setShowAdd] = useState(false);
 
@@ -376,7 +385,7 @@ function AppointmentsTab({ appts, tradingHours, blockedSlots, clinicId, clinicSt
       {view === "list" ? (
         <ListView appts={appts} onSelect={onSelect} isAdmin={isAdmin} />
       ) : (
-        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} clinicState={clinicState} onSelect={onSelect} />
+        <CalendarView appts={appts} tradingHours={tradingHours} blockedSlots={blockedSlots} clinicState={clinicState} minGapMins={minGapMins} onSelect={onSelect} />
       )}
 
       {showAdd && isAdmin && (
@@ -605,13 +614,15 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
 
 /* ---------- CALENDAR VIEW ---------- */
 
-function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect }: {
+function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMins, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   clinicState: string | null;
+  minGapMins: number;
   onSelect: (a: ClinicAppointment) => void;
 }) {
+
   const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const monthLabel = `${MONTHS[view.getMonth()]} ${view.getFullYear()}`;
   const days = useMemo(() => buildMonthGrid(view), [view]);
@@ -646,7 +657,7 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect
         {days.map((d, i) => {
           if (!d) return <div key={i} />;
           const dateStr = ymd(d);
-          const summary = summarizeDay(d, tradingHours, blockedSlots, [], [], clinicState);
+          const summary = summarizeDay(d, tradingHours, blockedSlots, [], [], clinicState, minGapMins);
           const isToday = dateStr === todayStr;
           const dayAppts = apptsByDate.get(dateStr) ?? [];
           let bg = "#fff", border = "1.5px solid #e2e6ec";
@@ -1248,15 +1259,17 @@ function outcomeBtn(color: string, bg: string): React.CSSProperties {
 
 type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
 
-function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, clinicState, onChange }: {
+function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, clinicState, minGapMins, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   overrides: AvailabilityOverride[];
   appts: ClinicAppointment[];
   clinicId: string;
   clinicState: string | null;
+  minGapMins: number;
   onChange: () => void;
 }) {
+
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
@@ -1277,8 +1290,9 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
   const selectedOverride = overrides.find((o) => o.override_date === selectedDateStr);
   const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides, clinicState);
   const slots: Slot[] = useMemo(
-    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState),
-    [selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState],
+    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState, minGapMins),
+    [selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState, minGapMins],
+
   );
 
   // "Open this day" modal state — for opening a normally-closed day
@@ -1409,7 +1423,7 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
           {Array.from({ length: offset }, (_, i) => <div key={`o${i}`} />)}
           {Array.from({ length: daysInMonth }, (_, i) => i + 1).map((day) => {
             const date = new Date(year, month, day);
-            const summary = summarizeDay(date, tradingHours, blockedSlots, appts, overrides, clinicState);
+            const summary = summarizeDay(date, tradingHours, blockedSlots, appts, overrides, clinicState, minGapMins);
             const dateStr = ymd(date);
             const isSelected = dateStr === ymd(selectedDate);
             const isToday = dateStr === ymd(today);
