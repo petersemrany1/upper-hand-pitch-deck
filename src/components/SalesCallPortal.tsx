@@ -3321,12 +3321,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", form.clinicId),
         supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", form.clinicId).eq("appointment_date", form.date),
         supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", form.clinicId),
-        supabase.from("partner_clinics").select("state").eq("id", form.clinicId).maybeSingle(),
+        supabase.from("partner_clinics").select("state, min_appointment_gap_mins").eq("id", form.clinicId).maybeSingle(),
       ]);
       const [yy, mm, dd] = form.date.split("-").map(Number);
       const dateObj = new Date(yy, mm - 1, dd);
       const clinicState = (pc as { state?: string | null } | null)?.state ?? null;
-      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[], (ov ?? []) as AvailabilityOverride[], clinicState);
+      const minGapMins = Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0;
+      const slots = generateSlots(dateObj, (th ?? []) as TradingHours[], (bs ?? []) as BlockedSlot[], (ex ?? []) as ExistingAppt[], (ov ?? []) as AvailabilityOverride[], clinicState, minGapMins);
+
       const target = slots.find((s) => s.time === form.time || s.time === form.time.slice(0, 5));
       if (!target || !target.available) {
         toast.error("That time is not available — pick another slot.");
