@@ -1259,15 +1259,17 @@ function outcomeBtn(color: string, bg: string): React.CSSProperties {
 
 type PendingRange = { startTime: string; endTime: string; alreadyBlocked: boolean };
 
-function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, clinicState, onChange }: {
+function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicId, clinicState, minGapMins, onChange }: {
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   overrides: AvailabilityOverride[];
   appts: ClinicAppointment[];
   clinicId: string;
   clinicState: string | null;
+  minGapMins: number;
   onChange: () => void;
 }) {
+
   const today = new Date();
   const [selectedDate, setSelectedDate] = useState<Date>(today);
   const [viewMonth, setViewMonth] = useState<Date>(new Date());
