@@ -1290,8 +1290,9 @@ function AvailabilityTab({ tradingHours, blockedSlots, overrides, appts, clinicI
   const selectedOverride = overrides.find((o) => o.override_date === selectedDateStr);
   const selectedTH = effectiveHoursFor(selectedDate, tradingHours, overrides, clinicState);
   const slots: Slot[] = useMemo(
-    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState),
-    [selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState],
+    () => generateSlots(selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState, minGapMins),
+    [selectedDate, tradingHours, blockedSlots, appts, overrides, clinicState, minGapMins],
+
   );
 
   // "Open this day" modal state — for opening a normally-closed day
