@@ -252,6 +252,8 @@ export function ClinicPortalView({
         setOverrides((ov ?? []) as AvailabilityOverride[]);
         if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
         setClinicState((pc as { state?: string | null } | null)?.state ?? null);
+        setMinGapMins(Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
+
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
