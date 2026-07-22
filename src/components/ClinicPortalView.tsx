@@ -614,13 +614,15 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
 
 /* ---------- CALENDAR VIEW ---------- */
 
-function CalendarView({ appts, tradingHours, blockedSlots, clinicState, onSelect }: {
+function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMins, onSelect }: {
   appts: ClinicAppointment[];
   tradingHours: TradingHours[];
   blockedSlots: BlockedSlot[];
   clinicState: string | null;
+  minGapMins: number;
   onSelect: (a: ClinicAppointment) => void;
 }) {
+
   const [view, setView] = useState(() => { const d = new Date(); d.setDate(1); return d; });
   const monthLabel = `${MONTHS[view.getMonth()]} ${view.getFullYear()}`;
   const days = useMemo(() => buildMonthGrid(view), [view]);
