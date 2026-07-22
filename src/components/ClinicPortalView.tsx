@@ -225,6 +225,8 @@ export function ClinicPortalView({
   const [selected, setSelected] = useState<ClinicAppointment | null>(null);
   const [clinicDefaultDeposit, setClinicDefaultDeposit] = useState<number>(75);
   const [clinicState, setClinicState] = useState<string | null>(null);
+  const [minGapMins, setMinGapMins] = useState<number>(0);
+
 
   useEffect(() => {
     let cancelled = false;
