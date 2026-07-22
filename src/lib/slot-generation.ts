@@ -200,6 +200,7 @@ export function generateSlots(
   existingAppts: ExistingAppt[] = [],
   overrides: AvailabilityOverride[] = [],
   clinicState?: string | null,
+  minGapMins: number = 0,
 ): Slot[] {
   const dow = dayOfWeekMonFirst(date);
   const dateStr = ymdLocal(date);
@@ -210,6 +211,7 @@ export function generateSlots(
   const closeMin = hhmmToMin(th.close_time);
   const step = th.consult_duration_mins || 15;
   const consultLen = CONSULT_LENGTH_MIN;
+  const gap = Math.max(0, minGapMins | 0);
 
   // Build set of blocked minute-ranges that apply to this date
   const blocks: Array<[number, number]> = [];
@@ -225,15 +227,21 @@ export function generateSlots(
 
   // Index existing appointments for this date — both an exact-start map (for
   // showing the patient name on the "booked" chip) and a range list (for
-  // overlap checks against every candidate slot).
+  // overlap checks against every candidate slot). When a clinic has a
+  // minimum-gap-between-appointments rule, we expand each existing appt's
+  // range by `gap` minutes on each side so no new slot can start within
+  // that window.
   const apptByMin = new Map<number, string | null | undefined>();
   const apptRanges: Array<[number, number]> = [];
+  const gapRanges: Array<[number, number]> = [];
   for (const a of existingAppts) {
     if (a.appointment_date !== dateStr) continue;
     const start = hhmmToMin(a.appointment_time);
     apptByMin.set(start, a.patient_name);
     apptRanges.push([start, start + consultLen]);
+    gapRanges.push([start - gap, start + consultLen + gap]);
   }
+
 
   const slots: Slot[] = [];
   // Only offer a starting slot whose full consult fits before close time.
