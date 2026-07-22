@@ -34,6 +34,7 @@ const recordings: Recording[] = [
   { name: "Angus", url: angusAsset.url },
   { name: "Darmalingum", url: DARMA_TWILIO_URL, requiresToken: true },
   { name: "Clint", url: CLINT_TWILIO_URL, requiresToken: true },
+  { name: "Charan Tej", url: "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/REac28a0ea7be14bb2c45ae62995ba5de4.mp3", requiresToken: true },
 ];
 
 function SalesCallExample() {
