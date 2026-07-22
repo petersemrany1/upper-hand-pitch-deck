@@ -7825,21 +7825,22 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
   const [appts, setAppts] = useState<ExistingAppt[]>([]);
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>([]);
   const [clinicState, setClinicState] = useState<string | null>(null);
-
+  const [minGapMins, setMinGapMins] = useState<number>(0);
   useEffect(() => {
-    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); setClinicState(null); return; }
+    if (!clinicId) { setTrading([]); setBlocks([]); setAppts([]); setOverrides([]); setClinicState(null); setMinGapMins(0); return; }
     void Promise.all([
       supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
       supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
       supabase.from("clinic_appointments").select("appointment_date, appointment_time").eq("clinic_id", clinicId),
       supabase.from("clinic_availability").select("override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-      supabase.from("partner_clinics").select("state").eq("id", clinicId).maybeSingle(),
+      supabase.from("partner_clinics").select("state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
     ]).then(([a, b, c, d, e]) => {
       setTrading((a.data ?? []) as TradingHours[]);
       setBlocks((b.data ?? []) as BlockedSlot[]);
       setAppts((c.data ?? []) as ExistingAppt[]);
       setOverrides((d.data ?? []) as AvailabilityOverride[]);
       setClinicState((e.data as { state?: string | null } | null)?.state ?? null);
+      setMinGapMins(Number((e.data as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
     });
   }, [clinicId]);
 
@@ -7847,8 +7848,8 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     if (!date) return [];
     const [y, m, d] = date.split("-").map(Number);
     if (!y || !m || !d) return [];
-    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides, clinicState);
-  }, [date, trading, blocks, appts, overrides, clinicState]);
+    return generateSlots(new Date(y, m - 1, d), trading, blocks, appts, overrides, clinicState, minGapMins);
+  }, [date, trading, blocks, appts, overrides, clinicState, minGapMins]);
 
   const available = slots.filter((s) => s.available);
 
@@ -7866,12 +7867,13 @@ function BookingSlotPicker({ clinicId, date, time, onDate, onTime }: {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     for (let i = 0; i < 120; i++) {
       const d = new Date(today); d.setDate(today.getDate() + i);
-      const s = summarizeDay(d, trading, blocks, appts, overrides, clinicState);
+      const s = summarizeDay(d, trading, blocks, appts, overrides, clinicState, minGapMins);
       const hasOpenSlot = !s.closed && s.total - s.bookedCount > 0 && !s.allBlocked;
       if (hasOpenSlot) avail.push(d); else unavail.push(d);
     }
     return { availableDays: avail, unavailableDays: unavail };
-  }, [trading, blocks, appts, overrides, clinicState]);
+  }, [trading, blocks, appts, overrides, clinicState, minGapMins]);
+
 
   const selectedDate = useMemo(() => {
     if (!date) return undefined;
