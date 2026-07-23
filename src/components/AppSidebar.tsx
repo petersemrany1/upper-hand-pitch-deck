@@ -50,14 +50,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
       { title: "Clinic Leads", url: "/clinic-leads", icon: UserSearch, tab: "clinic_leads" },
-    ],
-  },
-  {
-    title: "Sales Test",
-    repIcon: UserSearch,
-    repUrl: "/sales-test-leads",
-    items: [
-      { title: "Sales Test Leads", url: "/sales-test-leads", icon: UserSearch, tab: "sales_test_leads" },
+      { title: "Meta Leads", url: "/sales-test-leads", icon: UserSearch, tab: "sales_test_leads" },
     ],
   },
 
