@@ -17,6 +17,7 @@ export type ClinicAppointment = {
   lead_id: string | null;
   patient_name: string;
   patient_phone: string | null;
+  patient_email: string | null;
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string;
   intel_notes: string | null;
@@ -1044,7 +1045,10 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         {new Date(appt.appointment_date).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(appt.appointment_time)}
       </div>
       {appt.patient_phone && (
-        <a href={`tel:${appt.patient_phone}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: 10 }}>{appt.patient_phone}</a>
+        <a href={`tel:${appt.patient_phone}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: appt.patient_email ? 4 : 10 }}>{appt.patient_phone}</a>
+      )}
+      {appt.patient_email && (
+        <a href={`mailto:${appt.patient_email}`} style={{ fontSize: 13, color: NAVY, fontWeight: 500, display: "block", marginBottom: 10, wordBreak: "break-all" }}>{appt.patient_email}</a>
       )}
       <div style={{
         display: "inline-block", padding: "3px 10px", fontSize: 11, fontWeight: 600,
