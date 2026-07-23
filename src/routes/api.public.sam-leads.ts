@@ -75,7 +75,7 @@ async function notifyAdmin(row: Record<string, unknown>) {
         "X-Connection-Api-Key": RESEND_API_KEY,
       },
       body: JSON.stringify({
-        from: "Bold Leads <onboarding@resend.dev>",
+        from: "Bold Leads <admin@bold-patients.com>",
         to: [NOTIFY_EMAIL],
         subject: `New Sam lead — ${name}`,
         html,
