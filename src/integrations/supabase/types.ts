@@ -327,6 +327,7 @@ export type Database = {
           intel_notes: string | null
           lead_id: string | null
           outcome: string | null
+          patient_email: string | null
           patient_name: string
           patient_phone: string | null
           refund_processed_at: string | null
@@ -356,6 +357,7 @@ export type Database = {
           intel_notes?: string | null
           lead_id?: string | null
           outcome?: string | null
+          patient_email?: string | null
           patient_name: string
           patient_phone?: string | null
           refund_processed_at?: string | null
@@ -385,6 +387,7 @@ export type Database = {
           intel_notes?: string | null
           lead_id?: string | null
           outcome?: string | null
+          patient_email?: string | null
           patient_name?: string
           patient_phone?: string | null
           refund_processed_at?: string | null
