@@ -31,6 +31,7 @@ import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.le
 import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
 import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
 import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
+import { Route as DashboardClinicLeadsRouteImport } from './routes/_dashboard.clinic-leads'
 import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dashboard.clinic-contact-review'
 import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
 import { Route as DashboardChaseQueueRouteImport } from './routes/_dashboard.chase-queue'
@@ -39,6 +40,7 @@ import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.anal
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
+import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
 import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
 import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
@@ -178,6 +180,11 @@ const DashboardClinicOwnerReviewRoute =
     path: '/clinic-owner-review',
     getParentRoute: () => DashboardRoute,
   } as any)
+const DashboardClinicLeadsRoute = DashboardClinicLeadsRouteImport.update({
+  id: '/clinic-leads',
+  path: '/clinic-leads',
+  getParentRoute: () => DashboardRoute,
+} as any)
 const DashboardClinicContactReviewRoute =
   DashboardClinicContactReviewRouteImport.update({
     id: '/clinic-contact-review',
@@ -218,6 +225,11 @@ const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
 const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
   id: '/api/public/meta-leads',
   path: '/api/public/meta-leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicClinicLeadsRoute = ApiPublicClinicLeadsRouteImport.update({
+  id: '/api/public/clinic-leads',
+  path: '/api/public/clinic-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardTrainingSalesCallExampleRoute =
@@ -343,6 +355,7 @@ export interface FileRoutesByFullPath {
   '/chase-queue': typeof DashboardChaseQueueRoute
   '/clients': typeof DashboardClientsRoute
   '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
+  '/clinic-leads': typeof DashboardClinicLeadsRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
@@ -368,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
+  '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training/': typeof DashboardTrainingIndexRoute
@@ -391,6 +405,7 @@ export interface FileRoutesByTo {
   '/chase-queue': typeof DashboardChaseQueueRoute
   '/clients': typeof DashboardClientsRoute
   '/clinic-contact-review': typeof DashboardClinicContactReviewRoute
+  '/clinic-leads': typeof DashboardClinicLeadsRoute
   '/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/clinics': typeof DashboardClinicsRoute
   '/inbox': typeof DashboardInboxRoute
@@ -416,6 +431,7 @@ export interface FileRoutesByTo {
   '/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
+  '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training': typeof DashboardTrainingIndexRoute
@@ -441,6 +457,7 @@ export interface FileRoutesById {
   '/_dashboard/chase-queue': typeof DashboardChaseQueueRoute
   '/_dashboard/clients': typeof DashboardClientsRoute
   '/_dashboard/clinic-contact-review': typeof DashboardClinicContactReviewRoute
+  '/_dashboard/clinic-leads': typeof DashboardClinicLeadsRoute
   '/_dashboard/clinic-owner-review': typeof DashboardClinicOwnerReviewRoute
   '/_dashboard/clinics': typeof DashboardClinicsRoute
   '/_dashboard/inbox': typeof DashboardInboxRoute
@@ -467,6 +484,7 @@ export interface FileRoutesById {
   '/_dashboard/training/product-knowledge': typeof DashboardTrainingProductKnowledgeRoute
   '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
+  '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_dashboard/training/': typeof DashboardTrainingIndexRoute
@@ -493,6 +511,7 @@ export interface FileRouteTypes {
     | '/chase-queue'
     | '/clients'
     | '/clinic-contact-review'
+    | '/clinic-leads'
     | '/clinic-owner-review'
     | '/clinics'
     | '/inbox'
@@ -518,6 +537,7 @@ export interface FileRouteTypes {
     | '/training/product-knowledge'
     | '/training/read-along'
     | '/training/sales-call-example'
+    | '/api/public/clinic-leads'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/training/'
@@ -541,6 +561,7 @@ export interface FileRouteTypes {
     | '/chase-queue'
     | '/clients'
     | '/clinic-contact-review'
+    | '/clinic-leads'
     | '/clinic-owner-review'
     | '/clinics'
     | '/inbox'
@@ -566,6 +587,7 @@ export interface FileRouteTypes {
     | '/training/product-knowledge'
     | '/training/read-along'
     | '/training/sales-call-example'
+    | '/api/public/clinic-leads'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/training'
@@ -590,6 +612,7 @@ export interface FileRouteTypes {
     | '/_dashboard/chase-queue'
     | '/_dashboard/clients'
     | '/_dashboard/clinic-contact-review'
+    | '/_dashboard/clinic-leads'
     | '/_dashboard/clinic-owner-review'
     | '/_dashboard/clinics'
     | '/_dashboard/inbox'
@@ -616,6 +639,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training/product-knowledge'
     | '/_dashboard/training/read-along'
     | '/_dashboard/training/sales-call-example'
+    | '/api/public/clinic-leads'
     | '/api/public/meta-leads'
     | '/lovable/email/suppression'
     | '/_dashboard/training/'
@@ -638,6 +662,7 @@ export interface RootRouteChildren {
   ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksEnqueuePracticeRecordingRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRoute
@@ -806,6 +831,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardClinicOwnerReviewRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/clinic-leads': {
+      id: '/_dashboard/clinic-leads'
+      path: '/clinic-leads'
+      fullPath: '/clinic-leads'
+      preLoaderRoute: typeof DashboardClinicLeadsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/clinic-contact-review': {
       id: '/_dashboard/clinic-contact-review'
       path: '/clinic-contact-review'
@@ -860,6 +892,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/meta-leads'
       fullPath: '/api/public/meta-leads'
       preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/clinic-leads': {
+      id: '/api/public/clinic-leads'
+      path: '/api/public/clinic-leads'
+      fullPath: '/api/public/clinic-leads'
+      preLoaderRoute: typeof ApiPublicClinicLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/training/sales-call-example': {
@@ -1032,6 +1071,7 @@ interface DashboardRouteChildren {
   DashboardChaseQueueRoute: typeof DashboardChaseQueueRoute
   DashboardClientsRoute: typeof DashboardClientsRoute
   DashboardClinicContactReviewRoute: typeof DashboardClinicContactReviewRoute
+  DashboardClinicLeadsRoute: typeof DashboardClinicLeadsRoute
   DashboardClinicOwnerReviewRoute: typeof DashboardClinicOwnerReviewRoute
   DashboardClinicsRoute: typeof DashboardClinicsRoute
   DashboardInboxRoute: typeof DashboardInboxRoute
@@ -1055,6 +1095,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardChaseQueueRoute: DashboardChaseQueueRoute,
   DashboardClientsRoute: DashboardClientsRoute,
   DashboardClinicContactReviewRoute: DashboardClinicContactReviewRoute,
+  DashboardClinicLeadsRoute: DashboardClinicLeadsRoute,
   DashboardClinicOwnerReviewRoute: DashboardClinicOwnerReviewRoute,
   DashboardClinicsRoute: DashboardClinicsRoute,
   DashboardInboxRoute: DashboardInboxRoute,
@@ -1084,6 +1125,7 @@ const rootRouteChildren: RootRouteChildren = {
   ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksEnqueuePracticeRecordingRoute:

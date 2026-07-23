@@ -13,7 +13,8 @@ export type TabKey =
   | "pitch_deck"
   | "clinics"
   | "sent_links"
-  | "chase_queue";
+  | "chase_queue"
+  | "clinic_leads";
 
 export const ALL_TAB_KEYS: TabKey[] = [
   "dashboard",
@@ -29,6 +30,7 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "clinics",
   "sent_links",
   "chase_queue",
+  "clinic_leads",
 ];
 
 export const TAB_LABELS: Record<TabKey, string> = {
@@ -45,12 +47,13 @@ export const TAB_LABELS: Record<TabKey, string> = {
   clinics: "Clinics",
   sent_links: "Sent Links",
   chase_queue: "Chase Queue",
+  clinic_leads: "Clinic Leads",
 };
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
   { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "phone", "chase_queue"] },
-  { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links"] },
+  { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "clinic_leads"] },
 ];
 
 export const TAB_TO_URL: Record<TabKey, string> = {
@@ -67,6 +70,7 @@ export const TAB_TO_URL: Record<TabKey, string> = {
   clinics: "/clinics",
   sent_links: "/sent-links",
   chase_queue: "/chase-queue",
+  clinic_leads: "/clinic-leads",
 };
 
 export type RoleKey = "admin" | "rep" | "caller";
