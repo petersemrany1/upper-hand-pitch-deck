@@ -20,6 +20,7 @@ import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
 import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
+import { Route as DashboardSalesTestLeadsRouteImport } from './routes/_dashboard.sales-test-leads'
 import { Route as DashboardSalesCallTestRouteImport } from './routes/_dashboard.sales-call-test'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
@@ -39,6 +40,7 @@ import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashb
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
+import { Route as ApiPublicSamLeadsRouteImport } from './routes/api.public.sam-leads'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
 import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
@@ -112,6 +114,11 @@ const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
 const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
   id: '/sent-links',
   path: '/sent-links',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSalesTestLeadsRoute = DashboardSalesTestLeadsRouteImport.update({
+  id: '/sales-test-leads',
+  path: '/sales-test-leads',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardSalesCallTestRoute = DashboardSalesCallTestRouteImport.update({
@@ -220,6 +227,11 @@ const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
 const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
   id: '/lovable/email/suppression',
   path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSamLeadsRoute = ApiPublicSamLeadsRouteImport.update({
+  id: '/api/public/sam-leads',
+  path: '/api/public/sam-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
@@ -367,6 +379,7 @@ export interface FileRoutesByFullPath {
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sales-call-test': typeof DashboardSalesCallTestRoute
+  '/sales-test-leads': typeof DashboardSalesTestLeadsRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/training': typeof DashboardTrainingRouteWithChildren
@@ -383,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training/': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
@@ -417,6 +431,7 @@ export interface FileRoutesByTo {
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sales-call-test': typeof DashboardSalesCallTestRoute
+  '/sales-test-leads': typeof DashboardSalesTestLeadsRoute
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
@@ -433,6 +448,7 @@ export interface FileRoutesByTo {
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
@@ -469,6 +485,7 @@ export interface FileRoutesById {
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sales-call-test': typeof DashboardSalesCallTestRoute
+  '/_dashboard/sales-test-leads': typeof DashboardSalesTestLeadsRoute
   '/_dashboard/sent-links': typeof DashboardSentLinksRoute
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
@@ -486,6 +503,7 @@ export interface FileRoutesById {
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_dashboard/training/': typeof DashboardTrainingIndexRoute
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
@@ -523,6 +541,7 @@ export interface FileRouteTypes {
     | '/pitch-deck'
     | '/sales-call'
     | '/sales-call-test'
+    | '/sales-test-leads'
     | '/sent-links'
     | '/settings'
     | '/training'
@@ -539,6 +558,7 @@ export interface FileRouteTypes {
     | '/training/sales-call-example'
     | '/api/public/clinic-leads'
     | '/api/public/meta-leads'
+    | '/api/public/sam-leads'
     | '/lovable/email/suppression'
     | '/training/'
     | '/api/public/hooks/enqueue-practice-recording'
@@ -573,6 +593,7 @@ export interface FileRouteTypes {
     | '/pitch-deck'
     | '/sales-call'
     | '/sales-call-test'
+    | '/sales-test-leads'
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
@@ -589,6 +610,7 @@ export interface FileRouteTypes {
     | '/training/sales-call-example'
     | '/api/public/clinic-leads'
     | '/api/public/meta-leads'
+    | '/api/public/sam-leads'
     | '/lovable/email/suppression'
     | '/training'
     | '/api/public/hooks/enqueue-practice-recording'
@@ -624,6 +646,7 @@ export interface FileRouteTypes {
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sales-call'
     | '/_dashboard/sales-call-test'
+    | '/_dashboard/sales-test-leads'
     | '/_dashboard/sent-links'
     | '/_dashboard/settings'
     | '/_dashboard/training'
@@ -641,6 +664,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training/sales-call-example'
     | '/api/public/clinic-leads'
     | '/api/public/meta-leads'
+    | '/api/public/sam-leads'
     | '/lovable/email/suppression'
     | '/_dashboard/training/'
     | '/api/public/hooks/enqueue-practice-recording'
@@ -664,6 +688,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
+  ApiPublicSamLeadsRoute: typeof ApiPublicSamLeadsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksEnqueuePracticeRecordingRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   ApiPublicHooksProcessPracticeRecordingsRoute: typeof ApiPublicHooksProcessPracticeRecordingsRoute
@@ -752,6 +777,13 @@ declare module '@tanstack/react-router' {
       path: '/sent-links'
       fullPath: '/sent-links'
       preLoaderRoute: typeof DashboardSentLinksRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sales-test-leads': {
+      id: '/_dashboard/sales-test-leads'
+      path: '/sales-test-leads'
+      fullPath: '/sales-test-leads'
+      preLoaderRoute: typeof DashboardSalesTestLeadsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/sales-call-test': {
@@ -885,6 +917,13 @@ declare module '@tanstack/react-router' {
       path: '/lovable/email/suppression'
       fullPath: '/lovable/email/suppression'
       preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/sam-leads': {
+      id: '/api/public/sam-leads'
+      path: '/api/public/sam-leads'
+      fullPath: '/api/public/sam-leads'
+      preLoaderRoute: typeof ApiPublicSamLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/meta-leads': {
@@ -1083,6 +1122,7 @@ interface DashboardRouteChildren {
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSalesCallTestRoute: typeof DashboardSalesCallTestRoute
+  DashboardSalesTestLeadsRoute: typeof DashboardSalesTestLeadsRoute
   DashboardSentLinksRoute: typeof DashboardSentLinksRoute
   DashboardSettingsRoute: typeof DashboardSettingsRoute
   DashboardTrainingRoute: typeof DashboardTrainingRouteWithChildren
@@ -1107,6 +1147,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSalesCallTestRoute: DashboardSalesCallTestRoute,
+  DashboardSalesTestLeadsRoute: DashboardSalesTestLeadsRoute,
   DashboardSentLinksRoute: DashboardSentLinksRoute,
   DashboardSettingsRoute: DashboardSettingsRoute,
   DashboardTrainingRoute: DashboardTrainingRouteWithChildren,
@@ -1127,6 +1168,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
+  ApiPublicSamLeadsRoute: ApiPublicSamLeadsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksEnqueuePracticeRecordingRoute:
     ApiPublicHooksEnqueuePracticeRecordingRoute,
