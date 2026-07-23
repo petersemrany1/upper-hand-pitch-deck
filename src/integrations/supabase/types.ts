@@ -547,6 +547,57 @@ export type Database = {
           },
         ]
       }
+      clinic_leads: {
+        Row: {
+          assigned_to: string | null
+          city: string | null
+          clinic_name: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          phone: string | null
+          raw_payload: Json
+          source: string
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          city?: string | null
+          clinic_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          raw_payload?: Json
+          source?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          city?: string | null
+          clinic_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          phone?: string | null
+          raw_payload?: Json
+          source?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clinic_packs: {
         Row: {
           clinic_id: string
