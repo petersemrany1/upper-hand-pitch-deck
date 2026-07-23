@@ -321,6 +321,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         lead_id: data.leadId,
         patient_name: patientName,
         patient_phone: leadRow?.phone ?? null,
+        patient_email: leadRow?.email ?? null,
         appointment_date: data.date,
         appointment_time: data.time,
       };
