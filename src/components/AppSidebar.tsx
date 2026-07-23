@@ -51,6 +51,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
       { title: "Clinic Leads", url: "/clinic-leads", icon: UserSearch, tab: "clinic_leads" },
     ],
+  },
   {
     title: "Sales Test",
     repIcon: UserSearch,
