@@ -49,6 +49,7 @@ const ALL_FOLDERS: NavFolder[] = [
       { title: "Clinics CRM", url: "/clinics", icon: Building2, tab: "clinics" },
       { title: "Partner Portal", url: "/partner-clinics", icon: Building2, tab: "partner_clinics" },
       { title: "Sent Links", url: "/sent-links", icon: Send, tab: "sent_links" },
+      { title: "Clinic Leads", url: "/clinic-leads", icon: UserSearch, tab: "clinic_leads" },
     ],
   },
 
