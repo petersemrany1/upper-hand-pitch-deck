@@ -1609,6 +1609,60 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_test_leads: {
+        Row: {
+          assigned_to: string | null
+          city: string | null
+          company: string | null
+          created_at: string
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          message: string | null
+          phone: string | null
+          raw_payload: Json
+          source: string
+          state: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          city?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          message?: string | null
+          phone?: string | null
+          raw_payload?: Json
+          source?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          city?: string | null
+          company?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          message?: string | null
+          phone?: string | null
+          raw_payload?: Json
+          source?: string
+          state?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       scorecard_dimensions: {
         Row: {
           dim_no: number
