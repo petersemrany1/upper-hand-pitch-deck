@@ -17,6 +17,7 @@ export type ClinicAppointment = {
   lead_id: string | null;
   patient_name: string;
   patient_phone: string | null;
+  patient_email: string | null;
   appointment_date: string; // YYYY-MM-DD
   appointment_time: string;
   intel_notes: string | null;
