@@ -306,7 +306,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (data.clinicId) {
       const { data: leadRow } = await supabaseAdmin
         .from("meta_leads")
-        .select("first_name, last_name, phone, deposit_amount, stripe_payment_intent_id")
+        .select("first_name, last_name, phone, email, deposit_amount, stripe_payment_intent_id")
         .eq("id", data.leadId)
         .maybeSingle();
       const patientName = `${leadRow?.first_name ?? ""} ${leadRow?.last_name ?? ""}`.trim() || "Patient";
