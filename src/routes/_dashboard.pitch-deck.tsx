@@ -461,7 +461,8 @@ function PitchDeck() {
           <p className="text-sm text-[#999]">One-time offer - available on your first pack only.</p>
         </motion.div>
       </motion.div>
-    </div>,
+    </div>
+    ) : null,
 
 
 
