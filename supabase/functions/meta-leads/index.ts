@@ -160,34 +160,18 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  // Dedup by phone (last 9 digits) or email
-  const phoneDigits = row.phone ? row.phone.replace(/\D/g, "") : "";
-  const emailLower = row.email ? row.email.toLowerCase() : "";
-
-  if (phoneDigits || emailLower) {
-    const orParts: string[] = [];
-    if (phoneDigits) orParts.push(`phone.ilike.%${phoneDigits.slice(-9)}%`);
-    if (emailLower) orParts.push(`email.eq.${emailLower}`);
-
+  // Only dedup Meta leads by Meta's lead_id. Phone/email matching can hide
+  // legitimate fresh submissions from people who enquired before.
+  if (row.lead_id) {
     const { data: existing } = await supabase
       .from("meta_leads")
-      .select("id, phone, email, created_at")
-      .or(orParts.join(","))
-      .order("created_at", { ascending: false })
-      .limit(20);
+      .select("id")
+      .eq("lead_id", row.lead_id)
+      .maybeSingle();
 
-    const match = (existing ?? []).find((r: { phone: string | null; email: string | null }) => {
-      const rPhone = (r.phone ?? "").replace(/\D/g, "");
-      const rEmail = (r.email ?? "").toLowerCase();
-      return (
-        (phoneDigits && rPhone && rPhone.slice(-9) === phoneDigits.slice(-9)) ||
-        (emailLower && rEmail && rEmail === emailLower)
-      );
-    });
-
-    if (match) {
-      console.log("meta-leads duplicate skipped:", match.id);
-      return jsonResponse({ success: true, duplicate: true, id: match.id }, 200);
+    if (existing?.id) {
+      console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
+      return jsonResponse({ success: true, duplicate: true, id: existing.id }, 200);
     }
   }
 

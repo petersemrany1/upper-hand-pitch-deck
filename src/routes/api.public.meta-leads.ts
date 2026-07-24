@@ -130,41 +130,23 @@ export const Route = createFileRoute("/api/public/meta-leads")({
           creative_time: asTimestamp(
             payload.creative_time ?? payload.creativeTime
           ),
+          lead_id: asString(payload.lead_id ?? payload.leadId ?? payload.leadgen_id),
           raw_payload: payload,
         };
 
-        // Dedup: same phone (digits-only) or same email already in meta_leads.
-        const phoneDigits = row.phone ? row.phone.replace(/\D/g, "") : "";
-        const emailLower = row.email ? row.email.toLowerCase() : "";
-
-        if (phoneDigits || emailLower) {
+        // Only dedup Meta leads by Meta's lead_id. Phone/email matching can hide
+        // legitimate fresh submissions from people who enquired before.
+        if (row.lead_id) {
           const { data: existing } = await supabaseAdmin
             .from("meta_leads")
-            .select("id, phone, email, created_at")
-            .or(
-              [
-                phoneDigits ? `phone.ilike.%${phoneDigits.slice(-9)}%` : null,
-                emailLower ? `email.eq.${emailLower}` : null,
-              ]
-                .filter(Boolean)
-                .join(",")
-            )
-            .order("created_at", { ascending: false })
-            .limit(20);
+            .select("id")
+            .eq("lead_id", row.lead_id)
+            .maybeSingle();
 
-          const match = (existing ?? []).find((r) => {
-            const rPhone = (r.phone ?? "").replace(/\D/g, "");
-            const rEmail = (r.email ?? "").toLowerCase();
-            return (
-              (phoneDigits && rPhone && rPhone.slice(-9) === phoneDigits.slice(-9)) ||
-              (emailLower && rEmail && rEmail === emailLower)
-            );
-          });
-
-          if (match) {
-            console.log("meta-leads duplicate skipped:", match.id);
+          if (existing?.id) {
+            console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
             return jsonResponse(
-              { success: true, duplicate: true, id: match.id },
+              { success: true, duplicate: true, id: existing.id },
               200
             );
           }
@@ -177,6 +159,10 @@ export const Route = createFileRoute("/api/public/meta-leads")({
           .single();
 
         if (error) {
+          if (error.code === "23505") {
+            console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
+            return jsonResponse({ success: true, duplicate: true }, 200);
+          }
           console.error("meta-leads insert error:", error);
           return jsonResponse({ error: error.message }, 500);
         }
