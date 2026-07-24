@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 
 // Public webhook endpoint for Meta (Facebook/Instagram) leads coming in via Make.com.
 // Authentication: Bearer token in the Authorization header, validated against
@@ -137,6 +136,9 @@ export const Route = createFileRoute("/api/public/meta-leads")({
         // Only dedup Meta leads by Meta's lead_id. Phone/email matching can hide
         // legitimate fresh submissions from people who enquired before.
         if (row.lead_id) {
+          const { supabaseAdmin } = await import(
+            "@/integrations/supabase/client.server"
+          );
           const { data: existing } = await supabaseAdmin
             .from("meta_leads")
             .select("id")
@@ -152,6 +154,9 @@ export const Route = createFileRoute("/api/public/meta-leads")({
           }
         }
 
+        const { supabaseAdmin } = await import(
+          "@/integrations/supabase/client.server"
+        );
         const { data, error } = await supabaseAdmin
           .from("meta_leads")
           .insert([row])
