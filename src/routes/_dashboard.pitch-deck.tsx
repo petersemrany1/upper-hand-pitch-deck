@@ -75,6 +75,7 @@ function PitchDeck() {
   const [setupCaseValue, setSetupCaseValue] = useState(String(initial.caseValue));
   const [setupPricePerShow, setSetupPricePerShow] = useState(String(initial.pricePerShow));
   const [setupConvertRate, setSetupConvertRate] = useState(initial.convertRate);
+  const [includeDerisk, setIncludeDerisk] = useState(initial.includeDerisk);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
