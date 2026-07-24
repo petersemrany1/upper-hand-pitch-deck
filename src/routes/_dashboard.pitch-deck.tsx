@@ -637,7 +637,26 @@ function PitchDeck() {
                 ))}
               </select>
             </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Include "Risk Sits With Us" slide</p>
+                <p className="text-xs text-[#999] mt-0.5">Adds the de-risk / safety-net slide to the deck.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={includeDerisk}
+                onClick={() => setIncludeDerisk((v) => !v)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${includeDerisk ? "bg-primary" : "bg-white/15"}`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${includeDerisk ? "translate-x-5" : "translate-x-0.5"}`}
+                />
+              </button>
+            </div>
           </div>
+
 
           <button
             onClick={handleStart}
