@@ -572,6 +572,7 @@ function PitchDeck() {
         caseValue: parseInt(setupCaseValue, 10) || DEFAULT_SETTINGS.caseValue,
         pricePerShow: parseInt(setupPricePerShow, 10) || DEFAULT_SETTINGS.pricePerShow,
         convertRate: setupConvertRate,
+        includeDerisk,
       };
       try { window.localStorage.setItem("pitch-deck-settings", JSON.stringify(payload)); } catch {}
       setCaseValue(payload.caseValue);
