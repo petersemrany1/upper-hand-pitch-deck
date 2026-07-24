@@ -29,12 +29,14 @@ export type DeckSettings = {
   caseValue: number;
   pricePerShow: number;
   convertRate: string;
+  includeDerisk: boolean;
 };
 
 export const DEFAULT_SETTINGS: DeckSettings = {
   caseValue: 12000,
   pricePerShow: 800,
   convertRate: "1 in 4",
+  includeDerisk: false,
 };
 
 const CONVERT_RATES: Record<string, number> = {
@@ -56,6 +58,7 @@ export function loadDeckSettings(): DeckSettings {
         typeof parsed.convertRate === "string" && parsed.convertRate in CONVERT_RATES
           ? parsed.convertRate
           : DEFAULT_SETTINGS.convertRate,
+      includeDerisk: parsed.includeDerisk === true,
     };
   } catch {
     return DEFAULT_SETTINGS;

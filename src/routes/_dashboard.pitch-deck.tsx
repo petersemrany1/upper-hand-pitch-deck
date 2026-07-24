@@ -75,6 +75,7 @@ function PitchDeck() {
   const [setupCaseValue, setSetupCaseValue] = useState(String(initial.caseValue));
   const [setupPricePerShow, setSetupPricePerShow] = useState(String(initial.pricePerShow));
   const [setupConvertRate, setSetupConvertRate] = useState(initial.convertRate);
+  const [includeDerisk, setIncludeDerisk] = useState(initial.includeDerisk);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
@@ -397,7 +398,8 @@ function PitchDeck() {
       <div className="flex-1" />
     </div>,
 
-    /* ──────── SLIDE 5.5 — DE-RISK ──────── */
+    /* ──────── SLIDE 5.5 — DE-RISK (optional) ──────── */
+    includeDerisk ? (
     <div key="derisk" className="deck-slide flex flex-col min-h-screen w-full bg-black px-16 py-12">
       <SlideHeader />
       <motion.div
@@ -459,7 +461,8 @@ function PitchDeck() {
           <p className="text-sm text-[#999]">One-time offer - available on your first pack only.</p>
         </motion.div>
       </motion.div>
-    </div>,
+    </div>
+    ) : null,
 
 
 
@@ -533,7 +536,7 @@ function PitchDeck() {
         </motion.div>
       </div>
     </div>,
-  ];
+  ].filter(Boolean);
 
   const TOTAL_SLIDES = slides.length;
 
@@ -569,6 +572,7 @@ function PitchDeck() {
         caseValue: parseInt(setupCaseValue, 10) || DEFAULT_SETTINGS.caseValue,
         pricePerShow: parseInt(setupPricePerShow, 10) || DEFAULT_SETTINGS.pricePerShow,
         convertRate: setupConvertRate,
+        includeDerisk,
       };
       try { window.localStorage.setItem("pitch-deck-settings", JSON.stringify(payload)); } catch {}
       setCaseValue(payload.caseValue);
@@ -633,7 +637,26 @@ function PitchDeck() {
                 ))}
               </select>
             </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Include "Risk Sits With Us" slide</p>
+                <p className="text-xs text-[#999] mt-0.5">Adds the de-risk / safety-net slide to the deck.</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={includeDerisk}
+                onClick={() => setIncludeDerisk((v) => !v)}
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${includeDerisk ? "bg-primary" : "bg-white/15"}`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${includeDerisk ? "translate-x-5" : "translate-x-0.5"}`}
+                />
+              </button>
+            </div>
           </div>
+
 
           <button
             onClick={handleStart}
