@@ -536,7 +536,7 @@ function PitchDeck() {
         </motion.div>
       </div>
     </div>,
-  ];
+  ].filter(Boolean) as React.ReactElement[];
 
   const TOTAL_SLIDES = slides.length;
 
