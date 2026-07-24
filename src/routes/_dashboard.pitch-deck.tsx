@@ -398,7 +398,8 @@ function PitchDeck() {
       <div className="flex-1" />
     </div>,
 
-    /* ──────── SLIDE 5.5 — DE-RISK ──────── */
+    /* ──────── SLIDE 5.5 — DE-RISK (optional) ──────── */
+    includeDerisk ? (
     <div key="derisk" className="deck-slide flex flex-col min-h-screen w-full bg-black px-16 py-12">
       <SlideHeader />
       <motion.div
