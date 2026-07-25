@@ -238,7 +238,7 @@ function DashboardHome() {
 
     const newLeadsQ = supabase
       .from("meta_leads")
-      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name")
+      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name, raw_payload")
       .gte("created_at", todayIso)
       .order("created_at", { ascending: false })
       .limit(100);
