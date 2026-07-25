@@ -133,6 +133,7 @@ type Lead = {
   callback_scheduled_at: string | null;
   phone: string | null;
   campaign_name: string | null;
+  raw_payload?: unknown;
 };
 
 
