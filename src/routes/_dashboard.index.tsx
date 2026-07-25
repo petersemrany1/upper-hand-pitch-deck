@@ -133,6 +133,7 @@ type Lead = {
   callback_scheduled_at: string | null;
   phone: string | null;
   campaign_name: string | null;
+  raw_payload?: unknown;
 };
 
 
@@ -237,7 +238,7 @@ function DashboardHome() {
 
     const newLeadsQ = supabase
       .from("meta_leads")
-      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name")
+      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name, raw_payload")
       .gte("created_at", todayIso)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -533,6 +534,17 @@ function DashboardHome() {
       const cleaned = camp.replace(/^hair\s+transplant\s+/i, "").trim();
       if (cleaned) return cleaned;
     }
+    // Website bookings nest their fields under raw_payload.raw_payload.location
+    const rp = (l.raw_payload && typeof l.raw_payload === "object")
+      ? (l.raw_payload as Record<string, unknown>)
+      : null;
+    const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+      ? (rp.raw_payload as Record<string, unknown>)
+      : null;
+    const loc =
+      (typeof rp?.location === "string" ? rp.location : "") ||
+      (typeof nested?.location === "string" ? nested.location : "");
+    if (loc.trim()) return loc.trim();
     return leadLocation(l.id);
   };
 
