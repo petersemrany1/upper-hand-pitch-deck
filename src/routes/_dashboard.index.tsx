@@ -534,6 +534,17 @@ function DashboardHome() {
       const cleaned = camp.replace(/^hair\s+transplant\s+/i, "").trim();
       if (cleaned) return cleaned;
     }
+    // Website bookings nest their fields under raw_payload.raw_payload.location
+    const rp = (l.raw_payload && typeof l.raw_payload === "object")
+      ? (l.raw_payload as Record<string, unknown>)
+      : null;
+    const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+      ? (rp.raw_payload as Record<string, unknown>)
+      : null;
+    const loc =
+      (typeof rp?.location === "string" ? rp.location : "") ||
+      (typeof nested?.location === "string" ? nested.location : "");
+    if (loc.trim()) return loc.trim();
     return leadLocation(l.id);
   };
 
