@@ -643,11 +643,25 @@ function LeadsPage() {
 
               {/* Read-only raw_payload fields */}
               {(() => {
+                const nested = (editLead.raw_payload && typeof editLead.raw_payload === "object")
+                  ? (editLead.raw_payload as Record<string, unknown>).raw_payload
+                  : null;
                 const treatmentTimeline = readRawString(editLead.raw_payload, "treatment_timeline");
                 const hairLossLevel = readRawString(editLead.raw_payload, "hair_loss_level");
-                if (!treatmentTimeline && !hairLossLevel) return null;
+                const location =
+                  readRawString(editLead.raw_payload, "location") ||
+                  readRawString(nested, "location");
+                if (!treatmentTimeline && !hairLossLevel && !location) return null;
                 return (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {location && (
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Location</label>
+                        <div className="w-full px-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111]">
+                          {location}
+                        </div>
+                      </div>
+                    )}
                     {treatmentTimeline && (
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Treatment timeline</label>
