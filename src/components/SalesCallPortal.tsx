@@ -44,6 +44,7 @@ type Lead = {
   deposit_paid_at?: string | null; deposit_amount?: number | null;
   stripe_payment_intent_id?: string | null; stripe_checkout_session_id?: string | null;
   handover_sent_at?: string | null;
+  previous_lead_id?: string | null;
 };
 
 function leadHasBookedSale(lead: Lead) {
@@ -59,7 +60,7 @@ const SALES_CALL_LEAD_SELECT = `
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
   pipeline_summary_updated_at,
   deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id,
-  handover_sent_at
+  handover_sent_at, previous_lead_id
 `;
 
 type Clinic = {
