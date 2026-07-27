@@ -6187,6 +6187,9 @@ function RightPanel({
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
+      {!practiceMode && active.previous_lead_id && (
+        <ReturningLeadBanner leadId={active.id} previousLeadId={active.previous_lead_id} />
+      )}
       {/* Lead navigation — top of right column */}
       {!practiceMode && (
       <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
