@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight, MapPin, Filter } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -67,6 +68,28 @@ function readRawString(payload: unknown, key: string): string | null {
   return s.length > 0 ? s : null;
 }
 
+// Same logic as dashboard: strip "Hair Transplant " prefix from campaign_name,
+// else fall back to raw_payload.location (or nested website payload).
+function deriveLocation(l: Lead): string | null {
+  const camp = (l.campaign_name ?? "").trim();
+  if (camp) {
+    const cleaned = camp.replace(/^hair\s+transplant\s+/i, "").trim();
+    if (cleaned) return cleaned;
+  }
+  const rp = (l.raw_payload && typeof l.raw_payload === "object")
+    ? (l.raw_payload as Record<string, unknown>)
+    : null;
+  const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+    ? (rp.raw_payload as Record<string, unknown>)
+    : null;
+  const loc =
+    (typeof rp?.location === "string" ? rp.location : "") ||
+    (typeof nested?.location === "string" ? nested.location : "");
+  return loc.trim() || null;
+}
+
+const UNKNOWN_LOC = "__unknown__";
+
 const fmtDate = (s: string | null) => {
   if (!s) return "—";
   return new Date(s).toLocaleString("en-AU", {
@@ -130,14 +153,23 @@ function LeadsPage() {
   const [addingStatus, setAddingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState("");
 
-  // Bulk selection + assign (admin only)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRepId, setBulkRepId] = useState<string>("");
   const [assigning, setAssigning] = useState(false);
 
+  // New filters
+  const [locationFilter, setLocationFilter] = useState<string>("__all__");
+  const [statusFilter, setStatusFilter] = useState<Set<string>>(new Set());
+  const [assignedFilter, setAssignedFilter] = useState<string>("__all__"); // "__all__" | "__unassigned__" | rep id
+  const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const statusMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Row quick-assign popover
+  const [quickAssignId, setQuickAssignId] = useState<string | null>(null);
+  const quickRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => { setCustomStatuses(loadCustomStatuses()); }, []);
 
-  // Load reps list (for admin bulk-assign + name lookup + current-user mapping)
   useEffect(() => {
     if (!ready) return;
     void (async () => {
@@ -152,12 +184,10 @@ function LeadsPage() {
   const repNameById = (id: string | null | undefined) =>
     reps.find((r) => r.id === id)?.name ?? "—";
 
-  // Map the currently signed-in auth user → their sales_reps.id
-  // (sales_reps.id is what gets stored in meta_leads.rep_id, NOT auth.uid)
   const myEmail = (user?.email ?? "").toLowerCase();
   const mySalesRepId = reps.find((r) => (r.email ?? "").toLowerCase() === myEmail)?.id ?? null;
+  void mySalesRepId;
 
-  // Collapsed status groups (folder-style)
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
   const toggleStatusGroup = (s: string) => {
     setCollapsedStatuses((prev) => {
@@ -206,7 +236,16 @@ function LeadsPage() {
     return () => { void supabase.removeChannel(ch); };
   }, []);
 
-  // Detect duplicates: same normalized phone, or same email when phone is missing.
+  // Close popovers on outside click
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (quickRef.current && !quickRef.current.contains(e.target as Node)) setQuickAssignId(null);
+      if (statusMenuRef.current && !statusMenuRef.current.contains(e.target as Node)) setShowStatusMenu(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
   const normPhone = (p: string | null) => (p ?? "").replace(/\D/g, "");
   const normEmail = (e: string | null) => (e ?? "").trim().toLowerCase();
   const dupKeys = new Set<string>();
@@ -225,8 +264,6 @@ function LeadsPage() {
   };
   const duplicateCount = rows.filter(isDuplicate).length;
 
-  // Everyone (admins + reps) sees leads, but hide closed-out statuses from the sheet.
-  void mySalesRepId;
   const HIDDEN_STATUSES = new Set([
     "Not Interested",
     "Dropped",
@@ -235,8 +272,22 @@ function LeadsPage() {
   ]);
   const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
 
+  const locationOf = (r: Lead) => deriveLocation(r) ?? UNKNOWN_LOC;
 
-  const filtered = visibleRows.filter((r) => {
+  const availableLocations = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const r of visibleRows) {
+      const loc = locationOf(r);
+      set.set(loc, (set.get(loc) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => {
+      if (a[0] === UNKNOWN_LOC) return 1;
+      if (b[0] === UNKNOWN_LOC) return -1;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [visibleRows]);
+
+  const matchesSearch = (r: Lead) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -252,7 +303,45 @@ function LeadsPage() {
       repNameById(r.rep_id).toLowerCase().includes(q) ||
       (q === "duplicate" && isDuplicate(r))
     );
-  });
+  };
+
+  const matchesLocation = (r: Lead) =>
+    locationFilter === "__all__" ? true : locationOf(r) === locationFilter;
+
+  const matchesStatus = (r: Lead) => {
+    if (statusFilter.size === 0) return true;
+    const s = (r.status ?? "").trim() || "New";
+    return statusFilter.has(s);
+  };
+
+  const matchesAssigned = (r: Lead) => {
+    if (assignedFilter === "__all__") return true;
+    if (assignedFilter === "__unassigned__") return !r.rep_id;
+    return r.rep_id === assignedFilter;
+  };
+
+  const filtered = visibleRows.filter(
+    (r) => matchesSearch(r) && matchesLocation(r) && matchesStatus(r) && matchesAssigned(r),
+  );
+
+  const anyFilterActive =
+    search.trim() !== "" ||
+    locationFilter !== "__all__" ||
+    statusFilter.size > 0 ||
+    assignedFilter !== "__all__";
+
+  // Location chip counts: unassigned leads within current STATUS filter (ignore location filter itself)
+  const chipCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of visibleRows) {
+      if (!matchesStatus(r)) continue;
+      if (r.rep_id) continue;
+      const loc = locationOf(r);
+      map.set(loc, (map.get(loc) ?? 0) + 1);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleRows, statusFilter]);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -261,24 +350,93 @@ function LeadsPage() {
       return next;
     });
   };
-  const toggleSelectAll = () => {
-    if (selected.size === filtered.length) setSelected(new Set());
-    else setSelected(new Set(filtered.map((r) => r.id)));
+  const filteredIds = filtered.map((r) => r.id);
+  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every((id) => selected.has(id));
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const id of filteredIds) next.delete(id);
+        return next;
+      });
+    } else {
+      setSelected((prev) => {
+        const next = new Set(prev);
+        for (const id of filteredIds) next.add(id);
+        return next;
+      });
+    }
   };
-  const bulkAssign = async () => {
-    if (selected.size === 0) return;
-    setAssigning(true);
-    const ids = Array.from(selected);
-    const newRepId = bulkRepId === "" ? null : bulkRepId;
+  const toggleSelectGroup = (ids: string[], allOn: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allOn) for (const id of ids) next.delete(id);
+      else for (const id of ids) next.add(id);
+      return next;
+    });
+  };
+
+  const applyAssignment = async (ids: string[], newRepId: string | null) => {
+    if (ids.length === 0) return { error: null as string | null };
     const { error } = await supabase
       .from("meta_leads")
       .update({ rep_id: newRepId })
       .in("id", ids);
-    if (!error) {
-      setRows((prev) => prev.map((r) => (selected.has(r.id) ? { ...r, rep_id: newRepId } : r)));
-      setSelected(new Set());
-    }
+    if (error) return { error: error.message };
+    setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, rep_id: newRepId } : r)));
+    return { error: null };
+  };
+
+  const bulkAssign = async () => {
+    if (selected.size === 0) return;
+    setAssigning(true);
+    const ids = Array.from(selected);
+    // Snapshot prior rep_ids for undo
+    const prior = new Map<string, string | null>();
+    for (const r of rows) if (selected.has(r.id)) prior.set(r.id, r.rep_id ?? null);
+    const newRepId = bulkRepId === "" ? null : bulkRepId;
+
+    const { error } = await applyAssignment(ids, newRepId);
     setAssigning(false);
+    if (error) {
+      toast.error(`Assign failed: ${error}`);
+      return;
+    }
+    setSelected(new Set());
+    const repLabel = newRepId ? (reps.find((r) => r.id === newRepId)?.name ?? "rep") : "Unassigned";
+    toast.success(`Assigned ${ids.length} lead${ids.length === 1 ? "" : "s"} to ${repLabel}`, {
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          // Revert each id to its prior rep, batched by prior value
+          const byPrior = new Map<string | null, string[]>();
+          for (const id of ids) {
+            const p = prior.get(id) ?? null;
+            const list = byPrior.get(p) ?? [];
+            list.push(id);
+            byPrior.set(p, list);
+          }
+          for (const [p, list] of byPrior) {
+            await applyAssignment(list, p);
+          }
+          toast("Assignment reverted");
+        },
+      },
+    });
+  };
+
+  const quickAssign = async (leadId: string, newRepId: string | null) => {
+    const prior = rows.find((r) => r.id === leadId)?.rep_id ?? null;
+    const { error } = await applyAssignment([leadId], newRepId);
+    setQuickAssignId(null);
+    if (error) { toast.error(`Assign failed: ${error}`); return; }
+    const repLabel = newRepId ? (reps.find((r) => r.id === newRepId)?.name ?? "rep") : "Unassigned";
+    toast.success(`Assigned to ${repLabel}`, {
+      action: {
+        label: "Undo",
+        onClick: async () => { await applyAssignment([leadId], prior); toast("Reverted"); },
+      },
+    });
   };
 
   const handleDelete = async (id: string) => {
@@ -338,6 +496,17 @@ function LeadsPage() {
     setEditForm(null);
   };
 
+  const statusChipsSummary = statusFilter.size === 0
+    ? "All statuses"
+    : `${statusFilter.size} status${statusFilter.size === 1 ? "" : "es"}`;
+
+  const clearAll = () => {
+    setSearch("");
+    setLocationFilter("__all__");
+    setStatusFilter(new Set());
+    setAssignedFilter("__all__");
+  };
+
   return (
     <div className="h-full md:h-screen overflow-y-auto" style={{ background: "#ffffff" }}>
       <div className="px-6 py-8 max-w-[1600px] mx-auto">
@@ -346,71 +515,173 @@ function LeadsPage() {
           <p className="text-sm text-[#111111] mt-1">
             {loading
               ? "Loading…"
-              : `${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
+              : `Showing ${filtered.length} of ${visibleRows.length} leads${duplicateCount > 0 ? ` · ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}` : ""}`}
           </p>
         </div>
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[240px] max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#111111]" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, email, phone, status, rep, campaign…"
-              className="w-full pl-10 pr-3 py-2 rounded-md bg-[#f9f9f9] border border-[#ebebeb]/10 text-sm text-[#111111] placeholder:text-[#666] focus:outline-none focus:border-[#f4522d]"
-            />
+        {/* Sticky filter bar */}
+        <div className="sticky top-0 z-30 -mx-6 px-6 py-3 mb-3 bg-white/95 backdrop-blur border-b border-[#ebebeb]">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#888]" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search name, email, phone, campaign…"
+                className="w-full pl-10 pr-3 py-2 rounded-full bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] placeholder:text-[#888] focus:outline-none focus:border-[#f4522d]"
+              />
+            </div>
+
+            {/* Location filter */}
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="px-3 py-2 rounded-full bg-white border border-[#ebebeb] text-sm text-[#111111] hover:border-[#f4522d] focus:outline-none focus:border-[#f4522d]"
+            >
+              <option value="__all__">All locations</option>
+              {availableLocations.map(([loc, n]) => (
+                <option key={loc} value={loc}>
+                  {loc === UNKNOWN_LOC ? "Unknown" : loc} ({n})
+                </option>
+              ))}
+            </select>
+
+            {/* Status multi-select */}
+            <div className="relative" ref={statusMenuRef}>
+              <button
+                type="button"
+                onClick={() => setShowStatusMenu((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full bg-white border border-[#ebebeb] text-sm text-[#111111] hover:border-[#f4522d]"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                {statusChipsSummary}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {showStatusMenu && (
+                <div className="absolute z-40 mt-1 min-w-[240px] rounded-lg border border-[#ebebeb] bg-white shadow-lg p-2">
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <span className="text-[11px] uppercase tracking-wider text-[#888]">Status</span>
+                    {statusFilter.size > 0 && (
+                      <button
+                        onClick={() => setStatusFilter(new Set())}
+                        className="text-[11px] text-[#f4522d] hover:underline"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {allStatuses.map((s) => {
+                      const on = statusFilter.has(s);
+                      const b = statusBadge(s);
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setStatusFilter((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(s)) next.delete(s); else next.add(s);
+                            return next;
+                          })}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm hover:bg-[#f6f6f6] ${on ? "bg-[#fff5f3]" : ""}`}
+                        >
+                          <input type="checkbox" readOnly checked={on} className="accent-[#f4522d]" />
+                          <span
+                            className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                            style={{ background: b.bg, color: b.fg }}
+                          >
+                            {s}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Assigned filter */}
+            <select
+              value={assignedFilter}
+              onChange={(e) => setAssignedFilter(e.target.value)}
+              className="px-3 py-2 rounded-full bg-white border border-[#ebebeb] text-sm text-[#111111] hover:border-[#f4522d] focus:outline-none focus:border-[#f4522d]"
+            >
+              <option value="__all__">All reps</option>
+              <option value="__unassigned__">Unassigned</option>
+              {reps.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+
+            {anyFilterActive && (
+              <button
+                onClick={clearAll}
+                className="px-3 py-2 rounded-full text-sm text-[#666] hover:text-[#111] hover:bg-[#f6f6f6]"
+              >
+                Clear all
+              </button>
+            )}
           </div>
 
-          {selected.size > 0 && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-[#fff5f3] border border-[#f4522d]/30">
-              <UserCheck className="h-4 w-4 text-[#f4522d]" />
-              <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
-              <select
-                value={bulkRepId}
-                onChange={(e) => setBulkRepId(e.target.value)}
-                className="px-2 py-1.5 rounded bg-white border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
-              >
-                <option value="">— Unassigned —</option>
-                {reps.map((rep) => (
-                  <option key={rep.id} value={rep.id}>{rep.name}</option>
-                ))}
-              </select>
+          {/* Location chips */}
+          {availableLocations.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
-                onClick={bulkAssign}
-                disabled={assigning}
-                className="px-3 py-1.5 rounded text-xs font-semibold text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+                onClick={() => setLocationFilter("__all__")}
+                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border transition ${
+                  locationFilter === "__all__"
+                    ? "bg-[#f4522d] text-white border-[#f4522d]"
+                    : "bg-white text-[#111] border-[#ebebeb] hover:border-[#f4522d]"
+                }`}
               >
-                {assigning ? "Assigning…" : "Assign"}
+                All
               </button>
-              <button
-                onClick={() => setSelected(new Set())}
-                className="px-2 py-1.5 rounded text-xs text-[#666] hover:text-[#111111]"
-              >
-                Clear
-              </button>
+              {availableLocations.map(([loc]) => {
+                const active = locationFilter === loc;
+                const count = chipCounts.get(loc) ?? 0;
+                const label = loc === UNKNOWN_LOC ? "Unknown" : loc;
+                return (
+                  <button
+                    key={loc}
+                    onClick={() => setLocationFilter(active ? "__all__" : loc)}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border transition ${
+                      active
+                        ? "bg-[#f4522d] text-white border-[#f4522d]"
+                        : "bg-white text-[#111] border-[#ebebeb] hover:border-[#f4522d]"
+                    }`}
+                    title={`${count} unassigned in current status filter`}
+                  >
+                    <MapPin className="h-3 w-3" />
+                    {label} · {count}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        <div className="rounded-lg border border-[#ebebeb]/10 overflow-hidden" style={{ background: "#f9f9f9" }}>
+        <div className="rounded-lg border border-[#ebebeb] overflow-visible" style={{ background: "#f9f9f9" }}>
           {loading ? (
             <div className="p-12 text-center text-[#111111] text-sm">Loading leads…</div>
           ) : filtered.length === 0 ? (
             <div className="p-12 text-center text-[#111111] text-sm">
-              {rows.length === 0 ? "No leads yet. Once Make.com posts to your webhook, they'll appear here." : "No leads match your search."}
+              {rows.length === 0
+                ? "No leads yet. Once Make.com posts to your webhook, they'll appear here."
+                : "No leads match your filters."}
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#ebebeb]/10 text-xs uppercase tracking-wider text-[#111111]">
+                  <tr className="border-b border-[#ebebeb] text-xs uppercase tracking-wider text-[#111111]">
                     <th className="px-3 py-3 w-8">
                       <input
                         type="checkbox"
-                        checked={filtered.length > 0 && selected.size === filtered.length}
-                        onChange={toggleSelectAll}
+                        checked={allFilteredSelected}
+                        onChange={toggleSelectAllFiltered}
                         className="accent-[#f4522d] cursor-pointer"
+                        title="Select all matching filters"
                       />
                     </th>
                     <th className="text-left px-4 py-3 font-medium">Received</th>
@@ -426,7 +697,6 @@ function LeadsPage() {
                 <tbody>
                   {(() => {
                     const colSpan = 9;
-                    // Group filtered rows by status preserving DEFAULT_STATUSES order, then any extras.
                     const groups = new Map<string, Lead[]>();
                     for (const r of filtered) {
                       const key = (r.status ?? "").trim() || "New";
@@ -440,11 +710,25 @@ function LeadsPage() {
 
                     return orderedKeys.flatMap((statusKey) => {
                       const groupRows = groups.get(statusKey)!;
-                      const collapsed = collapsedStatuses.has(statusKey);
+                      // Auto-expand groups with matches when any filter is active.
+                      const collapsed = anyFilterActive ? false : collapsedStatuses.has(statusKey);
                       const headBadge = statusBadge(statusKey);
+                      const groupIds = groupRows.map((r) => r.id);
+                      const groupAllOn = groupIds.every((id) => selected.has(id));
+                      const groupSomeOn = !groupAllOn && groupIds.some((id) => selected.has(id));
                       const headerRow = (
                         <tr key={`hdr-${statusKey}`} className="bg-[#f3f3f3] border-b border-[#ebebeb]">
-                          <td colSpan={colSpan} className="px-3 py-2">
+                          <td className="px-3 py-2 w-8">
+                            <input
+                              type="checkbox"
+                              checked={groupAllOn}
+                              ref={(el) => { if (el) el.indeterminate = groupSomeOn; }}
+                              onChange={() => toggleSelectGroup(groupIds, groupAllOn)}
+                              className="accent-[#f4522d] cursor-pointer"
+                              title="Select all in group"
+                            />
+                          </td>
+                          <td colSpan={colSpan - 1} className="px-3 py-2">
                             <button
                               type="button"
                               onClick={() => toggleStatusGroup(statusKey)}
@@ -464,123 +748,148 @@ function LeadsPage() {
                       );
                       if (collapsed) return [headerRow];
                       return [headerRow, ...groupRows.map((r) => {
-                    const fullName = [r.first_name, r.last_name].filter(Boolean).join(" ") || "—";
-                    const dup = isDuplicate(r);
-                    const badge = statusBadge(r.status);
-                    return (
-                      <tr
-                        key={r.id}
-                        className="border-b border-[#ebebeb]/5 hover:bg-white/[0.02] transition-colors"
-                        style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
-                      >
-                        <td className="px-3 py-3 w-8">
-                          <input
-                            type="checkbox"
-                            checked={selected.has(r.id)}
-                            onChange={() => toggleSelect(r.id)}
-                            className="accent-[#f4522d] cursor-pointer"
-                          />
-                        </td>
-                        <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
-                        <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <span>{fullName}</span>
-                            {dup && (
-                              <span
-                                className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                style={{ background: "#f59e0b", color: "#fff" }}
-                                title="Same phone or email already exists in another lead"
-                              >
-                                Duplicate
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span
-                            className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                            style={{ background: badge.bg, color: badge.fg }}
+                        const fullName = [r.first_name, r.last_name].filter(Boolean).join(" ") || "—";
+                        const dup = isDuplicate(r);
+                        const badge = statusBadge(r.status);
+                        return (
+                          <tr
+                            key={r.id}
+                            className="border-b border-[#ebebeb]/60 hover:bg-white transition-colors"
+                            style={dup ? { background: "#fff4e5", borderLeft: "3px solid #f59e0b" } : undefined}
                           >
-                            {(r.status ?? "").trim() || "New"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          {r.rep_id ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#eff6ff] text-[#1d4ed8]">
-                              {repNameById(r.rep_id)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-[#999]">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-[#111111]">
-                          <div className="flex flex-col gap-1">
-                            {r.email && (
-                              <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1.5 hover:text-[#f4522d]">
-                                <Mail className="h-3 w-3" />{r.email}
-                              </a>
-                            )}
-                            {r.phone && (
-                              <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 hover:text-[#f4522d]">
-                                <PhoneIcon className="h-3 w-3" />{r.phone}
-                              </a>
-                            )}
-                            {!r.email && !r.phone && <span className="text-[#111111]">—</span>}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          {r.funding_preference ? (
-                            <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[#f4522d]/15 text-[#7ba3ee] border border-[#f4522d]/30">
-                              {r.funding_preference}
-                            </span>
-                          ) : <span className="text-[#111111]">—</span>}
-                        </td>
-                        <td className="px-4 py-3 text-[#111111] text-xs">
-                          <div className="flex flex-col gap-0.5 max-w-xs">
-                            <div className="text-[#111111]">{r.campaign_name || "—"}</div>
-                            <div>{r.ad_set_name || "—"}</div>
-                            <div className="text-[#111111]">{r.ad_name || "—"}</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right whitespace-nowrap">
-                          {confirmDeleteId === r.id ? (
-                            <div className="inline-flex items-center gap-2">
-                              <button
-                                onClick={() => handleDelete(r.id)}
-                                disabled={busyId === r.id}
-                                className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 disabled:opacity-50"
+                            <td className="px-3 py-3 w-8">
+                              <input
+                                type="checkbox"
+                                checked={selected.has(r.id)}
+                                onChange={() => toggleSelect(r.id)}
+                                className="accent-[#f4522d] cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-4 py-3 text-[#111111] whitespace-nowrap">{fmtDate(r.created_at)}</td>
+                            <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <span>{fullName}</span>
+                                {dup && (
+                                  <span
+                                    className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                    style={{ background: "#f59e0b", color: "#fff" }}
+                                    title="Same phone or email already exists in another lead"
+                                  >
+                                    Duplicate
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span
+                                className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold"
+                                style={{ background: badge.bg, color: badge.fg }}
                               >
-                                Confirm
-                              </button>
+                                {(r.status ?? "").trim() || "New"}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap relative">
                               <button
-                                onClick={() => setConfirmDeleteId(null)}
-                                className="px-2 py-1 rounded text-xs bg-[#f9f9f9] text-[#111111] hover:bg-[#f9f9f9]"
+                                onClick={(e) => { e.stopPropagation(); setQuickAssignId(quickAssignId === r.id ? null : r.id); }}
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold hover:ring-2 hover:ring-[#f4522d]/30 transition ${
+                                  r.rep_id ? "bg-[#eff6ff] text-[#1d4ed8]" : "bg-[#f3f3f3] text-[#666]"
+                                }`}
+                                title="Click to reassign"
                               >
-                                Cancel
+                                {r.rep_id ? repNameById(r.rep_id) : "Unassigned"}
+                                <ChevronDown className="h-3 w-3 opacity-70" />
                               </button>
-                            </div>
-                          ) : (
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                onClick={() => openEdit(r)}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-[#f4522d] hover:bg-[#f4522d]/10"
-                                title="Edit lead"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => setConfirmDeleteId(r.id)}
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-red-400 hover:bg-red-500/10"
-                                title="Delete lead"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })];
+                              {quickAssignId === r.id && (
+                                <div
+                                  ref={quickRef}
+                                  className="absolute z-40 mt-1 min-w-[180px] rounded-lg border border-[#ebebeb] bg-white shadow-lg p-1"
+                                >
+                                  <button
+                                    onClick={() => quickAssign(r.id, null)}
+                                    className="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-[#f6f6f6] text-[#666]"
+                                  >
+                                    Unassigned
+                                  </button>
+                                  {reps.map((rep) => (
+                                    <button
+                                      key={rep.id}
+                                      onClick={() => quickAssign(r.id, rep.id)}
+                                      className="w-full text-left px-3 py-1.5 text-sm rounded hover:bg-[#f6f6f6] text-[#111]"
+                                    >
+                                      {rep.name}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-[#111111]">
+                              <div className="flex flex-col gap-1">
+                                {r.email && (
+                                  <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1.5 hover:text-[#f4522d]">
+                                    <Mail className="h-3 w-3" />{r.email}
+                                  </a>
+                                )}
+                                {r.phone && (
+                                  <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1.5 hover:text-[#f4522d]">
+                                    <PhoneIcon className="h-3 w-3" />{r.phone}
+                                  </a>
+                                )}
+                                {!r.email && !r.phone && <span className="text-[#111111]">—</span>}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3">
+                              {r.funding_preference ? (
+                                <span className="inline-flex px-2 py-0.5 rounded-full text-xs bg-[#f4522d]/15 text-[#f4522d] border border-[#f4522d]/30">
+                                  {r.funding_preference}
+                                </span>
+                              ) : <span className="text-[#111111]">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-[#111111] text-xs">
+                              <div className="flex flex-col gap-0.5 max-w-xs">
+                                <div className="text-[#111111]">{r.campaign_name || "—"}</div>
+                                <div>{r.ad_set_name || "—"}</div>
+                                <div className="text-[#111111]">{r.ad_name || "—"}</div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                              {confirmDeleteId === r.id ? (
+                                <div className="inline-flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleDelete(r.id)}
+                                    disabled={busyId === r.id}
+                                    className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-600 hover:bg-red-500/30 border border-red-500/30 disabled:opacity-50"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteId(null)}
+                                    className="px-2 py-1 rounded text-xs bg-[#f9f9f9] text-[#111111] hover:bg-[#f0f0f0]"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    onClick={() => openEdit(r)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-[#f4522d] hover:bg-[#f4522d]/10"
+                                    title="Edit lead"
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => setConfirmDeleteId(r.id)}
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded text-xs text-[#111111] hover:text-red-500 hover:bg-red-500/10"
+                                    title="Delete lead"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })];
                     });
                   })()}
                 </tbody>
@@ -589,6 +898,37 @@ function LeadsPage() {
           )}
         </div>
       </div>
+
+      {/* Sticky assign bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 px-4 py-3 rounded-full bg-white shadow-2xl border border-[#f4522d]/40">
+          <UserCheck className="h-4 w-4 text-[#f4522d]" />
+          <span className="text-sm text-[#111111] font-medium">{selected.size} selected</span>
+          <select
+            value={bulkRepId}
+            onChange={(e) => setBulkRepId(e.target.value)}
+            className="px-2 py-1.5 rounded-full bg-[#f9f9f9] border border-[#ebebeb] text-sm text-[#111111] focus:outline-none focus:border-[#f4522d]"
+          >
+            <option value="">— Unassigned —</option>
+            {reps.map((rep) => (
+              <option key={rep.id} value={rep.id}>{rep.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={bulkAssign}
+            disabled={assigning}
+            className="px-4 py-1.5 rounded-full text-xs font-semibold text-white bg-[#f4522d] hover:bg-[#dd431f] disabled:opacity-50"
+          >
+            {assigning ? "Assigning…" : "Assign"}
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="px-3 py-1.5 rounded-full text-xs text-[#666] hover:text-[#111111] hover:bg-[#f3f3f3]"
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {editLead && editForm && (
         <div className="fixed inset-0 z-50 flex">
@@ -641,7 +981,6 @@ function LeadsPage() {
                 </div>
               ))}
 
-              {/* Read-only raw_payload fields */}
               {(() => {
                 const nested = (editLead.raw_payload && typeof editLead.raw_payload === "object")
                   ? (editLead.raw_payload as Record<string, unknown>).raw_payload
@@ -682,7 +1021,6 @@ function LeadsPage() {
                 );
               })()}
 
-              {/* Status dropdown with + button */}
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-medium uppercase tracking-wider text-[#666]">Status</label>
                 <div className="flex items-center gap-2">
