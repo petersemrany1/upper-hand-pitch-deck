@@ -25,6 +25,7 @@ type Lead = {
   call_notes?: string | null;
   rep_id?: string | null;
   raw_payload?: unknown;
+  previous_lead_id?: string | null;
 };
 
 type RepOption = { id: string; name: string; email: string | null };
