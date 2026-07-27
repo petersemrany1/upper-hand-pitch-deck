@@ -5686,6 +5686,156 @@ const OBJECTION_PILLS: { label: string; key: string }[] = [
   { label: "Who are you", key: "Who are you" },
 ];
 
+type PreviousLeadInfo = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  status: string | null;
+  call_notes: string | null;
+  pipeline_summary: string | null;
+  rep_id: string | null;
+  rep_name: string | null;
+  last_called_at: string | null;
+};
+
+function ReturningLeadBanner({ leadId, previousLeadId }: { leadId: string; previousLeadId: string }) {
+  const [prev, setPrev] = useState<PreviousLeadInfo | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: p } = await supabase
+        .from("meta_leads")
+        .select("id, first_name, last_name, status, call_notes, pipeline_summary, rep_id")
+        .eq("id", previousLeadId)
+        .maybeSingle();
+      if (cancelled || !p) return;
+      const [{ data: lastCall }, { data: rep }] = await Promise.all([
+        supabase
+          .from("call_records")
+          .select("called_at")
+          .eq("lead_id", previousLeadId)
+          .order("called_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        p.rep_id
+          ? supabase.from("sales_reps").select("name").eq("id", p.rep_id).maybeSingle()
+          : Promise.resolve({ data: null as { name: string } | null }),
+      ]);
+      if (cancelled) return;
+      setPrev({
+        id: p.id,
+        first_name: p.first_name,
+        last_name: p.last_name,
+        status: p.status,
+        call_notes: p.call_notes,
+        pipeline_summary: p.pipeline_summary,
+        rep_id: p.rep_id,
+        rep_name: rep?.name ?? null,
+        last_called_at: lastCall?.called_at ?? null,
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [previousLeadId, leadId]);
+
+  const statusLabel = (prev?.status ?? "").trim() || "new";
+  const lastCallLabel = prev?.last_called_at
+    ? new Date(prev.last_called_at).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    : "never reached";
+  const repLabel = prev?.rep_name || (prev?.rep_id ? "Assigned rep" : "no rep");
+
+  return (
+    <div
+      style={{
+        margin: "12px 14px 0",
+        padding: "12px 14px",
+        background: "#fffbeb",
+        border: "2px solid #f59e0b",
+        borderRadius: 10,
+        color: "#7c2d12",
+        fontSize: 13,
+        lineHeight: 1.5,
+      }}
+    >
+      <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>
+        ⚠ Returning lead — we've spoken to this person before.
+      </div>
+      {prev ? (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 10px", fontSize: 12 }}>
+            <span style={{ fontWeight: 600 }}>Previous status:</span>
+            <span>{statusLabel}</span>
+            <span style={{ fontWeight: 600 }}>Last call:</span>
+            <span>{lastCallLabel}</span>
+            <span style={{ fontWeight: 600 }}>Handled by:</span>
+            <span>{repLabel}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            style={{
+              marginTop: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              color: "#7c2d12",
+              background: "transparent",
+              border: "1px solid #f59e0b",
+              borderRadius: 6,
+              padding: "3px 8px",
+              cursor: "pointer",
+            }}
+          >
+            {expanded ? "Hide previous notes" : "Show previous notes"}
+          </button>
+          {" "}
+          <a
+            href={`/leads?leadId=${prev.id}`}
+            target="_blank"
+            rel="noreferrer"
+            style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "#7c2d12", textDecoration: "underline" }}
+          >
+            View previous lead →
+          </a>
+          {expanded && (
+            <div style={{ marginTop: 10 }}>
+              {prev.pipeline_summary && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#92400e", marginBottom: 3 }}>
+                    Pipeline summary
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 12, color: "#1f2937", background: "#fff", border: "1px solid #fde68a", borderRadius: 6, padding: 8 }}>
+                    {prev.pipeline_summary}
+                  </div>
+                </div>
+              )}
+              {prev.call_notes && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", color: "#92400e", marginBottom: 3 }}>
+                    Call notes
+                  </div>
+                  <div style={{ whiteSpace: "pre-wrap", fontSize: 12, color: "#1f2937", background: "#fff", border: "1px solid #fde68a", borderRadius: 6, padding: 8 }}>
+                    {prev.call_notes}
+                  </div>
+                </div>
+              )}
+              {!prev.pipeline_summary && !prev.call_notes && (
+                <div style={{ fontSize: 12, fontStyle: "italic", color: "#92400e" }}>
+                  No notes on the previous lead.
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ fontSize: 12, opacity: 0.8 }}>Loading previous history…</div>
+      )}
+    </div>
+  );
+}
+
+
+
 function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
