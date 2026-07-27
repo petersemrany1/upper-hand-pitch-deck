@@ -1041,6 +1041,7 @@ export type Database = {
           phone: string | null
           pipeline_summary: string | null
           pipeline_summary_updated_at: string | null
+          previous_lead_id: string | null
           raw_payload: Json | null
           rep_id: string | null
           status: string
@@ -1074,6 +1075,7 @@ export type Database = {
           phone?: string | null
           pipeline_summary?: string | null
           pipeline_summary_updated_at?: string | null
+          previous_lead_id?: string | null
           raw_payload?: Json | null
           rep_id?: string | null
           status?: string
@@ -1107,6 +1109,7 @@ export type Database = {
           phone?: string | null
           pipeline_summary?: string | null
           pipeline_summary_updated_at?: string | null
+          previous_lead_id?: string | null
           raw_payload?: Json | null
           rep_id?: string | null
           status?: string
@@ -1114,7 +1117,15 @@ export type Database = {
           stripe_payment_intent_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "meta_leads_previous_lead_id_fkey"
+            columns: ["previous_lead_id"]
+            isOneToOne: false
+            referencedRelation: "meta_leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notification_acknowledgements: {
         Row: {
