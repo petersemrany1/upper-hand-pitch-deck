@@ -191,5 +191,37 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: error.message }, 500);
   }
 
+  // Link to previous lead if we've spoken to this person before.
+  // Match rules: last 9 digits of phone OR exact email (case-insensitive),
+  // excluding the row we just inserted. Newest older match wins.
+  try {
+    const phoneDigits = (row.phone ?? "").replace(/\D/g, "");
+    const tail9 = phoneDigits.length >= 9 ? phoneDigits.slice(-9) : null;
+    const emailLower = row.email ? row.email.toLowerCase() : null;
+    if (tail9 || emailLower) {
+      const orParts: string[] = [];
+      if (tail9) orParts.push(`phone.ilike.%${tail9}`);
+      if (emailLower) orParts.push(`email.ilike.${emailLower}`);
+      const { data: prior } = await supabase
+        .from("meta_leads")
+        .select("id, phone, email, created_at")
+        .neq("id", data.id)
+        .or(orParts.join(","))
+        .order("created_at", { ascending: false })
+        .limit(25);
+      const match = (prior ?? []).find((r) => {
+        const rDigits = (r.phone ?? "").replace(/\D/g, "");
+        const phoneMatch = tail9 && rDigits.length >= 9 && rDigits.slice(-9) === tail9;
+        const emailMatch = emailLower && r.email && r.email.toLowerCase() === emailLower;
+        return phoneMatch || emailMatch;
+      });
+      if (match?.id) {
+        await supabase.from("meta_leads").update({ previous_lead_id: match.id }).eq("id", data.id);
+      }
+    }
+  } catch (e) {
+    console.error("meta-leads previous_lead_id link failed:", e);
+  }
+
   return jsonResponse({ success: true, id: data.id }, 201);
 });
