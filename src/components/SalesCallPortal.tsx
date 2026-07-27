@@ -5788,15 +5788,6 @@ function ReturningLeadBanner({ leadId, previousLeadId }: { leadId: string; previ
           >
             {expanded ? "Hide previous notes" : "Show previous notes"}
           </button>
-          {" "}
-          <a
-            href={`/leads?leadId=${prev.id}`}
-            target="_blank"
-            rel="noreferrer"
-            style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, color: "#7c2d12", textDecoration: "underline" }}
-          >
-            View previous lead →
-          </a>
           {expanded && (
             <div style={{ marginTop: 10 }}>
               {prev.pipeline_summary && (
