@@ -710,8 +710,8 @@ function LeadsPage() {
 
                     return orderedKeys.flatMap((statusKey) => {
                       const groupRows = groups.get(statusKey)!;
-                      // Auto-expand groups with matches when any filter is active.
-                      const collapsed = anyFilterActive ? false : collapsedStatuses.has(statusKey);
+                      // User's manual collapse always wins; otherwise auto-expand when filters are active.
+                      const collapsed = collapsedStatuses.has(statusKey);
                       const headBadge = statusBadge(statusKey);
                       const groupIds = groupRows.map((r) => r.id);
                       const groupAllOn = groupIds.every((id) => selected.has(id));
