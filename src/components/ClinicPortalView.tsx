@@ -2300,18 +2300,22 @@ function OpenDayModal({
 }
 
 function ClinicFlowPane({ clinicId }: { clinicId: string }) {
-  const [sub, setSub] = useState<"today" | "quotes" | "setup">("today");
+  const [sub, setSub] = useState<"today" | "quotes" | "followups" | "training" | "setup">("today");
   return (
     <div>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
+        <div style={{ display: "flex", gap: 0, padding: "0 24px", flexWrap: "wrap" }}>
           <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
           <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
+          <SubTabBtn active={sub === "followups"} onClick={() => setSub("followups")}>Follow-ups</SubTabBtn>
+          <SubTabBtn active={sub === "training"} onClick={() => setSub("training")}>Training</SubTabBtn>
           <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
         </div>
       </div>
       {sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
         : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
+        : sub === "followups" ? <ClinicFlowFollowups clinicId={clinicId} />
+        : sub === "training" ? <ClinicFlowTraining clinicId={clinicId} />
         : <ClinicFlowSetup clinicId={clinicId} />}
     </div>
   );
