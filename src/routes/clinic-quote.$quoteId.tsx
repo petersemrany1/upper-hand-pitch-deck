@@ -289,6 +289,10 @@ Any questions, just message back.`;
             style={{ background: NAVY, color: "#fff", border: "none", padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: patientEmail ? "pointer" : "not-allowed", opacity: patientEmail ? 1 : 0.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Mail size={16} /> Send via email
           </button>
+          <button onClick={() => void openGallery()}
+            style={{ background: "#fff", color: NAVY, border: `1px solid ${LINE}`, padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Images size={16} /> Timeline
+          </button>
         </div>
       </div>
 
