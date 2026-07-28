@@ -2297,3 +2297,34 @@ function OpenDayModal({
     </ModalShell>
   );
 }
+
+function ClinicFlowPane({ clinicId }: { clinicId: string }) {
+  const [sub, setSub] = useState<"today" | "setup">("today");
+  return (
+    <div>
+      <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
+        <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
+          <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
+          <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
+        </div>
+      </div>
+      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} /> : <ClinicFlowSetup clinicId={clinicId} />}
+    </div>
+  );
+}
+
+function SubTabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: "12px 18px", background: "transparent", border: "none",
+        borderBottom: `2px solid ${active ? "#1a3a6b" : "transparent"}`,
+        color: active ? "#1a3a6b" : "#6b7785",
+        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+      }}
+    >
+      {children}
+    </button>
+  );
+}
