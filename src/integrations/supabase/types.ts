@@ -717,6 +717,7 @@ export type Database = {
           clinic_id: string
           created_at: string
           default_deposit_amount: number
+          follicle_model_url: string | null
           id: string
           kiosk_pin: string
           logo_url: string | null
@@ -731,6 +732,7 @@ export type Database = {
           clinic_id: string
           created_at?: string
           default_deposit_amount?: number
+          follicle_model_url?: string | null
           id?: string
           kiosk_pin?: string
           logo_url?: string | null
@@ -745,6 +747,7 @@ export type Database = {
           clinic_id?: string
           created_at?: string
           default_deposit_amount?: number
+          follicle_model_url?: string | null
           id?: string
           kiosk_pin?: string
           logo_url?: string | null
@@ -761,6 +764,57 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: true
             referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinicflow_followups: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          done_at: string | null
+          due_date: string
+          id: string
+          patient_name: string
+          quote_id: string
+          status: string
+          task_type: string
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          done_at?: string | null
+          due_date: string
+          id?: string
+          patient_name: string
+          quote_id: string
+          status?: string
+          task_type: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          done_at?: string | null
+          due_date?: string
+          id?: string
+          patient_name?: string
+          quote_id?: string
+          status?: string
+          task_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_followups_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_followups_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "clinicflow_quotes"
             referencedColumns: ["id"]
           },
         ]
@@ -848,6 +902,41 @@ export type Database = {
           },
           {
             foreignKeyName: "clinicflow_intakes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinicflow_photos: {
+        Row: {
+          caption: string | null
+          clinic_id: string
+          created_at: string
+          id: string
+          stage: string
+          url: string
+        }
+        Insert: {
+          caption?: string | null
+          clinic_id: string
+          created_at?: string
+          id?: string
+          stage: string
+          url: string
+        }
+        Update: {
+          caption?: string | null
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          stage?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_photos_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "partner_clinics"
