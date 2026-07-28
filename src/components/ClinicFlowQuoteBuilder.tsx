@@ -13,7 +13,11 @@ const LINE = "#e2e6ec";
 const DIAGNOSES = [
   "Androgenetic alopecia",
   "Traction alopecia",
-  "Alopecia areata — assess",
+  "Scar (injury/previous surgery)",
+  "Telogen effluvium",
+  "Alopecia areata",
+  "Scarring alopecia (suspected)",
+  "Diffuse unpatterned alopecia (DUPA)",
   "Other",
 ];
 const NORWOODS = ["2", "2A", "3", "3 vertex", "4", "5", "6", "7"];
