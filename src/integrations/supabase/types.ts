@@ -712,6 +712,56 @@ export type Database = {
           },
         ]
       }
+      clinicflow_clinic_settings: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          default_deposit_amount: number
+          id: string
+          logo_url: string | null
+          quote_validity_days: number
+          stripe_account_id: string | null
+          stripe_charges_enabled: boolean
+          stripe_details_submitted: boolean
+          updated_at: string
+          whatsapp_number: string | null
+        }
+        Insert: {
+          clinic_id: string
+          created_at?: string
+          default_deposit_amount?: number
+          id?: string
+          logo_url?: string | null
+          quote_validity_days?: number
+          stripe_account_id?: string | null
+          stripe_charges_enabled?: boolean
+          stripe_details_submitted?: boolean
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          default_deposit_amount?: number
+          id?: string
+          logo_url?: string | null
+          quote_validity_days?: number
+          stripe_account_id?: string | null
+          stripe_charges_enabled?: boolean
+          stripe_details_submitted?: boolean
+          updated_at?: string
+          whatsapp_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_clinic_settings_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: true
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           address: string | null

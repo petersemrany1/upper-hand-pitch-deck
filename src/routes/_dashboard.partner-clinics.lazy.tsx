@@ -1,10 +1,12 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound } from "lucide-react";
+import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
 import { DAY_NAMES } from "@/lib/slot-generation";
+import { listClinicflowStatuses, clinicflowCreateTestClinic } from "@/utils/clinicflow.functions";
 
 export const Route = createLazyFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
@@ -91,6 +93,12 @@ function PartnerClinicsPage() {
   const [clinicPanel, setClinicPanel] = useState<{ mode: "create" | "edit"; data: Partial<PartnerClinic> } | null>(null);
   const [doctorPanel, setDoctorPanel] = useState<{ mode: "create" | "edit"; clinicId: string; data: Partial<PartnerDoctor> } | null>(null);
 
+  type ClinicflowStatus = { clinic_id: string; stripe_account_id: string | null; stripe_details_submitted: boolean; stripe_charges_enabled: boolean };
+  const [clinicflowStatuses, setClinicflowStatuses] = useState<Record<string, ClinicflowStatus>>({});
+  const [creatingTestClinic, setCreatingTestClinic] = useState(false);
+  const listStatuses = useServerFn(listClinicflowStatuses);
+  const createTestClinic = useServerFn(clinicflowCreateTestClinic);
+
   const load = async () => {
     setLoading(true);
     const [{ data: c }, { data: d }] = await Promise.all([
@@ -99,6 +107,14 @@ function PartnerClinicsPage() {
     ]);
     setClinics((c ?? []) as PartnerClinic[]);
     setDoctors((d ?? []) as PartnerDoctor[]);
+    try {
+      const { rows } = await listStatuses();
+      const map: Record<string, ClinicflowStatus> = {};
+      for (const r of rows as ClinicflowStatus[]) map[r.clinic_id] = r;
+      setClinicflowStatuses(map);
+    } catch {
+      // Non-fatal — badges just won't show.
+    }
     setLoading(false);
   };
 
@@ -170,6 +186,30 @@ function PartnerClinicsPage() {
               Show inactive
             </label>
             <button
+              onClick={async () => {
+                if (creatingTestClinic) return;
+                if (!confirm("Create a ClinicFlow test clinic and link it to your account?")) return;
+                setCreatingTestClinic(true);
+                try {
+                  const res = await createTestClinic();
+                  if (res.success) {
+                    toast.success(`Created "${res.clinicName}" — open /clinic-portal to test`);
+                    await load();
+                  }
+                } catch (e) {
+                  toast.error(e instanceof Error ? e.message : "Failed to create test clinic");
+                } finally {
+                  setCreatingTestClinic(false);
+                }
+              }}
+              disabled={creatingTestClinic}
+              className="flex items-center gap-2 rounded-[8px]"
+              style={{ background: "#fff", color: "#1a3a6b", border: "0.5px solid #1a3a6b", fontSize: 12, fontWeight: 500, padding: "10px 14px", opacity: creatingTestClinic ? 0.6 : 1 }}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {creatingTestClinic ? "Creating…" : "Create ClinicFlow test clinic"}
+            </button>
+            <button
               onClick={() => setClinicPanel({ mode: "create", data: { ...emptyClinic } })}
               className="flex items-center gap-2 rounded-[8px]"
               style={{
@@ -232,6 +272,20 @@ function PartnerClinicsPage() {
                           Inactive
                         </span>
                       )}
+                      {(() => {
+                        const cf = clinicflowStatuses[clinic.id];
+                        let label = "ClinicFlow: Not started";
+                        let bg = "#f3f3f3"; let fg = "#666";
+                        if (cf) {
+                          if (cf.stripe_charges_enabled) { label = "ClinicFlow: Ready"; bg = "#dcfce7"; fg = "#15803d"; }
+                          else if (cf.stripe_account_id) { label = "ClinicFlow: Bank pending"; bg = "#fff7ed"; fg = "#9a3412"; }
+                        }
+                        return (
+                          <span title={label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: fg, background: bg, padding: "2px 8px", borderRadius: 20 }}>
+                            <Sparkles className="h-3 w-3" /> {label.replace("ClinicFlow: ", "")}
+                          </span>
+                        );
+                      })()}
                     </div>
                     <div style={{ fontSize: 13, color: "#111" }}>
                       {[clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ") || "—"}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
+import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
+import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -215,7 +216,7 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
-  const [tab, setTab] = useState<"appointments" | "availability">("appointments");
+  const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
   const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
@@ -282,6 +283,7 @@ export function ClinicPortalView({
         <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
           <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
+          <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
         </div>
       </div>
 
@@ -301,7 +303,7 @@ export function ClinicPortalView({
           onChange={reload}
           onSelect={setSelected}
         />
-      ) : (
+      ) : tab === "availability" ? (
         <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
@@ -313,6 +315,8 @@ export function ClinicPortalView({
           onChange={reload}
         />
 
+      ) : (
+        <ClinicFlowSetup clinicId={clinicId} />
       )}
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
