@@ -100,10 +100,10 @@ export const clinicflowConnectOnboard = createServerFn({ method: "POST" })
       await logError("clinicflowConnectOnboard", `Access denied: ${msg}`, { clinicId: data.clinicId });
       return { success: false as const, error: msg };
     }
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const stripeKey = process.env.CLINICFLOW_STRIPE_SECRET_KEY;
     if (!stripeKey) {
       const msg =
-        "Stripe not configured on the server (STRIPE_SECRET_KEY missing). Add it in Lovable → Cloud → Project Settings → Secrets, then republish.";
+        "ClinicFlow Stripe not configured (CLINICFLOW_STRIPE_SECRET_KEY missing). Add it in Project Settings → Secrets, then republish.";
       await logError("clinicflowConnectOnboard", msg, { clinicId: data.clinicId });
       return { success: false as const, error: msg };
     }
