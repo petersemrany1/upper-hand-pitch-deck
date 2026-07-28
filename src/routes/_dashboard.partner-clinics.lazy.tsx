@@ -93,6 +93,12 @@ function PartnerClinicsPage() {
   const [clinicPanel, setClinicPanel] = useState<{ mode: "create" | "edit"; data: Partial<PartnerClinic> } | null>(null);
   const [doctorPanel, setDoctorPanel] = useState<{ mode: "create" | "edit"; clinicId: string; data: Partial<PartnerDoctor> } | null>(null);
 
+  type ClinicflowStatus = { clinic_id: string; stripe_account_id: string | null; stripe_details_submitted: boolean; stripe_charges_enabled: boolean };
+  const [clinicflowStatuses, setClinicflowStatuses] = useState<Record<string, ClinicflowStatus>>({});
+  const [creatingTestClinic, setCreatingTestClinic] = useState(false);
+  const listStatuses = useServerFn(listClinicflowStatuses);
+  const createTestClinic = useServerFn(clinicflowCreateTestClinic);
+
   const load = async () => {
     setLoading(true);
     const [{ data: c }, { data: d }] = await Promise.all([
@@ -101,6 +107,14 @@ function PartnerClinicsPage() {
     ]);
     setClinics((c ?? []) as PartnerClinic[]);
     setDoctors((d ?? []) as PartnerDoctor[]);
+    try {
+      const { rows } = await listStatuses();
+      const map: Record<string, ClinicflowStatus> = {};
+      for (const r of rows as ClinicflowStatus[]) map[r.clinic_id] = r;
+      setClinicflowStatuses(map);
+    } catch {
+      // Non-fatal — badges just won't show.
+    }
     setLoading(false);
   };
 
