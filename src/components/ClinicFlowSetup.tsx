@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, Upload, Loader2, Building2, CreditCard, Settings2 } from "lucide-react";
+import { CheckCircle2, Circle, Upload, Loader2, Building2, CreditCard, Settings2, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getClinicflowSettings,
@@ -10,6 +10,7 @@ import {
   clinicflowConnectStatus,
   clinicflowSignLogoUrl,
 } from "@/utils/clinicflow.functions";
+import { ClinicFlowPhotos } from "@/components/ClinicFlowPhotos";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
@@ -28,6 +29,7 @@ type Settings = {
   default_deposit_amount: number;
   quote_validity_days: number;
   kiosk_pin: string;
+  follicle_model_url: string | null;
 };
 
 
