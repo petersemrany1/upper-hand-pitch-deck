@@ -295,6 +295,9 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               />
               <button onClick={() => void saveWhatsapp()} style={primaryBtn(false)}>Save</button>
             </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              Use the free WhatsApp Business app on a dedicated clinic number — never the doctor's personal number.
+            </div>
           </div>
 
           <div>
@@ -389,6 +392,33 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
         <div style={{ marginTop: 14 }}>
           <button onClick={() => void saveDefaults()} style={primaryBtn(false)}>Save defaults</button>
         </div>
+        <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${LINE}` }}>
+          <label style={labelStyle}>Follicle model URL (admin)</label>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input
+              type="url"
+              value={follicleModelUrl}
+              onChange={(e) => setFollicleModelUrl(e.target.value)}
+              placeholder="https://..."
+              style={inputStyle}
+            />
+            <button onClick={() => void saveFollicleModelUrl()} style={primaryBtn(false)}>Save</button>
+          </div>
+          <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+            When set, a "Get the follicle model" button shows on the Training page. Leave blank to hide it.
+          </div>
+        </div>
+      </StepCard>
+
+      {/* Step 4 – Timeline photos */}
+      <StepCard
+        n={4}
+        done={false}
+        icon={<ImageIcon size={18} />}
+        title="Timeline photos"
+        subtitle="Upload real patient timeline photos by stage. Shown on quotes and to patients on the iPad."
+      >
+        <ClinicFlowPhotos clinicId={clinicId} />
       </StepCard>
     </div>
   );
