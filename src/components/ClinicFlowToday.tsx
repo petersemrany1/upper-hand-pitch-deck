@@ -332,13 +332,6 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
   );
 }
 
-// Helper: PatientDetail doesn't receive clinicId directly. It's on the appt row.
-// We store clinic_id on the appointment via ClinicFlowToday's select; add it here
-// by extending the Appt type accessor.
-function appt_clinicId(_apptId: string, intake: Intake | null): string {
-  // clinic_id is on intake row too (RLS-scoped); fallback fetch runs inside QuotesForAppointment.
-  return (intake as unknown as { clinic_id?: string } | null)?.clinic_id ?? "";
-}
 
 function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string }) {
   const [rows, setRows] = useState<Array<{ id: string; price: number; status: string; valid_until: string; created_at: string }>>([]);
