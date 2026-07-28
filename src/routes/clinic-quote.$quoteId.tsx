@@ -190,6 +190,21 @@ Any questions, just message back.`;
         <div style={{ background: "#fff", borderRadius: 18, border: `1px solid ${LINE}`, padding: 32, boxShadow: "0 1px 4px rgba(26,58,107,0.06)" }}>
           <Row label="Patient" value={quote.patient_name} />
           <Row label="Diagnosis" value={quote.diagnosis} />
+          {(() => {
+            const d = (quote.diagnosis || "").toLowerCase();
+            const flag =
+              d.includes("telogen effluvium") ||
+              d.includes("alopecia areata") ||
+              d.includes("scarring alopecia") ||
+              d.includes("dupa") ||
+              d.includes("diffuse unpatterned");
+            if (!flag) return null;
+            return (
+              <div style={{ marginTop: 12, marginBottom: 4, padding: "12px 14px", background: "#fff8e6", border: "1px solid #f5c86b", borderRadius: 10, fontSize: 13, color: "#78530a", lineHeight: 1.5 }}>
+                Transplant usually not suitable for this diagnosis — consider treatment or specialist referral first.
+              </div>
+            );
+          })()}
           <Row label="Recommended plan" value={`FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}`} />
           {quote.grafts != null && <Row label="Grafts" value={String(quote.grafts)} />}
 
