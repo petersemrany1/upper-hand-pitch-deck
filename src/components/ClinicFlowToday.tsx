@@ -320,7 +320,14 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         <KV label="Email" value={appt.patient_email} />
       </Section>
 
-      <QuotesForAppointment clinicId={appt_clinicId(appt.id, intake)} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
+      <QuotesForAppointment clinicId={clinicId} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
+
+      {galleryOpen && (
+        <ClinicFlowTimelineGallery
+          photos={galleryPhotos ?? []}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </div>
   );
 }
