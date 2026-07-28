@@ -283,6 +283,7 @@ export function ClinicPortalView({
         <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
           <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
+          <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
         </div>
       </div>
 
