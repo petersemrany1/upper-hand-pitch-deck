@@ -325,6 +325,13 @@ Any questions, just message back.`;
           }}
         />
       )}
+
+      {galleryOpen && (
+        <ClinicFlowTimelineGallery
+          photos={galleryPhotos ?? []}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </div>
   );
 }
