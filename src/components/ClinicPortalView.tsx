@@ -303,7 +303,7 @@ export function ClinicPortalView({
           onChange={reload}
           onSelect={setSelected}
         />
-      ) : (
+      ) : tab === "availability" ? (
         <AvailabilityTab
           tradingHours={tradingHours}
           blockedSlots={blockedSlots}
@@ -315,6 +315,8 @@ export function ClinicPortalView({
           onChange={reload}
         />
 
+      ) : (
+        <ClinicFlowSetup clinicId={clinicId} />
       )}
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
