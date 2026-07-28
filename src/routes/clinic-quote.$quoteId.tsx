@@ -104,13 +104,31 @@ function QuotePage() {
 
   useEffect(() => { void refresh(); }, [quoteId]);
 
+  const isExpired = useMemo(() => {
+    if (!quote) return false;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
+    return quote.status === "presented" && quote.valid_until < today;
+  }, [quote]);
+
   const statusLabel = useMemo(() => {
     if (!quote) return "";
     if (quote.status === "deposit_recorded") return "Deposit received";
     if (quote.status === "booked") return "Date booked";
-    if (quote.status === "expired") return "Expired";
+    if (quote.status === "expired" || isExpired) return "Expired";
     return "Quoted";
-  }, [quote]);
+  }, [quote, isExpired]);
+
+  const openGallery = async () => {
+    setGalleryOpen(true);
+    if (galleryPhotos === null) {
+      try {
+        const res = await fetchPhotos({ data: { quoteId } });
+        setGalleryPhotos((res.photos ?? []) as GalleryPhoto[]);
+      } catch {
+        setGalleryPhotos([]);
+      }
+    }
+  };
 
   if (loading) return <div style={{ padding: 60, textAlign: "center", color: GREY, fontFamily: "system-ui" }}>Loading…</div>;
   if (!quote) return <div style={{ padding: 60, textAlign: "center", color: GREY, fontFamily: "system-ui" }}>Quote not found.</div>;
