@@ -45,8 +45,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [whatsapp, setWhatsapp] = useState("");
-  const [deposit, setDeposit] = useState<string>("1500");
-  const [validity, setValidity] = useState<string>("30");
+  const [deposit, setDeposit] = useState<string>("1000");
+  const [validity, setValidity] = useState<string>("14");
 
   const load = async () => {
     try {
@@ -54,8 +54,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       const s = row as Settings;
       setSettings(s);
       setWhatsapp(s.whatsapp_number ?? "");
-      setDeposit(String(s.default_deposit_amount ?? 1500));
-      setValidity(String(s.quote_validity_days ?? 30));
+      setDeposit(String(s.default_deposit_amount ?? 1000));
+      setValidity(String(s.quote_validity_days ?? 14));
       if (s.logo_url) {
         try {
           const { url } = await signFn({ data: { clinicId, path: s.logo_url } });
@@ -136,10 +136,12 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const saveWhatsapp = async () => {
     try {
       await updateFn({ data: { clinicId, whatsappNumber: whatsapp.trim() || null } });
-      toast.success("WhatsApp number saved");
       await load();
+      toast.success("Saved");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save");
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("saveWhatsapp failed", e);
+      toast.error(`Save failed: ${msg}`);
     }
   };
 
@@ -150,10 +152,12 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     if (!Number.isFinite(v) || v < 1) return toast.error("Enter a valid validity period");
     try {
       await updateFn({ data: { clinicId, defaultDepositAmount: d, quoteValidityDays: v } });
-      toast.success("Defaults saved");
       await load();
+      toast.success("Saved");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to save");
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("saveDefaults failed", e);
+      toast.error(`Save failed: ${msg}`);
     }
   };
 
@@ -162,12 +166,16 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     try {
       const res = await onboardFn({ data: { clinicId } });
       if (!res.success) {
-        toast.error(res.error);
+        console.error("clinicflowConnectOnboard returned error:", res.error);
+        toast.error(res.error || "Stripe onboarding failed");
         return;
       }
+      // Same-tab navigation — popups are blocked on iPad Safari.
       window.location.href = res.url;
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Failed to start Stripe onboarding");
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error("startOnboarding threw:", e);
+      toast.error(`Stripe onboarding failed: ${msg}`);
     } finally {
       setConnecting(false);
     }

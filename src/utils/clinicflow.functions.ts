@@ -92,9 +92,21 @@ export const clinicflowConnectOnboard = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { clinicId: string }) => data)
   .handler(async ({ data, context }) => {
-    await assertCanAccessClinic(context.supabase, data.clinicId);
+    const { logError } = await import("@/utils/error-logger.functions");
+    try {
+      await assertCanAccessClinic(context.supabase, data.clinicId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await logError("clinicflowConnectOnboard", `Access denied: ${msg}`, { clinicId: data.clinicId });
+      return { success: false as const, error: msg };
+    }
     const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) return { success: false as const, error: "STRIPE_SECRET_KEY not configured" };
+    if (!stripeKey) {
+      const msg =
+        "Stripe not configured on the server (STRIPE_SECRET_KEY missing). Add it in Lovable → Cloud → Project Settings → Secrets, then republish.";
+      await logError("clinicflowConnectOnboard", msg, { clinicId: data.clinicId });
+      return { success: false as const, error: msg };
+    }
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -134,15 +146,28 @@ export const clinicflowConnectOnboard = createServerFn({ method: "POST" })
       });
       const acct = (await resp.json()) as StripeAccountResponse;
       if (!resp.ok || !acct.id) {
-        return { success: false as const, error: acct.error?.message ?? "Stripe account creation failed" };
+        const stripeMsg = acct.error?.message ?? `Stripe account creation failed (HTTP ${resp.status})`;
+        await logError("clinicflowConnectOnboard", `Stripe /accounts error: ${stripeMsg}`, {
+          clinicId: data.clinicId,
+          status: resp.status,
+          stripeError: acct.error ?? null,
+        });
+        return { success: false as const, error: stripeMsg };
       }
       stripeAccountId = acct.id;
 
       // Only service role can write stripe fields (trigger blocks other writers).
-      await supabaseAdmin
+      const { error: updErr } = await supabaseAdmin
         .from("clinicflow_clinic_settings")
         .update({ stripe_account_id: stripeAccountId })
         .eq("clinic_id", data.clinicId);
+      if (updErr) {
+        await logError("clinicflowConnectOnboard", `Failed to save stripe_account_id: ${updErr.message}`, {
+          clinicId: data.clinicId,
+          stripeAccountId,
+        });
+        return { success: false as const, error: `Saved Stripe account but could not persist ID: ${updErr.message}` };
+      }
     }
 
     // Create an Account Link for onboarding.
@@ -161,7 +186,14 @@ export const clinicflowConnectOnboard = createServerFn({ method: "POST" })
     });
     const link = (await linkResp.json()) as StripeAccountLinkResponse;
     if (!linkResp.ok || !link.url) {
-      return { success: false as const, error: link.error?.message ?? "Stripe account link failed" };
+      const stripeMsg = link.error?.message ?? `Stripe account link failed (HTTP ${linkResp.status})`;
+      await logError("clinicflowConnectOnboard", `Stripe /account_links error: ${stripeMsg}`, {
+        clinicId: data.clinicId,
+        status: linkResp.status,
+        stripeError: link.error ?? null,
+        stripeAccountId,
+      });
+      return { success: false as const, error: stripeMsg };
     }
     return { success: true as const, url: link.url };
   });

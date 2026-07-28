@@ -4,6 +4,7 @@ import { logFrontendError, extractErrorMessage } from "@/utils/log-frontend-erro
 import { AuthProvider } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { GlobalCallLayer } from "@/components/GlobalCallLayer";
+import { Toaster } from "@/components/ui/sonner";
 
 import appCss from "../styles.css?url";
 import htgLogo from "@/assets/htg-logo.png?url";
@@ -161,6 +162,7 @@ function RootComponent() {
     <AuthProvider>
       <Outlet />
       <GlobalCallLayer />
+      <Toaster />
     </AuthProvider>
   );
 }
