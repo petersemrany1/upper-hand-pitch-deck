@@ -220,39 +220,88 @@ export const clinicflowCreateTestClinic = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const adminUserId = context.userId;
+    const TEST_NAME = "ClinicFlow Test Clinic";
 
-    // Create the partner clinic.
-    const { data: clinic, error: clinicErr } = await supabaseAdmin
+    // Idempotency: if this admin is already linked to a test clinic, return it.
+    const { data: existingLink } = await supabaseAdmin
+      .from("clinic_portal_users")
+      .select("clinic_id")
+      .eq("id", adminUserId)
+      .maybeSingle();
+
+    if (existingLink?.clinic_id) {
+      const { data: existingClinic } = await supabaseAdmin
+        .from("partner_clinics")
+        .select("id, clinic_name")
+        .eq("id", existingLink.clinic_id)
+        .eq("clinic_name", TEST_NAME)
+        .maybeSingle();
+      if (existingClinic) {
+        return {
+          success: true as const,
+          alreadyExisted: true as const,
+          clinicId: existingClinic.id,
+          clinicName: existingClinic.clinic_name,
+        };
+      }
+    }
+
+    // Reuse any existing test clinic (avoid creating another partner row).
+    const { data: reusable } = await supabaseAdmin
       .from("partner_clinics")
-      .insert({
-        clinic_name: "ClinicFlow Test Clinic",
-        is_active: false,
-        consult_price_original: 395,
-        consult_price_deposit: 75,
-        price_per_booking: 0,
-        min_appointment_gap_mins: 0,
-      })
       .select("id, clinic_name")
-      .single();
-    if (clinicErr || !clinic) throw new Error(clinicErr?.message ?? "Failed to create clinic");
+      .eq("clinic_name", TEST_NAME)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
 
-    // Create settings row.
+    let clinicId: string;
+    let clinicName: string;
+    let alreadyExisted = false;
+
+    if (reusable) {
+      clinicId = reusable.id;
+      clinicName = reusable.clinic_name;
+      alreadyExisted = true;
+      // Ensure it's active so the admin can see it on the Partner Clinics list.
+      await supabaseAdmin
+        .from("partner_clinics")
+        .update({ is_active: true })
+        .eq("id", clinicId);
+    } else {
+      const { data: clinic, error: clinicErr } = await supabaseAdmin
+        .from("partner_clinics")
+        .insert({
+          clinic_name: TEST_NAME,
+          is_active: true,
+          consult_price_original: 395,
+          consult_price_deposit: 75,
+          price_per_booking: 0,
+          min_appointment_gap_mins: 0,
+        })
+        .select("id, clinic_name")
+        .single();
+      if (clinicErr || !clinic) throw new Error(clinicErr?.message ?? "Failed to create clinic");
+      clinicId = clinic.id;
+      clinicName = clinic.clinic_name;
+    }
+
+    // Ensure settings row exists.
     await supabaseAdmin
       .from("clinicflow_clinic_settings")
-      .insert({ clinic_id: clinic.id });
+      .upsert({ clinic_id: clinicId }, { onConflict: "clinic_id" });
 
-    // Link the current admin's auth user to this clinic so they can log in as a
-    // clinic user for testing. This is safe: clinic_portal_users.id references
-    // auth.users(id) 1:1, so upsert on primary key.
+    // Link the current admin's auth user to this clinic.
     const email = context.claims.email ?? "admin@bold-patients.com";
-    await supabaseAdmin
+    const { error: linkErr } = await supabaseAdmin
       .from("clinic_portal_users")
       .upsert(
-        { id: adminUserId, clinic_id: clinic.id, email: String(email) },
+        { id: adminUserId, clinic_id: clinicId, email: String(email) },
         { onConflict: "id" },
       );
+    if (linkErr) throw new Error(`Portal user link failed: ${linkErr.message}`);
 
-    return { success: true as const, clinicId: clinic.id, clinicName: clinic.clinic_name };
+    return { success: true as const, alreadyExisted, clinicId, clinicName };
   });
 
 // Admin overview: list ClinicFlow status for every partner clinic.
