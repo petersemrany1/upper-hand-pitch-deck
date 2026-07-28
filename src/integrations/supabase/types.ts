@@ -718,6 +718,7 @@ export type Database = {
           created_at: string
           default_deposit_amount: number
           id: string
+          kiosk_pin: string
           logo_url: string | null
           quote_validity_days: number
           stripe_account_id: string | null
@@ -731,6 +732,7 @@ export type Database = {
           created_at?: string
           default_deposit_amount?: number
           id?: string
+          kiosk_pin?: string
           logo_url?: string | null
           quote_validity_days?: number
           stripe_account_id?: string | null
@@ -744,6 +746,7 @@ export type Database = {
           created_at?: string
           default_deposit_amount?: number
           id?: string
+          kiosk_pin?: string
           logo_url?: string | null
           quote_validity_days?: number
           stripe_account_id?: string | null
@@ -757,6 +760,96 @@ export type Database = {
             foreignKeyName: "clinicflow_clinic_settings_clinic_id_fkey"
             columns: ["clinic_id"]
             isOneToOne: true
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clinicflow_intakes: {
+        Row: {
+          allergies: string | null
+          appointment_id: string
+          clinic_id: string
+          completed_at: string | null
+          confirmed_name: string | null
+          created_at: string
+          dob: string | null
+          email: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          gp_details: string | null
+          hair_answers: Json
+          id: string
+          lead_id: string | null
+          medical_conditions: string | null
+          medications: string | null
+          mobile: string | null
+          previous_treatments: string | null
+          status: string
+          updated_at: string
+          wellbeing_answers: Json
+          wellbeing_review: boolean
+        }
+        Insert: {
+          allergies?: string | null
+          appointment_id: string
+          clinic_id: string
+          completed_at?: string | null
+          confirmed_name?: string | null
+          created_at?: string
+          dob?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          gp_details?: string | null
+          hair_answers?: Json
+          id?: string
+          lead_id?: string | null
+          medical_conditions?: string | null
+          medications?: string | null
+          mobile?: string | null
+          previous_treatments?: string | null
+          status?: string
+          updated_at?: string
+          wellbeing_answers?: Json
+          wellbeing_review?: boolean
+        }
+        Update: {
+          allergies?: string | null
+          appointment_id?: string
+          clinic_id?: string
+          completed_at?: string | null
+          confirmed_name?: string | null
+          created_at?: string
+          dob?: string | null
+          email?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          gp_details?: string | null
+          hair_answers?: Json
+          id?: string
+          lead_id?: string | null
+          medical_conditions?: string | null
+          medications?: string | null
+          mobile?: string | null
+          previous_treatments?: string | null
+          status?: string
+          updated_at?: string
+          wellbeing_answers?: Json
+          wellbeing_review?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_intakes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
             referencedRelation: "partner_clinics"
             referencedColumns: ["id"]
           },
