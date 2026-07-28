@@ -60,6 +60,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       setWhatsapp(s.whatsapp_number ?? "");
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
+      setKioskPin(String(s.kiosk_pin ?? "0000"));
+
       if (s.logo_url) {
         try {
           const { url } = await signFn({ data: { clinicId, path: s.logo_url } });
