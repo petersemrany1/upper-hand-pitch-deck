@@ -272,7 +272,20 @@ function PartnerClinicsPage() {
                           Inactive
                         </span>
                       )}
-                    </div>
+                      {(() => {
+                        const cf = clinicflowStatuses[clinic.id];
+                        let label = "ClinicFlow: Not started";
+                        let bg = "#f3f3f3"; let fg = "#666";
+                        if (cf) {
+                          if (cf.stripe_charges_enabled) { label = "ClinicFlow: Ready"; bg = "#dcfce7"; fg = "#15803d"; }
+                          else if (cf.stripe_account_id) { label = "ClinicFlow: Bank pending"; bg = "#fff7ed"; fg = "#9a3412"; }
+                        }
+                        return (
+                          <span title={label} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: fg, background: bg, padding: "2px 8px", borderRadius: 20 }}>
+                            <Sparkles className="h-3 w-3" /> {label.replace("ClinicFlow: ", "")}
+                          </span>
+                        );
+                      })()}
                     <div style={{ fontSize: 13, color: "#111" }}>
                       {[clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ") || "—"}
                     </div>
