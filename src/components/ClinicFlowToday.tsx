@@ -378,6 +378,7 @@ function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }
             window.open(`/clinic-quote/${id}`, "_blank");
           }}
         />
+      )}
     </div>
   );
 }
