@@ -1,0 +1,1 @@
+update public.clinic_appointments set patient_email='petersemrany1@gmail.com' where patient_name='ClinicFlow Demo Patient';
