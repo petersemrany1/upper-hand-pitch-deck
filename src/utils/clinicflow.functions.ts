@@ -204,8 +204,8 @@ export const clinicflowConnectStatus = createServerFn({ method: "POST" })
   .inputValidator((data: { clinicId: string }) => data)
   .handler(async ({ data, context }) => {
     await assertCanAccessClinic(context.supabase, data.clinicId);
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) return { success: false as const, error: "STRIPE_SECRET_KEY not configured" };
+    const stripeKey = process.env.CLINICFLOW_STRIPE_SECRET_KEY;
+    if (!stripeKey) return { success: false as const, error: "CLINICFLOW_STRIPE_SECRET_KEY not configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
