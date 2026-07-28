@@ -185,6 +185,19 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     }
   };
 
+  const saveFollicleModelUrl = async () => {
+    const v = follicleModelUrl.trim();
+    if (v && !/^https?:\/\//i.test(v)) return toast.error("Enter a valid URL starting with http:// or https://");
+    try {
+      await updateFn({ data: { clinicId, follicleModelUrl: v || null } });
+      await load();
+      toast.success("Saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
+
   const startOnboarding = async () => {
     setConnecting(true);
     try {
