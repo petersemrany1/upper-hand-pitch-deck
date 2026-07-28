@@ -286,6 +286,7 @@ function PartnerClinicsPage() {
                           </span>
                         );
                       })()}
+                    </div>
                     <div style={{ fontSize: 13, color: "#111" }}>
                       {[clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ") || "—"}
                     </div>
