@@ -180,6 +180,7 @@ Any questions, just message back.`;
             <MenuBtn onClick={() => { setMenuOpen(false); navigate({ to: "/partner-clinics" }); }} label="Back to portal" icon={<ChevronLeft size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); window.open(waLink(), "_blank"); }} label="Send via WhatsApp" icon={<MessageCircle size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); void onSendEmail(); }} label="Send via email" icon={<Mail size={14} />} />
+            <MenuBtn onClick={() => { setMenuOpen(false); void openGallery(); }} label="Timeline photos" icon={<Images size={14} />} />
             <div style={{ borderTop: `1px solid ${LINE}`, margin: "4px 0" }} />
             <MenuBtn onClick={() => { setMenuOpen(false); setBookModal(true); }} label="Book date" icon={<Clock size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); setDepositModal(true); }} label="Record deposit" icon={<CheckCircle2 size={14} />} />
@@ -206,6 +207,13 @@ Any questions, just message back.`;
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <span style={{ background: GREEN_BG, color: GREEN, padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
               {statusLabel}
+            </span>
+          </div>
+        )}
+        {(quote.status === "expired" || isExpired) && (
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <span style={{ background: AMBER_BG, color: AMBER_FG, padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+              Expired
             </span>
           </div>
         )}
