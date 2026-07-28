@@ -100,10 +100,10 @@ export const clinicflowConnectOnboard = createServerFn({ method: "POST" })
       await logError("clinicflowConnectOnboard", `Access denied: ${msg}`, { clinicId: data.clinicId });
       return { success: false as const, error: msg };
     }
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    const stripeKey = process.env.CLINICFLOW_STRIPE_SECRET_KEY;
     if (!stripeKey) {
       const msg =
-        "Stripe not configured on the server (STRIPE_SECRET_KEY missing). Add it in Lovable → Cloud → Project Settings → Secrets, then republish.";
+        "ClinicFlow Stripe not configured (CLINICFLOW_STRIPE_SECRET_KEY missing). Add it in Project Settings → Secrets, then republish.";
       await logError("clinicflowConnectOnboard", msg, { clinicId: data.clinicId });
       return { success: false as const, error: msg };
     }
@@ -204,8 +204,8 @@ export const clinicflowConnectStatus = createServerFn({ method: "POST" })
   .inputValidator((data: { clinicId: string }) => data)
   .handler(async ({ data, context }) => {
     await assertCanAccessClinic(context.supabase, data.clinicId);
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    if (!stripeKey) return { success: false as const, error: "STRIPE_SECRET_KEY not configured" };
+    const stripeKey = process.env.CLINICFLOW_STRIPE_SECRET_KEY;
+    if (!stripeKey) return { success: false as const, error: "CLINICFLOW_STRIPE_SECRET_KEY not configured" };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
@@ -372,7 +372,7 @@ export const clinicflowStripeDiagnostics = createServerFn({ method: "POST" })
     const { data: isAdmin } = await context.supabase.rpc("is_admin_user");
     if (isAdmin !== true) throw new Error("Forbidden: admin only");
 
-    const envCandidates = ["STRIPE_SECRET_KEY", "STRIPE_API_KEY", "STRIPE_KEY"];
+    const envCandidates = ["CLINICFLOW_STRIPE_SECRET_KEY"];
     const source = envCandidates.find((k) => !!process.env[k]) ?? null;
     const key = source ? process.env[source]! : null;
 
