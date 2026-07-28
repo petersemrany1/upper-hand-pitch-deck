@@ -45,8 +45,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [whatsapp, setWhatsapp] = useState("");
-  const [deposit, setDeposit] = useState<string>("1500");
-  const [validity, setValidity] = useState<string>("30");
+  const [deposit, setDeposit] = useState<string>("1000");
+  const [validity, setValidity] = useState<string>("14");
 
   const load = async () => {
     try {
@@ -54,8 +54,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       const s = row as Settings;
       setSettings(s);
       setWhatsapp(s.whatsapp_number ?? "");
-      setDeposit(String(s.default_deposit_amount ?? 1500));
-      setValidity(String(s.quote_validity_days ?? 30));
+      setDeposit(String(s.default_deposit_amount ?? 1000));
+      setValidity(String(s.quote_validity_days ?? 14));
       if (s.logo_url) {
         try {
           const { url } = await signFn({ data: { clinicId, path: s.logo_url } });
