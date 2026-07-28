@@ -98,6 +98,9 @@ function PartnerClinicsPage() {
   const [creatingTestClinic, setCreatingTestClinic] = useState(false);
   const listStatuses = useServerFn(listClinicflowStatuses);
   const createTestClinic = useServerFn(clinicflowCreateTestClinic);
+  const runStripeDiag = useServerFn(clinicflowStripeDiagnostics);
+  const [stripeDiag, setStripeDiag] = useState<null | Awaited<ReturnType<typeof clinicflowStripeDiagnostics>> | { __error: string }>(null);
+  const [stripeDiagLoading, setStripeDiagLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
