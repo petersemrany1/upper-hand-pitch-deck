@@ -224,6 +224,25 @@ function PartnerClinicsPage() {
               {creatingTestClinic ? "Creating…" : "Create ClinicFlow test clinic"}
             </button>
             <button
+              onClick={async () => {
+                setStripeDiag(null);
+                setStripeDiagLoading(true);
+                try {
+                  const res = await runStripeDiag();
+                  setStripeDiag(res);
+                } catch (e) {
+                  setStripeDiag({ __error: e instanceof Error ? e.message : String(e) });
+                } finally {
+                  setStripeDiagLoading(false);
+                }
+              }}
+              disabled={stripeDiagLoading}
+              className="rounded-[8px]"
+              style={{ background: "#fff", color: "#111", border: "0.5px solid #ddd", fontSize: 12, fontWeight: 500, padding: "10px 14px", opacity: stripeDiagLoading ? 0.6 : 1 }}
+            >
+              {stripeDiagLoading ? "Probing Stripe…" : "Stripe diagnostics"}
+            </button>
+            <button
               onClick={() => setClinicPanel({ mode: "create", data: { ...emptyClinic } })}
               className="flex items-center gap-2 rounded-[8px]"
               style={{
