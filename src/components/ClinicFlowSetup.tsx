@@ -292,6 +292,27 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               <button onClick={() => void saveWhatsapp()} style={primaryBtn(false)}>Save</button>
             </div>
           </div>
+
+          <div>
+            <label style={labelStyle}>Kiosk PIN</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={8}
+                value={kioskPin}
+                onChange={(e) => setKioskPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="0000"
+                style={{ ...inputStyle, letterSpacing: 6, fontFamily: "monospace", maxWidth: 180 }}
+              />
+              <button onClick={() => void saveKioskPin()} style={primaryBtn(false)}>Save PIN</button>
+            </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              4-8 digits. Staff enter this to exit the patient check-in kiosk on the iPad.
+            </div>
+          </div>
+
         </div>
       </StepCard>
 
