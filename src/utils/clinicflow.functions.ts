@@ -67,6 +67,7 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
       whatsappNumber?: string | null;
       defaultDepositAmount?: number;
       quoteValidityDays?: number;
+      kioskPin?: string;
     }) => data,
   )
   .handler(async ({ data, context }) => {
@@ -77,6 +78,11 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
     if (data.whatsappNumber !== undefined) patch.whatsapp_number = data.whatsappNumber;
     if (data.defaultDepositAmount !== undefined) patch.default_deposit_amount = data.defaultDepositAmount;
     if (data.quoteValidityDays !== undefined) patch.quote_validity_days = data.quoteValidityDays;
+    if (data.kioskPin !== undefined) {
+      const pin = String(data.kioskPin).trim();
+      if (!/^\d{4,8}$/.test(pin)) throw new Error("Kiosk PIN must be 4-8 digits");
+      patch.kiosk_pin = pin;
+    }
     if (Object.keys(patch).length === 0) return { success: true as const };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -86,6 +92,7 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
       .upsert({ clinic_id: data.clinicId, ...patch }, { onConflict: "clinic_id" });
     return { success: true as const };
   });
+
 
 // Kick off Stripe Express Connect onboarding for a clinic. Returns a hosted URL.
 export const clinicflowConnectOnboard = createServerFn({ method: "POST" })

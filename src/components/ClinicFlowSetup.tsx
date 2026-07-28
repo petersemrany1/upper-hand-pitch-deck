@@ -27,7 +27,9 @@ type Settings = {
   whatsapp_number: string | null;
   default_deposit_amount: number;
   quote_validity_days: number;
+  kiosk_pin: string;
 };
+
 
 export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const getFn = useServerFn(getClinicflowSettings);
@@ -47,6 +49,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const [whatsapp, setWhatsapp] = useState("");
   const [deposit, setDeposit] = useState<string>("1000");
   const [validity, setValidity] = useState<string>("14");
+  const [kioskPin, setKioskPin] = useState<string>("0000");
+
 
   const load = async () => {
     try {
@@ -56,6 +60,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       setWhatsapp(s.whatsapp_number ?? "");
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
+      setKioskPin(String(s.kiosk_pin ?? "0000"));
+
       if (s.logo_url) {
         try {
           const { url } = await signFn({ data: { clinicId, path: s.logo_url } });
@@ -144,6 +150,20 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       toast.error(`Save failed: ${msg}`);
     }
   };
+
+  const saveKioskPin = async () => {
+    const pin = kioskPin.trim();
+    if (!/^\d{4,8}$/.test(pin)) return toast.error("Kiosk PIN must be 4-8 digits");
+    try {
+      await updateFn({ data: { clinicId, kioskPin: pin } });
+      await load();
+      toast.success("Kiosk PIN saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
+
 
   const saveDefaults = async () => {
     const d = Number(deposit);
@@ -272,6 +292,27 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               <button onClick={() => void saveWhatsapp()} style={primaryBtn(false)}>Save</button>
             </div>
           </div>
+
+          <div>
+            <label style={labelStyle}>Kiosk PIN</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={8}
+                value={kioskPin}
+                onChange={(e) => setKioskPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="0000"
+                style={{ ...inputStyle, letterSpacing: 6, fontFamily: "monospace", maxWidth: 180 }}
+              />
+              <button onClick={() => void saveKioskPin()} style={primaryBtn(false)}>Save PIN</button>
+            </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              4-8 digits. Staff enter this to exit the patient check-in kiosk on the iPad.
+            </div>
+          </div>
+
         </div>
       </StepCard>
 
