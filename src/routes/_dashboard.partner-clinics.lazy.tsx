@@ -1,10 +1,11 @@
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound, Sparkles } from "lucide-react";
+import { Plus, X, Pencil, UserPlus, Building2, ArrowLeft, KeyRound, Sparkles, Stethoscope } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
+import { useAuth } from "@/hooks/useAuth";
 import { DAY_NAMES } from "@/lib/slot-generation";
 import { listClinicflowStatuses, clinicflowCreateTestClinic, clinicflowStripeDiagnostics } from "@/utils/clinicflow.functions";
 
