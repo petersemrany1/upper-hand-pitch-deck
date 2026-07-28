@@ -27,7 +27,9 @@ type Settings = {
   whatsapp_number: string | null;
   default_deposit_amount: number;
   quote_validity_days: number;
+  kiosk_pin: string;
 };
+
 
 export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const getFn = useServerFn(getClinicflowSettings);
