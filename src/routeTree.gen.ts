@@ -17,6 +17,7 @@ import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as KioskAppointmentIdRouteImport } from './routes/kiosk.$appointmentId'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
+import { Route as ClinicQuoteQuoteIdRouteImport } from './routes/clinic-quote.$quoteId'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
 import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
@@ -100,6 +101,11 @@ const KioskAppointmentIdRoute = KioskAppointmentIdRouteImport.update({
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
   path: '/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClinicQuoteQuoteIdRoute = ClinicQuoteQuoteIdRouteImport.update({
+  id: '/clinic-quote/$quoteId',
+  path: '/clinic-quote/$quoteId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
@@ -390,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof DashboardSettingsRoute
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
+  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/training/ai': typeof DashboardTrainingAiRoute
@@ -442,6 +449,7 @@ export interface FileRoutesByTo {
   '/sent-links': typeof DashboardSentLinksRoute
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
+  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/': typeof DashboardIndexRoute
@@ -498,6 +506,7 @@ export interface FileRoutesById {
   '/_dashboard/settings': typeof DashboardSettingsRoute
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
+  '/clinic-quote/$quoteId': typeof ClinicQuoteQuoteIdRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/_dashboard/': typeof DashboardIndexRoute
@@ -555,6 +564,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/training'
     | '/api/coach-stream'
+    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
     | '/kiosk/$appointmentId'
     | '/training/ai'
@@ -607,6 +617,7 @@ export interface FileRouteTypes {
     | '/sent-links'
     | '/settings'
     | '/api/coach-stream'
+    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
     | '/kiosk/$appointmentId'
     | '/'
@@ -662,6 +673,7 @@ export interface FileRouteTypes {
     | '/_dashboard/settings'
     | '/_dashboard/training'
     | '/api/coach-stream'
+    | '/clinic-quote/$quoteId'
     | '/email/unsubscribe'
     | '/kiosk/$appointmentId'
     | '/_dashboard/'
@@ -697,6 +709,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
+  ClinicQuoteQuoteIdRoute: typeof ClinicQuoteQuoteIdRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   KioskAppointmentIdRoute: typeof KioskAppointmentIdRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
@@ -769,6 +782,13 @@ declare module '@tanstack/react-router' {
       path: '/email/unsubscribe'
       fullPath: '/email/unsubscribe'
       preLoaderRoute: typeof EmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clinic-quote/$quoteId': {
+      id: '/clinic-quote/$quoteId'
+      path: '/clinic-quote/$quoteId'
+      fullPath: '/clinic-quote/$quoteId'
+      preLoaderRoute: typeof ClinicQuoteQuoteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/coach-stream': {
@@ -1185,6 +1205,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
+  ClinicQuoteQuoteIdRoute: ClinicQuoteQuoteIdRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   KioskAppointmentIdRoute: KioskAppointmentIdRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
