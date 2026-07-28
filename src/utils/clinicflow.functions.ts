@@ -380,16 +380,16 @@ export const clinicflowStripeDiagnostics = createServerFn({ method: "POST" })
       keySource: string | null;
       keyPrefix: string | null;
       keyLength: number | null;
-      account: { id?: string; business_name?: string | null; country?: string; raw?: unknown } | null;
-      accountError: unknown;
-      createTest: { ok: boolean; deletedId?: string; error?: unknown; raw?: unknown };
+      account: { id: string | null; business_name: string | null; country: string | null } | null;
+      accountError: string | null;
+      createTest: { ok: boolean; deletedId: string | null; error: string | null; deleteInfo: string | null };
     } = {
       keySource: source,
       keyPrefix: key ? (key.startsWith("sk_live_") ? "sk_live_" : key.startsWith("sk_test_") ? "sk_test_" : key.slice(0, 8) + "…") : null,
       keyLength: key?.length ?? null,
       account: null,
       accountError: null,
-      createTest: { ok: false },
+      createTest: { ok: false, deletedId: null, error: null, deleteInfo: null },
     };
 
     if (!key) return result;
@@ -404,20 +404,19 @@ export const clinicflowStripeDiagnostics = createServerFn({ method: "POST" })
         business_profile?: { name?: string | null };
         settings?: { dashboard?: { display_name?: string | null } };
         country?: string;
-        error?: unknown;
+        error?: { message?: string; code?: string; type?: string };
       };
       if (!r.ok) {
-        result.accountError = j.error ?? { message: `HTTP ${r.status}`, raw: j };
+        result.accountError = JSON.stringify(j.error ?? { message: `HTTP ${r.status}`, body: j });
       } else {
         result.account = {
-          id: j.id,
+          id: j.id ?? null,
           business_name: j.business_profile?.name ?? j.settings?.dashboard?.display_name ?? null,
-          country: j.country,
-          raw: { has_business_profile: !!j.business_profile },
+          country: j.country ?? null,
         };
       }
     } catch (e) {
-      result.accountError = { message: e instanceof Error ? e.message : String(e) };
+      result.accountError = e instanceof Error ? e.message : String(e);
     }
 
     // 2. Try creating an Express account, then delete it.
@@ -433,25 +432,23 @@ export const clinicflowStripeDiagnostics = createServerFn({ method: "POST" })
         },
         body: params.toString(),
       });
-      const j = (await r.json()) as { id?: string; error?: unknown };
+      const j = (await r.json()) as { id?: string; error?: { message?: string; code?: string; type?: string; param?: string } };
       if (!r.ok || !j.id) {
-        result.createTest = { ok: false, error: j.error ?? { message: `HTTP ${r.status}` }, raw: j };
+        result.createTest.error = JSON.stringify(j.error ?? { message: `HTTP ${r.status}`, body: j });
       } else {
-        // Delete immediately.
         const del = await fetch(`https://api.stripe.com/v1/accounts/${j.id}`, {
           method: "DELETE",
           headers: { Authorization: `Bearer ${key}` },
         });
-        const delJ = (await del.json()) as { deleted?: boolean; error?: unknown };
-        result.createTest = {
-          ok: true,
-          deletedId: j.id,
-          raw: { delete_ok: del.ok, deleted: delJ.deleted, delete_error: delJ.error ?? null },
-        };
+        const delJ = (await del.json()) as { deleted?: boolean; error?: { message?: string } };
+        result.createTest.ok = true;
+        result.createTest.deletedId = j.id;
+        result.createTest.deleteInfo = JSON.stringify({ http: del.status, deleted: delJ.deleted ?? false, error: delJ.error ?? null });
       }
     } catch (e) {
-      result.createTest = { ok: false, error: { message: e instanceof Error ? e.message : String(e) } };
+      result.createTest.error = e instanceof Error ? e.message : String(e);
     }
 
     return result;
   });
+
