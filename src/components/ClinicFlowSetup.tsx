@@ -151,6 +151,20 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     }
   };
 
+  const saveKioskPin = async () => {
+    const pin = kioskPin.trim();
+    if (!/^\d{4,8}$/.test(pin)) return toast.error("Kiosk PIN must be 4-8 digits");
+    try {
+      await updateFn({ data: { clinicId, kioskPin: pin } });
+      await load();
+      toast.success("Kiosk PIN saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
+
+
   const saveDefaults = async () => {
     const d = Number(deposit);
     const v = Number(validity);
