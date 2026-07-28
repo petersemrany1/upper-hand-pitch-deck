@@ -364,3 +364,91 @@ export const clinicflowSignLogoUrl = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { url: signed?.signedUrl ?? null };
   });
+
+// Admin-only diagnostic: probe Stripe key + basic account operations.
+export const clinicflowStripeDiagnostics = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { data: isAdmin } = await context.supabase.rpc("is_admin_user");
+    if (isAdmin !== true) throw new Error("Forbidden: admin only");
+
+    const envCandidates = ["STRIPE_SECRET_KEY", "STRIPE_API_KEY", "STRIPE_KEY"];
+    const source = envCandidates.find((k) => !!process.env[k]) ?? null;
+    const key = source ? process.env[source]! : null;
+
+    const result: {
+      keySource: string | null;
+      keyPrefix: string | null;
+      keyLength: number | null;
+      account: { id: string | null; business_name: string | null; country: string | null } | null;
+      accountError: string | null;
+      createTest: { ok: boolean; deletedId: string | null; error: string | null; deleteInfo: string | null };
+    } = {
+      keySource: source,
+      keyPrefix: key ? (key.startsWith("sk_live_") ? "sk_live_" : key.startsWith("sk_test_") ? "sk_test_" : key.slice(0, 8) + "…") : null,
+      keyLength: key?.length ?? null,
+      account: null,
+      accountError: null,
+      createTest: { ok: false, deletedId: null, error: null, deleteInfo: null },
+    };
+
+    if (!key) return result;
+
+    // 1. GET /v1/account
+    try {
+      const r = await fetch("https://api.stripe.com/v1/account", {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+      const j = (await r.json()) as {
+        id?: string;
+        business_profile?: { name?: string | null };
+        settings?: { dashboard?: { display_name?: string | null } };
+        country?: string;
+        error?: { message?: string; code?: string; type?: string };
+      };
+      if (!r.ok) {
+        result.accountError = JSON.stringify(j.error ?? { message: `HTTP ${r.status}`, body: j });
+      } else {
+        result.account = {
+          id: j.id ?? null,
+          business_name: j.business_profile?.name ?? j.settings?.dashboard?.display_name ?? null,
+          country: j.country ?? null,
+        };
+      }
+    } catch (e) {
+      result.accountError = e instanceof Error ? e.message : String(e);
+    }
+
+    // 2. Try creating an Express account, then delete it.
+    try {
+      const params = new URLSearchParams();
+      params.append("type", "express");
+      params.append("country", "AU");
+      const r = await fetch("https://api.stripe.com/v1/accounts", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+      const j = (await r.json()) as { id?: string; error?: { message?: string; code?: string; type?: string; param?: string } };
+      if (!r.ok || !j.id) {
+        result.createTest.error = JSON.stringify(j.error ?? { message: `HTTP ${r.status}`, body: j });
+      } else {
+        const del = await fetch(`https://api.stripe.com/v1/accounts/${j.id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${key}` },
+        });
+        const delJ = (await del.json()) as { deleted?: boolean; error?: { message?: string } };
+        result.createTest.ok = true;
+        result.createTest.deletedId = j.id;
+        result.createTest.deleteInfo = JSON.stringify({ http: del.status, deleted: delJ.deleted ?? false, error: delJ.error ?? null });
+      }
+    } catch (e) {
+      result.createTest.error = e instanceof Error ? e.message : String(e);
+    }
+
+    return result;
+  });
+
