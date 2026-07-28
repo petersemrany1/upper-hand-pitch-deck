@@ -193,11 +193,22 @@ function PartnerClinicsPage() {
                 try {
                   const res = await createTestClinic();
                   if (res.success) {
-                    toast.success(`Created "${res.clinicName}" — open /clinic-portal to test`);
+                    if (res.alreadyExisted) {
+                      toast.message(`Test clinic already exists — "${res.clinicName}"`, {
+                        description: "Open /clinic-portal to view it.",
+                      });
+                    } else {
+                      toast.success(`Created "${res.clinicName}" — open /clinic-portal to test`);
+                    }
+                    setShowInactive(true); // ensure it's visible regardless of active state
                     await load();
+                  } else {
+                    toast.error("Failed to create test clinic");
                   }
                 } catch (e) {
-                  toast.error(e instanceof Error ? e.message : "Failed to create test clinic");
+                  const msg = e instanceof Error ? e.message : String(e);
+                  toast.error(`Test clinic error: ${msg}`);
+                  console.error("clinicflowCreateTestClinic failed", e);
                 } finally {
                   setCreatingTestClinic(false);
                 }
