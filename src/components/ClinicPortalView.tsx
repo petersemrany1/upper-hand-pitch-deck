@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
+import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -2299,16 +2300,19 @@ function OpenDayModal({
 }
 
 function ClinicFlowPane({ clinicId }: { clinicId: string }) {
-  const [sub, setSub] = useState<"today" | "setup">("today");
+  const [sub, setSub] = useState<"today" | "quotes" | "setup">("today");
   return (
     <div>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
         <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
           <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
+          <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
           <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
         </div>
       </div>
-      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} /> : <ClinicFlowSetup clinicId={clinicId} />}
+      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
+        : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
+        : <ClinicFlowSetup clinicId={clinicId} />}
     </div>
   );
 }

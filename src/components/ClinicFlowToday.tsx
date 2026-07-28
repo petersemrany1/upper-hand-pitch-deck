@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail, FileText, ExternalLink } from "lucide-react";
+import { ClinicFlowQuoteBuilder } from "@/components/ClinicFlowQuoteBuilder";
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
@@ -293,12 +294,96 @@ function PatientDetail({ appt, intake, onBack }: { appt: Appt; intake: Intake | 
         <KV label="Email" value={appt.patient_email} />
       </Section>
 
-      <div style={{ background: "#fff", border: `1px dashed ${LINE}`, borderRadius: 12, padding: 18, textAlign: "center", color: GREY, fontSize: 13 }}>
-        Quote builder coming soon.
-      </div>
+      <QuotesForAppointment clinicId={appt_clinicId(appt.id, intake)} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
     </div>
   );
 }
+
+// Helper: PatientDetail doesn't receive clinicId directly. It's on the appt row.
+// We store clinic_id on the appointment via ClinicFlowToday's select; add it here
+// by extending the Appt type accessor.
+function appt_clinicId(_apptId: string, intake: Intake | null): string {
+  // clinic_id is on intake row too (RLS-scoped); fallback fetch runs inside QuotesForAppointment.
+  return (intake as unknown as { clinic_id?: string } | null)?.clinic_id ?? "";
+}
+
+function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string }) {
+  const [rows, setRows] = useState<Array<{ id: string; price: number; status: string; valid_until: string; created_at: string }>>([]);
+  const [resolvedClinicId, setResolvedClinicId] = useState<string>(clinicId);
+  const [tick, setTick] = useState(0);
+  const [showBuilder, setShowBuilder] = useState(false);
+  const today = useMemo(() => sydneyTodayISO(), []);
+
+  useEffect(() => {
+    (async () => {
+      let cid = clinicId;
+      if (!cid) {
+        const { data } = await supabase.from("clinic_appointments").select("clinic_id").eq("id", appointmentId).maybeSingle();
+        cid = (data?.clinic_id as string | undefined) ?? "";
+        setResolvedClinicId(cid);
+      }
+      const { data } = await supabase
+        .from("clinicflow_quotes")
+        .select("id, price, status, valid_until, created_at")
+        .eq("appointment_id", appointmentId)
+        .order("created_at", { ascending: false });
+      setRows((data ?? []) as typeof rows);
+    })();
+  }, [clinicId, appointmentId, tick]);
+
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: 20, marginBottom: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: NAVY }}>Quotes</div>
+        <button onClick={() => setShowBuilder(true)}
+          style={{ background: NAVY, color: "#fff", border: "none", padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <FileText size={14} /> Create quote
+        </button>
+      </div>
+      {rows.length === 0 ? (
+        <div style={{ fontSize: 13, color: GREY }}>No quotes yet for this consult.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 8 }}>
+          {rows.map((r) => {
+            const expired = r.status !== "booked" && r.status !== "deposit_recorded" && r.valid_until < today;
+            const chip = expired
+              ? { text: "Expired", bg: "#fee2e2", fg: "#991b1b" }
+              : r.status === "deposit_recorded" ? { text: "Deposit ✓", bg: GREEN_BG, fg: GREEN }
+              : r.status === "booked" ? { text: "Booked", bg: GREEN_BG, fg: GREEN }
+              : { text: "Quoted", bg: AMBER_BG, fg: AMBER_FG };
+            return (
+              <div key={r.id} onClick={() => window.open(`/clinic-quote/${r.id}`, "_blank")}
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 10, cursor: "pointer" }}>
+                <FileText size={14} color={GREY} />
+                <div style={{ flex: 1, fontSize: 14, fontWeight: 600, color: NAVY }}>${Math.round(r.price).toLocaleString()}</div>
+                <div style={{ fontSize: 12, color: expired ? "#991b1b" : GREY }}>valid until {new Date(r.valid_until + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</div>
+                <span style={{ background: chip.bg, color: chip.fg, padding: "3px 9px", borderRadius: 999, fontSize: 11, fontWeight: 700 }}>{chip.text}</span>
+                <ExternalLink size={12} color={GREY} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showBuilder && resolvedClinicId && (
+        <ClinicFlowQuoteBuilder
+          clinicId={resolvedClinicId}
+          appointmentId={appointmentId}
+          intakeId={intakeId}
+          defaultPatientName={patientName}
+          onClose={() => setShowBuilder(false)}
+          onCreated={(id) => {
+            setShowBuilder(false);
+            setTick((n) => n + 1);
+            window.open(`/clinic-quote/${id}`, "_blank");
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

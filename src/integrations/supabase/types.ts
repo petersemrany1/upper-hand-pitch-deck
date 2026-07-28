@@ -855,6 +855,103 @@ export type Database = {
           },
         ]
       }
+      clinicflow_quotes: {
+        Row: {
+          appointment_id: string
+          booked_date: string | null
+          clinic_id: string
+          created_at: string
+          created_by: string | null
+          date_option_1: string | null
+          date_option_2: string | null
+          deposit_amount: number
+          deposit_method: string | null
+          deposit_recorded_at: string | null
+          diagnosis: string
+          grafts: number | null
+          id: string
+          includes_text: string | null
+          intake_id: string | null
+          lead_id: string | null
+          norwood: string | null
+          patient_name: string
+          price: number
+          status: string
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          appointment_id: string
+          booked_date?: string | null
+          clinic_id: string
+          created_at?: string
+          created_by?: string | null
+          date_option_1?: string | null
+          date_option_2?: string | null
+          deposit_amount: number
+          deposit_method?: string | null
+          deposit_recorded_at?: string | null
+          diagnosis: string
+          grafts?: number | null
+          id?: string
+          includes_text?: string | null
+          intake_id?: string | null
+          lead_id?: string | null
+          norwood?: string | null
+          patient_name: string
+          price: number
+          status?: string
+          updated_at?: string
+          valid_until: string
+        }
+        Update: {
+          appointment_id?: string
+          booked_date?: string | null
+          clinic_id?: string
+          created_at?: string
+          created_by?: string | null
+          date_option_1?: string | null
+          date_option_2?: string | null
+          deposit_amount?: number
+          deposit_method?: string | null
+          deposit_recorded_at?: string | null
+          diagnosis?: string
+          grafts?: number | null
+          id?: string
+          includes_text?: string | null
+          intake_id?: string | null
+          lead_id?: string | null
+          norwood?: string | null
+          patient_name?: string
+          price?: number
+          status?: string
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_quotes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_quotes_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_quotes_intake_id_fkey"
+            columns: ["intake_id"]
+            isOneToOne: false
+            referencedRelation: "clinicflow_intakes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           address: string | null
