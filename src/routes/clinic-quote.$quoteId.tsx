@@ -4,13 +4,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { toast } from "sonner";
-import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock } from "lucide-react";
+import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images } from "lucide-react";
 import { clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import {
   bookClinicflowQuoteDate,
   recordClinicflowQuoteDeposit,
   sendClinicflowQuoteEmail,
 } from "@/lib/clinicflow-quotes.functions";
+import { getClinicflowPhotosForQuote } from "@/lib/clinicflow-phase4.functions";
+import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/ClinicFlowTimelineGallery";
 
 export const Route = createFileRoute("/clinic-quote/$quoteId")({
   ssr: false,
@@ -60,6 +62,7 @@ function QuotePage() {
   const bookDate = useServerFn(bookClinicflowQuoteDate);
   const recordDep = useServerFn(recordClinicflowQuoteDeposit);
   const sendEmail = useServerFn(sendClinicflowQuoteEmail);
+  const fetchPhotos = useServerFn(getClinicflowPhotosForQuote);
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -71,6 +74,8 @@ function QuotePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookModal, setBookModal] = useState(false);
   const [depositModal, setDepositModal] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
 
   const refresh = async () => {
     const { data: q, error } = await supabase
@@ -99,13 +104,31 @@ function QuotePage() {
 
   useEffect(() => { void refresh(); }, [quoteId]);
 
+  const isExpired = useMemo(() => {
+    if (!quote) return false;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
+    return quote.status === "presented" && quote.valid_until < today;
+  }, [quote]);
+
   const statusLabel = useMemo(() => {
     if (!quote) return "";
     if (quote.status === "deposit_recorded") return "Deposit received";
     if (quote.status === "booked") return "Date booked";
-    if (quote.status === "expired") return "Expired";
+    if (quote.status === "expired" || isExpired) return "Expired";
     return "Quoted";
-  }, [quote]);
+  }, [quote, isExpired]);
+
+  const openGallery = async () => {
+    setGalleryOpen(true);
+    if (galleryPhotos === null) {
+      try {
+        const res = await fetchPhotos({ data: { quoteId } });
+        setGalleryPhotos((res.photos ?? []) as GalleryPhoto[]);
+      } catch {
+        setGalleryPhotos([]);
+      }
+    }
+  };
 
   if (loading) return <div style={{ padding: 60, textAlign: "center", color: GREY, fontFamily: "system-ui" }}>Loading…</div>;
   if (!quote) return <div style={{ padding: 60, textAlign: "center", color: GREY, fontFamily: "system-ui" }}>Quote not found.</div>;
@@ -157,6 +180,7 @@ Any questions, just message back.`;
             <MenuBtn onClick={() => { setMenuOpen(false); navigate({ to: "/partner-clinics" }); }} label="Back to portal" icon={<ChevronLeft size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); window.open(waLink(), "_blank"); }} label="Send via WhatsApp" icon={<MessageCircle size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); void onSendEmail(); }} label="Send via email" icon={<Mail size={14} />} />
+            <MenuBtn onClick={() => { setMenuOpen(false); void openGallery(); }} label="Timeline photos" icon={<Images size={14} />} />
             <div style={{ borderTop: `1px solid ${LINE}`, margin: "4px 0" }} />
             <MenuBtn onClick={() => { setMenuOpen(false); setBookModal(true); }} label="Book date" icon={<Clock size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); setDepositModal(true); }} label="Record deposit" icon={<CheckCircle2 size={14} />} />
@@ -183,6 +207,13 @@ Any questions, just message back.`;
           <div style={{ textAlign: "center", marginBottom: 20 }}>
             <span style={{ background: GREEN_BG, color: GREEN, padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
               {statusLabel}
+            </span>
+          </div>
+        )}
+        {(quote.status === "expired" || isExpired) && (
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <span style={{ background: AMBER_BG, color: AMBER_FG, padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
+              Expired
             </span>
           </div>
         )}
@@ -258,6 +289,10 @@ Any questions, just message back.`;
             style={{ background: NAVY, color: "#fff", border: "none", padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: patientEmail ? "pointer" : "not-allowed", opacity: patientEmail ? 1 : 0.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
             <Mail size={16} /> Send via email
           </button>
+          <button onClick={() => void openGallery()}
+            style={{ background: "#fff", color: NAVY, border: `1px solid ${LINE}`, padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <Images size={16} /> Timeline
+          </button>
         </div>
       </div>
 
@@ -292,6 +327,13 @@ Any questions, just message back.`;
               toast.error(e instanceof Error ? e.message : "Failed");
             }
           }}
+        />
+      )}
+
+      {galleryOpen && (
+        <ClinicFlowTimelineGallery
+          photos={galleryPhotos ?? []}
+          onClose={() => setGalleryOpen(false)}
         />
       )}
     </div>

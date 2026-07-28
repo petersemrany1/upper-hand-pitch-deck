@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail, FileText, ExternalLink } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail, FileText, ExternalLink, Images } from "lucide-react";
 import { ClinicFlowQuoteBuilder } from "@/components/ClinicFlowQuoteBuilder";
+import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/ClinicFlowTimelineGallery";
+import { useServerFn } from "@tanstack/react-start";
+import { listClinicflowPhotos } from "@/lib/clinicflow-phase4.functions";
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
@@ -102,6 +105,7 @@ export function ClinicFlowToday({ clinicId }: { clinicId: string }) {
       <PatientDetail
         appt={selected}
         intake={selectedIntake}
+        clinicId={clinicId}
         onBack={() => { setSelectedId(null); refresh(); }}
       />
     );
@@ -211,15 +215,37 @@ function AppointmentCard({
   );
 }
 
-function PatientDetail({ appt, intake, onBack }: { appt: Appt; intake: Intake | null; onBack: () => void }) {
+function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake: Intake | null; clinicId: string; onBack: () => void }) {
+  const listPhotos = useServerFn(listClinicflowPhotos);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
+
+  const openGallery = async () => {
+    setGalleryOpen(true);
+    if (galleryPhotos === null) {
+      try {
+        const { photos } = await listPhotos({ data: { clinicId } });
+        setGalleryPhotos(photos as GalleryPhoto[]);
+      } catch { setGalleryPhotos([]); }
+    }
+  };
+
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <button
-        onClick={onBack}
-        style={{ background: "transparent", border: "none", color: NAVY, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 12 }}
-      >
-        <ChevronLeft size={16} /> Back to Today
-      </button>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <button
+          onClick={onBack}
+          style={{ background: "transparent", border: "none", color: NAVY, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
+        >
+          <ChevronLeft size={16} /> Back to Today
+        </button>
+        <button
+          onClick={() => void openGallery()}
+          style={{ background: "#fff", border: `1px solid ${LINE}`, color: NAVY, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <Images size={14} /> Timeline photos
+        </button>
+      </div>
 
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -294,18 +320,18 @@ function PatientDetail({ appt, intake, onBack }: { appt: Appt; intake: Intake | 
         <KV label="Email" value={appt.patient_email} />
       </Section>
 
-      <QuotesForAppointment clinicId={appt_clinicId(appt.id, intake)} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
+      <QuotesForAppointment clinicId={clinicId} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
+
+      {galleryOpen && (
+        <ClinicFlowTimelineGallery
+          photos={galleryPhotos ?? []}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
     </div>
   );
 }
 
-// Helper: PatientDetail doesn't receive clinicId directly. It's on the appt row.
-// We store clinic_id on the appointment via ClinicFlowToday's select; add it here
-// by extending the Appt type accessor.
-function appt_clinicId(_apptId: string, intake: Intake | null): string {
-  // clinic_id is on intake row too (RLS-scoped); fallback fetch runs inside QuotesForAppointment.
-  return (intake as unknown as { clinic_id?: string } | null)?.clinic_id ?? "";
-}
 
 function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string }) {
   const [rows, setRows] = useState<Array<{ id: string; price: number; status: string; valid_until: string; created_at: string }>>([]);

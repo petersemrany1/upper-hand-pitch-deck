@@ -68,6 +68,7 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
       defaultDepositAmount?: number;
       quoteValidityDays?: number;
       kioskPin?: string;
+      follicleModelUrl?: string | null;
     }) => data,
   )
   .handler(async ({ data, context }) => {
@@ -78,6 +79,7 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
     if (data.whatsappNumber !== undefined) patch.whatsapp_number = data.whatsappNumber;
     if (data.defaultDepositAmount !== undefined) patch.default_deposit_amount = data.defaultDepositAmount;
     if (data.quoteValidityDays !== undefined) patch.quote_validity_days = data.quoteValidityDays;
+    if (data.follicleModelUrl !== undefined) patch.follicle_model_url = data.follicleModelUrl;
     if (data.kioskPin !== undefined) {
       const pin = String(data.kioskPin).trim();
       if (!/^\d{4,8}$/.test(pin)) throw new Error("Kiosk PIN must be 4-8 digits");

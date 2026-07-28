@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, Upload, Loader2, Building2, CreditCard, Settings2 } from "lucide-react";
+import { CheckCircle2, Circle, Upload, Loader2, Building2, CreditCard, Settings2, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import {
   getClinicflowSettings,
@@ -10,6 +10,7 @@ import {
   clinicflowConnectStatus,
   clinicflowSignLogoUrl,
 } from "@/utils/clinicflow.functions";
+import { ClinicFlowPhotos } from "@/components/ClinicFlowPhotos";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
@@ -28,6 +29,7 @@ type Settings = {
   default_deposit_amount: number;
   quote_validity_days: number;
   kiosk_pin: string;
+  follicle_model_url: string | null;
 };
 
 
@@ -50,6 +52,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const [deposit, setDeposit] = useState<string>("1000");
   const [validity, setValidity] = useState<string>("14");
   const [kioskPin, setKioskPin] = useState<string>("0000");
+  const [follicleModelUrl, setFollicleModelUrl] = useState<string>("");
 
 
   const load = async () => {
@@ -61,6 +64,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
       setKioskPin(String(s.kiosk_pin ?? "0000"));
+      setFollicleModelUrl(String(s.follicle_model_url ?? ""));
 
       if (s.logo_url) {
         try {
@@ -181,6 +185,19 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     }
   };
 
+  const saveFollicleModelUrl = async () => {
+    const v = follicleModelUrl.trim();
+    if (v && !/^https?:\/\//i.test(v)) return toast.error("Enter a valid URL starting with http:// or https://");
+    try {
+      await updateFn({ data: { clinicId, follicleModelUrl: v || null } });
+      await load();
+      toast.success("Saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
+
   const startOnboarding = async () => {
     setConnecting(true);
     try {
@@ -291,6 +308,9 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               />
               <button onClick={() => void saveWhatsapp()} style={primaryBtn(false)}>Save</button>
             </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              Use the free WhatsApp Business app on a dedicated clinic number — never the doctor's personal number.
+            </div>
           </div>
 
           <div>
@@ -385,6 +405,33 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
         <div style={{ marginTop: 14 }}>
           <button onClick={() => void saveDefaults()} style={primaryBtn(false)}>Save defaults</button>
         </div>
+        <div style={{ marginTop: 20, paddingTop: 18, borderTop: `1px solid ${LINE}` }}>
+          <label style={labelStyle}>Follicle model URL (admin)</label>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input
+              type="url"
+              value={follicleModelUrl}
+              onChange={(e) => setFollicleModelUrl(e.target.value)}
+              placeholder="https://..."
+              style={inputStyle}
+            />
+            <button onClick={() => void saveFollicleModelUrl()} style={primaryBtn(false)}>Save</button>
+          </div>
+          <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+            When set, a "Get the follicle model" button shows on the Training page. Leave blank to hide it.
+          </div>
+        </div>
+      </StepCard>
+
+      {/* Step 4 – Timeline photos */}
+      <StepCard
+        n={4}
+        done={false}
+        icon={<ImageIcon size={18} />}
+        title="Timeline photos"
+        subtitle="Upload real patient timeline photos by stage. Shown on quotes and to patients on the iPad."
+      >
+        <ClinicFlowPhotos clinicId={clinicId} />
       </StepCard>
     </div>
   );
