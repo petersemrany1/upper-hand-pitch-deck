@@ -84,6 +84,9 @@ const emptyDoctor: Omit<PartnerDoctor, "id" | "clinic_id" | "is_active"> = {
 };
 
 function PartnerClinicsPage() {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
+
   const [clinics, setClinics] = useState<PartnerClinic[]>([]);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const [loading, setLoading] = useState(true);
