@@ -4,13 +4,15 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { toast } from "sonner";
-import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock } from "lucide-react";
+import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images } from "lucide-react";
 import { clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import {
   bookClinicflowQuoteDate,
   recordClinicflowQuoteDeposit,
   sendClinicflowQuoteEmail,
 } from "@/lib/clinicflow-quotes.functions";
+import { getClinicflowPhotosForQuote } from "@/lib/clinicflow-phase4.functions";
+import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/ClinicFlowTimelineGallery";
 
 export const Route = createFileRoute("/clinic-quote/$quoteId")({
   ssr: false,
@@ -60,6 +62,7 @@ function QuotePage() {
   const bookDate = useServerFn(bookClinicflowQuoteDate);
   const recordDep = useServerFn(recordClinicflowQuoteDeposit);
   const sendEmail = useServerFn(sendClinicflowQuoteEmail);
+  const fetchPhotos = useServerFn(getClinicflowPhotosForQuote);
 
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -71,6 +74,8 @@ function QuotePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookModal, setBookModal] = useState(false);
   const [depositModal, setDepositModal] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
 
   const refresh = async () => {
     const { data: q, error } = await supabase
