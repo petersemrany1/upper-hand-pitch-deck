@@ -52,6 +52,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const [deposit, setDeposit] = useState<string>("1000");
   const [validity, setValidity] = useState<string>("14");
   const [kioskPin, setKioskPin] = useState<string>("0000");
+  const [follicleModelUrl, setFollicleModelUrl] = useState<string>("");
 
 
   const load = async () => {
@@ -63,6 +64,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
       setKioskPin(String(s.kiosk_pin ?? "0000"));
+      setFollicleModelUrl(String(s.follicle_model_url ?? ""));
 
       if (s.logo_url) {
         try {
