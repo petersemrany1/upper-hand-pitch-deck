@@ -3,6 +3,8 @@ import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
+import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
+import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
