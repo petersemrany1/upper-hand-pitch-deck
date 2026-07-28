@@ -15,6 +15,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
+import { Route as KioskAppointmentIdRouteImport } from './routes/kiosk.$appointmentId'
 import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
 import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
@@ -90,6 +91,11 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardRoute,
+} as any)
+const KioskAppointmentIdRoute = KioskAppointmentIdRouteImport.update({
+  id: '/kiosk/$appointmentId',
+  path: '/kiosk/$appointmentId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
   id: '/email/unsubscribe',
@@ -385,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
   '/training/consultation-videos': typeof DashboardTrainingConsultationVideosRoute
@@ -436,6 +443,7 @@ export interface FileRoutesByTo {
   '/settings': typeof DashboardSettingsRoute
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/': typeof DashboardIndexRoute
   '/training/ai': typeof DashboardTrainingAiRoute
   '/training/audience': typeof DashboardTrainingAudienceRoute
@@ -491,6 +499,7 @@ export interface FileRoutesById {
   '/_dashboard/training': typeof DashboardTrainingRouteWithChildren
   '/api/coach-stream': typeof ApiCoachStreamRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
+  '/kiosk/$appointmentId': typeof KioskAppointmentIdRoute
   '/_dashboard/': typeof DashboardIndexRoute
   '/_dashboard/training/ai': typeof DashboardTrainingAiRoute
   '/_dashboard/training/audience': typeof DashboardTrainingAudienceRoute
@@ -547,6 +556,7 @@ export interface FileRouteTypes {
     | '/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
+    | '/kiosk/$appointmentId'
     | '/training/ai'
     | '/training/audience'
     | '/training/consultation-videos'
@@ -598,6 +608,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/api/coach-stream'
     | '/email/unsubscribe'
+    | '/kiosk/$appointmentId'
     | '/'
     | '/training/ai'
     | '/training/audience'
@@ -652,6 +663,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training'
     | '/api/coach-stream'
     | '/email/unsubscribe'
+    | '/kiosk/$appointmentId'
     | '/_dashboard/'
     | '/_dashboard/training/ai'
     | '/_dashboard/training/audience'
@@ -686,6 +698,7 @@ export interface RootRouteChildren {
   ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
+  KioskAppointmentIdRoute: typeof KioskAppointmentIdRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
   ApiPublicSamLeadsRoute: typeof ApiPublicSamLeadsRoute
@@ -743,6 +756,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/kiosk/$appointmentId': {
+      id: '/kiosk/$appointmentId'
+      path: '/kiosk/$appointmentId'
+      fullPath: '/kiosk/$appointmentId'
+      preLoaderRoute: typeof KioskAppointmentIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/email/unsubscribe': {
       id: '/email/unsubscribe'
@@ -1166,6 +1186,7 @@ const rootRouteChildren: RootRouteChildren = {
   ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
+  KioskAppointmentIdRoute: KioskAppointmentIdRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
   ApiPublicSamLeadsRoute: ApiPublicSamLeadsRoute,
