@@ -372,7 +372,7 @@ export const clinicflowStripeDiagnostics = createServerFn({ method: "POST" })
     const { data: isAdmin } = await context.supabase.rpc("is_admin_user");
     if (isAdmin !== true) throw new Error("Forbidden: admin only");
 
-    const envCandidates = ["STRIPE_SECRET_KEY", "STRIPE_API_KEY", "STRIPE_KEY"];
+    const envCandidates = ["CLINICFLOW_STRIPE_SECRET_KEY"];
     const source = envCandidates.find((k) => !!process.env[k]) ?? null;
     const key = source ? process.env[source]! : null;
 
