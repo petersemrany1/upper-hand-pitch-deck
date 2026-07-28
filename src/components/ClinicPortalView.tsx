@@ -316,8 +316,9 @@ export function ClinicPortalView({
         />
 
       ) : (
-        <ClinicFlowSetup clinicId={clinicId} />
+        <ClinicFlowPane clinicId={clinicId} />
       )}
+
 
       <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
         {clinicName} · Clinic Partner Portal
