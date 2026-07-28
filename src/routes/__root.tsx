@@ -162,6 +162,7 @@ function RootComponent() {
     <AuthProvider>
       <Outlet />
       <GlobalCallLayer />
+      <Toaster />
     </AuthProvider>
   );
 }
