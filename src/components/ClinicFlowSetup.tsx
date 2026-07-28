@@ -49,6 +49,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const [whatsapp, setWhatsapp] = useState("");
   const [deposit, setDeposit] = useState<string>("1000");
   const [validity, setValidity] = useState<string>("14");
+  const [kioskPin, setKioskPin] = useState<string>("0000");
+
 
   const load = async () => {
     try {
