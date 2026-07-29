@@ -321,7 +321,7 @@ export function ClinicPortalView({
         />
 
       ) : (
-        <ClinicFlowPane clinicId={clinicId} />
+        <ClinicFlowPane clinicId={clinicId} isAdmin={isAdmin} />
       )}
 
 
@@ -2301,8 +2301,18 @@ function OpenDayModal({
   );
 }
 
-function ClinicFlowPane({ clinicId }: { clinicId: string }) {
+function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
   const [sub, setSub] = useState<"today" | "quotes" | "followups" | "training" | "setup">("today");
+  if (!isAdmin) {
+    return (
+      <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
+        <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
+          The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
+        </div>
+      </div>
+    );
+  }
   return (
     <div>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
