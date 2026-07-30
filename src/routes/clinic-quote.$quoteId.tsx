@@ -103,6 +103,7 @@ function QuotePage() {
   const [clinicName, setClinicName] = useState<string>("");
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookModal, setBookModal] = useState(false);
