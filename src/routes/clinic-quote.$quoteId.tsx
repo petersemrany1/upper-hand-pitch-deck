@@ -16,43 +16,77 @@ import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/Clini
 
 export const Route = createFileRoute("/clinic-quote/$quoteId")({
   ssr: false,
-  head: () => ({ meta: [{ title: "Consult quote" }] }),
+  head: () => ({
+    meta: [
+      { title: "ClinicFlow Treatment Recommendation" },
+      { name: "description", content: "Your personalised medical consultation summary and treatment recommendation from ClinicFlow." },
+      { property: "og:title", content: "ClinicFlow Treatment Recommendation" },
+      { property: "og:description", content: "Your personalised medical consultation summary and treatment recommendation from ClinicFlow." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
+    ],
+  }),
   component: QuotePage,
 });
 
-const NAVY = "#1a3a6b";
-const GREY = "#6b7785";
-const LINE = "#e2e6ec";
+const LINE = "#e2e8f0";
+const GREY = "#64748b";
 const GREEN = "#15803d";
-const GREEN_BG = "#dcfce7";
-const AMBER_BG = "#fff7ed";
-const AMBER_FG = "#9a3412";
-
-type Quote = {
-  id: string;
-  clinic_id: string;
-  appointment_id: string;
-  patient_name: string;
-  diagnosis: string;
-  norwood: string | null;
-  grafts: number | null;
-  price: number;
-  deposit_amount: number;
-  includes_text: string | null;
-  valid_until: string;
-  date_option_1: string | null;
-  date_option_2: string | null;
-  status: "draft" | "presented" | "booked" | "deposit_recorded" | "expired";
-  booked_date: string | null;
-  deposit_recorded_at: string | null;
-};
+const GREEN_BG = "#f0fdf4";
 
 function fmtDate(iso: string | null | undefined) {
   if (!iso) return "";
-  return new Date(iso + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: APP_TIMEZONE });
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-AU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: APP_TIMEZONE,
+  });
+}
+function fmtDateCompact(iso: string | null | undefined) {
+  if (!iso) return "";
+  return new Date(iso + "T00:00:00").toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    timeZone: APP_TIMEZONE,
+  });
 }
 function fmt$(n: number | null | undefined) {
   return typeof n === "number" ? "$" + Math.round(n).toLocaleString() : "";
+}
+
+function quoteRef(id: string) {
+  return "CF-" + id.slice(-6).toUpperCase();
+}
+
+function todayAU() {
+  return new Date().toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: APP_TIMEZONE,
+  });
+}
+
+function transplantWarning(diagnosis: string) {
+  const d = (diagnosis || "").toLowerCase();
+  return (
+    d.includes("telogen effluvium") ||
+    d.includes("alopecia areata") ||
+    d.includes("scarring alopecia") ||
+    d.includes("dupa") ||
+    d.includes("diffuse unpatterned")
+  );
+}
+
+function parseIncludes(text: string | null) {
+  if (!text) return [];
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^[-*•]\s*/, ""));
 }
 
 function QuotePage() {
@@ -79,8 +113,15 @@ function QuotePage() {
 
   const refresh = async () => {
     const { data: q, error } = await supabase
-      .from("clinicflow_quotes").select("*").eq("id", quoteId).maybeSingle();
-    if (error || !q) { toast.error(error?.message ?? "Quote not found"); setLoading(false); return; }
+      .from("clinicflow_quotes")
+      .select("*")
+      .eq("id", quoteId)
+      .maybeSingle();
+    if (error || !q) {
+      toast.error(error?.message ?? "Quote not found");
+      setLoading(false);
+      return;
+    }
     setQuote(q as Quote);
 
     const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
@@ -89,20 +130,28 @@ function QuotePage() {
       supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
     ]);
     if (clinic) setClinicName(clinic.clinic_name as string);
-    setWhatsappNumber((settings?.whatsapp_number as string | null) ?? null);
-    setPatientPhone((appt?.patient_phone as string | null) ?? null);
-    setPatientEmail((appt?.patient_email as string | null) ?? null);
+    if (settings) {
+      setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
+    }
+    if (appt) {
+      setPatientPhone((appt.patient_phone as string | null) ?? null);
+      setPatientEmail((appt.patient_email as string | null) ?? null);
+    }
 
     if (settings?.logo_url) {
       try {
         const res = await signLogo({ data: { clinicId: (q as Quote).clinic_id, path: settings.logo_url as string } });
         setLogoUrl(res.url);
-      } catch { setLogoUrl(null); }
+      } catch {
+        setLogoUrl(null);
+      }
     }
     setLoading(false);
   };
 
-  useEffect(() => { void refresh(); }, [quoteId]);
+  useEffect(() => {
+    void refresh();
+  }, [quoteId]);
 
   const isExpired = useMemo(() => {
     if (!quote) return false;
@@ -130,21 +179,32 @@ function QuotePage() {
     }
   };
 
-  if (loading) return <div style={{ padding: 60, textAlign: "center", color: GREY, fontFamily: "system-ui" }}>Loading…</div>;
-  if (!quote) return <div style={{ padding: 60, textAlign: "center", color: GREY, fontFamily: "system-ui" }}>Quote not found.</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-clinical-bg flex items-center justify-center text-clinical-muted font-clinic-body">
+        <div className="text-sm">Loading your consultation summary…</div>
+      </div>
+    );
+  }
+
+  if (!quote) {
+    return (
+      <div className="min-h-screen bg-clinical-bg flex items-center justify-center text-clinical-muted font-clinic-body">
+        <div className="text-sm">Quote not found.</div>
+      </div>
+    );
+  }
 
   function waLink() {
     if (!quote) return "#";
     const num = (patientPhone ?? "").replace(/[^0-9]/g, "");
-    // convert 04xx to 614xx
     const intl = num.startsWith("0") ? "61" + num.slice(1) : num;
     const bookLine = quote.booked_date
       ? `\nYour procedure date: ${fmtDate(quote.booked_date)}`
-      : (quote.date_option_1 || quote.date_option_2)
+      : quote.date_option_1 || quote.date_option_2
         ? `\nNext available dates:\n${[quote.date_option_1, quote.date_option_2].filter(Boolean).map((d) => fmtDate(d!)).join("\n")}`
         : "";
-    const msg =
-`Hi ${quote.patient_name.split(" ")[0]}, thanks for coming in today at ${clinicName}.
+    const msg = `Hi ${quote.patient_name.split(" ")[0]}, thanks for coming in today at ${clinicName}.
 
 Diagnosis: ${quote.diagnosis}
 Recommended plan: FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
@@ -159,140 +219,219 @@ Any questions, just message back.`;
   }
 
   async function onSendEmail() {
-    if (!patientEmail) { toast.error("No patient email on file"); return; }
+    if (!patientEmail) {
+      toast.error("No patient email on file");
+      return;
+    }
     const res = await sendEmail({ data: { quoteId: quote!.id, to: patientEmail } });
-    if (res.success) toast.success("Email sent"); else toast.error(res.error ?? "Failed");
+    if (res.success) toast.success("Email sent");
+    else toast.error(res.error ?? "Failed");
   }
 
+  const showWarning = transplantWarning(quote.diagnosis);
+  const includes = parseIncludes(quote.includes_text);
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f8fa", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif", position: "relative" }}>
-      {/* Discreet doctor controls (top-right small dot) */}
-      <div style={{ position: "fixed", top: 12, right: 12, zIndex: 20 }}>
+    <div className="min-h-screen bg-clinical-bg font-clinic-body relative">
+      {/* Discreet doctor controls (top-right dot) */}
+      <div className="fixed top-3 right-3 z-20">
         <button
           onClick={() => setMenuOpen((v) => !v)}
           aria-label="More"
-          style={{ width: 36, height: 36, borderRadius: 999, background: "rgba(255,255,255,0.9)", border: `1px solid ${LINE}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: GREY }}
+          className="w-9 h-9 rounded-full bg-white/90 border border-clinical-line flex items-center justify-center text-clinical-muted hover:text-clinical-text transition-colors"
         >
           <MoreVertical size={16} />
         </button>
         {menuOpen && (
-          <div style={{ position: "absolute", right: 0, top: 44, background: "#fff", border: `1px solid ${LINE}`, borderRadius: 10, boxShadow: "0 10px 30px rgba(0,0,0,0.12)", minWidth: 220, overflow: "hidden" }}>
+          <div className="absolute right-0 top-11 bg-white border border-clinical-line rounded-xl shadow-xl min-w-[220px] overflow-hidden">
             <MenuBtn onClick={() => { setMenuOpen(false); navigate({ to: "/partner-clinics" }); }} label="Back to portal" icon={<ChevronLeft size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); window.open(waLink(), "_blank"); }} label="Send via WhatsApp" icon={<MessageCircle size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); void onSendEmail(); }} label="Send via email" icon={<Mail size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); void openGallery(); }} label="Timeline photos" icon={<Images size={14} />} />
-            <div style={{ borderTop: `1px solid ${LINE}`, margin: "4px 0" }} />
+            <div className="border-t border-clinical-line my-1" />
             <MenuBtn onClick={() => { setMenuOpen(false); setBookModal(true); }} label="Book date" icon={<Clock size={14} />} />
             <MenuBtn onClick={() => { setMenuOpen(false); setDepositModal(true); }} label="Record deposit" icon={<CheckCircle2 size={14} />} />
-            {/* Stripe payment button placeholder — DO NOT implement in Phase 3.
-                Future: render a "Pay deposit with card" button here that opens
-                a Stripe Checkout / embedded element and, on success, moves
-                quote.status → 'deposit_recorded'. */}
           </div>
         )}
       </div>
 
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 24px 80px" }}>
-        {/* Logo */}
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          {logoUrl ? (
-            <img src={logoUrl} alt={clinicName} style={{ maxHeight: 72, maxWidth: 220, objectFit: "contain" }} />
-          ) : (
-            <div style={{ fontSize: 22, fontWeight: 700, color: NAVY }}>{clinicName}</div>
-          )}
-        </div>
-
-        {/* Status chip */}
-        {(quote.status === "booked" || quote.status === "deposit_recorded") && (
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <span style={{ background: GREEN_BG, color: GREEN, padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-              {statusLabel}
-            </span>
-          </div>
-        )}
-        {(quote.status === "expired" || isExpired) && (
-          <div style={{ textAlign: "center", marginBottom: 20 }}>
-            <span style={{ background: AMBER_BG, color: AMBER_FG, padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700 }}>
-              Expired
-            </span>
-          </div>
-        )}
-
-        <div style={{ background: "#fff", borderRadius: 18, border: `1px solid ${LINE}`, padding: 32, boxShadow: "0 1px 4px rgba(26,58,107,0.06)" }}>
-          <Row label="Patient" value={quote.patient_name} />
-          <Row label="Diagnosis" value={quote.diagnosis} />
-          {(() => {
-            const d = (quote.diagnosis || "").toLowerCase();
-            const flag =
-              d.includes("telogen effluvium") ||
-              d.includes("alopecia areata") ||
-              d.includes("scarring alopecia") ||
-              d.includes("dupa") ||
-              d.includes("diffuse unpatterned");
-            if (!flag) return null;
-            return (
-              <div style={{ marginTop: 12, marginBottom: 4, padding: "12px 14px", background: "#fff8e6", border: "1px solid #f5c86b", borderRadius: 10, fontSize: 13, color: "#78530a", lineHeight: 1.5 }}>
-                Transplant usually not suitable for this diagnosis — consider treatment or specialist referral first.
+      <div className="max-w-[720px] mx-auto px-6 py-12">
+        <div
+          className="bg-white border border-clinical-line overflow-hidden flex flex-col"
+          style={{ boxShadow: "0 20px 50px -12px rgba(15, 23, 42, 0.08)" }}
+        >
+          {/* Document Header */}
+          <div className="p-6 border-b border-clinical-line">
+            <div className="flex justify-between items-start mb-6">
+              <div className="space-y-1">
+                {logoUrl ? (
+                  <img src={logoUrl} alt={clinicName} className="max-h-12 max-w-[180px] object-contain" />
+                ) : (
+                  <h1 className="text-xl tracking-tight font-semibold text-clinical-text font-clinic-body">{clinicName}</h1>
+                )}
+                <p className="text-[10px] uppercase tracking-widest text-clinical-muted font-medium">Medical Consultation Summary</p>
               </div>
-            );
-          })()}
-          <Row label="Recommended plan" value={`FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}`} />
-          {quote.grafts != null && <Row label="Grafts" value={String(quote.grafts)} />}
-
-          {quote.includes_text && (
-            <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${LINE}` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: NAVY, marginBottom: 10 }}>What's included</div>
-              <div style={{ fontSize: 15, color: "#111", whiteSpace: "pre-wrap", lineHeight: 1.65 }}>{quote.includes_text}</div>
-            </div>
-          )}
-
-          <div style={{ marginTop: 24, paddingTop: 24, borderTop: `1px solid ${LINE}`, textAlign: "center" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: GREY }}>Price</div>
-            <div style={{ fontSize: 44, fontWeight: 800, color: NAVY, lineHeight: 1.1, marginTop: 6 }}>{fmt$(quote.price)}</div>
-            <div style={{ fontSize: 12, color: GREY, marginTop: 4 }}>AUD, inclusive of everything above</div>
-          </div>
-
-          <div style={{ marginTop: 24, padding: "16px 18px", background: "#f7f8fa", borderRadius: 12, fontSize: 13, color: "#334155", lineHeight: 1.6, textAlign: "center" }}>
-            <strong style={{ color: NAVY }}>Ways people pay:</strong> in full · deposit + balance before procedure day · finance options available.
-          </div>
-
-          <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${LINE}`, display: "grid", gap: 12 }}>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: GREY }}>Quote valid until</div>
-              <div style={{ fontSize: 15, color: "#111", marginTop: 4 }}>{fmtDate(quote.valid_until)}</div>
+              <div className="text-right">
+                <p className="text-[11px] text-clinical-muted">Ref: {quoteRef(quote.id)}</p>
+                <p className="text-[11px] text-clinical-muted">{todayAU()}</p>
+              </div>
             </div>
 
-            {quote.booked_date ? (
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-clinical-line/50">
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: GREY }}>Your procedure date</div>
-                <div style={{ fontSize: 15, color: "#111", marginTop: 4 }}>{fmtDate(quote.booked_date)}</div>
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Patient</p>
+                <p className="text-sm font-medium text-clinical-text">{quote.patient_name}</p>
               </div>
-            ) : (quote.date_option_1 || quote.date_option_2) ? (
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: GREY }}>Next available dates</div>
-                <div style={{ fontSize: 15, color: "#111", marginTop: 4, lineHeight: 1.6 }}>
-                  {quote.date_option_1 && <div>{fmtDate(quote.date_option_1)}</div>}
-                  {quote.date_option_2 && <div>{fmtDate(quote.date_option_2)}</div>}
+              <div className="text-right">
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Clinic</p>
+                <p className="text-sm font-medium text-clinical-text">{clinicName}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Clinical Assessment */}
+          <div className="p-6 bg-slate-50/50">
+            <h2 className="text-base font-semibold text-clinical-text mb-2 font-clinic-heading">Clinical Assessment</h2>
+            <div className="bg-white border border-clinical-line p-3 rounded-sm">
+              <p className="text-xs text-clinical-muted leading-relaxed">
+                {quote.diagnosis}
+                {quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
+              </p>
+            </div>
+            {showWarning && (
+              <div className="mt-3 p-3 border rounded-sm bg-clinical-amber-fill border-clinical-amber/20">
+                <p className="text-xs text-clinical-amber leading-relaxed">
+                  Transplant usually not suitable for this diagnosis — consider treatment or specialist referral first.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Recommended Plan */}
+          <div className="p-6 space-y-4">
+            <div className="flex justify-between items-end border-b border-clinical-line pb-2">
+              <h2 className="text-base font-semibold text-clinical-text font-clinic-heading">Recommended Plan</h2>
+              <span className="text-[10px] font-bold text-clinical-accent bg-clinical-accent-fill px-2 py-0.5 rounded-full uppercase">FUE Procedure</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-clinical-muted">Estimated Graft Count</span>
+              <span className="text-sm font-semibold text-clinical-text">
+                {quote.grafts != null ? `${quote.grafts.toLocaleString()} Grafts` : "To be confirmed at consult"}
+              </span>
+            </div>
+
+            {quote.norwood && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-clinical-muted">Norwood Scale</span>
+                <span className="text-sm font-semibold text-clinical-text">{quote.norwood}</span>
+              </div>
+            )}
+
+            {includes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Clinical Inclusions</p>
+                <ul className="text-xs text-clinical-muted space-y-1.5">
+                  {includes.map((line, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-clinical-accent" />
+                      {line}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Investment & Scheduling */}
+          <div className="mt-auto border-t-2 border-clinical-line">
+            <div className="p-6 bg-white">
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-sm font-medium text-clinical-muted">Treatment Investment</span>
+                <span className="text-xl font-semibold text-clinical-text">{fmt$(quote.price)}</span>
+              </div>
+
+              {(quote.status === "booked" || quote.status === "deposit_recorded") && (
+                <div className="mb-5 text-center">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: GREEN_BG, color: GREEN }}>
+                    <CheckCircle2 size={14} /> {statusLabel}
+                  </span>
                 </div>
-              </div>
-            ) : null}
-          </div>
-        </div>
+              )}
+              {(quote.status === "expired" || isExpired) && (
+                <div className="mb-5 text-center">
+                  <span className="inline-flex items-center gap-1.5 bg-clinical-amber-fill text-clinical-amber px-3 py-1.5 rounded-full text-xs font-semibold">
+                    <Clock size={14} /> Expired
+                  </span>
+                </div>
+              )}
 
-        {/* Send row visible to doctor/patient */}
-        <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
-          <button onClick={() => window.open(waLink(), "_blank")} disabled={!patientPhone}
-            style={{ background: "#25D366", color: "#fff", border: "none", padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: patientPhone ? "pointer" : "not-allowed", opacity: patientPhone ? 1 : 0.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <MessageCircle size={16} /> Send via WhatsApp
-          </button>
-          <button onClick={() => void onSendEmail()} disabled={!patientEmail}
-            style={{ background: NAVY, color: "#fff", border: "none", padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: patientEmail ? "pointer" : "not-allowed", opacity: patientEmail ? 1 : 0.5, display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Mail size={16} /> Send via email
-          </button>
-          <button onClick={() => void openGallery()}
-            style={{ background: "#fff", color: NAVY, border: `1px solid ${LINE}`, padding: "12px 20px", borderRadius: 10, fontSize: 14, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <Images size={16} /> Timeline
-          </button>
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold text-center">
+                  Quote valid until {fmtDate(quote.valid_until)}
+                </p>
+
+                {!quote.booked_date && (quote.date_option_1 || quote.date_option_2) && (
+                  <>
+                    <p className="text-[10px] uppercase text-clinical-muted font-semibold text-center">Next Available Clinical Slots</p>
+                    <div className="flex gap-2 justify-center">
+                      {quote.date_option_1 && (
+                        <button
+                          onClick={() => setBookModal(true)}
+                          className="flex-1 py-2 px-1 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
+                        >
+                          {fmtDateCompact(quote.date_option_1)}
+                        </button>
+                      )}
+                      {quote.date_option_2 && (
+                        <button
+                          onClick={() => setBookModal(true)}
+                          className="flex-1 py-2 px-1 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
+                        >
+                          {fmtDateCompact(quote.date_option_2)}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {quote.booked_date && (
+                  <div className="text-center p-2 bg-slate-50 rounded">
+                    <p className="text-[10px] uppercase text-clinical-muted font-semibold">Your procedure date</p>
+                    <p className="text-sm font-medium text-clinical-text">{fmtDate(quote.booked_date)}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
+                  disabled={!patientPhone}
+                  className="w-full bg-clinical-text text-white py-3.5 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-2 uppercase flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <MessageCircle size={16} /> Secure Treatment Plan
+                </button>
+
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => void onSendEmail()}
+                    disabled={!patientEmail}
+                    className="flex-1 py-2 px-3 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Mail size={14} /> Send via email
+                  </button>
+                  <button
+                    onClick={() => void openGallery()}
+                    className="flex-1 py-2 px-3 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Images size={14} /> Timeline
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-clinical-muted text-center">
+                  Deposit required to confirm clinical space. Ways to pay: in full · deposit + balance · finance options available.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -340,20 +479,13 @@ Any questions, just message back.`;
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", gap: 16, padding: "10px 0", borderBottom: `1px solid ${LINE}` }}>
-      <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", color: GREY }}>{label}</div>
-      <div style={{ fontSize: 15, color: "#111" }}>{value}</div>
-    </div>
-  );
-}
-
 function MenuBtn({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
   return (
-    <button onClick={onClick}
-      style={{ width: "100%", textAlign: "left", background: "transparent", border: "none", padding: "10px 14px", fontSize: 13, cursor: "pointer", color: "#111", display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ color: GREY }}>{icon}</span> {label}
+    <button
+      onClick={onClick}
+      className="w-full text-left bg-transparent border-none px-3.5 py-2.5 text-[13px] text-clinical-text flex items-center gap-2 hover:bg-slate-50 transition-colors"
+    >
+      <span className="text-clinical-muted">{icon}</span> {label}
     </button>
   );
 }
@@ -366,23 +498,40 @@ function BookDateModal({ quote, onClose, onDone }: { quote: Quote; onClose: () =
     if (choice === "1") d = quote.date_option_1 ?? "";
     else if (choice === "2") d = quote.date_option_2 ?? "";
     else d = custom;
-    if (!d) { toast.error("Pick a date"); return; }
+    if (!d) {
+      toast.error("Pick a date");
+      return;
+    }
     onDone(d);
   };
   return (
     <ModalShell title="Book procedure date" onClose={onClose}>
-      <div style={{ display: "grid", gap: 8 }}>
+      <div className="grid gap-2">
         {quote.date_option_1 && <RadioRow checked={choice === "1"} onChange={() => setChoice("1")} label={`Option 1 · ${fmtDate(quote.date_option_1)}`} />}
         {quote.date_option_2 && <RadioRow checked={choice === "2"} onChange={() => setChoice("2")} label={`Option 2 · ${fmtDate(quote.date_option_2)}`} />}
         <RadioRow checked={choice === "custom"} onChange={() => setChoice("custom")} label="Custom date" />
         {choice === "custom" && (
-          <input type="date" value={custom} onChange={(e) => setCustom(e.target.value)}
-            style={{ width: "100%", padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, boxSizing: "border-box" }} />
+          <input
+            type="date"
+            value={custom}
+            onChange={(e) => setCustom(e.target.value)}
+            className="w-full px-3 py-2.5 border border-clinical-line rounded-lg text-sm"
+          />
         )}
       </div>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
-        <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${LINE}`, color: NAVY, padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-        <button onClick={submit} style={{ background: NAVY, color: "#fff", border: "none", padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Book</button>
+      <div className="flex justify-end gap-2 mt-5">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 border border-clinical-line rounded-lg text-[13px] font-semibold text-clinical-text hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={submit}
+          className="px-5 py-2 bg-clinical-text text-white rounded-lg text-[13px] font-bold hover:bg-slate-800"
+        >
+          Book
+        </button>
       </div>
     </ModalShell>
   );
@@ -392,20 +541,37 @@ function RecordDepositModal({ quote, onClose, onDone }: { quote: Quote; onClose:
   const [amt, setAmt] = useState(String(Math.round(quote.deposit_amount)));
   const submit = () => {
     const n = Number(amt);
-    if (!n || n <= 0) { toast.error("Enter an amount"); return; }
+    if (!n || n <= 0) {
+      toast.error("Enter an amount");
+      return;
+    }
     onDone(n);
   };
   return (
     <ModalShell title="Record deposit" onClose={onClose}>
-      <div style={{ fontSize: 13, color: GREY, marginBottom: 12 }}>Manual entry — bank transfer / EFTPOS at the clinic.</div>
-      <label style={{ display: "block" }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: GREY, marginBottom: 6 }}>Amount (AUD)</div>
-        <input inputMode="decimal" value={amt} onChange={(e) => setAmt(e.target.value)}
-          style={{ width: "100%", padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 15, boxSizing: "border-box" }} />
+      <div className="text-[13px] text-clinical-muted mb-3">Manual entry — bank transfer / EFTPOS at the clinic.</div>
+      <label className="block">
+        <div className="text-xs font-semibold text-clinical-muted mb-1.5">Amount (AUD)</div>
+        <input
+          inputMode="decimal"
+          value={amt}
+          onChange={(e) => setAmt(e.target.value)}
+          className="w-full px-3 py-2.5 border border-clinical-line rounded-lg text-[15px]"
+        />
       </label>
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
-        <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${LINE}`, color: NAVY, padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-        <button onClick={submit} style={{ background: GREEN, color: "#fff", border: "none", padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Confirm</button>
+      <div className="flex justify-end gap-2 mt-5">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 border border-clinical-line rounded-lg text-[13px] font-semibold text-clinical-text hover:bg-slate-50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={submit}
+          className="px-5 py-2 bg-green-700 text-white rounded-lg text-[13px] font-bold hover:bg-green-800"
+        >
+          Confirm
+        </button>
       </div>
     </ModalShell>
   );
@@ -413,11 +579,13 @@ function RecordDepositModal({ quote, onClose, onDone }: { quote: Quote; onClose:
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 40, display: "flex", justifyContent: "center", alignItems: "center", padding: 16 }}>
-      <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 440, padding: 22 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: NAVY }}>{title}</div>
-          <button onClick={onClose} style={{ background: "transparent", border: "none", color: GREY, cursor: "pointer" }}>✕</button>
+    <div className="fixed inset-0 bg-slate-900/55 z-40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl w-full max-w-md p-5">
+        <div className="flex items-center justify-between mb-3.5">
+          <div className="text-[17px] font-bold text-clinical-text">{title}</div>
+          <button onClick={onClose} className="bg-transparent border-none text-clinical-muted hover:text-clinical-text">
+            ✕
+          </button>
         </div>
         {children}
       </div>
@@ -427,9 +595,32 @@ function ModalShell({ title, onClose, children }: { title: string; onClose: () =
 
 function RadioRow({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
-    <label style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${checked ? NAVY : LINE}`, borderRadius: 8, cursor: "pointer", background: checked ? "#edf2f9" : "#fff" }}>
+    <label
+      className={`flex items-center gap-2.5 px-3 py-2.5 border rounded-lg cursor-pointer transition-colors ${
+        checked ? "border-clinical-text bg-clinical-accent-fill" : "border-clinical-line bg-white"
+      }`}
+    >
       <input type="radio" checked={checked} onChange={onChange} />
-      <span style={{ fontSize: 14, color: "#111" }}>{label}</span>
+      <span className="text-sm text-clinical-text">{label}</span>
     </label>
   );
 }
+
+type Quote = {
+  id: string;
+  clinic_id: string;
+  appointment_id: string;
+  patient_name: string;
+  diagnosis: string;
+  norwood: string | null;
+  grafts: number | null;
+  price: number;
+  deposit_amount: number;
+  includes_text: string | null;
+  valid_until: string;
+  date_option_1: string | null;
+  date_option_2: string | null;
+  status: "draft" | "presented" | "booked" | "deposit_recorded" | "expired";
+  booked_date: string | null;
+  deposit_recorded_at: string | null;
+};

@@ -27,6 +27,17 @@
   --color-ring: var(--ring);
   --font-heading: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-clinic-heading: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-clinic-body: "Inter", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --color-clinical-bg: var(--clinical-bg);
+  --color-clinical-card: var(--clinical-card);
+  --color-clinical-text: var(--clinical-text);
+  --color-clinical-muted: var(--clinical-muted);
+  --color-clinical-line: var(--clinical-line);
+  --color-clinical-accent: var(--clinical-accent);
+  --color-clinical-accent-fill: var(--clinical-accent-fill);
+  --color-clinical-amber: var(--clinical-amber);
+  --color-clinical-amber-fill: var(--clinical-amber-fill);
 }
 
 :root {
@@ -100,6 +111,17 @@
   --chart-3: #10b981;
   --chart-4: #f59e0b;
   --chart-5: #8b5cf6;
+
+  /* Clinical quote palette (ClinicFlow patient-facing quote) */
+  --clinical-bg: #f8fafc;
+  --clinical-card: #ffffff;
+  --clinical-text: #0f172a;
+  --clinical-muted: #64748b;
+  --clinical-line: #e2e8f0;
+  --clinical-accent: #1d4ed8;
+  --clinical-accent-fill: #eff6ff;
+  --clinical-amber: #92400e;
+  --clinical-amber-fill: #fffbeb;
 }
 
 @layer base {
