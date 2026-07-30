@@ -28,6 +28,7 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
       grafts?: number | null;
       price: number;
       depositAmount: number;
+      description?: string | null;
       includesText?: string | null;
       dateOption1?: string | null;
       dateOption2?: string | null;
@@ -51,6 +52,7 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
         grafts: data.grafts ?? null,
         price: data.price,
         deposit_amount: data.depositAmount,
+        description: data.description ?? null,
         includes_text: data.includesText ?? null,
         date_option_1: data.dateOption1 ?? null,
         date_option_2: data.dateOption2 ?? null,
@@ -154,6 +156,7 @@ export const sendClinicflowQuoteEmail = createServerFn({ method: "POST" })
         <strong>Recommended plan:</strong> FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}<br/>
         ${quote.grafts ? `<strong>Grafts:</strong> ${quote.grafts}<br/>` : ""}
         <strong>Price:</strong> ${fmt$(quote.price as number)} AUD</p>
+        ${quote.description ? `<p>${(quote.description as string).replace(/\n/g, "<br/>")}</p>` : ""}
         ${quote.includes_text ? `<p><strong>What's included</strong><br/>${(quote.includes_text as string).replace(/\n/g, "<br/>")}</p>` : ""}
         <p><strong>Ways people pay:</strong> in full · deposit + balance before procedure day · finance options available.</p>
         <p><strong>Quote valid until:</strong> ${fmtDate(quote.valid_until as string)}</p>

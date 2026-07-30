@@ -956,6 +956,7 @@ export type Database = {
           deposit_amount: number
           deposit_method: string | null
           deposit_recorded_at: string | null
+          description: string | null
           diagnosis: string
           grafts: number | null
           id: string
@@ -980,6 +981,7 @@ export type Database = {
           deposit_amount: number
           deposit_method?: string | null
           deposit_recorded_at?: string | null
+          description?: string | null
           diagnosis: string
           grafts?: number | null
           id?: string
@@ -1004,6 +1006,7 @@ export type Database = {
           deposit_amount?: number
           deposit_method?: string | null
           deposit_recorded_at?: string | null
+          description?: string | null
           diagnosis?: string
           grafts?: number | null
           id?: string
