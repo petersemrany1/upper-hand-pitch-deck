@@ -4540,7 +4540,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         <div className="flex flex-col gap-2.5">
           {[
             { label: "Quoted them an accurate price range", checked: mustDoPrice, set: setMustDoPrice },
-            { label: "Discussed how they plan to fund it", checked: mustDoFunding, set: setMustDoFunding },
+            { label: "Discussed how they plan to fund it", checked: mustDoFunding, set: setMustDoFunding, muted: " — Super: there's a $1,200 application fee on top — \"would you prefer a payment plan?\"" },
             { label: "Set realistic expectations about results", checked: mustDoExpectations, set: setMustDoExpectations, muted: " — if Norwood 6/7" },
           ].map((item) => (
             <label key={item.label} className="flex items-start gap-3 cursor-pointer">
