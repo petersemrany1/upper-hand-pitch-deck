@@ -4,7 +4,6 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { useIncomingBannerActive, INCOMING_BANNER_HEIGHT } from "@/components/incoming-call-status";
 import { SmsNotifier } from "@/components/SmsNotifier";
-import { MissedCallNotifier } from "@/components/MissedCallNotifier";
 import { NotificationBell } from "@/components/NotificationBell";
 
 import { NotificationsProvider } from "@/hooks/useNotifications";
@@ -123,7 +122,6 @@ function DashboardLayout() {
           <Outlet />
         </div>
         <SmsNotifier />
-        <MissedCallNotifier />
       </NotificationsProvider>
     );
   }
@@ -150,7 +148,6 @@ function DashboardLayout() {
           </div>
         </DashboardShell>
         {!isTrainingRoute && <SmsNotifier />}
-        {!isTrainingRoute && <MissedCallNotifier />}
         
         <Suspense fallback={null}>
           <MiniMessenger />
