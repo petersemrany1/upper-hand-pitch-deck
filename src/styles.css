@@ -27,6 +27,17 @@
   --color-ring: var(--ring);
   --font-heading: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --font-body: system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-clinic-heading: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --font-clinic-body: "Inter", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --color-clinical-bg: var(--clinical-bg);
+  --color-clinical-card: var(--clinical-card);
+  --color-clinical-text: var(--clinical-text);
+  --color-clinical-muted: var(--clinical-muted);
+  --color-clinical-line: var(--clinical-line);
+  --color-clinical-accent: var(--clinical-accent);
+  --color-clinical-accent-fill: var(--clinical-accent-fill);
+  --color-clinical-amber: var(--clinical-amber);
+  --color-clinical-amber-fill: var(--clinical-amber-fill);
 }
 
 :root {
