@@ -111,6 +111,17 @@
   --chart-3: #10b981;
   --chart-4: #f59e0b;
   --chart-5: #8b5cf6;
+
+  /* Clinical quote palette (ClinicFlow patient-facing quote) */
+  --clinical-bg: #f8fafc;
+  --clinical-card: #ffffff;
+  --clinical-text: #0f172a;
+  --clinical-muted: #64748b;
+  --clinical-line: #e2e8f0;
+  --clinical-accent: #1d4ed8;
+  --clinical-accent-fill: #eff6ff;
+  --clinical-amber: #92400e;
+  --clinical-amber-fill: #fffbeb;
 }
 
 @layer base {
