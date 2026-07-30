@@ -624,7 +624,3 @@ type Quote = {
   booked_date: string | null;
   deposit_recorded_at: string | null;
 };
-
-function setWhatsappNumber(_: string | null) {
-  // retained for backwards compatibility if needed elsewhere
-}
