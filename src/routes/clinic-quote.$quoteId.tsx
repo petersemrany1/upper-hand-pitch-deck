@@ -209,7 +209,7 @@ function QuotePage() {
 Diagnosis: ${quote.diagnosis}
 Recommended plan: FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
 ${quote.grafts ? `Grafts: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
-
+${quote.description ? `\n${quote.description}\n` : ""}
 Ways people pay: in full · deposit + balance before procedure day · finance options available.
 
 Quote valid until ${fmtDate(quote.valid_until)}${bookLine}
@@ -306,6 +306,15 @@ Any questions, just message back.`;
               </div>
             )}
           </div>
+
+          {/* Procedure Description */}
+          {quote.description && (
+            <div className="px-6 py-5 bg-white border-t border-clinical-line">
+              <div className="prose prose-sm max-w-none text-clinical-muted text-sm leading-relaxed whitespace-pre-line">
+                {quote.description}
+              </div>
+            </div>
+          )}
 
           {/* Recommended Plan */}
           <div className="p-6 space-y-4">
@@ -616,6 +625,7 @@ type Quote = {
   grafts: number | null;
   price: number;
   deposit_amount: number;
+  description: string | null;
   includes_text: string | null;
   valid_until: string;
   date_option_1: string | null;

@@ -61,10 +61,25 @@ export function ClinicFlowQuoteBuilder({
   const [grafts, setGrafts] = useState<string>("2500");
   const [price, setPrice] = useState<string>("15000");
   const [deposit, setDeposit] = useState<string>("1000");
+  const [description, setDescription] = useState<string>("");
+  const [descriptionEdited, setDescriptionEdited] = useState(false);
   const [dateOpt1, setDateOpt1] = useState<string>("");
   const [dateOpt2, setDateOpt2] = useState<string>("");
   const [includes, setIncludes] = useState(DEFAULT_INCLUDES);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (descriptionEdited) return;
+    const n = Number(grafts);
+    if (!grafts || Number.isNaN(n)) {
+      setDescription("");
+      return;
+    }
+    const graftsText = n.toLocaleString("en-AU");
+    setDescription(
+      `Hair restoration procedure — ${graftsText} grafts, sapphire FUE\n\nA single-session follicular unit extraction procedure transferring ${graftsText} grafts from your permanent donor area at the back and sides of the scalp to the hairline, mid-scalp and crown transition.\n\n- We design the hairline with you before the day of surgery, taking into account your facial proportions, hair calibre, existing density and how your hair loss is likely to progress.\n- On the day, we perform the extraction and create each recipient site at the correct angle and direction, and place every graft along the frontal edge.\n- Grafts are counted during the procedure and the count is shown to you before you leave.\n\n- The plan is built around your lifetime donor supply. You have a finite number of usable grafts, and how the first procedure is planned determines what remains available to you later.\n- This procedure uses ${graftsText} and holds the balance in reserve.`
+    );
+  }, [grafts, descriptionEdited]);
 
   useEffect(() => {
     (async () => {
@@ -107,6 +122,7 @@ export function ClinicFlowQuoteBuilder({
           grafts: grafts ? Number(grafts) : null,
           price: priceNum,
           depositAmount: depositNum,
+          description: description.trim() || null,
           includesText: includes.trim() || null,
           dateOption1: dateOpt1 || null,
           dateOption2: dateOpt2 || null,
@@ -176,6 +192,16 @@ export function ClinicFlowQuoteBuilder({
             <div style={{ fontSize: 12, color: GREY }}>
               Valid until <strong style={{ color: NAVY }}>{new Date(validUntil + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</strong> ({validityDays} days)
             </div>
+
+            <Field label="Description">
+              <textarea
+                value={description}
+                onChange={(e) => { setDescription(e.target.value); setDescriptionEdited(true); }}
+                rows={10}
+                style={{ width: "100%", padding: "12px 14px", border: `1px solid ${LINE}`, borderRadius: 10, fontSize: 14, fontFamily: "inherit", resize: "vertical", boxSizing: "border-box" }}
+              />
+              <p style={{ fontSize: 11, color: GREY, marginTop: 4 }}>Auto-fills from the graft count. You can edit it.</p>
+            </Field>
 
             <Field label="What's included">
               <textarea
