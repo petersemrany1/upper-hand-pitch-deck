@@ -2615,25 +2615,26 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
           <PriceRow num={1}>"The consult includes a full medical assessment, hair design, imaging — all in one appointment."</PriceRow>
           <PriceRow num={2}>"Normally this consult is $395..."</PriceRow>
           <PriceRow num={3}>"...we do have some complimentary spots available sometimes, let me just have a look and see if I can find any free ones"</PriceRow>
+          <PriceRow num={4}>"Who's making this call with you? If there's someone else in it, let's find a time you can both come in."</PriceRow>
           <div className="flex items-start gap-3" style={{ padding: "10px 0", borderBottom: "0.5px solid #f3f3f3" }}>
             <div style={{
               width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
               color: "#fff", fontSize: 10, fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, marginTop: 2,
-            }}>4</div>
+            }}>5</div>
             <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontWeight: 700 }}>
               Agree on a time, give 2 options
             </div>
           </div>
-          <PriceRow num={5}>"...there is just a $75 deposit to secure your spot, which is fully refunded when you arrive..."</PriceRow>
+          <PriceRow num={6}>"...there is just a $75 deposit to secure your spot, which is fully refunded when you arrive..."</PriceRow>
           <div className="flex items-start gap-3" style={{ padding: "10px 0" }}>
             <div style={{
               width: 20, height: 20, borderRadius: "50%", background: COLORS.coral,
               color: "#fff", fontSize: 10, fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, marginTop: 2,
-            }}>6</div>
+            }}>7</div>
             <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontStyle: "italic" }}>
               "...we do this because we turn people away for these slots. <strong style={{ fontStyle: "normal" }}>Does that sound fair?</strong>"
             </div>
@@ -2644,7 +2645,7 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
               color: "#fff", fontSize: 10, fontWeight: 700,
               display: "flex", alignItems: "center", justifyContent: "center",
               flexShrink: 0, marginTop: 2,
-            }}>7</div>
+            }}>8</div>
             <div style={{ fontSize: 14, color: COLORS.text, lineHeight: 1.7, fontWeight: 700 }}>
               Ask for their card details if they sound older otherwise send them a link
             </div>
