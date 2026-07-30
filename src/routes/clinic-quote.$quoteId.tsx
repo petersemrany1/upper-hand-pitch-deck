@@ -196,6 +196,7 @@ function QuotePage() {
   }
 
   function waLink() {
+    if (!quote) return "#";
     const num = (patientPhone ?? "").replace(/[^0-9]/g, "");
     const intl = num.startsWith("0") ? "61" + num.slice(1) : num;
     const bookLine = quote.booked_date
