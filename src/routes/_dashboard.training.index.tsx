@@ -33,6 +33,7 @@ const modules = [
   { slug: "sales-call-example", title: "Sales Call Example", url: "/training/sales-call-example", desc: "Listen to model sales calls and study the structure step by step." },
   { slug: "knowledge-quiz", title: "Knowledge Quiz", url: "/training/knowledge-quiz", desc: "40-question gate covering framework, product, skills and process. Pass 40/40 to unlock practice calls." },
   { slug: "platform", title: "Platform Training", url: "/training/platform", desc: "Tour of the portal: leads, dialler, callbacks, SMS, bookings and reporting." },
+  { slug: "call-coaching", title: "Before You Practice — Call Coaching", url: "/training/call-coaching", desc: "Watch the full call coaching video before you unlock AI practice calls." },
   { slug: "ai", title: "AI Training", url: "/training/ai", desc: "Practice live calls against our AI customer Dave — with the 9-stage cockpit beside you." },
 ] as const;
 
