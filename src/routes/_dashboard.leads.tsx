@@ -50,7 +50,7 @@ const CLASS_BADGE: Record<string, { label: string; bg: string; fg: string; title
     fg: "#fff",
     title: "This person already has an upcoming appointment — do not cold call",
   },
-
+};
 
 type RepOption = { id: string; name: string; email: string | null };
 
