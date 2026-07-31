@@ -671,15 +671,15 @@ function DashboardHome() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings</div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
                   {leadsPct}%
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLeadsBooked} of {convLeadsTotal} leads</div>
               </div>
               <div style={{ padding: 20 }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings</div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings<InfoTip text={CONNECTS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
                   {connectsPct}%
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConnectedBooked} of {convConnectedUnique} connects</div>
