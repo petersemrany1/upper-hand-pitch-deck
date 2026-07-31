@@ -2454,31 +2454,31 @@ function EducationStep({ lead, mmsImages, onNext, repId }: { lead: Lead; mmsImag
       }}>
 
 
-{`🎓 EDUCATION 
-
-
+{`🎓 EDUCATION
 
 KNOWLEDGE CHECK "What do you know about hair transplants?" Start from what they know → fill gaps only → don't lecture
 
-
-
 PRODUCT (no price yet)
 
-Grafts from the back → permanent zone → never falls out → planted where you're losing → keeps that DNA → stays & grows, you can cut/wash/style it → your real hair, for life. → Local numbing, no general → same day → home that night
+Come in the morning → numb your head → staff around focusing on you and your hair → Grafts from the back → permanent zone → never falls out → planted where you're losing → keeps that DNA → stays & grows, you can cut/wash/style it → your real hair, for life. → home that night
 
+RECOVERY
 
+7 days at home → When can u fit that in? → WFH = straight back to work next day → After 7 days redness and scabbing settles down → 2 months shedding phase → 3 months it starts growing back
 
 NATURAL VS UN-NATURAL
 
-Everyone's #1 concern: "will people be able to tell?" → hair doesn't grow straight up → it grows at an angle + flows in a direction → good surgeon maps YOUR exact pattern → places every single graft to match that angle + direction → that's the difference between looking "done" vs. completely undetectable → done right, even your barber can't tell."
+Everyone's #1 concern: "will people be able to tell?" [Send natural vs unnatural photo] → hair doesn't grow straight up → it grows at an angle + flows in a direction → good surgeon maps YOUR exact pattern → places every single graft to match that angle + direction → that's right there is how it will be undectable → done right, even your barber can't tell."
 
 SEND PHOTOS natural vs unnatural + before/afters → "Have a look at your phone"
 
+MOVE IN BUNCHES
 
+Remember we said we take hairs from the back? → With our tools and expertise we take up to 4 hairs at once → move them in bunches rather then 1 at a time → Faster, more dense looking, less scars
 
-DONOR CLOCK (NORWOOD 4+) 
+DONOR CLOCK (NORWOOD 5+)
 
-"Think of it like a garden. The thick hair round the back and sides — that's your strong, healthy grass. The thin bit on top — that's bare dirt. A transplant just digs up a little of that strong grass and lays it over the bare dirt. Only thing is — you've only got so much strong grass. You can't just magically grow more. And the bare bit slowly spreads and gets bigger on its own. So no rush at all — right now you've just got the most hair you'll ever have to move around.
+Back and sides = different hair → resistant DHT grows there for life → there is only a set amount back there, can't magically make more → The more you wait the less hair you will have → Norwood 6 & 7 is sometimes too far gone for a hair transplant → Thank god you are reaching out now you just slide in as a candidate, a few more years and who knows.
 
 UNDERSTANDING
 
