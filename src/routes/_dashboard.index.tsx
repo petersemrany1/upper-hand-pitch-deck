@@ -55,7 +55,7 @@ function InfoTip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
     <span
-      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 5 }}
+      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 5, cursor: "help" }}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onClick={() => setOpen((v) => !v)}
@@ -73,10 +73,10 @@ function InfoTip({ text }: { text: string }) {
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          cursor: "help",
           lineHeight: 1,
           textTransform: "none",
           letterSpacing: 0,
+          pointerEvents: "none",
         }}
       >
         i
