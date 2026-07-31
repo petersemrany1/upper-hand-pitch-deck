@@ -28,6 +28,90 @@ export const Route = createFileRoute("/_dashboard/")({
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
+const CONV_GREEN = "#16a34a";
+const CONV_ORANGE = "#f59e0b";
+const CONV_RED = "#dc2626";
+
+/** Leads → Bookings: target 20% (1 in 5). Green >=20, orange 10-20, red <10. */
+function leadsConvColor(pct: number): string {
+  if (pct >= 20) return CONV_GREEN;
+  if (pct >= 10) return CONV_ORANGE;
+  return CONV_RED;
+}
+
+/** Calls → Bookings: green >=60, orange 30-60, red <30. */
+function connectsConvColor(pct: number): string {
+  if (pct >= 60) return CONV_GREEN;
+  if (pct >= 30) return CONV_ORANGE;
+  return CONV_RED;
+}
+
+const LEADS_CONV_TOOLTIP =
+  "Of all new patient enquiries that came in during this period, the percentage that booked an appointment. Target 20%.";
+const CONNECTS_CONV_TOOLTIP =
+  "Of all the people you actually got on the phone for more than 10 seconds, the percentage that booked. Target 60%.";
+
+function InfoTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 5 }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onClick={() => setOpen((v) => !v)}
+    >
+      <span
+        aria-label={text}
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: "50%",
+          border: "1px solid #ccc",
+          color: "#999",
+          fontSize: 9,
+          fontWeight: 700,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "help",
+          lineHeight: 1,
+          textTransform: "none",
+          letterSpacing: 0,
+        }}
+      >
+        i
+      </span>
+      {open && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 230,
+            background: "#111",
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 400,
+            lineHeight: 1.45,
+            padding: "8px 10px",
+            borderRadius: 8,
+            textAlign: "left",
+            textTransform: "none",
+            letterSpacing: 0,
+            zIndex: 50,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            pointerEvents: "none",
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
