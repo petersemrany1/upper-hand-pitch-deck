@@ -45,6 +45,9 @@ type Lead = {
   stripe_payment_intent_id?: string | null; stripe_checkout_session_id?: string | null;
   handover_sent_at?: string | null;
   previous_lead_id?: string | null;
+  lead_class?: string | null;
+  lead_class_reason?: string | null;
+
 };
 
 function leadHasBookedSale(lead: Lead) {
@@ -60,7 +63,7 @@ const SALES_CALL_LEAD_SELECT = `
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
   pipeline_summary_updated_at,
   deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id,
-  handover_sent_at, previous_lead_id
+  handover_sent_at, previous_lead_id, lead_class, lead_class_reason
 `;
 
 type Clinic = {
@@ -6288,6 +6291,13 @@ function RightPanel({
   const callNow = async () => {
     console.log("[callNow] click", { phone: active.phone, leadId: active.id, deviceStatus });
     if (!active.phone) { toast.error("No phone number"); return; }
+    // Backstop: even if this lead somehow surfaced in the queue, never let a rep
+    // cold call someone who already has an upcoming appointment.
+    if (!practiceMode && active.lead_class === "booked_active") {
+      toast.error("Already booked — open the existing patient record instead of calling this enquiry.");
+      return;
+    }
+
     // Mark outcome as pending the INSTANT the rep initiates a dial so the
     // local "Next Lead" button gates correctly. Do NOT arm the parent-level
     // pendingOutcomeLeadId here — that would auto-open the forced-outcome

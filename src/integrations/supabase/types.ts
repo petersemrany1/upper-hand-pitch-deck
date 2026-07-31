@@ -1376,6 +1376,8 @@ export type Database = {
           handover_sent_at: string | null
           id: string
           last_name: string | null
+          lead_class: string
+          lead_class_reason: string | null
           lead_id: string | null
           phone: string | null
           pipeline_summary: string | null
@@ -1386,6 +1388,7 @@ export type Database = {
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
+          superseded_by_lead_id: string | null
           updated_at: string
         }
         Insert: {
@@ -1410,6 +1413,8 @@ export type Database = {
           handover_sent_at?: string | null
           id?: string
           last_name?: string | null
+          lead_class?: string
+          lead_class_reason?: string | null
           lead_id?: string | null
           phone?: string | null
           pipeline_summary?: string | null
@@ -1420,6 +1425,7 @@ export type Database = {
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
+          superseded_by_lead_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -1444,6 +1450,8 @@ export type Database = {
           handover_sent_at?: string | null
           id?: string
           last_name?: string | null
+          lead_class?: string
+          lead_class_reason?: string | null
           lead_id?: string | null
           phone?: string | null
           pipeline_summary?: string | null
@@ -1454,6 +1462,7 @@ export type Database = {
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
+          superseded_by_lead_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -2270,6 +2279,17 @@ export type Database = {
       is_admin_user: { Args: never; Returns: boolean }
       is_clinic_setter_user: { Args: never; Returns: boolean }
       is_clinic_user_for: { Args: { _clinic_id: string }; Returns: boolean }
+      meta_lead_classify: { Args: { _prior: string }; Returns: string }
+      meta_lead_close_siblings: { Args: { _booked: string }; Returns: number }
+      meta_lead_prior_id: {
+        Args: {
+          _email: string
+          _id: string
+          _meta_lead_id: string
+          _phone: string
+        }
+        Returns: string
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string

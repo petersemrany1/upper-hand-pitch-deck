@@ -26,6 +26,30 @@ type Lead = {
   rep_id?: string | null;
   raw_payload?: unknown;
   previous_lead_id?: string | null;
+  lead_class?: string | null;
+  lead_class_reason?: string | null;
+  superseded_by_lead_id?: string | null;
+};
+
+const CLASS_BADGE: Record<string, { label: string; bg: string; fg: string; title: string }> = {
+  returning: {
+    label: "Returning",
+    bg: "#f59e0b",
+    fg: "#fff",
+    title: "This person has enquired with us before — history is loaded on the call screen",
+  },
+  post_consult: {
+    label: "Been in before",
+    bg: "#7c3aed",
+    fg: "#fff",
+    title: "This person has already attended a consult",
+  },
+  booked_active: {
+    label: "Already booked",
+    bg: "#dc2626",
+    fg: "#fff",
+    title: "This person already has an upcoming appointment — do not cold call",
+  },
 };
 
 type RepOption = { id: string; name: string; email: string | null };
@@ -271,7 +295,14 @@ function LeadsPage() {
     "Spoke — No Sale",
     "Booked — Deposit Paid",
   ]);
-  const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
+  const queueRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
+
+  // Leads from someone who already has an upcoming appointment never enter the
+  // call queue — they surface in a separate "Needs attention" tray instead, so
+  // no rep can cold call a patient who is already booked in.
+  const needsAttention = queueRows.filter((r) => r.lead_class === "booked_active");
+  const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
+
 
   const locationOf = (r: Lead) => deriveLocation(r) ?? UNKNOWN_LOC;
 
@@ -662,6 +693,39 @@ function LeadsPage() {
           )}
         </div>
 
+        {needsAttention.length > 0 && (
+          <div className="mb-4 rounded-lg border border-[#fecaca] bg-[#fef2f2] p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#dc2626] text-white">
+                Needs attention
+              </span>
+              <span className="text-sm font-semibold text-[#111111]">
+                {needsAttention.length} enquir{needsAttention.length === 1 ? "y" : "ies"} from patients already booked in
+              </span>
+            </div>
+            <p className="text-xs text-[#7f1d1d] mb-3">
+              These are held out of the call queue. They usually mean the patient wants to change something — check the
+              existing booking rather than calling them as a new lead.
+            </p>
+            <div className="space-y-1.5">
+              {needsAttention.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-white border border-[#fecaca] px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-[#111111]">
+                    {[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}
+                  </span>
+                  <span className="text-xs text-[#666]">{r.phone ?? "—"}</span>
+                  <span className="text-xs text-[#666]">re-submitted {fmtDate(r.created_at)}</span>
+                  <span className="text-xs text-[#dc2626] font-medium">{r.lead_class_reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+
         <div className="rounded-lg border border-[#ebebeb] overflow-visible" style={{ background: "#f9f9f9" }}>
           {loading ? (
             <div className="p-12 text-center text-[#111111] text-sm">Loading leads…</div>
@@ -770,15 +834,20 @@ function LeadsPage() {
                             <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <span>{fullName}</span>
-                                {r.previous_lead_id && (
-                                  <span
-                                    className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                    style={{ background: "#f59e0b", color: "#fff" }}
-                                    title="This person has enquired with us before"
-                                  >
-                                    Returning
-                                  </span>
-                                )}
+                                {(() => {
+                                  const cb = CLASS_BADGE[r.lead_class ?? ""];
+                                  if (!cb) return null;
+                                  return (
+                                    <span
+                                      className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                      style={{ background: cb.bg, color: cb.fg }}
+                                      title={r.lead_class_reason ?? cb.title}
+                                    >
+                                      {cb.label}
+                                    </span>
+                                  );
+                                })()}
+
                                 {dup && (
                                   <span
                                     className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
