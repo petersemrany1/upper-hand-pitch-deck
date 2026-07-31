@@ -754,22 +754,22 @@ function DashboardHome() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
             <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: "#16a34a", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convLeadsTotal > 0 ? `${leadsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Leads to Bookings
+                Leads to Bookings<InfoTip text={LEADS_CONV_TOOLTIP} />
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                 {convLeadsBooked} / {convLeadsTotal} leads
               </div>
             </div>
             <div style={{ padding: "20px", textAlign: "center" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: "#f4522d", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convConnectedUnique > 0 ? `${connectsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Connects to Sales
+                Connects to Sales<InfoTip text={CONNECTS_CONV_TOOLTIP} />
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                 {convConnectedBooked} / {convConnectedUnique} connected
