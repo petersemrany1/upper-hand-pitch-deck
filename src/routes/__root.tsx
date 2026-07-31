@@ -173,10 +173,12 @@ function RootComponent() {
   }, []);
 
   return (
-    <AuthProvider>
-      <Outlet />
-      <GlobalCallLayer />
-      <Toaster />
-    </AuthProvider>
+    <TooltipProvider delayDuration={200}>
+      <AuthProvider>
+        <Outlet />
+        <GlobalCallLayer />
+        <Toaster />
+      </AuthProvider>
+    </TooltipProvider>
   );
 }
