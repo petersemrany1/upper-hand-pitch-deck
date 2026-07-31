@@ -172,39 +172,10 @@ export const Route = createFileRoute("/api/public/meta-leads")({
           return jsonResponse({ error: error.message }, 500);
         }
 
-        // Link to previous lead if we've spoken to this person before.
-        // Same match rules as dedupe would use: last-9 phone OR exact email.
-        try {
-          const phoneDigits = (row.phone ?? "").replace(/\D/g, "");
-          const tail9 = phoneDigits.length >= 9 ? phoneDigits.slice(-9) : null;
-          const emailLower = row.email ? row.email.toLowerCase() : null;
-          if (tail9 || emailLower) {
-            const orParts: string[] = [];
-            if (tail9) orParts.push(`phone.ilike.%${tail9}`);
-            if (emailLower) orParts.push(`email.ilike.${emailLower}`);
-            const { data: prior } = await supabaseAdmin
-              .from("meta_leads")
-              .select("id, phone, email, created_at")
-              .neq("id", data.id)
-              .or(orParts.join(","))
-              .order("created_at", { ascending: false })
-              .limit(25);
-            const match = (prior ?? []).find((r) => {
-              const rDigits = (r.phone ?? "").replace(/\D/g, "");
-              const phoneMatch = tail9 && rDigits.length >= 9 && rDigits.slice(-9) === tail9;
-              const emailMatch = emailLower && r.email && r.email.toLowerCase() === emailLower;
-              return phoneMatch || emailMatch;
-            });
-            if (match?.id) {
-              await supabaseAdmin
-                .from("meta_leads")
-                .update({ previous_lead_id: match.id })
-                .eq("id", data.id);
-            }
-          }
-        } catch (e) {
-          console.error("meta-leads previous_lead_id link failed:", e);
-        }
+        // Linking to a prior enquiry and classifying the lead (new / returning /
+        // already booked / been in before) is handled automatically by a database
+        // trigger on insert, so it applies to every entry point, not just this one.
+
 
         return jsonResponse({ success: true, id: data.id }, 201);
       },
