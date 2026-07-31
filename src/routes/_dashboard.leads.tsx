@@ -295,7 +295,14 @@ function LeadsPage() {
     "Spoke — No Sale",
     "Booked — Deposit Paid",
   ]);
-  const visibleRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
+  const queueRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
+
+  // Leads from someone who already has an upcoming appointment never enter the
+  // call queue — they surface in a separate "Needs attention" tray instead, so
+  // no rep can cold call a patient who is already booked in.
+  const needsAttention = queueRows.filter((r) => r.lead_class === "booked_active");
+  const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
+
 
   const locationOf = (r: Lead) => deriveLocation(r) ?? UNKNOWN_LOC;
 
