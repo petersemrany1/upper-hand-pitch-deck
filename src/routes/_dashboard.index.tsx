@@ -28,6 +28,90 @@ export const Route = createFileRoute("/_dashboard/")({
 
 const FONT = `"DM Sans", system-ui, -apple-system, sans-serif`;
 
+const CONV_GREEN = "#16a34a";
+const CONV_ORANGE = "#f59e0b";
+const CONV_RED = "#dc2626";
+
+/** Leads → Bookings: target 20% (1 in 5). Green >=20, orange 10-20, red <10. */
+function leadsConvColor(pct: number): string {
+  if (pct >= 20) return CONV_GREEN;
+  if (pct >= 10) return CONV_ORANGE;
+  return CONV_RED;
+}
+
+/** Calls → Bookings: green >=60, orange 30-60, red <30. */
+function connectsConvColor(pct: number): string {
+  if (pct >= 60) return CONV_GREEN;
+  if (pct >= 30) return CONV_ORANGE;
+  return CONV_RED;
+}
+
+const LEADS_CONV_TOOLTIP =
+  "Of all new patient enquiries that came in during this period, the percentage that booked an appointment. Target 20%.";
+const CONNECTS_CONV_TOOLTIP =
+  "Of all the people you actually got on the phone for more than 10 seconds, the percentage that booked. Target 60%.";
+
+function InfoTip({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span
+      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 5 }}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onClick={() => setOpen((v) => !v)}
+    >
+      <span
+        aria-label={text}
+        style={{
+          width: 14,
+          height: 14,
+          borderRadius: "50%",
+          border: "1px solid #ccc",
+          color: "#999",
+          fontSize: 9,
+          fontWeight: 700,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "help",
+          lineHeight: 1,
+          textTransform: "none",
+          letterSpacing: 0,
+        }}
+      >
+        i
+      </span>
+      {open && (
+        <span
+          role="tooltip"
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 230,
+            background: "#111",
+            color: "#fff",
+            fontSize: 11,
+            fontWeight: 400,
+            lineHeight: 1.45,
+            padding: "8px 10px",
+            borderRadius: 8,
+            textAlign: "left",
+            textTransform: "none",
+            letterSpacing: 0,
+            zIndex: 50,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            pointerEvents: "none",
+          }}
+        >
+          {text}
+        </span>
+      )}
+    </span>
+  );
+}
+
 function getGreeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -587,15 +671,15 @@ function DashboardHome() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings</div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
                   {leadsPct}%
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLeadsBooked} of {convLeadsTotal} leads</div>
               </div>
               <div style={{ padding: 20 }}>
-                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings</div>
-                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: "#111", marginTop: 8, lineHeight: 1 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings<InfoTip text={CONNECTS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
                   {connectsPct}%
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConnectedBooked} of {convConnectedUnique} connects</div>
@@ -670,22 +754,22 @@ function DashboardHome() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
             <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: "#16a34a", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convLeadsTotal > 0 ? `${leadsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Leads to Bookings
+                Leads to Bookings<InfoTip text={LEADS_CONV_TOOLTIP} />
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                 {convLeadsBooked} / {convLeadsTotal} leads
               </div>
             </div>
             <div style={{ padding: "20px", textAlign: "center" }}>
-              <div style={{ fontSize: 32, fontWeight: 600, color: "#f4522d", letterSpacing: "-0.03em", lineHeight: 1 }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convConnectedUnique > 0 ? `${connectsPct}%` : "—"}
               </div>
               <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
-                Connects to Sales
+                Connects to Sales<InfoTip text={CONNECTS_CONV_TOOLTIP} />
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                 {convConnectedBooked} / {convConnectedUnique} connected
