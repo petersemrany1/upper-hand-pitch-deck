@@ -10,6 +10,7 @@ export const TRAINING_MODULES = [
   { slug: "sales-call-example", url: "/training/sales-call-example", title: "Sales Call Example" },
   { slug: "knowledge-quiz", url: "/training/knowledge-quiz", title: "Knowledge Quiz" },
   { slug: "platform", url: "/training/platform", title: "Platform Training" },
+  { slug: "call-coaching", url: "/training/call-coaching", title: "Before You Practice — Call Coaching" },
   { slug: "ai", url: "/training/ai", title: "AI Training" },
 ] as const;
 
