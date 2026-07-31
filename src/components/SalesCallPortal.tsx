@@ -63,7 +63,7 @@ const SALES_CALL_LEAD_SELECT = `
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
   pipeline_summary_updated_at,
   deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id,
-  handover_sent_at, previous_lead_id
+  handover_sent_at, previous_lead_id, lead_class, lead_class_reason
 `;
 
 type Clinic = {
