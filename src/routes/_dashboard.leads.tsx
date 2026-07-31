@@ -834,15 +834,20 @@ function LeadsPage() {
                             <td className="px-4 py-3 text-[#111111] font-medium whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <span>{fullName}</span>
-                                {r.previous_lead_id && (
-                                  <span
-                                    className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                                    style={{ background: "#f59e0b", color: "#fff" }}
-                                    title="This person has enquired with us before"
-                                  >
-                                    Returning
-                                  </span>
-                                )}
+                                {(() => {
+                                  const cb = CLASS_BADGE[r.lead_class ?? ""];
+                                  if (!cb) return null;
+                                  return (
+                                    <span
+                                      className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                                      style={{ background: cb.bg, color: cb.fg }}
+                                      title={r.lead_class_reason ?? cb.title}
+                                    >
+                                      {cb.label}
+                                    </span>
+                                  );
+                                })()}
+
                                 {dup && (
                                   <span
                                     className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
