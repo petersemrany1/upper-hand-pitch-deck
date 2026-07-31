@@ -45,6 +45,9 @@ type Lead = {
   stripe_payment_intent_id?: string | null; stripe_checkout_session_id?: string | null;
   handover_sent_at?: string | null;
   previous_lead_id?: string | null;
+  lead_class?: string | null;
+  lead_class_reason?: string | null;
+
 };
 
 function leadHasBookedSale(lead: Lead) {
