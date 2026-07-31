@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, AlertTriangle } from "lucide-react";
+import { ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { PickupRateCard } from "@/components/PickupRateCard";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { sendPackRenewalEmail } from "@/lib/pack-renewal.functions";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
