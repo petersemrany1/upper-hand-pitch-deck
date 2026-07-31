@@ -409,3 +409,15 @@ body :not(.pitch-deck-root):not(.pitch-deck-root *) > [data-state="open"][data-r
     animation: none !important;
   }
 }
+
+/* Dashboard info tooltip hover support */
+.infotip-trigger .infotip-tooltip {
+  display: none;
+  pointer-events: none;
+}
+
+.infotip-trigger:hover .infotip-tooltip,
+.infotip-trigger.infotip-open .infotip-tooltip {
+  display: block;
+}
+
