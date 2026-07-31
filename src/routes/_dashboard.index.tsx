@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronDown, AlertTriangle } from "lucide-react";
+import { ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { PickupRateCard } from "@/components/PickupRateCard";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { sendPackRenewalEmail } from "@/lib/pack-renewal.functions";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 export const Route = createFileRoute("/_dashboard/")({
   component: DashboardHome,
@@ -52,63 +53,40 @@ const CONNECTS_CONV_TOOLTIP =
   "Of all the people you actually got on the phone for more than 10 seconds, the percentage that booked. Target 60%.";
 
 function InfoTip({ text }: { text: string }) {
-  const [open, setOpen] = useState(false);
   return (
-    <span
-      style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 5 }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onClick={() => setOpen((v) => !v)}
-    >
-      <span
-        aria-label={text}
-        style={{
-          width: 14,
-          height: 14,
-          borderRadius: "50%",
-          border: "1px solid #ccc",
-          color: "#999",
-          fontSize: 9,
-          fontWeight: 700,
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          cursor: "help",
-          lineHeight: 1,
-          textTransform: "none",
-          letterSpacing: 0,
-        }}
-      >
-        i
-      </span>
-      {open && (
+    <Tooltip>
+      <TooltipTrigger asChild>
         <span
-          role="tooltip"
+          aria-label={text}
+          role="button"
           style={{
-            position: "absolute",
-            bottom: "calc(100% + 8px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: 230,
-            background: "#111",
-            color: "#fff",
-            fontSize: 11,
-            fontWeight: 400,
-            lineHeight: 1.45,
-            padding: "8px 10px",
-            borderRadius: 8,
-            textAlign: "left",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            border: "1px solid #ccc",
+            color: "#999",
+            fontSize: 9,
+            fontWeight: 700,
+            marginLeft: 5,
+            verticalAlign: "middle",
+            cursor: "help",
             textTransform: "none",
             letterSpacing: 0,
-            zIndex: 50,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            pointerEvents: "none",
+            flexShrink: 0,
           }}
         >
+          <Info size={10} />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="center" style={{ maxWidth: 260, textAlign: "left" }}>
+        <span style={{ fontSize: 11, fontWeight: 400, lineHeight: 1.45, textTransform: "none", letterSpacing: 0 }}>
           {text}
         </span>
-      )}
-    </span>
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
