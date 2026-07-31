@@ -26,7 +26,31 @@ type Lead = {
   rep_id?: string | null;
   raw_payload?: unknown;
   previous_lead_id?: string | null;
+  lead_class?: string | null;
+  lead_class_reason?: string | null;
+  superseded_by_lead_id?: string | null;
 };
+
+const CLASS_BADGE: Record<string, { label: string; bg: string; fg: string; title: string }> = {
+  returning: {
+    label: "Returning",
+    bg: "#f59e0b",
+    fg: "#fff",
+    title: "This person has enquired with us before — history is loaded on the call screen",
+  },
+  post_consult: {
+    label: "Been in before",
+    bg: "#7c3aed",
+    fg: "#fff",
+    title: "This person has already attended a consult",
+  },
+  booked_active: {
+    label: "Already booked",
+    bg: "#dc2626",
+    fg: "#fff",
+    title: "This person already has an upcoming appointment — do not cold call",
+  },
+
 
 type RepOption = { id: string; name: string; email: string | null };
 
