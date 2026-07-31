@@ -55,9 +55,8 @@ function InfoTip({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   return (
     <span
+      className={`infotip-trigger ${open ? "infotip-open" : ""}`}
       style={{ position: "relative", display: "inline-flex", verticalAlign: "middle", marginLeft: 5, cursor: "help" }}
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
       onClick={() => setOpen((v) => !v)}
     >
       <span
@@ -76,38 +75,36 @@ function InfoTip({ text }: { text: string }) {
           lineHeight: 1,
           textTransform: "none",
           letterSpacing: 0,
-          pointerEvents: "none",
         }}
       >
         i
       </span>
-      {open && (
-        <span
-          role="tooltip"
-          style={{
-            position: "absolute",
-            bottom: "calc(100% + 8px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: 230,
-            background: "#111",
-            color: "#fff",
-            fontSize: 11,
-            fontWeight: 400,
-            lineHeight: 1.45,
-            padding: "8px 10px",
-            borderRadius: 8,
-            textAlign: "left",
-            textTransform: "none",
-            letterSpacing: 0,
-            zIndex: 50,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-            pointerEvents: "none",
-          }}
-        >
-          {text}
-        </span>
-      )}
+      <span
+        role="tooltip"
+        className="infotip-tooltip"
+        style={{
+          position: "absolute",
+          bottom: "calc(100% + 8px)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 230,
+          background: "#111",
+          color: "#fff",
+          fontSize: 11,
+          fontWeight: 400,
+          lineHeight: 1.45,
+          padding: "8px 10px",
+          borderRadius: 8,
+          textAlign: "left",
+          textTransform: "none",
+          letterSpacing: 0,
+          zIndex: 50,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          pointerEvents: "none",
+        }}
+      >
+        {text}
+      </span>
     </span>
   );
 }
