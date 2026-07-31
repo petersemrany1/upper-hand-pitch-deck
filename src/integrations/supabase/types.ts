@@ -404,6 +404,13 @@ export type Database = {
             referencedRelation: "partner_clinics"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "clinic_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "meta_leads"
+            referencedColumns: ["id"]
+          },
         ]
       }
       clinic_availability: {
