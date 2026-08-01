@@ -233,15 +233,17 @@ Any questions, just message back.`;
     return `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`;
   }
 
-  async function onSendEmail() {
-    if (!patientEmail) {
+  async function onSendEmail(to?: string) {
+    const recipient = (to ?? patientEmail ?? "").trim();
+    if (!recipient) {
       toast.error("No patient email on file");
       return;
     }
-    const res = await sendEmail({ data: { quoteId: quote!.id, to: patientEmail } });
+    const res = await sendEmail({ data: { quoteId: quote!.id, to: recipient } });
     if (res.success) toast.success("Email sent");
     else toast.error(res.error ?? "Failed");
   }
+
 
   const showWarning = transplantWarning(quote.diagnosis);
   const firstName = quote.patient_name.split(" ")[0];
