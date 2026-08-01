@@ -70,6 +70,9 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
       setKioskPin(String(s.kiosk_pin ?? "0000"));
+      setDoctorName(s.doctor_name ?? "");
+      setCoolingOff(String(s.cooling_off_days ?? 7));
+
       setFollicleModelUrl(String(s.follicle_model_url ?? ""));
 
       if (s.logo_url) {
