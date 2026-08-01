@@ -420,23 +420,23 @@ Any questions, just message back.`;
                   })}
                 </div>
               </>
-            ) : (
-              <p className="text-xs text-clinical-muted text-center">
-                Message the clinic and we'll confirm the next available surgery date for you.
-              </p>
-            )}
+            ) : null}
+
+            <p className="text-xs text-clinical-muted text-center mt-4">
+              Pay your deposit and {clinicName || "the clinic"} will confirm your surgery date within one business day.
+            </p>
 
             <button
               onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
               disabled={!patientPhone}
-              className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <MessageCircle size={16} /> {ctaLabel}
+              <Lock size={16} /> {ctaLabel}
             </button>
 
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3">
               <TrustItem text="Doctor-led procedure" />
-              <TrustItem text="Deposit credited to your total" />
+              <TrustItem text={`Refundable ${coolingOffDays}-day cooling-off`} />
               <TrustItem text="Finance available" />
             </div>
 
@@ -445,7 +445,7 @@ Any questions, just message back.`;
                 onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
                 className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
               >
-                Request other dates
+                Message the clinic
               </button>
               {(clinicPhone || whatsappNumber) && (
                 <a
@@ -461,41 +461,60 @@ Any questions, just message back.`;
               <Clock size={12} />
               {quote.status === "expired" || isExpired
                 ? "This quote has expired — message the clinic to have it re-issued."
-                : daysLeft <= 0
-                  ? `Pricing held until end of today (${fmtDate(quote.valid_until)})`
-                  : `Pricing held for ${daysLeft} more ${daysLeft === 1 ? "day" : "days"} — until ${fmtDate(quote.valid_until)}`}
+                : `This quote is valid until ${fmtDate(quote.valid_until)}.`}
             </p>
           </div>
 
           {/* Clinical detail — below the fold */}
           <div className="border-t border-clinical-line bg-white">
-            {quote.description && (
-              <div className="px-6 py-5">
-                <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What your procedure involves</h3>
-                <div className="text-clinical-muted text-sm leading-relaxed whitespace-pre-line">{quote.description}</div>
-              </div>
-            )}
+            <div className="px-6 py-5">
+              <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What your procedure involves</h3>
+              <p className="text-clinical-muted text-sm leading-relaxed">
+                Hair restoration — {graftsText} grafts, sapphire FUE. One session, moving grafts from your permanent donor area at the back and sides of the scalp to the hairline, mid-scalp and crown.
+              </p>
+              <ul className="text-xs text-clinical-muted space-y-2 mt-4">
+                <li className="flex gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
+                  Your hairline is designed with you before surgery day — around your facial proportions, hair calibre, existing density and how your loss is likely to progress.
+                </li>
+                <li className="flex gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
+                  {docName} creates every recipient site — setting the angle and direction of each graft — and personally places the grafts along your frontal hairline.
+                </li>
+                <li className="flex gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
+                  Grafts are counted during the procedure and the final count is shown to you before you leave.
+                </li>
+              </ul>
+              <p className="text-xs text-clinical-text leading-relaxed mt-4 pt-4 border-t border-clinical-line/60 italic">
+                Your donor hair is finite. This plan uses {graftsText} grafts and holds the rest in reserve for the future.
+              </p>
+            </div>
 
-            {includes.length > 0 && (
-              <div className="px-6 py-5 border-t border-clinical-line/60">
-                <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
-                <ul className="text-xs text-clinical-muted space-y-1.5">
-                  {includes.map((line, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-clinical-accent" />
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <div className="px-6 py-5 border-t border-clinical-line/60">
+              <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
+              <ul className="text-xs text-clinical-muted space-y-1.5">
+                {[
+                  `Hairline design session with ${docName} before surgery day`,
+                  `Full sapphire FUE procedure led by ${docName}`,
+                  "Take-home aftercare kit",
+                  "Follow-up reviews at 3, 6 and 12 months",
+                  `Direct access to ${docName} if anything comes up`,
+                ].map((line, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-clinical-accent" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-            <div className="px-6 py-5 border-t border-clinical-line/60 flex gap-2">
+            <div className="px-6 py-5 border-t border-clinical-line/60 flex flex-wrap gap-2">
               <button
                 onClick={() => void openGallery()}
                 className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
               >
-                <Images size={14} /> Patient results timeline
+                <Images size={14} /> What results look like, month by month
               </button>
               <button
                 onClick={() => void onSendEmail()}
@@ -504,10 +523,43 @@ Any questions, just message back.`;
               >
                 <Mail size={14} /> Email me this plan
               </button>
+              <button
+                onClick={() => setPartnerModal(true)}
+                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+              >
+                <Mail size={14} /> Send to my partner
+              </button>
+            </div>
+
+            {/* Repeat CTA */}
+            <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
+              <button
+                onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
+                disabled={!patientPhone}
+                className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Lock size={16} /> {ctaLabel}
+              </button>
+              {deposit > 0 && (
+                <p className="text-[11px] text-clinical-muted text-center mt-3 leading-relaxed">
+                  {fmt$(deposit)} deposit — fully refundable during your {coolingOffDays}-day cooling-off period.
+                </p>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {partnerModal && (
+        <PartnerEmailModal
+          onClose={() => setPartnerModal(false)}
+          onSend={async (email) => {
+            await onSendEmail(email);
+            setPartnerModal(false);
+          }}
+        />
+      )}
+
 
 
       {bookModal && (
