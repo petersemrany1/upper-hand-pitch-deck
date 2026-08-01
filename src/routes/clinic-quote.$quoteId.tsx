@@ -106,6 +106,10 @@ function QuotePage() {
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [doctorName, setDoctorName] = useState<string | null>(null);
+  const [coolingOffDays, setCoolingOffDays] = useState<number>(7);
+  const [partnerModal, setPartnerModal] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookModal, setBookModal] = useState(false);
