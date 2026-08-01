@@ -101,6 +101,8 @@ function QuotePage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState<string>("");
+  const [clinicPhone, setClinicPhone] = useState<string | null>(null);
+  const [clinicCity, setClinicCity] = useState<string | null>(null);
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
@@ -110,6 +112,7 @@ function QuotePage() {
   const [depositModal, setDepositModal] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const refresh = async () => {
     const { data: q, error } = await supabase
@@ -125,11 +128,15 @@ function QuotePage() {
     setQuote(q as Quote);
 
     const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
-      supabase.from("partner_clinics").select("clinic_name").eq("id", (q as Quote).clinic_id).maybeSingle(),
+      supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
       supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
       supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
     ]);
-    if (clinic) setClinicName(clinic.clinic_name as string);
+    if (clinic) {
+      setClinicName(clinic.clinic_name as string);
+      setClinicPhone((clinic.phone as string | null) ?? null);
+      setClinicCity([clinic.city, clinic.state].filter(Boolean).join(", ") || null);
+    }
     if (settings) {
       setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
     }
@@ -137,6 +144,7 @@ function QuotePage() {
       setPatientPhone((appt.patient_phone as string | null) ?? null);
       setPatientEmail((appt.patient_email as string | null) ?? null);
     }
+
 
     if (settings?.logo_url) {
       try {
@@ -230,6 +238,24 @@ Any questions, just message back.`;
 
   const showWarning = transplantWarning(quote.diagnosis);
   const includes = parseIncludes(quote.includes_text);
+  const firstName = quote.patient_name.split(" ")[0];
+  const dateOptions = [quote.date_option_1, quote.date_option_2].filter(Boolean) as string[];
+  const weekly = quote.price > 0 ? Math.ceil(quote.price / (5 * 52) / 5) * 5 : 0;
+  const deposit = Math.round(quote.deposit_amount || 0);
+  const daysLeft = (() => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
+    const ms = new Date(quote.valid_until + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime();
+    return Math.round(ms / 86400000);
+  })();
+  const activeDate = quote.booked_date ?? selectedDate;
+  const ctaLabel = quote.booked_date
+    ? "Message the clinic"
+    : deposit > 0
+      ? activeDate
+        ? `Pay ${fmt$(deposit)} deposit — lock in ${fmtDateCompact(activeDate)}`
+        : `Pay ${fmt$(deposit)} deposit and lock in my date`
+      : "Secure my treatment date";
+
 
   return (
     <div className="min-h-screen bg-clinical-bg font-clinic-body relative">
@@ -285,21 +311,31 @@ Any questions, just message back.`;
               <div className="text-right">
                 <p className="text-[10px] uppercase text-clinical-muted font-semibold">Clinic</p>
                 <p className="text-sm font-medium text-clinical-text">{clinicName}</p>
+                {clinicCity && <p className="text-[11px] text-clinical-muted">{clinicCity}</p>}
               </div>
             </div>
           </div>
 
-          {/* Clinical Assessment */}
-          <div className="p-6 bg-slate-50/50">
-            <h2 className="text-base font-semibold text-clinical-text mb-2 font-clinic-heading">Clinical Assessment</h2>
-            <div className="bg-white border border-clinical-line p-3 rounded-sm">
-              <p className="text-xs text-clinical-muted leading-relaxed">
-                {quote.diagnosis}
-                {quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
-              </p>
+          {/* Headline + assessment at a glance */}
+          <div className="px-6 pt-6 pb-5">
+            <h2 className="text-2xl font-semibold tracking-tight text-clinical-text font-clinic-heading">
+              {firstName}, your plan to restore your hairline
+            </h2>
+            <p className="text-sm text-clinical-muted mt-2 leading-relaxed">
+              Reviewed by your surgeon today at {clinicName}. Everything below is specific to your assessment.
+            </p>
+
+            <div className="grid grid-cols-3 gap-3 mt-5">
+              <SummaryTile label="Diagnosis" value={quote.diagnosis} />
+              <SummaryTile label="Norwood" value={quote.norwood ?? "—"} />
+              <SummaryTile
+                label="Grafts"
+                value={quote.grafts != null ? quote.grafts.toLocaleString() : "TBC"}
+              />
             </div>
+
             {showWarning && (
-              <div className="mt-3 p-3 border rounded-sm bg-clinical-amber-fill border-clinical-amber/20">
+              <div className="mt-4 p-3 border rounded-sm bg-clinical-amber-fill border-clinical-amber/20">
                 <p className="text-xs text-clinical-amber leading-relaxed">
                   Transplant usually not suitable for this diagnosis — consider treatment or specialist referral first.
                 </p>
@@ -307,39 +343,137 @@ Any questions, just message back.`;
             )}
           </div>
 
-          {/* Procedure Description */}
-          {quote.description && (
-            <div className="px-6 py-5 bg-white border-t border-clinical-line">
-              <div className="prose prose-sm max-w-none text-clinical-muted text-sm leading-relaxed whitespace-pre-line">
-                {quote.description}
+          {/* Investment + finance + deposit */}
+          <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Treatment Investment</p>
+                <p className="text-3xl font-semibold text-clinical-text tracking-tight mt-1">{fmt$(quote.price)}</p>
+                <p className="text-[11px] text-clinical-muted mt-1">All-inclusive · AUD · no hidden theatre fees</p>
               </div>
-            </div>
-          )}
-
-          {/* Recommended Plan */}
-          <div className="p-6 space-y-4">
-            <div className="flex justify-between items-end border-b border-clinical-line pb-2">
-              <h2 className="text-base font-semibold text-clinical-text font-clinic-heading">Recommended Plan</h2>
-              <span className="text-[10px] font-bold text-clinical-accent bg-clinical-accent-fill px-2 py-0.5 rounded-full uppercase">FUE Procedure</span>
-            </div>
-
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-clinical-muted">Estimated Graft Count</span>
-              <span className="text-sm font-semibold text-clinical-text">
-                {quote.grafts != null ? `${quote.grafts.toLocaleString()} Grafts` : "To be confirmed at consult"}
-              </span>
+              {weekly > 0 && (
+                <div className="text-right">
+                  <p className="text-[10px] uppercase text-clinical-muted font-semibold">Or from</p>
+                  <p className="text-lg font-semibold text-clinical-text">{fmt$(weekly)}<span className="text-xs font-normal text-clinical-muted">/week</span></p>
+                  <p className="text-[10px] text-clinical-muted">5-year plan, subject to approval</p>
+                </div>
+              )}
             </div>
 
-            {quote.norwood && (
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-clinical-muted">Norwood Scale</span>
-                <span className="text-sm font-semibold text-clinical-text">{quote.norwood}</span>
+            {deposit > 0 && (
+              <div className="mt-4 flex items-start gap-2 bg-white border border-clinical-line rounded-sm p-3">
+                <CheckCircle2 size={15} className="text-clinical-accent mt-0.5 shrink-0" />
+                <p className="text-xs text-clinical-muted leading-relaxed">
+                  <span className="font-semibold text-clinical-text">{fmt$(deposit)} deposit</span> secures your surgery date and theatre time. It comes off your total — the balance is due before your procedure day.
+                </p>
+              </div>
+            )}
+
+            {(quote.status === "booked" || quote.status === "deposit_recorded") && (
+              <div className="mt-4 text-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: GREEN_BG, color: GREEN }}>
+                  <CheckCircle2 size={14} /> {statusLabel}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Date selection + CTA */}
+          <div className="px-6 py-6 border-t border-clinical-line">
+            {quote.booked_date ? (
+              <div className="text-center p-3 bg-slate-50 rounded-sm border border-clinical-line">
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Your procedure date</p>
+                <p className="text-sm font-medium text-clinical-text">{fmtDate(quote.booked_date)}</p>
+              </div>
+            ) : dateOptions.length > 0 ? (
+              <>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] uppercase text-clinical-muted font-semibold">Choose your surgery date</p>
+                  <span className="text-[10px] font-bold uppercase text-clinical-amber bg-clinical-amber-fill px-2 py-0.5 rounded-full">
+                    Only {dateOptions.length} {dateOptions.length === 1 ? "date" : "dates"} left
+                  </span>
+                </div>
+                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateOptions.length}, minmax(0, 1fr))` }}>
+                  {dateOptions.map((d) => {
+                    const on = selectedDate === d;
+                    return (
+                      <button
+                        key={d}
+                        onClick={() => setSelectedDate(on ? null : d)}
+                        className={`py-3 px-2 rounded-sm border text-sm font-semibold transition-colors ${
+                          on
+                            ? "border-clinical-text bg-clinical-accent-fill text-clinical-text"
+                            : "border-clinical-line bg-white text-clinical-text hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="block">{fmtDateCompact(d)}</span>
+                        <span className="block text-[10px] font-normal text-clinical-muted">
+                          {new Date(d + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", timeZone: APP_TIMEZONE })}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-clinical-muted text-center">
+                Message the clinic and we'll confirm the next available surgery date for you.
+              </p>
+            )}
+
+            <button
+              onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
+              disabled={!patientPhone}
+              className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MessageCircle size={16} /> {ctaLabel}
+            </button>
+
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3">
+              <TrustItem text="Doctor-led procedure" />
+              <TrustItem text="Deposit credited to your total" />
+              <TrustItem text="Finance available" />
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
+                className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
+              >
+                Request other dates
+              </button>
+              {(clinicPhone || whatsappNumber) && (
+                <a
+                  href={`tel:${(clinicPhone ?? whatsappNumber ?? "").replace(/\s/g, "")}`}
+                  className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors text-center"
+                >
+                  Call {clinicName || "the clinic"} {clinicPhone ?? whatsappNumber}
+                </a>
+              )}
+            </div>
+
+            <p className="text-[11px] text-clinical-muted text-center mt-4 flex items-center justify-center gap-1.5">
+              <Clock size={12} />
+              {quote.status === "expired" || isExpired
+                ? "This quote has expired — message the clinic to have it re-issued."
+                : daysLeft <= 0
+                  ? `Pricing held until end of today (${fmtDate(quote.valid_until)})`
+                  : `Pricing held for ${daysLeft} more ${daysLeft === 1 ? "day" : "days"} — until ${fmtDate(quote.valid_until)}`}
+            </p>
+          </div>
+
+          {/* Clinical detail — below the fold */}
+          <div className="border-t border-clinical-line bg-white">
+            {quote.description && (
+              <div className="px-6 py-5">
+                <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What your procedure involves</h3>
+                <div className="text-clinical-muted text-sm leading-relaxed whitespace-pre-line">{quote.description}</div>
               </div>
             )}
 
             {includes.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Clinical Inclusions</p>
+              <div className="px-6 py-5 border-t border-clinical-line/60">
+                <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
                 <ul className="text-xs text-clinical-muted space-y-1.5">
                   {includes.map((line, i) => (
                     <li key={i} className="flex items-center gap-2">
@@ -350,99 +484,26 @@ Any questions, just message back.`;
                 </ul>
               </div>
             )}
-          </div>
 
-          {/* Investment & Scheduling */}
-          <div className="mt-auto border-t-2 border-clinical-line">
-            <div className="p-6 bg-white">
-              <div className="flex justify-between items-center mb-6">
-                <span className="text-sm font-medium text-clinical-muted">Treatment Investment</span>
-                <span className="text-xl font-semibold text-clinical-text">{fmt$(quote.price)}</span>
-              </div>
-
-              {(quote.status === "booked" || quote.status === "deposit_recorded") && (
-                <div className="mb-5 text-center">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: GREEN_BG, color: GREEN }}>
-                    <CheckCircle2 size={14} /> {statusLabel}
-                  </span>
-                </div>
-              )}
-              {(quote.status === "expired" || isExpired) && (
-                <div className="mb-5 text-center">
-                  <span className="inline-flex items-center gap-1.5 bg-clinical-amber-fill text-clinical-amber px-3 py-1.5 rounded-full text-xs font-semibold">
-                    <Clock size={14} /> Expired
-                  </span>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <p className="text-[10px] uppercase text-clinical-muted font-semibold text-center">
-                  Quote valid until {fmtDate(quote.valid_until)}
-                </p>
-
-                {!quote.booked_date && (quote.date_option_1 || quote.date_option_2) && (
-                  <>
-                    <p className="text-[10px] uppercase text-clinical-muted font-semibold text-center">Next Available Clinical Slots</p>
-                    <div className="flex gap-2 justify-center">
-                      {quote.date_option_1 && (
-                        <button
-                          onClick={() => setBookModal(true)}
-                          className="flex-1 py-2 px-1 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
-                        >
-                          {fmtDateCompact(quote.date_option_1)}
-                        </button>
-                      )}
-                      {quote.date_option_2 && (
-                        <button
-                          onClick={() => setBookModal(true)}
-                          className="flex-1 py-2 px-1 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
-                        >
-                          {fmtDateCompact(quote.date_option_2)}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                {quote.booked_date && (
-                  <div className="text-center p-2 bg-slate-50 rounded">
-                    <p className="text-[10px] uppercase text-clinical-muted font-semibold">Your procedure date</p>
-                    <p className="text-sm font-medium text-clinical-text">{fmtDate(quote.booked_date)}</p>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
-                  disabled={!patientPhone}
-                  className="w-full bg-clinical-text text-white py-3.5 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-2 uppercase flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <MessageCircle size={16} /> Secure Treatment Plan
-                </button>
-
-                <div className="flex gap-2 justify-center">
-                  <button
-                    onClick={() => void onSendEmail()}
-                    disabled={!patientEmail}
-                    className="flex-1 py-2 px-3 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
-                  >
-                    <Mail size={14} /> Send via email
-                  </button>
-                  <button
-                    onClick={() => void openGallery()}
-                    className="flex-1 py-2 px-3 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
-                  >
-                    <Images size={14} /> Timeline
-                  </button>
-                </div>
-
-                <p className="text-[10px] text-clinical-muted text-center">
-                  Deposit required to confirm clinical space. Ways to pay: in full · deposit + balance · finance options available.
-                </p>
-              </div>
+            <div className="px-6 py-5 border-t border-clinical-line/60 flex gap-2">
+              <button
+                onClick={() => void openGallery()}
+                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+              >
+                <Images size={14} /> Patient results timeline
+              </button>
+              <button
+                onClick={() => void onSendEmail()}
+                disabled={!patientEmail}
+                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+              >
+                <Mail size={14} /> Email me this plan
+              </button>
             </div>
           </div>
         </div>
       </div>
+
 
       {bookModal && (
         <BookDateModal
@@ -485,6 +546,23 @@ Any questions, just message back.`;
         />
       )}
     </div>
+  );
+}
+
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-clinical-line rounded-sm p-3 bg-white">
+      <p className="text-[10px] uppercase text-clinical-muted font-semibold">{label}</p>
+      <p className="text-[13px] font-medium text-clinical-text leading-snug mt-0.5">{value}</p>
+    </div>
+  );
+}
+
+function TrustItem({ text }: { text: string }) {
+  return (
+    <span className="text-[10px] text-clinical-muted flex items-center gap-1">
+      <CheckCircle2 size={11} className="text-clinical-accent" /> {text}
+    </span>
   );
 }
 
