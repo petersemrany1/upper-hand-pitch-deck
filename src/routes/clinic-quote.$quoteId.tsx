@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { toast } from "sonner";
-import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images } from "lucide-react";
+import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images, Lock } from "lucide-react";
 import { clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import {
   bookClinicflowQuoteDate,
