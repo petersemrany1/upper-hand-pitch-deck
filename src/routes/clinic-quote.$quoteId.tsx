@@ -80,14 +80,6 @@ function transplantWarning(diagnosis: string) {
   );
 }
 
-function parseIncludes(text: string | null) {
-  if (!text) return [];
-  return text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => l.replace(/^[-*•]\s*/, ""));
-}
 
 function QuotePage() {
   const { quoteId } = useParams({ from: "/clinic-quote/$quoteId" });
