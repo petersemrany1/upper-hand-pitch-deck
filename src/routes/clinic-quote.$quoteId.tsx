@@ -238,6 +238,24 @@ Any questions, just message back.`;
 
   const showWarning = transplantWarning(quote.diagnosis);
   const includes = parseIncludes(quote.includes_text);
+  const firstName = quote.patient_name.split(" ")[0];
+  const dateOptions = [quote.date_option_1, quote.date_option_2].filter(Boolean) as string[];
+  const weekly = quote.price > 0 ? Math.ceil(quote.price / (5 * 52) / 5) * 5 : 0;
+  const deposit = Math.round(quote.deposit_amount || 0);
+  const daysLeft = (() => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
+    const ms = new Date(quote.valid_until + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime();
+    return Math.round(ms / 86400000);
+  })();
+  const activeDate = quote.booked_date ?? selectedDate;
+  const ctaLabel = quote.booked_date
+    ? "Message the clinic"
+    : deposit > 0
+      ? activeDate
+        ? `Pay ${fmt$(deposit)} deposit — lock in ${fmtDateCompact(activeDate)}`
+        : `Pay ${fmt$(deposit)} deposit and lock in my date`
+      : "Secure my treatment date";
+
 
   return (
     <div className="min-h-screen bg-clinical-bg font-clinic-body relative">
