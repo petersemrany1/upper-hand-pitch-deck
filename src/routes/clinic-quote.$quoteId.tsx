@@ -129,7 +129,7 @@ function QuotePage() {
 
     const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
       supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
-      supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
+      supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number, doctor_name, cooling_off_days").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
       supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
     ]);
     if (clinic) {
@@ -139,7 +139,10 @@ function QuotePage() {
     }
     if (settings) {
       setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
+      setDoctorName((settings.doctor_name as string | null) ?? null);
+      setCoolingOffDays(Number(settings.cooling_off_days ?? 7));
     }
+
     if (appt) {
       setPatientPhone((appt.patient_phone as string | null) ?? null);
       setPatientEmail((appt.patient_email as string | null) ?? null);
