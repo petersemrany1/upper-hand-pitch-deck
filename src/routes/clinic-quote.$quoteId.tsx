@@ -101,6 +101,8 @@ function QuotePage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState<string>("");
+  const [clinicPhone, setClinicPhone] = useState<string | null>(null);
+  const [clinicCity, setClinicCity] = useState<string | null>(null);
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
@@ -110,6 +112,7 @@ function QuotePage() {
   const [depositModal, setDepositModal] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const refresh = async () => {
     const { data: q, error } = await supabase
@@ -125,11 +128,15 @@ function QuotePage() {
     setQuote(q as Quote);
 
     const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
-      supabase.from("partner_clinics").select("clinic_name").eq("id", (q as Quote).clinic_id).maybeSingle(),
+      supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
       supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
       supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
     ]);
-    if (clinic) setClinicName(clinic.clinic_name as string);
+    if (clinic) {
+      setClinicName(clinic.clinic_name as string);
+      setClinicPhone((clinic.phone as string | null) ?? null);
+      setClinicCity([clinic.city, clinic.state].filter(Boolean).join(", ") || null);
+    }
     if (settings) {
       setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
     }
@@ -137,6 +144,7 @@ function QuotePage() {
       setPatientPhone((appt.patient_phone as string | null) ?? null);
       setPatientEmail((appt.patient_email as string | null) ?? null);
     }
+
 
     if (settings?.logo_url) {
       try {
