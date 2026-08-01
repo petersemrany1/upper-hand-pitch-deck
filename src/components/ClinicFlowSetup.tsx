@@ -177,14 +177,28 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     }
   };
 
+  const saveDoctorName = async () => {
+    const n = doctorName.trim();
+    if (!n) return toast.error("Enter the doctor's name");
+    try {
+      await updateFn({ data: { clinicId, doctorName: n } });
+      await load();
+      toast.success("Doctor name saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
 
   const saveDefaults = async () => {
     const d = Number(deposit);
     const v = Number(validity);
+    const c = Number(coolingOff);
     if (!Number.isFinite(d) || d < 0) return toast.error("Enter a valid deposit amount");
     if (!Number.isFinite(v) || v < 1) return toast.error("Enter a valid validity period");
+    if (!Number.isFinite(c) || c < 0) return toast.error("Enter a valid cooling-off period");
     try {
-      await updateFn({ data: { clinicId, defaultDepositAmount: d, quoteValidityDays: v } });
+      await updateFn({ data: { clinicId, defaultDepositAmount: d, quoteValidityDays: v, coolingOffDays: c } });
       await load();
       toast.success("Saved");
     } catch (e) {
@@ -193,6 +207,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       toast.error(`Save failed: ${msg}`);
     }
   };
+
 
   const saveFollicleModelUrl = async () => {
     const v = follicleModelUrl.trim();
