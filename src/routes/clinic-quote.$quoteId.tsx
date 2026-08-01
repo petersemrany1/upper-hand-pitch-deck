@@ -326,10 +326,10 @@ Any questions, just message back.`;
           {/* Headline + assessment at a glance */}
           <div className="px-6 pt-6 pb-5">
             <h2 className="text-2xl font-semibold tracking-tight text-clinical-text font-clinic-heading">
-              {firstName}, your plan to restore your hairline
+              {firstName}, your treatment plan
             </h2>
             <p className="text-sm text-clinical-muted mt-2 leading-relaxed">
-              Reviewed by your surgeon today at {clinicName}. Everything below is specific to your assessment.
+              Prepared by {docName} following your consultation at {clinicName}. Everything below is specific to your assessment.
             </p>
 
             <div className="grid grid-cols-3 gap-3 mt-5">
@@ -354,27 +354,30 @@ Any questions, just message back.`;
           <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Treatment Investment</p>
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Total price</p>
                 <p className="text-3xl font-semibold text-clinical-text tracking-tight mt-1">{fmt$(quote.price)}</p>
-                <p className="text-[11px] text-clinical-muted mt-1">All-inclusive · AUD · no hidden theatre fees</p>
+                <p className="text-[11px] text-clinical-muted mt-1">AUD · includes surgery, theatre, aftercare kit and all follow-up reviews</p>
               </div>
-              {weekly > 0 && (
-                <div className="text-right">
-                  <p className="text-[10px] uppercase text-clinical-muted font-semibold">Or from</p>
-                  <p className="text-lg font-semibold text-clinical-text">{fmt$(weekly)}<span className="text-xs font-normal text-clinical-muted">/week</span></p>
-                  <p className="text-[10px] text-clinical-muted">5-year plan, subject to approval</p>
-                </div>
-              )}
             </div>
+
+            {weekly > 0 && (
+              <p className="text-[12px] text-clinical-text mt-3">
+                or from <span className="font-semibold">{fmt$(weekly)}/week</span> with Humm — 5-year plan, subject to approval
+              </p>
+            )}
+            <p className="text-[11px] text-clinical-muted mt-1.5 leading-relaxed">
+              Prefer to use your super? SuperCare early release is available — allow 6–12 weeks and an application fee.
+            </p>
 
             {deposit > 0 && (
               <div className="mt-4 flex items-start gap-2 bg-white border border-clinical-line rounded-sm p-3">
                 <CheckCircle2 size={15} className="text-clinical-accent mt-0.5 shrink-0" />
                 <p className="text-xs text-clinical-muted leading-relaxed">
-                  <span className="font-semibold text-clinical-text">{fmt$(deposit)} deposit</span> secures your surgery date and theatre time. It comes off your total — the balance is due before your procedure day.
+                  <span className="font-semibold text-clinical-text">{fmt$(deposit)} deposit</span> reserves your surgery date and theatre time. It comes off your total and is fully refundable during your {coolingOffDays}-day cooling-off period. The balance is due before surgery day.
                 </p>
               </div>
             )}
+
 
             {(quote.status === "booked" || quote.status === "deposit_recorded") && (
               <div className="mt-4 text-center">
