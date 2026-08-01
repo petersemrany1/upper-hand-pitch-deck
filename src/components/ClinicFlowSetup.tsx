@@ -56,6 +56,9 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const [validity, setValidity] = useState<string>("14");
   const [kioskPin, setKioskPin] = useState<string>("0000");
   const [follicleModelUrl, setFollicleModelUrl] = useState<string>("");
+  const [doctorName, setDoctorName] = useState<string>("");
+  const [coolingOff, setCoolingOff] = useState<string>("7");
+
 
 
   const load = async () => {
