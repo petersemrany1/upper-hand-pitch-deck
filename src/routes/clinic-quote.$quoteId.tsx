@@ -122,39 +122,43 @@ function QuotePage() {
       return;
     }
     setQuote(q as Quote);
-
-    const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
-      supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
-      supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number, doctor_name, cooling_off_days").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
-      supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
-    ]);
-    if (clinic) {
-      setClinicName(clinic.clinic_name as string);
-      setClinicPhone((clinic.phone as string | null) ?? null);
-      setClinicCity([clinic.city, clinic.state].filter(Boolean).join(", ") || null);
-    }
-    if (settings) {
-      setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
-      setDoctorName((settings.doctor_name as string | null) ?? null);
-      setCoolingOffDays(Number(settings.cooling_off_days ?? 7));
-    }
-
-    if (appt) {
-      setPatientPhone((appt.patient_phone as string | null) ?? null);
-      setPatientEmail((appt.patient_email as string | null) ?? null);
-    }
-
-
-    if (settings?.logo_url) {
-      try {
-        const res = await signLogo({ data: { clinicId: (q as Quote).clinic_id, path: settings.logo_url as string } });
-        setLogoUrl(res.url);
-      } catch {
-        setLogoUrl(null);
-      }
-    }
+    // Render the document immediately — clinic/logo details fill in after.
     setLoading(false);
+
+    try {
+      const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
+        supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
+        supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number, doctor_name, cooling_off_days").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
+        supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
+      ]);
+      if (clinic) {
+        setClinicName(clinic.clinic_name as string);
+        setClinicPhone((clinic.phone as string | null) ?? null);
+        setClinicCity([clinic.city, clinic.state].filter(Boolean).join(", ") || null);
+      }
+      if (settings) {
+        setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
+        setDoctorName((settings.doctor_name as string | null) ?? null);
+        setCoolingOffDays(Number(settings.cooling_off_days ?? 7));
+      }
+      if (appt) {
+        setPatientPhone((appt.patient_phone as string | null) ?? null);
+        setPatientEmail((appt.patient_email as string | null) ?? null);
+      }
+
+      if (settings?.logo_url) {
+        try {
+          const res = await signLogo({ data: { clinicId: (q as Quote).clinic_id, path: settings.logo_url as string } });
+          setLogoUrl(res.url);
+        } catch {
+          setLogoUrl(null);
+        }
+      }
+    } catch {
+      /* secondary details are non-critical */
+    }
   };
+
 
   useEffect(() => {
     void refresh();
