@@ -321,6 +321,24 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
           </div>
 
           <div>
+            <label style={labelStyle}>Doctor name</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                type="text"
+                value={doctorName}
+                onChange={(e) => setDoctorName(e.target.value)}
+                placeholder="Dr Sarah Chen"
+                style={inputStyle}
+              />
+              <button onClick={() => void saveDoctorName()} style={primaryBtn(false)}>Save</button>
+            </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              Shown throughout the patient treatment plan. Required.
+            </div>
+          </div>
+
+
+          <div>
             <label style={labelStyle}>WhatsApp number</label>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <input
