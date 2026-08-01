@@ -443,7 +443,19 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               style={{ ...inputStyle, marginTop: 8 }}
             />
           </div>
+          <div>
+            <label style={labelStyle}>Cooling-off period (days)</label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={coolingOff}
+              onChange={(e) => setCoolingOff(e.target.value)}
+              style={{ ...inputStyle, marginTop: 8 }}
+            />
+          </div>
         </div>
+
         <div style={{ marginTop: 14 }}>
           <button onClick={() => void saveDefaults()} style={primaryBtn(false)}>Save defaults</button>
         </div>
