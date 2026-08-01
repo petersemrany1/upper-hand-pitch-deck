@@ -1,13 +1,12 @@
 import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { toast } from "sonner";
 import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images, Lock } from "lucide-react";
-import { clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import {
   bookClinicflowQuoteDate,
+  getPublicClinicflowQuote,
   recordClinicflowQuoteDeposit,
   sendClinicflowQuoteEmail,
 } from "@/lib/clinicflow-quotes.functions";
@@ -84,7 +83,7 @@ function transplantWarning(diagnosis: string) {
 function QuotePage() {
   const { quoteId } = useParams({ from: "/clinic-quote/$quoteId" });
   const navigate = useNavigate();
-  const signLogo = useServerFn(clinicflowSignLogoUrl);
+  const getQuote = useServerFn(getPublicClinicflowQuote);
   const bookDate = useServerFn(bookClinicflowQuoteDate);
   const recordDep = useServerFn(recordClinicflowQuoteDeposit);
   const sendEmail = useServerFn(sendClinicflowQuoteEmail);
@@ -111,51 +110,30 @@ function QuotePage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   const refresh = async () => {
-    const { data: q, error } = await supabase
-      .from("clinicflow_quotes")
-      .select("*")
-      .eq("id", quoteId)
-      .maybeSingle();
-    if (error || !q) {
-      toast.error(error?.message ?? "Quote not found");
-      setLoading(false);
-      return;
-    }
-    setQuote(q as Quote);
-    // Render the document immediately — clinic/logo details fill in after.
-    setLoading(false);
-
     try {
-      const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
-        supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
-        supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number, doctor_name, cooling_off_days").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
-        supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
-      ]);
-      if (clinic) {
-        setClinicName(clinic.clinic_name as string);
-        setClinicPhone((clinic.phone as string | null) ?? null);
-        setClinicCity([clinic.city, clinic.state].filter(Boolean).join(", ") || null);
-      }
-      if (settings) {
-        setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
-        setDoctorName((settings.doctor_name as string | null) ?? null);
-        setCoolingOffDays(Number(settings.cooling_off_days ?? 7));
-      }
-      if (appt) {
-        setPatientPhone((appt.patient_phone as string | null) ?? null);
-        setPatientEmail((appt.patient_email as string | null) ?? null);
+      const result = await getQuote({ data: { quoteId } });
+      if (!result.quote) {
+        toast.error("Quote not found");
+        setQuote(null);
+        setLoading(false);
+        return;
       }
 
-      if (settings?.logo_url) {
-        try {
-          const res = await signLogo({ data: { clinicId: (q as Quote).clinic_id, path: settings.logo_url as string } });
-          setLogoUrl(res.url);
-        } catch {
-          setLogoUrl(null);
-        }
-      }
-    } catch {
-      /* secondary details are non-critical */
+      setQuote(result.quote as Quote);
+      setClinicName(result.clinic?.name ?? "");
+      setClinicPhone(result.clinic?.phone ?? null);
+      setClinicCity(result.clinic?.city ?? null);
+      setPatientPhone(result.patient.phone);
+      setPatientEmail(result.patient.email);
+      setWhatsappNumber(result.settings.whatsappNumber);
+      setDoctorName(result.settings.doctorName);
+      setCoolingOffDays(result.settings.coolingOffDays);
+      setLogoUrl(result.settings.logoUrl);
+      setLoading(false);
+    } catch (error) {
+      setQuote(null);
+      setLoading(false);
+      toast.error(error instanceof Error ? error.message : "Could not load quote");
     }
   };
 
