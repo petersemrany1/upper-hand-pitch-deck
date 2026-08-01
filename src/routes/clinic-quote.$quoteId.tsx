@@ -549,6 +549,23 @@ Any questions, just message back.`;
   );
 }
 
+function SummaryTile({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border border-clinical-line rounded-sm p-3 bg-white">
+      <p className="text-[10px] uppercase text-clinical-muted font-semibold">{label}</p>
+      <p className="text-[13px] font-medium text-clinical-text leading-snug mt-0.5">{value}</p>
+    </div>
+  );
+}
+
+function TrustItem({ text }: { text: string }) {
+  return (
+    <span className="text-[10px] text-clinical-muted flex items-center gap-1">
+      <CheckCircle2 size={11} className="text-clinical-accent" /> {text}
+    </span>
+  );
+}
+
 function MenuBtn({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
   return (
     <button
