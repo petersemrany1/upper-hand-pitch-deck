@@ -30,7 +30,10 @@ type Settings = {
   quote_validity_days: number;
   kiosk_pin: string;
   follicle_model_url: string | null;
+  doctor_name: string | null;
+  cooling_off_days: number;
 };
+
 
 
 export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
