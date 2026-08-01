@@ -30,7 +30,10 @@ type Settings = {
   quote_validity_days: number;
   kiosk_pin: string;
   follicle_model_url: string | null;
+  doctor_name: string | null;
+  cooling_off_days: number;
 };
+
 
 
 export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
@@ -53,6 +56,9 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const [validity, setValidity] = useState<string>("14");
   const [kioskPin, setKioskPin] = useState<string>("0000");
   const [follicleModelUrl, setFollicleModelUrl] = useState<string>("");
+  const [doctorName, setDoctorName] = useState<string>("");
+  const [coolingOff, setCoolingOff] = useState<string>("7");
+
 
 
   const load = async () => {
@@ -64,6 +70,9 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
       setKioskPin(String(s.kiosk_pin ?? "0000"));
+      setDoctorName(s.doctor_name ?? "");
+      setCoolingOff(String(s.cooling_off_days ?? 7));
+
       setFollicleModelUrl(String(s.follicle_model_url ?? ""));
 
       if (s.logo_url) {
@@ -168,14 +177,28 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     }
   };
 
+  const saveDoctorName = async () => {
+    const n = doctorName.trim();
+    if (!n) return toast.error("Enter the doctor's name");
+    try {
+      await updateFn({ data: { clinicId, doctorName: n } });
+      await load();
+      toast.success("Doctor name saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
 
   const saveDefaults = async () => {
     const d = Number(deposit);
     const v = Number(validity);
+    const c = Number(coolingOff);
     if (!Number.isFinite(d) || d < 0) return toast.error("Enter a valid deposit amount");
     if (!Number.isFinite(v) || v < 1) return toast.error("Enter a valid validity period");
+    if (!Number.isFinite(c) || c < 0) return toast.error("Enter a valid cooling-off period");
     try {
-      await updateFn({ data: { clinicId, defaultDepositAmount: d, quoteValidityDays: v } });
+      await updateFn({ data: { clinicId, defaultDepositAmount: d, quoteValidityDays: v, coolingOffDays: c } });
       await load();
       toast.success("Saved");
     } catch (e) {
@@ -184,6 +207,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       toast.error(`Save failed: ${msg}`);
     }
   };
+
 
   const saveFollicleModelUrl = async () => {
     const v = follicleModelUrl.trim();
@@ -227,7 +251,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   }
   if (!settings) return null;
 
-  const step1Done = !!(settings.logo_url && settings.whatsapp_number);
+  const step1Done = !!(settings.logo_url && settings.whatsapp_number && settings.doctor_name);
   const step2Done = settings.stripe_charges_enabled;
   // Step 3 has defaults from DB, so it's "done" once user has confirmed (deposit>0 & validity>0 already true by default). We just mark done if the row has been saved with non-null values — the migration seeded defaults, so it's effectively always ready. Treat step 3 as always done to avoid a misleading amber state.
   const step3Done = settings.default_deposit_amount > 0 && settings.quote_validity_days > 0;
@@ -295,6 +319,24 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               </div>
             </div>
           </div>
+
+          <div>
+            <label style={labelStyle}>Doctor name</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <input
+                type="text"
+                value={doctorName}
+                onChange={(e) => setDoctorName(e.target.value)}
+                placeholder="Dr Sarah Chen"
+                style={inputStyle}
+              />
+              <button onClick={() => void saveDoctorName()} style={primaryBtn(false)}>Save</button>
+            </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              Shown throughout the patient treatment plan. Required.
+            </div>
+          </div>
+
 
           <div>
             <label style={labelStyle}>WhatsApp number</label>
@@ -401,7 +443,19 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               style={{ ...inputStyle, marginTop: 8 }}
             />
           </div>
+          <div>
+            <label style={labelStyle}>Cooling-off period (days)</label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={coolingOff}
+              onChange={(e) => setCoolingOff(e.target.value)}
+              style={{ ...inputStyle, marginTop: 8 }}
+            />
+          </div>
         </div>
+
         <div style={{ marginTop: 14 }}>
           <button onClick={() => void saveDefaults()} style={primaryBtn(false)}>Save defaults</button>
         </div>

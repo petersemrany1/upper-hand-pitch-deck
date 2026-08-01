@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { toast } from "sonner";
-import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images } from "lucide-react";
+import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images, Lock } from "lucide-react";
 import { clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import {
   bookClinicflowQuoteDate,
@@ -80,14 +80,6 @@ function transplantWarning(diagnosis: string) {
   );
 }
 
-function parseIncludes(text: string | null) {
-  if (!text) return [];
-  return text
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => l.replace(/^[-*•]\s*/, ""));
-}
 
 function QuotePage() {
   const { quoteId } = useParams({ from: "/clinic-quote/$quoteId" });
@@ -106,6 +98,10 @@ function QuotePage() {
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [doctorName, setDoctorName] = useState<string | null>(null);
+  const [coolingOffDays, setCoolingOffDays] = useState<number>(7);
+  const [partnerModal, setPartnerModal] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookModal, setBookModal] = useState(false);
@@ -129,7 +125,7 @@ function QuotePage() {
 
     const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
       supabase.from("partner_clinics").select("clinic_name, phone, city, state").eq("id", (q as Quote).clinic_id).maybeSingle(),
-      supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
+      supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number, doctor_name, cooling_off_days").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
       supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
     ]);
     if (clinic) {
@@ -139,7 +135,10 @@ function QuotePage() {
     }
     if (settings) {
       setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
+      setDoctorName((settings.doctor_name as string | null) ?? null);
+      setCoolingOffDays(Number(settings.cooling_off_days ?? 7));
     }
+
     if (appt) {
       setPatientPhone((appt.patient_phone as string | null) ?? null);
       setPatientEmail((appt.patient_email as string | null) ?? null);
@@ -226,35 +225,30 @@ Any questions, just message back.`;
     return `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`;
   }
 
-  async function onSendEmail() {
-    if (!patientEmail) {
+  async function onSendEmail(to?: string) {
+    const recipient = (to ?? patientEmail ?? "").trim();
+    if (!recipient) {
       toast.error("No patient email on file");
       return;
     }
-    const res = await sendEmail({ data: { quoteId: quote!.id, to: patientEmail } });
+    const res = await sendEmail({ data: { quoteId: quote!.id, to: recipient } });
     if (res.success) toast.success("Email sent");
     else toast.error(res.error ?? "Failed");
   }
 
+
   const showWarning = transplantWarning(quote.diagnosis);
-  const includes = parseIncludes(quote.includes_text);
   const firstName = quote.patient_name.split(" ")[0];
+  const docName = doctorName?.trim() || "your surgeon";
+  const graftsText = quote.grafts != null ? quote.grafts.toLocaleString() : "the planned number of";
   const dateOptions = [quote.date_option_1, quote.date_option_2].filter(Boolean) as string[];
   const weekly = quote.price > 0 ? Math.ceil(quote.price / (5 * 52) / 5) * 5 : 0;
   const deposit = Math.round(quote.deposit_amount || 0);
-  const daysLeft = (() => {
-    const today = new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
-    const ms = new Date(quote.valid_until + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime();
-    return Math.round(ms / 86400000);
-  })();
   const activeDate = quote.booked_date ?? selectedDate;
-  const ctaLabel = quote.booked_date
-    ? "Message the clinic"
-    : deposit > 0
-      ? activeDate
-        ? `Pay ${fmt$(deposit)} deposit — lock in ${fmtDateCompact(activeDate)}`
-        : `Pay ${fmt$(deposit)} deposit and lock in my date`
-      : "Secure my treatment date";
+  const ctaLabel = deposit > 0
+    ? `Secure my surgery date — ${fmt$(deposit)} deposit`
+    : "Secure my surgery date";
+
 
 
   return (
@@ -319,10 +313,10 @@ Any questions, just message back.`;
           {/* Headline + assessment at a glance */}
           <div className="px-6 pt-6 pb-5">
             <h2 className="text-2xl font-semibold tracking-tight text-clinical-text font-clinic-heading">
-              {firstName}, your plan to restore your hairline
+              {firstName}, your treatment plan
             </h2>
             <p className="text-sm text-clinical-muted mt-2 leading-relaxed">
-              Reviewed by your surgeon today at {clinicName}. Everything below is specific to your assessment.
+              Prepared by {docName} following your consultation at {clinicName}. Everything below is specific to your assessment.
             </p>
 
             <div className="grid grid-cols-3 gap-3 mt-5">
@@ -347,27 +341,30 @@ Any questions, just message back.`;
           <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
             <div className="flex justify-between items-end">
               <div>
-                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Treatment Investment</p>
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Total price</p>
                 <p className="text-3xl font-semibold text-clinical-text tracking-tight mt-1">{fmt$(quote.price)}</p>
-                <p className="text-[11px] text-clinical-muted mt-1">All-inclusive · AUD · no hidden theatre fees</p>
+                <p className="text-[11px] text-clinical-muted mt-1">AUD · includes surgery, theatre, aftercare kit and all follow-up reviews</p>
               </div>
-              {weekly > 0 && (
-                <div className="text-right">
-                  <p className="text-[10px] uppercase text-clinical-muted font-semibold">Or from</p>
-                  <p className="text-lg font-semibold text-clinical-text">{fmt$(weekly)}<span className="text-xs font-normal text-clinical-muted">/week</span></p>
-                  <p className="text-[10px] text-clinical-muted">5-year plan, subject to approval</p>
-                </div>
-              )}
             </div>
+
+            {weekly > 0 && (
+              <p className="text-[12px] text-clinical-text mt-3">
+                or from <span className="font-semibold">{fmt$(weekly)}/week</span> with Humm — 5-year plan, subject to approval
+              </p>
+            )}
+            <p className="text-[11px] text-clinical-muted mt-1.5 leading-relaxed">
+              Prefer to use your super? SuperCare early release is available — allow 6–12 weeks and an application fee.
+            </p>
 
             {deposit > 0 && (
               <div className="mt-4 flex items-start gap-2 bg-white border border-clinical-line rounded-sm p-3">
                 <CheckCircle2 size={15} className="text-clinical-accent mt-0.5 shrink-0" />
                 <p className="text-xs text-clinical-muted leading-relaxed">
-                  <span className="font-semibold text-clinical-text">{fmt$(deposit)} deposit</span> secures your surgery date and theatre time. It comes off your total — the balance is due before your procedure day.
+                  <span className="font-semibold text-clinical-text">{fmt$(deposit)} deposit</span> reserves your surgery date and theatre time. It comes off your total and is fully refundable during your {coolingOffDays}-day cooling-off period. The balance is due before surgery day.
                 </p>
               </div>
             )}
+
 
             {(quote.status === "booked" || quote.status === "deposit_recorded") && (
               <div className="mt-4 text-center">
@@ -415,23 +412,23 @@ Any questions, just message back.`;
                   })}
                 </div>
               </>
-            ) : (
-              <p className="text-xs text-clinical-muted text-center">
-                Message the clinic and we'll confirm the next available surgery date for you.
-              </p>
-            )}
+            ) : null}
+
+            <p className="text-xs text-clinical-muted text-center mt-4">
+              Pay your deposit and {clinicName || "the clinic"} will confirm your surgery date within one business day.
+            </p>
 
             <button
               onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
               disabled={!patientPhone}
-              className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <MessageCircle size={16} /> {ctaLabel}
+              <Lock size={16} /> {ctaLabel}
             </button>
 
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3">
               <TrustItem text="Doctor-led procedure" />
-              <TrustItem text="Deposit credited to your total" />
+              <TrustItem text={`Refundable ${coolingOffDays}-day cooling-off`} />
               <TrustItem text="Finance available" />
             </div>
 
@@ -440,7 +437,7 @@ Any questions, just message back.`;
                 onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
                 className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
               >
-                Request other dates
+                Message the clinic
               </button>
               {(clinicPhone || whatsappNumber) && (
                 <a
@@ -456,41 +453,60 @@ Any questions, just message back.`;
               <Clock size={12} />
               {quote.status === "expired" || isExpired
                 ? "This quote has expired — message the clinic to have it re-issued."
-                : daysLeft <= 0
-                  ? `Pricing held until end of today (${fmtDate(quote.valid_until)})`
-                  : `Pricing held for ${daysLeft} more ${daysLeft === 1 ? "day" : "days"} — until ${fmtDate(quote.valid_until)}`}
+                : `This quote is valid until ${fmtDate(quote.valid_until)}.`}
             </p>
           </div>
 
           {/* Clinical detail — below the fold */}
           <div className="border-t border-clinical-line bg-white">
-            {quote.description && (
-              <div className="px-6 py-5">
-                <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What your procedure involves</h3>
-                <div className="text-clinical-muted text-sm leading-relaxed whitespace-pre-line">{quote.description}</div>
-              </div>
-            )}
+            <div className="px-6 py-5">
+              <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What your procedure involves</h3>
+              <p className="text-clinical-muted text-sm leading-relaxed">
+                Hair restoration — {graftsText} grafts, sapphire FUE. One session, moving grafts from your permanent donor area at the back and sides of the scalp to the hairline, mid-scalp and crown.
+              </p>
+              <ul className="text-xs text-clinical-muted space-y-2 mt-4">
+                <li className="flex gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
+                  Your hairline is designed with you before surgery day — around your facial proportions, hair calibre, existing density and how your loss is likely to progress.
+                </li>
+                <li className="flex gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
+                  {docName} creates every recipient site — setting the angle and direction of each graft — and personally places the grafts along your frontal hairline.
+                </li>
+                <li className="flex gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
+                  Grafts are counted during the procedure and the final count is shown to you before you leave.
+                </li>
+              </ul>
+              <p className="text-xs text-clinical-text leading-relaxed mt-4 pt-4 border-t border-clinical-line/60 italic">
+                Your donor hair is finite. This plan uses {graftsText} grafts and holds the rest in reserve for the future.
+              </p>
+            </div>
 
-            {includes.length > 0 && (
-              <div className="px-6 py-5 border-t border-clinical-line/60">
-                <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
-                <ul className="text-xs text-clinical-muted space-y-1.5">
-                  {includes.map((line, i) => (
-                    <li key={i} className="flex items-center gap-2">
-                      <span className="w-1 h-1 rounded-full bg-clinical-accent" />
-                      {line}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <div className="px-6 py-5 border-t border-clinical-line/60">
+              <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
+              <ul className="text-xs text-clinical-muted space-y-1.5">
+                {[
+                  `Hairline design session with ${docName} before surgery day`,
+                  `Full sapphire FUE procedure led by ${docName}`,
+                  "Take-home aftercare kit",
+                  "Follow-up reviews at 3, 6 and 12 months",
+                  `Direct access to ${docName} if anything comes up`,
+                ].map((line, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <span className="w-1 h-1 rounded-full bg-clinical-accent" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-            <div className="px-6 py-5 border-t border-clinical-line/60 flex gap-2">
+            <div className="px-6 py-5 border-t border-clinical-line/60 flex flex-wrap gap-2">
               <button
                 onClick={() => void openGallery()}
                 className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
               >
-                <Images size={14} /> Patient results timeline
+                <Images size={14} /> What results look like, month by month
               </button>
               <button
                 onClick={() => void onSendEmail()}
@@ -499,10 +515,43 @@ Any questions, just message back.`;
               >
                 <Mail size={14} /> Email me this plan
               </button>
+              <button
+                onClick={() => setPartnerModal(true)}
+                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+              >
+                <Mail size={14} /> Send to my partner
+              </button>
+            </div>
+
+            {/* Repeat CTA */}
+            <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
+              <button
+                onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
+                disabled={!patientPhone}
+                className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Lock size={16} /> {ctaLabel}
+              </button>
+              {deposit > 0 && (
+                <p className="text-[11px] text-clinical-muted text-center mt-3 leading-relaxed">
+                  {fmt$(deposit)} deposit — fully refundable during your {coolingOffDays}-day cooling-off period.
+                </p>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {partnerModal && (
+        <PartnerEmailModal
+          onClose={() => setPartnerModal(false)}
+          onSend={async (email) => {
+            await onSendEmail(email);
+            setPartnerModal(false);
+          }}
+        />
+      )}
+
 
 
       {bookModal && (
@@ -565,6 +614,41 @@ function TrustItem({ text }: { text: string }) {
     </span>
   );
 }
+
+function PartnerEmailModal({ onClose, onSend }: { onClose: () => void; onSend: (email: string) => void | Promise<void> }) {
+  const [email, setEmail] = useState("");
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
+      <div className="bg-white rounded-sm w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading">Send to my partner</h3>
+        <p className="text-[11px] text-clinical-muted mt-1">We'll email a copy of this treatment plan.</p>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="partner@email.com"
+          className="w-full mt-3 border border-clinical-line rounded-sm px-3 py-2 text-sm"
+        />
+        <div className="flex gap-2 mt-4">
+          <button onClick={onClose} className="flex-1 py-2 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text">
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              const v = email.trim();
+              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return toast.error("Enter a valid email address");
+              void onSend(v);
+            }}
+            className="flex-1 py-2 bg-clinical-text text-white rounded-sm text-[11px] font-semibold"
+          >
+            Send
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function MenuBtn({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
   return (

@@ -722,8 +722,10 @@ export type Database = {
       clinicflow_clinic_settings: {
         Row: {
           clinic_id: string
+          cooling_off_days: number
           created_at: string
           default_deposit_amount: number
+          doctor_name: string | null
           follicle_model_url: string | null
           id: string
           kiosk_pin: string
@@ -737,8 +739,10 @@ export type Database = {
         }
         Insert: {
           clinic_id: string
+          cooling_off_days?: number
           created_at?: string
           default_deposit_amount?: number
+          doctor_name?: string | null
           follicle_model_url?: string | null
           id?: string
           kiosk_pin?: string
@@ -752,8 +756,10 @@ export type Database = {
         }
         Update: {
           clinic_id?: string
+          cooling_off_days?: number
           created_at?: string
           default_deposit_amount?: number
+          doctor_name?: string | null
           follicle_model_url?: string | null
           id?: string
           kiosk_pin?: string
