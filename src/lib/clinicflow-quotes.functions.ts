@@ -1,6 +1,74 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+// Public, read-only treatment-plan data. Quote IDs are unguessable UUIDs and
+// are intentionally shared with patients as the access link.
+export const getPublicClinicflowQuote = createServerFn({ method: "GET" })
+  .inputValidator((data: { quoteId: string }) => {
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.quoteId)) {
+      throw new Error("Invalid quote link");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: quote, error } = await supabaseAdmin
+      .from("clinicflow_quotes")
+      .select("id, clinic_id, appointment_id, patient_name, diagnosis, norwood, grafts, price, deposit_amount, description, includes_text, date_option_1, date_option_2, valid_until, booked_date, status")
+      .eq("id", data.quoteId)
+      .maybeSingle();
+
+    if (error) throw new Error("Could not load this treatment plan");
+    if (!quote) return { quote: null };
+
+    const [{ data: clinic }, { data: settings }, { data: appointment }] = await Promise.all([
+      supabaseAdmin
+        .from("partner_clinics")
+        .select("clinic_name, phone, city, state")
+        .eq("id", quote.clinic_id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("clinicflow_clinic_settings")
+        .select("logo_url, whatsapp_number, doctor_name, cooling_off_days")
+        .eq("clinic_id", quote.clinic_id)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("clinic_appointments")
+        .select("patient_phone, patient_email")
+        .eq("id", quote.appointment_id)
+        .maybeSingle(),
+    ]);
+
+    let logoUrl: string | null = null;
+    if (settings?.logo_url) {
+      const { data: signed } = await supabaseAdmin.storage
+        .from("clinicflow-logos")
+        .createSignedUrl(settings.logo_url as string, 60 * 60 * 24);
+      logoUrl = signed?.signedUrl ?? null;
+    }
+
+    return {
+      quote,
+      clinic: clinic
+        ? {
+            name: clinic.clinic_name as string,
+            phone: (clinic.phone as string | null) ?? null,
+            city: [clinic.city, clinic.state].filter(Boolean).join(", ") || null,
+          }
+        : null,
+      settings: {
+        logoUrl,
+        whatsappNumber: (settings?.whatsapp_number as string | null) ?? null,
+        doctorName: (settings?.doctor_name as string | null) ?? null,
+        coolingOffDays: Number(settings?.cooling_off_days ?? 7),
+      },
+      patient: {
+        phone: (appointment?.patient_phone as string | null) ?? null,
+        email: (appointment?.patient_email as string | null) ?? null,
+      },
+    };
+  });
+
 async function assertCanAccessClinic(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   clinicId: string,
