@@ -251,7 +251,7 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   }
   if (!settings) return null;
 
-  const step1Done = !!(settings.logo_url && settings.whatsapp_number);
+  const step1Done = !!(settings.logo_url && settings.whatsapp_number && settings.doctor_name);
   const step2Done = settings.stripe_charges_enabled;
   // Step 3 has defaults from DB, so it's "done" once user has confirmed (deposit>0 & validity>0 already true by default). We just mark done if the row has been saved with non-null values — the migration seeded defaults, so it's effectively always ready. Treat step 3 as always done to avoid a misleading amber state.
   const step3Done = settings.default_deposit_amount > 0 && settings.quote_validity_days > 0;
