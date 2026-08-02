@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Calendar as CalendarIcon, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
+import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
 import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
@@ -431,16 +432,7 @@ export function ClinicPortalView({
       followupsDue={followupsDue}
     >
       {sectionContent}
-
-      {selected && (
-        <AppointmentDetailModal
-          appt={selected}
-          isAdmin={isAdmin}
-          onClose={() => setSelected(null)}
-          onChange={() => { reload(); }}
-          clinicDefaultDeposit={clinicDefaultDeposit}
-        />
-      )}
+      {detailModal}
     </ClinicShell>
   );
 }
