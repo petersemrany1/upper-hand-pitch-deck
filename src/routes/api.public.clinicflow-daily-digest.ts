@@ -26,6 +26,19 @@ export const Route = createFileRoute("/api/public/clinicflow-daily-digest")({
           return new Response("Unauthorized", { status: 401 });
         }
 
+        // Two UTC cron jobs (22:00 + 23:00) cover both AEST and AEDT; this gate
+        // means exactly one of them actually sends, at 9am Sydney, year-round.
+        let source: string | undefined;
+        try {
+          const body = (await request.json()) as { source?: string } | null;
+          source = body?.source;
+        } catch {
+          source = undefined;
+        }
+        if (source === "cron" && sydneyHour() !== 9) {
+          return Response.json({ skipped: true });
+        }
+
         const supabase = createClient(
           process.env.SUPABASE_URL!,
           process.env.SUPABASE_SERVICE_ROLE_KEY!,
