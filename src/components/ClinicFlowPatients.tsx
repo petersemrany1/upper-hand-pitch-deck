@@ -96,6 +96,14 @@ function fmtDay(d: string) {
     weekday: "short", day: "numeric", month: "short", timeZone: APP_TIMEZONE,
   });
 }
+/** "Today 10:30am" / "Tomorrow 9:00am", else the full day + time. */
+function fmtWhen(date: string, time: string) {
+  const days = daysUntilSydney(date);
+  if (days === 0) return `Today ${fmtTime(time)}`;
+  if (days === 1) return `Tomorrow ${fmtTime(time)}`;
+  return `${fmtDay(date)} ${fmtTime(time)}`;
+}
+
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short", timeZone: APP_TIMEZONE });
 }
