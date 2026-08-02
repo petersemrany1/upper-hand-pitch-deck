@@ -115,6 +115,7 @@ function stageChip(stage: Stage) {
 }
 
 type Badge = { text: string; bg: string; fg: string };
+type Followup = { id: string; quote_id: string; due_date: string; task_type: string; status: string };
 type Row = {
   appt: Appt;
   intake: Intake | null;
@@ -122,11 +123,27 @@ type Row = {
   status: PipelineStatus | null;
   stage: Stage;
   badges: Badge[];
+  followup: Followup | null;
 };
 
-function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, today: string): Row {
+const TASK_LABEL: Record<string, string> = {
+  checkin: "Check in — any questions, which way are they leaning?",
+  nudge: "Nudge — send timeline photos or recovery FAQ",
+  expiring: "Quote expiring — offer to hold a date",
+};
+
+/** Human wording for a follow-up due date, in Sydney time. */
+function dueLabel(due: string): { text: string; overdue: boolean; today: boolean } {
+  const days = daysUntilSydney(due);
+  if (days < 0) return { text: `Follow up overdue — ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`, overdue: true, today: false };
+  if (days === 0) return { text: "Follow up today", overdue: false, today: true };
+  if (days === 1) return { text: "Follow up tomorrow", overdue: false, today: false };
+  return { text: `Follow up ${fmtDay(due)}`, overdue: false, today: false };
+}
+
+function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, today: string): Row {
   const badges: Badge[] = [];
-  const base = { appt, intake, quote, status };
+  const base = { appt, intake, quote, status, followup };
 
   if (status?.lost_at) return { ...base, stage: "Lost", badges };
 
@@ -160,6 +177,7 @@ function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, stat
   if (appt.appointment_date < today) badges.push({ text: "Didn't attend?", bg: AMBER_BG, fg: AMBER_FG });
   return { ...base, stage: "Booked", badges };
 }
+
 
 export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [appts, setAppts] = useState<Appt[]>([]);
