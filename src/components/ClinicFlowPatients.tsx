@@ -158,9 +158,10 @@ function nextFollowupNote(row: Row): string | null {
 
 
 
-function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, today: string): Row {
+function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, chase: Chase | null, today: string): Row {
   const badges: Badge[] = [];
-  const base = { appt, intake, quote, status, followup };
+  const base = { appt, intake, quote, status, followup, chase };
+
 
   if (status?.lost_at) return { ...base, stage: "Lost", badges };
 
