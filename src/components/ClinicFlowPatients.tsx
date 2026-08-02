@@ -354,7 +354,11 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {visible.map((r) => {
-              const due = r.stage === "In Follow-up" && r.followup ? dueLabel(r.followup.due_date) : null;
+              const active = r.stage !== "Lost" && r.stage !== "Won";
+              const dueDate = active ? nextFollowupDate(r) : null;
+              const due = dueDate ? dueLabel(dueDate) : null;
+              const noteText = dueDate ? nextFollowupNote(r) : null;
+              const needsDate = active && !dueDate && (r.stage === "In Follow-up" || r.stage === "Quoted");
               return (
               <button
                 key={r.appt.id}
@@ -377,16 +381,22 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                 </div>
-                {due && (
+                {due && dueDate && (
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ ...chipStyle(due.overdue ? RED_BG : AMBER_BG, due.overdue ? RED : AMBER_FG), alignSelf: "flex-start" }}>
-                      {due.text}
+                      {due.text} · {fmtDay(dueDate)}
                     </span>
-                    <span style={{ fontSize: 12, color: GREY }}>
-                      {TASK_LABEL[r.followup!.task_type] ?? r.followup!.task_type}
+                    {noteText && <span style={{ fontSize: 12, color: GREY }}>{noteText}</span>}
+                  </div>
+                )}
+                {needsDate && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ ...chipStyle("#f1f5f9", GREY), alignSelf: "flex-start" }}>
+                      No follow-up date set — tap to set one
                     </span>
                   </div>
                 )}
+
                 {r.badges.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                     {r.badges.map((b, idx) => (
