@@ -2302,7 +2302,7 @@ function OpenDayModal({
 }
 
 function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
-  const [sub, setSub] = useState<"today" | "quotes" | "followups" | "training" | "setup">("today");
+  const [sub, setSub] = useState<"patients" | "today" | "quotes" | "followups" | "training" | "setup">("patients");
   if (!isAdmin) {
     return (
       <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
