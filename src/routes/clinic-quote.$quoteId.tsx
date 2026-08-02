@@ -105,6 +105,7 @@ function QuotePage() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [ctaSubmitting, setCtaSubmitting] = useState(false);
 
   const refresh = async () => {
     try {
