@@ -289,7 +289,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
       );
     }),
 
-    [appts, intakes, quotes, statuses, followups, today],
+    [appts, intakes, quotes, statuses, followups, chases, today],
   );
 
   const counts = useMemo(() => {
