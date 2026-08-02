@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  Users, Sun, Bell, FileText, CalendarDays, CalendarClock, BookOpen, Settings, Menu, X, ArrowLeft,
+  Users, Bell, FileText, CalendarDays, CalendarClock, BookOpen, Settings, Menu, X, ArrowLeft,
 } from "lucide-react";
 import { getClinicflowSettings, clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +14,7 @@ const DIVIDER = "rgba(255,255,255,0.2)";
 const SIDEBAR_W = 230;
 
 export const CLINIC_SECTIONS = [
-  "patients", "today", "followups", "quotes",
+  "patients", "followups", "quotes",
   "appointments", "availability",
   "training", "setup",
 ] as const;
@@ -25,7 +25,6 @@ type NavEntry = { key: ClinicSection; label: string; icon: typeof Users } | { di
 
 const NAV: NavEntry[] = [
   { key: "patients", label: "Patients", icon: Users },
-  { key: "today", label: "Today", icon: Sun },
   { key: "followups", label: "Follow-ups", icon: Bell },
   { key: "quotes", label: "Quotes", icon: FileText },
   { divider: true },
