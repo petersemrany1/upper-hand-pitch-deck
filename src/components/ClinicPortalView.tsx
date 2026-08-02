@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
+import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
 import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
@@ -2302,7 +2303,7 @@ function OpenDayModal({
 }
 
 function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
-  const [sub, setSub] = useState<"today" | "quotes" | "followups" | "training" | "setup">("today");
+  const [sub, setSub] = useState<"patients" | "today" | "quotes" | "followups" | "training" | "setup">("patients");
   if (!isAdmin) {
     return (
       <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
@@ -2317,6 +2318,7 @@ function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: bool
     <div>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
         <div style={{ display: "flex", gap: 0, padding: "0 24px", flexWrap: "wrap" }}>
+          <SubTabBtn active={sub === "patients"} onClick={() => setSub("patients")}>Patients</SubTabBtn>
           <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
           <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
           <SubTabBtn active={sub === "followups"} onClick={() => setSub("followups")}>Follow-ups</SubTabBtn>
@@ -2324,7 +2326,8 @@ function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: bool
           <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
         </div>
       </div>
-      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
+      {sub === "patients" ? <ClinicFlowPatients clinicId={clinicId} />
+        : sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
         : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
         : sub === "followups" ? <ClinicFlowFollowups clinicId={clinicId} />
         : sub === "training" ? <ClinicFlowTraining clinicId={clinicId} />
