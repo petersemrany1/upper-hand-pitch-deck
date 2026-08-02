@@ -767,6 +767,7 @@ type Quote = {
   diagnosis: string;
   norwood: string | null;
   grafts: number | null;
+  graft_unit?: string | null;
   price: number;
   deposit_amount: number;
   description: string | null;
@@ -776,5 +777,5 @@ type Quote = {
   date_option_2: string | null;
   status: "draft" | "presented" | "booked" | "deposit_recorded" | "expired";
   booked_date: string | null;
-  deposit_recorded_at: string | null;
+  deposit_recorded_at?: string | null;
 };
