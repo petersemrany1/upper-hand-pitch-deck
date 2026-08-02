@@ -2317,6 +2317,7 @@ function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: bool
     <div>
       <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
         <div style={{ display: "flex", gap: 0, padding: "0 24px", flexWrap: "wrap" }}>
+          <SubTabBtn active={sub === "patients"} onClick={() => setSub("patients")}>Patients</SubTabBtn>
           <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
           <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
           <SubTabBtn active={sub === "followups"} onClick={() => setSub("followups")}>Follow-ups</SubTabBtn>
@@ -2324,7 +2325,8 @@ function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: bool
           <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
         </div>
       </div>
-      {sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
+      {sub === "patients" ? <ClinicFlowPatients clinicId={clinicId} />
+        : sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
         : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
         : sub === "followups" ? <ClinicFlowFollowups clinicId={clinicId} />
         : sub === "training" ? <ClinicFlowTraining clinicId={clinicId} />
