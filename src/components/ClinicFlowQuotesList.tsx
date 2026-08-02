@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO, APP_TIMEZONE } from "@/lib/timezone";
-import { FileText } from "lucide-react";
+import { FileText, Trash2 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { deleteClinicflowQuote } from "@/lib/clinicflow-quotes.functions";
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
@@ -27,6 +29,23 @@ export function ClinicFlowQuotesList({ clinicId }: { clinicId: string }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const today = useMemo(() => sydneyTodayISO(), []);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const deleteQuoteFn = useServerFn(deleteClinicflowQuote);
+
+  const handleDelete = async (id: string) => {
+    setBusyId(id);
+    setErr(null);
+    try {
+      await deleteQuoteFn({ data: { quoteId: id } });
+      setRows((prev) => prev.filter((r) => r.id !== id));
+      setConfirmId(null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not delete this quote.");
+    }
+    setBusyId(null);
+  };
 
   useEffect(() => {
     (async () => {
@@ -47,6 +66,10 @@ export function ClinicFlowQuotesList({ clinicId }: { clinicId: string }) {
       <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Quotes</h1>
       <p style={{ fontSize: 13, color: GREY, marginTop: 6, marginBottom: 20 }}>All quotes issued from ClinicFlow.</p>
 
+      {err && (
+        <div style={{ background: RED_BG, color: RED_FG, border: `1px solid ${RED_FG}33`, borderRadius: 10, padding: "10px 14px", fontSize: 13, marginBottom: 14 }}>{err}</div>
+      )}
+
       {loading ? (
         <div style={{ padding: 40, textAlign: "center", color: GREY }}>Loading…</div>
       ) : rows.length === 0 ? (
@@ -64,7 +87,7 @@ export function ClinicFlowQuotesList({ clinicId }: { clinicId: string }) {
               : { text: "Quoted", bg: AMBER_BG, fg: AMBER_FG };
             return (
               <div key={r.id} onClick={() => openQuote(r.id)}
-                style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 16, alignItems: "center", padding: "14px 18px", borderBottom: `1px solid ${LINE}`, cursor: "pointer" }}>
+                style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto auto", gap: 16, alignItems: "center", padding: "14px 18px", borderBottom: `1px solid ${LINE}`, cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                   <FileText size={16} color={GREY} />
                   <div style={{ fontSize: 15, fontWeight: 600, color: "#111", overflow: "hidden", textOverflow: "ellipsis" }}>{r.patient_name}</div>
@@ -74,6 +97,35 @@ export function ClinicFlowQuotesList({ clinicId }: { clinicId: string }) {
                   Valid until {new Date(r.valid_until + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: APP_TIMEZONE })}
                 </div>
                 <span style={{ background: chip.bg, color: chip.fg, padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{chip.text}</span>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  {confirmId === r.id ? (
+                    <>
+                      <button
+                        onClick={() => void handleDelete(r.id)}
+                        disabled={busyId === r.id}
+                        style={{ background: RED_FG, color: "#fff", border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                      >
+                        {busyId === r.id ? "Deleting…" : "Confirm"}
+                      </button>
+                      <button
+                        onClick={() => setConfirmId(null)}
+                        disabled={busyId === r.id}
+                        style={{ background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "6px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => { setErr(null); setConfirmId(r.id); }}
+                      title="Delete quote"
+                      aria-label={`Delete quote for ${r.patient_name}`}
+                      style={{ background: "#fff", color: RED_FG, border: `1px solid ${LINE}`, borderRadius: 8, padding: 6, display: "flex", cursor: "pointer" }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
