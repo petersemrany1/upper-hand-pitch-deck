@@ -319,7 +319,7 @@ export function ClinicPortalView({
   // Open follow-ups due today or earlier — drives the sidebar badge + amber chip.
   const listFollowups = useServerFn(listClinicflowFollowups);
   useEffect(() => {
-    if (!isAdmin) { setFollowupsDue(0); return; }
+    if (!showClinicFlow) { setFollowupsDue(0); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -335,18 +335,22 @@ export function ClinicPortalView({
       }
     })();
     return () => { cancelled = true; };
-  }, [clinicId, isAdmin, section]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clinicId, showClinicFlow, section]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-  const showFlow = (node: React.ReactNode) => (isAdmin ? node : <ClinicFlowComingSoon />);
+  // ClinicFlow off for this clinic (non-admin): only Appointments/Availability exist.
+  useEffect(() => {
+    if (isAdmin || clinicflowEnabled !== false) return;
+    if (section !== "appointments" && section !== "availability") setSection("appointments");
+  }, [isAdmin, clinicflowEnabled, section]);
 
   const sectionContent = (() => {
     switch (section) {
-      case "patients": return showFlow(<ClinicFlowPatients clinicId={clinicId} />);
-      case "followups": return showFlow(<ClinicFlowFollowups clinicId={clinicId} />);
-      case "quotes": return showFlow(<ClinicFlowQuotesList clinicId={clinicId} />);
-      case "training": return showFlow(<ClinicFlowTraining clinicId={clinicId} />);
-      case "setup": return showFlow(<ClinicFlowSetup clinicId={clinicId} />);
+      case "patients": return <ClinicFlowPatients clinicId={clinicId} />;
+      case "followups": return <ClinicFlowFollowups clinicId={clinicId} />;
+      case "quotes": return <ClinicFlowQuotesList clinicId={clinicId} />;
+      case "training": return <ClinicFlowTraining clinicId={clinicId} />;
+      case "setup": return <ClinicFlowSetup clinicId={clinicId} />;
+
       case "availability":
         return loading ? <PortalSkeleton /> : loadError ? <PortalErrorCard message={loadError} onRetry={reload} /> : (
           <AvailabilityTab
