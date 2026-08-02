@@ -292,9 +292,6 @@ Any questions, just message back.`;
             <h2 className="text-2xl font-semibold tracking-tight text-clinical-text font-clinic-heading">
               {firstName}, your treatment plan
             </h2>
-            <p className="text-sm text-clinical-muted mt-2 leading-relaxed">
-              Prepared by {docName} following your consultation at {clinicName}. Everything below is specific to your assessment.
-            </p>
 
             <div className="grid grid-cols-3 gap-3 mt-5">
               <SummaryTile label="Diagnosis" value={quote.diagnosis} />
@@ -342,14 +339,6 @@ Any questions, just message back.`;
             </div>
 
 
-            {deposit > 0 && (
-              <div className="mt-4 flex items-start gap-2 bg-white border border-clinical-line rounded-sm p-3">
-                <CheckCircle2 size={15} className="text-clinical-accent mt-0.5 shrink-0" />
-                <p className="text-xs text-clinical-muted leading-relaxed">
-                  <span className="font-semibold text-clinical-text">{fmt$(deposit)} deposit</span> reserves your surgery date and theatre time. It comes off your total and is fully refundable during your {coolingOffDays}-day cooling-off period. The balance is due before surgery day.
-                </p>
-              </div>
-            )}
 
 
             {(quote.status === "booked" || quote.status === "deposit_recorded") && (
@@ -431,11 +420,6 @@ Any questions, just message back.`;
               <Lock size={16} /> {ctaLabel}
             </button>
 
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 mt-3">
-              <TrustItem text="Doctor-led procedure" />
-              <TrustItem text={`Refundable ${coolingOffDays}-day cooling-off`} />
-              <TrustItem text="Finance available" />
-            </div>
 
 
             <p className="text-[11px] text-clinical-muted text-center mt-4 flex items-center justify-center gap-1.5">
@@ -446,23 +430,6 @@ Any questions, just message back.`;
             </p>
           </div>
 
-          {/* Repeat CTA */}
-          <div className="border-t border-clinical-line bg-white">
-            <div className="px-6 py-6 bg-slate-50/60">
-              <button
-                onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
-                disabled={!patientPhone}
-                className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Lock size={16} /> {ctaLabel}
-              </button>
-              {deposit > 0 && (
-                <p className="text-[11px] text-clinical-muted text-center mt-3 leading-relaxed">
-                  {fmt$(deposit)} deposit — fully refundable during your {coolingOffDays}-day cooling-off period.
-                </p>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
