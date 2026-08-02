@@ -63,7 +63,10 @@ type PipelineStatus = {
   lost_reason: string | null;
   lost_note: string | null;
   lost_at: string | null;
+  next_followup_date: string | null;
+  next_followup_note: string | null;
 };
+
 
 type Stage = "Booked" | "Showed" | "Quoted" | "In Follow-up" | "Won" | "Lost";
 const STAGES: Stage[] = ["Booked", "Showed", "Quoted", "In Follow-up", "Won", "Lost"];
