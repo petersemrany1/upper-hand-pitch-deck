@@ -212,7 +212,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [a, i, q, p, f] = await Promise.all([
+    const [a, i, q, p, f, c] = await Promise.all([
       supabase
         .from("clinic_appointments")
         .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
@@ -229,8 +229,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         .eq("clinic_id", clinicId)
         .eq("status", "open")
         .order("due_date", { ascending: true }),
+      supabase
+        .from("clinicflow_chase_requests")
+        .select("id, appointment_id, note, requested_at, status")
+        .eq("clinic_id", clinicId)
+        .eq("status", "requested")
+        .order("requested_at", { ascending: false }),
     ]);
-    for (const r of [a, i, q, p, f]) if (r.error) toast.error(r.error.message);
+    for (const r of [a, i, q, p, f, c]) if (r.error) toast.error(r.error.message);
 
     setAppts((a.data ?? []) as Appt[]);
 
@@ -257,6 +263,13 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     }
     setFollowups(fm);
 
+    // latest open chase request per appointment
+    const cm: Record<string, Chase> = {};
+    for (const row of (c.data ?? []) as Chase[]) {
+      if (!cm[row.appointment_id]) cm[row.appointment_id] = row;
+    }
+    setChases(cm);
+
     setLoading(false);
   }, [clinicId]);
 
@@ -271,9 +284,11 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         quote,
         statuses[a.id] ?? null,
         quote ? followups[quote.id] ?? null : null,
+        chases[a.id] ?? null,
         today,
       );
     }),
+
     [appts, intakes, quotes, statuses, followups, today],
   );
 
