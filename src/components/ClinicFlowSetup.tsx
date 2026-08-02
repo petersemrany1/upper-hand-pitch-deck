@@ -380,6 +380,41 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
           </div>
 
           <div>
+            <label style={labelStyle}>Notifications</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                type="email"
+                value={notifyEmail}
+                onChange={(e) => setNotifyEmail(e.target.value)}
+                placeholder="reception@clinic.com.au"
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={() => setNotifyOn((v) => !v)}
+                style={{
+                  border: `1px solid ${notifyOn ? "#15803d" : LINE}`,
+                  background: notifyOn ? "#dcfce7" : "#fff",
+                  color: notifyOn ? "#15803d" : GREY,
+                  borderRadius: 999,
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {notifyOn ? "On" : "Off"}
+              </button>
+              <button onClick={() => void saveNotifications()} style={primaryBtn(false)}>Save</button>
+            </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              One morning email when patients are due a follow-up.
+            </div>
+          </div>
+
+
+
+          <div>
             <label style={labelStyle}>Kiosk PIN</label>
             <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
               <input
