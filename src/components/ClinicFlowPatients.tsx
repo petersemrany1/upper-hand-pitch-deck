@@ -420,7 +420,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   <span style={stageChip(r.stage)}>{r.stage}</span>
                 </div>
                 <div style={{ fontSize: 14, color: GREY, marginTop: 6 }}>
-                  {fmtDay(r.appt.appointment_date)} {fmtTime(r.appt.appointment_time)}
+                  {fmtWhen(r.appt.appointment_date, r.appt.appointment_time)}
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                   {r.chase ? (
