@@ -621,6 +621,34 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
   const [fuSaving, setFuSaving] = useState(false);
 
+  // ---- Reschedule the consult appointment ----
+  const to24 = (t: string) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t);
+    if (!m) return "";
+    const pm = /pm/i.test(t);
+    let h = parseInt(m[1], 10);
+    if (pm && h < 12) h += 12;
+    if (/am/i.test(t) && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${m[2]}`;
+  };
+  const [rsDate, setRsDate] = useState<string>(appt.appointment_date);
+  const [rsTime, setRsTime] = useState<string>(to24(appt.appointment_time));
+  const [rsSaving, setRsSaving] = useState(false);
+  const rsChanged = rsDate !== appt.appointment_date || rsTime !== to24(appt.appointment_time);
+
+  const saveReschedule = async () => {
+    if (!rsDate || !rsTime) { toast.error("Pick a date and time"); return; }
+    setRsSaving(true);
+    const { error } = await supabase
+      .from("clinic_appointments")
+      .update({ appointment_date: rsDate, appointment_time: rsTime })
+      .eq("id", appt.id);
+    setRsSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Moved to ${fmtDay(rsDate)} at ${fmtTime(rsTime)}`);
+    onChanged();
+  };
+
   const saveFollowup = async (clear = false) => {
     if (!clear && !fuDate) { toast.error("Pick a date first"); return; }
     setFuSaving(true);
