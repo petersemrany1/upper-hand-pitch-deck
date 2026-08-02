@@ -215,7 +215,9 @@ function scheduleTokenRefresh() {
 }
 
 async function ensureDevice(): Promise<void> {
+  if (dialerUnavailable) return;
   if (device || initPromise) return initPromise ?? Promise.resolve();
+
   initPromise = (async () => {
     try {
       setSnapshot({ status: "loading", dialerStatus: "connecting" });
