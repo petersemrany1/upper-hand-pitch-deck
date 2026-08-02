@@ -329,6 +329,39 @@ function PartnerClinicsPage() {
                           </span>
                         );
                       })()}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          disabled={togglingFlow === clinic.id}
+                          onClick={() => void toggleClinicFlow(clinic)}
+                          title={clinic.clinicflow_enabled ? "ClinicFlow is on" : "ClinicFlow is off"}
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 6,
+                            border: `0.5px solid ${clinic.clinicflow_enabled ? "#15803d" : COLORS.line}`,
+                            background: clinic.clinicflow_enabled ? "#dcfce7" : "#f9f9f9",
+                            color: clinic.clinicflow_enabled ? "#15803d" : "#666",
+                            borderRadius: 20, padding: "2px 8px", fontSize: 10, fontWeight: 600,
+                            textTransform: "uppercase", letterSpacing: "0.04em",
+                            cursor: togglingFlow === clinic.id ? "wait" : "pointer",
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: 22, height: 12, borderRadius: 999, position: "relative",
+                              background: clinic.clinicflow_enabled ? "#15803d" : "#ccc",
+                              display: "inline-block", flexShrink: 0,
+                            }}
+                          >
+                            <span style={{
+                              position: "absolute", top: 2, left: clinic.clinicflow_enabled ? 12 : 2,
+                              width: 8, height: 8, borderRadius: "50%", background: "#fff",
+                              transition: "left 120ms",
+                            }} />
+                          </span>
+                          ClinicFlow {clinic.clinicflow_enabled ? "On" : "Off"}
+                        </button>
+                      )}
+
                     </div>
                     <div style={{ fontSize: 13, color: "#111" }}>
                       {[clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ") || "—"}
