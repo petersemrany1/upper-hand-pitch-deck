@@ -379,7 +379,10 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
               const due = dueDate ? dueLabel(dueDate) : null;
               const noteText = dueDate ? nextFollowupNote(r) : null;
               const needsDate = active && !dueDate && (r.stage === "In Follow-up" || r.stage === "Quoted");
+              const bookedBadge = r.badges.find((b) => b.text.startsWith("Date booked")) ?? null;
+              const noShowBadge = r.badges.find((b) => b.text === "Didn't attend?") ?? null;
               return (
+
               <button
                 key={r.appt.id}
                 onClick={() => setOpenId(r.appt.id)}
