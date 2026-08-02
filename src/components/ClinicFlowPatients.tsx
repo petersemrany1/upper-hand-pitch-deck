@@ -492,7 +492,19 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
             <div>
               <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{appt.patient_name}</div>
-              <div style={{ marginTop: 8 }}><span style={stageChip(stage)}>{stage}</span></div>
+              <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span style={stageChip(stage)}>{stage}</span>
+                {row.followup && (() => {
+                  const d = dueLabel(row.followup.due_date);
+                  return <span style={chipStyle(d.overdue ? RED_BG : AMBER_BG, d.overdue ? RED : AMBER_FG)}>{d.text}</span>;
+                })()}
+              </div>
+              {row.followup && (
+                <div style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
+                  {TASK_LABEL[row.followup.task_type] ?? row.followup.task_type}
+                </div>
+              )}
+
             </div>
             <button onClick={onClose} aria-label="Close"
               style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY, padding: 4 }}>
