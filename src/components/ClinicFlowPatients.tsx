@@ -459,13 +459,24 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: GREY, fontSize: 14 }}>Loading patients…</div>
-        ) : visible.length === 0 ? (
+        ) : visibleCount === 0 ? (
           <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, padding: 40, textAlign: "center", color: GREY, fontSize: 14 }}>
             No patients yet — HTG bookings appear here automatically.
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {visible.map((r) => {
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+            {groups.map((g) => (
+              <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: g.key === "done" ? GREY : NAVY }}>
+                    {g.label}
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: GREY }}>{g.rows.length}</span>
+                </div>
+
+                {g.rows.map((r) => {
+              const isToday = g.key === "today";
+              const muted = g.key === "done";
               const active = r.stage !== "Lost" && r.stage !== "Won";
               const dueDate = active ? nextFollowupDate(r) : null;
               const due = dueDate ? dueLabel(dueDate) : null;
@@ -473,11 +484,12 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
               const needsDate = active && !dueDate && (r.stage === "In Follow-up" || r.stage === "Quoted");
               const bookedBadge = r.badges.find((b) => b.text.startsWith("Date booked")) ?? null;
               const noShowBadge = r.badges.find((b) => b.text === "Didn't attend?") ?? null;
+              const checkedIn = r.intake?.status === "completed";
               return (
 
               <button
                 key={r.appt.id}
-                onClick={() => setOpenId(r.appt.id)}
+                onClick={() => (isToday ? setConsultId(r.appt.id) : setOpenId(r.appt.id))}
                 style={{
                   textAlign: "left",
                   background: "#fff",
@@ -485,6 +497,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   borderLeft: due ? `4px solid ${due.overdue ? RED : due.today ? AMBER_FG : NAVY}` : `1px solid ${LINE}`,
                   borderRadius: 12,
                   padding: 16, cursor: "pointer", fontFamily: FONT, width: "100%",
+                  opacity: muted ? 0.72 : 1,
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
@@ -501,6 +514,28 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                     </span>
                   ) : null}
                 </div>
+
+                {isToday && (
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ ...chipStyle(checkedIn ? GREEN_BG : "#eef2f7", checkedIn ? GREEN : "#334155"), display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      {checkedIn ? <CheckCircle2 size={13} /> : <Circle size={13} />}
+                      {checkedIn ? "Checked in" : "Not checked in"}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); setConsultId(r.appt.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setConsultId(r.appt.id); } }}
+                      style={{
+                        padding: "8px 14px", borderRadius: 8, border: "none",
+                        background: NAVY, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      }}
+                    >
+                      Start consult
+                    </span>
+                  </div>
+                )}
+
                 {bookedBadge ? (
                   <div style={{ marginTop: 10 }}>
                     <span style={chipStyle(bookedBadge.bg, bookedBadge.fg)}>{bookedBadge.text}</span>
@@ -539,10 +574,12 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
               </button>
               );
-            })}
-
+                })}
+              </div>
+            ))}
           </div>
         )}
+
       </div>
 
       {open && (
