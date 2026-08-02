@@ -14,7 +14,7 @@ export const getPublicClinicflowQuote = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: quote, error } = await supabaseAdmin
       .from("clinicflow_quotes")
-      .select("id, clinic_id, appointment_id, patient_name, diagnosis, norwood, grafts, price, deposit_amount, description, includes_text, date_option_1, date_option_2, valid_until, booked_date, status")
+      .select("id, clinic_id, appointment_id, patient_name, diagnosis, norwood, grafts, graft_unit, price, deposit_amount, description, includes_text, date_option_1, date_option_2, valid_until, booked_date, status")
       .eq("id", data.quoteId)
       .maybeSingle();
 
