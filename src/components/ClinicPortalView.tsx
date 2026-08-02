@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
+import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
 import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
