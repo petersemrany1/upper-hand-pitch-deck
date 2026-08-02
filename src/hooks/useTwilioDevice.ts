@@ -428,6 +428,12 @@ async function ensureDevice(): Promise<void> {
 
 async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
   console.log("[placeCall] entry", { phone, hasDevice: !!device, currentStatus });
+  if (dialerUnavailable) {
+    const msg = "Calling isn't available on this account — sign in with a sales rep login.";
+    setSnapshot({ error: msg });
+    throw new Error(msg);
+  }
+
   if (!device) {
     await ensureDevice();
   }
