@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Calendar as CalendarIcon, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
 import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
 import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
+import { ClinicShell, type ClinicSection } from "@/components/clinic/ClinicShell";
+import { listClinicflowFollowups } from "@/lib/clinicflow-phase4.functions";
+import { sydneyTodayISO } from "@/lib/timezone";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +18,7 @@ import {
   DAY_NAMES, DAY_SHORT,
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
-import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
+
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -222,7 +226,9 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
-  const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
+  const [section, setSection] = useState<ClinicSection>("patients");
+  const [followupsDue, setFollowupsDue] = useState(0);
+
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
   const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
@@ -282,53 +288,79 @@ export function ClinicPortalView({
     }
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Open follow-ups due today or earlier — drives the sidebar badge + amber chip.
+  const listFollowups = useServerFn(listClinicflowFollowups);
+  useEffect(() => {
+    if (!isAdmin) { setFollowupsDue(0); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { followups } = await listFollowups({ data: { clinicId } });
+        if (cancelled) return;
+        const today = sydneyTodayISO();
+        const due = (followups as { status: string; due_date: string }[]).filter(
+          (f) => f.status === "open" && f.due_date <= today,
+        ).length;
+        setFollowupsDue(due);
+      } catch {
+        if (!cancelled) setFollowupsDue(0);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clinicId, isAdmin, section]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
+  const showFlow = (node: React.ReactNode) => (isAdmin ? node : <ClinicFlowComingSoon />);
+
+  const sectionContent = (() => {
+    switch (section) {
+      case "patients": return showFlow(<ClinicFlowPatients clinicId={clinicId} />);
+      case "today": return showFlow(<ClinicFlowToday clinicId={clinicId} />);
+      case "followups": return showFlow(<ClinicFlowFollowups clinicId={clinicId} />);
+      case "quotes": return showFlow(<ClinicFlowQuotesList clinicId={clinicId} />);
+      case "training": return showFlow(<ClinicFlowTraining clinicId={clinicId} />);
+      case "setup": return showFlow(<ClinicFlowSetup clinicId={clinicId} />);
+      case "availability":
+        return loading ? <PortalSkeleton /> : loadError ? <PortalErrorCard message={loadError} onRetry={reload} /> : (
+          <AvailabilityTab
+            tradingHours={tradingHours}
+            blockedSlots={blockedSlots}
+            overrides={overrides}
+            appts={appts}
+            clinicId={clinicId}
+            clinicState={clinicState}
+            minGapMins={minGapMins}
+            onChange={reload}
+          />
+        );
+      case "appointments":
+      default:
+        return loading ? <PortalSkeleton /> : loadError ? <PortalErrorCard message={loadError} onRetry={reload} /> : (
+          <AppointmentsTab
+            appts={appts}
+            tradingHours={tradingHours}
+            blockedSlots={blockedSlots}
+            clinicId={clinicId}
+            clinicState={clinicState}
+            minGapMins={minGapMins}
+            isAdmin={isAdmin}
+            onChange={reload}
+            onSelect={setSelected}
+          />
+        );
+    }
+  })();
+
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} />
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
-          <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
-          <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
-          <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
-        </div>
-      </div>
-
-      {loading ? (
-        <PortalSkeleton />
-      ) : loadError ? (
-        <PortalErrorCard message={loadError} onRetry={reload} />
-      ) : tab === "appointments" ? (
-        <AppointmentsTab
-          appts={appts}
-          tradingHours={tradingHours}
-          blockedSlots={blockedSlots}
-          clinicId={clinicId}
-          clinicState={clinicState}
-          minGapMins={minGapMins}
-          isAdmin={isAdmin}
-          onChange={reload}
-          onSelect={setSelected}
-        />
-      ) : tab === "availability" ? (
-        <AvailabilityTab
-          tradingHours={tradingHours}
-          blockedSlots={blockedSlots}
-          overrides={overrides}
-          appts={appts}
-          clinicId={clinicId}
-          clinicState={clinicState}
-          minGapMins={minGapMins}
-          onChange={reload}
-        />
-
-      ) : (
-        <ClinicFlowPane clinicId={clinicId} isAdmin={isAdmin} />
-      )}
-
-
-      <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
-        {clinicName} · Clinic Partner Portal
-      </div>
+    <ClinicShell
+      clinicId={clinicId}
+      clinicName={clinicName}
+      isAdmin={isAdmin}
+      active={section}
+      onNavigate={setSection}
+      followupsDue={followupsDue}
+    >
+      {sectionContent}
 
       {selected && (
         <AppointmentDetailModal
@@ -339,29 +371,21 @@ export function ClinicPortalView({
           clinicDefaultDeposit={clinicDefaultDeposit}
         />
       )}
+    </ClinicShell>
+  );
+}
+
+function ClinicFlowComingSoon() {
+  return (
+    <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
+      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
+        The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
+      </div>
     </div>
   );
 }
 
-function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 8,
-        padding: "16px 20px",
-        background: "transparent",
-        color: active ? NAVY : "#6b7785",
-        fontSize: 14,
-        fontWeight: active ? 600 : 500,
-        borderBottom: active ? `2px solid ${NAVY}` : "2px solid transparent",
-        cursor: "pointer",
-      }}
-    >
-      {icon} {children}
-    </button>
-  );
-}
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
@@ -2299,55 +2323,5 @@ function OpenDayModal({
         </button>
       </div>
     </ModalShell>
-  );
-}
-
-function ClinicFlowPane({ clinicId, isAdmin }: { clinicId: string; isAdmin: boolean }) {
-  const [sub, setSub] = useState<"patients" | "today" | "quotes" | "followups" | "training" | "setup">("patients");
-  if (!isAdmin) {
-    return (
-      <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
-        <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
-          The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div>
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec" }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px", flexWrap: "wrap" }}>
-          <SubTabBtn active={sub === "patients"} onClick={() => setSub("patients")}>Patients</SubTabBtn>
-          <SubTabBtn active={sub === "today"} onClick={() => setSub("today")}>Today</SubTabBtn>
-          <SubTabBtn active={sub === "quotes"} onClick={() => setSub("quotes")}>Quotes</SubTabBtn>
-          <SubTabBtn active={sub === "followups"} onClick={() => setSub("followups")}>Follow-ups</SubTabBtn>
-          <SubTabBtn active={sub === "training"} onClick={() => setSub("training")}>Training</SubTabBtn>
-          <SubTabBtn active={sub === "setup"} onClick={() => setSub("setup")}>Setup</SubTabBtn>
-        </div>
-      </div>
-      {sub === "patients" ? <ClinicFlowPatients clinicId={clinicId} />
-        : sub === "today" ? <ClinicFlowToday clinicId={clinicId} />
-        : sub === "quotes" ? <ClinicFlowQuotesList clinicId={clinicId} />
-        : sub === "followups" ? <ClinicFlowFollowups clinicId={clinicId} />
-        : sub === "training" ? <ClinicFlowTraining clinicId={clinicId} />
-        : <ClinicFlowSetup clinicId={clinicId} />}
-    </div>
-  );
-}
-
-function SubTabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "12px 18px", background: "transparent", border: "none",
-        borderBottom: `2px solid ${active ? "#1a3a6b" : "transparent"}`,
-        color: active ? "#1a3a6b" : "#6b7785",
-        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-      }}
-    >
-      {children}
-    </button>
   );
 }
