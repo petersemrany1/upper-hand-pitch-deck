@@ -87,7 +87,11 @@ let pendingIncoming: Call | null = null;
 // puts the current call on hold-via-disconnect) or reject it.
 let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
-let refreshTimer: number | null = null;
+// Set once the backend tells us this signed-in account isn't a sales rep
+// (e.g. clinic-portal users). The softphone simply doesn't apply to them, so
+// we stop retrying and never log it as a runtime error.
+let dialerUnavailable = false;
+
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
