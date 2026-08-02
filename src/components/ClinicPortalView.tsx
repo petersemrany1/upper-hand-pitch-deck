@@ -221,10 +221,14 @@ export function ClinicPortalView({
   clinicId,
   clinicName,
   isAdmin = false,
+  drawerOpen,
+  onDrawerOpenChange,
 }: {
   clinicId: string;
   clinicName: string;
   isAdmin?: boolean;
+  drawerOpen?: boolean;
+  onDrawerOpenChange?: (open: boolean) => void;
 }) {
   const [clinicflowEnabled, setClinicflowEnabled] = useState<boolean | null>(null);
   const showClinicFlow = isAdmin || clinicflowEnabled === true;
@@ -430,6 +434,8 @@ export function ClinicPortalView({
       active={section}
       onNavigate={setSection}
       followupsDue={followupsDue}
+      drawerOpen={drawerOpen ?? false}
+      onDrawerOpenChange={onDrawerOpenChange ?? (() => {})}
     >
       {sectionContent}
       {detailModal}

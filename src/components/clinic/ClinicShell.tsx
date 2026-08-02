@@ -52,6 +52,8 @@ export function ClinicShell({
   active,
   onNavigate,
   followupsDue,
+  drawerOpen,
+  onDrawerOpenChange,
   children,
 }: {
   clinicId: string;
@@ -61,6 +63,8 @@ export function ClinicShell({
   active: ClinicSection;
   onNavigate: (s: ClinicSection) => void;
   followupsDue: number;
+  drawerOpen: boolean;
+  onDrawerOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
@@ -70,7 +74,6 @@ export function ClinicShell({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string>("");
   const [narrow, setNarrow] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const navItems: NavEntry[] = showClinicFlow
     ? NAV
@@ -106,7 +109,7 @@ export function ClinicShell({
     return () => { cancelled = true; };
   }, [clinicId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = (s: ClinicSection) => { onNavigate(s); setDrawerOpen(false); };
+  const go = (s: ClinicSection) => { onNavigate(s); onDrawerOpenChange(false); };
 
   const sidebar = (
     <aside
@@ -202,7 +205,7 @@ export function ClinicShell({
       {narrow && drawerOpen && (
         <>
           <div
-            onClick={() => setDrawerOpen(false)}
+            onClick={() => onDrawerOpenChange(false)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 110 }}
           />
           {sidebar}
@@ -210,15 +213,6 @@ export function ClinicShell({
       )}
 
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        {narrow && (
-          <div style={{ height: 44, background: NAVY, display: "flex", alignItems: "center", gap: 10, padding: "0 14px", position: "sticky", top: 0, zIndex: 60 }}>
-            <button onClick={() => setDrawerOpen(true)} aria-label="Open menu" style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 4 }}>
-              <Menu size={20} />
-            </button>
-          </div>
-        )}
-
-
         <main style={{ flex: 1, padding: narrow ? 14 : 24, minWidth: 0, minHeight: 0, overflowY: "auto" }}>
           {active === "patients" && followupsDue > 0 && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
