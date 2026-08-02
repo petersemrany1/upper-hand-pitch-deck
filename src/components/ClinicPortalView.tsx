@@ -288,6 +288,28 @@ export function ClinicPortalView({
     }
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Open follow-ups due today or earlier — drives the sidebar badge + amber chip.
+  const listFollowups = useServerFn(listClinicflowFollowups);
+  useEffect(() => {
+    if (!isAdmin) { setFollowupsDue(0); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { followups } = await listFollowups({ data: { clinicId } });
+        if (cancelled) return;
+        const today = sydneyTodayISO();
+        const due = (followups as { status: string; due_date: string }[]).filter(
+          (f) => f.status === "open" && f.due_date <= today,
+        ).length;
+        setFollowupsDue(due);
+      } catch {
+        if (!cancelled) setFollowupsDue(0);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [clinicId, isAdmin, section]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   const showFlow = (node: React.ReactNode) => (isAdmin ? node : <ClinicFlowComingSoon />);
 
   const sectionContent = (() => {
