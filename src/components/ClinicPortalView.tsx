@@ -382,6 +382,44 @@ export function ClinicPortalView({
     }
   })();
 
+  const detailModal = selected ? (
+    <AppointmentDetailModal
+      appt={selected}
+      isAdmin={isAdmin}
+      onClose={() => setSelected(null)}
+      onChange={() => { reload(); }}
+      clinicDefaultDeposit={clinicDefaultDeposit}
+    />
+  ) : null;
+
+  // ClinicFlow off for this clinic: the original portal they're used to —
+  // pack balance card + Appointments / Availability tabs. No sidebar shell.
+  if (!showClinicFlow) {
+    return (
+      <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+        <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} />
+        <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3, margin: "16px 0 4px" }}>
+          {([["appointments", "Appointments"], ["availability", "Availability"]] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setSection(key)}
+              style={{
+                padding: "7px 16px", border: "none", borderRadius: 6,
+                background: section === key ? NAVY : "transparent",
+                color: section === key ? "#fff" : "#6b7785",
+                fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {sectionContent}
+        {detailModal}
+      </div>
+    );
+  }
+
   return (
     <ClinicShell
       clinicId={clinicId}
