@@ -86,8 +86,18 @@ export const addClinicflowPhoto = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     await assertCanAccessClinic(context.supabase, data.clinicId);
-    const allowed = ["day_1", "week_1_2", "weeks_2_4", "month_3", "month_6", "month_12"];
+    const allowed = ["day_1", "week_1_2", "weeks_2_4", "month_3", "month_6", "month_12", "before_after"];
     if (!allowed.includes(data.stage)) throw new Error("Invalid stage");
+    if (data.stage === "before_after") {
+      const { supabaseAdmin: adminCount } = await import("@/integrations/supabase/client.server");
+      const { count } = await adminCount
+        .from("clinicflow_photos")
+        .select("id", { count: "exact", head: true })
+        .eq("clinic_id", data.clinicId)
+        .eq("stage", "before_after");
+      if ((count ?? 0) >= 10) throw new Error("10 photo limit — delete one to add another.");
+    }
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("clinicflow_photos").insert({
       clinic_id: data.clinicId,
