@@ -167,7 +167,11 @@ export function ClinicFlowPresentGallery({
 
       {/* Counter */}
       <div style={{ padding: "12px 16px 20px", textAlign: "center", color: SOFT, fontSize: 12 }}>
-        {flat.length > 0 && `${posInStage} of ${inStage.length}`}
+        {flat.length > 0 &&
+          (mode === "before_after"
+            ? `${idx + 1} of ${flat.length}`
+            : `${posInStage} of ${inStage.length}`)}
+
       </div>
     </div>
   );
