@@ -434,6 +434,8 @@ export function ClinicPortalView({
       active={section}
       onNavigate={setSection}
       followupsDue={followupsDue}
+      drawerOpen={drawerOpen ?? false}
+      onDrawerOpenChange={onDrawerOpenChange ?? (() => {})}
     >
       {sectionContent}
       {detailModal}
