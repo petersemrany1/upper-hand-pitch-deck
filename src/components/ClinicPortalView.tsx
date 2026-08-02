@@ -222,7 +222,9 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
-  const [tab, setTab] = useState<"appointments" | "availability" | "clinicflow">("appointments");
+  const [section, setSection] = useState<ClinicSection>("patients");
+  const [followupsDue, setFollowupsDue] = useState(0);
+
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
   const [tradingHours, setTradingHours] = useState<TradingHours[]>([]);
   const [blockedSlots, setBlockedSlots] = useState<BlockedSlot[]>([]);
