@@ -286,6 +286,42 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   useEffect(() => { void load(); }, [load]);
 
+  const quickNoShow = useCallback(async (apptId: string) => {
+    const { error } = await supabase
+      .from("clinicflow_pipeline_status")
+      .upsert({
+        clinic_id: clinicId,
+        appointment_id: apptId,
+        lost_reason: "no_show",
+        lost_note: null,
+        lost_at: new Date().toISOString(),
+      }, { onConflict: "appointment_id" });
+    if (error) { toast.error(error.message); return; }
+    void load();
+    toast.success("Marked as no-show", {
+      action: {
+        label: "Undo",
+        onClick: () => {
+          void (async () => {
+            const { error: undoErr } = await supabase
+              .from("clinicflow_pipeline_status")
+              .upsert({
+                clinic_id: clinicId,
+                appointment_id: apptId,
+                lost_reason: null,
+                lost_note: null,
+                lost_at: null,
+              }, { onConflict: "appointment_id" });
+            if (undoErr) { toast.error(undoErr.message); return; }
+            toast.success("No-show undone");
+            void load();
+          })();
+        },
+      },
+    });
+  }, [clinicId, load]);
+
+
   const rows = useMemo(
     () => appts.map((a) => {
       const quote = quotes[a.id] ?? null;
@@ -446,8 +482,9 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                     <span
                       role="button"
                       tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); setNoShowId(r.appt.id); setOpenId(r.appt.id); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setNoShowId(r.appt.id); setOpenId(r.appt.id); } }}
+                      onClick={(e) => { e.stopPropagation(); void quickNoShow(r.appt.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); void quickNoShow(r.appt.id); } }}
+
                       style={{
                         padding: "4px 10px", borderRadius: 999, border: `1px solid ${LINE}`,
                         background: "#fff", color: NAVY, fontSize: 12, fontWeight: 700, cursor: "pointer",
