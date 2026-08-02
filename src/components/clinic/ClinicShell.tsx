@@ -74,7 +74,6 @@ export function ClinicShell({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string>("");
   const [narrow, setNarrow] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const navItems: NavEntry[] = showClinicFlow
     ? NAV
@@ -110,7 +109,7 @@ export function ClinicShell({
     return () => { cancelled = true; };
   }, [clinicId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const go = (s: ClinicSection) => { onNavigate(s); setDrawerOpen(false); };
+  const go = (s: ClinicSection) => { onNavigate(s); onDrawerOpenChange(false); };
 
   const sidebar = (
     <aside
