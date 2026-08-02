@@ -96,6 +96,14 @@ function fmtDay(d: string) {
     weekday: "short", day: "numeric", month: "short", timeZone: APP_TIMEZONE,
   });
 }
+/** "Today 10:30am" / "Tomorrow 9:00am", else the full day + time. */
+function fmtWhen(date: string, time: string) {
+  const days = daysUntilSydney(date);
+  if (days === 0) return `Today ${fmtTime(time)}`;
+  if (days === 1) return `Tomorrow ${fmtTime(time)}`;
+  return `${fmtDay(date)} ${fmtTime(time)}`;
+}
+
 function fmtDateTime(iso: string) {
   return new Date(iso).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short", timeZone: APP_TIMEZONE });
 }
@@ -313,14 +321,24 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   const visible = useMemo(() => {
     const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
-    if (filter !== "In Follow-up") return list;
-    // soonest / most overdue first, patients with no follow-up date last
-    return [...list].sort((x, y) => {
-      const dx = nextFollowupDate(x) ?? "9999-12-31";
-      const dy = nextFollowupDate(y) ?? "9999-12-31";
-      return dx < dy ? -1 : dx > dy ? 1 : 0;
+    if (filter === "In Follow-up") {
+      // soonest / most overdue first, patients with no follow-up date last
+      return [...list].sort((x, y) => {
+        const dx = nextFollowupDate(x) ?? "9999-12-31";
+        const dy = nextFollowupDate(y) ?? "9999-12-31";
+        return dx < dy ? -1 : dx > dy ? 1 : 0;
+      });
+    }
+    // Upcoming booked patients (today or later) float to the top, soonest first.
+    const upcoming = (r: Row) => r.stage === "Booked" && r.appt.appointment_date >= today;
+    const top = list.filter(upcoming).sort((x, y) => {
+      const kx = `${x.appt.appointment_date} ${x.appt.appointment_time}`;
+      const ky = `${y.appt.appointment_date} ${y.appt.appointment_time}`;
+      return kx < ky ? -1 : kx > ky ? 1 : 0;
     });
-  }, [rows, filter]);
+    return [...top, ...list.filter((r) => !upcoming(r))];
+  }, [rows, filter, today]);
+
 
 
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
@@ -402,7 +420,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   <span style={stageChip(r.stage)}>{r.stage}</span>
                 </div>
                 <div style={{ fontSize: 14, color: GREY, marginTop: 6 }}>
-                  {fmtDay(r.appt.appointment_date)} {fmtTime(r.appt.appointment_time)}
+                  {fmtWhen(r.appt.appointment_date, r.appt.appointment_time)}
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                   {r.chase ? (
