@@ -457,12 +457,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
       {open && (
         <PatientDrawer
           row={open}
-          onClose={() => setOpenId(null)}
+          onClose={() => { setOpenId(null); setNoShowId(null); }}
           onChanged={() => { void load(); }}
           clinicId={clinicId}
           today={today}
+          initialNoShow={noShowId === open.appt.id}
         />
       )}
+
     </div>
   );
 }
