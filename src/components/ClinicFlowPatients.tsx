@@ -203,6 +203,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [statuses, setStatuses] = useState<Record<string, PipelineStatus>>({});
   const [followups, setFollowups] = useState<Record<string, Followup>>({});
+  const [chases, setChases] = useState<Record<string, Chase>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
