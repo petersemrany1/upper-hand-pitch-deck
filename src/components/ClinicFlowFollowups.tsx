@@ -24,10 +24,18 @@ type Followup = {
   status: string;
 };
 
+type Chase = {
+  id: string;
+  patient_name: string;
+  note: string | null;
+  requested_at: string;
+};
+
 const TASK_LABEL: Record<string, string> = {
   checkin: "Check-in — any questions, and which way are you leaning?",
   nudge: "Nudge — send timeline photos or recovery FAQ",
   expiring: "Quote expiring — offer to hold a date",
+  custom: "Scheduled follow-up",
 };
 
 function waMessageFor(taskType: string, firstName: string): string {
