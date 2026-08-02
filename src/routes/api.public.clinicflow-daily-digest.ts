@@ -1,17 +1,45 @@
-// Daily morning digest: emails each ClinicFlow clinic the patients they owe a
-// follow-up today. Called by pg_cron with the x-cron-secret header.
+// Daily morning briefing: emails each ClinicFlow clinic today's patients and
+// the follow-ups they owe. Called by pg_cron with the x-cron-secret header.
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { sydneyTodayISO, sydneyHour } from "@/lib/timezone";
 import { APP_TIMEZONE } from "@/lib/timezone";
 
 type FollowupRow = { patient_name: string; due_date: string };
+type ApptRow = {
+  patient_name: string;
+  patient_phone: string | null;
+  appointment_time: string;
+  intel_notes: string | null;
+};
 
 function fmtDay(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString("en-AU", {
     weekday: "short", day: "numeric", month: "short", timeZone: APP_TIMEZONE,
   });
 }
+
+function fmtTime(t: string) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (!m) return t;
+  let h = parseInt(m[1]!, 10);
+  const ampm = h >= 12 ? "pm" : "am";
+  h = h % 12 || 12;
+  return `${h}:${m[2]}${ampm}`;
+}
+
+function esc(s: string) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** First useful line(s) of the intel notes, trimmed for an email. */
+function intelSnippet(notes: string | null): string {
+  if (!notes) return "";
+  const flat = notes.replace(/\s+/g, " ").trim();
+  if (!flat) return "";
+  return flat.length > 220 ? `${flat.slice(0, 220).trimEnd()}…` : flat;
+}
+
 
 export const Route = createFileRoute("/api/public/clinicflow-daily-digest")({
   server: {
