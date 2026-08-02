@@ -589,7 +589,83 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
         </div>
 
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card title="Next follow-up">
+            {status?.next_followup_date ? (
+              <div
+                style={{
+                  background: drawerDue?.overdue ? RED_BG : AMBER_BG,
+                  color: drawerDue?.overdue ? RED : AMBER_FG,
+                  borderRadius: 8, padding: "10px 12px", fontSize: 14, fontWeight: 700, marginBottom: 12,
+                }}
+              >
+                {fmtDay(status.next_followup_date)} — {drawerDue?.text}
+                {status.next_followup_note ? (
+                  <div style={{ fontWeight: 500, fontSize: 13, marginTop: 4 }}>{status.next_followup_note}</div>
+                ) : null}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: GREY, marginBottom: 12 }}>
+                No follow-up date set for {firstName}. Pick a date so it shows on their card.
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {[["Tomorrow", 1], ["In 3 days", 3], ["Next week", 7], ["In 2 weeks", 14]].map(([label, d]) => (
+                <button
+                  key={label as string}
+                  onClick={() => setFuDate(quickDate(d as number))}
+                  style={{
+                    background: "#fff", border: `1px solid ${LINE}`, color: NAVY, borderRadius: 999,
+                    padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
+                  {label as string}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="date"
+              value={fuDate}
+              min={today}
+              onChange={(e) => setFuDate(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+            />
+            <input
+              type="text"
+              value={fuNote}
+              placeholder="What's the follow-up about? (optional)"
+              onChange={(e) => setFuNote(e.target.value)}
+              style={{ width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <button
+                disabled={fuSaving}
+                onClick={() => void saveFollowup(false)}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, opacity: fuSaving ? 0.6 : 1,
+                }}
+              >
+                {status?.next_followup_date ? "Update follow-up date" : "Set follow-up date"}
+              </button>
+              {status?.next_followup_date && (
+                <button
+                  disabled={fuSaving}
+                  onClick={() => void saveFollowup(true)}
+                  style={{
+                    background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </Card>
+
           <Card title="Timeline">
+
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {milestones.map((m) => (
                 <div key={m.label} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
