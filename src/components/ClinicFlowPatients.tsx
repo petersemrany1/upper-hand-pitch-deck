@@ -6,6 +6,7 @@ import { CheckCircle2, Circle, X, Phone, Mail, ExternalLink, Copy, BadgeDollarSi
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
 import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
+import { ClinicFlowConsult } from "@/components/ClinicFlowConsult";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
@@ -217,6 +218,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
   const [noShowId, setNoShowId] = useState<string | null>(null);
+  const [consultId, setConsultId] = useState<string | null>(null);
 
 
   const today = useMemo(() => sydneyTodayISO(), []);
