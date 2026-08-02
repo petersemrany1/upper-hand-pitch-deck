@@ -397,6 +397,21 @@ async function ensureDevice(): Promise<void> {
       scheduleTokenRefresh();
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
+      if (dialerUnavailable || msg === "DIALLER_NOT_AVAILABLE") {
+        // This account isn't a sales rep (e.g. clinic portal user) — the
+        // softphone simply doesn't apply. Stay quiet, don't retry.
+        dialerUnavailable = true;
+        setSnapshot({
+          error: null,
+          activeCallStartedAt: null,
+          activeCallInstanceId: null,
+          status: "idle",
+          dialerStatus: "failed",
+        });
+        device = null;
+        initPromise = null;
+        return;
+      }
       console.error("Voice SDK init failed:", err);
       setSnapshot({ error: msg, activeCallStartedAt: null, activeCallInstanceId: null, status: "error", dialerStatus: "failed" });
       await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
@@ -406,6 +421,7 @@ async function ensureDevice(): Promise<void> {
       device = null;
       initPromise = null;
     }
+
   })();
   return initPromise;
 }
