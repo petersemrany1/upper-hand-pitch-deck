@@ -92,14 +92,11 @@ function QuotePage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState<string>("");
-  const [clinicPhone, setClinicPhone] = useState<string | null>(null);
   const [clinicCity, setClinicCity] = useState<string | null>(null);
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
-  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string | null>(null);
   const [coolingOffDays, setCoolingOffDays] = useState<number>(7);
-  const [partnerModal, setPartnerModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -121,11 +118,9 @@ function QuotePage() {
 
       setQuote(result.quote as Quote);
       setClinicName(result.clinic?.name ?? "");
-      setClinicPhone(result.clinic?.phone ?? null);
       setClinicCity(result.clinic?.city ?? null);
       setPatientPhone(result.patient.phone);
       setPatientEmail(result.patient.email);
-      setWhatsappNumber(result.settings.whatsappNumber);
       setDoctorName(result.settings.doctorName);
       setCoolingOffDays(result.settings.coolingOffDays);
       setLogoUrl(result.settings.logoUrl);
@@ -197,7 +192,7 @@ function QuotePage() {
 
 Diagnosis: ${quote.diagnosis}
 Recommended plan: FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
-${quote.grafts ? `Grafts: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
+${quote.grafts ? `${quote.graft_unit === "hairs" ? "Hairs" : "Grafts"}: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
 ${quote.description ? `\n${quote.description}\n` : ""}
 Ways people pay: in full · deposit + balance before procedure day · finance options available.
 
@@ -222,7 +217,7 @@ Any questions, just message back.`;
   const showWarning = transplantWarning(quote.diagnosis);
   const firstName = quote.patient_name.split(" ")[0];
   const docName = doctorName?.trim() || "your surgeon";
-  const graftsText = quote.grafts != null ? quote.grafts.toLocaleString() : "the planned number of";
+  const unitLabel = quote.graft_unit === "hairs" ? "Hairs" : "Grafts";
   const dateOptions = [quote.date_option_1, quote.date_option_2].filter(Boolean) as string[];
   const weekly = quote.price > 0 ? Math.ceil(quote.price / (5 * 52) / 5) * 5 : 0;
   const deposit = Math.round(quote.deposit_amount || 0);
@@ -305,7 +300,7 @@ Any questions, just message back.`;
               <SummaryTile label="Diagnosis" value={quote.diagnosis} />
               <SummaryTile label="Norwood" value={quote.norwood ?? "—"} />
               <SummaryTile
-                label="Grafts"
+                label={unitLabel}
                 value={quote.grafts != null ? quote.grafts.toLocaleString() : "TBC"}
               />
             </div>
@@ -325,18 +320,27 @@ Any questions, just message back.`;
               <div>
                 <p className="text-[10px] uppercase text-clinical-muted font-semibold">Total price</p>
                 <p className="text-3xl font-semibold text-clinical-text tracking-tight mt-1">{fmt$(quote.price)}</p>
-                <p className="text-[11px] text-clinical-muted mt-1">AUD · includes surgery, theatre, aftercare kit and all follow-up reviews</p>
               </div>
             </div>
 
-            {weekly > 0 && (
-              <p className="text-[12px] text-clinical-text mt-3">
-                or from <span className="font-semibold">{fmt$(weekly)}/week</span> with Humm — 5-year plan, subject to approval
-              </p>
-            )}
-            <p className="text-[11px] text-clinical-muted mt-1.5 leading-relaxed">
-              Prefer to use your super? SuperCare early release is available — allow 6–12 weeks and an application fee.
-            </p>
+            <div className="mt-4">
+              <p className="text-[10px] uppercase text-clinical-muted font-semibold mb-2">Funding options</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="bg-white border border-clinical-line rounded-sm p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-clinical-muted font-semibold">Upfront</p>
+                  <p className="text-sm font-semibold text-clinical-text mt-1">{fmt$(quote.price)}</p>
+                  <p className="text-[11px] text-clinical-muted mt-0.5">Paid in full before surgery day.</p>
+                </div>
+                <div className="bg-white border border-clinical-line rounded-sm p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-clinical-muted font-semibold">Payment plan</p>
+                  <p className="text-sm font-semibold text-clinical-text mt-1">
+                    {weekly > 0 ? `from ${fmt$(weekly)}/week` : "Available"}
+                  </p>
+                  <p className="text-[11px] text-clinical-muted mt-0.5">5-year plan, subject to approval.</p>
+                </div>
+              </div>
+            </div>
+
 
             {deposit > 0 && (
               <div className="mt-4 flex items-start gap-2 bg-white border border-clinical-line rounded-sm p-3">
@@ -355,6 +359,25 @@ Any questions, just message back.`;
                 </span>
               </div>
             )}
+          </div>
+
+          {/* What's included — above the CTA */}
+          <div className="px-6 py-5 border-t border-clinical-line bg-white">
+            <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
+            <ul className="text-xs text-clinical-muted space-y-1.5">
+              {[
+                `Hairline design session with ${docName} before surgery day`,
+                `Full sapphire FUE procedure led by ${docName}`,
+                "Take-home aftercare kit",
+                "Follow-up reviews at 3, 6 and 12 months",
+                `Direct access to ${docName} if anything comes up`,
+              ].map((line, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent" />
+                  {line}
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Date selection + CTA */}
@@ -414,22 +437,6 @@ Any questions, just message back.`;
               <TrustItem text="Finance available" />
             </div>
 
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
-                className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
-              >
-                Message the clinic
-              </button>
-              {(clinicPhone || whatsappNumber) && (
-                <a
-                  href={`tel:${(clinicPhone ?? whatsappNumber ?? "").replace(/\s/g, "")}`}
-                  className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors text-center"
-                >
-                  Call {clinicName || "the clinic"} {clinicPhone ?? whatsappNumber}
-                </a>
-              )}
-            </div>
 
             <p className="text-[11px] text-clinical-muted text-center mt-4 flex items-center justify-center gap-1.5">
               <Clock size={12} />
@@ -439,74 +446,9 @@ Any questions, just message back.`;
             </p>
           </div>
 
-          {/* Clinical detail — below the fold */}
+          {/* Repeat CTA */}
           <div className="border-t border-clinical-line bg-white">
-            <div className="px-6 py-5">
-              <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What your procedure involves</h3>
-              <p className="text-clinical-muted text-sm leading-relaxed">
-                Hair restoration — {graftsText} grafts, sapphire FUE. One session, moving grafts from your permanent donor area at the back and sides of the scalp to the hairline, mid-scalp and crown.
-              </p>
-              <ul className="text-xs text-clinical-muted space-y-2 mt-4">
-                <li className="flex gap-2">
-                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
-                  Your hairline is designed with you before surgery day — around your facial proportions, hair calibre, existing density and how your loss is likely to progress.
-                </li>
-                <li className="flex gap-2">
-                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
-                  {docName} creates every recipient site — setting the angle and direction of each graft — and personally places the grafts along your frontal hairline.
-                </li>
-                <li className="flex gap-2">
-                  <span className="w-1 h-1 rounded-full bg-clinical-accent mt-1.5 shrink-0" />
-                  Grafts are counted during the procedure and the final count is shown to you before you leave.
-                </li>
-              </ul>
-              <p className="text-xs text-clinical-text leading-relaxed mt-4 pt-4 border-t border-clinical-line/60 italic">
-                Your donor hair is finite. This plan uses {graftsText} grafts and holds the rest in reserve for the future.
-              </p>
-            </div>
-
-            <div className="px-6 py-5 border-t border-clinical-line/60">
-              <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
-              <ul className="text-xs text-clinical-muted space-y-1.5">
-                {[
-                  `Hairline design session with ${docName} before surgery day`,
-                  `Full sapphire FUE procedure led by ${docName}`,
-                  "Take-home aftercare kit",
-                  "Follow-up reviews at 3, 6 and 12 months",
-                  `Direct access to ${docName} if anything comes up`,
-                ].map((line, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <span className="w-1 h-1 rounded-full bg-clinical-accent" />
-                    {line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="px-6 py-5 border-t border-clinical-line/60 flex flex-wrap gap-2">
-              <button
-                onClick={() => void openGallery()}
-                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
-              >
-                <Images size={14} /> What results look like, month by month
-              </button>
-              <button
-                onClick={() => void onSendEmail()}
-                disabled={!patientEmail}
-                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
-              >
-                <Mail size={14} /> Email me this plan
-              </button>
-              <button
-                onClick={() => setPartnerModal(true)}
-                className="flex-1 py-2 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
-              >
-                <Mail size={14} /> Send to my partner
-              </button>
-            </div>
-
-            {/* Repeat CTA */}
-            <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
+            <div className="px-6 py-6 bg-slate-50/60">
               <button
                 onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
                 disabled={!patientPhone}
@@ -524,15 +466,6 @@ Any questions, just message back.`;
         </div>
       </div>
 
-      {partnerModal && (
-        <PartnerEmailModal
-          onClose={() => setPartnerModal(false)}
-          onSend={async (email) => {
-            await onSendEmail(email);
-            setPartnerModal(false);
-          }}
-        />
-      )}
 
 
 
@@ -597,39 +530,6 @@ function TrustItem({ text }: { text: string }) {
   );
 }
 
-function PartnerEmailModal({ onClose, onSend }: { onClose: () => void; onSend: (email: string) => void | Promise<void> }) {
-  const [email, setEmail] = useState("");
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className="bg-white rounded-sm w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading">Send to my partner</h3>
-        <p className="text-[11px] text-clinical-muted mt-1">We'll email a copy of this treatment plan.</p>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="partner@email.com"
-          className="w-full mt-3 border border-clinical-line rounded-sm px-3 py-2 text-sm"
-        />
-        <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className="flex-1 py-2 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text">
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              const v = email.trim();
-              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return toast.error("Enter a valid email address");
-              void onSend(v);
-            }}
-            className="flex-1 py-2 bg-clinical-text text-white rounded-sm text-[11px] font-semibold"
-          >
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 
 function MenuBtn({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
@@ -767,6 +667,7 @@ type Quote = {
   diagnosis: string;
   norwood: string | null;
   grafts: number | null;
+  graft_unit?: string | null;
   price: number;
   deposit_amount: number;
   description: string | null;
@@ -776,5 +677,5 @@ type Quote = {
   date_option_2: string | null;
   status: "draft" | "presented" | "booked" | "deposit_recorded" | "expired";
   booked_date: string | null;
-  deposit_recorded_at: string | null;
+  deposit_recorded_at?: string | null;
 };

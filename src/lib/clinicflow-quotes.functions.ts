@@ -14,7 +14,7 @@ export const getPublicClinicflowQuote = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: quote, error } = await supabaseAdmin
       .from("clinicflow_quotes")
-      .select("id, clinic_id, appointment_id, patient_name, diagnosis, norwood, grafts, price, deposit_amount, description, includes_text, date_option_1, date_option_2, valid_until, booked_date, status")
+      .select("id, clinic_id, appointment_id, patient_name, diagnosis, norwood, grafts, graft_unit, price, deposit_amount, description, includes_text, date_option_1, date_option_2, valid_until, booked_date, status")
       .eq("id", data.quoteId)
       .maybeSingle();
 
@@ -94,6 +94,7 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
       diagnosis: string;
       norwood?: string | null;
       grafts?: number | null;
+      graftUnit?: "grafts" | "hairs";
       price: number;
       depositAmount: number;
       description?: string | null;
@@ -118,6 +119,7 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
         diagnosis: data.diagnosis,
         norwood: data.norwood ?? null,
         grafts: data.grafts ?? null,
+        graft_unit: data.graftUnit ?? "grafts",
         price: data.price,
         deposit_amount: data.depositAmount,
         description: data.description ?? null,
@@ -222,7 +224,7 @@ export const sendClinicflowQuoteEmail = createServerFn({ method: "POST" })
         <p>Thank you for coming in today. Here's a summary of what we discussed:</p>
         <p><strong>Diagnosis:</strong> ${quote.diagnosis}<br/>
         <strong>Recommended plan:</strong> FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}<br/>
-        ${quote.grafts ? `<strong>Grafts:</strong> ${quote.grafts}<br/>` : ""}
+        ${quote.grafts ? `<strong>${quote.graft_unit === "hairs" ? "Hairs" : "Grafts"}:</strong> ${quote.grafts}<br/>` : ""}
         <strong>Price:</strong> ${fmt$(quote.price as number)} AUD</p>
         ${quote.description ? `<p>${(quote.description as string).replace(/\n/g, "<br/>")}</p>` : ""}
         ${quote.includes_text ? `<p><strong>What's included</strong><br/>${(quote.includes_text as string).replace(/\n/g, "<br/>")}</p>` : ""}
