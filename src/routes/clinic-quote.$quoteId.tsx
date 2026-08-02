@@ -222,7 +222,7 @@ Any questions, just message back.`;
   const showWarning = transplantWarning(quote.diagnosis);
   const firstName = quote.patient_name.split(" ")[0];
   const docName = doctorName?.trim() || "your surgeon";
-  const graftsText = quote.grafts != null ? quote.grafts.toLocaleString() : "the planned number of";
+  const unitLabel = quote.graft_unit === "hairs" ? "Hairs" : "Grafts";
   const dateOptions = [quote.date_option_1, quote.date_option_2].filter(Boolean) as string[];
   const weekly = quote.price > 0 ? Math.ceil(quote.price / (5 * 52) / 5) * 5 : 0;
   const deposit = Math.round(quote.deposit_amount || 0);
