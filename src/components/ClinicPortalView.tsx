@@ -282,53 +282,57 @@ export function ClinicPortalView({
     }
   }, [appts]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const showFlow = (node: React.ReactNode) => (isAdmin ? node : <ClinicFlowComingSoon />);
+
+  const sectionContent = (() => {
+    switch (section) {
+      case "patients": return showFlow(<ClinicFlowPatients clinicId={clinicId} />);
+      case "today": return showFlow(<ClinicFlowToday clinicId={clinicId} />);
+      case "followups": return showFlow(<ClinicFlowFollowups clinicId={clinicId} />);
+      case "quotes": return showFlow(<ClinicFlowQuotesList clinicId={clinicId} />);
+      case "training": return showFlow(<ClinicFlowTraining clinicId={clinicId} />);
+      case "setup": return showFlow(<ClinicFlowSetup clinicId={clinicId} />);
+      case "availability":
+        return loading ? <PortalSkeleton /> : loadError ? <PortalErrorCard message={loadError} onRetry={reload} /> : (
+          <AvailabilityTab
+            tradingHours={tradingHours}
+            blockedSlots={blockedSlots}
+            overrides={overrides}
+            appts={appts}
+            clinicId={clinicId}
+            clinicState={clinicState}
+            minGapMins={minGapMins}
+            onChange={reload}
+          />
+        );
+      case "appointments":
+      default:
+        return loading ? <PortalSkeleton /> : loadError ? <PortalErrorCard message={loadError} onRetry={reload} /> : (
+          <AppointmentsTab
+            appts={appts}
+            tradingHours={tradingHours}
+            blockedSlots={blockedSlots}
+            clinicId={clinicId}
+            clinicState={clinicState}
+            minGapMins={minGapMins}
+            isAdmin={isAdmin}
+            onChange={reload}
+            onSelect={setSelected}
+          />
+        );
+    }
+  })();
+
   return (
-    <div style={{ background: "#f0f2f5", minHeight: "100vh", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} />
-      <div style={{ background: "#fff", borderBottom: "1px solid #e2e6ec", marginTop: 16 }}>
-        <div style={{ display: "flex", gap: 0, padding: "0 24px" }}>
-          <TabBtn active={tab === "appointments"} onClick={() => setTab("appointments")} icon={<ClipboardList size={16} />}>Appointments</TabBtn>
-          <TabBtn active={tab === "availability"} onClick={() => setTab("availability")} icon={<CalendarDays size={16} />}>Availability</TabBtn>
-          <TabBtn active={tab === "clinicflow"} onClick={() => setTab("clinicflow")} icon={<Sparkles size={16} />}>ClinicFlow</TabBtn>
-        </div>
-      </div>
-
-      {loading ? (
-        <PortalSkeleton />
-      ) : loadError ? (
-        <PortalErrorCard message={loadError} onRetry={reload} />
-      ) : tab === "appointments" ? (
-        <AppointmentsTab
-          appts={appts}
-          tradingHours={tradingHours}
-          blockedSlots={blockedSlots}
-          clinicId={clinicId}
-          clinicState={clinicState}
-          minGapMins={minGapMins}
-          isAdmin={isAdmin}
-          onChange={reload}
-          onSelect={setSelected}
-        />
-      ) : tab === "availability" ? (
-        <AvailabilityTab
-          tradingHours={tradingHours}
-          blockedSlots={blockedSlots}
-          overrides={overrides}
-          appts={appts}
-          clinicId={clinicId}
-          clinicState={clinicState}
-          minGapMins={minGapMins}
-          onChange={reload}
-        />
-
-      ) : (
-        <ClinicFlowPane clinicId={clinicId} isAdmin={isAdmin} />
-      )}
-
-
-      <div style={{ padding: 16, textAlign: "center", color: "#9aa5b1", fontSize: 11 }}>
-        {clinicName} · Clinic Partner Portal
-      </div>
+    <ClinicShell
+      clinicId={clinicId}
+      clinicName={clinicName}
+      isAdmin={isAdmin}
+      active={section}
+      onNavigate={setSection}
+      followupsDue={followupsDue}
+    >
+      {sectionContent}
 
       {selected && (
         <AppointmentDetailModal
@@ -339,29 +343,21 @@ export function ClinicPortalView({
           clinicDefaultDeposit={clinicDefaultDeposit}
         />
       )}
+    </ClinicShell>
+  );
+}
+
+function ClinicFlowComingSoon() {
+  return (
+    <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
+      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
+        The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
+      </div>
     </div>
   );
 }
 
-function TabBtn({ active, onClick, icon, children }: { active: boolean; onClick: () => void; icon: React.ReactNode; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        display: "flex", alignItems: "center", gap: 8,
-        padding: "16px 20px",
-        background: "transparent",
-        color: active ? NAVY : "#6b7785",
-        fontSize: 14,
-        fontWeight: active ? 600 : 500,
-        borderBottom: active ? `2px solid ${NAVY}` : "2px solid transparent",
-        cursor: "pointer",
-      }}
-    >
-      {icon} {children}
-    </button>
-  );
-}
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
 
