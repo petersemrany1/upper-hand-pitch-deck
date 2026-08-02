@@ -216,17 +216,36 @@ function AppointmentCard({
 }
 
 function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake: Intake | null; clinicId: string; onBack: () => void }) {
-  const listPhotos = useServerFn(listClinicflowPhotos);
+  const loadGallery = useServerFn(getClinicflowGalleryPhotos);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<PresentPhoto[] | null>(null);
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [showBuilder, setShowBuilder] = useState(false);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("clinicflow_clinic_settings")
+        .select("follicle_model_url")
+        .eq("clinic_id", clinicId)
+        .maybeSingle();
+      if (!cancelled) setModelUrl((data?.follicle_model_url as string | null) ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [clinicId]);
 
   const openGallery = async () => {
     setGalleryOpen(true);
     if (galleryPhotos === null) {
+      setGalleryLoading(true);
       try {
-        const { photos } = await listPhotos({ data: { clinicId } });
-        setGalleryPhotos(photos as GalleryPhoto[]);
+        const { photos } = await loadGallery({ data: { clinicId } });
+        setGalleryPhotos(photos as PresentPhoto[]);
       } catch { setGalleryPhotos([]); }
+      setGalleryLoading(false);
     }
   };
 
@@ -239,13 +258,31 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         >
           <ChevronLeft size={16} /> Back to Today
         </button>
-        <button
-          onClick={() => void openGallery()}
-          style={{ background: "#fff", border: `1px solid ${LINE}`, color: NAVY, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
-        >
-          <Images size={14} /> Timeline photos
-        </button>
       </div>
+
+      {/* Consult toolkit */}
+      <div
+        style={{
+          position: "sticky", top: 0, zIndex: 20, background: "#fff",
+          border: `1px solid ${LINE}`, borderRadius: 12, padding: 10, marginBottom: 16,
+          display: "flex", gap: 8, alignItems: "center", overflowX: "auto",
+          boxShadow: "0 1px 3px rgba(26,58,107,0.06)",
+        }}
+      >
+        <ToolPill icon={<Images size={15} />} label="Photos" onClick={() => void openGallery()} />
+        {modelUrl && (
+          <ToolPill icon={<Box size={15} />} label="Model" onClick={() => window.open(modelUrl, "_blank")} />
+        )}
+        <ToolPill
+          icon={<Sparkles size={15} />}
+          label="Simulator"
+          note="Coming soon"
+          disabled
+          onClick={() => toast("Simulator coming soon")}
+        />
+        <ToolPill icon={<FileText size={15} />} label="Quote" primary onClick={() => setShowBuilder(true)} />
+      </div>
+
 
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
