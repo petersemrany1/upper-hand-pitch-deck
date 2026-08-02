@@ -192,7 +192,7 @@ function QuotePage() {
 
 Diagnosis: ${quote.diagnosis}
 Recommended plan: FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
-${quote.grafts ? `Grafts: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
+${quote.grafts ? `${quote.graft_unit === "hairs" ? "Hairs" : "Grafts"}: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
 ${quote.description ? `\n${quote.description}\n` : ""}
 Ways people pay: in full · deposit + balance before procedure day · finance options available.
 
