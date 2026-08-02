@@ -244,6 +244,46 @@ export function ClinicFlowFollowups({ clinicId }: { clinicId: string }) {
           );
         })}
       </div>
+
+      {chases.length > 0 && (
+        <div style={{ marginTop: 28 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: NAVY, margin: "0 0 10px" }}>Bold is chasing</h2>
+          <div style={{ display: "grid", gap: 10 }}>
+            {chases.map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  background: "#edf2f9", border: `1px solid ${LINE}`, borderRadius: 12, padding: 16,
+                  display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 700, color: NAVY, fontSize: 15 }}>{c.patient_name}</div>
+                  <div style={{ fontSize: 12, color: GREY, marginTop: 4 }}>
+                    Requested {fmtDate(c.requested_at.slice(0, 10))}
+                    {c.note ? ` — ${c.note}` : ""}
+                  </div>
+                </div>
+                {isAdmin && (
+                  <button
+                    disabled={chaseBusyId === c.id}
+                    onClick={() => void onChaseDone(c.id)}
+                    style={{
+                      display: "inline-flex", alignItems: "center", gap: 6,
+                      background: NAVY, color: "#fff", border: "none",
+                      padding: "9px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                      opacity: chaseBusyId === c.id ? 0.6 : 1,
+                    }}
+                  >
+                    <CheckCircle2 size={14} /> Mark done
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
