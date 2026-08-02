@@ -18,10 +18,12 @@ export function ClinicFlowPresentGallery({
   photos,
   loading,
   onClose,
+  mode = "timeline",
 }: {
   photos: PresentPhoto[];
   loading?: boolean;
   onClose: () => void;
+  mode?: "timeline" | "before_after";
 }) {
   // Ordered by the canonical stage sequence so "next" walks the timeline.
   const flat = useMemo(() => {
@@ -77,8 +79,11 @@ export function ClinicFlowPresentGallery({
         if (Math.abs(dx) > 45) go(dx < 0 ? 1 : -1);
       }}
     >
-      {/* Top: stage chips + close */}
+      {/* Top: title / stage chips + close */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+        {mode === "before_after" ? (
+          <div style={{ flex: 1, color: "#fff", fontSize: 16, fontWeight: 800 }}>Before &amp; after</div>
+        ) : (
         <div style={{ flex: 1, display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" }}>
           {stagesPresent.map((s) => {
             const active = s.key === activeStage;
@@ -98,6 +103,8 @@ export function ClinicFlowPresentGallery({
             );
           })}
         </div>
+        )}
+
         <button
           onClick={onClose}
           aria-label="Close"
@@ -117,8 +124,11 @@ export function ClinicFlowPresentGallery({
           <div style={{ color: SOFT, fontSize: 14 }}>Loading photos…</div>
         ) : flat.length === 0 ? (
           <div style={{ color: SOFT, fontSize: 14, textAlign: "center", maxWidth: 420, lineHeight: 1.6 }}>
-            No timeline photos yet — add them in Setup, or they'll appear once the HTG library is loaded.
+            {mode === "before_after"
+              ? "No before & after photos yet — add them in Setup."
+              : "No timeline photos yet — add them in Setup, or they'll appear once the HTG library is loaded."}
           </div>
+
         ) : (
           <>
             <button onClick={() => go(-1)} disabled={idx === 0} aria-label="Previous" style={{ ...navBtn, opacity: idx === 0 ? 0.25 : 1 }}>
@@ -157,7 +167,11 @@ export function ClinicFlowPresentGallery({
 
       {/* Counter */}
       <div style={{ padding: "12px 16px 20px", textAlign: "center", color: SOFT, fontSize: 12 }}>
-        {flat.length > 0 && `${posInStage} of ${inStage.length}`}
+        {flat.length > 0 &&
+          (mode === "before_after"
+            ? `${idx + 1} of ${flat.length}`
+            : `${posInStage} of ${inStage.length}`)}
+
       </div>
     </div>
   );
