@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { HAIR_QUESTIONS, WELLBEING_QUESTIONS, computeWellbeingReview } from "@/components/ClinicFlowToday";
+import { HAIR_QUESTIONS, WELLBEING_QUESTIONS, computeWellbeingReview } from "@/components/ClinicFlowConsult";
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 
 export const Route = createFileRoute("/kiosk/$appointmentId")({
@@ -470,5 +470,5 @@ const secondaryBtnStyle: React.CSSProperties = {
   cursor: "pointer", fontFamily: "inherit",
 };
 
-// Suppress unused import (kept for parity with ClinicFlowToday exports).
+// Suppress unused import (kept for parity with ClinicFlowConsult exports).
 void NAVY_PALE;

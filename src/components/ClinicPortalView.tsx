@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Calendar as CalendarIcon, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
-import { ClinicFlowToday } from "@/components/ClinicFlowToday";
 import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
@@ -338,7 +337,6 @@ export function ClinicPortalView({
   const sectionContent = (() => {
     switch (section) {
       case "patients": return showFlow(<ClinicFlowPatients clinicId={clinicId} />);
-      case "today": return showFlow(<ClinicFlowToday clinicId={clinicId} />);
       case "followups": return showFlow(<ClinicFlowFollowups clinicId={clinicId} />);
       case "quotes": return showFlow(<ClinicFlowQuotesList clinicId={clinicId} />);
       case "training": return showFlow(<ClinicFlowTraining clinicId={clinicId} />);

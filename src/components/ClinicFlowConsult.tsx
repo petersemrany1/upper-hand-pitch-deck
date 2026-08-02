@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
+import { sydneyTodayISO } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, FileText, ExternalLink, Images, Box, Sparkles } from "lucide-react";
+import { ChevronLeft, Clock, User, AlertTriangle, FileText, ExternalLink, Images, Box, Sparkles } from "lucide-react";
 import { ClinicFlowQuoteBuilder } from "@/components/ClinicFlowQuoteBuilder";
 import { ClinicFlowPresentGallery, type PresentPhoto } from "@/components/ClinicFlowPresentGallery";
 import { useServerFn } from "@tanstack/react-start";
 import { getClinicflowGalleryPhotos } from "@/lib/clinicflow-phase4.functions";
-
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
@@ -58,162 +57,46 @@ function fmtTime(t: string) {
   return `${h}:${min}${ampm}`;
 }
 
-export function ClinicFlowToday({ clinicId }: { clinicId: string }) {
-  const [appts, setAppts] = useState<Appt[]>([]);
-  const [intakes, setIntakes] = useState<Record<string, Intake>>({});
+/** Full-screen consult view for one appointment. Loads its own appointment + intake. */
+export function ClinicFlowConsult({ clinicId, appointmentId, onBack }: { clinicId: string; appointmentId: string; onBack: () => void }) {
+  const [appt, setAppt] = useState<Appt | null>(null);
+  const [intake, setIntake] = useState<Intake | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
-
-  const today = useMemo(() => sydneyTodayISO(), []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: apptData, error: apptErr }, { data: intakeData, error: intakeErr }] = await Promise.all([
+      const [{ data: a, error: aErr }, { data: i }] = await Promise.all([
         supabase
           .from("clinic_appointments")
           .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
-          .eq("clinic_id", clinicId)
-          .eq("appointment_date", today)
-          .order("appointment_time"),
-
+          .eq("id", appointmentId)
+          .maybeSingle(),
         supabase
           .from("clinicflow_intakes")
           .select("*")
-          .eq("clinic_id", clinicId),
+          .eq("appointment_id", appointmentId)
+          .maybeSingle(),
       ]);
       if (cancelled) return;
-      if (apptErr) toast.error(apptErr.message);
-      if (intakeErr) toast.error(intakeErr.message);
-      setAppts((apptData ?? []) as Appt[]);
-      const map: Record<string, Intake> = {};
-      for (const row of (intakeData ?? []) as Intake[]) map[row.appointment_id] = row;
-      setIntakes(map);
+      if (aErr) toast.error(aErr.message);
+      setAppt((a ?? null) as Appt | null);
+      setIntake((i ?? null) as Intake | null);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [clinicId, today, tick]);
+  }, [appointmentId]);
 
-  const refresh = () => setTick((n) => n + 1);
-
-  const selected = selectedId ? appts.find((a) => a.id === selectedId) ?? null : null;
-  const selectedIntake = selectedId ? intakes[selectedId] ?? null : null;
-
-  if (selected) {
+  if (loading || !appt) {
     return (
-      <PatientDetail
-        appt={selected}
-        intake={selectedIntake}
-        clinicId={clinicId}
-        onBack={() => { setSelectedId(null); refresh(); }}
-      />
+      <div style={{ padding: 40, textAlign: "center", color: GREY, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+        {loading ? "Loading…" : "Appointment not found."}
+      </div>
     );
   }
 
-  return (
-    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Today</h1>
-        <p style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
-          {new Date(today + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: APP_TIMEZONE })}
-          {" · "}Hand the iPad to each patient to complete their check-in.
-        </p>
-      </div>
-
-      {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: GREY }}>Loading…</div>
-      ) : appts.length === 0 ? (
-        <div style={{ background: "#fff", border: `1px dashed ${LINE}`, borderRadius: 12, padding: 40, textAlign: "center", color: GREY }}>
-          No appointments today.
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: 12 }}>
-          {appts.map((a) => {
-            const intake = intakes[a.id];
-            const state: "not_started" | "in_progress" | "completed" =
-              !intake ? "not_started" : intake.status === "completed" ? "completed" : "in_progress";
-            return (
-              <AppointmentCard
-                key={a.id}
-                appt={a}
-                state={state}
-                wellbeingReview={intake?.wellbeing_review ?? false}
-                onOpen={() => setSelectedId(a.id)}
-              />
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AppointmentCard({
-  appt, state, wellbeingReview, onOpen,
-}: {
-  appt: Appt;
-  state: "not_started" | "in_progress" | "completed";
-  wellbeingReview: boolean;
-  onOpen: () => void;
-}) {
-  const startKiosk = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    window.location.href = `/kiosk/${appt.id}`;
-  };
-
-  const badge =
-    state === "completed"
-      ? { text: "Completed", bg: GREEN_BG, fg: GREEN, icon: <CheckCircle2 size={14} /> }
-      : state === "in_progress"
-        ? { text: "With patient", bg: AMBER_BG, fg: AMBER_FG, icon: <Clock size={14} /> }
-        : { text: "Not checked in", bg: "#eef2f7", fg: "#334155", icon: <Clock size={14} /> };
-
-  return (
-    <div
-      onClick={onOpen}
-      style={{
-        background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12,
-        padding: 18, display: "flex", alignItems: "center", gap: 16, cursor: "pointer",
-        boxShadow: "0 1px 3px rgba(26,58,107,0.04)",
-      }}
-    >
-      <div style={{ width: 74, textAlign: "center" }}>
-        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>{fmtTime(appt.appointment_time)}</div>
-      </div>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>{appt.patient_name}</div>
-          {wellbeingReview && (
-            <span style={{ background: AMBER_BG, color: AMBER_FG, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <AlertTriangle size={12} /> Wellbeing review
-            </span>
-          )}
-        </div>
-        {appt.patient_phone && (
-          <div style={{ fontSize: 12, color: GREY, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
-            <Phone size={12} /> {appt.patient_phone}
-          </div>
-        )}
-      </div>
-      <span style={{ background: badge.bg, color: badge.fg, padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
-        {badge.icon} {badge.text}
-      </span>
-      {state !== "completed" && (
-        <button
-          onClick={startKiosk}
-          style={{
-            background: NAVY, color: "#fff", border: "none",
-            padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-            cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
-          }}
-        >
-          <PlayCircle size={14} /> {state === "in_progress" ? "Resume check-in" : "Start check-in"}
-        </button>
-      )}
-    </div>
-  );
+  return <PatientDetail appt={appt} intake={intake} clinicId={clinicId} onBack={onBack} />;
 }
 
 function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake: Intake | null; clinicId: string; onBack: () => void }) {
@@ -255,7 +138,6 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
     }
   };
 
-
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -263,8 +145,16 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
           onClick={onBack}
           style={{ background: "transparent", border: "none", color: NAVY, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
         >
-          <ChevronLeft size={16} /> Back to Today
+          <ChevronLeft size={16} /> Back to Patients
         </button>
+        {intake?.status !== "completed" && (
+          <button
+            onClick={() => { window.location.href = `/kiosk/${appt.id}`; }}
+            style={{ background: "#fff", border: `1px solid ${LINE}`, color: NAVY, fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}
+          >
+            {intake ? "Resume check-in" : "Start check-in"}
+          </button>
+        )}
       </div>
 
       {/* Consult toolkit */}
@@ -291,7 +181,6 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         />
         <ToolPill icon={<FileText size={15} />} label="Quote" primary onClick={() => setShowBuilder(true)} />
       </div>
-
 
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -426,7 +315,6 @@ function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName, 
   const [tick, setTick] = useState(0);
   const today = useMemo(() => sydneyTodayISO(), []);
 
-
   useEffect(() => {
     (async () => {
       let cid = clinicId;
@@ -495,8 +383,6 @@ function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName, 
     </div>
   );
 }
-
-
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
