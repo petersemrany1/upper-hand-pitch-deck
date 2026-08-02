@@ -325,18 +325,27 @@ Any questions, just message back.`;
               <div>
                 <p className="text-[10px] uppercase text-clinical-muted font-semibold">Total price</p>
                 <p className="text-3xl font-semibold text-clinical-text tracking-tight mt-1">{fmt$(quote.price)}</p>
-                <p className="text-[11px] text-clinical-muted mt-1">AUD · includes surgery, theatre, aftercare kit and all follow-up reviews</p>
               </div>
             </div>
 
-            {weekly > 0 && (
-              <p className="text-[12px] text-clinical-text mt-3">
-                or from <span className="font-semibold">{fmt$(weekly)}/week</span> with Humm — 5-year plan, subject to approval
-              </p>
-            )}
-            <p className="text-[11px] text-clinical-muted mt-1.5 leading-relaxed">
-              Prefer to use your super? SuperCare early release is available — allow 6–12 weeks and an application fee.
-            </p>
+            <div className="mt-4">
+              <p className="text-[10px] uppercase text-clinical-muted font-semibold mb-2">Funding options</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="bg-white border border-clinical-line rounded-sm p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-clinical-muted font-semibold">Upfront</p>
+                  <p className="text-sm font-semibold text-clinical-text mt-1">{fmt$(quote.price)}</p>
+                  <p className="text-[11px] text-clinical-muted mt-0.5">Paid in full before surgery day.</p>
+                </div>
+                <div className="bg-white border border-clinical-line rounded-sm p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-clinical-muted font-semibold">Payment plan</p>
+                  <p className="text-sm font-semibold text-clinical-text mt-1">
+                    {weekly > 0 ? `from ${fmt$(weekly)}/week` : "Available"}
+                  </p>
+                  <p className="text-[11px] text-clinical-muted mt-0.5">5-year plan, subject to approval.</p>
+                </div>
+              </div>
+            </div>
+
 
             {deposit > 0 && (
               <div className="mt-4 flex items-start gap-2 bg-white border border-clinical-line rounded-sm p-3">
