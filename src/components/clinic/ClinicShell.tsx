@@ -52,6 +52,8 @@ export function ClinicShell({
   active,
   onNavigate,
   followupsDue,
+  drawerOpen,
+  onDrawerOpenChange,
   children,
 }: {
   clinicId: string;
@@ -61,6 +63,8 @@ export function ClinicShell({
   active: ClinicSection;
   onNavigate: (s: ClinicSection) => void;
   followupsDue: number;
+  drawerOpen: boolean;
+  onDrawerOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   const navigate = useNavigate();
