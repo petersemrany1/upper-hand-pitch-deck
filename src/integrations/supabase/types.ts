@@ -957,6 +957,54 @@ export type Database = {
           },
         ]
       }
+      clinicflow_pipeline_status: {
+        Row: {
+          appointment_id: string
+          clinic_id: string
+          created_at: string
+          id: string
+          lost_at: string | null
+          lost_note: string | null
+          lost_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+          lost_at?: string | null
+          lost_note?: string | null
+          lost_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          lost_at?: string | null
+          lost_note?: string | null
+          lost_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_pipeline_status_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinicflow_quotes: {
         Row: {
           appointment_id: string
