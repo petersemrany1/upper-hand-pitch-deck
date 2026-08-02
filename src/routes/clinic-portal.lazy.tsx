@@ -32,12 +32,12 @@ function ClinicPortalPage() {
   }, [clinicId]);
 
   if (!ready || !session || userType !== "clinic" || !clinicId) {
-    return <div style={{ minHeight: "100vh", background: "#f0f2f5" }} />;
+    return <div className="clinic-portal-page" style={{ minHeight: "100vh", background: "#f0f2f5" }} />;
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <header style={{ height: 60, background: NAVY, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
+    <div className="clinic-portal-page" style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <header style={{ height: 60, background: NAVY, position: "sticky", top: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 34, height: 34, background: "#fff", color: NAVY, borderRadius: 6, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>HT</div>
           <div>
