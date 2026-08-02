@@ -439,6 +439,38 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
   const [depositSaving, setDepositSaving] = useState(false);
   const recordDepositFn = useServerFn(recordClinicflowQuoteDeposit);
 
+  const drawerDueDate = stage === "Lost" || stage === "Won" ? null : nextFollowupDate(row);
+  const drawerDue = drawerDueDate ? dueLabel(drawerDueDate) : null;
+
+  const [fuDate, setFuDate] = useState<string>(status?.next_followup_date ?? "");
+  const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
+  const [fuSaving, setFuSaving] = useState(false);
+
+  const saveFollowup = async (clear = false) => {
+    if (!clear && !fuDate) { toast.error("Pick a date first"); return; }
+    setFuSaving(true);
+    const { error } = await supabase
+      .from("clinicflow_pipeline_status")
+      .upsert({
+        clinic_id: clinicId,
+        appointment_id: appt.id,
+        next_followup_date: clear ? null : fuDate,
+        next_followup_note: clear ? null : (fuNote.trim() || null),
+      }, { onConflict: "appointment_id" });
+    setFuSaving(false);
+    if (error) { toast.error(error.message); return; }
+    if (clear) { setFuDate(""); setFuNote(""); }
+    toast.success(clear ? "Follow-up date cleared" : "Follow-up date set");
+    onChanged();
+  };
+
+  const quickDate = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
+  };
+
+
   const saveDeposit = async () => {
     if (!quote) return;
     const amt = Number(depositAmount);
