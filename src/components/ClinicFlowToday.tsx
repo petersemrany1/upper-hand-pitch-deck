@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail, FileText, ExternalLink, Images } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, FileText, ExternalLink, Images, Box, Sparkles } from "lucide-react";
 import { ClinicFlowQuoteBuilder } from "@/components/ClinicFlowQuoteBuilder";
-import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/ClinicFlowTimelineGallery";
+import { ClinicFlowPresentGallery, type PresentPhoto } from "@/components/ClinicFlowPresentGallery";
 import { useServerFn } from "@tanstack/react-start";
-import { listClinicflowPhotos } from "@/lib/clinicflow-phase4.functions";
+import { getClinicflowGalleryPhotos } from "@/lib/clinicflow-phase4.functions";
+
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
@@ -216,17 +217,36 @@ function AppointmentCard({
 }
 
 function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake: Intake | null; clinicId: string; onBack: () => void }) {
-  const listPhotos = useServerFn(listClinicflowPhotos);
+  const loadGallery = useServerFn(getClinicflowGalleryPhotos);
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
+  const [galleryLoading, setGalleryLoading] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<PresentPhoto[] | null>(null);
+  const [modelUrl, setModelUrl] = useState<string | null>(null);
+  const [showBuilder, setShowBuilder] = useState(false);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("clinicflow_clinic_settings")
+        .select("follicle_model_url")
+        .eq("clinic_id", clinicId)
+        .maybeSingle();
+      if (!cancelled) setModelUrl((data?.follicle_model_url as string | null) ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [clinicId]);
 
   const openGallery = async () => {
     setGalleryOpen(true);
     if (galleryPhotos === null) {
+      setGalleryLoading(true);
       try {
-        const { photos } = await listPhotos({ data: { clinicId } });
-        setGalleryPhotos(photos as GalleryPhoto[]);
+        const { photos } = await loadGallery({ data: { clinicId } });
+        setGalleryPhotos(photos as PresentPhoto[]);
       } catch { setGalleryPhotos([]); }
+      setGalleryLoading(false);
     }
   };
 
@@ -239,13 +259,31 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         >
           <ChevronLeft size={16} /> Back to Today
         </button>
-        <button
-          onClick={() => void openGallery()}
-          style={{ background: "#fff", border: `1px solid ${LINE}`, color: NAVY, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
-        >
-          <Images size={14} /> Timeline photos
-        </button>
       </div>
+
+      {/* Consult toolkit */}
+      <div
+        style={{
+          position: "sticky", top: 0, zIndex: 20, background: "#fff",
+          border: `1px solid ${LINE}`, borderRadius: 12, padding: 10, marginBottom: 16,
+          display: "flex", gap: 8, alignItems: "center", overflowX: "auto",
+          boxShadow: "0 1px 3px rgba(26,58,107,0.06)",
+        }}
+      >
+        <ToolPill icon={<Images size={15} />} label="Photos" onClick={() => void openGallery()} />
+        {modelUrl && (
+          <ToolPill icon={<Box size={15} />} label="Model" onClick={() => window.open(modelUrl, "_blank")} />
+        )}
+        <ToolPill
+          icon={<Sparkles size={15} />}
+          label="Simulator"
+          note="Coming soon"
+          disabled
+          onClick={() => toast("Simulator coming soon")}
+        />
+        <ToolPill icon={<FileText size={15} />} label="Quote" primary onClick={() => setShowBuilder(true)} />
+      </div>
+
 
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -320,11 +358,19 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         <KV label="Email" value={appt.patient_email} />
       </Section>
 
-      <QuotesForAppointment clinicId={clinicId} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
+      <QuotesForAppointment
+        clinicId={clinicId}
+        appointmentId={appt.id}
+        intakeId={intake?.id ?? null}
+        patientName={appt.patient_name}
+        showBuilder={showBuilder}
+        setShowBuilder={setShowBuilder}
+      />
 
       {galleryOpen && (
-        <ClinicFlowTimelineGallery
+        <ClinicFlowPresentGallery
           photos={galleryPhotos ?? []}
+          loading={galleryLoading}
           onClose={() => setGalleryOpen(false)}
         />
       )}
@@ -332,13 +378,45 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
   );
 }
 
+function ToolPill({
+  icon, label, note, onClick, disabled, primary,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  note?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: "0 0 auto",
+        background: primary ? NAVY : disabled ? "#f4f6f9" : "#fff",
+        color: primary ? "#fff" : disabled ? "#a3adba" : NAVY,
+        border: primary ? "none" : `1px solid ${LINE}`,
+        padding: "10px 16px", borderRadius: 999, fontSize: 13, fontWeight: 700,
+        cursor: disabled ? "default" : "pointer",
+        display: "inline-flex", alignItems: "center", gap: 7,
+      }}
+    >
+      {icon} {label}
+      {note && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#a3adba", textTransform: "uppercase", letterSpacing: 0.4 }}>
+          {note}
+        </span>
+      )}
+    </button>
+  );
+}
 
-function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string }) {
+function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName, showBuilder, setShowBuilder }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string; showBuilder: boolean; setShowBuilder: (v: boolean) => void }) {
   const [rows, setRows] = useState<Array<{ id: string; price: number; status: string; valid_until: string; created_at: string }>>([]);
   const [resolvedClinicId, setResolvedClinicId] = useState<string>(clinicId);
   const [tick, setTick] = useState(0);
-  const [showBuilder, setShowBuilder] = useState(false);
   const today = useMemo(() => sydneyTodayISO(), []);
+
 
   useEffect(() => {
     (async () => {
