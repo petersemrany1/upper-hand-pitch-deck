@@ -489,13 +489,6 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
   );
 }
 
-function TrustItem({ text }: { text: string }) {
-  return (
-    <span className="text-[10px] text-clinical-muted flex items-center gap-1">
-      <CheckCircle2 size={11} className="text-clinical-accent" /> {text}
-    </span>
-  );
-}
 
 
 
