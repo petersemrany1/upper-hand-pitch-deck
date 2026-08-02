@@ -36,8 +36,8 @@ function ClinicPortalPage() {
   }
 
   return (
-    <div className="clinic-portal-page" style={{ minHeight: "100vh", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <header style={{ height: 60, background: NAVY, position: "sticky", top: 0, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
+    <div className="clinic-portal-page" style={{ height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <header style={{ height: 60, flexShrink: 0, background: NAVY, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 34, height: 34, background: "#fff", color: NAVY, borderRadius: 6, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>HT</div>
           <div>
@@ -55,7 +55,9 @@ function ClinicPortalPage() {
           </button>
         </div>
       </header>
-      <ClinicPortalView clinicId={clinicId} clinicName={clinicName} isAdmin={false} />
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <ClinicPortalView clinicId={clinicId} clinicName={clinicName} isAdmin={false} />
+      </div>
     </div>
   );
 }
