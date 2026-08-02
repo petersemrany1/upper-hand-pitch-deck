@@ -281,20 +281,25 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   }, [rows]);
 
   const dueTodayCount = useMemo(
-    () => rows.filter((r) => r.stage === "In Follow-up" && r.followup && daysUntilSydney(r.followup.due_date) <= 0).length,
+    () => rows.filter((r) => {
+      if (r.stage === "Lost" || r.stage === "Won") return false;
+      const d = nextFollowupDate(r);
+      return !!d && daysUntilSydney(d) <= 0;
+    }).length,
     [rows],
   );
 
   const visible = useMemo(() => {
     const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
     if (filter !== "In Follow-up") return list;
-    // soonest / most overdue first, patients with no scheduled task last
+    // soonest / most overdue first, patients with no follow-up date last
     return [...list].sort((x, y) => {
-      const dx = x.followup?.due_date ?? "9999-12-31";
-      const dy = y.followup?.due_date ?? "9999-12-31";
+      const dx = nextFollowupDate(x) ?? "9999-12-31";
+      const dy = nextFollowupDate(y) ?? "9999-12-31";
       return dx < dy ? -1 : dx > dy ? 1 : 0;
     });
   }, [rows, filter]);
+
 
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
 
