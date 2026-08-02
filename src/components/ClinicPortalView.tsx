@@ -225,11 +225,15 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
+  const [clinicflowEnabled, setClinicflowEnabled] = useState<boolean | null>(null);
+  const showClinicFlow = isAdmin || clinicflowEnabled === true;
+
   const [section, setSection] = useState<ClinicSection>(() => {
     if (typeof window === "undefined") return "patients";
     const h = window.location.hash.replace(/^#/, "");
     return CLINIC_SECTIONS.includes(h as ClinicSection) ? (h as ClinicSection) : "patients";
   });
+
 
   // Keep the URL hash in sync so a refresh lands back on the same section.
   useEffect(() => {
@@ -276,7 +280,7 @@ export function ClinicPortalView({
           supabase.from("clinic_trading_hours").select("day_of_week, open_time, close_time, is_closed, consult_duration_mins").eq("clinic_id", clinicId),
           supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
           supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
-          supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
+          supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins, clinicflow_enabled").eq("id", clinicId).maybeSingle(),
         ]);
         if (cancelled) return;
         const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
@@ -289,6 +293,8 @@ export function ClinicPortalView({
         if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
         setClinicState((pc as { state?: string | null } | null)?.state ?? null);
         setMinGapMins(Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
+        setClinicflowEnabled(((pc as { clinicflow_enabled?: boolean | null } | null)?.clinicflow_enabled ?? false) === true);
+
 
         setLoading(false);
       } catch (e) {
@@ -313,7 +319,7 @@ export function ClinicPortalView({
   // Open follow-ups due today or earlier — drives the sidebar badge + amber chip.
   const listFollowups = useServerFn(listClinicflowFollowups);
   useEffect(() => {
-    if (!isAdmin) { setFollowupsDue(0); return; }
+    if (!showClinicFlow) { setFollowupsDue(0); return; }
     let cancelled = false;
     (async () => {
       try {
@@ -329,18 +335,22 @@ export function ClinicPortalView({
       }
     })();
     return () => { cancelled = true; };
-  }, [clinicId, isAdmin, section]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [clinicId, showClinicFlow, section]); // eslint-disable-line react-hooks/exhaustive-deps
 
-
-  const showFlow = (node: React.ReactNode) => (isAdmin ? node : <ClinicFlowComingSoon />);
+  // ClinicFlow off for this clinic (non-admin): only Appointments/Availability exist.
+  useEffect(() => {
+    if (isAdmin || clinicflowEnabled !== false) return;
+    if (section !== "appointments" && section !== "availability") setSection("appointments");
+  }, [isAdmin, clinicflowEnabled, section]);
 
   const sectionContent = (() => {
     switch (section) {
-      case "patients": return showFlow(<ClinicFlowPatients clinicId={clinicId} />);
-      case "followups": return showFlow(<ClinicFlowFollowups clinicId={clinicId} />);
-      case "quotes": return showFlow(<ClinicFlowQuotesList clinicId={clinicId} />);
-      case "training": return showFlow(<ClinicFlowTraining clinicId={clinicId} />);
-      case "setup": return showFlow(<ClinicFlowSetup clinicId={clinicId} />);
+      case "patients": return <ClinicFlowPatients clinicId={clinicId} />;
+      case "followups": return <ClinicFlowFollowups clinicId={clinicId} />;
+      case "quotes": return <ClinicFlowQuotesList clinicId={clinicId} />;
+      case "training": return <ClinicFlowTraining clinicId={clinicId} />;
+      case "setup": return <ClinicFlowSetup clinicId={clinicId} />;
+
       case "availability":
         return loading ? <PortalSkeleton /> : loadError ? <PortalErrorCard message={loadError} onRetry={reload} /> : (
           <AvailabilityTab
@@ -377,6 +387,7 @@ export function ClinicPortalView({
       clinicId={clinicId}
       clinicName={clinicName}
       isAdmin={isAdmin}
+      showClinicFlow={showClinicFlow}
       active={section}
       onNavigate={setSection}
       followupsDue={followupsDue}
@@ -396,16 +407,6 @@ export function ClinicPortalView({
   );
 }
 
-function ClinicFlowComingSoon() {
-  return (
-    <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
-      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
-        The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
-      </div>
-    </div>
-  );
-}
 
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */

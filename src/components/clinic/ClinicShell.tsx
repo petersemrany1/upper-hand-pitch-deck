@@ -48,6 +48,7 @@ export function ClinicShell({
   clinicId,
   clinicName,
   isAdmin,
+  showClinicFlow = true,
   active,
   onNavigate,
   followupsDue,
@@ -56,6 +57,7 @@ export function ClinicShell({
   clinicId: string;
   clinicName: string;
   isAdmin: boolean;
+  showClinicFlow?: boolean;
   active: ClinicSection;
   onNavigate: (s: ClinicSection) => void;
   followupsDue: number;
@@ -69,6 +71,14 @@ export function ClinicShell({
   const [doctorName, setDoctorName] = useState<string>("");
   const [narrow, setNarrow] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const navItems: NavEntry[] = showClinicFlow
+    ? NAV
+    : [
+        { key: "appointments", label: "Appointments", icon: CalendarDays },
+        { key: "availability", label: "Availability", icon: CalendarClock },
+      ];
+
 
   useEffect(() => {
     const check = () => setNarrow(window.innerWidth < 900);
@@ -142,7 +152,7 @@ export function ClinicShell({
 
       {/* Nav */}
       <nav style={{ padding: "4px 10px", display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
-        {NAV.map((entry, i) => {
+        {navItems.map((entry, i) => {
           if ("divider" in entry) {
             return <div key={`d${i}`} style={{ height: 1, background: DIVIDER, margin: "8px 6px" }} />;
           }

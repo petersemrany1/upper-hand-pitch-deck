@@ -1655,6 +1655,7 @@ export type Database = {
           address: string | null
           city: string | null
           clinic_name: string
+          clinicflow_enabled: boolean
           consult_price_deposit: number | null
           consult_price_original: number | null
           created_at: string
@@ -1674,6 +1675,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name: string
+          clinicflow_enabled?: boolean
           consult_price_deposit?: number | null
           consult_price_original?: number | null
           created_at?: string
@@ -1693,6 +1695,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string
+          clinicflow_enabled?: boolean
           consult_price_deposit?: number | null
           consult_price_original?: number | null
           created_at?: string
