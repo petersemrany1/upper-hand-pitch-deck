@@ -1483,6 +1483,27 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_cron_config: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       meta_leads: {
         Row: {
           ad_name: string | null
