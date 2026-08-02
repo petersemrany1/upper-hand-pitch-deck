@@ -107,6 +107,22 @@ function PartnerClinicsPage() {
   const runStripeDiag = useServerFn(clinicflowStripeDiagnostics);
   const [stripeDiag, setStripeDiag] = useState<null | Awaited<ReturnType<typeof clinicflowStripeDiagnostics>> | { __error: string }>(null);
   const [stripeDiagLoading, setStripeDiagLoading] = useState(false);
+  const [togglingFlow, setTogglingFlow] = useState<string | null>(null);
+
+  const toggleClinicFlow = async (clinic: PartnerClinic) => {
+    const next = !clinic.clinicflow_enabled;
+    if (!confirm(`Turn ClinicFlow ${next ? "on" : "off"} for ${clinic.clinic_name}?`)) return;
+    setTogglingFlow(clinic.id);
+    const { error } = await supabase
+      .from("partner_clinics")
+      .update({ clinicflow_enabled: next })
+      .eq("id", clinic.id);
+    setTogglingFlow(null);
+    if (error) { toast.error(error.message); return; }
+    setClinics((prev) => prev.map((c) => (c.id === clinic.id ? { ...c, clinicflow_enabled: next } : c)));
+    toast.success(`ClinicFlow ${next ? "on" : "off"} for ${clinic.clinic_name}`);
+  };
+
 
   const load = async () => {
     setLoading(true);
