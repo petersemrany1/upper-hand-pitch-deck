@@ -471,15 +471,6 @@ Any questions, just message back.`;
         </div>
       </div>
 
-      {partnerModal && (
-        <PartnerEmailModal
-          onClose={() => setPartnerModal(false)}
-          onSend={async (email) => {
-            await onSendEmail(email);
-            setPartnerModal(false);
-          }}
-        />
-      )}
 
 
 
