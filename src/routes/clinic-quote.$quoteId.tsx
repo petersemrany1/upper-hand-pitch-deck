@@ -535,39 +535,6 @@ function TrustItem({ text }: { text: string }) {
   );
 }
 
-function PartnerEmailModal({ onClose, onSend }: { onClose: () => void; onSend: (email: string) => void | Promise<void> }) {
-  const [email, setEmail] = useState("");
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={onClose}>
-      <div className="bg-white rounded-sm w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading">Send to my partner</h3>
-        <p className="text-[11px] text-clinical-muted mt-1">We'll email a copy of this treatment plan.</p>
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="partner@email.com"
-          className="w-full mt-3 border border-clinical-line rounded-sm px-3 py-2 text-sm"
-        />
-        <div className="flex gap-2 mt-4">
-          <button onClick={onClose} className="flex-1 py-2 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text">
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              const v = email.trim();
-              if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return toast.error("Enter a valid email address");
-              void onSend(v);
-            }}
-            className="flex-1 py-2 bg-clinical-text text-white rounded-sm text-[11px] font-semibold"
-          >
-            Send
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 
 function MenuBtn({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
