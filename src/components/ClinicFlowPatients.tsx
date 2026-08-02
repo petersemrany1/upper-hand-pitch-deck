@@ -208,6 +208,8 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [noShowId, setNoShowId] = useState<string | null>(null);
+
 
   const today = useMemo(() => sydneyTodayISO(), []);
 
