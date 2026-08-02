@@ -171,6 +171,23 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     }
   };
 
+  const saveNotifications = async () => {
+    try {
+      await updateFn({
+        data: {
+          clinicId,
+          notificationEmail: notifyEmail.trim() || null,
+          emailNotificationsEnabled: notifyOn,
+        },
+      });
+      await load();
+      toast.success("Notification settings saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
+
   const saveKioskPin = async () => {
     const pin = kioskPin.trim();
     if (!/^\d{4,8}$/.test(pin)) return toast.error("Kiosk PIN must be 4-8 digits");
