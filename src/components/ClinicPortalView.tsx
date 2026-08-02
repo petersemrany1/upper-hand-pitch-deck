@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Calendar as CalendarIcon, ClipboardList, CalendarDays, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { Calendar as CalendarIcon, List as ListIcon, X, Plus, Trash2, AlertCircle, RefreshCw, CalendarClock } from "lucide-react";
 import { ClinicFlowSetup } from "@/components/ClinicFlowSetup";
 import { ClinicFlowToday } from "@/components/ClinicFlowToday";
 import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
 import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
+import { ClinicShell, type ClinicSection } from "@/components/clinic/ClinicShell";
+import { listClinicflowFollowups } from "@/lib/clinicflow-phase4.functions";
+import { sydneyTodayISO } from "@/lib/timezone";
 
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +18,7 @@ import {
   DAY_NAMES, DAY_SHORT,
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
-import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
+
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
