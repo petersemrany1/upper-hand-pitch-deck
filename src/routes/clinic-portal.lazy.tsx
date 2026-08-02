@@ -62,9 +62,16 @@ function ClinicPortalPage() {
   return (
     <div className="clinic-portal-page" style={{ height: "100vh", overflow: "hidden", display: "flex", flexDirection: "column", background: "#f0f2f5", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       <header style={{ height: 60, flexShrink: 0, background: NAVY, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px" }}>
-        <div>
-          <div style={{ color: "#fff", fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>ClinicFlow Test Clinic</div>
-          <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>Clinic Partner Portal</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          {logoUrl ? (
+            <img src={logoUrl} alt="Clinic logo" style={{ width: 34, height: 34, borderRadius: 6, objectFit: "cover", background: "#fff", flexShrink: 0 }} />
+          ) : (
+            <div style={{ width: 34, height: 34, background: "#fff", color: NAVY, borderRadius: 6, fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>CF</div>
+          )}
+          <div>
+            <div style={{ color: "#fff", fontSize: 14, fontWeight: 600, lineHeight: 1.2 }}>ClinicFlow Test Clinic</div>
+            <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 11 }}>Clinic Partner Portal</div>
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {clinicName && (
