@@ -224,7 +224,7 @@ export const sendClinicflowQuoteEmail = createServerFn({ method: "POST" })
         <p>Thank you for coming in today. Here's a summary of what we discussed:</p>
         <p><strong>Diagnosis:</strong> ${quote.diagnosis}<br/>
         <strong>Recommended plan:</strong> FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}<br/>
-        ${quote.grafts ? `<strong>Grafts:</strong> ${quote.grafts}<br/>` : ""}
+        ${quote.grafts ? `<strong>${quote.graft_unit === "hairs" ? "Hairs" : "Grafts"}:</strong> ${quote.grafts}<br/>` : ""}
         <strong>Price:</strong> ${fmt$(quote.price as number)} AUD</p>
         ${quote.description ? `<p>${(quote.description as string).replace(/\n/g, "<br/>")}</p>` : ""}
         ${quote.includes_text ? `<p><strong>What's included</strong><br/>${(quote.includes_text as string).replace(/\n/g, "<br/>")}</p>` : ""}
