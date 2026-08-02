@@ -2,7 +2,7 @@
 // follow-up today. Called by pg_cron with the x-cron-secret header.
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { sydneyTodayISO } from "@/lib/timezone";
+import { sydneyTodayISO, sydneyHour } from "@/lib/timezone";
 import { APP_TIMEZONE } from "@/lib/timezone";
 
 type FollowupRow = { patient_name: string; due_date: string };
@@ -24,6 +24,19 @@ export const Route = createFileRoute("/api/public/clinicflow-daily-digest")({
         }
         if (request.headers.get("x-cron-secret") !== cronSecret) {
           return new Response("Unauthorized", { status: 401 });
+        }
+
+        // Two UTC cron jobs (22:00 + 23:00) cover both AEST and AEDT; this gate
+        // means exactly one of them actually sends, at 9am Sydney, year-round.
+        let source: string | undefined;
+        try {
+          const body = (await request.json()) as { source?: string } | null;
+          source = body?.source;
+        } catch {
+          source = undefined;
+        }
+        if (source === "cron" && sydneyHour() !== 9) {
+          return Response.json({ skipped: true });
         }
 
         const supabase = createClient(
