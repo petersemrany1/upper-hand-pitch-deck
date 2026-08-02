@@ -13,10 +13,13 @@ const PALE_BLUE = "#B5D4F4";
 const DIVIDER = "rgba(255,255,255,0.2)";
 const SIDEBAR_W = 230;
 
-export type ClinicSection =
-  | "patients" | "today" | "followups" | "quotes"
-  | "appointments" | "availability"
-  | "training" | "setup";
+export const CLINIC_SECTIONS = [
+  "patients", "today", "followups", "quotes",
+  "appointments", "availability",
+  "training", "setup",
+] as const;
+
+export type ClinicSection = (typeof CLINIC_SECTIONS)[number];
 
 type NavEntry = { key: ClinicSection; label: string; icon: typeof Users } | { divider: true };
 
