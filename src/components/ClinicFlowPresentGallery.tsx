@@ -79,8 +79,11 @@ export function ClinicFlowPresentGallery({
         if (Math.abs(dx) > 45) go(dx < 0 ? 1 : -1);
       }}
     >
-      {/* Top: stage chips + close */}
+      {/* Top: title / stage chips + close */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px" }}>
+        {mode === "before_after" ? (
+          <div style={{ flex: 1, color: "#fff", fontSize: 16, fontWeight: 800 }}>Before &amp; after</div>
+        ) : (
         <div style={{ flex: 1, display: "flex", gap: 8, overflowX: "auto", scrollbarWidth: "none" }}>
           {stagesPresent.map((s) => {
             const active = s.key === activeStage;
@@ -100,6 +103,8 @@ export function ClinicFlowPresentGallery({
             );
           })}
         </div>
+        )}
+
         <button
           onClick={onClose}
           aria-label="Close"
