@@ -124,8 +124,11 @@ export function ClinicFlowPresentGallery({
           <div style={{ color: SOFT, fontSize: 14 }}>Loading photos…</div>
         ) : flat.length === 0 ? (
           <div style={{ color: SOFT, fontSize: 14, textAlign: "center", maxWidth: 420, lineHeight: 1.6 }}>
-            No timeline photos yet — add them in Setup, or they'll appear once the HTG library is loaded.
+            {mode === "before_after"
+              ? "No before & after photos yet — add them in Setup."
+              : "No timeline photos yet — add them in Setup, or they'll appear once the HTG library is loaded."}
           </div>
+
         ) : (
           <>
             <button onClick={() => go(-1)} disabled={idx === 0} aria-label="Previous" style={{ ...navBtn, opacity: idx === 0 ? 0.25 : 1 }}>
