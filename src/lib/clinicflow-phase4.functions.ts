@@ -120,8 +120,90 @@ export const deleteClinicflowPhoto = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+// ----- Gallery with per-stage fallback to the HTG default library -----
+
+const GALLERY_STAGES = ["day_1", "week_1_2", "weeks_2_4", "month_3", "month_6", "month_12"];
+const DEFAULT_LIBRARY_CLINIC_NAME = "ClinicFlow Test Clinic";
+
+type PhotoRow = { id: string; stage: string; url: string; caption: string | null };
+
+export type GalleryPhotoResult = {
+  id: string;
+  stage: string;
+  caption: string | null;
+  signed_url: string | null;
+  isDefault: boolean;
+};
+
+async function buildGalleryWithFallback(
+  supabaseAdmin: import("@supabase/supabase-js").SupabaseClient,
+  clinicId: string,
+): Promise<GalleryPhotoResult[]> {
+  const { data: ownRows } = await supabaseAdmin
+    .from("clinicflow_photos")
+    .select("id, stage, url, caption, created_at")
+    .eq("clinic_id", clinicId)
+    .order("created_at", { ascending: true });
+  const own = (ownRows ?? []) as PhotoRow[];
+
+  // Resolve the default library clinic
+  const { data: libClinic } = await supabaseAdmin
+    .from("partner_clinics")
+    .select("id")
+    .eq("clinic_name", DEFAULT_LIBRARY_CLINIC_NAME)
+    .maybeSingle();
+
+  let library: PhotoRow[] = [];
+  if (libClinic?.id && libClinic.id !== clinicId) {
+    const { data: libRows } = await supabaseAdmin
+      .from("clinicflow_photos")
+      .select("id, stage, url, caption, created_at")
+      .eq("clinic_id", libClinic.id as string)
+      .order("created_at", { ascending: true });
+    library = (libRows ?? []) as PhotoRow[];
+  }
+
+  const merged: Array<PhotoRow & { isDefault: boolean }> = [];
+  for (const stage of GALLERY_STAGES) {
+    const mine = own.filter((p) => p.stage === stage);
+    if (mine.length > 0) {
+      merged.push(...mine.map((p) => ({ ...p, isDefault: false })));
+    } else {
+      merged.push(...library.filter((p) => p.stage === stage).map((p) => ({ ...p, isDefault: true })));
+    }
+  }
+  // Any photos on non-standard stages: keep the clinic's own so nothing is lost
+  merged.push(
+    ...own.filter((p) => !GALLERY_STAGES.includes(p.stage)).map((p) => ({ ...p, isDefault: false })),
+  );
+
+  return Promise.all(
+    merged.map(async (p) => {
+      const { data: sig } = await supabaseAdmin.storage
+        .from("clinicflow-photos")
+        .createSignedUrl(p.url, 60 * 60 * 24);
+      return {
+        id: p.id,
+        stage: p.stage,
+        caption: p.caption,
+        signed_url: sig?.signedUrl ?? null,
+        isDefault: p.isDefault,
+      };
+    }),
+  );
+}
+
+export const getClinicflowGalleryPhotos = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { clinicId: string }) => data)
+  .handler(async ({ data, context }) => {
+    await assertCanAccessClinic(context.supabase, data.clinicId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    return { photos: await buildGalleryWithFallback(supabaseAdmin, data.clinicId) };
+  });
+
 // Public read used by the patient-facing quote page (no auth). Resolves the
-// clinic from the quote, then returns signed URLs for that clinic's photos.
+// clinic from the quote, then returns signed URLs with per-stage library fallback.
 export const getClinicflowPhotosForQuote = createServerFn({ method: "POST" })
   .inputValidator((data: { quoteId: string }) => data)
   .handler(async ({ data }) => {
@@ -132,19 +214,6 @@ export const getClinicflowPhotosForQuote = createServerFn({ method: "POST" })
       .eq("id", data.quoteId)
       .maybeSingle();
     if (!q) return { photos: [] };
-    const { data: rows } = await supabaseAdmin
-      .from("clinicflow_photos")
-      .select("id, stage, url, caption, created_at")
-      .eq("clinic_id", q.clinic_id as string)
-      .order("stage", { ascending: true })
-      .order("created_at", { ascending: true });
-    const signed = await Promise.all(
-      (rows ?? []).map(async (r) => {
-        const { data: sig } = await supabaseAdmin.storage
-          .from("clinicflow-photos")
-          .createSignedUrl(r.url as string, 60 * 60 * 24);
-        return { ...r, signed_url: sig?.signedUrl ?? null };
-      }),
-    );
-    return { photos: signed };
+    return { photos: await buildGalleryWithFallback(supabaseAdmin, q.clinic_id as string) };
   });
+
