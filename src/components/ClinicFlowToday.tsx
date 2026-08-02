@@ -77,8 +77,8 @@ export function ClinicFlowToday({ clinicId }: { clinicId: string }) {
           .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
           .eq("clinic_id", clinicId)
           .eq("appointment_date", today)
-          .not("patient_name", "ilike", "%test%")
           .order("appointment_time"),
+
         supabase
           .from("clinicflow_intakes")
           .select("*")
