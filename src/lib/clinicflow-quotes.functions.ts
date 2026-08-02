@@ -94,6 +94,7 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
       diagnosis: string;
       norwood?: string | null;
       grafts?: number | null;
+      graftUnit?: "grafts" | "hairs";
       price: number;
       depositAmount: number;
       description?: string | null;
@@ -118,6 +119,7 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
         diagnosis: data.diagnosis,
         norwood: data.norwood ?? null,
         grafts: data.grafts ?? null,
+        graft_unit: data.graftUnit ?? "grafts",
         price: data.price,
         deposit_amount: data.depositAmount,
         description: data.description ?? null,
