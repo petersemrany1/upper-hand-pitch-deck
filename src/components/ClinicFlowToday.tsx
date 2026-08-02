@@ -278,8 +278,10 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
       >
         <ToolPill icon={<Images size={15} />} label="Before & after" onClick={() => void openGallery("before_after")} />
         <ToolPill icon={<Clock size={15} />} label="Timeline" onClick={() => void openGallery("timeline")} />
-
+        {modelUrl && (
+          <ToolPill icon={<Box size={15} />} label="Model" onClick={() => window.open(modelUrl, "_blank")} />
         )}
+
         <ToolPill
           icon={<Sparkles size={15} />}
           label="Simulator"
