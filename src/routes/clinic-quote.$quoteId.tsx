@@ -414,22 +414,6 @@ Any questions, just message back.`;
               <TrustItem text="Finance available" />
             </div>
 
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
-                className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
-              >
-                Message the clinic
-              </button>
-              {(clinicPhone || whatsappNumber) && (
-                <a
-                  href={`tel:${(clinicPhone ?? whatsappNumber ?? "").replace(/\s/g, "")}`}
-                  className="flex-1 py-2.5 px-3 border border-clinical-line rounded-sm text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors text-center"
-                >
-                  Call {clinicName || "the clinic"} {clinicPhone ?? whatsappNumber}
-                </a>
-              )}
-            </div>
 
             <p className="text-[11px] text-clinical-muted text-center mt-4 flex items-center justify-center gap-1.5">
               <Clock size={12} />
