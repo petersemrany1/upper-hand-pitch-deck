@@ -16,6 +16,9 @@ function ClinicPortalPage() {
   const navigate = useNavigate();
   const { ready, session, userType, clinicId, signOut } = useAuth();
   const [clinicName, setClinicName] = useState<string>("");
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const getSettings = useServerFn(getClinicflowSettings);
+  const signLogo = useServerFn(clinicflowSignLogoUrl);
 
   // Auth gate: only clinic users; everyone else gets bounced.
   useEffect(() => {
@@ -31,6 +34,25 @@ function ClinicPortalPage() {
     if (!clinicId) return;
     void supabase.from("partner_clinics").select("clinic_name").eq("id", clinicId).maybeSingle()
       .then(({ data }) => setClinicName(data?.clinic_name ?? ""));
+  }, [clinicId]);
+
+  useEffect(() => {
+    if (!clinicId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { settings } = await getSettings({ data: { clinicId } });
+        if (cancelled || !settings) return;
+        const s = settings as { logo_url: string | null };
+        if (s.logo_url) {
+          const { url } = await signLogo({ data: { clinicId, path: s.logo_url } });
+          if (!cancelled) setLogoUrl(url ?? null);
+        }
+      } catch {
+        /* logo is decorative — ignore failures */
+      }
+    })();
+    return () => { cancelled = true; };
   }, [clinicId]);
 
   if (!ready || !session || userType !== "clinic" || !clinicId) {
