@@ -312,6 +312,19 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
           })}
         </div>
 
+        {!loading && dueTodayCount > 0 && filter !== "In Follow-up" && (
+          <button
+            onClick={() => setFilter("In Follow-up")}
+            style={{
+              width: "100%", textAlign: "left", marginBottom: 12, cursor: "pointer", fontFamily: FONT,
+              background: AMBER_BG, border: "1px solid #f5c86b", borderRadius: 12, padding: "12px 14px",
+              color: AMBER_FG, fontSize: 14, fontWeight: 700,
+            }}
+          >
+            {dueTodayCount} patient{dueTodayCount === 1 ? "" : "s"} to follow up today — tap to see them
+          </button>
+        )}
+
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: GREY, fontSize: 14 }}>Loading patients…</div>
         ) : visible.length === 0 ? (
@@ -320,12 +333,18 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {visible.map((r) => (
+            {visible.map((r) => {
+              const due = r.stage === "In Follow-up" && r.followup ? dueLabel(r.followup.due_date) : null;
+              return (
               <button
                 key={r.appt.id}
                 onClick={() => setOpenId(r.appt.id)}
                 style={{
-                  textAlign: "left", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12,
+                  textAlign: "left",
+                  background: "#fff",
+                  border: `1px solid ${due?.overdue ? "#f5c86b" : LINE}`,
+                  borderLeft: due ? `4px solid ${due.overdue ? RED : due.today ? AMBER_FG : NAVY}` : `1px solid ${LINE}`,
+                  borderRadius: 12,
                   padding: 16, cursor: "pointer", fontFamily: FONT, width: "100%",
                 }}
               >
@@ -338,6 +357,16 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                 </div>
+                {due && (
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ ...chipStyle(due.overdue ? RED_BG : AMBER_BG, due.overdue ? RED : AMBER_FG), alignSelf: "flex-start" }}>
+                      {due.text}
+                    </span>
+                    <span style={{ fontSize: 12, color: GREY }}>
+                      {TASK_LABEL[r.followup!.task_type] ?? r.followup!.task_type}
+                    </span>
+                  </div>
+                )}
                 {r.badges.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                     {r.badges.map((b, idx) => (
@@ -346,7 +375,9 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   </div>
                 )}
               </button>
-            ))}
+              );
+            })}
+
           </div>
         )}
       </div>
