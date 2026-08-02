@@ -358,11 +358,19 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         <KV label="Email" value={appt.patient_email} />
       </Section>
 
-      <QuotesForAppointment clinicId={clinicId} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
+      <QuotesForAppointment
+        clinicId={clinicId}
+        appointmentId={appt.id}
+        intakeId={intake?.id ?? null}
+        patientName={appt.patient_name}
+        showBuilder={showBuilder}
+        setShowBuilder={setShowBuilder}
+      />
 
       {galleryOpen && (
-        <ClinicFlowTimelineGallery
+        <ClinicFlowPresentGallery
           photos={galleryPhotos ?? []}
+          loading={galleryLoading}
           onClose={() => setGalleryOpen(false)}
         />
       )}
@@ -370,13 +378,45 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
   );
 }
 
+function ToolPill({
+  icon, label, note, onClick, disabled, primary,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  note?: string;
+  onClick: () => void;
+  disabled?: boolean;
+  primary?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: "0 0 auto",
+        background: primary ? NAVY : disabled ? "#f4f6f9" : "#fff",
+        color: primary ? "#fff" : disabled ? "#a3adba" : NAVY,
+        border: primary ? "none" : `1px solid ${LINE}`,
+        padding: "10px 16px", borderRadius: 999, fontSize: 13, fontWeight: 700,
+        cursor: disabled ? "default" : "pointer",
+        display: "inline-flex", alignItems: "center", gap: 7,
+      }}
+    >
+      {icon} {label}
+      {note && (
+        <span style={{ fontSize: 10, fontWeight: 700, color: "#a3adba", textTransform: "uppercase", letterSpacing: 0.4 }}>
+          {note}
+        </span>
+      )}
+    </button>
+  );
+}
 
-function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string }) {
+function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName, showBuilder, setShowBuilder }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string; showBuilder: boolean; setShowBuilder: (v: boolean) => void }) {
   const [rows, setRows] = useState<Array<{ id: string; price: number; status: string; valid_until: string; created_at: string }>>([]);
   const [resolvedClinicId, setResolvedClinicId] = useState<string>(clinicId);
   const [tick, setTick] = useState(0);
-  const [showBuilder, setShowBuilder] = useState(false);
   const today = useMemo(() => sydneyTodayISO(), []);
+
 
   useEffect(() => {
     (async () => {
