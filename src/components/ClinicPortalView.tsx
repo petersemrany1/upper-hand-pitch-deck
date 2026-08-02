@@ -225,11 +225,15 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
+  const [clinicflowEnabled, setClinicflowEnabled] = useState<boolean | null>(null);
+  const showClinicFlow = isAdmin || clinicflowEnabled === true;
+
   const [section, setSection] = useState<ClinicSection>(() => {
     if (typeof window === "undefined") return "patients";
     const h = window.location.hash.replace(/^#/, "");
     return CLINIC_SECTIONS.includes(h as ClinicSection) ? (h as ClinicSection) : "patients";
   });
+
 
   // Keep the URL hash in sync so a refresh lands back on the same section.
   useEffect(() => {
