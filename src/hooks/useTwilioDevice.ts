@@ -185,15 +185,23 @@ async function fetchToken(): Promise<string> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (fnErr || !data?.token) {
-    const status = (fnErr as unknown as { context?: { status?: number } } | null)?.context?.status;
-    const raw = `${data?.error ?? ""} ${fnErr?.message ?? ""}`;
-    if (status === 403 || /403|forbidden|no sales rep profile/i.test(raw)) {
+    // supabase-js wraps non-2xx responses in FunctionsHttpError, whose
+    // `context` is the raw Response — the 403 reason only lives in its body.
+    const ctx = (fnErr as unknown as { context?: Response } | null)?.context;
+    const status = typeof ctx?.status === "number" ? ctx.status : undefined;
+    let body = "";
+    if (ctx && typeof ctx.text === "function") {
+      try { body = await ctx.clone().text(); } catch { /* body already consumed */ }
+    }
+    const raw = `${data?.error ?? ""} ${fnErr?.message ?? ""} ${body}`;
+    if (status === 403 || /\b403\b|forbidden|no sales rep profile/i.test(raw)) {
       dialerUnavailable = true;
       throw new Error("DIALLER_NOT_AVAILABLE");
     }
     const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
     throw new Error(msg);
   }
+
 
 
   console.log(`TOKEN IDENTITY: ${data.identity}`);
@@ -209,8 +217,10 @@ function scheduleTokenRefresh() {
       device?.updateToken(next);
       scheduleTokenRefresh();
     } catch (err) {
+      if (extractErrorMessage(err, "") === "DIALLER_NOT_AVAILABLE") return; // not a rep account — stop refreshing
       console.error("Voice SDK: token refresh failed", err);
     }
+
   }, TOKEN_REFRESH_MS);
 }
 
