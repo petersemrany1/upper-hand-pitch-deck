@@ -92,14 +92,11 @@ function QuotePage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState<string>("");
-  const [clinicPhone, setClinicPhone] = useState<string | null>(null);
   const [clinicCity, setClinicCity] = useState<string | null>(null);
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
-  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [doctorName, setDoctorName] = useState<string | null>(null);
   const [coolingOffDays, setCoolingOffDays] = useState<number>(7);
-  const [partnerModal, setPartnerModal] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
