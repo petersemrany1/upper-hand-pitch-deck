@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Circle, X, Phone, Mail, AlertTriangle, ExternalLink, Copy, BadgeDollarSign } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
+import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
@@ -119,6 +120,7 @@ function stageChip(stage: Stage) {
 
 type Badge = { text: string; bg: string; fg: string };
 type Followup = { id: string; quote_id: string; due_date: string; task_type: string; status: string };
+type Chase = { id: string; appointment_id: string; note: string | null; requested_at: string; status: string };
 type Row = {
   appt: Appt;
   intake: Intake | null;
@@ -127,6 +129,7 @@ type Row = {
   stage: Stage;
   badges: Badge[];
   followup: Followup | null;
+  chase: Chase | null;
 };
 
 const TASK_LABEL: Record<string, string> = {
@@ -156,9 +159,10 @@ function nextFollowupNote(row: Row): string | null {
 
 
 
-function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, today: string): Row {
+function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, chase: Chase | null, today: string): Row {
   const badges: Badge[] = [];
-  const base = { appt, intake, quote, status, followup };
+  const base = { appt, intake, quote, status, followup, chase };
+
 
   if (status?.lost_at) return { ...base, stage: "Lost", badges };
 
@@ -200,6 +204,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [statuses, setStatuses] = useState<Record<string, PipelineStatus>>({});
   const [followups, setFollowups] = useState<Record<string, Followup>>({});
+  const [chases, setChases] = useState<Record<string, Chase>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -208,7 +213,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [a, i, q, p, f] = await Promise.all([
+    const [a, i, q, p, f, c] = await Promise.all([
       supabase
         .from("clinic_appointments")
         .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
@@ -225,8 +230,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         .eq("clinic_id", clinicId)
         .eq("status", "open")
         .order("due_date", { ascending: true }),
+      supabase
+        .from("clinicflow_chase_requests")
+        .select("id, appointment_id, note, requested_at, status")
+        .eq("clinic_id", clinicId)
+        .eq("status", "requested")
+        .order("requested_at", { ascending: false }),
     ]);
-    for (const r of [a, i, q, p, f]) if (r.error) toast.error(r.error.message);
+    for (const r of [a, i, q, p, f, c]) if (r.error) toast.error(r.error.message);
 
     setAppts((a.data ?? []) as Appt[]);
 
@@ -253,6 +264,13 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     }
     setFollowups(fm);
 
+    // latest open chase request per appointment
+    const cm: Record<string, Chase> = {};
+    for (const row of (c.data ?? []) as Chase[]) {
+      if (!cm[row.appointment_id]) cm[row.appointment_id] = row;
+    }
+    setChases(cm);
+
     setLoading(false);
   }, [clinicId]);
 
@@ -267,10 +285,12 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         quote,
         statuses[a.id] ?? null,
         quote ? followups[quote.id] ?? null : null,
+        chases[a.id] ?? null,
         today,
       );
     }),
-    [appts, intakes, quotes, statuses, followups, today],
+
+    [appts, intakes, quotes, statuses, followups, chases, today],
   );
 
   const counts = useMemo(() => {
@@ -396,6 +416,12 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                     </span>
                   </div>
                 )}
+                {r.chase && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ ...chipStyle(NAVY_PALE, NAVY), alignSelf: "flex-start" }}>Bold chasing</span>
+                  </div>
+                )}
+
 
                 {r.badges.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
@@ -457,12 +483,66 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
         next_followup_date: clear ? null : fuDate,
         next_followup_note: clear ? null : (fuNote.trim() || null),
       }, { onConflict: "appointment_id" });
+
+    // Keep the Follow-ups screen, sidebar badge and due-today chip in sync:
+    // one active follow-up task per patient at a time.
+    if (!error && quote) {
+      const { error: skipError } = await supabase
+        .from("clinicflow_followups")
+        .update({ status: "skipped" })
+        .eq("quote_id", quote.id)
+        .eq("status", "open");
+      if (skipError) console.error("skip followups failed", skipError.message);
+      if (!clear) {
+        const { error: insError } = await supabase
+          .from("clinicflow_followups")
+          .insert({
+            clinic_id: clinicId,
+            quote_id: quote.id,
+            patient_name: appt.patient_name,
+            due_date: fuDate,
+            task_type: "custom",
+          });
+        if (insError) console.error("insert followup failed", insError.message);
+      }
+    }
+
     setFuSaving(false);
     if (error) { toast.error(error.message); return; }
     if (clear) { setFuDate(""); setFuNote(""); }
-    toast.success(clear ? "Follow-up date cleared" : "Follow-up date set");
+    toast.success(clear ? "Follow-up date cleared" : `Follow-up set for ${fmtDay(fuDate)}`);
     onChanged();
   };
+
+  const [chaseOpen, setChaseOpen] = useState(false);
+  const [chaseNote, setChaseNote] = useState("");
+  const [chaseSaving, setChaseSaving] = useState(false);
+  const requestChaseFn = useServerFn(requestBoldChase);
+
+  const submitChase = async () => {
+    setChaseSaving(true);
+    try {
+      await requestChaseFn({
+        data: {
+          clinicId,
+          appointmentId: appt.id,
+          quoteId: quote?.id ?? null,
+          patientName: appt.patient_name,
+          patientPhone: appt.patient_phone,
+          note: chaseNote.trim() || null,
+        },
+      });
+      setChaseOpen(false);
+      setChaseNote("");
+      toast.success("Bold's on it");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't send the chase request");
+    } finally {
+      setChaseSaving(false);
+    }
+  };
+
 
   const quickDate = (days: number) => {
     const d = new Date();
@@ -664,6 +744,37 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
             </div>
           </Card>
 
+          {(stage === "Quoted" || stage === "In Follow-up") && (
+            <Card title="Need a hand?">
+              {row.chase ? (
+                <div>
+                  <span style={chipStyle(NAVY_PALE, NAVY)}>Bold chasing</span>
+                  <div style={{ fontSize: 13, color: GREY, marginTop: 8 }}>
+                    Requested {fmtDateTime(row.chase.requested_at)}
+                    {row.chase.note ? ` — ${row.chase.note}` : ""}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, color: GREY, marginBottom: 10 }}>
+                    Bold can call {firstName} for you and report back.
+                  </div>
+                  <button
+                    onClick={() => setChaseOpen(true)}
+                    style={{
+                      background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                      fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT,
+                    }}
+                  >
+                    Ask Bold to chase
+                  </button>
+                </>
+              )}
+            </Card>
+          )}
+
+
+
           <Card title="Timeline">
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -831,6 +942,36 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
           )}
         </div>
       </div>
+
+      {chaseOpen && (
+        <div
+          onClick={(e) => { e.stopPropagation(); setChaseOpen(false); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 12, border: `1px solid ${LINE}`, padding: 20, width: "min(420px, 100%)", fontFamily: FONT }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>Want Bold to chase {firstName} for you?</div>
+            <textarea
+              value={chaseNote}
+              onChange={(e) => setChaseNote(e.target.value)}
+              placeholder="Anything Bold should know? (optional)"
+              rows={3}
+              style={{ width: "100%", marginTop: 14, padding: 12, borderRadius: 10, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT, resize: "vertical" }}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
+              <button onClick={() => setChaseOpen(false)}
+                style={{ background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
+                Cancel
+              </button>
+              <button onClick={() => void submitChase()} disabled={chaseSaving}
+                style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: chaseSaving ? "default" : "pointer", opacity: chaseSaving ? 0.7 : 1, fontFamily: FONT }}>
+                {chaseSaving ? "Sending…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       {showLost && (
         <div

@@ -26,6 +26,8 @@ type Settings = {
   stripe_charges_enabled: boolean;
   logo_url: string | null;
   whatsapp_number: string | null;
+  notification_email: string | null;
+  email_notifications_enabled: boolean;
   default_deposit_amount: number;
   quote_validity_days: number;
   kiosk_pin: string;
@@ -52,6 +54,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [whatsapp, setWhatsapp] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState("");
+  const [notifyOn, setNotifyOn] = useState(false);
   const [deposit, setDeposit] = useState<string>("1000");
   const [validity, setValidity] = useState<string>("14");
   const [kioskPin, setKioskPin] = useState<string>("0000");
@@ -61,12 +65,15 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
 
 
 
+
   const load = async () => {
     try {
       const { settings: row } = await getFn({ data: { clinicId } });
       const s = row as Settings;
       setSettings(s);
       setWhatsapp(s.whatsapp_number ?? "");
+      setNotifyEmail(s.notification_email ?? "");
+      setNotifyOn(!!s.email_notifications_enabled);
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
       setKioskPin(String(s.kiosk_pin ?? "0000"));
@@ -160,6 +167,23 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       console.error("saveWhatsapp failed", e);
+      toast.error(`Save failed: ${msg}`);
+    }
+  };
+
+  const saveNotifications = async () => {
+    try {
+      await updateFn({
+        data: {
+          clinicId,
+          notificationEmail: notifyEmail.trim() || null,
+          emailNotificationsEnabled: notifyOn,
+        },
+      });
+      await load();
+      toast.success("Notification settings saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Save failed: ${msg}`);
     }
   };
@@ -354,6 +378,41 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
               Use the free WhatsApp Business app on a dedicated clinic number — never the doctor's personal number.
             </div>
           </div>
+
+          <div>
+            <label style={labelStyle}>Notifications</label>
+            <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <input
+                type="email"
+                value={notifyEmail}
+                onChange={(e) => setNotifyEmail(e.target.value)}
+                placeholder="reception@clinic.com.au"
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={() => setNotifyOn((v) => !v)}
+                style={{
+                  border: `1px solid ${notifyOn ? "#15803d" : LINE}`,
+                  background: notifyOn ? "#dcfce7" : "#fff",
+                  color: notifyOn ? "#15803d" : GREY,
+                  borderRadius: 999,
+                  padding: "8px 14px",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                {notifyOn ? "On" : "Off"}
+              </button>
+              <button onClick={() => void saveNotifications()} style={primaryBtn(false)}>Save</button>
+            </div>
+            <div style={{ fontSize: 11, color: GREY, marginTop: 6 }}>
+              One morning email when patients are due a follow-up.
+            </div>
+          </div>
+
+
 
           <div>
             <label style={labelStyle}>Kiosk PIN</label>
