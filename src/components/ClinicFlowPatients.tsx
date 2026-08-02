@@ -355,29 +355,65 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     [rows],
   );
 
-  const visible = useMemo(() => {
+  const groups = useMemo(() => {
     const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
-    if (filter === "In Follow-up") {
-      // soonest / most overdue first, patients with no follow-up date last
-      return [...list].sort((x, y) => {
-        const dx = nextFollowupDate(x) ?? "9999-12-31";
-        const dy = nextFollowupDate(y) ?? "9999-12-31";
-        return dx < dy ? -1 : dx > dy ? 1 : 0;
-      });
+    const todayG: Row[] = [], action: Row[] = [], coming: Row[] = [], play: Row[] = [], done: Row[] = [];
+
+    for (const r of list) {
+      const d = r.appt.appointment_date;
+      if (d === today && r.stage !== "Won" && r.stage !== "Lost") { todayG.push(r); continue; }
+      if (r.stage === "Won" || r.stage === "Lost") { done.push(r); continue; }
+      const due = nextFollowupDate(r);
+      const hasDeposit = r.badges.some((b) => b.text.startsWith("Date booked"));
+      const overdueOrToday = !!due && daysUntilSydney(due) <= 0;
+      const missedVisit = r.stage === "Booked" && d < today;
+      if (hasDeposit || overdueOrToday || missedVisit) { action.push(r); continue; }
+      if (d > today) { coming.push(r); continue; }
+      play.push(r);
     }
-    // Upcoming booked patients (today or later) float to the top, soonest first.
-    const upcoming = (r: Row) => r.stage === "Booked" && r.appt.appointment_date >= today;
-    const top = list.filter(upcoming).sort((x, y) => {
+
+    const byDate = (x: Row, y: Row) => {
       const kx = `${x.appt.appointment_date} ${x.appt.appointment_time}`;
       const ky = `${y.appt.appointment_date} ${y.appt.appointment_time}`;
       return kx < ky ? -1 : kx > ky ? 1 : 0;
-    });
-    return [...top, ...list.filter((r) => !upcoming(r))];
+    };
+    const byFollowup = (x: Row, y: Row) => {
+      const dx = nextFollowupDate(x) ?? "9999-12-31";
+      const dy = nextFollowupDate(y) ?? "9999-12-31";
+      return dx < dy ? -1 : dx > dy ? 1 : 0;
+    };
+    const urgency = (r: Row) => (r.badges.some((b) => b.text.startsWith("Date booked")) ? 0 : 1);
+
+    todayG.sort((x, y) => (x.appt.appointment_time < y.appt.appointment_time ? -1 : x.appt.appointment_time > y.appt.appointment_time ? 1 : 0));
+    action.sort((x, y) => urgency(x) - urgency(y) || byFollowup(x, y) || byDate(x, y));
+    coming.sort(byDate);
+    play.sort(byFollowup);
+    done.sort((x, y) => -byDate(x, y));
+
+    return [
+      { key: "today", label: "Today", rows: todayG },
+      { key: "action", label: "Needs action", rows: action },
+      { key: "coming", label: "Coming up", rows: coming },
+      { key: "play", label: "In play", rows: play },
+      { key: "done", label: "Done", rows: done },
+    ].filter((g) => g.rows.length > 0);
   }, [rows, filter, today]);
 
-
+  const visibleCount = useMemo(() => groups.reduce((n, g) => n + g.rows.length, 0), [groups]);
 
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
+  const consult = consultId ? rows.find((r) => r.appt.id === consultId) ?? null : null;
+
+  if (consult) {
+    return (
+      <ClinicFlowConsult
+        clinicId={clinicId}
+        appointmentId={consult.appt.id}
+        onBack={() => { setConsultId(null); void load(); }}
+      />
+    );
+  }
+
 
   return (
     <div style={{ padding: 24, fontFamily: FONT }}>
