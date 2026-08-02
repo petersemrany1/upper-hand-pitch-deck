@@ -226,7 +226,30 @@ export function ClinicPortalView({
   clinicName: string;
   isAdmin?: boolean;
 }) {
-  const [section, setSection] = useState<ClinicSection>("patients");
+  const [section, setSection] = useState<ClinicSection>(() => {
+    if (typeof window === "undefined") return "patients";
+    const h = window.location.hash.replace(/^#/, "");
+    return CLINIC_SECTIONS.includes(h as ClinicSection) ? (h as ClinicSection) : "patients";
+  });
+
+  // Keep the URL hash in sync so a refresh lands back on the same section.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.location.hash.replace(/^#/, "") !== section) {
+      window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${section}`);
+    }
+  }, [section]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onHash = () => {
+      const h = window.location.hash.replace(/^#/, "");
+      if (CLINIC_SECTIONS.includes(h as ClinicSection)) setSection(h as ClinicSection);
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   const [followupsDue, setFollowupsDue] = useState(0);
 
   const [appts, setAppts] = useState<ClinicAppointment[]>([]);
