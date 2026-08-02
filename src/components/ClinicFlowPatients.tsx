@@ -744,6 +744,37 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
             </div>
           </Card>
 
+          {(stage === "Quoted" || stage === "In Follow-up") && (
+            <Card title="Need a hand?">
+              {row.chase ? (
+                <div>
+                  <span style={chipStyle(NAVY_PALE, NAVY)}>Bold chasing</span>
+                  <div style={{ fontSize: 13, color: GREY, marginTop: 8 }}>
+                    Requested {fmtDateTime(row.chase.requested_at)}
+                    {row.chase.note ? ` — ${row.chase.note}` : ""}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontSize: 13, color: GREY, marginBottom: 10 }}>
+                    Bold can call {firstName} for you and report back.
+                  </div>
+                  <button
+                    onClick={() => setChaseOpen(true)}
+                    style={{
+                      background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                      fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT,
+                    }}
+                  >
+                    Ask Bold to chase
+                  </button>
+                </>
+              )}
+            </Card>
+          )}
+
+
+
           <Card title="Timeline">
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
