@@ -397,7 +397,7 @@ export function ClinicPortalView({
   // pack balance card + Appointments / Availability tabs. No sidebar shell.
   if (!showClinicFlow) {
     return (
-      <div style={{ padding: 20, maxWidth: 1200, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 20, width: "100%", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
         <ClinicPackBalanceCard clinicId={clinicId} isAdmin={isAdmin} />
         <div style={{ display: "inline-flex", background: "#fff", border: "1px solid #e2e6ec", borderRadius: 8, padding: 3, margin: "16px 0 4px" }}>
           {([["appointments", "Appointments"], ["availability", "Availability"]] as const).map(([key, label]) => (

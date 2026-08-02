@@ -117,8 +117,8 @@ export function ClinicShell({
         color: "#fff",
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
-        position: narrow ? "fixed" : "sticky",
+        height: narrow ? "100vh" : "100%",
+        position: narrow ? "fixed" : "relative",
         top: 0,
         left: 0,
         zIndex: narrow ? 120 : 1,
@@ -222,7 +222,7 @@ export function ClinicShell({
   );
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7fb", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+    <div style={{ display: "flex", flex: 1, minWidth: 0, height: "100%", minHeight: 0, overflow: "hidden", background: "#f5f7fb", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
       {!narrow && sidebar}
 
       {narrow && drawerOpen && (
@@ -235,7 +235,7 @@ export function ClinicShell({
         </>
       )}
 
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {narrow && (
           <div style={{ height: 52, background: NAVY, display: "flex", alignItems: "center", gap: 10, padding: "0 14px", position: "sticky", top: 0, zIndex: 60 }}>
             <button onClick={() => setDrawerOpen(true)} aria-label="Open menu" style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 4 }}>
@@ -254,7 +254,7 @@ export function ClinicShell({
           </div>
         )}
 
-        <main style={{ flex: 1, padding: narrow ? 14 : 24, minWidth: 0 }}>
+        <main style={{ flex: 1, padding: narrow ? 14 : 24, minWidth: 0, minHeight: 0, overflowY: "auto" }}>
           {active === "patients" && followupsDue > 0 && (
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
               <button
