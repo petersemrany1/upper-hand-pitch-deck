@@ -893,26 +893,6 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
             </Card>
           )}
 
-          {intake && (
-            <Card title="Check-in summary">
-              {intake.wellbeing_review && (
-                <div style={{ display: "flex", gap: 8, alignItems: "center", background: AMBER_BG, color: AMBER_FG, border: `1px solid #fed7aa`, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
-                  <AlertTriangle size={16} /> Wellbeing review recommended
-                </div>
-              )}
-              {([
-                ["Medications", intake.medications],
-                ["Allergies", intake.allergies],
-                ["Medical conditions", intake.medical_conditions],
-                ["Previous treatments", intake.previous_treatments],
-              ] as const).filter(([, v]) => v && v.trim()).map(([label, v]) => (
-                <div key={label} style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.4, color: GREY, fontWeight: 700 }}>{label}</div>
-                  <div style={{ fontSize: 14, color: "#1f2937", marginTop: 2, whiteSpace: "pre-wrap" }}>{v}</div>
-                </div>
-              ))}
-            </Card>
-          )}
 
           <Card title="Phone notes">
             <div style={{ fontSize: 13, color: appt.intel_notes ? "#1f2937" : GREY, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
