@@ -375,11 +375,12 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         setShowBuilder={setShowBuilder}
       />
 
-      {galleryOpen && (
+      {galleryMode && (
         <ClinicFlowPresentGallery
-          photos={galleryPhotos ?? []}
+          mode={galleryMode}
+          photos={(galleryMode === "before_after" ? beforeAfterPhotos : timelinePhotos) ?? []}
           loading={galleryLoading}
-          onClose={() => setGalleryOpen(false)}
+          onClose={() => setGalleryMode(null)}
         />
       )}
     </div>
