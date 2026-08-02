@@ -123,6 +123,7 @@ export const deleteClinicflowPhoto = createServerFn({ method: "POST" })
 // ----- Gallery with per-stage fallback to the HTG default library -----
 
 const GALLERY_STAGES = ["day_1", "week_1_2", "weeks_2_4", "month_3", "month_6", "month_12"];
+const BEFORE_AFTER_STAGE = "before_after";
 const DEFAULT_LIBRARY_CLINIC_NAME = "ClinicFlow Test Clinic";
 
 type PhotoRow = { id: string; stage: string; url: string; caption: string | null };
@@ -135,10 +136,30 @@ export type GalleryPhotoResult = {
   isDefault: boolean;
 };
 
-async function buildGalleryWithFallback(
+async function signAll(
+  supabaseAdmin: import("@supabase/supabase-js").SupabaseClient,
+  rows: Array<PhotoRow & { isDefault: boolean }>,
+): Promise<GalleryPhotoResult[]> {
+  return Promise.all(
+    rows.map(async (p) => {
+      const { data: sig } = await supabaseAdmin.storage
+        .from("clinicflow-photos")
+        .createSignedUrl(p.url, 60 * 60 * 24);
+      return {
+        id: p.id,
+        stage: p.stage,
+        caption: p.caption,
+        signed_url: sig?.signedUrl ?? null,
+        isDefault: p.isDefault,
+      };
+    }),
+  );
+}
+
+async function fetchPhotoSets(
   supabaseAdmin: import("@supabase/supabase-js").SupabaseClient,
   clinicId: string,
-): Promise<GalleryPhotoResult[]> {
+): Promise<{ own: PhotoRow[]; library: PhotoRow[] }> {
   const { data: ownRows } = await supabaseAdmin
     .from("clinicflow_photos")
     .select("id, stage, url, caption, created_at")
@@ -146,7 +167,6 @@ async function buildGalleryWithFallback(
     .order("created_at", { ascending: true });
   const own = (ownRows ?? []) as PhotoRow[];
 
-  // Resolve the default library clinic
   const { data: libClinic } = await supabaseAdmin
     .from("partner_clinics")
     .select("id")
@@ -162,7 +182,10 @@ async function buildGalleryWithFallback(
       .order("created_at", { ascending: true });
     library = (libRows ?? []) as PhotoRow[];
   }
+  return { own, library };
+}
 
+function mergeTimeline(own: PhotoRow[], library: PhotoRow[]) {
   const merged: Array<PhotoRow & { isDefault: boolean }> = [];
   for (const stage of GALLERY_STAGES) {
     const mine = own.filter((p) => p.stage === stage);
@@ -174,23 +197,19 @@ async function buildGalleryWithFallback(
   }
   // Any photos on non-standard stages: keep the clinic's own so nothing is lost
   merged.push(
-    ...own.filter((p) => !GALLERY_STAGES.includes(p.stage)).map((p) => ({ ...p, isDefault: false })),
+    ...own
+      .filter((p) => !GALLERY_STAGES.includes(p.stage) && p.stage !== BEFORE_AFTER_STAGE)
+      .map((p) => ({ ...p, isDefault: false })),
   );
+  return merged;
+}
 
-  return Promise.all(
-    merged.map(async (p) => {
-      const { data: sig } = await supabaseAdmin.storage
-        .from("clinicflow-photos")
-        .createSignedUrl(p.url, 60 * 60 * 24);
-      return {
-        id: p.id,
-        stage: p.stage,
-        caption: p.caption,
-        signed_url: sig?.signedUrl ?? null,
-        isDefault: p.isDefault,
-      };
-    }),
-  );
+async function buildGalleryWithFallback(
+  supabaseAdmin: import("@supabase/supabase-js").SupabaseClient,
+  clinicId: string,
+): Promise<GalleryPhotoResult[]> {
+  const { own, library } = await fetchPhotoSets(supabaseAdmin, clinicId);
+  return signAll(supabaseAdmin, mergeTimeline(own, library));
 }
 
 export const getClinicflowGalleryPhotos = createServerFn({ method: "POST" })
@@ -199,8 +218,23 @@ export const getClinicflowGalleryPhotos = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertCanAccessClinic(context.supabase, data.clinicId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    return { photos: await buildGalleryWithFallback(supabaseAdmin, data.clinicId) };
+    const { own, library } = await fetchPhotoSets(supabaseAdmin, data.clinicId);
+
+    const ownBA = own.filter((p) => p.stage === BEFORE_AFTER_STAGE);
+    const baRows =
+      ownBA.length > 0
+        ? ownBA.map((p) => ({ ...p, isDefault: false }))
+        : library
+            .filter((p) => p.stage === BEFORE_AFTER_STAGE)
+            .map((p) => ({ ...p, isDefault: true }));
+
+    const [timeline, beforeAfter] = await Promise.all([
+      signAll(supabaseAdmin, mergeTimeline(own, library)),
+      signAll(supabaseAdmin, baRows),
+    ]);
+    return { timeline, beforeAfter, photos: timeline };
   });
+
 
 // Public read used by the patient-facing quote page (no auth). Resolves the
 // clinic from the quote, then returns signed URLs with per-stage library fallback.
