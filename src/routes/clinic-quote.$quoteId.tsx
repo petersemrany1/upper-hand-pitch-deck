@@ -366,6 +366,25 @@ Any questions, just message back.`;
             )}
           </div>
 
+          {/* What's included — above the CTA */}
+          <div className="px-6 py-5 border-t border-clinical-line bg-white">
+            <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
+            <ul className="text-xs text-clinical-muted space-y-1.5">
+              {[
+                `Hairline design session with ${docName} before surgery day`,
+                `Full sapphire FUE procedure led by ${docName}`,
+                "Take-home aftercare kit",
+                "Follow-up reviews at 3, 6 and 12 months",
+                `Direct access to ${docName} if anything comes up`,
+              ].map((line, i) => (
+                <li key={i} className="flex items-center gap-2">
+                  <span className="w-1 h-1 rounded-full bg-clinical-accent" />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          </div>
+
           {/* Date selection + CTA */}
           <div className="px-6 py-6 border-t border-clinical-line">
             {quote.booked_date ? (
