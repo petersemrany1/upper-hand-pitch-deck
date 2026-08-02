@@ -122,6 +122,7 @@ export function ClinicFlowQuoteBuilder({
           diagnosis: finalDiagnosis,
           norwood,
           grafts: grafts ? Number(grafts) : null,
+          graftUnit,
           price: priceNum,
           depositAmount: depositNum,
           description: description.trim() || null,
