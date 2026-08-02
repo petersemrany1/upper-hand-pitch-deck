@@ -69,13 +69,47 @@ export function ClinicFlowFollowups({ clinicId }: { clinicId: string }) {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
+  const [chases, setChases] = useState<Chase[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const markChaseDoneFn = useServerFn(markChaseDone);
+  const [chaseBusyId, setChaseBusyId] = useState<string | null>(null);
+
+  const loadChases = async () => {
+    const [{ data: chaseRows }, { data: admin }] = await Promise.all([
+      supabase
+        .from("clinicflow_chase_requests")
+        .select("id, patient_name, note, requested_at")
+        .eq("clinic_id", clinicId)
+        .eq("status", "requested")
+        .order("requested_at", { ascending: true }),
+      supabase.rpc("is_admin_user"),
+    ]);
+    setChases((chaseRows ?? []) as Chase[]);
+    setIsAdmin(admin === true);
+  };
+
+  const onChaseDone = async (id: string) => {
+    setChaseBusyId(id);
+    try {
+      await markChaseDoneFn({ data: { chaseId: id } });
+      setChases((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Marked done");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setChaseBusyId(null);
+    }
+  };
+
   const load = async () => {
     setLoading(true);
     try {
+      void loadChases();
       const { followups } = await listFn({ data: { clinicId } });
       const open = (followups as Followup[]).filter((f) => f.status === "open");
       setRows(open);
       // Fetch patient phone via quote → appointment
+
       const quoteIds = Array.from(new Set(open.map((f) => f.quote_id)));
       if (quoteIds.length > 0) {
         const { data: quotes } = await supabase
