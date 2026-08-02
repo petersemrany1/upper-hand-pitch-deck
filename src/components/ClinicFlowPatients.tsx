@@ -115,6 +115,7 @@ function stageChip(stage: Stage) {
 }
 
 type Badge = { text: string; bg: string; fg: string };
+type Followup = { id: string; quote_id: string; due_date: string; task_type: string; status: string };
 type Row = {
   appt: Appt;
   intake: Intake | null;
@@ -122,11 +123,27 @@ type Row = {
   status: PipelineStatus | null;
   stage: Stage;
   badges: Badge[];
+  followup: Followup | null;
 };
 
-function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, today: string): Row {
+const TASK_LABEL: Record<string, string> = {
+  checkin: "Check in — any questions, which way are they leaning?",
+  nudge: "Nudge — send timeline photos or recovery FAQ",
+  expiring: "Quote expiring — offer to hold a date",
+};
+
+/** Human wording for a follow-up due date, in Sydney time. */
+function dueLabel(due: string): { text: string; overdue: boolean; today: boolean } {
+  const days = daysUntilSydney(due);
+  if (days < 0) return { text: `Follow up overdue — ${Math.abs(days)} day${Math.abs(days) === 1 ? "" : "s"}`, overdue: true, today: false };
+  if (days === 0) return { text: "Follow up today", overdue: false, today: true };
+  if (days === 1) return { text: "Follow up tomorrow", overdue: false, today: false };
+  return { text: `Follow up ${fmtDay(due)}`, overdue: false, today: false };
+}
+
+function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, today: string): Row {
   const badges: Badge[] = [];
-  const base = { appt, intake, quote, status };
+  const base = { appt, intake, quote, status, followup };
 
   if (status?.lost_at) return { ...base, stage: "Lost", badges };
 
@@ -161,11 +178,13 @@ function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, stat
   return { ...base, stage: "Booked", badges };
 }
 
+
 export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [intakes, setIntakes] = useState<Record<string, Intake>>({});
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [statuses, setStatuses] = useState<Record<string, PipelineStatus>>({});
+  const [followups, setFollowups] = useState<Record<string, Followup>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -174,7 +193,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [a, i, q, p] = await Promise.all([
+    const [a, i, q, p, f] = await Promise.all([
       supabase
         .from("clinic_appointments")
         .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
@@ -185,8 +204,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
       supabase.from("clinicflow_intakes").select("*").eq("clinic_id", clinicId),
       supabase.from("clinicflow_quotes").select("*").eq("clinic_id", clinicId),
       supabase.from("clinicflow_pipeline_status").select("*").eq("clinic_id", clinicId),
+      supabase
+        .from("clinicflow_followups")
+        .select("id, quote_id, due_date, task_type, status")
+        .eq("clinic_id", clinicId)
+        .eq("status", "open")
+        .order("due_date", { ascending: true }),
     ]);
-    for (const r of [a, i, q, p]) if (r.error) toast.error(r.error.message);
+    for (const r of [a, i, q, p, f]) if (r.error) toast.error(r.error.message);
 
     setAppts((a.data ?? []) as Appt[]);
 
@@ -205,14 +230,32 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     for (const row of (p.data ?? []) as PipelineStatus[]) pm[row.appointment_id] = row;
     setStatuses(pm);
 
+    // earliest open follow-up per quote
+    const fm: Record<string, Followup> = {};
+    for (const row of (f.data ?? []) as Followup[]) {
+      const prev = fm[row.quote_id];
+      if (!prev || row.due_date < prev.due_date) fm[row.quote_id] = row;
+    }
+    setFollowups(fm);
+
     setLoading(false);
   }, [clinicId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const rows = useMemo(
-    () => appts.map((a) => computeRow(a, intakes[a.id] ?? null, quotes[a.id] ?? null, statuses[a.id] ?? null, today)),
-    [appts, intakes, quotes, statuses, today],
+    () => appts.map((a) => {
+      const quote = quotes[a.id] ?? null;
+      return computeRow(
+        a,
+        intakes[a.id] ?? null,
+        quote,
+        statuses[a.id] ?? null,
+        quote ? followups[quote.id] ?? null : null,
+        today,
+      );
+    }),
+    [appts, intakes, quotes, statuses, followups, today],
   );
 
   const counts = useMemo(() => {
@@ -222,7 +265,22 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     return c;
   }, [rows]);
 
-  const visible = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
+  const dueTodayCount = useMemo(
+    () => rows.filter((r) => r.stage === "In Follow-up" && r.followup && daysUntilSydney(r.followup.due_date) <= 0).length,
+    [rows],
+  );
+
+  const visible = useMemo(() => {
+    const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
+    if (filter !== "In Follow-up") return list;
+    // soonest / most overdue first, patients with no scheduled task last
+    return [...list].sort((x, y) => {
+      const dx = x.followup?.due_date ?? "9999-12-31";
+      const dy = y.followup?.due_date ?? "9999-12-31";
+      return dx < dy ? -1 : dx > dy ? 1 : 0;
+    });
+  }, [rows, filter]);
+
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
 
   return (
@@ -254,6 +312,19 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
           })}
         </div>
 
+        {!loading && dueTodayCount > 0 && filter !== "In Follow-up" && (
+          <button
+            onClick={() => setFilter("In Follow-up")}
+            style={{
+              width: "100%", textAlign: "left", marginBottom: 12, cursor: "pointer", fontFamily: FONT,
+              background: AMBER_BG, border: "1px solid #f5c86b", borderRadius: 12, padding: "12px 14px",
+              color: AMBER_FG, fontSize: 14, fontWeight: 700,
+            }}
+          >
+            {dueTodayCount} patient{dueTodayCount === 1 ? "" : "s"} to follow up today — tap to see them
+          </button>
+        )}
+
         {loading ? (
           <div style={{ padding: 40, textAlign: "center", color: GREY, fontSize: 14 }}>Loading patients…</div>
         ) : visible.length === 0 ? (
@@ -262,12 +333,18 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {visible.map((r) => (
+            {visible.map((r) => {
+              const due = r.stage === "In Follow-up" && r.followup ? dueLabel(r.followup.due_date) : null;
+              return (
               <button
                 key={r.appt.id}
                 onClick={() => setOpenId(r.appt.id)}
                 style={{
-                  textAlign: "left", background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12,
+                  textAlign: "left",
+                  background: "#fff",
+                  border: `1px solid ${due?.overdue ? "#f5c86b" : LINE}`,
+                  borderLeft: due ? `4px solid ${due.overdue ? RED : due.today ? AMBER_FG : NAVY}` : `1px solid ${LINE}`,
+                  borderRadius: 12,
                   padding: 16, cursor: "pointer", fontFamily: FONT, width: "100%",
                 }}
               >
@@ -280,6 +357,16 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                 </div>
+                {due && (
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ ...chipStyle(due.overdue ? RED_BG : AMBER_BG, due.overdue ? RED : AMBER_FG), alignSelf: "flex-start" }}>
+                      {due.text}
+                    </span>
+                    <span style={{ fontSize: 12, color: GREY }}>
+                      {TASK_LABEL[r.followup!.task_type] ?? r.followup!.task_type}
+                    </span>
+                  </div>
+                )}
                 {r.badges.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                     {r.badges.map((b, idx) => (
@@ -288,7 +375,9 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   </div>
                 )}
               </button>
-            ))}
+              );
+            })}
+
           </div>
         )}
       </div>
@@ -403,7 +492,19 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
             <div>
               <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{appt.patient_name}</div>
-              <div style={{ marginTop: 8 }}><span style={stageChip(stage)}>{stage}</span></div>
+              <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span style={stageChip(stage)}>{stage}</span>
+                {row.followup && (() => {
+                  const d = dueLabel(row.followup.due_date);
+                  return <span style={chipStyle(d.overdue ? RED_BG : AMBER_BG, d.overdue ? RED : AMBER_FG)}>{d.text}</span>;
+                })()}
+              </div>
+              {row.followup && (
+                <div style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
+                  {TASK_LABEL[row.followup.task_type] ?? row.followup.task_type}
+                </div>
+              )}
+
             </div>
             <button onClick={onClose} aria-label="Close"
               style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY, padding: 4 }}>
