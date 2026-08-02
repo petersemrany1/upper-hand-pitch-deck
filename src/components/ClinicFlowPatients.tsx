@@ -208,6 +208,8 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [noShowId, setNoShowId] = useState<string | null>(null);
+
 
   const today = useMemo(() => sydneyTodayISO(), []);
 
@@ -379,7 +381,10 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
               const due = dueDate ? dueLabel(dueDate) : null;
               const noteText = dueDate ? nextFollowupNote(r) : null;
               const needsDate = active && !dueDate && (r.stage === "In Follow-up" || r.stage === "Quoted");
+              const bookedBadge = r.badges.find((b) => b.text.startsWith("Date booked")) ?? null;
+              const noShowBadge = r.badges.find((b) => b.text === "Didn't attend?") ?? null;
               return (
+
               <button
                 key={r.appt.id}
                 onClick={() => setOpenId(r.appt.id)}
@@ -400,36 +405,47 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   {fmtDay(r.appt.appointment_date)} {fmtTime(r.appt.appointment_time)}
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
+                  {r.chase ? (
+                    <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, background: "#f1f5f9", color: GREY, fontSize: 11, fontWeight: 600 }}>
+                      Bold chasing
+                    </span>
+                  ) : null}
                 </div>
-                {due && dueDate && (
+                {bookedBadge ? (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={chipStyle(bookedBadge.bg, bookedBadge.fg)}>{bookedBadge.text}</span>
+                  </div>
+                ) : due && dueDate ? (
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ ...chipStyle(due.overdue ? RED_BG : AMBER_BG, due.overdue ? RED : AMBER_FG), alignSelf: "flex-start" }}>
-                      {due.text} · {fmtDay(dueDate)}
+                      {due.text}
                     </span>
                     {noteText && <span style={{ fontSize: 12, color: GREY }}>{noteText}</span>}
                   </div>
-                )}
-                {needsDate && (
+                ) : noShowBadge ? (
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={chipStyle(noShowBadge.bg, noShowBadge.fg)}>{noShowBadge.text}</span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); setNoShowId(r.appt.id); setOpenId(r.appt.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setNoShowId(r.appt.id); setOpenId(r.appt.id); } }}
+                      style={{
+                        padding: "4px 10px", borderRadius: 999, border: `1px solid ${LINE}`,
+                        background: "#fff", color: NAVY, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      }}
+                    >
+                      Mark no-show
+                    </span>
+                  </div>
+                ) : needsDate ? (
                   <div style={{ marginTop: 10 }}>
                     <span style={{ ...chipStyle("#f1f5f9", GREY), alignSelf: "flex-start" }}>
                       No follow-up date set — tap to set one
                     </span>
                   </div>
-                )}
-                {r.chase && (
-                  <div style={{ marginTop: 10 }}>
-                    <span style={{ ...chipStyle(NAVY_PALE, NAVY), alignSelf: "flex-start" }}>Bold chasing</span>
-                  </div>
-                )}
+                ) : null}
 
-
-                {r.badges.length > 0 && (
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
-                    {r.badges.map((b, idx) => (
-                      <span key={idx} style={chipStyle(b.bg, b.fg)}>{b.text}</span>
-                    ))}
-                  </div>
-                )}
               </button>
               );
             })}
@@ -441,21 +457,24 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
       {open && (
         <PatientDrawer
           row={open}
-          onClose={() => setOpenId(null)}
+          onClose={() => { setOpenId(null); setNoShowId(null); }}
           onChanged={() => { void load(); }}
           clinicId={clinicId}
           today={today}
+          initialNoShow={noShowId === open.appt.id}
         />
       )}
+
     </div>
   );
 }
 
-function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
-  row: Row; onClose: () => void; onChanged: () => void; clinicId: string; today: string;
+function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow = false }: {
+  row: Row; onClose: () => void; onChanged: () => void; clinicId: string; today: string; initialNoShow?: boolean;
 }) {
-  const [showLost, setShowLost] = useState(false);
-  const [reason, setReason] = useState<string | null>(null);
+  const [showLost, setShowLost] = useState(initialNoShow);
+  const [reason, setReason] = useState<string | null>(initialNoShow ? "no_show" : null);
+
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const { appt, intake, quote, status, stage } = row;
