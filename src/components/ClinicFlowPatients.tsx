@@ -482,12 +482,66 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
         next_followup_date: clear ? null : fuDate,
         next_followup_note: clear ? null : (fuNote.trim() || null),
       }, { onConflict: "appointment_id" });
+
+    // Keep the Follow-ups screen, sidebar badge and due-today chip in sync:
+    // one active follow-up task per patient at a time.
+    if (!error && quote) {
+      const { error: skipError } = await supabase
+        .from("clinicflow_followups")
+        .update({ status: "skipped" })
+        .eq("quote_id", quote.id)
+        .eq("status", "open");
+      if (skipError) console.error("skip followups failed", skipError.message);
+      if (!clear) {
+        const { error: insError } = await supabase
+          .from("clinicflow_followups")
+          .insert({
+            clinic_id: clinicId,
+            quote_id: quote.id,
+            patient_name: appt.patient_name,
+            due_date: fuDate,
+            task_type: "custom",
+          });
+        if (insError) console.error("insert followup failed", insError.message);
+      }
+    }
+
     setFuSaving(false);
     if (error) { toast.error(error.message); return; }
     if (clear) { setFuDate(""); setFuNote(""); }
-    toast.success(clear ? "Follow-up date cleared" : "Follow-up date set");
+    toast.success(clear ? "Follow-up date cleared" : `Follow-up set for ${fmtDay(fuDate)}`);
     onChanged();
   };
+
+  const [chaseOpen, setChaseOpen] = useState(false);
+  const [chaseNote, setChaseNote] = useState("");
+  const [chaseSaving, setChaseSaving] = useState(false);
+  const requestChaseFn = useServerFn(requestBoldChase);
+
+  const submitChase = async () => {
+    setChaseSaving(true);
+    try {
+      await requestChaseFn({
+        data: {
+          clinicId,
+          appointmentId: appt.id,
+          quoteId: quote?.id ?? null,
+          patientName: appt.patient_name,
+          patientPhone: appt.patient_phone,
+          note: chaseNote.trim() || null,
+        },
+      });
+      setChaseOpen(false);
+      setChaseNote("");
+      toast.success("Bold's on it");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't send the chase request");
+    } finally {
+      setChaseSaving(false);
+    }
+  };
+
 
   const quickDate = (days: number) => {
     const d = new Date();
