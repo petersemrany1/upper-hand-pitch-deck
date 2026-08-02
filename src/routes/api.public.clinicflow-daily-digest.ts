@@ -2,7 +2,7 @@
 // follow-up today. Called by pg_cron with the x-cron-secret header.
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
-import { sydneyTodayISO } from "@/lib/timezone";
+import { sydneyTodayISO, sydneyHour } from "@/lib/timezone";
 import { APP_TIMEZONE } from "@/lib/timezone";
 
 type FollowupRow = { patient_name: string; due_date: string };
