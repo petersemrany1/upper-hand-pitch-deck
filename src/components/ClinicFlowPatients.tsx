@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO, daysUntilSydney } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, X, Phone, Mail, AlertTriangle, ExternalLink, Copy } from "lucide-react";
+import { CheckCircle2, Circle, X, Phone, Mail, AlertTriangle, ExternalLink, Copy, BadgeDollarSign } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
@@ -312,6 +314,27 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const { appt, intake, quote, status, stage } = row;
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [depositAmount, setDepositAmount] = useState<string>(String(quote?.deposit_amount ?? 1000));
+  const [depositMethod, setDepositMethod] = useState("card_machine");
+  const [depositSaving, setDepositSaving] = useState(false);
+  const recordDepositFn = useServerFn(recordClinicflowQuoteDeposit);
+
+  const saveDeposit = async () => {
+    if (!quote) return;
+    const amt = Number(depositAmount);
+    if (!Number.isFinite(amt) || amt <= 0) { toast.error("Enter a deposit amount"); return; }
+    setDepositSaving(true);
+    try {
+      await recordDepositFn({ data: { quoteId: quote.id, depositAmount: amt, method: depositMethod } });
+      toast.success("Deposit recorded");
+      setDepositOpen(false);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not record the deposit");
+    }
+    setDepositSaving(false);
+  };
   const firstName = appt.patient_name.split(" ")[0] || "this patient";
 
   const markLost = async () => {
@@ -448,6 +471,73 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
                   style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", color: NAVY, border: `1px solid ${LINE}`, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
                   <Copy size={14} /> Copy link
                 </button>
+              </div>
+
+              <div style={{ marginTop: 16, borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
+                {quote.deposit_recorded_at ? (
+                  <div style={{ background: GREEN_BG, color: GREEN, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
+                    Deposit of {fmt$(Number(quote.deposit_amount ?? 0))} received
+                    {quote.deposit_method ? ` · ${quote.deposit_method.replace(/_/g, " ")}` : ""}
+                    <div style={{ fontWeight: 500, marginTop: 2 }}>{fmtDateTime(quote.deposit_recorded_at)}</div>
+                    <button
+                      onClick={() => setDepositOpen(true)}
+                      style={{ marginTop: 8, background: "transparent", border: "none", color: NAVY, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, fontFamily: FONT }}
+                    >
+                      Edit deposit
+                    </button>
+                  </div>
+                ) : !depositOpen ? (
+                  <button
+                    onClick={() => setDepositOpen(true)}
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: GREEN, color: "#fff", border: "none", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}
+                  >
+                    <BadgeDollarSign size={15} /> Record deposit taken in clinic
+                  </button>
+                ) : null}
+
+                {depositOpen && (
+                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: GREY }}>
+                      Amount (AUD)
+                      <input
+                        type="number"
+                        min={1}
+                        value={depositAmount}
+                        onChange={(e) => setDepositAmount(e.target.value)}
+                        style={{ display: "block", marginTop: 4, width: "100%", padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, fontFamily: FONT, color: "#111" }}
+                      />
+                    </label>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: GREY }}>
+                      How was it paid?
+                      <select
+                        value={depositMethod}
+                        onChange={(e) => setDepositMethod(e.target.value)}
+                        style={{ display: "block", marginTop: 4, width: "100%", padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, fontFamily: FONT, color: "#111", background: "#fff" }}
+                      >
+                        <option value="card_machine">Clinic card machine (EFTPOS)</option>
+                        <option value="bank_transfer">Bank transfer</option>
+                        <option value="cash">Cash</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => void saveDeposit()}
+                        disabled={depositSaving}
+                        style={{ background: GREEN, color: "#fff", border: "none", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, opacity: depositSaving ? 0.6 : 1 }}
+                      >
+                        {depositSaving ? "Saving…" : "Save deposit"}
+                      </button>
+                      <button
+                        onClick={() => setDepositOpen(false)}
+                        disabled={depositSaving}
+                        style={{ background: "#fff", color: GREY, border: `1px solid ${LINE}`, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           )}
