@@ -293,6 +293,8 @@ export function ClinicPortalView({
         if (pc?.consult_price_deposit != null) setClinicDefaultDeposit(Number(pc.consult_price_deposit));
         setClinicState((pc as { state?: string | null } | null)?.state ?? null);
         setMinGapMins(Number((pc as { min_appointment_gap_mins?: number | null } | null)?.min_appointment_gap_mins ?? 0) || 0);
+        setClinicflowEnabled(((pc as { clinicflow_enabled?: boolean | null } | null)?.clinicflow_enabled ?? false) === true);
+
 
         setLoading(false);
       } catch (e) {
