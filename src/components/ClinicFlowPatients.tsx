@@ -415,6 +415,12 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                     </span>
                   </div>
                 )}
+                {r.chase && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ ...chipStyle(NAVY_PALE, NAVY), alignSelf: "flex-start" }}>Bold chasing</span>
+                  </div>
+                )}
+
 
                 {r.badges.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
