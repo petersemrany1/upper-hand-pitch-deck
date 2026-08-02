@@ -469,11 +469,12 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   );
 }
 
-function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
-  row: Row; onClose: () => void; onChanged: () => void; clinicId: string; today: string;
+function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow = false }: {
+  row: Row; onClose: () => void; onChanged: () => void; clinicId: string; today: string; initialNoShow?: boolean;
 }) {
-  const [showLost, setShowLost] = useState(false);
-  const [reason, setReason] = useState<string | null>(null);
+  const [showLost, setShowLost] = useState(initialNoShow);
+  const [reason, setReason] = useState<string | null>(initialNoShow ? "no_show" : null);
+
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const { appt, intake, quote, status, stage } = row;
