@@ -943,6 +943,36 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
         </div>
       </div>
 
+      {chaseOpen && (
+        <div
+          onClick={(e) => { e.stopPropagation(); setChaseOpen(false); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div onClick={(e) => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 12, border: `1px solid ${LINE}`, padding: 20, width: "min(420px, 100%)", fontFamily: FONT }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: NAVY }}>Want Bold to chase {firstName} for you?</div>
+            <textarea
+              value={chaseNote}
+              onChange={(e) => setChaseNote(e.target.value)}
+              placeholder="Anything Bold should know? (optional)"
+              rows={3}
+              style={{ width: "100%", marginTop: 14, padding: 12, borderRadius: 10, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT, resize: "vertical" }}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 14, justifyContent: "flex-end" }}>
+              <button onClick={() => setChaseOpen(false)}
+                style={{ background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
+                Cancel
+              </button>
+              <button onClick={() => void submitChase()} disabled={chaseSaving}
+                style={{ background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: chaseSaving ? "default" : "pointer", opacity: chaseSaving ? 0.7 : 1, fontFamily: FONT }}>
+                {chaseSaving ? "Sending…" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
       {showLost && (
         <div
           onClick={(e) => { e.stopPropagation(); setShowLost(false); }}
