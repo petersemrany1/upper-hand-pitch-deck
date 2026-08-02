@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail, FileText, ExternalLink, Images } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, FileText, ExternalLink, Images, Box, Sparkles } from "lucide-react";
 import { ClinicFlowQuoteBuilder } from "@/components/ClinicFlowQuoteBuilder";
-import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/ClinicFlowTimelineGallery";
+import { ClinicFlowPresentGallery, type PresentPhoto } from "@/components/ClinicFlowPresentGallery";
 import { useServerFn } from "@tanstack/react-start";
-import { listClinicflowPhotos } from "@/lib/clinicflow-phase4.functions";
+import { getClinicflowGalleryPhotos } from "@/lib/clinicflow-phase4.functions";
+
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
