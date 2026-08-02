@@ -264,3 +264,22 @@ export const sendClinicflowQuoteEmail = createServerFn({ method: "POST" })
     }
     return { success: true as const, id: result.id };
   });
+
+export const deleteClinicflowQuote = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { quoteId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: quote } = await supabaseAdmin
+      .from("clinicflow_quotes")
+      .select("clinic_id")
+      .eq("id", data.quoteId)
+      .maybeSingle();
+    if (!quote) throw new Error("Quote not found");
+    await assertCanAccessClinic(context.supabase, quote.clinic_id as string);
+
+    await supabaseAdmin.from("clinicflow_followups").delete().eq("quote_id", data.quoteId);
+    const { error } = await supabaseAdmin.from("clinicflow_quotes").delete().eq("id", data.quoteId);
+    if (error) throw new Error(error.message);
+    return { success: true as const };
+  });
