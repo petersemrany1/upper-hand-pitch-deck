@@ -217,8 +217,10 @@ function scheduleTokenRefresh() {
       device?.updateToken(next);
       scheduleTokenRefresh();
     } catch (err) {
+      if (extractErrorMessage(err, "") === "DIALLER_NOT_AVAILABLE") return; // not a rep account — stop refreshing
       console.error("Voice SDK: token refresh failed", err);
     }
+
   }, TOKEN_REFRESH_MS);
 }
 
