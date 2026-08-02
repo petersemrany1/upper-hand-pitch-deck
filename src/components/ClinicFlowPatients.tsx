@@ -621,6 +621,34 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
   const [fuSaving, setFuSaving] = useState(false);
 
+  // ---- Reschedule the consult appointment ----
+  const to24 = (t: string) => {
+    const m = /^(\d{1,2}):(\d{2})/.exec(t);
+    if (!m) return "";
+    const pm = /pm/i.test(t);
+    let h = parseInt(m[1], 10);
+    if (pm && h < 12) h += 12;
+    if (/am/i.test(t) && h === 12) h = 0;
+    return `${String(h).padStart(2, "0")}:${m[2]}`;
+  };
+  const [rsDate, setRsDate] = useState<string>(appt.appointment_date);
+  const [rsTime, setRsTime] = useState<string>(to24(appt.appointment_time));
+  const [rsSaving, setRsSaving] = useState(false);
+  const rsChanged = rsDate !== appt.appointment_date || rsTime !== to24(appt.appointment_time);
+
+  const saveReschedule = async () => {
+    if (!rsDate || !rsTime) { toast.error("Pick a date and time"); return; }
+    setRsSaving(true);
+    const { error } = await supabase
+      .from("clinic_appointments")
+      .update({ appointment_date: rsDate, appointment_time: rsTime })
+      .eq("id", appt.id);
+    setRsSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Moved to ${fmtDay(rsDate)} at ${fmtTime(rsTime)}`);
+    onChanged();
+  };
+
   const saveFollowup = async (clear = false) => {
     if (!clear && !fuDate) { toast.error("Pick a date first"); return; }
     setFuSaving(true);
@@ -818,6 +846,50 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
         </div>
 
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card title="Consult appointment">
+            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 10 }}>
+              {fmtDay(appt.appointment_date)} · {fmtTime(appt.appointment_time)}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input
+                type="date"
+                value={rsDate}
+                onChange={(e) => setRsDate(e.target.value)}
+                style={{ flex: "1 1 150px", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+              />
+              <input
+                type="time"
+                value={rsTime}
+                onChange={(e) => setRsTime(e.target.value)}
+                style={{ flex: "1 1 110px", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <button
+                disabled={rsSaving || !rsChanged}
+                onClick={() => void saveReschedule()}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                  fontSize: 13, fontWeight: 700, cursor: rsChanged ? "pointer" : "default", fontFamily: FONT,
+                  opacity: rsSaving || !rsChanged ? 0.5 : 1,
+                }}
+              >
+                {rsSaving ? "Saving…" : "Reschedule"}
+              </button>
+              {rsChanged && (
+                <button
+                  onClick={() => { setRsDate(appt.appointment_date); setRsTime(to24(appt.appointment_time)); }}
+                  style={{
+                    background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </Card>
+
           <Card title="Next follow-up">
             {status?.next_followup_date ? (
               <div
