@@ -124,32 +124,6 @@ export function ClinicShell({
         zIndex: narrow ? 120 : 1,
       }}
     >
-      {/* Clinic identity */}
-      <div style={{ padding: "18px 14px 14px", display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        {logoUrl ? (
-          <img src={logoUrl} alt={`${clinicName} logo`} style={{ width: 34, height: 34, borderRadius: 8, objectFit: "cover", background: "#fff", flexShrink: 0 }} />
-        ) : (
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: "#fff", color: NAVY, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            {initialsOf(clinicName)}
-          </div>
-        )}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 600, color: "#fff", lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {clinicName || "Clinic"}
-          </div>
-          <div style={{ fontSize: 11, color: PALE_BLUE }}>Clinic Partner Portal</div>
-        </div>
-        {narrow && (
-          <button
-            onClick={() => setDrawerOpen(false)}
-            aria-label="Close menu"
-            style={{ marginLeft: "auto", background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 4 }}
-          >
-            <X size={18} />
-          </button>
-        )}
-      </div>
-
       {/* Nav */}
       <nav style={{ padding: "4px 10px", display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
         {navItems.map((entry, i) => {
