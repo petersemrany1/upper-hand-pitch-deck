@@ -1,8 +1,10 @@
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
+import { getClinicflowSettings, clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 
 export const Route = createLazyFileRoute("/clinic-portal")({
   component: ClinicPortalPage,
