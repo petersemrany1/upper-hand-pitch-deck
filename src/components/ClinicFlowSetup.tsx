@@ -26,6 +26,8 @@ type Settings = {
   stripe_charges_enabled: boolean;
   logo_url: string | null;
   whatsapp_number: string | null;
+  notification_email: string | null;
+  email_notifications_enabled: boolean;
   default_deposit_amount: number;
   quote_validity_days: number;
   kiosk_pin: string;
