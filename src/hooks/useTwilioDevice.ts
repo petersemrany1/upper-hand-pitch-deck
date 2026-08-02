@@ -91,6 +91,7 @@ let initPromise: Promise<void> | null = null;
 // (e.g. clinic-portal users). The softphone simply doesn't apply to them, so
 // we stop retrying and never log it as a runtime error.
 let dialerUnavailable = false;
+let refreshTimer: number | null = null;
 
 
 let currentStatus: Status = "idle";
