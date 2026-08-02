@@ -170,10 +170,16 @@ export function ClinicFlowQuoteBuilder({
               </Field>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-              <Field label="Grafts">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <Field label="Measured in">
+                <Select value={graftUnit} onChange={(v) => setGraftUnit(v as "grafts" | "hairs")} options={["grafts", "hairs"]} />
+              </Field>
+              <Field label={graftUnit === "hairs" ? "Number of hairs" : "Number of grafts"}>
                 <TextInput value={grafts} onChange={setGrafts} inputMode="numeric" />
               </Field>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="Price (AUD)">
                 <TextInput value={price} onChange={setPrice} inputMode="decimal" />
               </Field>
