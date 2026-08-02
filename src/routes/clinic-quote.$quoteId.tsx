@@ -305,7 +305,7 @@ Any questions, just message back.`;
               <SummaryTile label="Diagnosis" value={quote.diagnosis} />
               <SummaryTile label="Norwood" value={quote.norwood ?? "—"} />
               <SummaryTile
-                label="Grafts"
+                label={unitLabel}
                 value={quote.grafts != null ? quote.grafts.toLocaleString() : "TBC"}
               />
             </div>
