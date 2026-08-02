@@ -118,11 +118,9 @@ function QuotePage() {
 
       setQuote(result.quote as Quote);
       setClinicName(result.clinic?.name ?? "");
-      setClinicPhone(result.clinic?.phone ?? null);
       setClinicCity(result.clinic?.city ?? null);
       setPatientPhone(result.patient.phone);
       setPatientEmail(result.patient.email);
-      setWhatsappNumber(result.settings.whatsappNumber);
       setDoctorName(result.settings.doctorName);
       setCoolingOffDays(result.settings.coolingOffDays);
       setLogoUrl(result.settings.logoUrl);
