@@ -18,10 +18,12 @@ export function ClinicFlowPresentGallery({
   photos,
   loading,
   onClose,
+  mode = "timeline",
 }: {
   photos: PresentPhoto[];
   loading?: boolean;
   onClose: () => void;
+  mode?: "timeline" | "before_after";
 }) {
   // Ordered by the canonical stage sequence so "next" walks the timeline.
   const flat = useMemo(() => {
