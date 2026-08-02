@@ -85,6 +85,18 @@ export const Route = createFileRoute("/api/public/clinicflow-daily-digest")({
           return new Response("Query failed", { status: 500 });
         }
 
+        // Only clinics with the ClinicFlow switch on ever get the briefing.
+        const { data: enabledClinics, error: enabledError } = await supabase
+          .from("partner_clinics")
+          .select("id")
+          .eq("clinicflow_enabled", true);
+        if (enabledError) {
+          console.error("clinicflow-daily-digest: clinic flag query failed", enabledError.message);
+          return new Response("Query failed", { status: 500 });
+        }
+        const enabledIds = new Set((enabledClinics ?? []).map((c) => c.id as string));
+
+
         const RESEND_CONNECTION_KEY = process.env.RESEND_API_KEY ?? "";
         const LOVABLE_API_KEY = process.env.LOVABLE_API_KEY ?? "";
 
