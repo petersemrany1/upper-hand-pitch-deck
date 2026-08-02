@@ -966,6 +966,8 @@ export type Database = {
           lost_at: string | null
           lost_note: string | null
           lost_reason: string | null
+          next_followup_date: string | null
+          next_followup_note: string | null
           updated_at: string
         }
         Insert: {
@@ -976,6 +978,8 @@ export type Database = {
           lost_at?: string | null
           lost_note?: string | null
           lost_reason?: string | null
+          next_followup_date?: string | null
+          next_followup_note?: string | null
           updated_at?: string
         }
         Update: {
@@ -986,6 +990,8 @@ export type Database = {
           lost_at?: string | null
           lost_note?: string | null
           lost_reason?: string | null
+          next_followup_date?: string | null
+          next_followup_note?: string | null
           updated_at?: string
         }
         Relationships: [

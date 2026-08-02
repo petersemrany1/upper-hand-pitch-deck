@@ -63,7 +63,10 @@ type PipelineStatus = {
   lost_reason: string | null;
   lost_note: string | null;
   lost_at: string | null;
+  next_followup_date: string | null;
+  next_followup_note: string | null;
 };
+
 
 type Stage = "Booked" | "Showed" | "Quoted" | "In Follow-up" | "Won" | "Lost";
 const STAGES: Stage[] = ["Booked", "Showed", "Quoted", "In Follow-up", "Won", "Lost"];
@@ -140,6 +143,18 @@ function dueLabel(due: string): { text: string; overdue: boolean; today: boolean
   if (days === 1) return { text: "Follow up tomorrow", overdue: false, today: false };
   return { text: `Follow up ${fmtDay(due)}`, overdue: false, today: false };
 }
+
+/** The date this patient should be chased: the manually set one wins, then the auto task. */
+function nextFollowupDate(row: Row): string | null {
+  return row.status?.next_followup_date ?? row.followup?.due_date ?? null;
+}
+function nextFollowupNote(row: Row): string | null {
+  if (row.status?.next_followup_date) return row.status.next_followup_note ?? null;
+  if (row.followup) return TASK_LABEL[row.followup.task_type] ?? row.followup.task_type;
+  return null;
+}
+
+
 
 function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, today: string): Row {
   const badges: Badge[] = [];
@@ -266,20 +281,25 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   }, [rows]);
 
   const dueTodayCount = useMemo(
-    () => rows.filter((r) => r.stage === "In Follow-up" && r.followup && daysUntilSydney(r.followup.due_date) <= 0).length,
+    () => rows.filter((r) => {
+      if (r.stage === "Lost" || r.stage === "Won") return false;
+      const d = nextFollowupDate(r);
+      return !!d && daysUntilSydney(d) <= 0;
+    }).length,
     [rows],
   );
 
   const visible = useMemo(() => {
     const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
     if (filter !== "In Follow-up") return list;
-    // soonest / most overdue first, patients with no scheduled task last
+    // soonest / most overdue first, patients with no follow-up date last
     return [...list].sort((x, y) => {
-      const dx = x.followup?.due_date ?? "9999-12-31";
-      const dy = y.followup?.due_date ?? "9999-12-31";
+      const dx = nextFollowupDate(x) ?? "9999-12-31";
+      const dy = nextFollowupDate(y) ?? "9999-12-31";
       return dx < dy ? -1 : dx > dy ? 1 : 0;
     });
   }, [rows, filter]);
+
 
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
 
@@ -334,7 +354,11 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {visible.map((r) => {
-              const due = r.stage === "In Follow-up" && r.followup ? dueLabel(r.followup.due_date) : null;
+              const active = r.stage !== "Lost" && r.stage !== "Won";
+              const dueDate = active ? nextFollowupDate(r) : null;
+              const due = dueDate ? dueLabel(dueDate) : null;
+              const noteText = dueDate ? nextFollowupNote(r) : null;
+              const needsDate = active && !dueDate && (r.stage === "In Follow-up" || r.stage === "Quoted");
               return (
               <button
                 key={r.appt.id}
@@ -357,16 +381,22 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                 </div>
-                {due && (
+                {due && dueDate && (
                   <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
                     <span style={{ ...chipStyle(due.overdue ? RED_BG : AMBER_BG, due.overdue ? RED : AMBER_FG), alignSelf: "flex-start" }}>
-                      {due.text}
+                      {due.text} · {fmtDay(dueDate)}
                     </span>
-                    <span style={{ fontSize: 12, color: GREY }}>
-                      {TASK_LABEL[r.followup!.task_type] ?? r.followup!.task_type}
+                    {noteText && <span style={{ fontSize: 12, color: GREY }}>{noteText}</span>}
+                  </div>
+                )}
+                {needsDate && (
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ ...chipStyle("#f1f5f9", GREY), alignSelf: "flex-start" }}>
+                      No follow-up date set — tap to set one
                     </span>
                   </div>
                 )}
+
                 {r.badges.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
                     {r.badges.map((b, idx) => (
@@ -408,6 +438,38 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
   const [depositMethod, setDepositMethod] = useState("card_machine");
   const [depositSaving, setDepositSaving] = useState(false);
   const recordDepositFn = useServerFn(recordClinicflowQuoteDeposit);
+
+  const drawerDueDate = stage === "Lost" || stage === "Won" ? null : nextFollowupDate(row);
+  const drawerDue = drawerDueDate ? dueLabel(drawerDueDate) : null;
+
+  const [fuDate, setFuDate] = useState<string>(status?.next_followup_date ?? "");
+  const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
+  const [fuSaving, setFuSaving] = useState(false);
+
+  const saveFollowup = async (clear = false) => {
+    if (!clear && !fuDate) { toast.error("Pick a date first"); return; }
+    setFuSaving(true);
+    const { error } = await supabase
+      .from("clinicflow_pipeline_status")
+      .upsert({
+        clinic_id: clinicId,
+        appointment_id: appt.id,
+        next_followup_date: clear ? null : fuDate,
+        next_followup_note: clear ? null : (fuNote.trim() || null),
+      }, { onConflict: "appointment_id" });
+    setFuSaving(false);
+    if (error) { toast.error(error.message); return; }
+    if (clear) { setFuDate(""); setFuNote(""); }
+    toast.success(clear ? "Follow-up date cleared" : "Follow-up date set");
+    onChanged();
+  };
+
+  const quickDate = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d.toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
+  };
+
 
   const saveDeposit = async () => {
     if (!quote) return;
@@ -494,16 +556,17 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
               <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{appt.patient_name}</div>
               <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
                 <span style={stageChip(stage)}>{stage}</span>
-                {row.followup && (() => {
-                  const d = dueLabel(row.followup.due_date);
-                  return <span style={chipStyle(d.overdue ? RED_BG : AMBER_BG, d.overdue ? RED : AMBER_FG)}>{d.text}</span>;
-                })()}
+                {drawerDue && (
+                  <span style={chipStyle(drawerDue.overdue ? RED_BG : AMBER_BG, drawerDue.overdue ? RED : AMBER_FG)}>
+                    {drawerDue.text} · {fmtDay(drawerDueDate!)}
+                  </span>
+                )}
               </div>
-              {row.followup && (
-                <div style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
-                  {TASK_LABEL[row.followup.task_type] ?? row.followup.task_type}
-                </div>
+              {drawerDueDate && nextFollowupNote(row) && (
+                <div style={{ fontSize: 13, color: GREY, marginTop: 6 }}>{nextFollowupNote(row)}</div>
               )}
+
+
 
             </div>
             <button onClick={onClose} aria-label="Close"
@@ -526,7 +589,83 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today }: {
         </div>
 
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card title="Next follow-up">
+            {status?.next_followup_date ? (
+              <div
+                style={{
+                  background: drawerDue?.overdue ? RED_BG : AMBER_BG,
+                  color: drawerDue?.overdue ? RED : AMBER_FG,
+                  borderRadius: 8, padding: "10px 12px", fontSize: 14, fontWeight: 700, marginBottom: 12,
+                }}
+              >
+                {fmtDay(status.next_followup_date)} — {drawerDue?.text}
+                {status.next_followup_note ? (
+                  <div style={{ fontWeight: 500, fontSize: 13, marginTop: 4 }}>{status.next_followup_note}</div>
+                ) : null}
+              </div>
+            ) : (
+              <div style={{ fontSize: 13, color: GREY, marginBottom: 12 }}>
+                No follow-up date set for {firstName}. Pick a date so it shows on their card.
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+              {[["Tomorrow", 1], ["In 3 days", 3], ["Next week", 7], ["In 2 weeks", 14]].map(([label, d]) => (
+                <button
+                  key={label as string}
+                  onClick={() => setFuDate(quickDate(d as number))}
+                  style={{
+                    background: "#fff", border: `1px solid ${LINE}`, color: NAVY, borderRadius: 999,
+                    padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
+                  {label as string}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="date"
+              value={fuDate}
+              min={today}
+              onChange={(e) => setFuDate(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+            />
+            <input
+              type="text"
+              value={fuNote}
+              placeholder="What's the follow-up about? (optional)"
+              onChange={(e) => setFuNote(e.target.value)}
+              style={{ width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+            />
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <button
+                disabled={fuSaving}
+                onClick={() => void saveFollowup(false)}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, opacity: fuSaving ? 0.6 : 1,
+                }}
+              >
+                {status?.next_followup_date ? "Update follow-up date" : "Set follow-up date"}
+              </button>
+              {status?.next_followup_date && (
+                <button
+                  disabled={fuSaving}
+                  onClick={() => void saveFollowup(true)}
+                  style={{
+                    background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </Card>
+
           <Card title="Timeline">
+
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {milestones.map((m) => (
                 <div key={m.label} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
