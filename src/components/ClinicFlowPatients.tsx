@@ -313,14 +313,24 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   const visible = useMemo(() => {
     const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
-    if (filter !== "In Follow-up") return list;
-    // soonest / most overdue first, patients with no follow-up date last
-    return [...list].sort((x, y) => {
-      const dx = nextFollowupDate(x) ?? "9999-12-31";
-      const dy = nextFollowupDate(y) ?? "9999-12-31";
-      return dx < dy ? -1 : dx > dy ? 1 : 0;
+    if (filter === "In Follow-up") {
+      // soonest / most overdue first, patients with no follow-up date last
+      return [...list].sort((x, y) => {
+        const dx = nextFollowupDate(x) ?? "9999-12-31";
+        const dy = nextFollowupDate(y) ?? "9999-12-31";
+        return dx < dy ? -1 : dx > dy ? 1 : 0;
+      });
+    }
+    // Upcoming booked patients (today or later) float to the top, soonest first.
+    const upcoming = (r: Row) => r.stage === "Booked" && r.appt.appointment_date >= today;
+    const top = list.filter(upcoming).sort((x, y) => {
+      const kx = `${x.appt.appointment_date} ${x.appt.appointment_time}`;
+      const ky = `${y.appt.appointment_date} ${y.appt.appointment_time}`;
+      return kx < ky ? -1 : kx > ky ? 1 : 0;
     });
-  }, [rows, filter]);
+    return [...top, ...list.filter((r) => !upcoming(r))];
+  }, [rows, filter, today]);
+
 
 
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
