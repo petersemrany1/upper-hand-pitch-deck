@@ -846,6 +846,50 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
         </div>
 
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card title="Consult appointment">
+            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 10 }}>
+              {fmtDay(appt.appointment_date)} · {fmtTime(appt.appointment_time)}
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input
+                type="date"
+                value={rsDate}
+                onChange={(e) => setRsDate(e.target.value)}
+                style={{ flex: "1 1 150px", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+              />
+              <input
+                type="time"
+                value={rsTime}
+                onChange={(e) => setRsTime(e.target.value)}
+                style={{ flex: "1 1 110px", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
+              <button
+                disabled={rsSaving || !rsChanged}
+                onClick={() => void saveReschedule()}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                  fontSize: 13, fontWeight: 700, cursor: rsChanged ? "pointer" : "default", fontFamily: FONT,
+                  opacity: rsSaving || !rsChanged ? 0.5 : 1,
+                }}
+              >
+                {rsSaving ? "Saving…" : "Reschedule"}
+              </button>
+              {rsChanged && (
+                <button
+                  onClick={() => { setRsDate(appt.appointment_date); setRsTime(to24(appt.appointment_time)); }}
+                  style={{
+                    background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          </Card>
+
           <Card title="Next follow-up">
             {status?.next_followup_date ? (
               <div
