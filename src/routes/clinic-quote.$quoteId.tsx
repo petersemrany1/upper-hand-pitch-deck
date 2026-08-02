@@ -105,6 +105,7 @@ function QuotePage() {
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [ctaSubmitting, setCtaSubmitting] = useState(false);
 
   const refresh = async () => {
     try {
@@ -371,56 +372,82 @@ Any questions, just message back.`;
 
           {/* Date selection + CTA */}
           <div className="px-6 py-6 border-t border-clinical-line">
-            {quote.booked_date ? (
-              <div className="text-center p-3 bg-slate-50 rounded-sm border border-clinical-line">
-                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Your procedure date</p>
-                <p className="text-sm font-medium text-clinical-text">{fmtDate(quote.booked_date)}</p>
+            {quote.status === "booked" || quote.status === "deposit_recorded" ? (
+              <div
+                className="p-4 rounded-sm border text-center"
+                style={{ background: GREEN_BG, borderColor: GREEN, color: GREEN }}
+              >
+                <p className="text-sm font-semibold flex items-center justify-center gap-2">
+                  <CheckCircle2 size={16} />
+                  You're booked{quote.booked_date ? ` for ${fmtDate(quote.booked_date)}` : ""} — {clinicName || "the clinic"} will confirm within one business day.
+                </p>
               </div>
-            ) : dateOptions.length > 0 ? (
+            ) : (
               <>
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-[10px] uppercase text-clinical-muted font-semibold">Choose your surgery date</p>
-                  <span className="text-[10px] font-bold uppercase text-clinical-amber bg-clinical-amber-fill px-2 py-0.5 rounded-full">
-                    Only {dateOptions.length} {dateOptions.length === 1 ? "date" : "dates"} left
-                  </span>
-                </div>
-                <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateOptions.length}, minmax(0, 1fr))` }}>
-                  {dateOptions.map((d) => {
-                    const on = selectedDate === d;
-                    return (
-                      <button
-                        key={d}
-                        onClick={() => setSelectedDate(on ? null : d)}
-                        className={`py-3 px-2 rounded-sm border text-sm font-semibold transition-colors ${
-                          on
-                            ? "border-clinical-text bg-clinical-accent-fill text-clinical-text"
-                            : "border-clinical-line bg-white text-clinical-text hover:bg-slate-50"
-                        }`}
-                      >
-                        <span className="block">{fmtDateCompact(d)}</span>
-                        <span className="block text-[10px] font-normal text-clinical-muted">
-                          {new Date(d + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", timeZone: APP_TIMEZONE })}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                {dateOptions.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] uppercase text-clinical-muted font-semibold">Choose your surgery date</p>
+                      <span className="text-[10px] font-bold uppercase text-clinical-amber bg-clinical-amber-fill px-2 py-0.5 rounded-full">
+                        Only {dateOptions.length} {dateOptions.length === 1 ? "date" : "dates"} left
+                      </span>
+                    </div>
+                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateOptions.length}, minmax(0, 1fr))` }}>
+                      {dateOptions.map((d) => {
+                        const on = selectedDate === d;
+                        return (
+                          <button
+                            key={d}
+                            onClick={() => setSelectedDate(on ? null : d)}
+                            className={`py-3 px-2 rounded-sm border text-sm font-semibold transition-colors ${
+                              on
+                                ? "border-clinical-text bg-clinical-accent-fill text-clinical-text"
+                                : "border-clinical-line bg-white text-clinical-text hover:bg-slate-50"
+                            }`}
+                          >
+                            <span className="block">{fmtDateCompact(d)}</span>
+                            <span className="block text-[10px] font-normal text-clinical-muted">
+                              {new Date(d + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", timeZone: APP_TIMEZONE })}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : null}
+
+                <p className="text-xs text-clinical-muted text-center mt-4">
+                  Pay your deposit and {clinicName || "the clinic"} will confirm your surgery date within one business day.
+                </p>
+
+                <button
+                  onClick={async () => {
+                    if (quote.status === "expired" || isExpired) {
+                      toast.error("This quote has expired — ask the clinic to re-issue it");
+                      return;
+                    }
+                    if (dateOptions.length > 0 && !selectedDate) {
+                      toast.error("Pick a date first");
+                      return;
+                    }
+                    setCtaSubmitting(true);
+                    try {
+                      await bookDate({ data: { quoteId: quote.id, bookedDate: selectedDate as string } });
+                      toast.success("Date locked in");
+                      await refresh();
+                    } catch (error) {
+                      toast.error(error instanceof Error ? error.message : "Could not book this date");
+                    } finally {
+                      setCtaSubmitting(false);
+                    }
+                  }}
+                  disabled={ctaSubmitting}
+                  className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Lock size={16} /> {ctaSubmitting ? "Booking…" : ctaLabel}
+                </button>
               </>
-            ) : null}
-
-            <p className="text-xs text-clinical-muted text-center mt-4">
-              Pay your deposit and {clinicName || "the clinic"} will confirm your surgery date within one business day.
-            </p>
-
-            <button
-              onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
-              disabled={!patientPhone}
-              className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Lock size={16} /> {ctaLabel}
-            </button>
-
-
+            )}
 
             <p className="text-[11px] text-clinical-muted text-center mt-4 flex items-center justify-center gap-1.5">
               <Clock size={12} />
@@ -429,6 +456,7 @@ Any questions, just message back.`;
                 : `This quote is valid until ${fmtDate(quote.valid_until)}.`}
             </p>
           </div>
+
 
         </div>
       </div>
