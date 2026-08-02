@@ -218,8 +218,8 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
         .from("clinic_appointments")
         .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
         .eq("clinic_id", clinicId)
-        .not("patient_name", "ilike", "%test%")
         .order("appointment_date", { ascending: false })
+
         .order("appointment_time", { ascending: true }),
       supabase.from("clinicflow_intakes").select("*").eq("clinic_id", clinicId),
       supabase.from("clinicflow_quotes").select("*").eq("clinic_id", clinicId),
