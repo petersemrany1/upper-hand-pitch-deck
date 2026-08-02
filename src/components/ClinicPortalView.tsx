@@ -7,7 +7,7 @@ import { ClinicFlowPatients } from "@/components/ClinicFlowPatients";
 import { ClinicFlowQuotesList } from "@/components/ClinicFlowQuotesList";
 import { ClinicFlowFollowups } from "@/components/ClinicFlowFollowups";
 import { ClinicFlowTraining } from "@/components/ClinicFlowTraining";
-import { ClinicShell, type ClinicSection } from "@/components/clinic/ClinicShell";
+import { ClinicShell, CLINIC_SECTIONS, type ClinicSection } from "@/components/clinic/ClinicShell";
 import { listClinicflowFollowups } from "@/lib/clinicflow-phase4.functions";
 import { sydneyTodayISO } from "@/lib/timezone";
 
