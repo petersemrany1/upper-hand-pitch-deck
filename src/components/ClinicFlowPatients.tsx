@@ -482,8 +482,9 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                     <span
                       role="button"
                       tabIndex={0}
-                      onClick={(e) => { e.stopPropagation(); setNoShowId(r.appt.id); setOpenId(r.appt.id); }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setNoShowId(r.appt.id); setOpenId(r.appt.id); } }}
+                      onClick={(e) => { e.stopPropagation(); void quickNoShow(r.appt.id); }}
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); void quickNoShow(r.appt.id); } }}
+
                       style={{
                         padding: "4px 10px", borderRadius: 999, border: `1px solid ${LINE}`,
                         background: "#fff", color: NAVY, fontSize: 12, fontWeight: 700, cursor: "pointer",
