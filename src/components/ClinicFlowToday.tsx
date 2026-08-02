@@ -218,9 +218,10 @@ function AppointmentCard({
 
 function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake: Intake | null; clinicId: string; onBack: () => void }) {
   const loadGallery = useServerFn(getClinicflowGalleryPhotos);
-  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryMode, setGalleryMode] = useState<"timeline" | "before_after" | null>(null);
   const [galleryLoading, setGalleryLoading] = useState(false);
-  const [galleryPhotos, setGalleryPhotos] = useState<PresentPhoto[] | null>(null);
+  const [timelinePhotos, setTimelinePhotos] = useState<PresentPhoto[] | null>(null);
+  const [beforeAfterPhotos, setBeforeAfterPhotos] = useState<PresentPhoto[] | null>(null);
   const [modelUrl, setModelUrl] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
 
@@ -238,17 +239,22 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
     return () => { cancelled = true; };
   }, [clinicId]);
 
-  const openGallery = async () => {
-    setGalleryOpen(true);
-    if (galleryPhotos === null) {
+  const openGallery = async (mode: "timeline" | "before_after") => {
+    setGalleryMode(mode);
+    if (timelinePhotos === null || beforeAfterPhotos === null) {
       setGalleryLoading(true);
       try {
-        const { photos } = await loadGallery({ data: { clinicId } });
-        setGalleryPhotos(photos as PresentPhoto[]);
-      } catch { setGalleryPhotos([]); }
+        const { timeline, beforeAfter } = await loadGallery({ data: { clinicId } });
+        setTimelinePhotos(timeline as PresentPhoto[]);
+        setBeforeAfterPhotos(beforeAfter as PresentPhoto[]);
+      } catch {
+        setTimelinePhotos([]);
+        setBeforeAfterPhotos([]);
+      }
       setGalleryLoading(false);
     }
   };
+
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
