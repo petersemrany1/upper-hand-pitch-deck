@@ -18,6 +18,8 @@ function ClinicPortalPage() {
   const { ready, session, userType, clinicId, signOut } = useAuth();
   const [clinicName, setClinicName] = useState<string>("");
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [narrow, setNarrow] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const getSettings = useServerFn(getClinicflowSettings);
   const signLogo = useServerFn(clinicflowSignLogoUrl);
 
@@ -30,6 +32,13 @@ function ClinicPortalPage() {
       navigate({ to: "/", replace: true });
     }
   }, [ready, session, userType, navigate]);
+
+  useEffect(() => {
+    const check = () => setNarrow(window.innerWidth < 900);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     if (!clinicId) return;
