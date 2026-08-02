@@ -387,6 +387,7 @@ export function ClinicPortalView({
       clinicId={clinicId}
       clinicName={clinicName}
       isAdmin={isAdmin}
+      showClinicFlow={showClinicFlow}
       active={section}
       onNavigate={setSection}
       followupsDue={followupsDue}
@@ -406,16 +407,6 @@ export function ClinicPortalView({
   );
 }
 
-function ClinicFlowComingSoon() {
-  return (
-    <div style={{ padding: 60, textAlign: "center", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-      <div style={{ fontSize: 18, fontWeight: 700, color: NAVY, marginBottom: 10 }}>ClinicFlow is coming soon</div>
-      <div style={{ fontSize: 13, color: "#6b7785", maxWidth: 420, margin: "0 auto", lineHeight: 1.55 }}>
-        The clinic consult tools are being finalised. You'll be able to take patient check-ins, build quotes, and collect deposits right here.
-      </div>
-    </div>
-  );
-}
 
 
 /* ============== APPOINTMENTS TAB (List + Calendar views) ============== */
