@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Circle, X, Phone, Mail, AlertTriangle, ExternalLink, Copy, BadgeDollarSign } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
+import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
