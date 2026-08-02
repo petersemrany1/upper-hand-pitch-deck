@@ -36,7 +36,9 @@ type PartnerClinic = {
   consult_price_deposit: number | null;
   parking_info: string | null;
   nearby_landmarks: string | null;
+  clinicflow_enabled?: boolean | null;
 };
+
 
 type PartnerDoctor = {
   id: string;
