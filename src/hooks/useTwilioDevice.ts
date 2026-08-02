@@ -185,9 +185,15 @@ async function fetchToken(): Promise<string> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (fnErr || !data?.token) {
+    const raw = `${data?.error ?? ""} ${fnErr?.message ?? ""}`;
+    if (/403|forbidden|no sales rep profile/i.test(raw)) {
+      dialerUnavailable = true;
+      throw new Error("DIALLER_NOT_AVAILABLE");
+    }
     const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
     throw new Error(msg);
   }
+
   console.log(`TOKEN IDENTITY: ${data.identity}`);
   console.log(`TOKEN INCOMING ALLOWED: ${data.incomingAllowed === true}`);
   return data.token as string;
