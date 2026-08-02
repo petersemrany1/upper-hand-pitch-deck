@@ -72,6 +72,8 @@ export function ClinicFlowSetup({ clinicId }: { clinicId: string }) {
       const s = row as Settings;
       setSettings(s);
       setWhatsapp(s.whatsapp_number ?? "");
+      setNotifyEmail(s.notification_email ?? "");
+      setNotifyOn(!!s.email_notifications_enabled);
       setDeposit(String(s.default_deposit_amount ?? 1000));
       setValidity(String(s.quote_validity_days ?? 14));
       setKioskPin(String(s.kiosk_pin ?? "0000"));
