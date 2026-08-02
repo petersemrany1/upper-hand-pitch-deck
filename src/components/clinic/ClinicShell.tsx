@@ -211,22 +211,13 @@ export function ClinicShell({
 
       <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         {narrow && (
-          <div style={{ height: 52, background: NAVY, display: "flex", alignItems: "center", gap: 10, padding: "0 14px", position: "sticky", top: 0, zIndex: 60 }}>
+          <div style={{ height: 44, background: NAVY, display: "flex", alignItems: "center", gap: 10, padding: "0 14px", position: "sticky", top: 0, zIndex: 60 }}>
             <button onClick={() => setDrawerOpen(true)} aria-label="Open menu" style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", padding: 4 }}>
               <Menu size={20} />
             </button>
-            {logoUrl ? (
-              <img src={logoUrl} alt="" style={{ width: 26, height: 26, borderRadius: 6, objectFit: "cover", background: "#fff" }} />
-            ) : (
-              <div style={{ width: 26, height: 26, borderRadius: 6, background: "#fff", color: NAVY, fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {initialsOf(clinicName)}
-              </div>
-            )}
-            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {clinicName || "Clinic"}
-            </div>
           </div>
         )}
+
 
         <main style={{ flex: 1, padding: narrow ? 14 : 24, minWidth: 0, minHeight: 0, overflowY: "auto" }}>
           {active === "patients" && followupsDue > 0 && (
