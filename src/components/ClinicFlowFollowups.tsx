@@ -167,13 +167,14 @@ export function ClinicFlowFollowups({ clinicId }: { clinicId: string }) {
     return <div style={{ padding: 40, textAlign: "center", color: GREY }}><Loader2 size={16} className="animate-spin" style={{ verticalAlign: "middle" }} /> Loading…</div>;
   }
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && chases.length === 0) {
     return (
       <div style={{ padding: 40, textAlign: "center", color: GREY, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
         No open follow-ups. Fresh quotes will populate this list automatically.
       </div>
     );
   }
+
 
   return (
     <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
