@@ -104,8 +104,10 @@ export const Route = createFileRoute("/api/public/clinicflow-daily-digest")({
 
         for (const s of settings ?? []) {
           const clinicId = s.clinic_id as string;
+          if (!enabledIds.has(clinicId)) continue;
           const to = (s.notification_email as string | null)?.trim();
           if (!to) continue;
+
 
           const [{ data: due }, { data: todayAppts }] = await Promise.all([
             supabase
