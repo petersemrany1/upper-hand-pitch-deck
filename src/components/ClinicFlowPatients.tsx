@@ -119,6 +119,7 @@ function stageChip(stage: Stage) {
 
 type Badge = { text: string; bg: string; fg: string };
 type Followup = { id: string; quote_id: string; due_date: string; task_type: string; status: string };
+type Chase = { id: string; appointment_id: string; note: string | null; requested_at: string; status: string };
 type Row = {
   appt: Appt;
   intake: Intake | null;
@@ -127,6 +128,7 @@ type Row = {
   stage: Stage;
   badges: Badge[];
   followup: Followup | null;
+  chase: Chase | null;
 };
 
 const TASK_LABEL: Record<string, string> = {
