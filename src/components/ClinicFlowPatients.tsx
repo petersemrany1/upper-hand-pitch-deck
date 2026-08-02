@@ -184,6 +184,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
   const [intakes, setIntakes] = useState<Record<string, Intake>>({});
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [statuses, setStatuses] = useState<Record<string, PipelineStatus>>({});
+  const [followups, setFollowups] = useState<Record<string, Followup>>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<"All" | Stage>("All");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -192,7 +193,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [a, i, q, p] = await Promise.all([
+    const [a, i, q, p, f] = await Promise.all([
       supabase
         .from("clinic_appointments")
         .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
@@ -203,8 +204,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
       supabase.from("clinicflow_intakes").select("*").eq("clinic_id", clinicId),
       supabase.from("clinicflow_quotes").select("*").eq("clinic_id", clinicId),
       supabase.from("clinicflow_pipeline_status").select("*").eq("clinic_id", clinicId),
+      supabase
+        .from("clinicflow_followups")
+        .select("id, quote_id, due_date, task_type, status")
+        .eq("clinic_id", clinicId)
+        .eq("status", "open")
+        .order("due_date", { ascending: true }),
     ]);
-    for (const r of [a, i, q, p]) if (r.error) toast.error(r.error.message);
+    for (const r of [a, i, q, p, f]) if (r.error) toast.error(r.error.message);
 
     setAppts((a.data ?? []) as Appt[]);
 
@@ -223,14 +230,32 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     for (const row of (p.data ?? []) as PipelineStatus[]) pm[row.appointment_id] = row;
     setStatuses(pm);
 
+    // earliest open follow-up per quote
+    const fm: Record<string, Followup> = {};
+    for (const row of (f.data ?? []) as Followup[]) {
+      const prev = fm[row.quote_id];
+      if (!prev || row.due_date < prev.due_date) fm[row.quote_id] = row;
+    }
+    setFollowups(fm);
+
     setLoading(false);
   }, [clinicId]);
 
   useEffect(() => { void load(); }, [load]);
 
   const rows = useMemo(
-    () => appts.map((a) => computeRow(a, intakes[a.id] ?? null, quotes[a.id] ?? null, statuses[a.id] ?? null, today)),
-    [appts, intakes, quotes, statuses, today],
+    () => appts.map((a) => {
+      const quote = quotes[a.id] ?? null;
+      return computeRow(
+        a,
+        intakes[a.id] ?? null,
+        quote,
+        statuses[a.id] ?? null,
+        quote ? followups[quote.id] ?? null : null,
+        today,
+      );
+    }),
+    [appts, intakes, quotes, statuses, followups, today],
   );
 
   const counts = useMemo(() => {
@@ -240,7 +265,22 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     return c;
   }, [rows]);
 
-  const visible = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
+  const dueTodayCount = useMemo(
+    () => rows.filter((r) => r.stage === "In Follow-up" && r.followup && daysUntilSydney(r.followup.due_date) <= 0).length,
+    [rows],
+  );
+
+  const visible = useMemo(() => {
+    const list = filter === "All" ? rows : rows.filter((r) => r.stage === filter);
+    if (filter !== "In Follow-up") return list;
+    // soonest / most overdue first, patients with no scheduled task last
+    return [...list].sort((x, y) => {
+      const dx = x.followup?.due_date ?? "9999-12-31";
+      const dy = y.followup?.due_date ?? "9999-12-31";
+      return dx < dy ? -1 : dx > dy ? 1 : 0;
+    });
+  }, [rows, filter]);
+
   const open = openId ? rows.find((r) => r.appt.id === openId) ?? null : null;
 
   return (
