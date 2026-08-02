@@ -152,7 +152,7 @@ export function ClinicShell({
 
       {/* Nav */}
       <nav style={{ padding: "4px 10px", display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
-        {NAV.map((entry, i) => {
+        {navItems.map((entry, i) => {
           if ("divider" in entry) {
             return <div key={`d${i}`} style={{ height: 1, background: DIVIDER, margin: "8px 6px" }} />;
           }
