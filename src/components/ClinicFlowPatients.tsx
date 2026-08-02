@@ -144,6 +144,18 @@ function dueLabel(due: string): { text: string; overdue: boolean; today: boolean
   return { text: `Follow up ${fmtDay(due)}`, overdue: false, today: false };
 }
 
+/** The date this patient should be chased: the manually set one wins, then the auto task. */
+function nextFollowupDate(row: Row): string | null {
+  return row.status?.next_followup_date ?? row.followup?.due_date ?? null;
+}
+function nextFollowupNote(row: Row): string | null {
+  if (row.status?.next_followup_date) return row.status.next_followup_note ?? null;
+  if (row.followup) return TASK_LABEL[row.followup.task_type] ?? row.followup.task_type;
+  return null;
+}
+
+
+
 function computeRow(appt: Appt, intake: Intake | null, quote: Quote | null, status: PipelineStatus | null, followup: Followup | null, today: string): Row {
   const badges: Badge[] = [];
   const base = { appt, intake, quote, status, followup };
