@@ -13,6 +13,8 @@ const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
 const LINE = "#e2e6ec";
 
+const BEFORE_AFTER = "before_after";
+
 export const STAGES: { key: string; label: string }[] = [
   { key: "day_1", label: "Day 1" },
   { key: "week_1_2", label: "Week 1–2" },
