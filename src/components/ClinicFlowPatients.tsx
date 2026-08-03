@@ -1222,11 +1222,11 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   );
 }
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ children, last }: { children: React.ReactNode; last?: boolean }) {
   return (
-    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, padding: 16 }}>
-      <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: GREY, fontWeight: 700, marginBottom: 12 }}>{title}</div>
+    <div style={{ padding: "16px 18px", borderBottom: last ? "none" : `1px solid ${LINE}` }}>
       {children}
     </div>
   );
 }
+
