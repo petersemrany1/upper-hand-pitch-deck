@@ -118,3 +118,19 @@ export const markChaseDone = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { success: true as const };
   });
+
+/** The clinic takes the patient back off Bold — e.g. the patient rang the clinic directly. */
+export const handBackChase = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { chaseId: string; clinicId: string }) => data)
+  .handler(async ({ data, context }) => {
+    await assertCanAccessClinic(context.supabase, data.clinicId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("clinicflow_chase_requests")
+      .update({ status: "done", done_at: new Date().toISOString() })
+      .eq("id", data.chaseId)
+      .eq("clinic_id", data.clinicId);
+    if (error) throw new Error(error.message);
+    return { success: true as const };
+  });

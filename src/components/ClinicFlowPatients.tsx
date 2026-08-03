@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Circle, X, Phone, Mail, MoreHorizontal, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
-import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
+import { requestBoldChase, handBackChase } from "@/lib/clinicflow-chase.functions";
 import { ClinicFlowConsult } from "@/components/ClinicFlowConsult";
 
 const NAVY = "#1a3a6b";
@@ -712,6 +712,21 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const [chaseNote, setChaseNote] = useState("");
   const [chaseSaving, setChaseSaving] = useState(false);
   const requestChaseFn = useServerFn(requestBoldChase);
+  const handBackFn = useServerFn(handBackChase);
+  const [handBackSaving, setHandBackSaving] = useState(false);
+
+  const handBack = async (chaseId: string) => {
+    setHandBackSaving(true);
+    try {
+      await handBackFn({ data: { chaseId, clinicId } });
+      toast.success("Back with you — Bold's stopped chasing");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't update the chase");
+    } finally {
+      setHandBackSaving(false);
+    }
+  };
 
   const submitChase = async () => {
     setChaseSaving(true);
@@ -1098,7 +1113,17 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
             {(stage === "Quoted" || stage === "In Follow-up") && (
               <div style={{ marginTop: 10, fontSize: 12, color: GREY }}>
                 {row.chase ? (
-                  <>Bold chasing — requested {fmtDateTime(row.chase.requested_at)}</>
+                  <>
+                    Bold chasing — requested {fmtDateTime(row.chase.requested_at)}
+                    {" · "}
+                    <button
+                      onClick={() => void handBack(row.chase!.id)}
+                      disabled={handBackSaving}
+                      style={{ background: "transparent", border: "none", padding: 0, color: NAVY, fontSize: 12, cursor: handBackSaving ? "default" : "pointer", textDecoration: "underline", fontFamily: FONT }}
+                    >
+                      {handBackSaving ? "Updating…" : "We'll take it from here"}
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => setChaseOpen(true)}
