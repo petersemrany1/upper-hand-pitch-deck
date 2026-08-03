@@ -819,11 +819,13 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#f6f8fb", width: "min(520px, 100%)", height: "100%", overflowY: "auto",
-          fontFamily: FONT, padding: 16,
+          background: "#fff", width: "min(520px, 100%)", height: "100%", overflowY: "auto",
+          fontFamily: FONT, borderLeft: `1px solid ${LINE}`, boxShadow: "-8px 0 24px rgba(15,23,42,0.10)",
+          display: "flex", flexDirection: "column",
         }}
       >
-        <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, overflow: "visible" }}>
+        <div style={{ background: "#fff", flex: 1, minHeight: 0 }}>
+
           {/* HEADER */}
           <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", borderRadius: "12px 12px 0 0", borderBottom: `1px solid ${LINE}`, padding: "14px 18px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
