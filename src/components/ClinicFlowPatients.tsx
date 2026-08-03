@@ -649,8 +649,10 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
     onChanged();
   };
 
-  const saveFollowup = async (clear = false) => {
+  const saveFollowup = async (clear = false, dateOverride?: string) => {
+    const fuDate = dateOverride ?? fuDateState;
     if (!clear && !fuDate) { toast.error("Pick a date first"); return; }
+
     setFuSaving(true);
     const { error } = await supabase
       .from("clinicflow_pipeline_status")
