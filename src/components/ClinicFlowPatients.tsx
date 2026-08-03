@@ -625,6 +625,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const [fuDateState, setFuDate] = useState<string>(status?.next_followup_date ?? "");
   const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
   const [fuSaving, setFuSaving] = useState(false);
+  const [fuEdit, setFuEdit] = useState(false);
 
   // ---- Reschedule the consult appointment ----
   const to24 = (t: string) => {
