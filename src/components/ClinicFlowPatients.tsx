@@ -28,6 +28,7 @@ type Appt = {
   appointment_date: string;
   appointment_time: string;
   intel_notes: string | null;
+  created_at?: string | null;
 };
 
 type Intake = {
@@ -96,6 +97,15 @@ function fmtDay(d: string) {
   return new Date(d + "T00:00:00").toLocaleDateString("en-AU", {
     weekday: "short", day: "numeric", month: "short", timeZone: APP_TIMEZONE,
   });
+}
+/** Plain-language day for a follow-up date: "Today", "Tomorrow", "In 3 days", else the day. */
+function fuLabel(d: string) {
+  const days = daysUntilSydney(d);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days < 0) return `Overdue · ${fmtDay(d)}`;
+  if (days <= 14) return `In ${days} days · ${fmtDay(d)}`;
+  return fmtDay(d);
 }
 /** "Today 10:30am" / "Tomorrow 9:00am", else the full day + time. */
 function fmtWhen(date: string, time: string) {
@@ -228,7 +238,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     const [a, i, q, p, f, c] = await Promise.all([
       supabase
         .from("clinic_appointments")
-        .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
+        .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes, created_at")
         .eq("clinic_id", clinicId)
         .order("appointment_date", { ascending: false })
 
@@ -624,6 +634,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const [fuDateState, setFuDate] = useState<string>(status?.next_followup_date ?? "");
   const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
   const [fuSaving, setFuSaving] = useState(false);
+  const [fuEdit, setFuEdit] = useState(false);
 
   // ---- Reschedule the consult appointment ----
   const to24 = (t: string) => {
@@ -806,10 +817,88 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
     "In Follow-up": "#f59e0b", Won: "#16a34a", Lost: "#dc2626",
   };
 
-  // Split any schedule-change lines out of the notes so they can collapse.
+  // Split any schedule-change lines out of the notes so they become timeline events.
   const noteLines = (appt.intel_notes ?? "").split("\n");
   const historyLines = noteLines.filter((l) => /reschedul|moved to|schedule change/i.test(l));
   const bodyNote = noteLines.filter((l) => !historyLines.includes(l)).join("\n").trim();
+
+  type Ev = { label: string; detail: string | null; when: string; ts: number; tone?: "good" | "bad" };
+  const evs: Ev[] = [];
+  const createdTs = appt.created_at ? new Date(appt.created_at).getTime() : new Date(appt.appointment_date + "T00:00:00").getTime();
+
+  evs.push({
+    label: "Patient created",
+    detail: "Enquiry landed in the partner portal",
+    when: appt.created_at ? fmtDateTime(appt.created_at) : "",
+    ts: createdTs,
+  });
+  if (bodyNote) {
+    evs.push({ label: "Call intel from Bold", detail: bodyNote, when: "", ts: createdTs + 1 });
+  }
+  evs.push({
+    label: "Consult booked",
+    detail: `${fmtDay(appt.appointment_date)} · ${fmtTime(appt.appointment_time)}`,
+    when: "",
+    ts: createdTs + 2,
+  });
+
+  historyLines.forEach((line, idx) => {
+    const clean = line.replace(/^[—\-\s]+/, "").trim();
+    const stamp = /\(([^)]+)\)\s*$/.exec(clean);
+    const parsed = stamp ? new Date(stamp[1].replace(",", "").replace(/\s?(am|pm)/i, (m) => m.toUpperCase())) : null;
+    const detail = stamp ? clean.slice(0, stamp.index).trim() : clean;
+    evs.push({
+      label: "Appointment rescheduled",
+      detail: detail.replace(/^Rescheduled\s*/i, "") || null,
+      when: parsed && !isNaN(parsed.getTime()) ? fmtDateTime(parsed.toISOString()) : "",
+      ts: parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : createdTs + 3 + idx,
+    });
+  });
+
+  if (intake?.completed_at) {
+    evs.push({ label: "Checked in at the clinic", detail: null, when: fmtDateTime(intake.completed_at), ts: new Date(intake.completed_at).getTime(), tone: "good" });
+  }
+  if (quote) {
+    evs.push({
+      label: "Quote created",
+      detail: `${fmt$(quote.price)}${quote.diagnosis ? ` · ${quote.diagnosis}` : ""}${quote.grafts ? ` · ${quote.grafts} ${quote.graft_unit === "hairs" ? "hairs" : "grafts"}` : ""}`,
+      when: fmtDateTime(quote.created_at),
+      ts: new Date(quote.created_at).getTime(),
+    });
+    if (quote.booked_date) {
+      evs.push({ label: "Surgery date booked", detail: fmtDay(quote.booked_date), when: "", ts: new Date(quote.created_at).getTime() + 1, tone: "good" });
+    }
+    if (quote.deposit_recorded_at) {
+      evs.push({
+        label: "Deposit received",
+        detail: `${fmt$(Number(quote.deposit_amount ?? 0))}${quote.deposit_method ? ` · ${quote.deposit_method.replace(/_/g, " ")}` : ""}`,
+        when: fmtDateTime(quote.deposit_recorded_at),
+        ts: new Date(quote.deposit_recorded_at).getTime(),
+        tone: "good",
+      });
+    }
+  }
+  if (row.chase) {
+    evs.push({ label: "Bold asked to chase", detail: null, when: fmtDateTime(row.chase.requested_at), ts: new Date(row.chase.requested_at).getTime() });
+  }
+  if (status?.next_followup_date) {
+    evs.push({
+      label: "Follow-up set",
+      detail: `${fmtDay(status.next_followup_date)}${status.next_followup_note ? ` · ${status.next_followup_note}` : ""}`,
+      when: "",
+      ts: new Date(status.next_followup_date + "T00:00:00").getTime(),
+    });
+  }
+  if (status?.lost_at) {
+    evs.push({
+      label: `Marked lost — ${reasonLabel(status.lost_reason)}`,
+      detail: status.lost_note || null,
+      when: fmtDateTime(status.lost_at),
+      ts: new Date(status.lost_at).getTime(),
+      tone: "bad",
+    });
+  }
+  const timeline = evs.sort((a, b) => a.ts - b.ts);
 
   return (
     <div
@@ -933,56 +1022,79 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
 
           {/* NEXT FOLLOW-UP */}
           <Section>
-            <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>Next follow-up</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-              {([["Tomorrow", 1], ["3 days", 3], ["1 week", 7], ["2 weeks", 14]] as const).map(([label, d]) => {
-                const val = quickDate(d);
-                const active = fuDateState === val;
-                return (
-                  <button
-                    key={label}
-                    disabled={fuSaving}
-                    onClick={() => { setFuDate(val); void saveFollowup(false, val); }}
-                    style={{
-                      background: active ? "#eef1f5" : "#fff", border: `1px solid ${LINE}`, color: "#111827",
-                      borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: FONT,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: GREY }}>Next follow-up</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: fuDateState ? "#111827" : GREY, marginTop: 3 }}>
+                  {fuDateState ? fuLabel(fuDateState) : "None set"}
+                  {fuDateState && fuNote ? <span style={{ fontWeight: 400, color: GREY }}> · {fuNote}</span> : null}
+                </div>
+              </div>
+              <button
+                onClick={() => setFuEdit((v) => !v)}
+                style={{
+                  background: "#fff", border: `1px solid ${LINE}`, borderRadius: 8, padding: "5px 12px",
+                  fontSize: 12, fontWeight: 400, color: "#111827", cursor: "pointer", fontFamily: FONT,
+                }}
+              >
+                {fuEdit ? "Close" : fuDateState ? "Change" : "Set date"}
+              </button>
             </div>
 
-            <div style={{ position: "relative", height: 36 }}>
-              <div style={{
-                position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
-                border: `1px solid ${LINE}`, borderRadius: 8, padding: "0 12px", fontSize: 13,
-                color: fuDateState ? "#111827" : GREY, background: "#fff", pointerEvents: "none",
-              }}>
-                <span>
-                  {fuDateState
-                    ? new Date(fuDateState + "T00:00:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: APP_TIMEZONE })
-                    : "Pick a date"}
-                </span>
-                <CalendarIcon size={15} color={GREY} />
+            {fuEdit && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  {([["Tomorrow", 1], ["3 days", 3], ["1 week", 7], ["2 weeks", 14]] as const).map(([label, d]) => {
+                    const val = quickDate(d);
+                    const active = fuDateState === val;
+                    return (
+                      <button
+                        key={label}
+                        disabled={fuSaving}
+                        onClick={() => { setFuDate(val); void saveFollowup(false, val); }}
+                        style={{
+                          background: active ? "#eef1f5" : "#fff", border: `1px solid ${LINE}`, color: "#111827",
+                          borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: FONT,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ position: "relative", height: 36 }}>
+                  <div style={{
+                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
+                    border: `1px solid ${LINE}`, borderRadius: 8, padding: "0 12px", fontSize: 13,
+                    color: fuDateState ? "#111827" : GREY, background: "#fff", pointerEvents: "none",
+                  }}>
+                    <span>
+                      {fuDateState
+                        ? new Date(fuDateState + "T00:00:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: APP_TIMEZONE })
+                        : "Pick a date"}
+                    </span>
+                    <CalendarIcon size={15} color={GREY} />
+                  </div>
+                  <input
+                    type="date"
+                    value={fuDateState}
+                    min={today}
+                    onChange={(e) => { setFuDate(e.target.value); if (e.target.value) void saveFollowup(false, e.target.value); }}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", fontFamily: FONT }}
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={fuNote}
+                  placeholder="What's the follow-up about? (optional)"
+                  onChange={(e) => setFuNote(e.target.value)}
+                  onBlur={() => { if (fuDateState) void saveFollowup(false, fuDateState); }}
+                  style={{ width: "100%", marginTop: 8, height: 36, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: FONT }}
+                />
               </div>
-              <input
-                type="date"
-                value={fuDateState}
-                min={today}
-                onChange={(e) => { setFuDate(e.target.value); if (e.target.value) void saveFollowup(false, e.target.value); }}
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", fontFamily: FONT }}
-              />
-            </div>
-            <input
-              type="text"
-              value={fuNote}
-              placeholder="What's the follow-up about? (optional)"
-              onChange={(e) => setFuNote(e.target.value)}
-              onBlur={() => { if (fuDateState) void saveFollowup(false, fuDateState); }}
-              style={{ width: "100%", marginTop: 8, height: 36, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: FONT }}
-            />
+            )}
+
             {(stage === "Quoted" || stage === "In Follow-up") && (
               <div style={{ marginTop: 10, fontSize: 12, color: GREY }}>
                 {row.chase ? (
@@ -1116,31 +1228,28 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
           )}
 
           {/* NOTES */}
+          {/* ACTIVITY */}
           <Section last>
-            <div style={{ fontSize: 13, color: bodyNote ? "#1f2937" : GREY, whiteSpace: "pre-wrap", lineHeight: 1.6, fontWeight: 400 }}>
-              {bodyNote || "No phone notes on this patient."}
-            </div>
-            {historyLines.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <button
-                  onClick={() => setHistoryOpen((v) => !v)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "transparent", border: "none", padding: 0, color: GREY, fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: FONT }}
-                >
-                  {historyLines.length} schedule change{historyLines.length === 1 ? "" : "s"}
-                  <ChevronDown size={13} style={{ transform: historyOpen ? "rotate(180deg)" : "none" }} />
-                </button>
-                {historyOpen && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: GREY, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                    {historyLines.join("\n")}
+            <div style={{ fontSize: 12, color: GREY, marginBottom: 12 }}>Notes &amp; activity</div>
+            {timeline.length === 0 ? (
+              <div style={{ fontSize: 13, color: GREY }}>Nothing logged on this patient yet.</div>
+            ) : (
+              <div>
+                {timeline.map((ev, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, paddingBottom: i === timeline.length - 1 ? 0 : 14 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: 999, background: ev.tone === "bad" ? RED : ev.tone === "good" ? GREEN : "#c2cad6", flex: "none" }} />
+                      {i !== timeline.length - 1 && <span style={{ width: 1, flex: 1, background: LINE, marginTop: 4 }} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#111827" }}>{ev.label}</div>
+                      {ev.detail && (
+                        <div style={{ fontSize: 12.5, color: "#4b5563", marginTop: 3, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{ev.detail}</div>
+                      )}
+                      {ev.when && <div style={{ fontSize: 11.5, color: GREY, marginTop: 3 }}>{ev.when}</div>}
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-            {stage === "Lost" && status && (
-              <div style={{ marginTop: 12, fontSize: 12, color: GREY }}>
-                Lost — {reasonLabel(status.lost_reason)}
-                {status.lost_at ? ` · ${fmtDateTime(status.lost_at)}` : ""}
-                {status.lost_note ? <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{status.lost_note}</div> : null}
+                ))}
               </div>
             )}
           </Section>
