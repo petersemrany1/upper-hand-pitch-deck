@@ -1151,7 +1151,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       {chaseOpen && (
         <div
           onClick={(e) => { e.stopPropagation(); setChaseOpen(false); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 110, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
         >
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: 12, border: `1px solid ${LINE}`, padding: 20, width: "min(420px, 100%)", fontFamily: FONT }}>
@@ -1181,7 +1181,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       {showLost && (
         <div
           onClick={(e) => { e.stopPropagation(); setShowLost(false); }}
-          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+          style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.5)", zIndex: 110, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
         >
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: 12, border: `1px solid ${LINE}`, padding: 20, width: "min(460px, 100%)", maxHeight: "90vh", overflowY: "auto", fontFamily: FONT }}>
