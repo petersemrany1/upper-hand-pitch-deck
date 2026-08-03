@@ -898,7 +898,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       tone: "bad",
     });
   }
-  const timeline = evs.sort((a, b) => a.ts - b.ts);
+  const timeline = evs.sort((a, b) => b.ts - a.ts);
 
   return (
     <div
