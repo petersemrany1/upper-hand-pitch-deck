@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Circle, X, Phone, Mail, MoreHorizontal, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
-import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
+import { requestBoldChase, handBackChase } from "@/lib/clinicflow-chase.functions";
 import { ClinicFlowConsult } from "@/components/ClinicFlowConsult";
 
 const NAVY = "#1a3a6b";
