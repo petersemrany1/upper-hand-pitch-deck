@@ -1004,14 +1004,15 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
           {/* PROGRESS */}
           <Section>
             <div style={{ fontSize: 12, color: GREY, marginBottom: 10 }}>Progress</div>
-            <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ display: "flex", gap: 6 }}>
               {milestones.map((m) => (
-                <div key={m.label} style={{ flex: 1 }} title={`${m.label} — ${m.detail ?? "Pending"}`}>
+                <div key={m.label} style={{ flex: 1, minWidth: 0 }} title={`${m.label} — ${m.detail ?? "Pending"}`}>
                   <div style={{ height: 3, borderRadius: 999, background: m.done ? GREEN : "#e5e9ef" }} />
-                  <div style={{ fontSize: 11, color: GREY, marginTop: 6, textAlign: "center", fontWeight: 400 }}>{m.label}</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.3, color: GREY, marginTop: 6, textAlign: "center", fontWeight: 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.label}</div>
                 </div>
               ))}
             </div>
+
           </Section>
 
           {/* QUOTE */}
