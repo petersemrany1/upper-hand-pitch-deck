@@ -1117,31 +1117,28 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
           )}
 
           {/* NOTES */}
+          {/* ACTIVITY */}
           <Section last>
-            <div style={{ fontSize: 13, color: bodyNote ? "#1f2937" : GREY, whiteSpace: "pre-wrap", lineHeight: 1.6, fontWeight: 400 }}>
-              {bodyNote || "No phone notes on this patient."}
-            </div>
-            {historyLines.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <button
-                  onClick={() => setHistoryOpen((v) => !v)}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "transparent", border: "none", padding: 0, color: GREY, fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: FONT }}
-                >
-                  {historyLines.length} schedule change{historyLines.length === 1 ? "" : "s"}
-                  <ChevronDown size={13} style={{ transform: historyOpen ? "rotate(180deg)" : "none" }} />
-                </button>
-                {historyOpen && (
-                  <div style={{ marginTop: 8, fontSize: 12, color: GREY, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-                    {historyLines.join("\n")}
+            <div style={{ fontSize: 12, color: GREY, marginBottom: 12 }}>Notes &amp; activity</div>
+            {timeline.length === 0 ? (
+              <div style={{ fontSize: 13, color: GREY }}>Nothing logged on this patient yet.</div>
+            ) : (
+              <div>
+                {timeline.map((ev, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, paddingBottom: i === timeline.length - 1 ? 0 : 14 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
+                      <span style={{ width: 7, height: 7, borderRadius: 999, background: ev.tone === "bad" ? RED : ev.tone === "good" ? GREEN : "#c2cad6", flex: "none" }} />
+                      {i !== timeline.length - 1 && <span style={{ width: 1, flex: 1, background: LINE, marginTop: 4 }} />}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500, color: "#111827" }}>{ev.label}</div>
+                      {ev.detail && (
+                        <div style={{ fontSize: 12.5, color: "#4b5563", marginTop: 3, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{ev.detail}</div>
+                      )}
+                      {ev.when && <div style={{ fontSize: 11.5, color: GREY, marginTop: 3 }}>{ev.when}</div>}
+                    </div>
                   </div>
-                )}
-              </div>
-            )}
-            {stage === "Lost" && status && (
-              <div style={{ marginTop: 12, fontSize: 12, color: GREY }}>
-                Lost — {reasonLabel(status.lost_reason)}
-                {status.lost_at ? ` · ${fmtDateTime(status.lost_at)}` : ""}
-                {status.lost_note ? <div style={{ marginTop: 4, whiteSpace: "pre-wrap" }}>{status.lost_note}</div> : null}
+                ))}
               </div>
             )}
           </Section>
