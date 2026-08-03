@@ -934,56 +934,79 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
 
           {/* NEXT FOLLOW-UP */}
           <Section>
-            <div style={{ fontSize: 12, color: GREY, marginBottom: 8 }}>Next follow-up</div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
-              {([["Tomorrow", 1], ["3 days", 3], ["1 week", 7], ["2 weeks", 14]] as const).map(([label, d]) => {
-                const val = quickDate(d);
-                const active = fuDateState === val;
-                return (
-                  <button
-                    key={label}
-                    disabled={fuSaving}
-                    onClick={() => { setFuDate(val); void saveFollowup(false, val); }}
-                    style={{
-                      background: active ? "#eef1f5" : "#fff", border: `1px solid ${LINE}`, color: "#111827",
-                      borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: FONT,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: GREY }}>Next follow-up</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: fuDateState ? "#111827" : GREY, marginTop: 3 }}>
+                  {fuDateState ? fuLabel(fuDateState) : "None set"}
+                  {fuDateState && fuNote ? <span style={{ fontWeight: 400, color: GREY }}> · {fuNote}</span> : null}
+                </div>
+              </div>
+              <button
+                onClick={() => setFuEdit((v) => !v)}
+                style={{
+                  background: "#fff", border: `1px solid ${LINE}`, borderRadius: 8, padding: "5px 12px",
+                  fontSize: 12, fontWeight: 400, color: "#111827", cursor: "pointer", fontFamily: FONT,
+                }}
+              >
+                {fuEdit ? "Close" : fuDateState ? "Change" : "Set date"}
+              </button>
             </div>
 
-            <div style={{ position: "relative", height: 36 }}>
-              <div style={{
-                position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
-                border: `1px solid ${LINE}`, borderRadius: 8, padding: "0 12px", fontSize: 13,
-                color: fuDateState ? "#111827" : GREY, background: "#fff", pointerEvents: "none",
-              }}>
-                <span>
-                  {fuDateState
-                    ? new Date(fuDateState + "T00:00:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: APP_TIMEZONE })
-                    : "Pick a date"}
-                </span>
-                <CalendarIcon size={15} color={GREY} />
+            {fuEdit && (
+              <div style={{ marginTop: 12 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
+                  {([["Tomorrow", 1], ["3 days", 3], ["1 week", 7], ["2 weeks", 14]] as const).map(([label, d]) => {
+                    const val = quickDate(d);
+                    const active = fuDateState === val;
+                    return (
+                      <button
+                        key={label}
+                        disabled={fuSaving}
+                        onClick={() => { setFuDate(val); void saveFollowup(false, val); }}
+                        style={{
+                          background: active ? "#eef1f5" : "#fff", border: `1px solid ${LINE}`, color: "#111827",
+                          borderRadius: 999, padding: "4px 10px", fontSize: 12, fontWeight: 400, cursor: "pointer", fontFamily: FONT,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div style={{ position: "relative", height: 36 }}>
+                  <div style={{
+                    position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "space-between",
+                    border: `1px solid ${LINE}`, borderRadius: 8, padding: "0 12px", fontSize: 13,
+                    color: fuDateState ? "#111827" : GREY, background: "#fff", pointerEvents: "none",
+                  }}>
+                    <span>
+                      {fuDateState
+                        ? new Date(fuDateState + "T00:00:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: APP_TIMEZONE })
+                        : "Pick a date"}
+                    </span>
+                    <CalendarIcon size={15} color={GREY} />
+                  </div>
+                  <input
+                    type="date"
+                    value={fuDateState}
+                    min={today}
+                    onChange={(e) => { setFuDate(e.target.value); if (e.target.value) void saveFollowup(false, e.target.value); }}
+                    style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", fontFamily: FONT }}
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={fuNote}
+                  placeholder="What's the follow-up about? (optional)"
+                  onChange={(e) => setFuNote(e.target.value)}
+                  onBlur={() => { if (fuDateState) void saveFollowup(false, fuDateState); }}
+                  style={{ width: "100%", marginTop: 8, height: 36, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: FONT }}
+                />
               </div>
-              <input
-                type="date"
-                value={fuDateState}
-                min={today}
-                onChange={(e) => { setFuDate(e.target.value); if (e.target.value) void saveFollowup(false, e.target.value); }}
-                style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", fontFamily: FONT }}
-              />
-            </div>
-            <input
-              type="text"
-              value={fuNote}
-              placeholder="What's the follow-up about? (optional)"
-              onChange={(e) => setFuNote(e.target.value)}
-              onBlur={() => { if (fuDateState) void saveFollowup(false, fuDateState); }}
-              style={{ width: "100%", marginTop: 8, height: 36, padding: "0 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: FONT }}
-            />
+            )}
+
             {(stage === "Quoted" || stage === "In Follow-up") && (
               <div style={{ marginTop: 10, fontSize: 12, color: GREY }}>
                 {row.chase ? (
