@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO, daysUntilSydney } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, X, Phone, Mail, ExternalLink, Copy, BadgeDollarSign } from "lucide-react";
+import { CheckCircle2, Circle, X, Phone, Mail, MoreHorizontal, ChevronDown, Calendar as CalendarIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
 import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
