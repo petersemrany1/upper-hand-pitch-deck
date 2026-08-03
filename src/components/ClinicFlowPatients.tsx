@@ -898,7 +898,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       tone: "bad",
     });
   }
-  const timeline = evs.sort((a, b) => a.ts - b.ts);
+  const timeline = evs.sort((a, b) => b.ts - a.ts);
 
   return (
     <div
@@ -1227,7 +1227,6 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
             </Section>
           )}
 
-          {/* NOTES */}
           {/* ACTIVITY */}
           <Section last>
             <div style={{ fontSize: 12, color: GREY, marginBottom: 12 }}>Notes &amp; activity</div>
@@ -1236,17 +1235,38 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
             ) : (
               <div>
                 {timeline.map((ev, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, paddingBottom: i === timeline.length - 1 ? 0 : 14 }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
-                      <span style={{ width: 7, height: 7, borderRadius: 999, background: ev.tone === "bad" ? RED : ev.tone === "good" ? GREEN : "#c2cad6", flex: "none" }} />
-                      {i !== timeline.length - 1 && <span style={{ width: 1, flex: 1, background: LINE, marginTop: 4 }} />}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500, color: "#111827" }}>{ev.label}</div>
-                      {ev.detail && (
-                        <div style={{ fontSize: 12.5, color: "#4b5563", marginTop: 3, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{ev.detail}</div>
-                      )}
-                      {ev.when && <div style={{ fontSize: 11.5, color: GREY, marginTop: 3 }}>{ev.when}</div>}
+                  <div
+                    key={i}
+                    style={{
+                      background: "#fafbfc",
+                      border: `1px solid ${LINE}`,
+                      borderRadius: 10,
+                      padding: 12,
+                      marginBottom: i === timeline.length - 1 ? 0 : 10,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                      <span
+                        style={{
+                          width: 7,
+                          height: 7,
+                          borderRadius: 999,
+                          background: ev.tone === "bad" ? RED : ev.tone === "good" ? GREEN : "#c2cad6",
+                          marginTop: 6,
+                          flex: "none",
+                        }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                          <div style={{ fontSize: 13, fontWeight: 500, color: "#111827" }}>{ev.label}</div>
+                          {ev.when && <div style={{ fontSize: 11.5, color: GREY, whiteSpace: "nowrap" }}>{ev.when}</div>}
+                        </div>
+                        {ev.detail && (
+                          <div style={{ fontSize: 12.5, color: "#4b5563", marginTop: 4, whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+                            {ev.detail}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
