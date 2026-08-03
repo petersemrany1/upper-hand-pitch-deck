@@ -712,6 +712,21 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const [chaseNote, setChaseNote] = useState("");
   const [chaseSaving, setChaseSaving] = useState(false);
   const requestChaseFn = useServerFn(requestBoldChase);
+  const handBackFn = useServerFn(handBackChase);
+  const [handBackSaving, setHandBackSaving] = useState(false);
+
+  const handBack = async (chaseId: string) => {
+    setHandBackSaving(true);
+    try {
+      await handBackFn({ data: { chaseId, clinicId } });
+      toast.success("Back with you — Bold's stopped chasing");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't update the chase");
+    } finally {
+      setHandBackSaving(false);
+    }
+  };
 
   const submitChase = async () => {
     setChaseSaving(true);
