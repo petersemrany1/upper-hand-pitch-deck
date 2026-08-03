@@ -807,10 +807,88 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
     "In Follow-up": "#f59e0b", Won: "#16a34a", Lost: "#dc2626",
   };
 
-  // Split any schedule-change lines out of the notes so they can collapse.
+  // Split any schedule-change lines out of the notes so they become timeline events.
   const noteLines = (appt.intel_notes ?? "").split("\n");
   const historyLines = noteLines.filter((l) => /reschedul|moved to|schedule change/i.test(l));
   const bodyNote = noteLines.filter((l) => !historyLines.includes(l)).join("\n").trim();
+
+  type Ev = { label: string; detail: string | null; when: string; ts: number; tone?: "good" | "bad" };
+  const evs: Ev[] = [];
+  const createdTs = appt.created_at ? new Date(appt.created_at).getTime() : new Date(appt.appointment_date + "T00:00:00").getTime();
+
+  evs.push({
+    label: "Patient created",
+    detail: "Enquiry landed in the partner portal",
+    when: appt.created_at ? fmtDateTime(appt.created_at) : "",
+    ts: createdTs,
+  });
+  if (bodyNote) {
+    evs.push({ label: "Call intel from Bold", detail: bodyNote, when: "", ts: createdTs + 1 });
+  }
+  evs.push({
+    label: "Consult booked",
+    detail: `${fmtDay(appt.appointment_date)} · ${fmtTime(appt.appointment_time)}`,
+    when: "",
+    ts: createdTs + 2,
+  });
+
+  historyLines.forEach((line, idx) => {
+    const clean = line.replace(/^[—\-\s]+/, "").trim();
+    const stamp = /\(([^)]+)\)\s*$/.exec(clean);
+    const parsed = stamp ? new Date(stamp[1].replace(",", "").replace(/\s?(am|pm)/i, (m) => m.toUpperCase())) : null;
+    const detail = stamp ? clean.slice(0, stamp.index).trim() : clean;
+    evs.push({
+      label: "Appointment rescheduled",
+      detail: detail.replace(/^Rescheduled\s*/i, "") || null,
+      when: parsed && !isNaN(parsed.getTime()) ? fmtDateTime(parsed.toISOString()) : "",
+      ts: parsed && !isNaN(parsed.getTime()) ? parsed.getTime() : createdTs + 3 + idx,
+    });
+  });
+
+  if (intake?.completed_at) {
+    evs.push({ label: "Checked in at the clinic", detail: null, when: fmtDateTime(intake.completed_at), ts: new Date(intake.completed_at).getTime(), tone: "good" });
+  }
+  if (quote) {
+    evs.push({
+      label: "Quote created",
+      detail: `${fmt$(quote.price)}${quote.diagnosis ? ` · ${quote.diagnosis}` : ""}${quote.grafts ? ` · ${quote.grafts} ${quote.graft_unit === "hairs" ? "hairs" : "grafts"}` : ""}`,
+      when: fmtDateTime(quote.created_at),
+      ts: new Date(quote.created_at).getTime(),
+    });
+    if (quote.booked_date) {
+      evs.push({ label: "Surgery date booked", detail: fmtDay(quote.booked_date), when: "", ts: new Date(quote.created_at).getTime() + 1, tone: "good" });
+    }
+    if (quote.deposit_recorded_at) {
+      evs.push({
+        label: "Deposit received",
+        detail: `${fmt$(Number(quote.deposit_amount ?? 0))}${quote.deposit_method ? ` · ${quote.deposit_method.replace(/_/g, " ")}` : ""}`,
+        when: fmtDateTime(quote.deposit_recorded_at),
+        ts: new Date(quote.deposit_recorded_at).getTime(),
+        tone: "good",
+      });
+    }
+  }
+  if (row.chase) {
+    evs.push({ label: "Bold asked to chase", detail: null, when: fmtDateTime(row.chase.requested_at), ts: new Date(row.chase.requested_at).getTime() });
+  }
+  if (status?.next_followup_date) {
+    evs.push({
+      label: "Follow-up set",
+      detail: `${fmtDay(status.next_followup_date)}${status.next_followup_note ? ` · ${status.next_followup_note}` : ""}`,
+      when: "",
+      ts: new Date(status.next_followup_date + "T00:00:00").getTime(),
+    });
+  }
+  if (status?.lost_at) {
+    evs.push({
+      label: `Marked lost — ${reasonLabel(status.lost_reason)}`,
+      detail: status.lost_note || null,
+      when: fmtDateTime(status.lost_at),
+      ts: new Date(status.lost_at).getTime(),
+      tone: "bad",
+    });
+  }
+  const timeline = evs.sort((a, b) => a.ts - b.ts);
 
   return (
     <div
