@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE, sydneyTodayISO, daysUntilSydney } from "@/lib/timezone";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, X, Phone, Mail, ExternalLink, Copy, BadgeDollarSign, CalendarDays, Clock } from "lucide-react";
+import { CheckCircle2, Circle, X, Phone, Mail, ExternalLink, Copy, BadgeDollarSign } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { recordClinicflowQuoteDeposit } from "@/lib/clinicflow-quotes.functions";
 import { requestBoldChase } from "@/lib/clinicflow-chase.functions";
@@ -10,63 +10,15 @@ import { ClinicFlowConsult } from "@/components/ClinicFlowConsult";
 
 const NAVY = "#1a3a6b";
 const NAVY_PALE = "#edf2f9";
-const GREY = "#8A9099";
-const TEXT = "#374151";
-const LINE = "#E6E8EB";
-const PAGE_BG = "#FAFAFA";
-const CHIP_BG = "#F3F4F6";
-const CHIP_FG = "#4B5563";
-const GREEN = "#10B981";
-const GREEN_BG = CHIP_BG;
-const AMBER_BG = CHIP_BG;
-const AMBER_FG = CHIP_FG;
-const RED = "#EF4444";
-const RED_BG = CHIP_BG;
+const GREY = "#6b7785";
+const LINE = "#e2e6ec";
+const GREEN = "#15803d";
+const GREEN_BG = "#dcfce7";
+const AMBER_BG = "#fff7ed";
+const AMBER_FG = "#9a3412";
+const RED = "#b91c1c";
+const RED_BG = "#fee2e2";
 const FONT = "'Plus Jakarta Sans', system-ui, sans-serif";
-
-const LABEL_STYLE: React.CSSProperties = {
-  fontSize: 11, fontWeight: 600, textTransform: "uppercase",
-  letterSpacing: "0.06em", color: GREY,
-};
-const btnBase: React.CSSProperties = {
-  minHeight: 40, display: "inline-flex", alignItems: "center", justifyContent: "center",
-  gap: 6, borderRadius: 8, padding: "0 14px", fontSize: 13, fontWeight: 600,
-  cursor: "pointer", fontFamily: FONT, boxSizing: "border-box",
-};
-const btnPrimary: React.CSSProperties = { ...btnBase, background: NAVY, color: "#fff", border: `1px solid ${NAVY}` };
-const btnGhost: React.CSSProperties = { ...btnBase, background: "#fff", color: TEXT, border: `1px solid ${LINE}` };
-
-const INPUT_CSS = `
-.cf-input::-webkit-calendar-picker-indicator{opacity:0;position:absolute;right:0;top:0;width:34px;height:34px;cursor:pointer}
-.cf-input::-webkit-inner-spin-button,.cf-input::-webkit-clear-button{display:none}
-.cf-input:focus{outline:none;border-color:#C9CDD3}
-.cf-card:hover{border-color:#C9CDD3}
-`;
-
-function Field({ type, value, onChange, min, icon, flex }: {
-  type: "date" | "time"; value: string; onChange: (v: string) => void;
-  min?: string; icon: React.ReactNode; flex?: string;
-}) {
-  return (
-    <div style={{ position: "relative", flex: flex ?? "1 1 150px" }}>
-      <input
-        className="cf-input"
-        type={type}
-        value={value}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          width: "100%", height: 36, boxSizing: "border-box", padding: "0 32px 0 10px",
-          border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 13, fontFamily: FONT,
-          color: TEXT, background: "#fff", appearance: "none", WebkitAppearance: "none",
-        }}
-      />
-      <span style={{ position: "absolute", right: 9, top: 9, color: GREY, pointerEvents: "none", display: "flex" }}>
-        {icon}
-      </span>
-    </div>
-  );
-}
 
 type Appt = {
   id: string;
@@ -160,28 +112,19 @@ function fmt$(n: number | null | undefined) {
   return typeof n === "number" ? "$" + Math.round(n).toLocaleString() : "";
 }
 
-const chipStyle = (_bg?: string, _fg?: string): React.CSSProperties => ({
-  background: CHIP_BG, color: CHIP_FG, fontSize: 12, fontWeight: 600,
-  padding: "4px 9px", borderRadius: 6, whiteSpace: "nowrap",
-  display: "inline-flex", alignItems: "center", gap: 6,
+const chipStyle = (bg: string, fg: string): React.CSSProperties => ({
+  background: bg, color: fg, fontSize: 12, fontWeight: 600,
+  padding: "4px 10px", borderRadius: 999, whiteSpace: "nowrap",
 });
-
-const STAGE_DOT: Record<Stage, string> = {
-  "Booked": "#6B7280",
-  "Showed": "#3B82F6",
-  "Quoted": "#8B5CF6",
-  "In Follow-up": "#F59E0B",
-  "Won": "#10B981",
-  "Lost": "#EF4444",
-};
-
-function StageBadge({ stage }: { stage: Stage }) {
-  return (
-    <span style={chipStyle()}>
-      <span style={{ width: 6, height: 6, borderRadius: 999, background: STAGE_DOT[stage], flexShrink: 0 }} />
-      {stage}
-    </span>
-  );
+function stageChip(stage: Stage) {
+  switch (stage) {
+    case "Booked": return chipStyle(NAVY_PALE, NAVY);
+    case "Showed": return chipStyle("#e0f2fe", "#075985");
+    case "Quoted": return chipStyle(AMBER_BG, AMBER_FG);
+    case "In Follow-up": return chipStyle("#fed7aa", AMBER_FG);
+    case "Won": return chipStyle(GREEN_BG, GREEN);
+    case "Lost": return chipStyle("#f1f5f9", GREY);
+  }
 }
 
 type Badge = { text: string; bg: string; fg: string };
@@ -475,15 +418,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
 
   return (
-    <div style={{ padding: 24, fontFamily: FONT, background: PAGE_BG, minHeight: "100%" }}>
-      <style>{INPUT_CSS}</style>
-      <div style={{ maxWidth: 720 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 600, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>Patients</h1>
-        <p style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
+    <div style={{ padding: 24, fontFamily: FONT }}>
+      <div style={{ maxWidth: 900, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 30, fontWeight: 800, color: NAVY, margin: 0 }}>Patients</h1>
+        <p style={{ fontSize: 14, color: GREY, marginTop: 6 }}>
           Every HTG patient, and exactly where they're up to.
         </p>
 
-        <div style={{ display: "flex", gap: 20, overflowX: "auto", margin: "20px 0 24px", borderBottom: `1px solid ${LINE}`, WebkitOverflowScrolling: "touch" }}>
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", padding: "16px 0", WebkitOverflowScrolling: "touch" }}>
           {(["All", ...STAGES] as const).map((s) => {
             const active = filter === s;
             return (
@@ -491,14 +433,14 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                 key={s}
                 onClick={() => setFilter(s)}
                 style={{
-                  flexShrink: 0, padding: "0 0 9px", background: "transparent",
-                  border: "none", borderBottom: `2px solid ${active ? NAVY : "transparent"}`,
-                  marginBottom: -1,
-                  color: active ? "#111827" : GREY,
-                  fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer", fontFamily: FONT,
+                  flexShrink: 0, padding: "8px 14px", borderRadius: 999,
+                  border: `1px solid ${active ? NAVY : LINE}`,
+                  background: active ? NAVY : "#fff",
+                  color: active ? "#fff" : GREY,
+                  fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
                 }}
               >
-                {s} <span style={{ color: GREY, fontWeight: 400, marginLeft: 4 }}>{counts[s] ?? 0}</span>
+                {s} <span style={{ opacity: 0.75 }}>{counts[s] ?? 0}</span>
               </button>
             );
           })}
@@ -508,31 +450,31 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
           <button
             onClick={() => setFilter("In Follow-up")}
             style={{
-              width: "100%", textAlign: "left", marginBottom: 16, cursor: "pointer", fontFamily: FONT,
-              background: "#fff", border: `1px solid ${LINE}`, borderRadius: 8, padding: "12px 16px",
-              color: TEXT, fontSize: 13, fontWeight: 500, display: "flex", alignItems: "center", gap: 8,
+              width: "100%", textAlign: "left", marginBottom: 12, cursor: "pointer", fontFamily: FONT,
+              background: AMBER_BG, border: "1px solid #f5c86b", borderRadius: 12, padding: "12px 14px",
+              color: AMBER_FG, fontSize: 14, fontWeight: 700,
             }}
           >
-            <span style={{ width: 6, height: 6, borderRadius: 999, background: "#F59E0B", flexShrink: 0 }} />
             {dueTodayCount} patient{dueTodayCount === 1 ? "" : "s"} to follow up today — tap to see them
           </button>
         )}
 
         {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: GREY, fontSize: 13 }}>Loading patients…</div>
+          <div style={{ padding: 40, textAlign: "center", color: GREY, fontSize: 14 }}>Loading patients…</div>
         ) : visibleCount === 0 ? (
-          <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 8, padding: 40, textAlign: "center", color: GREY, fontSize: 13 }}>
+          <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, padding: 40, textAlign: "center", color: GREY, fontSize: 14 }}>
             No patients yet — HTG bookings appear here automatically.
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
             {groups.map((g) => (
-              <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <div style={LABEL_STYLE}>{g.label}</div>
-                  <span style={{ fontSize: 11, fontWeight: 500, color: GREY }}>{g.rows.length}</span>
+                  <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: g.key === "done" ? GREY : NAVY }}>
+                    {g.label}
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: GREY }}>{g.rows.length}</span>
                 </div>
-
 
                 {g.rows.map((r) => {
               const isToday = g.key === "today";
@@ -549,37 +491,36 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
 
               <button
                 key={r.appt.id}
-                className="cf-card"
                 onClick={() => (isToday ? setConsultId(r.appt.id) : setOpenId(r.appt.id))}
                 style={{
                   textAlign: "left",
                   background: "#fff",
-                  border: `1px solid ${LINE}`,
-                  borderLeft: openId === r.appt.id ? `2px solid ${NAVY}` : `1px solid ${LINE}`,
-                  borderRadius: 8,
+                  border: `1px solid ${due?.overdue ? "#f5c86b" : LINE}`,
+                  borderLeft: due ? `4px solid ${due.overdue ? RED : due.today ? AMBER_FG : NAVY}` : `1px solid ${LINE}`,
+                  borderRadius: 12,
                   padding: 16, cursor: "pointer", fontFamily: FONT, width: "100%",
                   opacity: muted ? 0.72 : 1,
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "#111827" }}>{r.appt.patient_name}</div>
-                  <StageBadge stage={r.stage} />
+                  <div style={{ fontSize: 17, fontWeight: 700, color: NAVY }}>{r.appt.patient_name}</div>
+                  <span style={stageChip(r.stage)}>{r.stage}</span>
                 </div>
-                <div style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
+                <div style={{ fontSize: 14, color: GREY, marginTop: 6 }}>
                   {fmtWhen(r.appt.appointment_date, r.appt.appointment_time)}
                   {r.appt.patient_phone ? ` · ${r.appt.patient_phone}` : ""}
                   {r.quote ? ` · ${fmt$(r.quote.price)}` : ""}
                   {r.chase ? (
-                    <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, background: CHIP_BG, color: GREY, fontSize: 11, fontWeight: 500 }}>
+                    <span style={{ marginLeft: 6, padding: "1px 6px", borderRadius: 4, background: "#f1f5f9", color: GREY, fontSize: 11, fontWeight: 600 }}>
                       Bold chasing
                     </span>
                   ) : null}
                 </div>
 
                 {isToday && (
-                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    <span style={chipStyle()}>
-                      {checkedIn ? <CheckCircle2 size={13} color={GREEN} /> : <Circle size={13} color={GREY} />}
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ ...chipStyle(checkedIn ? GREEN_BG : "#eef2f7", checkedIn ? GREEN : "#334155"), display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      {checkedIn ? <CheckCircle2 size={13} /> : <Circle size={13} />}
                       {checkedIn ? "Checked in" : "Not checked in"}
                     </span>
                     <span
@@ -587,7 +528,10 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                       tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); setConsultId(r.appt.id); }}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); setConsultId(r.appt.id); } }}
-                      style={btnPrimary}
+                      style={{
+                        padding: "8px 14px", borderRadius: 8, border: "none",
+                        background: NAVY, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer",
+                      }}
                     >
                       Start consult
                     </span>
@@ -595,44 +539,40 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
                 )}
 
                 {bookedBadge ? (
-                  <div style={{ marginTop: 12 }}>
-                    <span style={chipStyle()}>
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: GREEN, flexShrink: 0 }} />
-                      {bookedBadge.text}
-                    </span>
+                  <div style={{ marginTop: 10 }}>
+                    <span style={chipStyle(bookedBadge.bg, bookedBadge.fg)}>{bookedBadge.text}</span>
                   </div>
                 ) : due && dueDate ? (
-                  <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 4 }}>
-                    <span style={{ ...chipStyle(), alignSelf: "flex-start" }}>
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: due.overdue ? RED : "#F59E0B", flexShrink: 0 }} />
+                  <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ ...chipStyle(due.overdue ? RED_BG : AMBER_BG, due.overdue ? RED : AMBER_FG), alignSelf: "flex-start" }}>
                       {due.text}
                     </span>
                     {noteText && <span style={{ fontSize: 12, color: GREY }}>{noteText}</span>}
                   </div>
                 ) : noShowBadge ? (
-                  <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={chipStyle()}>
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: RED, flexShrink: 0 }} />
-                      {noShowBadge.text}
-                    </span>
+                  <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={chipStyle(noShowBadge.bg, noShowBadge.fg)}>{noShowBadge.text}</span>
                     <span
                       role="button"
                       tabIndex={0}
                       onClick={(e) => { e.stopPropagation(); void quickNoShow(r.appt.id); }}
                       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); void quickNoShow(r.appt.id); } }}
-                      style={btnGhost}
+
+                      style={{
+                        padding: "4px 10px", borderRadius: 999, border: `1px solid ${LINE}`,
+                        background: "#fff", color: NAVY, fontSize: 12, fontWeight: 700, cursor: "pointer",
+                      }}
                     >
                       Mark no-show
                     </span>
                   </div>
                 ) : needsDate ? (
-                  <div style={{ marginTop: 12 }}>
-                    <span style={{ ...chipStyle(), alignSelf: "flex-start" }}>
+                  <div style={{ marginTop: 10 }}>
+                    <span style={{ ...chipStyle("#f1f5f9", GREY), alignSelf: "flex-start" }}>
                       No follow-up date set — tap to set one
                     </span>
                   </div>
                 ) : null}
-
 
               </button>
               );
@@ -858,95 +798,110 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.35)", zIndex: 60, display: "flex", justifyContent: "flex-end" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 60, display: "flex", justifyContent: "flex-end" }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#fff", width: "min(520px, 100%)", height: "100%", overflowY: "auto",
-          fontFamily: FONT, borderLeft: `1px solid ${LINE}`,
+          background: "#f6f8fb", width: "min(520px, 100%)", height: "100%", overflowY: "auto",
+          fontFamily: FONT, boxShadow: "-8px 0 32px rgba(0,0,0,0.15)",
         }}
       >
-        <style>{INPUT_CSS}</style>
+        <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: 20, position: "sticky", top: 0, zIndex: 2 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: NAVY }}>{appt.patient_name}</div>
+              <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span style={stageChip(stage)}>{stage}</span>
+                {drawerDue && (
+                  <span style={chipStyle(drawerDue.overdue ? RED_BG : AMBER_BG, drawerDue.overdue ? RED : AMBER_FG)}>
+                    {drawerDue.text} · {fmtDay(drawerDueDate!)}
+                  </span>
+                )}
+              </div>
+              {drawerDueDate && nextFollowupNote(row) && (
+                <div style={{ fontSize: 13, color: GREY, marginTop: 6 }}>{nextFollowupNote(row)}</div>
+              )}
 
-        {/* Sticky header */}
-        <div style={{ background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "14px 20px", position: "sticky", top: 0, zIndex: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {appt.patient_name}
+
+
             </div>
-            <StageBadge stage={stage} />
+            <button onClick={onClose} aria-label="Close"
+              style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY, padding: 4 }}>
+              <X size={20} />
+            </button>
           </div>
-          <button onClick={onClose} aria-label="Close"
-            style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY, padding: 4, display: "flex" }}>
-            <X size={18} />
-          </button>
+          <div style={{ display: "flex", gap: 16, marginTop: 14, flexWrap: "wrap", fontSize: 13 }}>
+            {appt.patient_phone && (
+              <a href={`tel:${appt.patient_phone}`} style={{ color: NAVY, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                <Phone size={14} /> {appt.patient_phone}
+              </a>
+            )}
+            {appt.patient_email && (
+              <a href={`mailto:${appt.patient_email}`} style={{ color: NAVY, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
+                <Mail size={14} /> {appt.patient_email}
+              </a>
+            )}
+          </div>
         </div>
 
-        <div style={{ padding: "0 20px 24px" }}>
-          {/* Contact */}
-          <Section>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: 13 }}>
-              {appt.patient_phone && (
-                <a href={`tel:${appt.patient_phone}`} style={{ color: NAVY, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                  <Phone size={14} /> {appt.patient_phone}
-                </a>
-              )}
-              {appt.patient_email && (
-                <a href={`mailto:${appt.patient_email}`} style={{ color: NAVY, fontWeight: 500, textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-                  <Mail size={14} /> {appt.patient_email}
-                </a>
-              )}
-            </div>
-            {drawerDue && (
-              <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                <span style={chipStyle()}>
-                  <span style={{ width: 6, height: 6, borderRadius: 999, background: drawerDue.overdue ? RED : "#F59E0B", flexShrink: 0 }} />
-                  {drawerDue.text} · {fmtDay(drawerDueDate!)}
-                </span>
-                {nextFollowupNote(row) && <span style={{ fontSize: 12, color: GREY }}>{nextFollowupNote(row)}</span>}
-              </div>
-            )}
-          </Section>
-
-          {/* Consult appointment */}
-          <Section title="Consult appointment">
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 10 }}>
+        <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
+          <Card title="Consult appointment">
+            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: 10 }}>
               {fmtDay(appt.appointment_date)} · {fmtTime(appt.appointment_time)}
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <Field type="date" value={rsDate} onChange={setRsDate} icon={<CalendarDays size={14} />} />
-              <Field type="time" value={rsTime} onChange={setRsTime} icon={<Clock size={14} />} flex="1 1 110px" />
+              <input
+                type="date"
+                value={rsDate}
+                onChange={(e) => setRsDate(e.target.value)}
+                style={{ flex: "1 1 150px", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+              />
+              <input
+                type="time"
+                value={rsTime}
+                onChange={(e) => setRsTime(e.target.value)}
+                style={{ flex: "1 1 110px", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+              />
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button
                 disabled={rsSaving || !rsChanged}
                 onClick={() => void saveReschedule()}
-                style={{ ...btnPrimary, cursor: rsChanged ? "pointer" : "default", opacity: rsSaving || !rsChanged ? 0.5 : 1 }}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                  fontSize: 13, fontWeight: 700, cursor: rsChanged ? "pointer" : "default", fontFamily: FONT,
+                  opacity: rsSaving || !rsChanged ? 0.5 : 1,
+                }}
               >
                 {rsSaving ? "Saving…" : "Reschedule"}
               </button>
               {rsChanged && (
                 <button
                   onClick={() => { setRsDate(appt.appointment_date); setRsTime(to24(appt.appointment_time)); }}
-                  style={btnGhost}
+                  style={{
+                    background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
                 >
                   Cancel
                 </button>
               )}
             </div>
-          </Section>
+          </Card>
 
-          {/* Next follow-up */}
-          <Section title="Next follow-up">
+          <Card title="Next follow-up">
             {status?.next_followup_date ? (
-              <div style={{ fontSize: 13, color: "#111827", marginBottom: 12, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={chipStyle()}>
-                  <span style={{ width: 6, height: 6, borderRadius: 999, background: drawerDue?.overdue ? RED : "#F59E0B", flexShrink: 0 }} />
-                  {fmtDay(status.next_followup_date)} — {drawerDue?.text}
-                </span>
+              <div
+                style={{
+                  background: drawerDue?.overdue ? RED_BG : AMBER_BG,
+                  color: drawerDue?.overdue ? RED : AMBER_FG,
+                  borderRadius: 8, padding: "10px 12px", fontSize: 14, fontWeight: 700, marginBottom: 12,
+                }}
+              >
+                {fmtDay(status.next_followup_date)} — {drawerDue?.text}
                 {status.next_followup_note ? (
-                  <span style={{ fontSize: 12, color: GREY }}>{status.next_followup_note}</span>
+                  <div style={{ fontWeight: 500, fontSize: 13, marginTop: 4 }}>{status.next_followup_note}</div>
                 ) : null}
               </div>
             ) : (
@@ -961,8 +916,8 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
                   key={label as string}
                   onClick={() => setFuDate(quickDate(d as number))}
                   style={{
-                    height: 28, background: "#fff", border: `1px solid ${LINE}`, color: TEXT, borderRadius: 6,
-                    padding: "0 10px", fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: FONT,
+                    background: "#fff", border: `1px solid ${LINE}`, color: NAVY, borderRadius: 999,
+                    padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
                   }}
                 >
                   {label as string}
@@ -970,38 +925,51 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
               ))}
             </div>
 
-            <Field type="date" value={fuDate} min={today} onChange={setFuDate} icon={<CalendarDays size={14} />} flex="1 1 100%" />
+            <input
+              type="date"
+              value={fuDate}
+              min={today}
+              onChange={(e) => setFuDate(e.target.value)}
+              style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
+            />
             <input
               type="text"
               value={fuNote}
               placeholder="What's the follow-up about? (optional)"
               onChange={(e) => setFuNote(e.target.value)}
-              style={{ width: "100%", boxSizing: "border-box", marginTop: 8, height: 36, padding: "0 10px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 13, fontFamily: FONT, color: TEXT }}
+              style={{ width: "100%", marginTop: 8, padding: "10px 12px", borderRadius: 8, border: `1px solid ${LINE}`, fontSize: 14, fontFamily: FONT }}
             />
             <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
               <button
                 disabled={fuSaving}
                 onClick={() => void saveFollowup(false)}
-                style={{ ...btnPrimary, opacity: fuSaving ? 0.6 : 1 }}
+                style={{
+                  background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                  fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, opacity: fuSaving ? 0.6 : 1,
+                }}
               >
                 {status?.next_followup_date ? "Update follow-up date" : "Set follow-up date"}
               </button>
               {status?.next_followup_date && (
-                <button disabled={fuSaving} onClick={() => void saveFollowup(true)} style={btnGhost}>
+                <button
+                  disabled={fuSaving}
+                  onClick={() => void saveFollowup(true)}
+                  style={{
+                    background: "#fff", color: GREY, border: `1px solid ${LINE}`, borderRadius: 8, padding: "10px 16px",
+                    fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT,
+                  }}
+                >
                   Clear
                 </button>
               )}
             </div>
-          </Section>
+          </Card>
 
           {(stage === "Quoted" || stage === "In Follow-up") && (
-            <Section title="Need a hand?">
+            <Card title="Need a hand?">
               {row.chase ? (
                 <div>
-                  <span style={chipStyle()}>
-                    <span style={{ width: 6, height: 6, borderRadius: 999, background: NAVY, flexShrink: 0 }} />
-                    Bold chasing
-                  </span>
+                  <span style={chipStyle(NAVY_PALE, NAVY)}>Bold chasing</span>
                   <div style={{ fontSize: 13, color: GREY, marginTop: 8 }}>
                     Requested {fmtDateTime(row.chase.requested_at)}
                     {row.chase.note ? ` — ${row.chase.note}` : ""}
@@ -1012,36 +980,44 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
                   <div style={{ fontSize: 13, color: GREY, marginBottom: 10 }}>
                     Bold can call {firstName} for you and report back.
                   </div>
-                  <button onClick={() => setChaseOpen(true)} style={btnPrimary}>
+                  <button
+                    onClick={() => setChaseOpen(true)}
+                    style={{
+                      background: NAVY, color: "#fff", border: "none", borderRadius: 8, padding: "10px 16px",
+                      fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT,
+                    }}
+                  >
                     Ask Bold to chase
                   </button>
                 </>
               )}
-            </Section>
+            </Card>
           )}
 
-          {/* Timeline */}
-          <Section title="Timeline">
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+
+
+          <Card title="Timeline">
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {milestones.map((m) => (
-                <div key={m.label} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                  <div style={{ marginTop: 1, color: m.done ? NAVY : "#D1D5DB" }}>
-                    {m.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                <div key={m.label} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ marginTop: 1, color: m.done ? NAVY : "#cbd5e1" }}>
+                    {m.done ? <CheckCircle2 size={20} fill={NAVY} color="#fff" /> : <Circle size={20} />}
                   </div>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: m.done ? "#111827" : GREY }}>{m.label}</div>
-                    <div style={{ fontSize: 12, color: GREY, marginTop: 2 }}>{m.detail ?? "Pending"}</div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: m.done ? NAVY : GREY }}>{m.label}</div>
+                    <div style={{ fontSize: 13, color: GREY, marginTop: 2 }}>{m.detail ?? "Pending"}</div>
                   </div>
                 </div>
               ))}
             </div>
-          </Section>
+          </Card>
 
           {quote && (
-            <Section title="Quote">
+            <Card title="Quote">
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-                <div style={{ fontSize: 20, fontWeight: 600, color: "#111827" }}>{fmt$(quote.price)}</div>
-                <span style={chipStyle()}>{quote.status.replace(/_/g, " ")}</span>
+                <div style={{ fontSize: 26, fontWeight: 800, color: NAVY }}>{fmt$(quote.price)}</div>
+                <span style={chipStyle(NAVY_PALE, NAVY)}>{quote.status.replace(/_/g, " ")}</span>
               </div>
               <div style={{ fontSize: 13, color: GREY, marginTop: 8, lineHeight: 1.6 }}>
                 {quote.diagnosis ?? "—"}
@@ -1053,7 +1029,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                 <a href={`/clinic-quote/${quote.id}`} target="_blank" rel="noreferrer"
-                  style={{ ...btnGhost, textDecoration: "none" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, background: NAVY, color: "#fff", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
                   <ExternalLink size={14} /> View quote page
                 </a>
                 <button
@@ -1064,51 +1040,51 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
                       () => toast.error("Couldn't copy link"),
                     );
                   }}
-                  style={btnGhost}>
+                  style={{ display: "flex", alignItems: "center", gap: 6, background: "#fff", color: NAVY, border: `1px solid ${LINE}`, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}>
                   <Copy size={14} /> Copy link
                 </button>
               </div>
 
-              <div style={{ marginTop: 16 }}>
+              <div style={{ marginTop: 16, borderTop: `1px solid ${LINE}`, paddingTop: 14 }}>
                 {quote.deposit_recorded_at ? (
-                  <div style={{ fontSize: 13, color: "#111827" }}>
-                    <span style={chipStyle()}>
-                      <span style={{ width: 6, height: 6, borderRadius: 999, background: GREEN, flexShrink: 0 }} />
-                      Deposit of {fmt$(Number(quote.deposit_amount ?? 0))} received
-                      {quote.deposit_method ? ` · ${quote.deposit_method.replace(/_/g, " ")}` : ""}
-                    </span>
-                    <div style={{ color: GREY, fontSize: 12, marginTop: 6 }}>{fmtDateTime(quote.deposit_recorded_at)}</div>
+                  <div style={{ background: GREEN_BG, color: GREEN, borderRadius: 8, padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>
+                    Deposit of {fmt$(Number(quote.deposit_amount ?? 0))} received
+                    {quote.deposit_method ? ` · ${quote.deposit_method.replace(/_/g, " ")}` : ""}
+                    <div style={{ fontWeight: 500, marginTop: 2 }}>{fmtDateTime(quote.deposit_recorded_at)}</div>
                     <button
                       onClick={() => setDepositOpen(true)}
-                      style={{ marginTop: 8, background: "transparent", border: "none", color: NAVY, fontSize: 12, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT }}
+                      style={{ marginTop: 8, background: "transparent", border: "none", color: NAVY, fontSize: 12, fontWeight: 700, cursor: "pointer", padding: 0, fontFamily: FONT }}
                     >
                       Edit deposit
                     </button>
                   </div>
                 ) : !depositOpen ? (
-                  <button onClick={() => setDepositOpen(true)} style={btnPrimary}>
+                  <button
+                    onClick={() => setDepositOpen(true)}
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: GREEN, color: "#fff", border: "none", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}
+                  >
                     <BadgeDollarSign size={15} /> Record deposit taken in clinic
                   </button>
                 ) : null}
 
                 {depositOpen && (
                   <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
-                    <label style={{ ...LABEL_STYLE }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: GREY }}>
                       Amount (AUD)
                       <input
                         type="number"
                         min={1}
                         value={depositAmount}
                         onChange={(e) => setDepositAmount(e.target.value)}
-                        style={{ display: "block", marginTop: 6, width: "100%", boxSizing: "border-box", height: 36, padding: "0 10px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 13, fontFamily: FONT, color: TEXT }}
+                        style={{ display: "block", marginTop: 4, width: "100%", padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, fontFamily: FONT, color: "#111" }}
                       />
                     </label>
-                    <label style={{ ...LABEL_STYLE }}>
+                    <label style={{ fontSize: 12, fontWeight: 700, color: GREY }}>
                       How was it paid?
                       <select
                         value={depositMethod}
                         onChange={(e) => setDepositMethod(e.target.value)}
-                        style={{ display: "block", marginTop: 6, width: "100%", boxSizing: "border-box", height: 36, padding: "0 10px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 13, fontFamily: FONT, color: TEXT, background: "#fff" }}
+                        style={{ display: "block", marginTop: 4, width: "100%", padding: "10px 12px", border: `1px solid ${LINE}`, borderRadius: 8, fontSize: 14, fontFamily: FONT, color: "#111", background: "#fff" }}
                       >
                         <option value="card_machine">Clinic card machine (EFTPOS)</option>
                         <option value="bank_transfer">Bank transfer</option>
@@ -1120,28 +1096,34 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
                       <button
                         onClick={() => void saveDeposit()}
                         disabled={depositSaving}
-                        style={{ ...btnPrimary, opacity: depositSaving ? 0.6 : 1 }}
+                        style={{ background: GREEN, color: "#fff", border: "none", padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: FONT, opacity: depositSaving ? 0.6 : 1 }}
                       >
                         {depositSaving ? "Saving…" : "Save deposit"}
                       </button>
-                      <button onClick={() => setDepositOpen(false)} disabled={depositSaving} style={btnGhost}>
+                      <button
+                        onClick={() => setDepositOpen(false)}
+                        disabled={depositSaving}
+                        style={{ background: "#fff", color: GREY, border: `1px solid ${LINE}`, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: FONT }}
+                      >
                         Cancel
                       </button>
                     </div>
                   </div>
                 )}
               </div>
-            </Section>
+            </Card>
           )}
 
-          {/* Notes */}
-          <Section title="Phone notes">
-            <PhoneNotes text={appt.intel_notes} />
-          </Section>
+
+          <Card title="Phone notes">
+            <div style={{ fontSize: 13, color: appt.intel_notes ? "#1f2937" : GREY, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+              {appt.intel_notes || "No phone notes on this patient."}
+            </div>
+          </Card>
 
           {stage === "Lost" && status ? (
-            <Section>
-              <div style={{ fontSize: 13, fontWeight: 500, color: "#111827" }}>
+            <div style={{ background: "#f1f5f9", border: `1px solid ${LINE}`, borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color: GREY }}>
                 Lost — {reasonLabel(status.lost_reason)}
                 {status.lost_at ? ` · ${fmtDateTime(status.lost_at)}` : ""}
               </div>
@@ -1149,21 +1131,18 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
                 <div style={{ fontSize: 13, color: GREY, marginTop: 6, whiteSpace: "pre-wrap" }}>{status.lost_note}</div>
               )}
               <button onClick={() => void reopen()} disabled={saving}
-                style={{ marginTop: 12, background: "transparent", border: "none", color: NAVY, fontSize: 13, fontWeight: 600, cursor: "pointer", padding: 0, fontFamily: FONT }}>
+                style={{ marginTop: 12, background: "transparent", border: "none", color: NAVY, fontSize: 13, fontWeight: 700, cursor: "pointer", padding: 0, fontFamily: FONT }}>
                 Reopen
               </button>
-            </Section>
-          ) : (
-            <div style={{ paddingTop: 20 }}>
-              <button onClick={() => setShowLost(true)}
-                style={{ background: "transparent", color: RED, border: "none", padding: 0, fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: FONT, textDecoration: "underline" }}>
-                Mark as Lost
-              </button>
             </div>
+          ) : (
+            <button onClick={() => setShowLost(true)}
+              style={{ background: "#fff", color: RED, border: `1px solid ${RED}`, borderRadius: 10, padding: "12px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: FONT }}>
+              Mark as Lost
+            </button>
           )}
         </div>
       </div>
-
 
       {chaseOpen && (
         <div
@@ -1239,41 +1218,11 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   );
 }
 
-function Section({ title, children }: { title?: string; children: React.ReactNode }) {
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ borderBottom: `1px solid ${LINE}`, padding: "20px 0" }}>
-      {title ? <div style={{ ...LABEL_STYLE, marginBottom: 12 }}>{title}</div> : null}
+    <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5, color: GREY, fontWeight: 700, marginBottom: 12 }}>{title}</div>
       {children}
-    </div>
-  );
-}
-
-function PhoneNotes({ text }: { text: string | null }) {
-  const [showHistory, setShowHistory] = useState(false);
-  const lines = (text ?? "").split("\n");
-  const history = lines.filter((l) => /^\s*—\s*Rescheduled/i.test(l));
-  const note = lines.filter((l) => !/^\s*—\s*Rescheduled/i.test(l)).join("\n").trim();
-
-  return (
-    <div>
-      <div style={{ fontSize: 13, color: note ? "#1f2937" : GREY, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-        {note || "No phone notes on this patient."}
-      </div>
-      {history.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <button
-            onClick={() => setShowHistory((v) => !v)}
-            style={{ background: "transparent", border: "none", padding: 0, color: GREY, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: FONT }}
-          >
-            {showHistory ? "Hide" : "Show"} {history.length} schedule change{history.length === 1 ? "" : "s"}
-          </button>
-          {showHistory && (
-            <div style={{ marginTop: 8, fontSize: 12, color: GREY, whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-              {history.join("\n")}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
