@@ -98,6 +98,15 @@ function fmtDay(d: string) {
     weekday: "short", day: "numeric", month: "short", timeZone: APP_TIMEZONE,
   });
 }
+/** Plain-language day for a follow-up date: "Today", "Tomorrow", "In 3 days", else the day. */
+function fuLabel(d: string) {
+  const days = daysUntilSydney(d);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days < 0) return `Overdue · ${fmtDay(d)}`;
+  if (days <= 14) return `In ${days} days · ${fmtDay(d)}`;
+  return fmtDay(d);
+}
 /** "Today 10:30am" / "Tomorrow 9:00am", else the full day + time. */
 function fmtWhen(date: string, time: string) {
   const days = daysUntilSydney(date);
