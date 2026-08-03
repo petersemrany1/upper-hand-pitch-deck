@@ -617,7 +617,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   const drawerDueDate = stage === "Lost" || stage === "Won" ? null : nextFollowupDate(row);
   const drawerDue = drawerDueDate ? dueLabel(drawerDueDate) : null;
 
-  const [fuDate, setFuDate] = useState<string>(status?.next_followup_date ?? "");
+  const [fuDateState, setFuDate] = useState<string>(status?.next_followup_date ?? "");
   const [fuNote, setFuNote] = useState<string>(status?.next_followup_note ?? "");
   const [fuSaving, setFuSaving] = useState(false);
 
