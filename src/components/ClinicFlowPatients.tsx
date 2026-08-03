@@ -819,13 +819,15 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
-          background: "#f6f8fb", width: "min(520px, 100%)", height: "100%", overflowY: "auto",
-          fontFamily: FONT, padding: 16,
+          background: "#fff", width: "min(520px, 100%)", height: "100%", overflowY: "auto",
+          fontFamily: FONT, borderLeft: `1px solid ${LINE}`, boxShadow: "-8px 0 24px rgba(15,23,42,0.10)",
+          display: "flex", flexDirection: "column",
         }}
       >
-        <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, overflow: "visible" }}>
+        <div style={{ background: "#fff", flex: 1, minHeight: 0 }}>
+
           {/* HEADER */}
-          <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", borderRadius: "12px 12px 0 0", borderBottom: `1px solid ${LINE}`, padding: "14px 18px" }}>
+          <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "14px 18px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 500, color: "#111827", flex: 1, minWidth: 0 }}>{appt.patient_name}</div>
               <span style={{
@@ -1002,14 +1004,15 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
           {/* PROGRESS */}
           <Section>
             <div style={{ fontSize: 12, color: GREY, marginBottom: 10 }}>Progress</div>
-            <div style={{ display: "flex", gap: 4 }}>
+            <div style={{ display: "flex", gap: 6 }}>
               {milestones.map((m) => (
-                <div key={m.label} style={{ flex: 1 }} title={`${m.label} — ${m.detail ?? "Pending"}`}>
+                <div key={m.label} style={{ flex: 1, minWidth: 0 }} title={`${m.label} — ${m.detail ?? "Pending"}`}>
                   <div style={{ height: 3, borderRadius: 999, background: m.done ? GREEN : "#e5e9ef" }} />
-                  <div style={{ fontSize: 11, color: GREY, marginTop: 6, textAlign: "center", fontWeight: 400 }}>{m.label}</div>
+                  <div style={{ fontSize: 10, lineHeight: 1.3, color: GREY, marginTop: 6, textAlign: "center", fontWeight: 400, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.label}</div>
                 </div>
               ))}
             </div>
+
           </Section>
 
           {/* QUOTE */}
