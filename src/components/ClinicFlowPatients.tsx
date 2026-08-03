@@ -1098,7 +1098,17 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
             {(stage === "Quoted" || stage === "In Follow-up") && (
               <div style={{ marginTop: 10, fontSize: 12, color: GREY }}>
                 {row.chase ? (
-                  <>Bold chasing — requested {fmtDateTime(row.chase.requested_at)}</>
+                  <>
+                    Bold chasing — requested {fmtDateTime(row.chase.requested_at)}
+                    {" · "}
+                    <button
+                      onClick={() => void handBack(row.chase!.id)}
+                      disabled={handBackSaving}
+                      style={{ background: "transparent", border: "none", padding: 0, color: NAVY, fontSize: 12, cursor: handBackSaving ? "default" : "pointer", textDecoration: "underline", fontFamily: FONT }}
+                    >
+                      {handBackSaving ? "Updating…" : "We'll take it from here"}
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => setChaseOpen(true)}
