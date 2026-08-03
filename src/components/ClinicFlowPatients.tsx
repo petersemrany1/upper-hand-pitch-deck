@@ -825,7 +825,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
       >
         <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12, overflow: "visible" }}>
           {/* HEADER */}
-          <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", borderRadius: "12px 12px 0 0", borderBottom: `1px solid ${LINE}`, padding: "14px 18px" }}>
+          <div style={{ position: "sticky", top: 0, zIndex: 3, background: "#fff", borderBottom: `1px solid ${LINE}`, padding: "14px 18px" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ fontSize: 15, fontWeight: 500, color: "#111827", flex: 1, minWidth: 0 }}>{appt.patient_name}</div>
               <span style={{
