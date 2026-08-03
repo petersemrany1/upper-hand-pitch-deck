@@ -28,6 +28,7 @@ type Appt = {
   appointment_date: string;
   appointment_time: string;
   intel_notes: string | null;
+  created_at?: string | null;
 };
 
 type Intake = {
@@ -228,7 +229,7 @@ export function ClinicFlowPatients({ clinicId }: { clinicId: string }) {
     const [a, i, q, p, f, c] = await Promise.all([
       supabase
         .from("clinic_appointments")
-        .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
+        .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes, created_at")
         .eq("clinic_id", clinicId)
         .order("appointment_date", { ascending: false })
 
