@@ -814,7 +814,7 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
   return (
     <div
       onClick={onClose}
-      style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 60, display: "flex", justifyContent: "flex-end" }}
+      style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.45)", zIndex: 100, display: "flex", justifyContent: "flex-end" }}
     >
       <div
         onClick={(e) => e.stopPropagation()}
