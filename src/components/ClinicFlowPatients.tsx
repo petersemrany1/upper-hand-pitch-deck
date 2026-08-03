@@ -604,6 +604,10 @@ function PatientDrawer({ row, onClose, onChanged, clinicId, today, initialNoShow
 }) {
   const [showLost, setShowLost] = useState(initialNoShow);
   const [reason, setReason] = useState<string | null>(initialNoShow ? "no_show" : null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [rsOpen, setRsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
 
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
