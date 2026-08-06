@@ -43,7 +43,6 @@ import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicSamLeadsRouteImport } from './routes/api.public.sam-leads'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
-import { Route as ApiPublicClinicflowDailyDigestRouteImport } from './routes/api.public.clinicflow-daily-digest'
 import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
 import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
@@ -247,12 +246,6 @@ const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
   path: '/api/public/meta-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicClinicflowDailyDigestRoute =
-  ApiPublicClinicflowDailyDigestRouteImport.update({
-    id: '/api/public/clinicflow-daily-digest',
-    path: '/api/public/clinicflow-daily-digest',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicClinicLeadsRoute = ApiPublicClinicLeadsRouteImport.update({
   id: '/api/public/clinic-leads',
   path: '/api/public/clinic-leads',
@@ -417,7 +410,6 @@ export interface FileRoutesByFullPath {
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
-  '/api/public/clinicflow-daily-digest': typeof ApiPublicClinicflowDailyDigestRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -472,7 +464,6 @@ export interface FileRoutesByTo {
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
-  '/api/public/clinicflow-daily-digest': typeof ApiPublicClinicflowDailyDigestRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -530,7 +521,6 @@ export interface FileRoutesById {
   '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
-  '/api/public/clinicflow-daily-digest': typeof ApiPublicClinicflowDailyDigestRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -588,7 +578,6 @@ export interface FileRouteTypes {
     | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/clinic-leads'
-    | '/api/public/clinicflow-daily-digest'
     | '/api/public/meta-leads'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
@@ -643,7 +632,6 @@ export interface FileRouteTypes {
     | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/clinic-leads'
-    | '/api/public/clinicflow-daily-digest'
     | '/api/public/meta-leads'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
@@ -700,7 +688,6 @@ export interface FileRouteTypes {
     | '/_dashboard/training/read-along'
     | '/_dashboard/training/sales-call-example'
     | '/api/public/clinic-leads'
-    | '/api/public/clinicflow-daily-digest'
     | '/api/public/meta-leads'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
@@ -727,7 +714,6 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   KioskAppointmentIdRoute: typeof KioskAppointmentIdRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
-  ApiPublicClinicflowDailyDigestRoute: typeof ApiPublicClinicflowDailyDigestRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
   ApiPublicSamLeadsRoute: typeof ApiPublicSamLeadsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
@@ -981,13 +967,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/clinicflow-daily-digest': {
-      id: '/api/public/clinicflow-daily-digest'
-      path: '/api/public/clinicflow-daily-digest'
-      fullPath: '/api/public/clinicflow-daily-digest'
-      preLoaderRoute: typeof ApiPublicClinicflowDailyDigestRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/clinic-leads': {
       id: '/api/public/clinic-leads'
       path: '/api/public/clinic-leads'
@@ -1231,7 +1210,6 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   KioskAppointmentIdRoute: KioskAppointmentIdRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
-  ApiPublicClinicflowDailyDigestRoute: ApiPublicClinicflowDailyDigestRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
   ApiPublicSamLeadsRoute: ApiPublicSamLeadsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
@@ -1251,12 +1229,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

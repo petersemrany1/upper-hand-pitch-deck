@@ -87,12 +87,7 @@ let pendingIncoming: Call | null = null;
 // puts the current call on hold-via-disconnect) or reject it.
 let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
-// Set once the backend tells us this signed-in account isn't a sales rep
-// (e.g. clinic-portal users). The softphone simply doesn't apply to them, so
-// we stop retrying and never log it as a runtime error.
-let dialerUnavailable = false;
 let refreshTimer: number | null = null;
-
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
@@ -185,25 +180,9 @@ async function fetchToken(): Promise<string> {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
   if (fnErr || !data?.token) {
-    // supabase-js wraps non-2xx responses in FunctionsHttpError, whose
-    // `context` is the raw Response — the 403 reason only lives in its body.
-    const ctx = (fnErr as unknown as { context?: Response } | null)?.context;
-    const status = typeof ctx?.status === "number" ? ctx.status : undefined;
-    let body = "";
-    if (ctx && typeof ctx.text === "function") {
-      try { body = await ctx.clone().text(); } catch { /* body already consumed */ }
-    }
-    const raw = `${data?.error ?? ""} ${fnErr?.message ?? ""} ${body}`;
-    if (status === 403 || /\b403\b|forbidden|no sales rep profile/i.test(raw)) {
-      dialerUnavailable = true;
-      throw new Error("DIALLER_NOT_AVAILABLE");
-    }
     const msg = data?.error || fnErr?.message || "Failed to fetch voice token";
     throw new Error(msg);
   }
-
-
-
   console.log(`TOKEN IDENTITY: ${data.identity}`);
   console.log(`TOKEN INCOMING ALLOWED: ${data.incomingAllowed === true}`);
   return data.token as string;
@@ -217,17 +196,13 @@ function scheduleTokenRefresh() {
       device?.updateToken(next);
       scheduleTokenRefresh();
     } catch (err) {
-      if (extractErrorMessage(err, "") === "DIALLER_NOT_AVAILABLE") return; // not a rep account — stop refreshing
       console.error("Voice SDK: token refresh failed", err);
     }
-
   }, TOKEN_REFRESH_MS);
 }
 
 async function ensureDevice(): Promise<void> {
-  if (dialerUnavailable) return;
   if (device || initPromise) return initPromise ?? Promise.resolve();
-
   initPromise = (async () => {
     try {
       setSnapshot({ status: "loading", dialerStatus: "connecting" });
@@ -407,21 +382,6 @@ async function ensureDevice(): Promise<void> {
       scheduleTokenRefresh();
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
-      if (dialerUnavailable || msg === "DIALLER_NOT_AVAILABLE") {
-        // This account isn't a sales rep (e.g. clinic portal user) — the
-        // softphone simply doesn't apply. Stay quiet, don't retry.
-        dialerUnavailable = true;
-        setSnapshot({
-          error: null,
-          activeCallStartedAt: null,
-          activeCallInstanceId: null,
-          status: "idle",
-          dialerStatus: "failed",
-        });
-        device = null;
-        initPromise = null;
-        return;
-      }
       console.error("Voice SDK init failed:", err);
       setSnapshot({ error: msg, activeCallStartedAt: null, activeCallInstanceId: null, status: "error", dialerStatus: "failed" });
       await logFrontendError("voice-sdk", `Init failed: ${msg}`, {
@@ -431,19 +391,12 @@ async function ensureDevice(): Promise<void> {
       device = null;
       initPromise = null;
     }
-
   })();
   return initPromise;
 }
 
 async function placeCall(phone: string, extraParams?: Record<string, string>): Promise<void> {
   console.log("[placeCall] entry", { phone, hasDevice: !!device, currentStatus });
-  if (dialerUnavailable) {
-    const msg = "Calling isn't available on this account — sign in with a sales rep login.";
-    setSnapshot({ error: msg });
-    throw new Error(msg);
-  }
-
   if (!device) {
     await ensureDevice();
   }

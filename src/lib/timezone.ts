@@ -16,13 +16,6 @@ export function daysUntilSydney(bookingDateISO: string, now: Date = new Date()):
   return Math.round((target - today) / 86400000);
 }
 
-/** Current hour (0-23) in Sydney. */
-export function sydneyHour(now: Date = new Date()): number {
-  return Number(
-    now.toLocaleString("en-GB", { timeZone: APP_TIMEZONE, hour: "2-digit", hour12: false }),
-  );
-}
-
 /** Format a Date for display in Sydney time. */
 export function formatSydney(
   d: Date | string | number,

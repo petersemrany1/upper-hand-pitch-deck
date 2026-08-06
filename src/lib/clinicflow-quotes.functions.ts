@@ -1,74 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Public, read-only treatment-plan data. Quote IDs are unguessable UUIDs and
-// are intentionally shared with patients as the access link.
-export const getPublicClinicflowQuote = createServerFn({ method: "GET" })
-  .inputValidator((data: { quoteId: string }) => {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.quoteId)) {
-      throw new Error("Invalid quote link");
-    }
-    return data;
-  })
-  .handler(async ({ data }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: quote, error } = await supabaseAdmin
-      .from("clinicflow_quotes")
-      .select("id, clinic_id, appointment_id, patient_name, diagnosis, norwood, grafts, graft_unit, price, deposit_amount, description, includes_text, date_option_1, date_option_2, valid_until, booked_date, status")
-      .eq("id", data.quoteId)
-      .maybeSingle();
-
-    if (error) throw new Error("Could not load this treatment plan");
-    if (!quote) return { quote: null };
-
-    const [{ data: clinic }, { data: settings }, { data: appointment }] = await Promise.all([
-      supabaseAdmin
-        .from("partner_clinics")
-        .select("clinic_name, phone, city, state")
-        .eq("id", quote.clinic_id)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("clinicflow_clinic_settings")
-        .select("logo_url, whatsapp_number, doctor_name, cooling_off_days")
-        .eq("clinic_id", quote.clinic_id)
-        .maybeSingle(),
-      supabaseAdmin
-        .from("clinic_appointments")
-        .select("patient_phone, patient_email")
-        .eq("id", quote.appointment_id)
-        .maybeSingle(),
-    ]);
-
-    let logoUrl: string | null = null;
-    if (settings?.logo_url) {
-      const { data: signed } = await supabaseAdmin.storage
-        .from("clinicflow-logos")
-        .createSignedUrl(settings.logo_url as string, 60 * 60 * 24);
-      logoUrl = signed?.signedUrl ?? null;
-    }
-
-    return {
-      quote,
-      clinic: clinic
-        ? {
-            name: clinic.clinic_name as string,
-            phone: (clinic.phone as string | null) ?? null,
-            city: [clinic.city, clinic.state].filter(Boolean).join(", ") || null,
-          }
-        : null,
-      settings: {
-        logoUrl,
-        whatsappNumber: (settings?.whatsapp_number as string | null) ?? null,
-        doctorName: (settings?.doctor_name as string | null) ?? null,
-        coolingOffDays: Number(settings?.cooling_off_days ?? 7),
-      },
-      patient: {
-        phone: (appointment?.patient_phone as string | null) ?? null,
-        email: (appointment?.patient_email as string | null) ?? null,
-      },
-    };
-  });
-
 async function assertCanAccessClinic(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   clinicId: string,
@@ -94,7 +26,6 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
       diagnosis: string;
       norwood?: string | null;
       grafts?: number | null;
-      graftUnit?: "grafts" | "hairs";
       price: number;
       depositAmount: number;
       description?: string | null;
@@ -119,7 +50,6 @@ export const createClinicflowQuote = createServerFn({ method: "POST" })
         diagnosis: data.diagnosis,
         norwood: data.norwood ?? null,
         grafts: data.grafts ?? null,
-        graft_unit: data.graftUnit ?? "grafts",
         price: data.price,
         deposit_amount: data.depositAmount,
         description: data.description ?? null,
@@ -224,7 +154,7 @@ export const sendClinicflowQuoteEmail = createServerFn({ method: "POST" })
         <p>Thank you for coming in today. Here's a summary of what we discussed:</p>
         <p><strong>Diagnosis:</strong> ${quote.diagnosis}<br/>
         <strong>Recommended plan:</strong> FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}<br/>
-        ${quote.grafts ? `<strong>${quote.graft_unit === "hairs" ? "Hairs" : "Grafts"}:</strong> ${quote.grafts}<br/>` : ""}
+        ${quote.grafts ? `<strong>Grafts:</strong> ${quote.grafts}<br/>` : ""}
         <strong>Price:</strong> ${fmt$(quote.price as number)} AUD</p>
         ${quote.description ? `<p>${(quote.description as string).replace(/\n/g, "<br/>")}</p>` : ""}
         ${quote.includes_text ? `<p><strong>What's included</strong><br/>${(quote.includes_text as string).replace(/\n/g, "<br/>")}</p>` : ""}
@@ -263,23 +193,4 @@ export const sendClinicflowQuoteEmail = createServerFn({ method: "POST" })
       return { success: false as const, error: result.message ?? "Failed to send" };
     }
     return { success: true as const, id: result.id };
-  });
-
-export const deleteClinicflowQuote = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: { quoteId: string }) => data)
-  .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { data: quote } = await supabaseAdmin
-      .from("clinicflow_quotes")
-      .select("clinic_id")
-      .eq("id", data.quoteId)
-      .maybeSingle();
-    if (!quote) throw new Error("Quote not found");
-    await assertCanAccessClinic(context.supabase, quote.clinic_id as string);
-
-    await supabaseAdmin.from("clinicflow_followups").delete().eq("quote_id", data.quoteId);
-    const { error } = await supabaseAdmin.from("clinicflow_quotes").delete().eq("id", data.quoteId);
-    if (error) throw new Error(error.message);
-    return { success: true as const };
   });

@@ -58,7 +58,6 @@ export function ClinicFlowQuoteBuilder({
   const [diagnosis, setDiagnosis] = useState(DIAGNOSES[0]);
   const [diagnosisOther, setDiagnosisOther] = useState("");
   const [norwood, setNorwood] = useState<string>("3");
-  const [graftUnit, setGraftUnit] = useState<"grafts" | "hairs">("grafts");
   const [grafts, setGrafts] = useState<string>("2500");
   const [price, setPrice] = useState<string>("15000");
   const [deposit, setDeposit] = useState<string>("1000");
@@ -76,12 +75,11 @@ export function ClinicFlowQuoteBuilder({
       setDescription("");
       return;
     }
-    const unit = graftUnit;
-    const graftsText = `${n.toLocaleString("en-AU")} ${unit}`;
+    const graftsText = n.toLocaleString("en-AU");
     setDescription(
-      `Hair restoration procedure — ${graftsText}, sapphire FUE\n\nA single-session follicular unit extraction procedure transferring ${graftsText} from your permanent donor area at the back and sides of the scalp to the hairline, mid-scalp and crown transition.\n\n- We design the hairline with you before the day of surgery, taking into account your facial proportions, hair calibre, existing density and how your hair loss is likely to progress.\n- On the day, we perform the extraction and create each recipient site at the correct angle and direction, and place every graft along the frontal edge.\n- ${unit === "hairs" ? "Hairs" : "Grafts"} are counted during the procedure and the count is shown to you before you leave.\n\n- The plan is built around your lifetime donor supply. You have a finite number of usable ${unit}, and how the first procedure is planned determines what remains available to you later.\n- This procedure uses ${graftsText} and holds the balance in reserve.`
+      `Hair restoration procedure — ${graftsText} grafts, sapphire FUE\n\nA single-session follicular unit extraction procedure transferring ${graftsText} grafts from your permanent donor area at the back and sides of the scalp to the hairline, mid-scalp and crown transition.\n\n- We design the hairline with you before the day of surgery, taking into account your facial proportions, hair calibre, existing density and how your hair loss is likely to progress.\n- On the day, we perform the extraction and create each recipient site at the correct angle and direction, and place every graft along the frontal edge.\n- Grafts are counted during the procedure and the count is shown to you before you leave.\n\n- The plan is built around your lifetime donor supply. You have a finite number of usable grafts, and how the first procedure is planned determines what remains available to you later.\n- This procedure uses ${graftsText} and holds the balance in reserve.`
     );
-  }, [grafts, graftUnit, descriptionEdited]);
+  }, [grafts, descriptionEdited]);
 
   useEffect(() => {
     (async () => {
@@ -122,7 +120,6 @@ export function ClinicFlowQuoteBuilder({
           diagnosis: finalDiagnosis,
           norwood,
           grafts: grafts ? Number(grafts) : null,
-          graftUnit,
           price: priceNum,
           depositAmount: depositNum,
           description: description.trim() || null,
@@ -142,7 +139,7 @@ export function ClinicFlowQuoteBuilder({
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 100, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 12px", overflowY: "auto" }}>
+    <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 60, display: "flex", justifyContent: "center", alignItems: "flex-start", padding: "24px 12px", overflowY: "auto" }}>
       <div style={{ background: "#fff", borderRadius: 16, width: "100%", maxWidth: 720, boxShadow: "0 20px 60px rgba(0,0,0,0.25)", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 22px", borderBottom: `1px solid ${LINE}` }}>
           <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>Create quote</div>
@@ -171,16 +168,10 @@ export function ClinicFlowQuoteBuilder({
               </Field>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <Field label="Measured in">
-                <Select value={graftUnit} onChange={(v) => setGraftUnit(v as "grafts" | "hairs")} options={["grafts", "hairs"]} />
-              </Field>
-              <Field label={graftUnit === "hairs" ? "Number of hairs" : "Number of grafts"}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+              <Field label="Grafts">
                 <TextInput value={grafts} onChange={setGrafts} inputMode="numeric" />
               </Field>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <Field label="Price (AUD)">
                 <TextInput value={price} onChange={setPrice} inputMode="decimal" />
               </Field>

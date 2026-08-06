@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { sydneyTodayISO } from "@/lib/timezone";
+import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
 import { toast } from "sonner";
-import { ChevronLeft, Clock, User, AlertTriangle, FileText, ExternalLink, Images, Box, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronLeft, Clock, Phone, PlayCircle, User, AlertTriangle, Mail, FileText, ExternalLink, Images } from "lucide-react";
 import { ClinicFlowQuoteBuilder } from "@/components/ClinicFlowQuoteBuilder";
-import { ClinicFlowPresentGallery, type PresentPhoto } from "@/components/ClinicFlowPresentGallery";
+import { ClinicFlowTimelineGallery, type GalleryPhoto } from "@/components/ClinicFlowTimelineGallery";
 import { useServerFn } from "@tanstack/react-start";
-import { getClinicflowGalleryPhotos } from "@/lib/clinicflow-phase4.functions";
+import { listClinicflowPhotos } from "@/lib/clinicflow-phase4.functions";
 
 const NAVY = "#1a3a6b";
 const GREY = "#6b7785";
@@ -57,84 +57,176 @@ function fmtTime(t: string) {
   return `${h}:${min}${ampm}`;
 }
 
-/** Full-screen consult view for one appointment. Loads its own appointment + intake. */
-export function ClinicFlowConsult({ clinicId, appointmentId, onBack }: { clinicId: string; appointmentId: string; onBack: () => void }) {
-  const [appt, setAppt] = useState<Appt | null>(null);
-  const [intake, setIntake] = useState<Intake | null>(null);
+export function ClinicFlowToday({ clinicId }: { clinicId: string }) {
+  const [appts, setAppts] = useState<Appt[]>([]);
+  const [intakes, setIntakes] = useState<Record<string, Intake>>({});
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tick, setTick] = useState(0);
+
+  const today = useMemo(() => sydneyTodayISO(), []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const [{ data: a, error: aErr }, { data: i }] = await Promise.all([
+      const [{ data: apptData, error: apptErr }, { data: intakeData, error: intakeErr }] = await Promise.all([
         supabase
           .from("clinic_appointments")
           .select("id, patient_name, patient_phone, patient_email, appointment_date, appointment_time, intel_notes")
-          .eq("id", appointmentId)
-          .maybeSingle(),
+          .eq("clinic_id", clinicId)
+          .eq("appointment_date", today)
+          .not("patient_name", "ilike", "%test%")
+          .order("appointment_time"),
         supabase
           .from("clinicflow_intakes")
           .select("*")
-          .eq("appointment_id", appointmentId)
-          .maybeSingle(),
+          .eq("clinic_id", clinicId),
       ]);
       if (cancelled) return;
-      if (aErr) toast.error(aErr.message);
-      setAppt((a ?? null) as Appt | null);
-      setIntake((i ?? null) as Intake | null);
+      if (apptErr) toast.error(apptErr.message);
+      if (intakeErr) toast.error(intakeErr.message);
+      setAppts((apptData ?? []) as Appt[]);
+      const map: Record<string, Intake> = {};
+      for (const row of (intakeData ?? []) as Intake[]) map[row.appointment_id] = row;
+      setIntakes(map);
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [appointmentId]);
+  }, [clinicId, today, tick]);
 
-  if (loading || !appt) {
+  const refresh = () => setTick((n) => n + 1);
+
+  const selected = selectedId ? appts.find((a) => a.id === selectedId) ?? null : null;
+  const selectedIntake = selectedId ? intakes[selectedId] ?? null : null;
+
+  if (selected) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: GREY, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
-        {loading ? "Loading…" : "Appointment not found."}
-      </div>
+      <PatientDetail
+        appt={selected}
+        intake={selectedIntake}
+        clinicId={clinicId}
+        onBack={() => { setSelectedId(null); refresh(); }}
+      />
     );
   }
 
-  return <PatientDetail appt={appt} intake={intake} clinicId={clinicId} onBack={onBack} />;
+  return (
+    <div style={{ padding: 24, maxWidth: 900, margin: "0 auto", fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: NAVY, margin: 0 }}>Today</h1>
+        <p style={{ fontSize: 13, color: GREY, marginTop: 6 }}>
+          {new Date(today + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone: APP_TIMEZONE })}
+          {" · "}Hand the iPad to each patient to complete their check-in.
+        </p>
+      </div>
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: "center", color: GREY }}>Loading…</div>
+      ) : appts.length === 0 ? (
+        <div style={{ background: "#fff", border: `1px dashed ${LINE}`, borderRadius: 12, padding: 40, textAlign: "center", color: GREY }}>
+          No appointments today.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 12 }}>
+          {appts.map((a) => {
+            const intake = intakes[a.id];
+            const state: "not_started" | "in_progress" | "completed" =
+              !intake ? "not_started" : intake.status === "completed" ? "completed" : "in_progress";
+            return (
+              <AppointmentCard
+                key={a.id}
+                appt={a}
+                state={state}
+                wellbeingReview={intake?.wellbeing_review ?? false}
+                onOpen={() => setSelectedId(a.id)}
+              />
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AppointmentCard({
+  appt, state, wellbeingReview, onOpen,
+}: {
+  appt: Appt;
+  state: "not_started" | "in_progress" | "completed";
+  wellbeingReview: boolean;
+  onOpen: () => void;
+}) {
+  const startKiosk = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.location.href = `/kiosk/${appt.id}`;
+  };
+
+  const badge =
+    state === "completed"
+      ? { text: "Completed", bg: GREEN_BG, fg: GREEN, icon: <CheckCircle2 size={14} /> }
+      : state === "in_progress"
+        ? { text: "With patient", bg: AMBER_BG, fg: AMBER_FG, icon: <Clock size={14} /> }
+        : { text: "Not checked in", bg: "#eef2f7", fg: "#334155", icon: <Clock size={14} /> };
+
+  return (
+    <div
+      onClick={onOpen}
+      style={{
+        background: "#fff", border: `1px solid ${LINE}`, borderRadius: 12,
+        padding: 18, display: "flex", alignItems: "center", gap: 16, cursor: "pointer",
+        boxShadow: "0 1px 3px rgba(26,58,107,0.04)",
+      }}
+    >
+      <div style={{ width: 74, textAlign: "center" }}>
+        <div style={{ fontSize: 18, fontWeight: 700, color: NAVY }}>{fmtTime(appt.appointment_time)}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>{appt.patient_name}</div>
+          {wellbeingReview && (
+            <span style={{ background: AMBER_BG, color: AMBER_FG, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <AlertTriangle size={12} /> Wellbeing review
+            </span>
+          )}
+        </div>
+        {appt.patient_phone && (
+          <div style={{ fontSize: 12, color: GREY, marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+            <Phone size={12} /> {appt.patient_phone}
+          </div>
+        )}
+      </div>
+      <span style={{ background: badge.bg, color: badge.fg, padding: "6px 10px", borderRadius: 999, fontSize: 12, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 4 }}>
+        {badge.icon} {badge.text}
+      </span>
+      {state !== "completed" && (
+        <button
+          onClick={startKiosk}
+          style={{
+            background: NAVY, color: "#fff", border: "none",
+            padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+            cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
+          }}
+        >
+          <PlayCircle size={14} /> {state === "in_progress" ? "Resume check-in" : "Start check-in"}
+        </button>
+      )}
+    </div>
+  );
 }
 
 function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake: Intake | null; clinicId: string; onBack: () => void }) {
-  const loadGallery = useServerFn(getClinicflowGalleryPhotos);
-  const [galleryMode, setGalleryMode] = useState<"timeline" | "before_after" | null>(null);
-  const [galleryLoading, setGalleryLoading] = useState(false);
-  const [timelinePhotos, setTimelinePhotos] = useState<PresentPhoto[] | null>(null);
-  const [beforeAfterPhotos, setBeforeAfterPhotos] = useState<PresentPhoto[] | null>(null);
-  const [modelUrl, setModelUrl] = useState<string | null>(null);
-  const [showBuilder, setShowBuilder] = useState(false);
+  const listPhotos = useServerFn(listClinicflowPhotos);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
 
-  useEffect(() => {
-    if (!clinicId) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from("clinicflow_clinic_settings")
-        .select("follicle_model_url")
-        .eq("clinic_id", clinicId)
-        .maybeSingle();
-      if (!cancelled) setModelUrl((data?.follicle_model_url as string | null) ?? null);
-    })();
-    return () => { cancelled = true; };
-  }, [clinicId]);
-
-  const openGallery = async (mode: "timeline" | "before_after") => {
-    setGalleryMode(mode);
-    if (timelinePhotos === null || beforeAfterPhotos === null) {
-      setGalleryLoading(true);
+  const openGallery = async () => {
+    setGalleryOpen(true);
+    if (galleryPhotos === null) {
       try {
-        const { timeline, beforeAfter } = await loadGallery({ data: { clinicId } });
-        setTimelinePhotos(timeline as PresentPhoto[]);
-        setBeforeAfterPhotos(beforeAfter as PresentPhoto[]);
-      } catch {
-        setTimelinePhotos([]);
-        setBeforeAfterPhotos([]);
-      }
-      setGalleryLoading(false);
+        const { photos } = await listPhotos({ data: { clinicId } });
+        setGalleryPhotos(photos as GalleryPhoto[]);
+      } catch { setGalleryPhotos([]); }
     }
   };
 
@@ -145,41 +237,14 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
           onClick={onBack}
           style={{ background: "transparent", border: "none", color: NAVY, fontSize: 13, fontWeight: 600, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4 }}
         >
-          <ChevronLeft size={16} /> Back to Patients
+          <ChevronLeft size={16} /> Back to Today
         </button>
-        {intake?.status !== "completed" && (
-          <button
-            onClick={() => { window.location.href = `/kiosk/${appt.id}`; }}
-            style={{ background: "#fff", border: `1px solid ${LINE}`, color: NAVY, fontSize: 13, fontWeight: 700, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}
-          >
-            {intake ? "Resume check-in" : "Start check-in"}
-          </button>
-        )}
-      </div>
-
-      {/* Consult toolkit */}
-      <div
-        style={{
-          position: "sticky", top: 0, zIndex: 20, background: "#fff",
-          border: `1px solid ${LINE}`, borderRadius: 12, padding: 10, marginBottom: 16,
-          display: "flex", gap: 8, alignItems: "center", overflowX: "auto",
-          boxShadow: "0 1px 3px rgba(26,58,107,0.06)",
-        }}
-      >
-        <ToolPill icon={<Images size={15} />} label="Before & after" onClick={() => void openGallery("before_after")} />
-        <ToolPill icon={<Clock size={15} />} label="Timeline" onClick={() => void openGallery("timeline")} />
-        {modelUrl && (
-          <ToolPill icon={<Box size={15} />} label="Model" onClick={() => window.open(modelUrl, "_blank")} />
-        )}
-
-        <ToolPill
-          icon={<Sparkles size={15} />}
-          label="Simulator"
-          note="Coming soon"
-          disabled
-          onClick={() => toast("Simulator coming soon")}
-        />
-        <ToolPill icon={<FileText size={15} />} label="Quote" primary onClick={() => setShowBuilder(true)} />
+        <button
+          onClick={() => void openGallery()}
+          style={{ background: "#fff", border: `1px solid ${LINE}`, color: NAVY, fontSize: 13, fontWeight: 600, padding: "8px 14px", borderRadius: 8, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <Images size={14} /> Timeline photos
+        </button>
       </div>
 
       <div style={{ background: "#fff", border: `1px solid ${LINE}`, borderRadius: 14, padding: 24, marginBottom: 16 }}>
@@ -255,64 +320,24 @@ function PatientDetail({ appt, intake, clinicId, onBack }: { appt: Appt; intake:
         <KV label="Email" value={appt.patient_email} />
       </Section>
 
-      <QuotesForAppointment
-        clinicId={clinicId}
-        appointmentId={appt.id}
-        intakeId={intake?.id ?? null}
-        patientName={appt.patient_name}
-        showBuilder={showBuilder}
-        setShowBuilder={setShowBuilder}
-      />
+      <QuotesForAppointment clinicId={clinicId} appointmentId={appt.id} intakeId={intake?.id ?? null} patientName={appt.patient_name} />
 
-      {galleryMode && (
-        <ClinicFlowPresentGallery
-          mode={galleryMode}
-          photos={(galleryMode === "before_after" ? beforeAfterPhotos : timelinePhotos) ?? []}
-          loading={galleryLoading}
-          onClose={() => setGalleryMode(null)}
+      {galleryOpen && (
+        <ClinicFlowTimelineGallery
+          photos={galleryPhotos ?? []}
+          onClose={() => setGalleryOpen(false)}
         />
       )}
     </div>
   );
 }
 
-function ToolPill({
-  icon, label, note, onClick, disabled, primary,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  note?: string;
-  onClick: () => void;
-  disabled?: boolean;
-  primary?: boolean;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        flex: "0 0 auto",
-        background: primary ? NAVY : disabled ? "#f4f6f9" : "#fff",
-        color: primary ? "#fff" : disabled ? "#a3adba" : NAVY,
-        border: primary ? "none" : `1px solid ${LINE}`,
-        padding: "10px 16px", borderRadius: 999, fontSize: 13, fontWeight: 700,
-        cursor: disabled ? "default" : "pointer",
-        display: "inline-flex", alignItems: "center", gap: 7,
-      }}
-    >
-      {icon} {label}
-      {note && (
-        <span style={{ fontSize: 10, fontWeight: 700, color: "#a3adba", textTransform: "uppercase", letterSpacing: 0.4 }}>
-          {note}
-        </span>
-      )}
-    </button>
-  );
-}
 
-function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName, showBuilder, setShowBuilder }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string; showBuilder: boolean; setShowBuilder: (v: boolean) => void }) {
+function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName }: { clinicId: string; appointmentId: string; intakeId: string | null; patientName: string }) {
   const [rows, setRows] = useState<Array<{ id: string; price: number; status: string; valid_until: string; created_at: string }>>([]);
   const [resolvedClinicId, setResolvedClinicId] = useState<string>(clinicId);
   const [tick, setTick] = useState(0);
+  const [showBuilder, setShowBuilder] = useState(false);
   const today = useMemo(() => sydneyTodayISO(), []);
 
   useEffect(() => {
@@ -383,6 +408,8 @@ function QuotesForAppointment({ clinicId, appointmentId, intakeId, patientName, 
     </div>
   );
 }
+
+
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

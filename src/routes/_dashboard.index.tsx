@@ -395,7 +395,6 @@ function DashboardHome() {
       }
       const breakdown: Array<{ clinicId: string; clinicName: string; remaining: number; total: number }> = [];
       for (const c of clinicsList) {
-        if ((c.clinic_name ?? "").toLowerCase().includes("clinicflow")) continue;
         const total = capacityByClinic.get(c.id) ?? 0;
         if (total === 0) continue;
         const booked = bookedByClinic.get(c.id) ?? 0;

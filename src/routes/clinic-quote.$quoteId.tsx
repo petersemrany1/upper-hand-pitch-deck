@@ -1,12 +1,13 @@
 import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
 import { APP_TIMEZONE } from "@/lib/timezone";
 import { toast } from "sonner";
-import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images, Lock } from "lucide-react";
+import { MoreVertical, ChevronLeft, MessageCircle, Mail, CheckCircle2, Clock, Images } from "lucide-react";
+import { clinicflowSignLogoUrl } from "@/utils/clinicflow.functions";
 import {
   bookClinicflowQuoteDate,
-  getPublicClinicflowQuote,
   recordClinicflowQuoteDeposit,
   sendClinicflowQuoteEmail,
 } from "@/lib/clinicflow-quotes.functions";
@@ -79,11 +80,19 @@ function transplantWarning(diagnosis: string) {
   );
 }
 
+function parseIncludes(text: string | null) {
+  if (!text) return [];
+  return text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^[-*•]\s*/, ""));
+}
 
 function QuotePage() {
   const { quoteId } = useParams({ from: "/clinic-quote/$quoteId" });
   const navigate = useNavigate();
-  const getQuote = useServerFn(getPublicClinicflowQuote);
+  const signLogo = useServerFn(clinicflowSignLogoUrl);
   const bookDate = useServerFn(bookClinicflowQuoteDate);
   const recordDep = useServerFn(recordClinicflowQuoteDeposit);
   const sendEmail = useServerFn(sendClinicflowQuoteEmail);
@@ -92,47 +101,53 @@ function QuotePage() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [clinicName, setClinicName] = useState<string>("");
-  const [clinicCity, setClinicCity] = useState<string | null>(null);
   const [patientPhone, setPatientPhone] = useState<string | null>(null);
   const [patientEmail, setPatientEmail] = useState<string | null>(null);
-  const [doctorName, setDoctorName] = useState<string | null>(null);
-  const [coolingOffDays, setCoolingOffDays] = useState<number>(7);
-
+  const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookModal, setBookModal] = useState(false);
   const [depositModal, setDepositModal] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryPhotos, setGalleryPhotos] = useState<GalleryPhoto[] | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [ctaSubmitting, setCtaSubmitting] = useState(false);
 
   const refresh = async () => {
-    try {
-      const result = await getQuote({ data: { quoteId } });
-      if (!result.quote) {
-        toast.error("Quote not found");
-        setQuote(null);
-        setLoading(false);
-        return;
-      }
-
-      setQuote(result.quote as Quote);
-      setClinicName(result.clinic?.name ?? "");
-      setClinicCity(result.clinic?.city ?? null);
-      setPatientPhone(result.patient.phone);
-      setPatientEmail(result.patient.email);
-      setDoctorName(result.settings.doctorName);
-      setCoolingOffDays(result.settings.coolingOffDays);
-      setLogoUrl(result.settings.logoUrl);
+    const { data: q, error } = await supabase
+      .from("clinicflow_quotes")
+      .select("*")
+      .eq("id", quoteId)
+      .maybeSingle();
+    if (error || !q) {
+      toast.error(error?.message ?? "Quote not found");
       setLoading(false);
-    } catch (error) {
-      setQuote(null);
-      setLoading(false);
-      toast.error(error instanceof Error ? error.message : "Could not load quote");
+      return;
     }
-  };
+    setQuote(q as Quote);
 
+    const [{ data: clinic }, { data: settings }, { data: appt }] = await Promise.all([
+      supabase.from("partner_clinics").select("clinic_name").eq("id", (q as Quote).clinic_id).maybeSingle(),
+      supabase.from("clinicflow_clinic_settings").select("logo_url, whatsapp_number").eq("clinic_id", (q as Quote).clinic_id).maybeSingle(),
+      supabase.from("clinic_appointments").select("patient_phone, patient_email").eq("id", (q as Quote).appointment_id).maybeSingle(),
+    ]);
+    if (clinic) setClinicName(clinic.clinic_name as string);
+    if (settings) {
+      setWhatsappNumber((settings.whatsapp_number as string | null) ?? null);
+    }
+    if (appt) {
+      setPatientPhone((appt.patient_phone as string | null) ?? null);
+      setPatientEmail((appt.patient_email as string | null) ?? null);
+    }
+
+    if (settings?.logo_url) {
+      try {
+        const res = await signLogo({ data: { clinicId: (q as Quote).clinic_id, path: settings.logo_url as string } });
+        setLogoUrl(res.url);
+      } catch {
+        setLogoUrl(null);
+      }
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     void refresh();
@@ -193,7 +208,7 @@ function QuotePage() {
 
 Diagnosis: ${quote.diagnosis}
 Recommended plan: FUE hair transplant${quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
-${quote.grafts ? `${quote.graft_unit === "hairs" ? "Hairs" : "Grafts"}: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
+${quote.grafts ? `Grafts: ${quote.grafts}\n` : ""}Price: ${fmt$(quote.price)} AUD
 ${quote.description ? `\n${quote.description}\n` : ""}
 Ways people pay: in full · deposit + balance before procedure day · finance options available.
 
@@ -203,31 +218,18 @@ Any questions, just message back.`;
     return `https://wa.me/${intl}?text=${encodeURIComponent(msg)}`;
   }
 
-  async function onSendEmail(to?: string) {
-    const recipient = (to ?? patientEmail ?? "").trim();
-    if (!recipient) {
+  async function onSendEmail() {
+    if (!patientEmail) {
       toast.error("No patient email on file");
       return;
     }
-    const res = await sendEmail({ data: { quoteId: quote!.id, to: recipient } });
+    const res = await sendEmail({ data: { quoteId: quote!.id, to: patientEmail } });
     if (res.success) toast.success("Email sent");
     else toast.error(res.error ?? "Failed");
   }
 
-
   const showWarning = transplantWarning(quote.diagnosis);
-  const firstName = quote.patient_name.split(" ")[0];
-  const docName = doctorName?.trim() || "your surgeon";
-  const unitLabel = quote.graft_unit === "hairs" ? "Hairs" : "Grafts";
-  const dateOptions = [quote.date_option_1, quote.date_option_2].filter(Boolean) as string[];
-  const weekly = quote.price > 0 ? Math.ceil(quote.price / (5 * 52) / 5) * 5 : 0;
-  const deposit = Math.round(quote.deposit_amount || 0);
-  const activeDate = quote.booked_date ?? selectedDate;
-  const ctaLabel = deposit > 0
-    ? `Secure my surgery date — ${fmt$(deposit)} deposit`
-    : "Secure my surgery date";
-
-
+  const includes = parseIncludes(quote.includes_text);
 
   return (
     <div className="min-h-screen bg-clinical-bg font-clinic-body relative">
@@ -283,28 +285,21 @@ Any questions, just message back.`;
               <div className="text-right">
                 <p className="text-[10px] uppercase text-clinical-muted font-semibold">Clinic</p>
                 <p className="text-sm font-medium text-clinical-text">{clinicName}</p>
-                {clinicCity && <p className="text-[11px] text-clinical-muted">{clinicCity}</p>}
               </div>
             </div>
           </div>
 
-          {/* Headline + assessment at a glance */}
-          <div className="px-6 pt-6 pb-5">
-            <h2 className="text-2xl font-semibold tracking-tight text-clinical-text font-clinic-heading">
-              {firstName}, your treatment plan
-            </h2>
-
-            <div className="grid grid-cols-3 gap-3 mt-5">
-              <SummaryTile label="Diagnosis" value={quote.diagnosis} />
-              <SummaryTile label="Norwood" value={quote.norwood ?? "—"} />
-              <SummaryTile
-                label={unitLabel}
-                value={quote.grafts != null ? quote.grafts.toLocaleString() : "TBC"}
-              />
+          {/* Clinical Assessment */}
+          <div className="p-6 bg-slate-50/50">
+            <h2 className="text-base font-semibold text-clinical-text mb-2 font-clinic-heading">Clinical Assessment</h2>
+            <div className="bg-white border border-clinical-line p-3 rounded-sm">
+              <p className="text-xs text-clinical-muted leading-relaxed">
+                {quote.diagnosis}
+                {quote.norwood ? ` · Norwood ${quote.norwood}` : ""}
+              </p>
             </div>
-
             {showWarning && (
-              <div className="mt-4 p-3 border rounded-sm bg-clinical-amber-fill border-clinical-amber/20">
+              <div className="mt-3 p-3 border rounded-sm bg-clinical-amber-fill border-clinical-amber/20">
                 <p className="text-xs text-clinical-amber leading-relaxed">
                   Transplant usually not suitable for this diagnosis — consider treatment or specialist referral first.
                 </p>
@@ -312,157 +307,142 @@ Any questions, just message back.`;
             )}
           </div>
 
-          {/* Investment + finance + deposit */}
-          <div className="px-6 py-6 border-t border-clinical-line bg-slate-50/60">
-            <div className="flex justify-between items-end">
-              <div>
-                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Total price</p>
-                <p className="text-3xl font-semibold text-clinical-text tracking-tight mt-1">{fmt$(quote.price)}</p>
+          {/* Procedure Description */}
+          {quote.description && (
+            <div className="px-6 py-5 bg-white border-t border-clinical-line">
+              <div className="prose prose-sm max-w-none text-clinical-muted text-sm leading-relaxed whitespace-pre-line">
+                {quote.description}
               </div>
             </div>
+          )}
 
-            <div className="mt-4">
-              <p className="text-[10px] uppercase text-clinical-muted font-semibold mb-2">Funding options</p>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="bg-white border border-clinical-line rounded-sm p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-clinical-muted font-semibold">Upfront</p>
-                  <p className="text-sm font-semibold text-clinical-text mt-1">{fmt$(quote.price)}</p>
-                  <p className="text-[11px] text-clinical-muted mt-0.5">Paid in full before surgery day.</p>
-                </div>
-                <div className="bg-white border border-clinical-line rounded-sm p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-clinical-muted font-semibold">Payment plan</p>
-                  <p className="text-sm font-semibold text-clinical-text mt-1">
-                    {weekly > 0 ? `from ${fmt$(weekly)}/week` : "Available"}
-                  </p>
-                  <p className="text-[11px] text-clinical-muted mt-0.5">5-year plan, subject to approval.</p>
-                </div>
-              </div>
+          {/* Recommended Plan */}
+          <div className="p-6 space-y-4">
+            <div className="flex justify-between items-end border-b border-clinical-line pb-2">
+              <h2 className="text-base font-semibold text-clinical-text font-clinic-heading">Recommended Plan</h2>
+              <span className="text-[10px] font-bold text-clinical-accent bg-clinical-accent-fill px-2 py-0.5 rounded-full uppercase">FUE Procedure</span>
             </div>
 
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-clinical-muted">Estimated Graft Count</span>
+              <span className="text-sm font-semibold text-clinical-text">
+                {quote.grafts != null ? `${quote.grafts.toLocaleString()} Grafts` : "To be confirmed at consult"}
+              </span>
+            </div>
 
+            {quote.norwood && (
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-clinical-muted">Norwood Scale</span>
+                <span className="text-sm font-semibold text-clinical-text">{quote.norwood}</span>
+              </div>
+            )}
 
-
-            {(quote.status === "booked" || quote.status === "deposit_recorded") && (
-              <div className="mt-4 text-center">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: GREEN_BG, color: GREEN }}>
-                  <CheckCircle2 size={14} /> {statusLabel}
-                </span>
+            {includes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold">Clinical Inclusions</p>
+                <ul className="text-xs text-clinical-muted space-y-1.5">
+                  {includes.map((line, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className="w-1 h-1 rounded-full bg-clinical-accent" />
+                      {line}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
 
-          {/* What's included — above the CTA */}
-          <div className="px-6 py-5 border-t border-clinical-line bg-white">
-            <h3 className="text-sm font-semibold text-clinical-text font-clinic-heading mb-2">What's included</h3>
-            <ul className="text-xs text-clinical-muted space-y-1.5">
-              {[
-                `Hairline design session with ${docName} before surgery day`,
-                `Full sapphire FUE procedure led by ${docName}`,
-                "Take-home aftercare kit",
-                "Follow-up reviews at 3, 6 and 12 months",
-                `Direct access to ${docName} if anything comes up`,
-              ].map((line, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <span className="w-1 h-1 rounded-full bg-clinical-accent" />
-                  {line}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Date selection + CTA */}
-          <div className="px-6 py-6 border-t border-clinical-line">
-            {quote.status === "booked" || quote.status === "deposit_recorded" ? (
-              <div
-                className="p-4 rounded-sm border text-center"
-                style={{ background: GREEN_BG, borderColor: GREEN, color: GREEN }}
-              >
-                <p className="text-sm font-semibold flex items-center justify-center gap-2">
-                  <CheckCircle2 size={16} />
-                  You're booked{quote.booked_date ? ` for ${fmtDate(quote.booked_date)}` : ""} — {clinicName || "the clinic"} will confirm within one business day.
-                </p>
+          {/* Investment & Scheduling */}
+          <div className="mt-auto border-t-2 border-clinical-line">
+            <div className="p-6 bg-white">
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-sm font-medium text-clinical-muted">Treatment Investment</span>
+                <span className="text-xl font-semibold text-clinical-text">{fmt$(quote.price)}</span>
               </div>
-            ) : (
-              <>
-                {dateOptions.length > 0 ? (
+
+              {(quote.status === "booked" || quote.status === "deposit_recorded") && (
+                <div className="mb-5 text-center">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: GREEN_BG, color: GREEN }}>
+                    <CheckCircle2 size={14} /> {statusLabel}
+                  </span>
+                </div>
+              )}
+              {(quote.status === "expired" || isExpired) && (
+                <div className="mb-5 text-center">
+                  <span className="inline-flex items-center gap-1.5 bg-clinical-amber-fill text-clinical-amber px-3 py-1.5 rounded-full text-xs font-semibold">
+                    <Clock size={14} /> Expired
+                  </span>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <p className="text-[10px] uppercase text-clinical-muted font-semibold text-center">
+                  Quote valid until {fmtDate(quote.valid_until)}
+                </p>
+
+                {!quote.booked_date && (quote.date_option_1 || quote.date_option_2) && (
                   <>
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-[10px] uppercase text-clinical-muted font-semibold">Choose your surgery date</p>
-                      <span className="text-[10px] font-bold uppercase text-clinical-amber bg-clinical-amber-fill px-2 py-0.5 rounded-full">
-                        Only {dateOptions.length} {dateOptions.length === 1 ? "date" : "dates"} left
-                      </span>
-                    </div>
-                    <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${dateOptions.length}, minmax(0, 1fr))` }}>
-                      {dateOptions.map((d) => {
-                        const on = selectedDate === d;
-                        return (
-                          <button
-                            key={d}
-                            onClick={() => setSelectedDate(on ? null : d)}
-                            className={`py-3 px-2 rounded-sm border text-sm font-semibold transition-colors ${
-                              on
-                                ? "border-clinical-text bg-clinical-accent-fill text-clinical-text"
-                                : "border-clinical-line bg-white text-clinical-text hover:bg-slate-50"
-                            }`}
-                          >
-                            <span className="block">{fmtDateCompact(d)}</span>
-                            <span className="block text-[10px] font-normal text-clinical-muted">
-                              {new Date(d + "T00:00:00").toLocaleDateString("en-AU", { weekday: "long", timeZone: APP_TIMEZONE })}
-                            </span>
-                          </button>
-                        );
-                      })}
+                    <p className="text-[10px] uppercase text-clinical-muted font-semibold text-center">Next Available Clinical Slots</p>
+                    <div className="flex gap-2 justify-center">
+                      {quote.date_option_1 && (
+                        <button
+                          onClick={() => setBookModal(true)}
+                          className="flex-1 py-2 px-1 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
+                        >
+                          {fmtDateCompact(quote.date_option_1)}
+                        </button>
+                      )}
+                      {quote.date_option_2 && (
+                        <button
+                          onClick={() => setBookModal(true)}
+                          className="flex-1 py-2 px-1 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors"
+                        >
+                          {fmtDateCompact(quote.date_option_2)}
+                        </button>
+                      )}
                     </div>
                   </>
-                ) : null}
+                )}
 
-                <p className="text-xs text-clinical-muted text-center mt-4">
-                  Pay your deposit and {clinicName || "the clinic"} will confirm your surgery date within one business day.
-                </p>
+                {quote.booked_date && (
+                  <div className="text-center p-2 bg-slate-50 rounded">
+                    <p className="text-[10px] uppercase text-clinical-muted font-semibold">Your procedure date</p>
+                    <p className="text-sm font-medium text-clinical-text">{fmtDate(quote.booked_date)}</p>
+                  </div>
+                )}
 
                 <button
-                  onClick={async () => {
-                    if (quote.status === "expired" || isExpired) {
-                      toast.error("This quote has expired — ask the clinic to re-issue it");
-                      return;
-                    }
-                    if (dateOptions.length > 0 && !selectedDate) {
-                      toast.error("Pick a date first");
-                      return;
-                    }
-                    setCtaSubmitting(true);
-                    try {
-                      await bookDate({ data: { quoteId: quote.id, bookedDate: selectedDate as string } });
-                      toast.success("Date locked in");
-                      await refresh();
-                    } catch (error) {
-                      toast.error(error instanceof Error ? error.message : "Could not book this date");
-                    } finally {
-                      setCtaSubmitting(false);
-                    }
-                  }}
-                  disabled={ctaSubmitting}
-                  className="w-full bg-clinical-text text-white py-4 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-3 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={() => (patientPhone ? window.open(waLink(), "_blank") : toast.error("No patient phone on file"))}
+                  disabled={!patientPhone}
+                  className="w-full bg-clinical-text text-white py-3.5 rounded-sm text-sm font-semibold tracking-wide hover:bg-slate-800 transition-colors mt-2 uppercase flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Lock size={16} /> {ctaSubmitting ? "Booking…" : ctaLabel}
+                  <MessageCircle size={16} /> Secure Treatment Plan
                 </button>
-              </>
-            )}
 
-            <p className="text-[11px] text-clinical-muted text-center mt-4 flex items-center justify-center gap-1.5">
-              <Clock size={12} />
-              {quote.status === "expired" || isExpired
-                ? "This quote has expired — message the clinic to have it re-issued."
-                : `This quote is valid until ${fmtDate(quote.valid_until)}.`}
-            </p>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => void onSendEmail()}
+                    disabled={!patientEmail}
+                    className="flex-1 py-2 px-3 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Mail size={14} /> Send via email
+                  </button>
+                  <button
+                    onClick={() => void openGallery()}
+                    className="flex-1 py-2 px-3 border border-clinical-line rounded text-[11px] font-medium text-clinical-text hover:bg-slate-50 transition-colors flex items-center justify-center gap-1"
+                  >
+                    <Images size={14} /> Timeline
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-clinical-muted text-center">
+                  Deposit required to confirm clinical space. Ways to pay: in full · deposit + balance · finance options available.
+                </p>
+              </div>
+            </div>
           </div>
-
-
         </div>
       </div>
-
-
-
 
       {bookModal && (
         <BookDateModal
@@ -507,18 +487,6 @@ Any questions, just message back.`;
     </div>
   );
 }
-
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-clinical-line rounded-sm p-3 bg-white">
-      <p className="text-[10px] uppercase text-clinical-muted font-semibold">{label}</p>
-      <p className="text-[13px] font-medium text-clinical-text leading-snug mt-0.5">{value}</p>
-    </div>
-  );
-}
-
-
-
 
 function MenuBtn({ label, onClick, icon }: { label: string; onClick: () => void; icon: React.ReactNode }) {
   return (
@@ -655,7 +623,6 @@ type Quote = {
   diagnosis: string;
   norwood: string | null;
   grafts: number | null;
-  graft_unit?: string | null;
   price: number;
   deposit_amount: number;
   description: string | null;
@@ -665,5 +632,5 @@ type Quote = {
   date_option_2: string | null;
   status: "draft" | "presented" | "booked" | "deposit_recorded" | "expired";
   booked_date: string | null;
-  deposit_recorded_at?: string | null;
+  deposit_recorded_at: string | null;
 };

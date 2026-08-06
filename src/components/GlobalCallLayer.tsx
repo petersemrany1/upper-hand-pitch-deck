@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect } from "react";
-import { useLocation } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { primeRingtoneAudio } from "@/utils/ringtone";
@@ -19,15 +18,7 @@ const FloatingCallWidget = lazy(() =>
 // calls land regardless of which page Peter is currently looking at.
 export function GlobalCallLayer() {
   const { session, ready, role } = useAuth();
-  const location = useLocation();
-  // Voice is a sales-dashboard feature. Keeping it off every non-dashboard
-  // route is important because auth role resolution is asynchronous: during
-  // an account switch, the previous admin role can briefly coexist with the
-  // new clinic session. That transient state used to invoke the sales-only
-  // voice-token function from /clinic-portal, producing a legitimate 403 that
-  // the runtime surfaced as a blank-screen error.
-  const isDashboardRoute = location.pathname === "/dashboard" || location.pathname.startsWith("/dashboard/");
-  const enabled = isDashboardRoute && ready && !!session && role === "admin";
+  const enabled = ready && !!session && role === "admin";
   useTwilioDevice(enabled);
 
   // Browsers block AudioContext playback until a user gesture. Prime both

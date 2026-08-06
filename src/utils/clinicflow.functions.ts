@@ -65,14 +65,10 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
       clinicId: string;
       logoUrl?: string | null;
       whatsappNumber?: string | null;
-      notificationEmail?: string | null;
-      emailNotificationsEnabled?: boolean;
       defaultDepositAmount?: number;
       quoteValidityDays?: number;
       kioskPin?: string;
       follicleModelUrl?: string | null;
-      doctorName?: string | null;
-      coolingOffDays?: number;
     }) => data,
   )
   .handler(async ({ data, context }) => {
@@ -81,30 +77,14 @@ export const updateClinicflowSettings = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = {};
     if (data.logoUrl !== undefined) patch.logo_url = data.logoUrl;
     if (data.whatsappNumber !== undefined) patch.whatsapp_number = data.whatsappNumber;
-    if (data.notificationEmail !== undefined) {
-      const email = data.notificationEmail?.trim() || null;
-      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address");
-      patch.notification_email = email;
-    }
-    if (data.emailNotificationsEnabled !== undefined) {
-      patch.email_notifications_enabled = !!data.emailNotificationsEnabled;
-    }
-
     if (data.defaultDepositAmount !== undefined) patch.default_deposit_amount = data.defaultDepositAmount;
     if (data.quoteValidityDays !== undefined) patch.quote_validity_days = data.quoteValidityDays;
     if (data.follicleModelUrl !== undefined) patch.follicle_model_url = data.follicleModelUrl;
-    if (data.doctorName !== undefined) patch.doctor_name = data.doctorName;
-    if (data.coolingOffDays !== undefined) {
-      const n = Number(data.coolingOffDays);
-      if (!Number.isFinite(n) || n < 0) throw new Error("Cooling-off days must be 0 or more");
-      patch.cooling_off_days = Math.round(n);
-    }
     if (data.kioskPin !== undefined) {
       const pin = String(data.kioskPin).trim();
       if (!/^\d{4,8}$/.test(pin)) throw new Error("Kiosk PIN must be 4-8 digits");
       patch.kiosk_pin = pin;
     }
-
     if (Object.keys(patch).length === 0) return { success: true as const };
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

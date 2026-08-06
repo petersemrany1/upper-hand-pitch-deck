@@ -1,1 +1,0 @@
-grant select, insert, update on public.internal_cron_config to sandbox_exec;
