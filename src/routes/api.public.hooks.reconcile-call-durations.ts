@@ -11,11 +11,33 @@ import { createClient } from "@supabase/supabase-js";
 export const Route = createFileRoute("/api/public/hooks/reconcile-call-durations")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        // Shared-secret gate: this endpoint is on a public route prefix, so it
+        // must authenticate the caller itself before doing any Twilio/DB work.
+        const expectedSecret =
+          process.env.INTERNAL_FUNCTION_SECRET ?? process.env.CLINICFLOW_CRON_SECRET;
+        if (!expectedSecret) {
+          return new Response(JSON.stringify({ error: "Server misconfigured" }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+        const cronAuthHeader = request.headers.get("authorization") ?? "";
+        const provided = cronAuthHeader.toLowerCase().startsWith("bearer ")
+          ? cronAuthHeader.slice(7).trim()
+          : (request.headers.get("x-internal-secret") ?? "").trim();
+        if (provided !== expectedSecret) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
         const supabaseUrl = process.env.SUPABASE_URL!;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
         const twilioSid = process.env.TWILIO_ACCOUNT_SID!;
         const twilioToken = process.env.TWILIO_AUTH_TOKEN!;
+
 
         if (!supabaseUrl || !serviceKey || !twilioSid || !twilioToken) {
           return new Response(
