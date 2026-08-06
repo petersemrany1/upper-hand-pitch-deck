@@ -9,74 +9,63 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ThankYouRouteImport } from './routes/thank-you'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
+import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
-import { Route as KioskAppointmentIdRouteImport } from './routes/kiosk.$appointmentId'
-import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
-import { Route as ClinicQuoteQuoteIdRouteImport } from './routes/clinic-quote.$quoteId'
-import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
-import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
-import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
-import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
-import { Route as DashboardSalesTestLeadsRouteImport } from './routes/_dashboard.sales-test-leads'
-import { Route as DashboardSalesCallTestRouteImport } from './routes/_dashboard.sales-call-test'
-import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
-import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
-import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
-import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
-import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
-import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
-import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
-import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
-import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
-import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
-import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dashboard.clinic-contact-review'
-import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
-import { Route as DashboardChaseQueueRouteImport } from './routes/_dashboard.chase-queue'
-import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
+import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
+import { Route as DashboardChaseQueueRouteImport } from './routes/_dashboard.chase-queue'
+import { Route as DashboardClientsRouteImport } from './routes/_dashboard.clients'
+import { Route as DashboardClinicContactReviewRouteImport } from './routes/_dashboard.clinic-contact-review'
+import { Route as DashboardClinicOwnerReviewRouteImport } from './routes/_dashboard.clinic-owner-review'
+import { Route as DashboardClinicsRouteImport } from './routes/_dashboard.clinics'
+import { Route as DashboardInboxRouteImport } from './routes/_dashboard.inbox'
+import { Route as DashboardLeaderboardRouteImport } from './routes/_dashboard.leaderboard'
+import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
+import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
+import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
+import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
+import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
+import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
+import { Route as DashboardSalesCallTestRouteImport } from './routes/_dashboard.sales-call-test'
+import { Route as DashboardSalesTestLeadsRouteImport } from './routes/_dashboard.sales-test-leads'
+import { Route as DashboardSentLinksRouteImport } from './routes/_dashboard.sent-links'
+import { Route as DashboardSettingsRouteImport } from './routes/_dashboard.settings'
+import { Route as DashboardTrainingRouteImport } from './routes/_dashboard.training'
+import { Route as ApiCoachStreamRouteImport } from './routes/api.coach-stream'
+import { Route as ClinicQuoteQuoteIdRouteImport } from './routes/clinic-quote.$quoteId'
+import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
+import { Route as KioskAppointmentIdRouteImport } from './routes/kiosk.$appointmentId'
 import { Route as DashboardTrainingIndexRouteImport } from './routes/_dashboard.training.index'
-import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
-import { Route as ApiPublicSamLeadsRouteImport } from './routes/api.public.sam-leads'
-import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
-import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
-import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
-import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
-import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
-import { Route as DashboardTrainingPracticeCallRouteImport } from './routes/_dashboard.training.practice-call'
-import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
-import { Route as DashboardTrainingKnowledgeQuizRouteImport } from './routes/_dashboard.training.knowledge-quiz'
-import { Route as DashboardTrainingConsultationVideosRouteImport } from './routes/_dashboard.training.consultation-videos'
-import { Route as DashboardTrainingCallCoachingRouteImport } from './routes/_dashboard.training.call-coaching'
-import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
 import { Route as DashboardTrainingAiRouteImport } from './routes/_dashboard.training.ai'
+import { Route as DashboardTrainingAudienceRouteImport } from './routes/_dashboard.training.audience'
+import { Route as DashboardTrainingCallCoachingRouteImport } from './routes/_dashboard.training.call-coaching'
+import { Route as DashboardTrainingConsultationVideosRouteImport } from './routes/_dashboard.training.consultation-videos'
+import { Route as DashboardTrainingKnowledgeQuizRouteImport } from './routes/_dashboard.training.knowledge-quiz'
+import { Route as DashboardTrainingPlatformRouteImport } from './routes/_dashboard.training.platform'
+import { Route as DashboardTrainingPracticeCallRouteImport } from './routes/_dashboard.training.practice-call'
+import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/_dashboard.training.product-knowledge'
+import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
+import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
+import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
+import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
+import { Route as ApiPublicSamLeadsRouteImport } from './routes/api.public.sam-leads'
+import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './routes/_dashboard.training.sales-framework.index'
-import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
-import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
-import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
-import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
-import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
-import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
-import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
 import { Route as ApiPublicHooksEnqueuePracticeRecordingRouteImport } from './routes/api.public.hooks.enqueue-practice-recording'
+import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
+import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
+import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
+import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
+import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 
-const ThankYouRoute = ThankYouRouteImport.update({
-  id: '/thank-you',
-  path: '/thank-you',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/_dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ClinicPortalRoute = ClinicPortalRouteImport.update({
@@ -84,8 +73,19 @@ const ClinicPortalRoute = ClinicPortalRouteImport.update({
   path: '/clinic-portal',
   getParentRoute: () => rootRouteImport,
 } as any).lazy(() => import('./routes/clinic-portal.lazy').then((d) => d.Route))
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/_dashboard',
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ThankYouRoute = ThankYouRouteImport.update({
+  id: '/thank-you',
+  path: '/thank-you',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
@@ -93,75 +93,59 @@ const DashboardIndexRoute = DashboardIndexRouteImport.update({
   path: '/',
   getParentRoute: () => DashboardRoute,
 } as any)
-const KioskAppointmentIdRoute = KioskAppointmentIdRouteImport.update({
-  id: '/kiosk/$appointmentId',
-  path: '/kiosk/$appointmentId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
-  id: '/email/unsubscribe',
-  path: '/email/unsubscribe',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClinicQuoteQuoteIdRoute = ClinicQuoteQuoteIdRouteImport.update({
-  id: '/clinic-quote/$quoteId',
-  path: '/clinic-quote/$quoteId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
-  id: '/api/coach-stream',
-  path: '/api/coach-stream',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardTrainingRoute = DashboardTrainingRouteImport.update({
-  id: '/training',
-  path: '/training',
+const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
+const DashboardBookedAppointmentsRoute =
+  DashboardBookedAppointmentsRouteImport.update({
+    id: '/booked-appointments',
+    path: '/booked-appointments',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardChaseQueueRoute = DashboardChaseQueueRouteImport.update({
+  id: '/chase-queue',
+  path: '/chase-queue',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
-  id: '/sent-links',
-  path: '/sent-links',
+const DashboardClientsRoute = DashboardClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardSalesTestLeadsRoute = DashboardSalesTestLeadsRouteImport.update({
-  id: '/sales-test-leads',
-  path: '/sales-test-leads',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardSalesCallTestRoute = DashboardSalesCallTestRouteImport.update({
-  id: '/sales-call-test',
-  path: '/sales-call-test',
+const DashboardClinicContactReviewRoute =
+  DashboardClinicContactReviewRouteImport.update({
+    id: '/clinic-contact-review',
+    path: '/clinic-contact-review',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardClinicOwnerReviewRoute =
+  DashboardClinicOwnerReviewRouteImport.update({
+    id: '/clinic-owner-review',
+    path: '/clinic-owner-review',
+    getParentRoute: () => DashboardRoute,
+  } as any)
+const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
+  id: '/clinics',
+  path: '/clinics',
   getParentRoute: () => DashboardRoute,
 } as any).lazy(() =>
-  import('./routes/_dashboard.sales-call-test.lazy').then((d) => d.Route),
+  import('./routes/_dashboard.clinics.lazy').then((d) => d.Route),
 )
-const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
-  id: '/sales-call',
-  path: '/sales-call',
-  getParentRoute: () => DashboardRoute,
-} as any).lazy(() =>
-  import('./routes/_dashboard.sales-call.lazy').then((d) => d.Route),
-)
-const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
-  id: '/pitch-deck',
-  path: '/pitch-deck',
+const DashboardInboxRoute = DashboardInboxRouteImport.update({
+  id: '/inbox',
+  path: '/inbox',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
-  id: '/partner-clinics',
-  path: '/partner-clinics',
+const DashboardLeaderboardRoute = DashboardLeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => DashboardRoute,
-} as any).lazy(() =>
-  import('./routes/_dashboard.partner-clinics.lazy').then((d) => d.Route),
-)
-const DashboardLogsRoute = DashboardLogsRouteImport.update({
-  id: '/logs',
-  path: '/logs',
+} as any)
+const DashboardLeadsRoute = DashboardLeadsRouteImport.update({
+  id: '/leads',
+  path: '/leads',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardLetterCampaignRoute = DashboardLetterCampaignRouteImport.update({
@@ -171,102 +155,115 @@ const DashboardLetterCampaignRoute = DashboardLetterCampaignRouteImport.update({
 } as any).lazy(() =>
   import('./routes/_dashboard.letter-campaign.lazy').then((d) => d.Route),
 )
-const DashboardLeadsRoute = DashboardLeadsRouteImport.update({
-  id: '/leads',
-  path: '/leads',
+const DashboardLogsRoute = DashboardLogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardLeaderboardRoute = DashboardLeaderboardRouteImport.update({
-  id: '/leaderboard',
-  path: '/leaderboard',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardInboxRoute = DashboardInboxRouteImport.update({
-  id: '/inbox',
-  path: '/inbox',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardClinicsRoute = DashboardClinicsRouteImport.update({
-  id: '/clinics',
-  path: '/clinics',
+const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
+  id: '/partner-clinics',
+  path: '/partner-clinics',
   getParentRoute: () => DashboardRoute,
 } as any).lazy(() =>
-  import('./routes/_dashboard.clinics.lazy').then((d) => d.Route),
+  import('./routes/_dashboard.partner-clinics.lazy').then((d) => d.Route),
 )
-const DashboardClinicOwnerReviewRoute =
-  DashboardClinicOwnerReviewRouteImport.update({
-    id: '/clinic-owner-review',
-    path: '/clinic-owner-review',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardClinicContactReviewRoute =
-  DashboardClinicContactReviewRouteImport.update({
-    id: '/clinic-contact-review',
-    path: '/clinic-contact-review',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardClientsRoute = DashboardClientsRouteImport.update({
-  id: '/clients',
-  path: '/clients',
+const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
+  id: '/pitch-deck',
+  path: '/pitch-deck',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardChaseQueueRoute = DashboardChaseQueueRouteImport.update({
-  id: '/chase-queue',
-  path: '/chase-queue',
+const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
+  id: '/sales-call',
+  path: '/sales-call',
+  getParentRoute: () => DashboardRoute,
+} as any).lazy(() =>
+  import('./routes/_dashboard.sales-call.lazy').then((d) => d.Route),
+)
+const DashboardSalesCallTestRoute = DashboardSalesCallTestRouteImport.update({
+  id: '/sales-call-test',
+  path: '/sales-call-test',
+  getParentRoute: () => DashboardRoute,
+} as any).lazy(() =>
+  import('./routes/_dashboard.sales-call-test.lazy').then((d) => d.Route),
+)
+const DashboardSalesTestLeadsRoute = DashboardSalesTestLeadsRouteImport.update({
+  id: '/sales-test-leads',
+  path: '/sales-test-leads',
   getParentRoute: () => DashboardRoute,
 } as any)
-const DashboardBookedAppointmentsRoute =
-  DashboardBookedAppointmentsRouteImport.update({
-    id: '/booked-appointments',
-    path: '/booked-appointments',
-    getParentRoute: () => DashboardRoute,
-  } as any)
-const DashboardAnalyticsRoute = DashboardAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
+const DashboardSentLinksRoute = DashboardSentLinksRouteImport.update({
+  id: '/sent-links',
+  path: '/sent-links',
   getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardSettingsRoute = DashboardSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardTrainingRoute = DashboardTrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const ApiCoachStreamRoute = ApiCoachStreamRouteImport.update({
+  id: '/api/coach-stream',
+  path: '/api/coach-stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ClinicQuoteQuoteIdRoute = ClinicQuoteQuoteIdRouteImport.update({
+  id: '/clinic-quote/$quoteId',
+  path: '/clinic-quote/$quoteId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
+  id: '/email/unsubscribe',
+  path: '/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KioskAppointmentIdRoute = KioskAppointmentIdRouteImport.update({
+  id: '/kiosk/$appointmentId',
+  path: '/kiosk/$appointmentId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardTrainingIndexRoute = DashboardTrainingIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => DashboardTrainingRoute,
 } as any)
-const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
-  id: '/lovable/email/suppression',
-  path: '/lovable/email/suppression',
-  getParentRoute: () => rootRouteImport,
+const DashboardTrainingAiRoute = DashboardTrainingAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => DashboardTrainingRoute,
 } as any)
-const ApiPublicSamLeadsRoute = ApiPublicSamLeadsRouteImport.update({
-  id: '/api/public/sam-leads',
-  path: '/api/public/sam-leads',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
-  id: '/api/public/meta-leads',
-  path: '/api/public/meta-leads',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicClinicLeadsRoute = ApiPublicClinicLeadsRouteImport.update({
-  id: '/api/public/clinic-leads',
-  path: '/api/public/clinic-leads',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardTrainingSalesCallExampleRoute =
-  DashboardTrainingSalesCallExampleRouteImport.update({
-    id: '/sales-call-example',
-    path: '/sales-call-example',
+const DashboardTrainingAudienceRoute =
+  DashboardTrainingAudienceRouteImport.update({
+    id: '/audience',
+    path: '/audience',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
-const DashboardTrainingReadAlongRoute =
-  DashboardTrainingReadAlongRouteImport.update({
-    id: '/read-along',
-    path: '/read-along',
+const DashboardTrainingCallCoachingRoute =
+  DashboardTrainingCallCoachingRouteImport.update({
+    id: '/call-coaching',
+    path: '/call-coaching',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
-const DashboardTrainingProductKnowledgeRoute =
-  DashboardTrainingProductKnowledgeRouteImport.update({
-    id: '/product-knowledge',
-    path: '/product-knowledge',
+const DashboardTrainingConsultationVideosRoute =
+  DashboardTrainingConsultationVideosRouteImport.update({
+    id: '/consultation-videos',
+    path: '/consultation-videos',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any)
+const DashboardTrainingKnowledgeQuizRoute =
+  DashboardTrainingKnowledgeQuizRouteImport.update({
+    id: '/knowledge-quiz',
+    path: '/knowledge-quiz',
+    getParentRoute: () => DashboardTrainingRoute,
+  } as any)
+const DashboardTrainingPlatformRoute =
+  DashboardTrainingPlatformRouteImport.update({
+    id: '/platform',
+    path: '/platform',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
 const DashboardTrainingPracticeCallRoute =
@@ -279,40 +276,43 @@ const DashboardTrainingPracticeCallRoute =
       (d) => d.Route,
     ),
   )
-const DashboardTrainingPlatformRoute =
-  DashboardTrainingPlatformRouteImport.update({
-    id: '/platform',
-    path: '/platform',
+const DashboardTrainingProductKnowledgeRoute =
+  DashboardTrainingProductKnowledgeRouteImport.update({
+    id: '/product-knowledge',
+    path: '/product-knowledge',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
-const DashboardTrainingKnowledgeQuizRoute =
-  DashboardTrainingKnowledgeQuizRouteImport.update({
-    id: '/knowledge-quiz',
-    path: '/knowledge-quiz',
+const DashboardTrainingReadAlongRoute =
+  DashboardTrainingReadAlongRouteImport.update({
+    id: '/read-along',
+    path: '/read-along',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
-const DashboardTrainingConsultationVideosRoute =
-  DashboardTrainingConsultationVideosRouteImport.update({
-    id: '/consultation-videos',
-    path: '/consultation-videos',
+const DashboardTrainingSalesCallExampleRoute =
+  DashboardTrainingSalesCallExampleRouteImport.update({
+    id: '/sales-call-example',
+    path: '/sales-call-example',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
-const DashboardTrainingCallCoachingRoute =
-  DashboardTrainingCallCoachingRouteImport.update({
-    id: '/call-coaching',
-    path: '/call-coaching',
-    getParentRoute: () => DashboardTrainingRoute,
-  } as any)
-const DashboardTrainingAudienceRoute =
-  DashboardTrainingAudienceRouteImport.update({
-    id: '/audience',
-    path: '/audience',
-    getParentRoute: () => DashboardTrainingRoute,
-  } as any)
-const DashboardTrainingAiRoute = DashboardTrainingAiRouteImport.update({
-  id: '/ai',
-  path: '/ai',
-  getParentRoute: () => DashboardTrainingRoute,
+const ApiPublicClinicLeadsRoute = ApiPublicClinicLeadsRouteImport.update({
+  id: '/api/public/clinic-leads',
+  path: '/api/public/clinic-leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
+  id: '/api/public/meta-leads',
+  path: '/api/public/meta-leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSamLeadsRoute = ApiPublicSamLeadsRouteImport.update({
+  id: '/api/public/sam-leads',
+  path: '/api/public/sam-leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
+  id: '/lovable/email/suppression',
+  path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardTrainingSalesFrameworkIndexRoute =
   DashboardTrainingSalesFrameworkIndexRouteImport.update({
@@ -320,40 +320,10 @@ const DashboardTrainingSalesFrameworkIndexRoute =
     path: '/sales-framework/',
     getParentRoute: () => DashboardTrainingRoute,
   } as any)
-const LovableEmailTransactionalSendRoute =
-  LovableEmailTransactionalSendRouteImport.update({
-    id: '/lovable/email/transactional/send',
-    path: '/lovable/email/transactional/send',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const LovableEmailTransactionalPreviewRoute =
-  LovableEmailTransactionalPreviewRouteImport.update({
-    id: '/lovable/email/transactional/preview',
-    path: '/lovable/email/transactional/preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const LovableEmailQueueProcessRoute =
-  LovableEmailQueueProcessRouteImport.update({
-    id: '/lovable/email/queue/process',
-    path: '/lovable/email/queue/process',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksTwilioMessageStatusRoute =
-  ApiPublicHooksTwilioMessageStatusRouteImport.update({
-    id: '/api/public/hooks/twilio-message-status',
-    path: '/api/public/hooks/twilio-message-status',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksStripeDepositRoute =
-  ApiPublicHooksStripeDepositRouteImport.update({
-    id: '/api/public/hooks/stripe-deposit',
-    path: '/api/public/hooks/stripe-deposit',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicHooksReconcileCallDurationsRoute =
-  ApiPublicHooksReconcileCallDurationsRouteImport.update({
-    id: '/api/public/hooks/reconcile-call-durations',
-    path: '/api/public/hooks/reconcile-call-durations',
+const ApiPublicHooksEnqueuePracticeRecordingRoute =
+  ApiPublicHooksEnqueuePracticeRecordingRouteImport.update({
+    id: '/api/public/hooks/enqueue-practice-recording',
+    path: '/api/public/hooks/enqueue-practice-recording',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksProcessPracticeRecordingsRoute =
@@ -362,10 +332,40 @@ const ApiPublicHooksProcessPracticeRecordingsRoute =
     path: '/api/public/hooks/process-practice-recordings',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksEnqueuePracticeRecordingRoute =
-  ApiPublicHooksEnqueuePracticeRecordingRouteImport.update({
-    id: '/api/public/hooks/enqueue-practice-recording',
-    path: '/api/public/hooks/enqueue-practice-recording',
+const ApiPublicHooksReconcileCallDurationsRoute =
+  ApiPublicHooksReconcileCallDurationsRouteImport.update({
+    id: '/api/public/hooks/reconcile-call-durations',
+    path: '/api/public/hooks/reconcile-call-durations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksStripeDepositRoute =
+  ApiPublicHooksStripeDepositRouteImport.update({
+    id: '/api/public/hooks/stripe-deposit',
+    path: '/api/public/hooks/stripe-deposit',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicHooksTwilioMessageStatusRoute =
+  ApiPublicHooksTwilioMessageStatusRouteImport.update({
+    id: '/api/public/hooks/twilio-message-status',
+    path: '/api/public/hooks/twilio-message-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LovableEmailTransactionalSendRoute =
+  LovableEmailTransactionalSendRouteImport.update({
+    id: '/lovable/email/transactional/send',
+    path: '/lovable/email/transactional/send',
     getParentRoute: () => rootRouteImport,
   } as any)
 
@@ -729,25 +729,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/thank-you': {
-      id: '/thank-you'
-      path: '/thank-you'
-      fullPath: '/thank-you'
-      preLoaderRoute: typeof ThankYouRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/_dashboard': {
+      id: '/_dashboard'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/clinic-portal': {
@@ -757,11 +743,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ClinicPortalRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_dashboard': {
-      id: '/_dashboard'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/thank-you': {
+      id: '/thank-you'
+      path: '/thank-you'
+      fullPath: '/thank-you'
+      preLoaderRoute: typeof ThankYouRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/': {
@@ -771,158 +771,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardIndexRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/kiosk/$appointmentId': {
-      id: '/kiosk/$appointmentId'
-      path: '/kiosk/$appointmentId'
-      fullPath: '/kiosk/$appointmentId'
-      preLoaderRoute: typeof KioskAppointmentIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/email/unsubscribe': {
-      id: '/email/unsubscribe'
-      path: '/email/unsubscribe'
-      fullPath: '/email/unsubscribe'
-      preLoaderRoute: typeof EmailUnsubscribeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/clinic-quote/$quoteId': {
-      id: '/clinic-quote/$quoteId'
-      path: '/clinic-quote/$quoteId'
-      fullPath: '/clinic-quote/$quoteId'
-      preLoaderRoute: typeof ClinicQuoteQuoteIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/coach-stream': {
-      id: '/api/coach-stream'
-      path: '/api/coach-stream'
-      fullPath: '/api/coach-stream'
-      preLoaderRoute: typeof ApiCoachStreamRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_dashboard/training': {
-      id: '/_dashboard/training'
-      path: '/training'
-      fullPath: '/training'
-      preLoaderRoute: typeof DashboardTrainingRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/settings': {
-      id: '/_dashboard/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof DashboardSettingsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sent-links': {
-      id: '/_dashboard/sent-links'
-      path: '/sent-links'
-      fullPath: '/sent-links'
-      preLoaderRoute: typeof DashboardSentLinksRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sales-test-leads': {
-      id: '/_dashboard/sales-test-leads'
-      path: '/sales-test-leads'
-      fullPath: '/sales-test-leads'
-      preLoaderRoute: typeof DashboardSalesTestLeadsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sales-call-test': {
-      id: '/_dashboard/sales-call-test'
-      path: '/sales-call-test'
-      fullPath: '/sales-call-test'
-      preLoaderRoute: typeof DashboardSalesCallTestRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/sales-call': {
-      id: '/_dashboard/sales-call'
-      path: '/sales-call'
-      fullPath: '/sales-call'
-      preLoaderRoute: typeof DashboardSalesCallRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/pitch-deck': {
-      id: '/_dashboard/pitch-deck'
-      path: '/pitch-deck'
-      fullPath: '/pitch-deck'
-      preLoaderRoute: typeof DashboardPitchDeckRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/partner-clinics': {
-      id: '/_dashboard/partner-clinics'
-      path: '/partner-clinics'
-      fullPath: '/partner-clinics'
-      preLoaderRoute: typeof DashboardPartnerClinicsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/logs': {
-      id: '/_dashboard/logs'
-      path: '/logs'
-      fullPath: '/logs'
-      preLoaderRoute: typeof DashboardLogsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/letter-campaign': {
-      id: '/_dashboard/letter-campaign'
-      path: '/letter-campaign'
-      fullPath: '/letter-campaign'
-      preLoaderRoute: typeof DashboardLetterCampaignRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/leads': {
-      id: '/_dashboard/leads'
-      path: '/leads'
-      fullPath: '/leads'
-      preLoaderRoute: typeof DashboardLeadsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/leaderboard': {
-      id: '/_dashboard/leaderboard'
-      path: '/leaderboard'
-      fullPath: '/leaderboard'
-      preLoaderRoute: typeof DashboardLeaderboardRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/inbox': {
-      id: '/_dashboard/inbox'
-      path: '/inbox'
-      fullPath: '/inbox'
-      preLoaderRoute: typeof DashboardInboxRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/clinics': {
-      id: '/_dashboard/clinics'
-      path: '/clinics'
-      fullPath: '/clinics'
-      preLoaderRoute: typeof DashboardClinicsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/clinic-owner-review': {
-      id: '/_dashboard/clinic-owner-review'
-      path: '/clinic-owner-review'
-      fullPath: '/clinic-owner-review'
-      preLoaderRoute: typeof DashboardClinicOwnerReviewRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/clinic-contact-review': {
-      id: '/_dashboard/clinic-contact-review'
-      path: '/clinic-contact-review'
-      fullPath: '/clinic-contact-review'
-      preLoaderRoute: typeof DashboardClinicContactReviewRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/clients': {
-      id: '/_dashboard/clients'
-      path: '/clients'
-      fullPath: '/clients'
-      preLoaderRoute: typeof DashboardClientsRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/chase-queue': {
-      id: '/_dashboard/chase-queue'
-      path: '/chase-queue'
-      fullPath: '/chase-queue'
-      preLoaderRoute: typeof DashboardChaseQueueRouteImport
+    '/_dashboard/analytics': {
+      id: '/_dashboard/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof DashboardAnalyticsRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/booked-appointments': {
@@ -932,109 +785,165 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardBookedAppointmentsRouteImport
       parentRoute: typeof DashboardRoute
     }
-    '/_dashboard/analytics': {
-      id: '/_dashboard/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof DashboardAnalyticsRouteImport
+    '/_dashboard/chase-queue': {
+      id: '/_dashboard/chase-queue'
+      path: '/chase-queue'
+      fullPath: '/chase-queue'
+      preLoaderRoute: typeof DashboardChaseQueueRouteImport
       parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/clients': {
+      id: '/_dashboard/clients'
+      path: '/clients'
+      fullPath: '/clients'
+      preLoaderRoute: typeof DashboardClientsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/clinic-contact-review': {
+      id: '/_dashboard/clinic-contact-review'
+      path: '/clinic-contact-review'
+      fullPath: '/clinic-contact-review'
+      preLoaderRoute: typeof DashboardClinicContactReviewRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/clinic-owner-review': {
+      id: '/_dashboard/clinic-owner-review'
+      path: '/clinic-owner-review'
+      fullPath: '/clinic-owner-review'
+      preLoaderRoute: typeof DashboardClinicOwnerReviewRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/clinics': {
+      id: '/_dashboard/clinics'
+      path: '/clinics'
+      fullPath: '/clinics'
+      preLoaderRoute: typeof DashboardClinicsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/inbox': {
+      id: '/_dashboard/inbox'
+      path: '/inbox'
+      fullPath: '/inbox'
+      preLoaderRoute: typeof DashboardInboxRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/leaderboard': {
+      id: '/_dashboard/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof DashboardLeaderboardRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/leads': {
+      id: '/_dashboard/leads'
+      path: '/leads'
+      fullPath: '/leads'
+      preLoaderRoute: typeof DashboardLeadsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/letter-campaign': {
+      id: '/_dashboard/letter-campaign'
+      path: '/letter-campaign'
+      fullPath: '/letter-campaign'
+      preLoaderRoute: typeof DashboardLetterCampaignRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/logs': {
+      id: '/_dashboard/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof DashboardLogsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/partner-clinics': {
+      id: '/_dashboard/partner-clinics'
+      path: '/partner-clinics'
+      fullPath: '/partner-clinics'
+      preLoaderRoute: typeof DashboardPartnerClinicsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/pitch-deck': {
+      id: '/_dashboard/pitch-deck'
+      path: '/pitch-deck'
+      fullPath: '/pitch-deck'
+      preLoaderRoute: typeof DashboardPitchDeckRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sales-call': {
+      id: '/_dashboard/sales-call'
+      path: '/sales-call'
+      fullPath: '/sales-call'
+      preLoaderRoute: typeof DashboardSalesCallRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sales-call-test': {
+      id: '/_dashboard/sales-call-test'
+      path: '/sales-call-test'
+      fullPath: '/sales-call-test'
+      preLoaderRoute: typeof DashboardSalesCallTestRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sales-test-leads': {
+      id: '/_dashboard/sales-test-leads'
+      path: '/sales-test-leads'
+      fullPath: '/sales-test-leads'
+      preLoaderRoute: typeof DashboardSalesTestLeadsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/sent-links': {
+      id: '/_dashboard/sent-links'
+      path: '/sent-links'
+      fullPath: '/sent-links'
+      preLoaderRoute: typeof DashboardSentLinksRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/settings': {
+      id: '/_dashboard/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof DashboardSettingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/training': {
+      id: '/_dashboard/training'
+      path: '/training'
+      fullPath: '/training'
+      preLoaderRoute: typeof DashboardTrainingRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/api/coach-stream': {
+      id: '/api/coach-stream'
+      path: '/api/coach-stream'
+      fullPath: '/api/coach-stream'
+      preLoaderRoute: typeof ApiCoachStreamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/clinic-quote/$quoteId': {
+      id: '/clinic-quote/$quoteId'
+      path: '/clinic-quote/$quoteId'
+      fullPath: '/clinic-quote/$quoteId'
+      preLoaderRoute: typeof ClinicQuoteQuoteIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/email/unsubscribe': {
+      id: '/email/unsubscribe'
+      path: '/email/unsubscribe'
+      fullPath: '/email/unsubscribe'
+      preLoaderRoute: typeof EmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kiosk/$appointmentId': {
+      id: '/kiosk/$appointmentId'
+      path: '/kiosk/$appointmentId'
+      fullPath: '/kiosk/$appointmentId'
+      preLoaderRoute: typeof KioskAppointmentIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_dashboard/training/': {
       id: '/_dashboard/training/'
       path: '/'
       fullPath: '/training/'
       preLoaderRoute: typeof DashboardTrainingIndexRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/lovable/email/suppression': {
-      id: '/lovable/email/suppression'
-      path: '/lovable/email/suppression'
-      fullPath: '/lovable/email/suppression'
-      preLoaderRoute: typeof LovableEmailSuppressionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/sam-leads': {
-      id: '/api/public/sam-leads'
-      path: '/api/public/sam-leads'
-      fullPath: '/api/public/sam-leads'
-      preLoaderRoute: typeof ApiPublicSamLeadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/meta-leads': {
-      id: '/api/public/meta-leads'
-      path: '/api/public/meta-leads'
-      fullPath: '/api/public/meta-leads'
-      preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/clinic-leads': {
-      id: '/api/public/clinic-leads'
-      path: '/api/public/clinic-leads'
-      fullPath: '/api/public/clinic-leads'
-      preLoaderRoute: typeof ApiPublicClinicLeadsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_dashboard/training/sales-call-example': {
-      id: '/_dashboard/training/sales-call-example'
-      path: '/sales-call-example'
-      fullPath: '/training/sales-call-example'
-      preLoaderRoute: typeof DashboardTrainingSalesCallExampleRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/read-along': {
-      id: '/_dashboard/training/read-along'
-      path: '/read-along'
-      fullPath: '/training/read-along'
-      preLoaderRoute: typeof DashboardTrainingReadAlongRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/product-knowledge': {
-      id: '/_dashboard/training/product-knowledge'
-      path: '/product-knowledge'
-      fullPath: '/training/product-knowledge'
-      preLoaderRoute: typeof DashboardTrainingProductKnowledgeRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/practice-call': {
-      id: '/_dashboard/training/practice-call'
-      path: '/practice-call'
-      fullPath: '/training/practice-call'
-      preLoaderRoute: typeof DashboardTrainingPracticeCallRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/platform': {
-      id: '/_dashboard/training/platform'
-      path: '/platform'
-      fullPath: '/training/platform'
-      preLoaderRoute: typeof DashboardTrainingPlatformRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/knowledge-quiz': {
-      id: '/_dashboard/training/knowledge-quiz'
-      path: '/knowledge-quiz'
-      fullPath: '/training/knowledge-quiz'
-      preLoaderRoute: typeof DashboardTrainingKnowledgeQuizRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/consultation-videos': {
-      id: '/_dashboard/training/consultation-videos'
-      path: '/consultation-videos'
-      fullPath: '/training/consultation-videos'
-      preLoaderRoute: typeof DashboardTrainingConsultationVideosRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/call-coaching': {
-      id: '/_dashboard/training/call-coaching'
-      path: '/call-coaching'
-      fullPath: '/training/call-coaching'
-      preLoaderRoute: typeof DashboardTrainingCallCoachingRouteImport
-      parentRoute: typeof DashboardTrainingRoute
-    }
-    '/_dashboard/training/audience': {
-      id: '/_dashboard/training/audience'
-      path: '/audience'
-      fullPath: '/training/audience'
-      preLoaderRoute: typeof DashboardTrainingAudienceRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
     '/_dashboard/training/ai': {
@@ -1044,6 +953,97 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingAiRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
+    '/_dashboard/training/audience': {
+      id: '/_dashboard/training/audience'
+      path: '/audience'
+      fullPath: '/training/audience'
+      preLoaderRoute: typeof DashboardTrainingAudienceRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/call-coaching': {
+      id: '/_dashboard/training/call-coaching'
+      path: '/call-coaching'
+      fullPath: '/training/call-coaching'
+      preLoaderRoute: typeof DashboardTrainingCallCoachingRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/consultation-videos': {
+      id: '/_dashboard/training/consultation-videos'
+      path: '/consultation-videos'
+      fullPath: '/training/consultation-videos'
+      preLoaderRoute: typeof DashboardTrainingConsultationVideosRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/knowledge-quiz': {
+      id: '/_dashboard/training/knowledge-quiz'
+      path: '/knowledge-quiz'
+      fullPath: '/training/knowledge-quiz'
+      preLoaderRoute: typeof DashboardTrainingKnowledgeQuizRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/platform': {
+      id: '/_dashboard/training/platform'
+      path: '/platform'
+      fullPath: '/training/platform'
+      preLoaderRoute: typeof DashboardTrainingPlatformRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/practice-call': {
+      id: '/_dashboard/training/practice-call'
+      path: '/practice-call'
+      fullPath: '/training/practice-call'
+      preLoaderRoute: typeof DashboardTrainingPracticeCallRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/product-knowledge': {
+      id: '/_dashboard/training/product-knowledge'
+      path: '/product-knowledge'
+      fullPath: '/training/product-knowledge'
+      preLoaderRoute: typeof DashboardTrainingProductKnowledgeRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/read-along': {
+      id: '/_dashboard/training/read-along'
+      path: '/read-along'
+      fullPath: '/training/read-along'
+      preLoaderRoute: typeof DashboardTrainingReadAlongRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/_dashboard/training/sales-call-example': {
+      id: '/_dashboard/training/sales-call-example'
+      path: '/sales-call-example'
+      fullPath: '/training/sales-call-example'
+      preLoaderRoute: typeof DashboardTrainingSalesCallExampleRouteImport
+      parentRoute: typeof DashboardTrainingRoute
+    }
+    '/api/public/clinic-leads': {
+      id: '/api/public/clinic-leads'
+      path: '/api/public/clinic-leads'
+      fullPath: '/api/public/clinic-leads'
+      preLoaderRoute: typeof ApiPublicClinicLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/meta-leads': {
+      id: '/api/public/meta-leads'
+      path: '/api/public/meta-leads'
+      fullPath: '/api/public/meta-leads'
+      preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/sam-leads': {
+      id: '/api/public/sam-leads'
+      path: '/api/public/sam-leads'
+      fullPath: '/api/public/sam-leads'
+      preLoaderRoute: typeof ApiPublicSamLeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/suppression': {
+      id: '/lovable/email/suppression'
+      path: '/lovable/email/suppression'
+      fullPath: '/lovable/email/suppression'
+      preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_dashboard/training/sales-framework/': {
       id: '/_dashboard/training/sales-framework/'
       path: '/sales-framework'
@@ -1051,46 +1051,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardTrainingSalesFrameworkIndexRouteImport
       parentRoute: typeof DashboardTrainingRoute
     }
-    '/lovable/email/transactional/send': {
-      id: '/lovable/email/transactional/send'
-      path: '/lovable/email/transactional/send'
-      fullPath: '/lovable/email/transactional/send'
-      preLoaderRoute: typeof LovableEmailTransactionalSendRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lovable/email/transactional/preview': {
-      id: '/lovable/email/transactional/preview'
-      path: '/lovable/email/transactional/preview'
-      fullPath: '/lovable/email/transactional/preview'
-      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/lovable/email/queue/process': {
-      id: '/lovable/email/queue/process'
-      path: '/lovable/email/queue/process'
-      fullPath: '/lovable/email/queue/process'
-      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/twilio-message-status': {
-      id: '/api/public/hooks/twilio-message-status'
-      path: '/api/public/hooks/twilio-message-status'
-      fullPath: '/api/public/hooks/twilio-message-status'
-      preLoaderRoute: typeof ApiPublicHooksTwilioMessageStatusRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/stripe-deposit': {
-      id: '/api/public/hooks/stripe-deposit'
-      path: '/api/public/hooks/stripe-deposit'
-      fullPath: '/api/public/hooks/stripe-deposit'
-      preLoaderRoute: typeof ApiPublicHooksStripeDepositRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/reconcile-call-durations': {
-      id: '/api/public/hooks/reconcile-call-durations'
-      path: '/api/public/hooks/reconcile-call-durations'
-      fullPath: '/api/public/hooks/reconcile-call-durations'
-      preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
+    '/api/public/hooks/enqueue-practice-recording': {
+      id: '/api/public/hooks/enqueue-practice-recording'
+      path: '/api/public/hooks/enqueue-practice-recording'
+      fullPath: '/api/public/hooks/enqueue-practice-recording'
+      preLoaderRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/process-practice-recordings': {
@@ -1100,11 +1065,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksProcessPracticeRecordingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/enqueue-practice-recording': {
-      id: '/api/public/hooks/enqueue-practice-recording'
-      path: '/api/public/hooks/enqueue-practice-recording'
-      fullPath: '/api/public/hooks/enqueue-practice-recording'
-      preLoaderRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRouteImport
+    '/api/public/hooks/reconcile-call-durations': {
+      id: '/api/public/hooks/reconcile-call-durations'
+      path: '/api/public/hooks/reconcile-call-durations'
+      fullPath: '/api/public/hooks/reconcile-call-durations'
+      preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/stripe-deposit': {
+      id: '/api/public/hooks/stripe-deposit'
+      path: '/api/public/hooks/stripe-deposit'
+      fullPath: '/api/public/hooks/stripe-deposit'
+      preLoaderRoute: typeof ApiPublicHooksStripeDepositRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/twilio-message-status': {
+      id: '/api/public/hooks/twilio-message-status'
+      path: '/api/public/hooks/twilio-message-status'
+      fullPath: '/api/public/hooks/twilio-message-status'
+      preLoaderRoute: typeof ApiPublicHooksTwilioMessageStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/transactional/send': {
+      id: '/lovable/email/transactional/send'
+      path: '/lovable/email/transactional/send'
+      fullPath: '/lovable/email/transactional/send'
+      preLoaderRoute: typeof LovableEmailTransactionalSendRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -1229,3 +1229,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
