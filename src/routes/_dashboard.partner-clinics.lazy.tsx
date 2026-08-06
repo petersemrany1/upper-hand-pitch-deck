@@ -192,64 +192,6 @@ function PartnerClinicsPage() {
               />
               Show inactive
             </label>
-            {isAdmin && (
-              <>
-                <button
-                  onClick={async () => {
-                    if (creatingTestClinic) return;
-                    if (!confirm("Create a ClinicFlow test clinic and link it to your account?")) return;
-                    setCreatingTestClinic(true);
-                    try {
-                      const res = await createTestClinic();
-                      if (res.success) {
-                        if (res.alreadyExisted) {
-                          toast.message(`Test clinic already exists — "${res.clinicName}"`, {
-                            description: "Open /clinic-portal to view it.",
-                          });
-                        } else {
-                          toast.success(`Created "${res.clinicName}" — open /clinic-portal to test`);
-                        }
-                        setShowInactive(true); // ensure it's visible regardless of active state
-                        await load();
-                      } else {
-                        toast.error("Failed to create test clinic");
-                      }
-                    } catch (e) {
-                      const msg = e instanceof Error ? e.message : String(e);
-                      toast.error(`Test clinic error: ${msg}`);
-                      console.error("clinicflowCreateTestClinic failed", e);
-                    } finally {
-                      setCreatingTestClinic(false);
-                    }
-                  }}
-                  disabled={creatingTestClinic}
-                  className="flex items-center gap-2 rounded-[8px]"
-                  style={{ background: "#fff", color: "#1a3a6b", border: "0.5px solid #1a3a6b", fontSize: 12, fontWeight: 500, padding: "10px 14px", opacity: creatingTestClinic ? 0.6 : 1 }}
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                  {creatingTestClinic ? "Creating…" : "Create ClinicFlow test clinic"}
-                </button>
-                <button
-                  onClick={async () => {
-                    setStripeDiag(null);
-                    setStripeDiagLoading(true);
-                    try {
-                      const res = await runStripeDiag();
-                      setStripeDiag(res);
-                    } catch (e) {
-                      setStripeDiag({ __error: e instanceof Error ? e.message : String(e) });
-                    } finally {
-                      setStripeDiagLoading(false);
-                    }
-                  }}
-                  disabled={stripeDiagLoading}
-                  className="rounded-[8px]"
-                  style={{ background: "#fff", color: "#111", border: "0.5px solid #ddd", fontSize: 12, fontWeight: 500, padding: "10px 14px", opacity: stripeDiagLoading ? 0.6 : 1 }}
-                >
-                  {stripeDiagLoading ? "Probing Stripe…" : "Stripe diagnostics"}
-                </button>
-              </>
-            )}
             <button
               onClick={() => setClinicPanel({ mode: "create", data: { ...emptyClinic } })}
               className="flex items-center gap-2 rounded-[8px]"
