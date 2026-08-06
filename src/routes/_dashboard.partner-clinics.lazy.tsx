@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ClinicPortalView } from "@/components/ClinicPortalView";
 import { useAuth } from "@/hooks/useAuth";
 import { DAY_NAMES } from "@/lib/slot-generation";
-import { listClinicflowStatuses, clinicflowCreateTestClinic, clinicflowStripeDiagnostics } from "@/utils/clinicflow.functions";
+import { listClinicflowStatuses } from "@/utils/clinicflow.functions";
 
 export const Route = createLazyFileRoute("/_dashboard/partner-clinics")({
   component: PartnerClinicsPage,
