@@ -477,25 +477,6 @@ function PartnerClinicsPage() {
       {invitePanel && (
         <InviteClinicLoginPanel clinic={invitePanel} onClose={() => setInvitePanel(null)} />
       )}
-      {stripeDiag && (
-        <div
-          onClick={() => setStripeDiag(null)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 12, padding: 24, maxWidth: 720, width: "100%", maxHeight: "85vh", overflow: "auto", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12 }}
-          >
-            <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, fontFamily: "system-ui" }}>Stripe diagnostics</div>
-              <button onClick={() => setStripeDiag(null)} style={{ background: "transparent", border: "none", cursor: "pointer" }}><X className="h-4 w-4" /></button>
-            </div>
-            <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", background: "#f7f7f7", padding: 14, borderRadius: 8, margin: 0 }}>
-{JSON.stringify(stripeDiag, null, 2)}
-            </pre>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
