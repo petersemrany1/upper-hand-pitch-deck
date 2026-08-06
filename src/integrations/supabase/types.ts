@@ -719,15 +719,80 @@ export type Database = {
           },
         ]
       }
+      clinicflow_chase_requests: {
+        Row: {
+          appointment_id: string
+          clinic_id: string
+          created_at: string
+          done_at: string | null
+          id: string
+          note: string | null
+          patient_name: string
+          quote_id: string | null
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          appointment_id: string
+          clinic_id: string
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          note?: string | null
+          patient_name: string
+          quote_id?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          appointment_id?: string
+          clinic_id?: string
+          created_at?: string
+          done_at?: string | null
+          id?: string
+          note?: string | null
+          patient_name?: string
+          quote_id?: string | null
+          requested_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_chase_requests_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_chase_requests_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "clinicflow_quotes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinicflow_clinic_settings: {
         Row: {
           clinic_id: string
+          cooling_off_days: number
           created_at: string
           default_deposit_amount: number
+          doctor_name: string | null
+          email_notifications_enabled: boolean
           follicle_model_url: string | null
           id: string
           kiosk_pin: string
           logo_url: string | null
+          notification_email: string | null
           quote_validity_days: number
           stripe_account_id: string | null
           stripe_charges_enabled: boolean
@@ -737,12 +802,16 @@ export type Database = {
         }
         Insert: {
           clinic_id: string
+          cooling_off_days?: number
           created_at?: string
           default_deposit_amount?: number
+          doctor_name?: string | null
+          email_notifications_enabled?: boolean
           follicle_model_url?: string | null
           id?: string
           kiosk_pin?: string
           logo_url?: string | null
+          notification_email?: string | null
           quote_validity_days?: number
           stripe_account_id?: string | null
           stripe_charges_enabled?: boolean
@@ -752,12 +821,16 @@ export type Database = {
         }
         Update: {
           clinic_id?: string
+          cooling_off_days?: number
           created_at?: string
           default_deposit_amount?: number
+          doctor_name?: string | null
+          email_notifications_enabled?: boolean
           follicle_model_url?: string | null
           id?: string
           kiosk_pin?: string
           logo_url?: string | null
+          notification_email?: string | null
           quote_validity_days?: number
           stripe_account_id?: string | null
           stripe_charges_enabled?: boolean
@@ -951,6 +1024,60 @@ export type Database = {
           },
         ]
       }
+      clinicflow_pipeline_status: {
+        Row: {
+          appointment_id: string
+          clinic_id: string
+          created_at: string
+          id: string
+          lost_at: string | null
+          lost_note: string | null
+          lost_reason: string | null
+          next_followup_date: string | null
+          next_followup_note: string | null
+          updated_at: string
+        }
+        Insert: {
+          appointment_id: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+          lost_at?: string | null
+          lost_note?: string | null
+          lost_reason?: string | null
+          next_followup_date?: string | null
+          next_followup_note?: string | null
+          updated_at?: string
+        }
+        Update: {
+          appointment_id?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          lost_at?: string | null
+          lost_note?: string | null
+          lost_reason?: string | null
+          next_followup_date?: string | null
+          next_followup_note?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinicflow_pipeline_status_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinicflow_quotes: {
         Row: {
           appointment_id: string
@@ -965,6 +1092,7 @@ export type Database = {
           deposit_recorded_at: string | null
           description: string | null
           diagnosis: string
+          graft_unit: string
           grafts: number | null
           id: string
           includes_text: string | null
@@ -990,6 +1118,7 @@ export type Database = {
           deposit_recorded_at?: string | null
           description?: string | null
           diagnosis: string
+          graft_unit?: string
           grafts?: number | null
           id?: string
           includes_text?: string | null
@@ -1015,6 +1144,7 @@ export type Database = {
           deposit_recorded_at?: string | null
           description?: string | null
           diagnosis?: string
+          graft_unit?: string
           grafts?: number | null
           id?: string
           includes_text?: string | null
@@ -1353,6 +1483,27 @@ export type Database = {
         }
         Relationships: []
       }
+      internal_cron_config: {
+        Row: {
+          created_at: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       meta_leads: {
         Row: {
           ad_name: string | null
@@ -1504,6 +1655,7 @@ export type Database = {
           address: string | null
           city: string | null
           clinic_name: string
+          clinicflow_enabled: boolean
           consult_price_deposit: number | null
           consult_price_original: number | null
           created_at: string
@@ -1523,6 +1675,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name: string
+          clinicflow_enabled?: boolean
           consult_price_deposit?: number | null
           consult_price_original?: number | null
           created_at?: string
@@ -1542,6 +1695,7 @@ export type Database = {
           address?: string | null
           city?: string | null
           clinic_name?: string
+          clinicflow_enabled?: boolean
           consult_price_deposit?: number | null
           consult_price_original?: number | null
           created_at?: string
