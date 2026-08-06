@@ -99,12 +99,7 @@ function PartnerClinicsPage() {
 
   type ClinicflowStatus = { clinic_id: string; stripe_account_id: string | null; stripe_details_submitted: boolean; stripe_charges_enabled: boolean };
   const [clinicflowStatuses, setClinicflowStatuses] = useState<Record<string, ClinicflowStatus>>({});
-  const [creatingTestClinic, setCreatingTestClinic] = useState(false);
   const listStatuses = useServerFn(listClinicflowStatuses);
-  const createTestClinic = useServerFn(clinicflowCreateTestClinic);
-  const runStripeDiag = useServerFn(clinicflowStripeDiagnostics);
-  const [stripeDiag, setStripeDiag] = useState<null | Awaited<ReturnType<typeof clinicflowStripeDiagnostics>> | { __error: string }>(null);
-  const [stripeDiagLoading, setStripeDiagLoading] = useState(false);
 
   const load = async () => {
     setLoading(true);
