@@ -22,9 +22,9 @@ export const Route = createFileRoute("/api/public/hooks/reconcile-call-durations
             headers: { "Content-Type": "application/json" },
           });
         }
-        const authHeader = request.headers.get("authorization") ?? "";
-        const provided = authHeader.toLowerCase().startsWith("bearer ")
-          ? authHeader.slice(7).trim()
+        const cronAuthHeader = request.headers.get("authorization") ?? "";
+        const provided = cronAuthHeader.toLowerCase().startsWith("bearer ")
+          ? cronAuthHeader.slice(7).trim()
           : (request.headers.get("x-internal-secret") ?? "").trim();
         if (provided !== expectedSecret) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
