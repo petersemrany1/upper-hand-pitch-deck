@@ -202,13 +202,17 @@ function KioskPage() {
     setShowPinPrompt(true);
   };
 
-  const submitPin = () => {
-    if (pinAttempt.trim() === String(kioskPin).trim()) {
-      navigate({ to: "/clinic-portal" });
-    } else {
-      setPinError("Wrong PIN.");
+  const submitPin = async () => {
+    setPinError(null);
+    try {
+      const res = await verifyKioskPin({ data: { appointmentId, pin: pinAttempt.trim() } });
+      if (res?.ok) navigate({ to: "/clinic-portal" });
+      else setPinError("Wrong PIN.");
+    } catch {
+      setPinError("Could not verify PIN. Try again.");
     }
   };
+
 
   const progress = useMemo(() => {
     return [0, 1, 2, 3].map((i) => ({ i, active: i === step, done: i < step }));
