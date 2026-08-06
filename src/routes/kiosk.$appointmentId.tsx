@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { verifyKioskPin } from "@/utils/kiosk-pin.functions";
 import { HAIR_QUESTIONS, WELLBEING_QUESTIONS, computeWellbeingReview } from "@/components/ClinicFlowToday";
 import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Lock } from "lucide-react";
 
@@ -71,7 +72,6 @@ function KioskPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [appt, setAppt] = useState<Appt | null>(null);
   const [intakeId, setIntakeId] = useState<string | null>(null);
-  const [kioskPin, setKioskPin] = useState<string>("0000");
 
   const [step, setStep] = useState(0); // 0..3 (3 = done)
   const [details, setDetails] = useState<Details>(emptyDetails());
@@ -100,13 +100,12 @@ function KioskPage() {
       }
       setAppt(apptRow as Appt);
 
-      const [{ data: intakeRow }, { data: settingsRow }] = await Promise.all([
-        supabase.from("clinicflow_intakes").select("*").eq("appointment_id", appointmentId).maybeSingle(),
-        supabase.from("clinicflow_clinic_settings").select("kiosk_pin").eq("clinic_id", apptRow.clinic_id).maybeSingle(),
-      ]);
+      const { data: intakeRow } = await supabase
+        .from("clinicflow_intakes")
+        .select("*")
+        .eq("appointment_id", appointmentId)
+        .maybeSingle();
       if (cancelled) return;
-
-      if (settingsRow?.kiosk_pin) setKioskPin(String(settingsRow.kiosk_pin));
 
       if (intakeRow) {
         const r = intakeRow as unknown as Intake;
@@ -202,13 +201,17 @@ function KioskPage() {
     setShowPinPrompt(true);
   };
 
-  const submitPin = () => {
-    if (pinAttempt.trim() === String(kioskPin).trim()) {
-      navigate({ to: "/clinic-portal" });
-    } else {
-      setPinError("Wrong PIN.");
+  const submitPin = async () => {
+    setPinError(null);
+    try {
+      const res = await verifyKioskPin({ data: { appointmentId, pin: pinAttempt.trim() } });
+      if (res?.ok) navigate({ to: "/clinic-portal" });
+      else setPinError("Wrong PIN.");
+    } catch {
+      setPinError("Could not verify PIN. Try again.");
     }
   };
+
 
   const progress = useMemo(() => {
     return [0, 1, 2, 3].map((i) => ({ i, active: i === step, done: i < step }));
