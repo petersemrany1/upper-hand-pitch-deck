@@ -2433,6 +2433,7 @@ export type Database = {
       is_admin_user: { Args: never; Returns: boolean }
       is_clinic_setter_user: { Args: never; Returns: boolean }
       is_clinic_user_for: { Args: { _clinic_id: string }; Returns: boolean }
+      jwt_email_trusted: { Args: never; Returns: string }
       meta_lead_classify: { Args: { _prior: string }; Returns: string }
       meta_lead_close_siblings: { Args: { _booked: string }; Returns: number }
       meta_lead_prior_id: {
