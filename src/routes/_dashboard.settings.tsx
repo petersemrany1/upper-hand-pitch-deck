@@ -104,6 +104,8 @@ function SettingsPage() {
           {isAdmin && <TeamSection />}
           {isAdmin && <TrainingProgressSection />}
           {isAdmin && <PhoneNumbersSection />}
+          {isAdmin && <LeadRoutingSection />}
+
           <AccountSection user={user} />
           <NotificationsSection defaultEmail={user?.email ?? null} />
           {isAdmin && <BookingPricesSection />}
