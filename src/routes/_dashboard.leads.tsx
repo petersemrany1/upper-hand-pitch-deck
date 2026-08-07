@@ -213,7 +213,26 @@ function LeadsPage() {
   const mySalesRepId = reps.find((r) => (r.email ?? "").toLowerCase() === myEmail)?.id ?? null;
   void mySalesRepId;
 
+  // Dismissed "needs attention" enquiries (per browser, so the red banner can
+  // actually be cleared once the rep has checked the existing booking).
+  const [dismissedAttention, setDismissedAttention] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("leads.dismissedAttention");
+      if (raw) setDismissedAttention(new Set(JSON.parse(raw) as string[]));
+    } catch { /* ignore */ }
+  }, []);
+  const dismissAttention = (id: string) => {
+    setDismissedAttention((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem("leads.dismissedAttention", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  };
+
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
+
   const toggleStatusGroup = (s: string) => {
     setCollapsedStatuses((prev) => {
       const next = new Set(prev);
@@ -300,7 +319,9 @@ function LeadsPage() {
   // Leads from someone who already has an upcoming appointment never enter the
   // call queue — they surface in a separate "Needs attention" tray instead, so
   // no rep can cold call a patient who is already booked in.
-  const needsAttention = queueRows.filter((r) => r.lead_class === "booked_active");
+  const needsAttention = queueRows.filter(
+    (r) => r.lead_class === "booked_active" && !dismissedAttention.has(r.id),
+  );
   const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
 
 
@@ -719,9 +740,33 @@ function LeadsPage() {
                   <span className="text-xs text-[#666]">{r.phone ?? "—"}</span>
                   <span className="text-xs text-[#666]">re-submitted {fmtDate(r.created_at)}</span>
                   <span className="text-xs text-[#dc2626] font-medium">{r.lead_class_reason}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <a
+                      href={`/booked-appointments?q=${encodeURIComponent(
+                        [r.first_name, r.last_name].filter(Boolean).join(" ") || r.phone || "",
+                      )}`}
+                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
+                    >
+                      View booking
+                    </a>
+                    <button
+                      onClick={() => openEdit(r)}
+                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
+                    >
+                      Open lead
+                    </button>
+                    <button
+                      onClick={() => dismissAttention(r.id)}
+                      title="Hide this notice"
+                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#666] hover:text-[#111]"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+
           </div>
         )}
 
