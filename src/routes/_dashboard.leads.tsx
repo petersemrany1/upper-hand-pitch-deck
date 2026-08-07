@@ -4,6 +4,8 @@ import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, C
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { deleteBookedDuplicateLeads } from "@/lib/lead-dedupe.functions";
+
 
 export const Route = createFileRoute("/_dashboard/leads")({
   component: LeadsPage,
