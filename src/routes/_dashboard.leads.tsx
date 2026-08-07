@@ -213,23 +213,10 @@ function LeadsPage() {
   const mySalesRepId = reps.find((r) => (r.email ?? "").toLowerCase() === myEmail)?.id ?? null;
   void mySalesRepId;
 
-  // Dismissed "needs attention" enquiries (per browser, so the red banner can
-  // actually be cleared once the rep has checked the existing booking).
-  const [dismissedAttention, setDismissedAttention] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("leads.dismissedAttention");
-      if (raw) setDismissedAttention(new Set(JSON.parse(raw) as string[]));
-    } catch { /* ignore */ }
-  }, []);
-  const dismissAttention = (id: string) => {
-    setDismissedAttention((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      try { localStorage.setItem("leads.dismissedAttention", JSON.stringify([...next])); } catch { /* ignore */ }
-      return next;
-    });
-  };
+  // Duplicate enquiries from patients who already have an active booking are
+  // deleted automatically — the booked lead row stays, the extra one goes.
+  const purgingRef = useRef<Set<string>>(new Set());
+
 
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
 
