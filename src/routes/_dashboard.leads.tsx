@@ -4,6 +4,8 @@ import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, C
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { deleteBookedDuplicateLeads } from "@/lib/lead-dedupe.functions";
+
 
 export const Route = createFileRoute("/_dashboard/leads")({
   component: LeadsPage,
@@ -213,23 +215,10 @@ function LeadsPage() {
   const mySalesRepId = reps.find((r) => (r.email ?? "").toLowerCase() === myEmail)?.id ?? null;
   void mySalesRepId;
 
-  // Dismissed "needs attention" enquiries (per browser, so the red banner can
-  // actually be cleared once the rep has checked the existing booking).
-  const [dismissedAttention, setDismissedAttention] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("leads.dismissedAttention");
-      if (raw) setDismissedAttention(new Set(JSON.parse(raw) as string[]));
-    } catch { /* ignore */ }
-  }, []);
-  const dismissAttention = (id: string) => {
-    setDismissedAttention((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      try { localStorage.setItem("leads.dismissedAttention", JSON.stringify([...next])); } catch { /* ignore */ }
-      return next;
-    });
-  };
+  // Duplicate enquiries from patients who already have an active booking are
+  // deleted automatically — the booked lead row stays, the extra one goes.
+  const purgingRef = useRef<Set<string>>(new Set());
+
 
   const [collapsedStatuses, setCollapsedStatuses] = useState<Set<string>>(new Set());
 
@@ -316,13 +305,25 @@ function LeadsPage() {
   ]);
   const queueRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
 
-  // Leads from someone who already has an upcoming appointment never enter the
-  // call queue — they surface in a separate "Needs attention" tray instead, so
-  // no rep can cold call a patient who is already booked in.
-  const needsAttention = queueRows.filter(
-    (r) => r.lead_class === "booked_active" && !dismissedAttention.has(r.id),
-  );
+  // A re-enquiry from a patient who already has an upcoming appointment is an
+  // extra duplicate row — delete it automatically and keep the booked lead.
+  const bookedDuplicates = queueRows.filter((r) => r.lead_class === "booked_active");
   const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
+
+  useEffect(() => {
+    const ids = bookedDuplicates.map((r) => r.id).filter((id) => !purgingRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => purgingRef.current.add(id));
+    void (async () => {
+      try {
+        await deleteBookedDuplicateLeads({ data: { ids } });
+        await load();
+      } catch {
+        ids.forEach((id) => purgingRef.current.delete(id));
+      }
+    })();
+  }, [bookedDuplicates.map((r) => r.id).join(",")]);
+
 
 
   const locationOf = (r: Lead) => deriveLocation(r) ?? UNKNOWN_LOC;
@@ -714,61 +715,8 @@ function LeadsPage() {
           )}
         </div>
 
-        {needsAttention.length > 0 && (
-          <div className="mb-4 rounded-lg border border-[#fecaca] bg-[#fef2f2] p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#dc2626] text-white">
-                Needs attention
-              </span>
-              <span className="text-sm font-semibold text-[#111111]">
-                {needsAttention.length} enquir{needsAttention.length === 1 ? "y" : "ies"} from patients already booked in
-              </span>
-            </div>
-            <p className="text-xs text-[#7f1d1d] mb-3">
-              These are held out of the call queue. They usually mean the patient wants to change something — check the
-              existing booking rather than calling them as a new lead.
-            </p>
-            <div className="space-y-1.5">
-              {needsAttention.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-white border border-[#fecaca] px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-[#111111]">
-                    {[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}
-                  </span>
-                  <span className="text-xs text-[#666]">{r.phone ?? "—"}</span>
-                  <span className="text-xs text-[#666]">re-submitted {fmtDate(r.created_at)}</span>
-                  <span className="text-xs text-[#dc2626] font-medium">{r.lead_class_reason}</span>
-                  <div className="ml-auto flex items-center gap-2">
-                    <a
-                      href={`/booked-appointments?q=${encodeURIComponent(
-                        [r.first_name, r.last_name].filter(Boolean).join(" ") || r.phone || "",
-                      )}`}
-                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
-                    >
-                      View booking
-                    </a>
-                    <button
-                      onClick={() => openEdit(r)}
-                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
-                    >
-                      Open lead
-                    </button>
-                    <button
-                      onClick={() => dismissAttention(r.id)}
-                      title="Hide this notice"
-                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#666] hover:text-[#111]"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
 
-          </div>
-        )}
+
 
 
         <div className="rounded-lg border border-[#ebebeb] overflow-visible" style={{ background: "#f9f9f9" }}>
