@@ -175,6 +175,31 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  // Lead routing: auto-assign brand new leads to the owner set in Settings.
+  // Runs before insert so the lead never sits unassigned in the queue.
+  try {
+    const { data: routing } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "lead_routing")
+      .maybeSingle();
+    const cfg = (routing?.value ?? null) as
+      | { enabled?: boolean; mode?: string; rep_id?: string | null }
+      | null;
+    if (cfg?.enabled && cfg.rep_id) {
+      const { data: rep } = await supabase
+        .from("sales_reps")
+        .select("id, is_active")
+        .eq("id", cfg.rep_id)
+        .maybeSingle();
+      if (rep?.id && rep.is_active !== false) {
+        (row as Record<string, unknown>).rep_id = rep.id;
+      }
+    }
+  } catch (e) {
+    console.error("meta-leads routing lookup failed:", e);
+  }
+
   const { data, error } = await supabase
     .from("meta_leads")
     .insert([row])
@@ -204,7 +229,7 @@ Deno.serve(async (req: Request) => {
       if (emailLower) orParts.push(`email.ilike.${emailLower}`);
       const { data: prior } = await supabase
         .from("meta_leads")
-        .select("id, phone, email, created_at")
+        .select("id, phone, email, rep_id, created_at")
         .neq("id", data.id)
         .or(orParts.join(","))
         .order("created_at", { ascending: false })
@@ -216,12 +241,16 @@ Deno.serve(async (req: Request) => {
         return phoneMatch || emailMatch;
       });
       if (match?.id) {
-        await supabase.from("meta_leads").update({ previous_lead_id: match.id }).eq("id", data.id);
+        // Returning enquiry: keep it with whoever already owns the patient.
+        const patch: Record<string, unknown> = { previous_lead_id: match.id };
+        if (match.rep_id) patch.rep_id = match.rep_id;
+        await supabase.from("meta_leads").update(patch).eq("id", data.id);
       }
     }
   } catch (e) {
     console.error("meta-leads previous_lead_id link failed:", e);
   }
+
 
   return jsonResponse({ success: true, id: data.id }, 201);
 });
