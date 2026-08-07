@@ -319,7 +319,9 @@ function LeadsPage() {
   // Leads from someone who already has an upcoming appointment never enter the
   // call queue — they surface in a separate "Needs attention" tray instead, so
   // no rep can cold call a patient who is already booked in.
-  const needsAttention = queueRows.filter((r) => r.lead_class === "booked_active");
+  const needsAttention = queueRows.filter(
+    (r) => r.lead_class === "booked_active" && !dismissedAttention.has(r.id),
+  );
   const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
 
 
