@@ -740,9 +740,33 @@ function LeadsPage() {
                   <span className="text-xs text-[#666]">{r.phone ?? "—"}</span>
                   <span className="text-xs text-[#666]">re-submitted {fmtDate(r.created_at)}</span>
                   <span className="text-xs text-[#dc2626] font-medium">{r.lead_class_reason}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <a
+                      href={`/booked-appointments?q=${encodeURIComponent(
+                        [r.first_name, r.last_name].filter(Boolean).join(" ") || r.phone || "",
+                      )}`}
+                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
+                    >
+                      View booking
+                    </a>
+                    <button
+                      onClick={() => openEdit(r)}
+                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
+                    >
+                      Open lead
+                    </button>
+                    <button
+                      onClick={() => dismissAttention(r.id)}
+                      title="Hide this notice"
+                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#666] hover:text-[#111]"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
+
           </div>
         )}
 
