@@ -17,6 +17,8 @@ import { Mic, CalendarCheck, Play, Pause } from "lucide-react";
 import { TrainingProgressSection } from "@/components/settings/TrainingProgressSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { PhoneNumbersSection } from "@/components/settings/PhoneNumbersSection";
+import { LeadRoutingSection } from "@/components/settings/LeadRoutingSection";
+
 
 
 // NOTE: These exports are consumed by the protected pitch deck route
