@@ -303,13 +303,25 @@ function LeadsPage() {
   ]);
   const queueRows = rows.filter((r) => !HIDDEN_STATUSES.has((r.status ?? "").trim()));
 
-  // Leads from someone who already has an upcoming appointment never enter the
-  // call queue — they surface in a separate "Needs attention" tray instead, so
-  // no rep can cold call a patient who is already booked in.
-  const needsAttention = queueRows.filter(
-    (r) => r.lead_class === "booked_active" && !dismissedAttention.has(r.id),
-  );
+  // A re-enquiry from a patient who already has an upcoming appointment is an
+  // extra duplicate row — delete it automatically and keep the booked lead.
+  const bookedDuplicates = queueRows.filter((r) => r.lead_class === "booked_active");
   const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
+
+  useEffect(() => {
+    const ids = bookedDuplicates.map((r) => r.id).filter((id) => !purgingRef.current.has(id));
+    if (ids.length === 0) return;
+    ids.forEach((id) => purgingRef.current.add(id));
+    void (async () => {
+      try {
+        await deleteBookedDuplicateLeads({ data: { ids } });
+        await load();
+      } catch {
+        ids.forEach((id) => purgingRef.current.delete(id));
+      }
+    })();
+  }, [bookedDuplicates.map((r) => r.id).join(",")]);
+
 
 
   const locationOf = (r: Lead) => deriveLocation(r) ?? UNKNOWN_LOC;
