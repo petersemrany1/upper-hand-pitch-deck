@@ -713,61 +713,8 @@ function LeadsPage() {
           )}
         </div>
 
-        {needsAttention.length > 0 && (
-          <div className="mb-4 rounded-lg border border-[#fecaca] bg-[#fef2f2] p-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider bg-[#dc2626] text-white">
-                Needs attention
-              </span>
-              <span className="text-sm font-semibold text-[#111111]">
-                {needsAttention.length} enquir{needsAttention.length === 1 ? "y" : "ies"} from patients already booked in
-              </span>
-            </div>
-            <p className="text-xs text-[#7f1d1d] mb-3">
-              These are held out of the call queue. They usually mean the patient wants to change something — check the
-              existing booking rather than calling them as a new lead.
-            </p>
-            <div className="space-y-1.5">
-              {needsAttention.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-white border border-[#fecaca] px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-[#111111]">
-                    {[r.first_name, r.last_name].filter(Boolean).join(" ") || "—"}
-                  </span>
-                  <span className="text-xs text-[#666]">{r.phone ?? "—"}</span>
-                  <span className="text-xs text-[#666]">re-submitted {fmtDate(r.created_at)}</span>
-                  <span className="text-xs text-[#dc2626] font-medium">{r.lead_class_reason}</span>
-                  <div className="ml-auto flex items-center gap-2">
-                    <a
-                      href={`/booked-appointments?q=${encodeURIComponent(
-                        [r.first_name, r.last_name].filter(Boolean).join(" ") || r.phone || "",
-                      )}`}
-                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
-                    >
-                      View booking
-                    </a>
-                    <button
-                      onClick={() => openEdit(r)}
-                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#111] hover:border-[#f4522d]"
-                    >
-                      Open lead
-                    </button>
-                    <button
-                      onClick={() => dismissAttention(r.id)}
-                      title="Hide this notice"
-                      className="text-xs px-2 py-1 rounded-md border border-[#ebebeb] bg-white text-[#666] hover:text-[#111]"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
 
-          </div>
-        )}
+
 
 
         <div className="rounded-lg border border-[#ebebeb] overflow-visible" style={{ background: "#f9f9f9" }}>
