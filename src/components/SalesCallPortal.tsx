@@ -319,7 +319,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, []);
   const isLeadLocationPaused = useCallback((l: Lead) => {
     if (pausedLocations.length === 0) return false;
-    const a = (l.ad_set_name ?? "").toLowerCase();
+    const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
   // Queue of lead ids that missed-called us and should be jumped-to on the
@@ -4732,7 +4732,7 @@ function LeadChooser({
 }) {
   const isLeadLocationPaused = useCallback((l: Lead) => {
     if (pausedLocations.length === 0) return false;
-    const a = (l.ad_set_name ?? "").toLowerCase();
+    const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
   const [q, setQ] = useState("");
