@@ -6456,9 +6456,24 @@ function RightPanel({
           )}
         </div>
         {(() => {
-          const adSetName = (active.ad_set_name ?? "").toLowerCase();
-          const location = adSetName.includes("melbourne") ? "MELBOURNE" : adSetName.includes("byron") ? "BYRON" : adSetName.includes("sydney") ? "SYDNEY" : null;
+          // Location can arrive from Meta (ad_set_name / campaign_name) or from the
+          // website booking form (raw_payload.location, sometimes nested one level).
+          const rp = (active.raw_payload && typeof active.raw_payload === "object")
+            ? (active.raw_payload as Record<string, unknown>)
+            : null;
+          const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+            ? (rp.raw_payload as Record<string, unknown>)
+            : null;
+          const haystack = [
+            active.ad_set_name ?? "",
+            active.campaign_name ?? "",
+            active.ad_name ?? "",
+            typeof rp?.location === "string" ? rp.location : "",
+            typeof nested?.location === "string" ? nested.location : "",
+          ].join(" ").toLowerCase();
+          const location = haystack.includes("melbourne") ? "MELBOURNE" : haystack.includes("byron") ? "BYRON" : haystack.includes("sydney") ? "SYDNEY" : null;
           if (!location) return null;
+
           const colors = location === "MELBOURNE"
             ? { bg: "#e0f2fe", fg: "#075985" }
             : location === "SYDNEY"
