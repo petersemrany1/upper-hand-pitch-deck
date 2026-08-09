@@ -50,6 +50,25 @@ type Lead = {
 
 };
 
+// All text a lead's location could hide in: Meta targeting fields plus the
+// website booking form's own location answer (sometimes nested one level).
+function leadLocationText(l: Lead): string {
+  const rp = (l.raw_payload && typeof l.raw_payload === "object")
+    ? (l.raw_payload as Record<string, unknown>)
+    : null;
+  const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+    ? (rp.raw_payload as Record<string, unknown>)
+    : null;
+  return [
+    l.ad_set_name ?? "",
+    l.campaign_name ?? "",
+    l.ad_name ?? "",
+    typeof rp?.location === "string" ? rp.location : "",
+    typeof nested?.location === "string" ? nested.location : "",
+  ].join(" ").toLowerCase();
+}
+
+
 function leadHasBookedSale(lead: Lead) {
   const paid = lead as Lead & { deposit_paid_at?: string | null; stripe_payment_intent_id?: string | null };
   return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
