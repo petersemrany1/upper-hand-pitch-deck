@@ -50,6 +50,25 @@ type Lead = {
 
 };
 
+// All text a lead's location could hide in: Meta targeting fields plus the
+// website booking form's own location answer (sometimes nested one level).
+function leadLocationText(l: Lead): string {
+  const rp = (l.raw_payload && typeof l.raw_payload === "object")
+    ? (l.raw_payload as Record<string, unknown>)
+    : null;
+  const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+    ? (rp.raw_payload as Record<string, unknown>)
+    : null;
+  return [
+    l.ad_set_name ?? "",
+    l.campaign_name ?? "",
+    l.ad_name ?? "",
+    typeof rp?.location === "string" ? rp.location : "",
+    typeof nested?.location === "string" ? nested.location : "",
+  ].join(" ").toLowerCase();
+}
+
+
 function leadHasBookedSale(lead: Lead) {
   const paid = lead as Lead & { deposit_paid_at?: string | null; stripe_payment_intent_id?: string | null };
   return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
@@ -300,7 +319,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, []);
   const isLeadLocationPaused = useCallback((l: Lead) => {
     if (pausedLocations.length === 0) return false;
-    const a = (l.ad_set_name ?? "").toLowerCase();
+    const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
   // Queue of lead ids that missed-called us and should be jumped-to on the
@@ -4713,7 +4732,7 @@ function LeadChooser({
 }) {
   const isLeadLocationPaused = useCallback((l: Lead) => {
     if (pausedLocations.length === 0) return false;
-    const a = (l.ad_set_name ?? "").toLowerCase();
+    const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
   const [q, setQ] = useState("");
@@ -6456,9 +6475,24 @@ function RightPanel({
           )}
         </div>
         {(() => {
-          const adSetName = (active.ad_set_name ?? "").toLowerCase();
-          const location = adSetName.includes("melbourne") ? "MELBOURNE" : adSetName.includes("byron") ? "BYRON" : adSetName.includes("sydney") ? "SYDNEY" : null;
+          // Location can arrive from Meta (ad_set_name / campaign_name) or from the
+          // website booking form (raw_payload.location, sometimes nested one level).
+          const rp = (active.raw_payload && typeof active.raw_payload === "object")
+            ? (active.raw_payload as Record<string, unknown>)
+            : null;
+          const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
+            ? (rp.raw_payload as Record<string, unknown>)
+            : null;
+          const haystack = [
+            active.ad_set_name ?? "",
+            active.campaign_name ?? "",
+            active.ad_name ?? "",
+            typeof rp?.location === "string" ? rp.location : "",
+            typeof nested?.location === "string" ? nested.location : "",
+          ].join(" ").toLowerCase();
+          const location = haystack.includes("melbourne") ? "MELBOURNE" : haystack.includes("byron") ? "BYRON" : haystack.includes("sydney") ? "SYDNEY" : null;
           if (!location) return null;
+
           const colors = location === "MELBOURNE"
             ? { bg: "#e0f2fe", fg: "#075985" }
             : location === "SYDNEY"
