@@ -314,9 +314,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const tails = Array.from(
       new Set(missed.map((r) => digitsOnly(r.phone).slice(-9)).filter((t) => t.length >= 6))
     );
-    const byTail = new Map<string, string>();
-    const nameIndex = tails.length > 0 ? (await getLeadNameIndex()).byTail : new Map<string, string>();
-    const byTail = nameIndex;
+    const byTail = tails.length > 0 ? (await getLeadNameIndex()).byTail : new Map<string, string>();
+
 
     setMissedCalls(
       missed.map((r) => ({
