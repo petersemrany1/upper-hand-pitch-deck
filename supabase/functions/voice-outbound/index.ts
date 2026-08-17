@@ -9,29 +9,65 @@ import { validateTwilioSignature } from "../_shared/twilio-signature.ts";
 
 const FALLBACK_CALLER_ID = "+61483938205";
 
+// Twilio abandons a voice webhook after ~15s and plays "we are sorry, an
+// application error has occurred". Under database load our caller-ID lookup
+// and call_records upsert have taken 20-60s, which is exactly what reps
+// heard mid-dial. Every DB touch here is now time-boxed, and the bookkeeping
+// write no longer blocks the TwiML response.
+const DB_TIMEOUT_MS = 2500;
+const CALLER_ID_TTL_MS = 30_000;
+
+let cachedCallerId: { number: string; at: number } | null = null;
+
+function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T | null> {
+  return Promise.race([
+    Promise.resolve(p).catch((e) => {
+      console.error(`voice-outbound: ${label} failed`, e);
+      return null;
+    }),
+    new Promise<null>((resolve) =>
+      setTimeout(() => {
+        console.warn(`voice-outbound: ${label} timed out after ${ms}ms`);
+        resolve(null);
+      }, ms)
+    ),
+  ]);
+}
+
 // Pick least-recently-used ACTIVE number from the pool so outbound calls
 // always present a verified, currently-owned AU number. The previously
 // hard-coded number was retired, which made Twilio substitute an arbitrary
 // fallback (recipients sometimes saw it as a foreign/Japanese number).
 async function pickCallerId(sb: ReturnType<typeof createClient>): Promise<string> {
+  if (cachedCallerId && Date.now() - cachedCallerId.at < CALLER_ID_TTL_MS) {
+    return cachedCallerId.number;
+  }
   try {
-    const { data } = await sb
-      .from("phone_numbers")
-      .select("id, number, call_count")
-      .eq("status", "active")
-      .order("last_used_at", { ascending: true, nullsFirst: true })
-      .limit(1)
-      .maybeSingle();
+    const result = await withTimeout(
+      sb
+        .from("phone_numbers")
+        .select("id, number, call_count")
+        .eq("status", "active")
+        .order("last_used_at", { ascending: true, nullsFirst: true })
+        .limit(1)
+        .maybeSingle(),
+      DB_TIMEOUT_MS,
+      "pickCallerId query",
+    );
+    const data = result?.data as { id: string; number: string; call_count: number | null } | null | undefined;
     if (data?.number) {
-      await sb.from("phone_numbers")
+      // Fire-and-forget: usage stats must never delay the TwiML response.
+      void sb.from("phone_numbers")
         .update({ last_used_at: new Date().toISOString(), call_count: (data.call_count ?? 0) + 1 })
-        .eq("id", data.id);
-      return data.number as string;
+        .eq("id", data.id)
+        .then(({ error }) => { if (error) console.error("voice-outbound: phone_numbers update", error); });
+      cachedCallerId = { number: data.number, at: Date.now() };
+      return data.number;
     }
   } catch (e) {
     console.error("voice-outbound: pickCallerId failed", e);
   }
-  return FALLBACK_CALLER_ID;
+  return cachedCallerId?.number ?? FALLBACK_CALLER_ID;
 }
 
 // Mirror of src/utils/phone.ts — keep in sync. Returns E.164 (+61...)
@@ -145,7 +181,7 @@ serve(async (req) => {
     callSid ? `${statusCallbackUrl}?parentCallSid=${encodeURIComponent(callSid)}` : statusCallbackUrl,
   );
 
-  // Pick the caller-ID BEFORE upserting call_records, so we can write the
+  // Pick the caller-ID BEFORE building the TwiML, so we can write the
   // actual dialled from_number and get accurate per-number analytics.
   const sbForCaller = (supabaseUrl && serviceKey) ? createClient(supabaseUrl, serviceKey) : null;
   const callerId = sbForCaller ? await pickCallerId(sbForCaller) : FALLBACK_CALLER_ID;
@@ -153,10 +189,12 @@ serve(async (req) => {
   // Server-side safety net: ensure a call_records row exists tagged with
   // clinic_id, lead_id, rep_id, and the REAL from_number (overwrites any
   // stale from_number the browser may have optimistically inserted).
+  // Deliberately NOT awaited — Twilio's 15s timeout budget comes first, and
+  // the twilio-status callbacks repair the row moments later anyway.
   if (callSid && supabaseUrl && serviceKey) {
     try {
       const sb = sbForCaller ?? createClient(supabaseUrl, serviceKey);
-      const { error: upErr } = await sb.from("call_records").upsert(
+      void sb.from("call_records").upsert(
         {
           twilio_call_sid: callSid,
           status: "initiated",
@@ -167,8 +205,9 @@ serve(async (req) => {
           from_number: callerId,
         },
         { onConflict: "twilio_call_sid" },
-      );
-      if (upErr) console.error("voice-outbound: upsert error", upErr);
+      ).then(({ error }) => {
+        if (error) console.error("voice-outbound: upsert error", error);
+      });
     } catch (err) {
       console.error("voice-outbound: failed to upsert call_records", err);
     }

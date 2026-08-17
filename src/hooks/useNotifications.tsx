@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getLeadNameIndex, getRepLeadPhoneTails } from "@/utils/lead-phone-cache";
 import { useAuth } from "@/hooks/useAuth";
 
 // Global "sticky until acknowledged" notifications: unread SMS threads and
@@ -210,16 +211,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const fetchMyLeadPhoneTails = useCallback(async (): Promise<Set<string> | null> => {
     if (!isRep) return null; // null = no filter (admin/other)
     if (!repId) return new Set<string>();
-    const { data } = await supabase
-      .from("meta_leads")
-      .select("phone")
-      .eq("rep_id", repId)
-      .not("phone", "is", null);
-    const tails = new Set<string>();
-    for (const l of (data || []) as { phone: string | null }[]) {
-      const t = digitsOnly(l.phone).slice(-9);
-      if (t.length >= 6) tails.add(t);
-    }
+    const tails = await getRepLeadPhoneTails(repId);
     return tails;
   }, [isRep, repId]);
 
@@ -322,22 +314,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const tails = Array.from(
       new Set(missed.map((r) => digitsOnly(r.phone).slice(-9)).filter((t) => t.length >= 6))
     );
-    const byTail = new Map<string, string>();
-    if (tails.length > 0) {
-      const { data: leads } = await supabase
-        .from("meta_leads")
-        .select("first_name, last_name, phone")
-        .not("phone", "is", null);
-      if (leads) {
-        for (const l of leads as { first_name: string | null; last_name: string | null; phone: string | null }[]) {
-          const t = digitsOnly(l.phone).slice(-9);
-          if (t.length >= 6) {
-            const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
-            if (name && !byTail.has(t)) byTail.set(t, name);
-          }
-        }
-      }
-    }
+    const byTail = tails.length > 0 ? (await getLeadNameIndex()).byTail : new Map<string, string>();
+
 
     setMissedCalls(
       missed.map((r) => ({
@@ -358,16 +336,28 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
+    // Twilio emits several call_records / sms_threads updates per call or
+    // message. Coalesce those bursts instead of re-querying on every row.
+    let threadTimer: number | undefined;
+    let callTimer: number | undefined;
     const ch1 = supabase
       .channel("global-notif-threads")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => void fetchThreads())
+      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => {
+        window.clearTimeout(threadTimer);
+        threadTimer = window.setTimeout(() => void fetchThreads(), 2500);
+      })
       .subscribe();
     const ch2 = supabase
       .channel("global-notif-calls")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void fetchMissed())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => {
+        window.clearTimeout(callTimer);
+        callTimer = window.setTimeout(() => void fetchMissed(), 2500);
+      })
       .subscribe();
     const id = window.setInterval(refresh, 60_000);
     return () => {
+      window.clearTimeout(threadTimer);
+      window.clearTimeout(callTimer);
       window.clearInterval(id);
       void supabase.removeChannel(ch1);
       void supabase.removeChannel(ch2);

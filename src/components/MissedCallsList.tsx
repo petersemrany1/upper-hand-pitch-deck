@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { PhoneIncoming, PhoneCall, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { normalizeAUPhone } from "@/utils/phone";
+import { getLeadNameIndex } from "@/utils/lead-phone-cache";
 import { toast } from "sonner";
 
 // Lists recent inbound calls (logged by the voice-inbound function with
@@ -46,6 +47,7 @@ function isMissed(row: InboundRow): boolean {
 export function MissedCallsList() {
   const [rows, setRows] = useState<InboundRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const debounceRef = useRef<number | undefined>(undefined);
   const { call, dialerStatus } = useTwilioDevice();
 
   const fetchRows = useCallback(async () => {
@@ -66,23 +68,10 @@ export function MissedCallsList() {
         ),
       );
       if (tails.length > 0) {
-        const { data: leads } = await supabase
-          .from("meta_leads")
-          .select("first_name, last_name, phone")
-          .not("phone", "is", null);
-        if (leads) {
-          const byTail = new Map<string, string>();
-          for (const l of leads as { first_name: string | null; last_name: string | null; phone: string | null }[]) {
-            const t = digitsOnly(l.phone).slice(-9);
-            if (t.length >= 6) {
-              const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
-              if (name && !byTail.has(t)) byTail.set(t, name);
-            }
-          }
-          for (const r of rows) {
-            const t = digitsOnly(r.phone).slice(-9);
-            if (t && byTail.has(t)) r.lead_name = byTail.get(t)!;
-          }
+        const { byTail } = await getLeadNameIndex();
+        for (const r of rows) {
+          const t = digitsOnly(r.phone).slice(-9);
+          if (t && byTail.has(t)) r.lead_name = byTail.get(t)!;
         }
       }
       setRows(rows);
@@ -99,7 +88,12 @@ export function MissedCallsList() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "call_records" },
-        () => void fetchRows(),
+        () => {
+          // Twilio fires many status callbacks per call; coalesce them so we
+          // don't re-query on every single row change.
+          window.clearTimeout(debounceRef.current);
+          debounceRef.current = window.setTimeout(() => void fetchRows(), 2500);
+        },
       )
       .subscribe();
 
@@ -107,6 +101,7 @@ export function MissedCallsList() {
     const id = window.setInterval(() => void fetchRows(), 30_000);
 
     return () => {
+      window.clearTimeout(debounceRef.current);
       window.clearInterval(id);
       void supabase.removeChannel(channel);
     };

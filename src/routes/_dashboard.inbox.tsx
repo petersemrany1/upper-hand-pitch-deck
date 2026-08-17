@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getLeadNameIndex } from "@/utils/lead-phone-cache";
 import { sendSms, markThreadRead } from "@/utils/sms.functions";
 import { useServerFn } from "@tanstack/react-start";
 import { Send, Image as ImageIcon, Loader2, X, Search, MessageSquarePlus, RefreshCw, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Delete, ArrowRight } from "lucide-react";
@@ -128,16 +129,7 @@ function InboxPage() {
     const norm = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "");
     const needsLookup = rows.filter((t) => !t.display_name && !t.clinic?.clinic_name);
     if (needsLookup.length > 0) {
-      const { data: leads } = await supabase
-        .from("meta_leads")
-        .select("first_name, last_name, phone");
-      const leadMap = new Map<string, string>();
-      for (const l of (leads as Array<{ first_name: string | null; last_name: string | null; phone: string | null }>) ?? []) {
-        const key = norm(l.phone);
-        if (!key) continue;
-        const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
-        if (name && !leadMap.has(key)) leadMap.set(key, name);
-      }
+      const leadMap = (await getLeadNameIndex()).byDigits;
       for (const t of rows) {
         if (t.display_name || t.clinic?.clinic_name) continue;
         const name = leadMap.get(norm(t.phone));

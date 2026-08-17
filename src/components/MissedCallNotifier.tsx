@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { getLeadNameIndex } from "@/utils/lead-phone-cache";
 import { toast } from "sonner";
 
 // Global listener for inbound missed calls. Pops a top-left toast on any page
@@ -67,18 +68,9 @@ export function MissedCallNotifier() {
     let label = row.phone || "Unknown";
     const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
     if (tail.length >= 6) {
-      const { data: leads } = await supabase
-        .from("meta_leads")
-        .select("first_name, last_name, phone")
-        .not("phone", "is", null);
-      if (leads) {
-        const match = (leads as { first_name: string | null; last_name: string | null; phone: string | null }[])
-          .find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail);
-        if (match) {
-          const name = [match.first_name, match.last_name].filter(Boolean).join(" ").trim();
-          if (name) label = name;
-        }
-      }
+      const { byTail } = await getLeadNameIndex();
+      const name = byTail.get(tail);
+      if (name) label = name;
     }
     if (label === (row.phone || "Unknown") && row.clinic_id) {
       const { data } = await supabase
