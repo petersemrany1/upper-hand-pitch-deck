@@ -336,16 +336,28 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     refresh();
+    // Twilio emits several call_records / sms_threads updates per call or
+    // message. Coalesce those bursts instead of re-querying on every row.
+    let threadTimer: number | undefined;
+    let callTimer: number | undefined;
     const ch1 = supabase
       .channel("global-notif-threads")
-      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => void fetchThreads())
+      .on("postgres_changes", { event: "*", schema: "public", table: "sms_threads" }, () => {
+        window.clearTimeout(threadTimer);
+        threadTimer = window.setTimeout(() => void fetchThreads(), 2500);
+      })
       .subscribe();
     const ch2 = supabase
       .channel("global-notif-calls")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void fetchMissed())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => {
+        window.clearTimeout(callTimer);
+        callTimer = window.setTimeout(() => void fetchMissed(), 2500);
+      })
       .subscribe();
     const id = window.setInterval(refresh, 60_000);
     return () => {
+      window.clearTimeout(threadTimer);
+      window.clearTimeout(callTimer);
       window.clearInterval(id);
       void supabase.removeChannel(ch1);
       void supabase.removeChannel(ch2);
