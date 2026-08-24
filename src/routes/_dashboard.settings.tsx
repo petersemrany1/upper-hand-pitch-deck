@@ -843,7 +843,15 @@ function BackfillSection() {
 }
 
 
-const LOCATION_OPTIONS = ["Sydney", "Melbourne", "Byron"] as const;
+const LOCATION_OPTIONS = [
+  "Sydney",
+  "Melbourne",
+  "Byron",
+  "Perth",
+  "Brisbane",
+  "Adelaide",
+  "Gold Coast",
+] as const;
 
 function PausedLocationsSection() {
   const [selected, setSelected] = useState<string[]>([]);
