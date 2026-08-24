@@ -910,48 +910,32 @@ function DashboardHome() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "0.5px solid #f0f0ee" }}>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Shows to fill</div>
                   <div style={{ fontSize: 12, color: "#aaa" }}>
-                    {packBreakdown.reduce((sum, p) => sum + p.remaining, 0)} total
+                    {packBreakdown.filter((p) => p.remaining > 0).reduce((sum, p) => sum + p.remaining, 0)} total
                   </div>
                 </div>
                 <div>
-                  {packBreakdown.map((p) => (
-                    <div
-                      key={p.clinicId}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        gap: 12,
-                        padding: "12px 20px",
-                        borderBottom: "0.5px solid #f6f6f4",
-                      }}
-                    >
-                      <div style={{ fontSize: 13, color: "#111", fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clinicName}</div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ fontSize: 13, color: p.remaining > 0 ? "#16a34a" : "#f4522d", fontWeight: 600 }}>
-                          {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                  {packBreakdown
+                    .filter((p) => p.remaining > 0)
+                    .map((p) => (
+                      <div
+                        key={p.clinicId}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          padding: "12px 20px",
+                          borderBottom: "0.5px solid #f6f6f4",
+                        }}
+                      >
+                        <div style={{ fontSize: 13, color: "#111", fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.clinicName}</div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>
+                            {p.remaining} show{p.remaining !== 1 ? "s" : ""} needed
+                          </div>
                         </div>
-                        {p.remaining === 0 && (
-                          <button
-                            onClick={() => setRenewalStep({ clinicId: p.clinicId, clinicName: p.clinicName, step: 1 })}
-                            style={{
-                              fontSize: 12,
-                              fontWeight: 600,
-                              color: "#fff",
-                              background: "#f4522d",
-                              border: 0,
-                              borderRadius: 6,
-                              padding: "6px 10px",
-                              cursor: "pointer",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            Send renewal
-                          </button>
-                        )}
                       </div>
-                    </div>
-                  ))}
+                    ))}
                   <div
                     style={{
                       display: "flex",
