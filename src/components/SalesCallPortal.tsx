@@ -5355,9 +5355,9 @@ function LeadChooser({
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
               {(() => {
                 const a = (l.ad_set_name ?? "").toLowerCase();
-                const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : a.includes("sydney") ? "SYDNEY" : null;
+                const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : a.includes("sydney") ? "SYDNEY" : a.includes("perth") ? "PERTH" : null;
                 if (!loc) return null;
-                const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : loc === "SYDNEY" ? { bg: "#f3e8ff", fg: "#6b21a8" } : { bg: "#dcfce7", fg: "#166534" };
+                const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : loc === "SYDNEY" ? { bg: "#f3e8ff", fg: "#6b21a8" } : loc === "PERTH" ? { bg: "#fef3c7", fg: "#92400e" } : { bg: "#dcfce7", fg: "#166534" };
                 return (
                   <span style={{ background: c.bg, color: c.fg, fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999 }}>
                     {loc}
@@ -6490,14 +6490,16 @@ function RightPanel({
             typeof rp?.location === "string" ? rp.location : "",
             typeof nested?.location === "string" ? nested.location : "",
           ].join(" ").toLowerCase();
-          const location = haystack.includes("melbourne") ? "MELBOURNE" : haystack.includes("byron") ? "BYRON" : haystack.includes("sydney") ? "SYDNEY" : null;
+          const location = haystack.includes("melbourne") ? "MELBOURNE" : haystack.includes("byron") ? "BYRON" : haystack.includes("sydney") ? "SYDNEY" : haystack.includes("perth") ? "PERTH" : null;
           if (!location) return null;
 
           const colors = location === "MELBOURNE"
             ? { bg: "#e0f2fe", fg: "#075985" }
             : location === "SYDNEY"
               ? { bg: "#f3e8ff", fg: "#6b21a8" }
-              : { bg: "#dcfce7", fg: "#166534" };
+              : location === "PERTH"
+                ? { bg: "#fef3c7", fg: "#92400e" }
+                : { bg: "#dcfce7", fg: "#166534" };
           return (
             <div style={{ marginTop: 6 }}>
               <span
