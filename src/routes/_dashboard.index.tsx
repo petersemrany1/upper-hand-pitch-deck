@@ -810,6 +810,8 @@ function DashboardHome() {
                               ? { bg: "#e0f2fe", fg: "#075985" }
                               : key.includes("sydney")
                               ? { bg: "#f3e8ff", fg: "#6b21a8" }
+                              : key.includes("perth")
+                              ? { bg: "#fef3c7", fg: "#92400e" }
                               : { bg: "#dcfce7", fg: "#166534" };
                             return (
                               <span style={{
