@@ -143,13 +143,13 @@ export default function NorwoodPricingCalculator() {
                     textTransform: "capitalize",
                   }}
                 >
-                  {c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : "Bijan"}
+                  {clinicLabel(c)}
                 </button>
               );
             })}
           </div>
 
-          {(clinic === "nitai" || clinic === "bijan" || clinic === "byron") && (
+          {(clinic === "nitai" || clinic === "bijan" || clinic === "byron" || clinic === "boss") && (
             <div
               style={{
                 fontSize: 11,
