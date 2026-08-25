@@ -1,6 +1,7 @@
 import { X } from "lucide-react";
 import { DepositEmbeddedCheckout } from "@/components/DepositEmbeddedCheckout";
 import { Button } from "@/components/ui/button";
+import { isPaymentsConfigured } from "@/lib/stripe";
 
 type Props = {
   open: boolean;
@@ -26,6 +27,7 @@ export function ChargeCardOverPhoneModal({
 }: Props) {
   if (!open) return null;
 
+  const paymentsConfigured = isPaymentsConfigured();
   const currentUrl = new URL(window.location.href);
   currentUrl.searchParams.set("deposit", "success");
   currentUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
@@ -60,7 +62,12 @@ export function ChargeCardOverPhoneModal({
         </header>
 
         <div className="max-h-[calc(100vh-9rem)] overflow-y-auto p-3 sm:p-5">
-          {leadId ? (
+          {!paymentsConfigured ? (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              Payments are not configured for this build. Complete payment go-live and republish
+              before taking a card payment.
+            </p>
+          ) : leadId ? (
             <DepositEmbeddedCheckout leadId={leadId} returnUrl={currentUrl.toString()} />
           ) : (
             <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
