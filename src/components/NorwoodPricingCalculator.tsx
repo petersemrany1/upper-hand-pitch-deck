@@ -160,7 +160,7 @@ export default function NorwoodPricingCalculator() {
                 padding: "8px 10px",
               }}
             >
-              {clinic === "nitai" ? "Nitai" : clinic === "bijan" ? "Bijan" : "Byron"} charges a fixed fee per procedure, not per graft
+              {clinicLabel(clinic)} charges a fixed fee per procedure, not per graft
             </div>
           )}
 
