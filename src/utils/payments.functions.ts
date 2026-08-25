@@ -101,12 +101,19 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
-        // Staff-assisted phone payments must always present blank card fields.
-        // Do not bind the patient's email to Link or offer saved Link wallets.
+        // Staff-assisted phone payments must always present blank card fields and
+        // must not ask the rep for name/email — we attach a Customer instead.
         ...(data.assisted
           ? {
               payment_method_types: ["card"] as ["card"],
               wallet_options: { link: { display: "never" as const } },
+              ...(assistedCustomerId
+                ? {
+                    customer: assistedCustomerId,
+                    customer_update: { address: "auto" as const, name: "auto" as const },
+                  }
+                : {}),
+              billing_address_collection: "auto" as const,
             }
           : lead.email
             ? { customer_email: lead.email }
