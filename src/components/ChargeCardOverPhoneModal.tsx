@@ -34,20 +34,17 @@ let _stripePromise: Promise<Stripe | null> | null = null;
 // Which Stripe account the card form is talking to. The PaymentMethod can only
 // be charged by the account whose publishable key created it, so the charge
 // call has to be told the same thing.
-let _account: "managed" | "htg" = "managed";
+let _account: "managed" = "managed";
 
 function getStripePromise() {
   if (_stripePromise) return _stripePromise;
   _stripePromise = (async () => {
     const managedToken = import.meta.env.VITE_PAYMENTS_CLIENT_TOKEN as string | undefined;
-    if (managedToken) {
-      _account = "managed";
-      return loadStripe(managedToken);
-    }
-    const { publishableKey, account } = await getHtgStripePublishableKey();
-    _account = account;
+    const { publishableKey } = managedToken
+      ? { publishableKey: managedToken }
+      : await getHtgStripePublishableKey();
     if (!publishableKey) {
-      console.error("Stripe publishable key missing");
+      console.error("Managed Stripe publishable key missing");
       return null;
     }
     return loadStripe(publishableKey);
