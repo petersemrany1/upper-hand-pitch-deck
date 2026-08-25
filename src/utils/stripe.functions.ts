@@ -110,10 +110,8 @@ export const createStripeCheckoutSession = createServerFn({ method: "POST" })
     }
   });
 
-// Creates a Stripe Checkout Session against the Hair Transplant Group (HTG)
-// Stripe account for patient consultation deposits ($75 refundable).
-// Intentionally never falls back to STRIPE_SECRET_KEY — that key belongs to the
-// separate Bold Patients account.
+// Compatibility wrapper for older callers. Never creates a session against the
+// retired HTG Stripe account; patients are always sent to the managed checkout.
 export const createHtgDepositSession = createServerFn({ method: "POST" })
   .inputValidator(
     (data: {
@@ -127,196 +125,23 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     }) => data
   )
   .handler(async ({ data }) => {
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!stripeKey) {
-      const msg = "STRIPE_HTG_SECRET_KEY is not configured";
-      await logError("createHtgDepositSession", msg, {
-        email: data.email,
-        leadId: data.leadId,
-      });
-      return { success: false as const, error: msg };
+    if (!data.leadId) {
+      return { success: false as const, error: "A lead is required to create a deposit link." };
     }
-
-    const validPrefix =
-      stripeKey.startsWith("sk_live_") ||
-      stripeKey.startsWith("sk_test_") ||
-      stripeKey.startsWith("rk_live_");
-    if (!validPrefix) {
-      await logError(
-        "createHtgDepositSession",
-        `Invalid Stripe key format: starts with "${stripeKey.slice(0, 8)}"`,
-        { email: data.email, leadId: data.leadId },
-      );
-      return { success: false as const, error: "Stripe key is misconfigured — contact admin" };
-    }
-
-    const amountCents = Math.round(Number(data.amount) * 100);
-    if (!Number.isFinite(amountCents) || amountCents < 50) {
-      return {
-        success: false as const,
-        error: "Invalid amount — must be at least $0.50 AUD.",
-      };
-    }
-
-    const fullName = [data.firstName, data.lastName].filter(Boolean).join(" ").trim();
-    let productName = "Consultation Deposit";
-    let productDescription: string | null = "Fully refundable — returned in full when you attend your consultation.";
-    let resolvedClinicName: string | null = null;
-    let resolvedDoctorName: string | null = null;
-
-    try {
-      // Prefer an explicitly supplied clinicId (e.g. from the booking form,
-      // which may not yet be persisted onto meta_leads.clinic_id).
-      let clinicId: string | null = data.clinicId?.trim() || null;
-      if (!clinicId && data.leadId) {
-        const { data: leadRow } = await supabaseAdmin
-          .from("meta_leads")
-          .select("clinic_id")
-          .eq("id", data.leadId)
-          .maybeSingle();
-        clinicId = (leadRow as { clinic_id?: string | null } | null)?.clinic_id || null;
-      }
-      let clinicName: string | null = null;
-      let doctor: string | null = null;
-      let addrLine: string | null = null;
-      if (clinicId) {
-        let { data: clinicRow } = await supabaseAdmin
-          .from("clinics")
-          .select("clinic_name, doctor_name, address, city, state")
-          .eq("id", clinicId)
-          .maybeSingle();
-        if (!clinicRow) {
-          const { data: partnerClinicRow } = await supabaseAdmin
-            .from("partner_clinics")
-            .select("clinic_name, address, city, state")
-            .eq("id", clinicId)
-            .maybeSingle();
-          clinicRow = partnerClinicRow
-            ? { ...partnerClinicRow, doctor_name: data.doctorName ?? null }
-            : null;
-        }
-        if (clinicRow) {
-          const c = clinicRow as {
-            clinic_name?: string | null;
-            doctor_name?: string | null;
-            address?: string | null;
-            city?: string | null;
-            state?: string | null;
-          };
-          clinicName = c.clinic_name?.trim() || null;
-          doctor = (data.doctorName?.trim() || c.doctor_name?.trim()) || null;
-          const addrParts = [c.address, c.city, c.state]
-            .map((p) => (p ?? "").trim())
-            .filter(Boolean);
-          addrLine = addrParts.length ? addrParts.join(", ") : null;
-        }
-      }
-      if (!doctor && data.doctorName?.trim()) doctor = data.doctorName.trim();
-      if (doctor && !/^dr\b/i.test(doctor)) doctor = `Dr ${doctor}`;
-      resolvedClinicName = clinicName;
-      resolvedDoctorName = doctor;
-
-      // Short, scannable title — keeps the A$ amount visually dominant.
-      if (doctor) productName = `Consultation with ${doctor}`;
-      else if (clinicName) productName = `Consultation at ${clinicName}`;
-
-      // Stripe renders newlines in description as line breaks — use them
-      // to give each piece of info its own line instead of one long sentence.
-      // Stripe Checkout renders product_data.description as plain text and
-      // strips newlines, so we use " · " separators and keep it short so it
-      // isn't truncated with "..." on mobile.
-      const parts: string[] = [];
-      if (clinicName) parts.push(clinicName);
-      if (addrLine) parts.push(addrLine);
-      parts.push("Fully refundable at your consultation");
-      productDescription = parts.join("  |  ");
-    } catch (err) {
-      // Lookup failure must never block taking the deposit — fall back to generic name.
-      console.error("createHtgDepositSession clinic lookup failed", err);
-    }
-
-    const params = new URLSearchParams();
-    params.append("mode", "payment");
-    params.append("success_url", "https://hairtransplantgroup.lovable.app/thank-you");
-    params.append("cancel_url", "https://hairtransplantgroup.lovable.app");
-    if (data.email) params.append("customer_email", data.email);
-    params.append("line_items[0][quantity]", "1");
-    params.append("line_items[0][price_data][currency]", "aud");
-    params.append("line_items[0][price_data][unit_amount]", String(amountCents));
-    params.append("line_items[0][price_data][product_data][name]", productName);
-    if (productDescription) {
-      params.append("line_items[0][price_data][product_data][description]", productDescription);
-    }
-    params.append("payment_intent_data[statement_descriptor_suffix]", "HTG DEPOSIT");
-    if (data.leadId) params.append("payment_intent_data[metadata][lead_id]", data.leadId);
-    params.append("payment_intent_data[metadata][deposit_amount]", String(data.amount));
-    params.append("payment_intent_data[metadata][source]", "htg_deposit_checkout");
-    params.append("metadata[patient_name]", fullName);
-    if (data.leadId) params.append("metadata[lead_id]", data.leadId);
-    params.append("metadata[deposit_amount]", String(data.amount));
-    if (resolvedClinicName) params.append("metadata[clinic_name]", resolvedClinicName);
-    if (resolvedDoctorName) params.append("metadata[doctor_name]", resolvedDoctorName);
-
-    try {
-      const response = await fetch("https://api.stripe.com/v1/checkout/sessions", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + stripeKey,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      });
-
-      const result = (await response.json()) as StripeApiResponse;
-
-      if (!response.ok) {
-        const errMsg =
-          (result && result.error && (result.error.message as string)) ||
-          "Stripe API error";
-        console.error("Stripe HTG error:", JSON.stringify(result));
-        await logError("createHtgDepositSession", errMsg, {
-          email: data.email,
-          leadId: data.leadId,
-          rawResponse: result,
-        });
-        return { success: false as const, error: errMsg };
-      }
-
-      if (!result.url) {
-        await logError("createHtgDepositSession", "No URL returned by Stripe", {
-          email: data.email,
-          leadId: data.leadId,
-          rawResponse: result,
-        });
-        return { success: false as const, error: "Stripe did not return a checkout URL." };
-      }
-
-      return { success: true as const, url: result.url as string, id: result.id as string };
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      console.error("Stripe HTG request failed:", err);
-      await logError("createHtgDepositSession", errMsg, {
-        email: data.email,
-        leadId: data.leadId,
-      });
-      return { success: false as const, error: "Request failed" };
-    }
+    return {
+      success: true as const,
+      url: `https://hairtransplantgroup.lovable.app/pay-deposit?lead=${encodeURIComponent(data.leadId)}`,
+      id: `managed_${data.leadId}`,
+    };
   });
 
 // Returns the publishable key for client-side Stripe.js initialisation, plus
-// which account it belongs to. The managed (Lovable) payments token wins when
-// present; the old HTG key is only a fallback for builds where managed
-// payments haven't finished provisioning. Publishable keys are safe to expose.
+// which account it belongs to. The retired HTG account is deliberately never
+// returned, preventing new PaymentMethods from being created against it.
 export const getHtgStripePublishableKey = createServerFn({ method: "GET" })
   .handler(async () => {
     const managed = process.env.VITE_PAYMENTS_CLIENT_TOKEN || "";
-    if (managed) {
-      return { publishableKey: managed, account: "managed" as const };
-    }
-    return {
-      publishableKey: process.env.STRIPE_HTG_PUBLISHABLE_KEY || "",
-      account: "htg" as const,
-    };
+    return { publishableKey: managed, account: "managed" as const };
   });
 
 // Charges a card directly using a Stripe PaymentMethod ID created on the client
@@ -331,18 +156,10 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
       leadId?: string;
       // Which Stripe account the client-side PaymentMethod was created on.
       // A PaymentMethod can only be charged by the account that minted it.
-      account?: "managed" | "htg";
+      account?: "managed";
     }) => data
   )
   .handler(async ({ data }) => {
-    const useManaged = data.account !== "htg";
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!useManaged && !stripeKey) {
-      const msg = "STRIPE_HTG_SECRET_KEY is not configured";
-      await logError("chargeCardOverPhone", msg, { leadId: data.leadId, patientName: data.patientName });
-      return { success: false as const, error: msg };
-    }
-
     if (!Number.isFinite(data.amountCents) || data.amountCents < 50) {
       return { success: false as const, error: "Invalid amount — must be at least $0.50 AUD." };
     }
@@ -363,33 +180,20 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
     params.append("metadata[source]", "charge_card_over_phone");
 
     try {
-      let response: Response;
-      if (useManaged) {
-        // Route through the managed gateway (new Stripe account).
-        const { getConnectionApiKey, resolveStripeEnv } = await import("@/lib/stripe.server");
-        const connectionApiKey = getConnectionApiKey(resolveStripeEnv());
-        response = await fetch(
-          "https://connector-gateway.lovable.dev/stripe/v1/payment_intents",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              "X-Connection-Api-Key": connectionApiKey,
-              "Lovable-API-Key": process.env.LOVABLE_API_KEY || "",
-            },
-            body: params.toString(),
-          },
-        );
-      } else {
-        response = await fetch("https://api.stripe.com/v1/payment_intents", {
+      const { getConnectionApiKey, resolveStripeEnv } = await import("@/lib/stripe.server");
+      const connectionApiKey = getConnectionApiKey(resolveStripeEnv());
+      const response = await fetch(
+        "https://connector-gateway.lovable.dev/stripe/v1/payment_intents",
+        {
           method: "POST",
           headers: {
-            Authorization: "Bearer " + stripeKey,
             "Content-Type": "application/x-www-form-urlencoded",
+            "X-Connection-Api-Key": connectionApiKey,
+            "Lovable-API-Key": process.env.LOVABLE_API_KEY || "",
           },
           body: params.toString(),
-        });
-      }
+        },
+      );
 
       const result = (await response.json()) as StripeApiResponse;
 
