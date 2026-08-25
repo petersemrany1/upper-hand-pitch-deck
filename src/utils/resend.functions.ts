@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
-import { createStripeCheckoutSession, createHtgDepositSession } from "./stripe.functions";
+import { createStripeCheckoutSession } from "./stripe.functions";
+
+// Public page that mounts the embedded $75 booking-fee checkout.
+const DEPOSIT_PAY_BASE_URL = "https://hairtransplantgroup.lovable.app/pay-deposit";
 
 // Resend is accessed through the Lovable connector gateway, NOT api.resend.com
 // directly. The workspace's Resend connection injects RESEND_API_KEY as a
@@ -1031,21 +1034,9 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const stripeResult = await createHtgDepositSession({
-      data: {
-        firstName: data.firstName,
-        lastName: "",
-        email: "",
-        amount: 75,
-        leadId: data.leadId,
-      },
-    });
-
-    if (!stripeResult.success) {
-      return { success: false as const, error: `Stripe failed: ${stripeResult.error}` };
-    }
-
-    const stripeUrl = stripeResult.url;
+    // In-app embedded checkout page (managed payments). The session itself is
+    // created server-side when the patient opens the link.
+    const stripeUrl = `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(data.leadId)}`;
 
     const bookingDisplay = (() => {
       try {
@@ -1473,23 +1464,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const stripeResult = await createHtgDepositSession({
-      data: {
-        firstName: data.firstName,
-        lastName: "",
-        email: "",
-        amount: 75,
-        leadId: data.leadId,
-        clinicId: data.clinicId,
-        doctorName: data.doctorName,
-      },
-    });
-
-    if (!stripeResult.success) {
-      return { success: false as const, error: `Stripe failed: ${stripeResult.error}` };
-    }
-
-    const stripeUrl = stripeResult.url;
+    const stripeUrl = `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(data.leadId)}`;
     const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${stripeUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");

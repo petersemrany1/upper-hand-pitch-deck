@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
@@ -60,6 +61,7 @@ import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './r
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
+import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api.public.payments.webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
@@ -76,6 +78,11 @@ const ClinicPortalRoute = ClinicPortalRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayDepositRoute = PayDepositRouteImport.update({
+  id: '/pay-deposit',
+  path: '/pay-deposit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -350,6 +357,12 @@ const ApiPublicHooksTwilioMessageStatusRoute =
     path: '/api/public/hooks/twilio-message-status',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicPaymentsWebhookRoute =
+  ApiPublicPaymentsWebhookRouteImport.update({
+    id: '/api/public/payments/webhook',
+    path: '/api/public/payments/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -373,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
+  '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
@@ -419,6 +433,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -427,6 +442,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
+  '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
@@ -473,6 +489,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -483,6 +500,7 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardRouteWithChildren
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
+  '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
@@ -530,6 +548,7 @@ export interface FileRoutesById {
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -541,6 +560,7 @@ export interface FileRouteTypes {
     | '/'
     | '/clinic-portal'
     | '/login'
+    | '/pay-deposit'
     | '/reset-password'
     | '/thank-you'
     | '/analytics'
@@ -587,6 +607,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
+    | '/api/public/payments/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -595,6 +616,7 @@ export interface FileRouteTypes {
   to:
     | '/clinic-portal'
     | '/login'
+    | '/pay-deposit'
     | '/reset-password'
     | '/thank-you'
     | '/analytics'
@@ -641,6 +663,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
+    | '/api/public/payments/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -650,6 +673,7 @@ export interface FileRouteTypes {
     | '/_dashboard'
     | '/clinic-portal'
     | '/login'
+    | '/pay-deposit'
     | '/reset-password'
     | '/thank-you'
     | '/_dashboard/analytics'
@@ -697,6 +721,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/reconcile-call-durations'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
+    | '/api/public/payments/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -707,6 +732,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
+  PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
@@ -722,6 +748,7 @@ export interface RootRouteChildren {
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
   ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
+  ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
@@ -748,6 +775,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pay-deposit': {
+      id: '/pay-deposit'
+      path: '/pay-deposit'
+      fullPath: '/pay-deposit'
+      preLoaderRoute: typeof PayDepositRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1086,6 +1120,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksTwilioMessageStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/webhook': {
+      id: '/api/public/payments/webhook'
+      path: '/api/public/payments/webhook'
+      fullPath: '/api/public/payments/webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -1203,6 +1244,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
+  PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
@@ -1222,6 +1264,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
   ApiPublicHooksTwilioMessageStatusRoute:
     ApiPublicHooksTwilioMessageStatusRoute,
+  ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
