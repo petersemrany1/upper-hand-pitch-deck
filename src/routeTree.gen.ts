@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as DashboardRouteImport } from './routes/_dashboard'
 import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
@@ -76,6 +77,11 @@ const ClinicPortalRoute = ClinicPortalRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PayDepositRoute = PayDepositRouteImport.update({
+  id: '/pay-deposit',
+  path: '/pay-deposit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -373,6 +379,7 @@ export interface FileRoutesByFullPath {
   '/': typeof DashboardIndexRoute
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
+  '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
+  '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
@@ -483,6 +491,7 @@ export interface FileRoutesById {
   '/_dashboard': typeof DashboardRouteWithChildren
   '/clinic-portal': typeof ClinicPortalRoute
   '/login': typeof LoginRoute
+  '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
   '/thank-you': typeof ThankYouRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
@@ -541,6 +550,7 @@ export interface FileRouteTypes {
     | '/'
     | '/clinic-portal'
     | '/login'
+    | '/pay-deposit'
     | '/reset-password'
     | '/thank-you'
     | '/analytics'
@@ -595,6 +605,7 @@ export interface FileRouteTypes {
   to:
     | '/clinic-portal'
     | '/login'
+    | '/pay-deposit'
     | '/reset-password'
     | '/thank-you'
     | '/analytics'
@@ -650,6 +661,7 @@ export interface FileRouteTypes {
     | '/_dashboard'
     | '/clinic-portal'
     | '/login'
+    | '/pay-deposit'
     | '/reset-password'
     | '/thank-you'
     | '/_dashboard/analytics'
@@ -707,6 +719,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRouteWithChildren
   ClinicPortalRoute: typeof ClinicPortalRoute
   LoginRoute: typeof LoginRoute
+  PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
@@ -748,6 +761,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pay-deposit': {
+      id: '/pay-deposit'
+      path: '/pay-deposit'
+      fullPath: '/pay-deposit'
+      preLoaderRoute: typeof PayDepositRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1203,6 +1223,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRouteWithChildren,
   ClinicPortalRoute: ClinicPortalRoute,
   LoginRoute: LoginRoute,
+  PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
