@@ -219,8 +219,8 @@ export default function NorwoodPricingCalculator() {
             {ROWS.map((r) => {
               let lo: number;
               let hi: number;
-              if (clinic === "nitai") {
-                const np = NITAI_PRICES[r.label];
+              if (clinic === "nitai" || clinic === "boss") {
+                const np = clinic === "boss" ? BOSS_PRICES[r.label] : NITAI_PRICES[r.label];
                 lo = np.min;
                 hi = np.max;
               } else if (clinic === "bijan") {
