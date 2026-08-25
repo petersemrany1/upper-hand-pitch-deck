@@ -124,7 +124,7 @@ export default function NorwoodPricingCalculator() {
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Clinic selector */}
           <div style={{ display: "flex", gap: 6 }}>
-            {(["nitai", "byron", "bijan"] as const).map((c) => {
+            {(["nitai", "byron", "bijan", "boss"] as const).map((c) => {
               const active = clinic === c;
               return (
                 <button
