@@ -33,6 +33,9 @@ const NITAI_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 7": { min: 20000, max: 24000 },
 };
 
+// Boss Clinic (Perth) uses the same pricing as Nitai
+const BOSS_PRICES: Record<string, { min: number; max: number }> = { ...NITAI_PRICES };
+
 const BIJAN_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 2": { min: 6000, max: 8500 },
   "Norwood 3": { min: 6500, max: 9500 },
@@ -93,7 +96,9 @@ function financeWeeklyText(lo: number, hi: number): string | null {
 
 export default function NorwoodPricingCalculator() {
   const [open, setOpen] = useState(false);
-  const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan">("nitai");
+  const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan" | "boss">("nitai");
+  const clinicLabel = (c: string) =>
+    c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : c === "bijan" ? "Bijan" : "Boss";
   const [pricePerGraft, setPricePerGraft] = useState<number>(5);
 
   return (
@@ -119,7 +124,7 @@ export default function NorwoodPricingCalculator() {
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
           {/* Clinic selector */}
           <div style={{ display: "flex", gap: 6 }}>
-            {(["nitai", "byron", "bijan"] as const).map((c) => {
+            {(["nitai", "byron", "bijan", "boss"] as const).map((c) => {
               const active = clinic === c;
               return (
                 <button
@@ -138,13 +143,13 @@ export default function NorwoodPricingCalculator() {
                     textTransform: "capitalize",
                   }}
                 >
-                  {c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : "Bijan"}
+                  {clinicLabel(c)}
                 </button>
               );
             })}
           </div>
 
-          {(clinic === "nitai" || clinic === "bijan" || clinic === "byron") && (
+          {(clinic === "nitai" || clinic === "bijan" || clinic === "byron" || clinic === "boss") && (
             <div
               style={{
                 fontSize: 11,
@@ -155,7 +160,7 @@ export default function NorwoodPricingCalculator() {
                 padding: "8px 10px",
               }}
             >
-              {clinic === "nitai" ? "Nitai" : clinic === "bijan" ? "Bijan" : "Byron"} charges a fixed fee per procedure, not per graft
+              {clinicLabel(clinic)} charges a fixed fee per procedure, not per graft
             </div>
           )}
 
@@ -214,8 +219,8 @@ export default function NorwoodPricingCalculator() {
             {ROWS.map((r) => {
               let lo: number;
               let hi: number;
-              if (clinic === "nitai") {
-                const np = NITAI_PRICES[r.label];
+              if (clinic === "nitai" || clinic === "boss") {
+                const np = clinic === "boss" ? BOSS_PRICES[r.label] : NITAI_PRICES[r.label];
                 lo = np.min;
                 hi = np.max;
               } else if (clinic === "bijan") {
