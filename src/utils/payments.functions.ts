@@ -72,6 +72,24 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         typeof stripePrice.product === "string" ? stripePrice.product : stripePrice.product.id;
       const product = await stripe.products.retrieve(productId);
 
+      // Staff-assisted phone payments: pre-create the Customer with the details
+      // we already hold so Checkout does not ask the rep for name or email.
+      let assistedCustomerId: string | undefined;
+      if (data.assisted) {
+        const existing = lead.email
+          ? await stripe.customers.list({ email: lead.email, limit: 1 })
+          : { data: [] as { id: string }[] };
+        assistedCustomerId = existing.data.length
+          ? existing.data[0].id
+          : (
+              await stripe.customers.create({
+                ...(lead.email ? { email: lead.email } : {}),
+                ...(patientName ? { name: patientName } : {}),
+                metadata: { lead_id: lead.id },
+              })
+            ).id;
+      }
+
       const descriptionParts = [
         doctorName ? `Consultation with ${doctorName}` : null,
         clinicName,
@@ -83,12 +101,19 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
-        // Staff-assisted phone payments must always present blank card fields.
-        // Do not bind the patient's email to Link or offer saved Link wallets.
+        // Staff-assisted phone payments must always present blank card fields and
+        // must not ask the rep for name/email — we attach a Customer instead.
         ...(data.assisted
           ? {
               payment_method_types: ["card"] as ["card"],
               wallet_options: { link: { display: "never" as const } },
+              ...(assistedCustomerId
+                ? {
+                    customer: assistedCustomerId,
+                    customer_update: { address: "auto" as const, name: "auto" as const },
+                  }
+                : {}),
+              billing_address_collection: "auto" as const,
             }
           : lead.email
             ? { customer_email: lead.email }
