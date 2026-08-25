@@ -96,7 +96,9 @@ function financeWeeklyText(lo: number, hi: number): string | null {
 
 export default function NorwoodPricingCalculator() {
   const [open, setOpen] = useState(false);
-  const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan">("nitai");
+  const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan" | "boss">("nitai");
+  const clinicLabel = (c: string) =>
+    c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : c === "bijan" ? "Bijan" : "Boss";
   const [pricePerGraft, setPricePerGraft] = useState<number>(5);
 
   return (
