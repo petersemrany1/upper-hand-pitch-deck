@@ -33,6 +33,9 @@ const NITAI_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 7": { min: 20000, max: 24000 },
 };
 
+// Boss Clinic (Perth) uses the same pricing as Nitai
+const BOSS_PRICES: Record<string, { min: number; max: number }> = { ...NITAI_PRICES };
+
 const BIJAN_PRICES: Record<string, { min: number; max: number }> = {
   "Norwood 2": { min: 6000, max: 8500 },
   "Norwood 3": { min: 6500, max: 9500 },
