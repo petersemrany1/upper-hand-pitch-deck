@@ -5,8 +5,6 @@ import {
   getStripeErrorMessage,
 } from "@/lib/stripe.server";
 
-const UUID_RE = /^[0-9a-fA-F-]{36}$/;
-
 export type DepositCheckoutResult =
   | { clientSecret: string; patientName: string | null; amount: number }
   | { error: string };
@@ -18,8 +16,13 @@ export type DepositCheckoutResult =
  * doctor) is resolved server-side so nothing can be tampered with.
  */
 export const createDepositCheckout = createServerFn({ method: "POST" })
-  .inputValidator((data: { leadId: string; returnUrl: string; environment: StripeEnv }) => {
-    if (!UUID_RE.test(data.leadId)) throw new Error("Invalid leadId");
+  .inputValidator((data: {
+    leadId: string;
+    returnUrl: string;
+    environment: StripeEnv;
+    assisted?: boolean;
+  }) => {
+    if (!/^[0-9a-fA-F-]{36}$/.test(data.leadId)) throw new Error("Invalid leadId");
     return data;
   })
   .handler(async ({ data }): Promise<DepositCheckoutResult> => {
@@ -80,7 +83,16 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
-        ...(lead.email ? { customer_email: lead.email } : {}),
+        // Staff-assisted phone payments must always present blank card fields.
+        // Do not bind the patient's email to Link or offer saved Link wallets.
+        ...(data.assisted
+          ? {
+              payment_method_types: ["card"] as ["card"],
+              wallet_options: { link: { display: "never" as const } },
+            }
+          : lead.email
+            ? { customer_email: lead.email }
+            : {}),
         automatic_tax: { enabled: true },
         payment_intent_data: {
           description: `${product.name}${patientName ? ` — ${patientName}` : ""}`,

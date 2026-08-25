@@ -68,7 +68,11 @@ export function ChargeCardOverPhoneModal({
               before taking a card payment.
             </p>
           ) : leadId ? (
-            <DepositEmbeddedCheckout leadId={leadId} returnUrl={currentUrl.toString()} />
+            <DepositEmbeddedCheckout
+              leadId={leadId}
+              returnUrl={currentUrl.toString()}
+              assisted
+            />
           ) : (
             <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
               This lead does not have a valid booking reference. Close this window and refresh the
