@@ -270,7 +270,9 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     if (outcome.status === "manual") {
       await supabaseAdmin
         .from("clinic_appointments")
-        .update({ refund_status: "manual_required" })
+        // "failed" is the portal's vocabulary for "not refunded yet" — it
+        // surfaces the "mark refunded manually" action for the clinic.
+        .update({ refund_status: "failed" })
         .eq("id", appointmentId);
       await logError("processConsultOutcome", `Manual refund required: ${outcome.reason}`, {
         appointmentId,
