@@ -79,15 +79,21 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         const existing = lead.email
           ? await stripe.customers.list({ email: lead.email, limit: 1 })
           : { data: [] as { id: string }[] };
-        assistedCustomerId = existing.data.length
-          ? existing.data[0].id
-          : (
-              await stripe.customers.create({
-                ...(lead.email ? { email: lead.email } : {}),
-                ...(patientName ? { name: patientName } : {}),
-                metadata: { lead_id: lead.id },
-              })
-            ).id;
+        if (existing.data.length) {
+          assistedCustomerId = existing.data[0].id;
+          await stripe.customers.update(assistedCustomerId, {
+            ...(patientName ? { name: patientName } : {}),
+            metadata: { lead_id: lead.id },
+          });
+        } else {
+          assistedCustomerId = (
+            await stripe.customers.create({
+              ...(lead.email ? { email: lead.email } : {}),
+              ...(patientName ? { name: patientName } : {}),
+              metadata: { lead_id: lead.id },
+            })
+          ).id;
+        }
       }
 
       const descriptionParts = [
@@ -110,15 +116,16 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
               ...(assistedCustomerId
                 ? {
                     customer: assistedCustomerId,
-                    customer_update: { address: "auto" as const, name: "auto" as const },
                   }
                 : {}),
-              billing_address_collection: "auto" as const,
             }
           : lead.email
             ? { customer_email: lead.email }
             : {}),
-        automatic_tax: { enabled: true },
+        // Automatic tax requires Checkout to collect the payer's location.
+        // Keep it on patient-facing links, but do not require billing details
+        // when a staff member is taking the refundable fee over the phone.
+        ...(!data.assisted ? { automatic_tax: { enabled: true } } : {}),
         payment_intent_data: {
           description: `${product.name}${patientName ? ` — ${patientName}` : ""}`,
           statement_descriptor_suffix: "HTG DEPOSIT",
