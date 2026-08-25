@@ -5,9 +5,14 @@ import { createDepositCheckout } from "@/utils/payments.functions";
 interface DepositEmbeddedCheckoutProps {
   leadId: string;
   returnUrl?: string;
+  assisted?: boolean;
 }
 
-export function DepositEmbeddedCheckout({ leadId, returnUrl }: DepositEmbeddedCheckoutProps) {
+export function DepositEmbeddedCheckout({
+  leadId,
+  returnUrl,
+  assisted = false,
+}: DepositEmbeddedCheckoutProps) {
   const fetchClientSecret = async (): Promise<string> => {
     const result = await createDepositCheckout({
       data: {
@@ -16,6 +21,7 @@ export function DepositEmbeddedCheckout({ leadId, returnUrl }: DepositEmbeddedCh
           returnUrl ||
           `${window.location.origin}/thank-you?session_id={CHECKOUT_SESSION_ID}`,
         environment: getStripeEnvironment(),
+        assisted,
       },
     });
     if ("error" in result) throw new Error(result.error);
