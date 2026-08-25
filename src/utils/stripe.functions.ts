@@ -303,12 +303,20 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     }
   });
 
-// Returns the HTG Stripe publishable key for client-side Stripe.js initialisation.
-// Publishable keys are safe to expose to the browser.
+// Returns the publishable key for client-side Stripe.js initialisation, plus
+// which account it belongs to. The managed (Lovable) payments token wins when
+// present; the old HTG key is only a fallback for builds where managed
+// payments haven't finished provisioning. Publishable keys are safe to expose.
 export const getHtgStripePublishableKey = createServerFn({ method: "GET" })
   .handler(async () => {
-    const key = process.env.STRIPE_HTG_PUBLISHABLE_KEY || "";
-    return { publishableKey: key };
+    const managed = process.env.VITE_PAYMENTS_CLIENT_TOKEN || "";
+    if (managed) {
+      return { publishableKey: managed, account: "managed" as const };
+    }
+    return {
+      publishableKey: process.env.STRIPE_HTG_PUBLISHABLE_KEY || "",
+      account: "htg" as const,
+    };
   });
 
 // Charges a card directly using a Stripe PaymentMethod ID created on the client
@@ -321,11 +329,15 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
       amountCents: number;
       patientName: string;
       leadId?: string;
+      // Which Stripe account the client-side PaymentMethod was created on.
+      // A PaymentMethod can only be charged by the account that minted it.
+      account?: "managed" | "htg";
     }) => data
   )
   .handler(async ({ data }) => {
+    const useManaged = data.account !== "htg";
     const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!stripeKey) {
+    if (!useManaged && !stripeKey) {
       const msg = "STRIPE_HTG_SECRET_KEY is not configured";
       await logError("chargeCardOverPhone", msg, { leadId: data.leadId, patientName: data.patientName });
       return { success: false as const, error: msg };
@@ -351,14 +363,33 @@ export const chargeCardOverPhone = createServerFn({ method: "POST" })
     params.append("metadata[source]", "charge_card_over_phone");
 
     try {
-      const response = await fetch("https://api.stripe.com/v1/payment_intents", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + stripeKey,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
-      });
+      let response: Response;
+      if (useManaged) {
+        // Route through the managed gateway (new Stripe account).
+        const { getConnectionApiKey, resolveStripeEnv } = await import("@/lib/stripe.server");
+        const connectionApiKey = getConnectionApiKey(resolveStripeEnv());
+        response = await fetch(
+          "https://connector-gateway.lovable.dev/stripe/v1/payment_intents",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-Connection-Api-Key": connectionApiKey,
+              "Lovable-API-Key": process.env.LOVABLE_API_KEY || "",
+            },
+            body: params.toString(),
+          },
+        );
+      } else {
+        response = await fetch("https://api.stripe.com/v1/payment_intents", {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer " + stripeKey,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: params.toString(),
+        });
+      }
 
       const result = (await response.json()) as StripeApiResponse;
 
