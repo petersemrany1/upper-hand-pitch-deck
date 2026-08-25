@@ -8,6 +8,14 @@ const getEnv = (key: string): string => {
 
 export type StripeEnv = 'sandbox' | 'live';
 
+// Picks the environment from whichever managed key this deployment holds.
+// Live wins when present; sandbox otherwise. Throws when payments aren't set up.
+export function resolveStripeEnv(): StripeEnv {
+  if (process.env['STRIPE_LIVE_API_KEY']) return 'live';
+  if (process.env['STRIPE_SANDBOX_API_KEY']) return 'sandbox';
+  throw new Error('Managed payments are not configured');
+}
+
 const GATEWAY_STRIPE_BASE = 'https://connector-gateway.lovable.dev/stripe';
 
 export function getConnectionApiKey(env: StripeEnv): string {
