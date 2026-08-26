@@ -1088,8 +1088,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return kb.localeCompare(ka);
     });
 
-    return [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining].map((l) => l.id);
-  }, [leads, attemptsByDay, isLeadLocationPaused]);
+    const ordered = [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining];
+    // Priority city first (stable — keeps the section ordering above intact).
+    const priorityFirst = [
+      ...ordered.filter((l) => isPriorityLead(l)),
+      ...ordered.filter((l) => !isPriorityLead(l)),
+    ];
+    return priorityFirst.map((l) => l.id);
+  }, [leads, attemptsByDay, isLeadLocationPaused, isPriorityLead]);
 
 
 
