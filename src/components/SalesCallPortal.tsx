@@ -5406,7 +5406,7 @@ function LeadChooser({
             <div className="flex items-center gap-2 flex-wrap">
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
               {(() => {
-                const a = (l.ad_set_name ?? "").toLowerCase();
+                const a = leadLocationText(l);
                 const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : a.includes("sydney") ? "SYDNEY" : a.includes("perth") ? "PERTH" : null;
                 if (!loc) return null;
                 const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : loc === "SYDNEY" ? { bg: "#f3e8ff", fg: "#6b21a8" } : loc === "PERTH" ? { bg: "#fef3c7", fg: "#92400e" } : { bg: "#dcfce7", fg: "#166534" };
@@ -5416,6 +5416,11 @@ function LeadChooser({
                   </span>
                 );
               })()}
+              {isPriorityLead(l) && (
+                <span style={{ background: "#111", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999 }}>
+                  PRIORITY
+                </span>
+              )}
               <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
