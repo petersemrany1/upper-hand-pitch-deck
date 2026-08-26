@@ -4959,11 +4959,17 @@ function LeadChooser({
       out.today.push({ section: "remaining", lead: l }); placed.add(l.id);
     }
 
-    // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining
+    // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining.
+    // Inside each section, priority-city leads float to the top so the rep works
+    // e.g. all Byron leads before the rest. Time-committed callbacks keep their
+    // section precedence so nothing scheduled gets buried.
     const order = { overdue: 0, callback: 1, "no-answer-yesterday": 2, new: 3, remaining: 4 } as const;
+    const prioRank = (l: Lead) => (isPriorityLead(l) ? 0 : 1);
     out.today.sort((a, b) => {
       const oa = order[a.section]; const ob = order[b.section];
       if (oa !== ob) return oa - ob;
+      const pa = prioRank(a.lead); const pb = prioRank(b.lead);
+      if (pa !== pb) return pa - pb;
       // within callback section, sort by scheduled time ascending
       if (a.section === "callback" || a.section === "overdue") {
         const ta = a.lead.callback_scheduled_at ? new Date(a.lead.callback_scheduled_at).getTime() : 0;
@@ -4977,9 +4983,13 @@ function LeadChooser({
       const ya = callbackOn(a, yesterday) ? 0 : 1;
       const yb = callbackOn(b, yesterday) ? 0 : 1;
       if (ya !== yb) return ya - yb;
+      const pa = prioRank(a); const pb = prioRank(b);
+      if (pa !== pb) return pa - pb;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     out.tomorrow.sort((a, b) => {
+      const pa = prioRank(a); const pb = prioRank(b);
+      if (pa !== pb) return pa - pb;
       const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
       const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
       return ta - tb;
