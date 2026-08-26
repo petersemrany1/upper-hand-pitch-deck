@@ -322,6 +322,33 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
+  // Optional priority city (Settings → "Priority lead city"). Leads matching it
+  // are sorted to the top of every column and to the front of the call session
+  // queue. Nothing is hidden — lower-priority cities just sit underneath.
+  // Stored in app_settings key "priority_lead_location" as a lowercase string.
+  const [priorityLocation, setPriorityLocation] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "priority_lead_location")
+        .maybeSingle();
+      if (cancelled) return;
+      const raw = data?.value as unknown;
+      setPriorityLocation(typeof raw === "string" ? raw.toLowerCase() : "");
+    };
+    void load();
+    const ch = supabase.channel("priority-location")
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.priority_lead_location" }, () => void load())
+      .subscribe();
+    return () => { cancelled = true; void supabase.removeChannel(ch); };
+  }, []);
+  const isPriorityLead = useCallback((l: Lead) => {
+    if (!priorityLocation) return false;
+    return leadLocationText(l).includes(priorityLocation);
+  }, [priorityLocation]);
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
@@ -1061,8 +1088,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return kb.localeCompare(ka);
     });
 
-    return [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining].map((l) => l.id);
-  }, [leads, attemptsByDay, isLeadLocationPaused]);
+    const ordered = [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining];
+    // Priority city first (stable — keeps the section ordering above intact).
+    const priorityFirst = [
+      ...ordered.filter((l) => isPriorityLead(l)),
+      ...ordered.filter((l) => !isPriorityLead(l)),
+    ];
+    return priorityFirst.map((l) => l.id);
+  }, [leads, attemptsByDay, isLeadLocationPaused, isPriorityLead]);
 
 
 
@@ -1134,6 +1167,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               <LeadChooser
                 leads={leads}
                 pausedLocations={pausedLocations}
+                priorityLocation={priorityLocation}
                 attemptCounts={attemptCounts}
                 attemptsByDay={attemptsByDay}
                 firstCallByLead={firstCallByLead}
@@ -4716,6 +4750,7 @@ const sameLocalDate = (a: Date, b: Date) =>
 function LeadChooser({
   leads,
   pausedLocations = [],
+  priorityLocation = "",
   attemptCounts,
   attemptsByDay,
   firstCallByLead,
@@ -4724,6 +4759,7 @@ function LeadChooser({
 }: {
   leads: Lead[];
   pausedLocations?: string[];
+  priorityLocation?: string;
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
   firstCallByLead: Record<string, string>;
@@ -4735,6 +4771,12 @@ function LeadChooser({
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
+  // Leads from the admin-set priority city sort above everything else in each
+  // column (Settings → "Priority lead city"). Nothing is hidden.
+  const isPriorityLead = useCallback((l: Lead) => {
+    if (!priorityLocation) return false;
+    return leadLocationText(l).includes(priorityLocation);
+  }, [priorityLocation]);
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -4917,11 +4959,17 @@ function LeadChooser({
       out.today.push({ section: "remaining", lead: l }); placed.add(l.id);
     }
 
-    // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining
+    // Sort within today: overdue → callback (by time) → no-answer-yesterday → new → remaining.
+    // Inside each section, priority-city leads float to the top so the rep works
+    // e.g. all Byron leads before the rest. Time-committed callbacks keep their
+    // section precedence so nothing scheduled gets buried.
     const order = { overdue: 0, callback: 1, "no-answer-yesterday": 2, new: 3, remaining: 4 } as const;
+    const prioRank = (l: Lead) => (isPriorityLead(l) ? 0 : 1);
     out.today.sort((a, b) => {
       const oa = order[a.section]; const ob = order[b.section];
       if (oa !== ob) return oa - ob;
+      const pa = prioRank(a.lead); const pb = prioRank(b.lead);
+      if (pa !== pb) return pa - pb;
       // within callback section, sort by scheduled time ascending
       if (a.section === "callback" || a.section === "overdue") {
         const ta = a.lead.callback_scheduled_at ? new Date(a.lead.callback_scheduled_at).getTime() : 0;
@@ -4935,9 +4983,13 @@ function LeadChooser({
       const ya = callbackOn(a, yesterday) ? 0 : 1;
       const yb = callbackOn(b, yesterday) ? 0 : 1;
       if (ya !== yb) return ya - yb;
+      const pa = prioRank(a); const pb = prioRank(b);
+      if (pa !== pb) return pa - pb;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
     out.tomorrow.sort((a, b) => {
+      const pa = prioRank(a); const pb = prioRank(b);
+      if (pa !== pb) return pa - pb;
       const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
       const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : Number.MAX_SAFE_INTEGER;
       return ta - tb;
@@ -4945,7 +4997,7 @@ function LeadChooser({
 
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
+  }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey, isPriorityLead]);
 
   // Per-lead generation status for the AI pipeline summary so cards can show
   // "Generating…" while the edge function builds the one-liner. Triggered
@@ -5354,7 +5406,7 @@ function LeadChooser({
             <div className="flex items-center gap-2 flex-wrap">
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{name}</div>
               {(() => {
-                const a = (l.ad_set_name ?? "").toLowerCase();
+                const a = leadLocationText(l);
                 const loc = a.includes("melbourne") ? "MELBOURNE" : a.includes("byron") ? "BYRON" : a.includes("sydney") ? "SYDNEY" : a.includes("perth") ? "PERTH" : null;
                 if (!loc) return null;
                 const c = loc === "MELBOURNE" ? { bg: "#e0f2fe", fg: "#075985" } : loc === "SYDNEY" ? { bg: "#f3e8ff", fg: "#6b21a8" } : loc === "PERTH" ? { bg: "#fef3c7", fg: "#92400e" } : { bg: "#dcfce7", fg: "#166534" };
@@ -5364,6 +5416,11 @@ function LeadChooser({
                   </span>
                 );
               })()}
+              {isPriorityLead(l) && (
+                <span style={{ background: "#111", color: "#fff", fontSize: 10, fontWeight: 700, letterSpacing: 0.5, padding: "2px 8px", borderRadius: 999 }}>
+                  PRIORITY
+                </span>
+              )}
               <span style={{ fontSize: 11, color: "#999" }}>· {fmtShort(l.created_at)}</span>
             </div>
             <div className="flex items-center gap-2 flex-wrap" style={{ marginTop: 8 }}>
