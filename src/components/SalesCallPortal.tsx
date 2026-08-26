@@ -4750,6 +4750,7 @@ const sameLocalDate = (a: Date, b: Date) =>
 function LeadChooser({
   leads,
   pausedLocations = [],
+  priorityLocation = "",
   attemptCounts,
   attemptsByDay,
   firstCallByLead,
@@ -4758,6 +4759,7 @@ function LeadChooser({
 }: {
   leads: Lead[];
   pausedLocations?: string[];
+  priorityLocation?: string;
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
   firstCallByLead: Record<string, string>;
@@ -4769,6 +4771,12 @@ function LeadChooser({
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
+  // Leads from the admin-set priority city sort above everything else in each
+  // column (Settings → "Priority lead city"). Nothing is hidden.
+  const isPriorityLead = useCallback((l: Lead) => {
+    if (!priorityLocation) return false;
+    return leadLocationText(l).includes(priorityLocation);
+  }, [priorityLocation]);
   const [q, setQ] = useState("");
   const [openStatusFor, setOpenStatusFor] = useState<string | null>(null);
   const [statusAnchor, setStatusAnchor] = useState<{ top: number; left: number } | null>(null);
