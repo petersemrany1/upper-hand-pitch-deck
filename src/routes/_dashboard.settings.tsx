@@ -941,3 +941,82 @@ function PausedLocationsSection() {
     </section>
   );
 }
+
+// Picks a single city whose leads float to the top of every column in the
+// Sales Call sheet and to the front of the call-session queue. Nothing is
+// hidden — other cities simply sit underneath. Stored in app_settings key
+// "priority_lead_location" as a lowercase string ("" = no priority).
+function PriorityLocationSection() {
+  const [value, setValue] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "priority_lead_location")
+        .maybeSingle();
+      const raw = data?.value as unknown;
+      setValue(typeof raw === "string" ? raw.toLowerCase() : "");
+      setLoading(false);
+    })();
+  }, []);
+
+  const save = async (next: string) => {
+    setSaving(true);
+    setValue(next);
+    const { error } = await supabase
+      .from("app_settings")
+      .upsert({ key: "priority_lead_location", value: next }, { onConflict: "key" });
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(next ? `Priority city: ${next}` : "No priority city — normal order");
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mt-8">
+      <div className="flex items-center gap-3 mb-5">
+        <ArrowUp className="w-5 h-5 text-primary" />
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Priority lead city</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Leads from this city sort to the top of every column in the Sales Call sheet and go
+            first in the call session queue. Other cities stay visible underneath.
+          </p>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="text-sm text-muted-foreground py-6 text-center">Loading…</div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => void save("")}
+            disabled={saving}
+            className="px-3 py-2 rounded-md text-sm font-semibold border disabled:opacity-50"
+            style={value === "" ? { background: "#111", color: "#fff", borderColor: "#111" } : undefined}
+          >
+            No priority
+          </button>
+          {LOCATION_OPTIONS.map((loc) => {
+            const key = loc.toLowerCase();
+            const on = value === key;
+            return (
+              <button
+                key={loc}
+                onClick={() => void save(key)}
+                disabled={saving}
+                className="px-3 py-2 rounded-md text-sm font-semibold border disabled:opacity-50"
+                style={on ? { background: "#f4522d", color: "#fff", borderColor: "#f4522d" } : undefined}
+              >
+                {loc} first
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
