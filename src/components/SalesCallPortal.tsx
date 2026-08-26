@@ -322,6 +322,33 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
+  // Optional priority city (Settings → "Priority lead city"). Leads matching it
+  // are sorted to the top of every column and to the front of the call session
+  // queue. Nothing is hidden — lower-priority cities just sit underneath.
+  // Stored in app_settings key "priority_lead_location" as a lowercase string.
+  const [priorityLocation, setPriorityLocation] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const { data } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "priority_lead_location")
+        .maybeSingle();
+      if (cancelled) return;
+      const raw = data?.value as unknown;
+      setPriorityLocation(typeof raw === "string" ? raw.toLowerCase() : "");
+    };
+    void load();
+    const ch = supabase.channel("priority-location")
+      .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.priority_lead_location" }, () => void load())
+      .subscribe();
+    return () => { cancelled = true; void supabase.removeChannel(ch); };
+  }, []);
+  const isPriorityLead = useCallback((l: Lead) => {
+    if (!priorityLocation) return false;
+    return leadLocationText(l).includes(priorityLocation);
+  }, [priorityLocation]);
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
