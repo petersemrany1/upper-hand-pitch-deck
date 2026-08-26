@@ -1167,6 +1167,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               <LeadChooser
                 leads={leads}
                 pausedLocations={pausedLocations}
+                priorityLocation={priorityLocation}
                 attemptCounts={attemptCounts}
                 attemptsByDay={attemptsByDay}
                 firstCallByLead={firstCallByLead}
