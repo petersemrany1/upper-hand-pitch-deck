@@ -4997,7 +4997,7 @@ function LeadChooser({
 
     return out;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey]);
+  }, [filtered, attemptsByDay, forcedCol, todayKey, yesterdayKey, isPriorityLead]);
 
   // Per-lead generation status for the AI pipeline summary so cards can show
   // "Generating…" while the edge function builds the one-liner. Triggered
