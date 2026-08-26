@@ -13,7 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { listPracticeCallRecordings } from "@/lib/practice-recordings.functions";
 import { listRepBookingsWithRecordings, type RepBookingRow } from "@/lib/rep-bookings.functions";
-import { Mic, CalendarCheck, Play, Pause } from "lucide-react";
+import { Mic, CalendarCheck, Play, Pause, ArrowUp } from "lucide-react";
 import { TrainingProgressSection } from "@/components/settings/TrainingProgressSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { PhoneNumbersSection } from "@/components/settings/PhoneNumbersSection";
