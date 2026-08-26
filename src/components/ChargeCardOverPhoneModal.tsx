@@ -24,7 +24,6 @@ export function ChargeCardOverPhoneModal({
   defaultAmount,
   patientName,
   leadId,
-  onSuccess,
 }: Props) {
   if (!open) return null;
 
@@ -73,7 +72,6 @@ export function ChargeCardOverPhoneModal({
               leadId={leadId}
               returnUrl={currentUrl.toString()}
               assisted
-              onComplete={() => onSuccess?.({ paymentIntentId: "checkout_completed", amount: defaultAmount })}
             />
           ) : (
             <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
