@@ -107,6 +107,10 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
         mode: "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
+        // In the live sales-call modal, a top-page redirect triggers Twilio's
+        // close protection prompt; if the rep accepts it, the active call ends.
+        // Assisted card payments should complete inside the embedded frame only.
+        ...(data.assisted ? { redirect_on_completion: "never" as const } : {}),
         // Staff-assisted phone payments must always present blank card fields and
         // must not ask the rep for name/email — we attach a Customer instead.
         ...(data.assisted
