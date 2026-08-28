@@ -25,8 +25,9 @@ const CLINT_TWILIO_URL =
 type Recording = { name: string; url: string; requiresToken?: boolean };
 
 const recordings: Recording[] = [
-  { name: "Ahmed", url: ahmedAsset.url },
-  { name: "Jono", url: jonoAsset.url },
+  { name: "Khin Win", url: "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/RE709c231143cc1b790497d0e16bc8c025.mp3", requiresToken: true },
+  { name: "Nick Tioulis", url: "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/REb554753b30e4573b1623d634a48928bb.mp3", requiresToken: true },
+  { name: "David Crofts", url: "https://api.twilio.com/2010-04-01/Accounts/AC4e4b3797155ad508c8dffa4b13a1fd6e/Recordings/RE0ad8da8372f2f53d0e4675a8d5a2f2e9.mp3", requiresToken: true },
   { name: "Raj", url: rajAsset.url },
   { name: "Nathan", url: nathanAsset.url },
   { name: "Angus", url: angusAsset.url },
