@@ -760,7 +760,7 @@ function DashboardHome() {
               ))}
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
             <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convLeadsTotal > 0 ? `${leadsPct}%` : "—"}
@@ -772,7 +772,7 @@ function DashboardHome() {
                 {convLeadsBooked} / {convLeadsTotal} leads
               </div>
             </div>
-            <div style={{ padding: "20px", textAlign: "center" }}>
+            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convConnectedUnique > 0 ? `${connectsPct}%` : "—"}
               </div>
@@ -781,6 +781,17 @@ function DashboardHome() {
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                 {convConnectedBooked} / {convConnectedUnique} connected
+              </div>
+            </div>
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                {convConvosUnique > 0 ? `${convosPct}%` : "—"}
+              </div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
+                Convos to Sales<InfoTip text={CONVOS_CONV_TOOLTIP} />
+              </div>
+              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+                {convConvosBooked} / {convConvosUnique} convos
               </div>
             </div>
           </div>
