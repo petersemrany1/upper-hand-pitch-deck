@@ -498,12 +498,13 @@ function DashboardHome() {
       // Page through all matching call_records to avoid the 1000-row cap;
       // outbound-only so inbound "returned my call" doesn't double-count.
       const connectedLeadIds = new Set<string>();
+      const convosLeadIds = new Set<string>(); // same filter but duration >= 120s
       const PAGE = 1000;
       let offset = 0;
       while (true) {
         const callsQ = supabase
           .from("call_records")
-          .select("lead_id")
+          .select("lead_id, duration")
           .not("lead_id", "is", null)
           .eq("status", "completed")
           .eq("direction", "outbound")
@@ -514,8 +515,10 @@ function DashboardHome() {
         if (scopeId) callsQ.eq("rep_id", scopeId);
         const { data, error } = await callsQ;
         if (error || !data || data.length === 0) break;
-        for (const row of data as { lead_id: string | null }[]) {
-          if (row.lead_id) connectedLeadIds.add(row.lead_id);
+        for (const row of data as { lead_id: string | null; duration: number | null }[]) {
+          if (!row.lead_id) continue;
+          connectedLeadIds.add(row.lead_id);
+          if ((row.duration ?? 0) >= 120) convosLeadIds.add(row.lead_id);
         }
         if (data.length < PAGE) break;
         offset += PAGE;
