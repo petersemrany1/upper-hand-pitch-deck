@@ -47,10 +47,19 @@ function connectsConvColor(pct: number): string {
   return CONV_RED;
 }
 
+/** Convos → Sales: green >=70, orange 50-70, red <50. */
+function convosConvColor(pct: number): string {
+  if (pct >= 70) return CONV_GREEN;
+  if (pct >= 50) return CONV_ORANGE;
+  return CONV_RED;
+}
+
 const LEADS_CONV_TOOLTIP =
   "Of all new patient enquiries that came in during this period, the percentage that booked an appointment. Target 20%.";
 const CONNECTS_CONV_TOOLTIP =
   "Of all the people you actually got on the phone for more than 10 seconds, the percentage that booked. Target 60%.";
+const CONVOS_CONV_TOOLTIP =
+  "Of all the people who stayed on the phone for a real conversation (2 minutes or more), the percentage that booked. Target 70%.";
 
 function InfoTip({ text }: { text: string }) {
   return (
@@ -248,12 +257,14 @@ function DashboardHome() {
   const [renewalToast, setRenewalToast] = useState<string | null>(null);
 
   // Conversion widget state
-  type ConvPeriod = "day" | "week" | "month" | "year" | "all";
+  type ConvPeriod = "day" | "week" | "30d" | "60d" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
   const [convLeadsTotal, setConvLeadsTotal] = useState(0);     // leads created in period
   const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // of those leads, how many are booked
   const [convConnectedUnique, setConvConnectedUnique] = useState(0); // unique leads we got through to (completed calls)
   const [convConnectedBooked, setConvConnectedBooked] = useState(0); // of those, how many are booked
+  const [convConvosUnique, setConvConvosUnique] = useState(0);       // unique leads with a 2min+ conversation
+  const [convConvosBooked, setConvConvosBooked] = useState(0);       // of those, how many are booked
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
@@ -440,6 +451,12 @@ function DashboardHome() {
       } else if (convPeriod === "week") {
         const base = sydneyMidnightUTC(year, month, day);
         fromIso = new Date(base.getTime() - 7 * 86400_000).toISOString();
+      } else if (convPeriod === "30d") {
+        const base = sydneyMidnightUTC(year, month, day);
+        fromIso = new Date(base.getTime() - 30 * 86400_000).toISOString();
+      } else if (convPeriod === "60d") {
+        const base = sydneyMidnightUTC(year, month, day);
+        fromIso = new Date(base.getTime() - 60 * 86400_000).toISOString();
       } else if (convPeriod === "month") {
         fromIso = sydneyMidnightUTC(year, month, 1).toISOString();
       } else if (convPeriod === "year") {
@@ -487,12 +504,13 @@ function DashboardHome() {
       // Page through all matching call_records to avoid the 1000-row cap;
       // outbound-only so inbound "returned my call" doesn't double-count.
       const connectedLeadIds = new Set<string>();
+      const convosLeadIds = new Set<string>(); // same filter but duration >= 120s
       const PAGE = 1000;
       let offset = 0;
       while (true) {
         const callsQ = supabase
           .from("call_records")
-          .select("lead_id")
+          .select("lead_id, duration")
           .not("lead_id", "is", null)
           .eq("status", "completed")
           .eq("direction", "outbound")
@@ -503,8 +521,10 @@ function DashboardHome() {
         if (scopeId) callsQ.eq("rep_id", scopeId);
         const { data, error } = await callsQ;
         if (error || !data || data.length === 0) break;
-        for (const row of data as { lead_id: string | null }[]) {
-          if (row.lead_id) connectedLeadIds.add(row.lead_id);
+        for (const row of data as { lead_id: string | null; duration: number | null }[]) {
+          if (!row.lead_id) continue;
+          connectedLeadIds.add(row.lead_id);
+          if ((row.duration ?? 0) >= 120) convosLeadIds.add(row.lead_id);
         }
         if (data.length < PAGE) break;
         offset += PAGE;
@@ -516,10 +536,12 @@ function DashboardHome() {
       const leadsTotal = leadsTotalRes.count ?? 0;
       const leadsBooked = leadsBookedRes.count ?? 0;
 
-      // Resolve statuses for connected leads in chunks, applying test filter.
+      // Resolve statuses for connected + convo leads in chunks, applying test filter.
       let connectedBooked = 0;
       let connectedUniqueFiltered = 0;
-      const ids = Array.from(connectedLeadIds);
+      let convosBooked = 0;
+      let convosUniqueFiltered = 0;
+      const ids = Array.from(new Set([...connectedLeadIds, ...convosLeadIds]));
       const CHUNK = 200;
       for (let i = 0; i < ids.length; i += CHUNK) {
         const slice = ids.slice(i, i + CHUNK);
@@ -530,8 +552,12 @@ function DashboardHome() {
           .not("first_name", "ilike", "%test%")
           .not("last_name", "ilike", "%test%");
         const rows = (leadRows ?? []) as Array<{ id: string; status: string | null }>;
-        connectedUniqueFiltered += rows.length;
-        connectedBooked += rows.filter(r => r.status === "booked_deposit_paid").length;
+        const connRows = rows.filter(r => connectedLeadIds.has(r.id));
+        const convoRows = rows.filter(r => convosLeadIds.has(r.id));
+        connectedUniqueFiltered += connRows.length;
+        connectedBooked += connRows.filter(r => r.status === "booked_deposit_paid").length;
+        convosUniqueFiltered += convoRows.length;
+        convosBooked += convoRows.filter(r => r.status === "booked_deposit_paid").length;
       }
 
       if (cancelled) return;
@@ -540,6 +566,8 @@ function DashboardHome() {
       setConvLeadsBooked(leadsBooked);
       setConvConnectedUnique(connectedUniqueFiltered);
       setConvConnectedBooked(connectedBooked);
+      setConvConvosUnique(convosUniqueFiltered);
+      setConvConvosBooked(convosBooked);
 
     })();
     return () => { cancelled = true; };
@@ -557,6 +585,7 @@ function DashboardHome() {
 
   const leadsPct = convLeadsTotal > 0 ? Math.round((convLeadsBooked / convLeadsTotal) * 1000) / 10 : 0;
   const connectsPct = convConnectedUnique > 0 ? Math.round((convConnectedBooked / convConnectedUnique) * 1000) / 10 : 0;
+  const convosPct = convConvosUnique > 0 ? Math.round((convConvosBooked / convConvosUnique) * 1000) / 10 : 0;
 
   const confirmTarget = async () => {
     const n = Number(targetInput);
@@ -642,12 +671,14 @@ function DashboardHome() {
               >
                 <option value="day">Today</option>
                 <option value="week">Last 7 days</option>
+                <option value="30d">Past 30 days</option>
+                <option value="60d">Past 60 days</option>
                 <option value="month">This month</option>
                 <option value="year">This year</option>
                 <option value="all">All time</option>
               </select>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
                 <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
@@ -655,12 +686,19 @@ function DashboardHome() {
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLeadsBooked} of {convLeadsTotal} leads</div>
               </div>
-              <div style={{ padding: 20 }}>
+              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings<InfoTip text={CONNECTS_CONV_TOOLTIP} /></div>
                 <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
                   {connectsPct}%
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConnectedBooked} of {convConnectedUnique} connects</div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Convos → Sales<InfoTip text={CONVOS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#111", marginTop: 8, lineHeight: 1 }}>
+                  {convosPct}%
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConvosBooked} of {convConvosUnique} convos</div>
               </div>
             </div>
           </Card>
@@ -707,7 +745,7 @@ function DashboardHome() {
               <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How leads and calls convert into bookings</div>
             </div>
             <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
-              {(["day","week","month","year","all"] as const).map((p) => (
+              {(["day","week","30d","60d","month","year","all"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setConvPeriod(p)}
@@ -722,15 +760,14 @@ function DashboardHome() {
                     color: convPeriod === p ? "#111" : "#888",
                     boxShadow: convPeriod === p ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
                     fontFamily: FONT,
-                    textTransform: "capitalize",
                   }}
                 >
-                  {p}
+                  {{ day: "Today", week: "7 days", "30d": "30 days", "60d": "60 days", month: "Month", year: "Year", all: "All" }[p]}
                 </button>
               ))}
             </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
             <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convLeadsTotal > 0 ? `${leadsPct}%` : "—"}
@@ -742,7 +779,7 @@ function DashboardHome() {
                 {convLeadsBooked} / {convLeadsTotal} leads
               </div>
             </div>
-            <div style={{ padding: "20px", textAlign: "center" }}>
+            <div style={{ padding: "20px", textAlign: "center", borderRight: "0.5px solid #f0f0ee" }}>
               <div style={{ fontSize: 32, fontWeight: 600, color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
                 {convConnectedUnique > 0 ? `${connectsPct}%` : "—"}
               </div>
@@ -751,6 +788,17 @@ function DashboardHome() {
               </div>
               <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
                 {convConnectedBooked} / {convConnectedUnique} connected
+              </div>
+            </div>
+            <div style={{ padding: "20px", textAlign: "center" }}>
+              <div style={{ fontSize: 32, fontWeight: 600, color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#999", letterSpacing: "-0.03em", lineHeight: 1 }}>
+                {convConvosUnique > 0 ? `${convosPct}%` : "—"}
+              </div>
+              <div style={{ fontSize: 10, color: "#999", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, marginTop: 8 }}>
+                Convos to Sales<InfoTip text={CONVOS_CONV_TOOLTIP} />
+              </div>
+              <div style={{ fontSize: 11, color: "#bbb", marginTop: 4 }}>
+                {convConvosBooked} / {convConvosUnique} convos
               </div>
             </div>
           </div>
