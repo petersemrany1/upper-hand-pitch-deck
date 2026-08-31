@@ -14,6 +14,7 @@ export type TabKey =
   | "clinics"
   | "sent_links"
   | "chase_queue"
+  | "recordings"
   | "sales_test_leads";
 
 export const ALL_TAB_KEYS: TabKey[] = [
@@ -30,6 +31,7 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "clinics",
   "sent_links",
   "chase_queue",
+  "recordings",
   "sales_test_leads",
 ];
 
@@ -47,12 +49,13 @@ export const TAB_LABELS: Record<TabKey, string> = {
   clinics: "Clinics",
   sent_links: "Sent Links",
   chase_queue: "Chase Queue",
+  recordings: "My Recordings",
   sales_test_leads: "Clinic Meta Leads",
 };
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "phone", "chase_queue"] },
+  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "phone", "chase_queue", "recordings"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "sales_test_leads"] },
 ];
 
@@ -70,6 +73,7 @@ export const TAB_TO_URL: Record<TabKey, string> = {
   clinics: "/clinics",
   sent_links: "/sent-links",
   chase_queue: "/chase-queue",
+  recordings: "/my-recordings",
   sales_test_leads: "/sales-test-leads",
 };
 
@@ -81,7 +85,7 @@ export function defaultTabsForRole(role: RoleKey): TabKey[] {
   if (role === "admin") return [...ALL_TAB_KEYS];
   if (role === "caller") return ["clinics", "phone"];
   // rep
-  return ["dashboard", "training", "sales_portal", "phone", "chase_queue"];
+  return ["dashboard", "training", "sales_portal", "phone", "chase_queue", "recordings"];
 }
 
 // Resolve effective tabs given the role and optional override.
