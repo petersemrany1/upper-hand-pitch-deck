@@ -471,103 +471,44 @@ function DashboardHome() {
       }
       const scopeId = !isAdmin ? (repId ?? "00000000-0000-0000-0000-000000000000") : null;
 
-      // === Leads to Bookings ===
-      // Denominator: leads created in period, excluding test leads.
-      // Numerator:   of those leads, how many currently have status = 'booked_deposit_paid'.
-      // Uses exact count queries to avoid the 1000-row PostgREST default that
-      // would silently truncate "all-time" totals.
-      const leadsTotalQ = supabase
-        .from("meta_leads")
-        .select("id", { count: "exact", head: true })
-        .not("first_name", "ilike", "%test%")
-        .not("last_name", "ilike", "%test%");
-      if (fromIso) leadsTotalQ.gte("created_at", fromIso);
-      if (scopeId) leadsTotalQ.eq("rep_id", scopeId);
-
-      const leadsBookedQ = supabase
-        .from("meta_leads")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "booked_deposit_paid")
-        .not("first_name", "ilike", "%test%")
-        .not("last_name", "ilike", "%test%");
-      if (fromIso) leadsBookedQ.gte("created_at", fromIso);
-      if (scopeId) leadsBookedQ.eq("rep_id", scopeId);
-
-      // === Connects to Sales ===
-      // Denominator: unique leads we actually got through to in period.
-      //   A call counts as "connected" only when status='completed' AND
-      //   duration >= 10s. Twilio marks voicemails as 'completed' too, so
-      //   without the duration floor the denominator was inflated ~2.6x by
-      //   sub-10s voicemails/hang-ups (752 of 1220 completed calls in DB).
-      // Numerator: of those unique leads, how many currently have
-      //   status='booked_deposit_paid'.
-      // Page through all matching call_records to avoid the 1000-row cap;
-      // outbound-only so inbound "returned my call" doesn't double-count.
-      const connectedLeadIds = new Set<string>();
-      const convosLeadIds = new Set<string>(); // same filter but duration >= 120s
-      const PAGE = 1000;
-      let offset = 0;
-      while (true) {
-        const callsQ = supabase
-          .from("call_records")
-          .select("lead_id, duration")
-          .not("lead_id", "is", null)
-          .eq("status", "completed")
-          .eq("direction", "outbound")
-          .gte("duration", 10)
-          .order("called_at", { ascending: false })
-          .range(offset, offset + PAGE - 1);
-        if (fromIso) callsQ.gte("called_at", fromIso);
-        if (scopeId) callsQ.eq("rep_id", scopeId);
-        const { data, error } = await callsQ;
-        if (error || !data || data.length === 0) break;
-        for (const row of data as { lead_id: string | null; duration: number | null }[]) {
-          if (!row.lead_id) continue;
-          connectedLeadIds.add(row.lead_id);
-          if ((row.duration ?? 0) >= 120) convosLeadIds.add(row.lead_id);
-        }
-        if (data.length < PAGE) break;
-        offset += PAGE;
-      }
-
-      const [leadsTotalRes, leadsBookedRes] = await Promise.all([leadsTotalQ, leadsBookedQ]);
+      // All six conversion numbers now come back from ONE database call
+      // (public.dashboard_conversion_stats). Previously this block paged
+      // through every call_record then re-queried meta_leads in 200-id
+      // chunks — ~9 serial round-trips per refresh, which made the
+      // dashboard feel slow. Definitions are unchanged:
+      //  - Leads → Bookings: leads created in period vs. booked_deposit_paid
+      //  - Connects → Sales: unique leads with a completed outbound call
+      //    of >= 10s (10s floor excludes voicemail/hang-ups)
+      //  - Convos → Sales: same but >= 120s
+      // Test leads (name containing "test") are excluded server-side.
+      const { data: statsRows, error: statsErr } = await supabase.rpc(
+        "dashboard_conversion_stats",
+        { p_from: fromIso, p_rep: scopeId },
+      );
       if (cancelled) return;
-
-      const leadsTotal = leadsTotalRes.count ?? 0;
-      const leadsBooked = leadsBookedRes.count ?? 0;
-
-      // Resolve statuses for connected + convo leads in chunks, applying test filter.
-      let connectedBooked = 0;
-      let connectedUniqueFiltered = 0;
-      let convosBooked = 0;
-      let convosUniqueFiltered = 0;
-      const ids = Array.from(new Set([...connectedLeadIds, ...convosLeadIds]));
-      const CHUNK = 200;
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        const slice = ids.slice(i, i + CHUNK);
-        const { data: leadRows } = await supabase
-          .from("meta_leads")
-          .select("id, status")
-          .in("id", slice)
-          .not("first_name", "ilike", "%test%")
-          .not("last_name", "ilike", "%test%");
-        const rows = (leadRows ?? []) as Array<{ id: string; status: string | null }>;
-        const connRows = rows.filter(r => connectedLeadIds.has(r.id));
-        const convoRows = rows.filter(r => convosLeadIds.has(r.id));
-        connectedUniqueFiltered += connRows.length;
-        connectedBooked += connRows.filter(r => r.status === "booked_deposit_paid").length;
-        convosUniqueFiltered += convoRows.length;
-        convosBooked += convoRows.filter(r => r.status === "booked_deposit_paid").length;
+      if (statsErr) {
+        console.error("conversion stats failed", statsErr);
+        return;
       }
+      const s = (Array.isArray(statsRows) ? statsRows[0] : statsRows) as
+        | {
+            leads_total: number;
+            leads_booked: number;
+            connected_unique: number;
+            connected_booked: number;
+            convos_unique: number;
+            convos_booked: number;
+          }
+        | undefined;
+      if (!s) return;
 
-      if (cancelled) return;
+      setConvLeadsTotal(Number(s.leads_total) || 0);
+      setConvLeadsBooked(Number(s.leads_booked) || 0);
+      setConvConnectedUnique(Number(s.connected_unique) || 0);
+      setConvConnectedBooked(Number(s.connected_booked) || 0);
+      setConvConvosUnique(Number(s.convos_unique) || 0);
+      setConvConvosBooked(Number(s.convos_booked) || 0);
 
-      setConvLeadsTotal(leadsTotal);
-      setConvLeadsBooked(leadsBooked);
-      setConvConnectedUnique(connectedUniqueFiltered);
-      setConvConnectedBooked(connectedBooked);
-      setConvConvosUnique(convosUniqueFiltered);
-      setConvConvosBooked(convosBooked);
 
     })();
     return () => { cancelled = true; };
