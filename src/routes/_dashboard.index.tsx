@@ -530,10 +530,12 @@ function DashboardHome() {
       const leadsTotal = leadsTotalRes.count ?? 0;
       const leadsBooked = leadsBookedRes.count ?? 0;
 
-      // Resolve statuses for connected leads in chunks, applying test filter.
+      // Resolve statuses for connected + convo leads in chunks, applying test filter.
       let connectedBooked = 0;
       let connectedUniqueFiltered = 0;
-      const ids = Array.from(connectedLeadIds);
+      let convosBooked = 0;
+      let convosUniqueFiltered = 0;
+      const ids = Array.from(new Set([...connectedLeadIds, ...convosLeadIds]));
       const CHUNK = 200;
       for (let i = 0; i < ids.length; i += CHUNK) {
         const slice = ids.slice(i, i + CHUNK);
@@ -544,8 +546,12 @@ function DashboardHome() {
           .not("first_name", "ilike", "%test%")
           .not("last_name", "ilike", "%test%");
         const rows = (leadRows ?? []) as Array<{ id: string; status: string | null }>;
-        connectedUniqueFiltered += rows.length;
-        connectedBooked += rows.filter(r => r.status === "booked_deposit_paid").length;
+        const connRows = rows.filter(r => connectedLeadIds.has(r.id));
+        const convoRows = rows.filter(r => convosLeadIds.has(r.id));
+        connectedUniqueFiltered += connRows.length;
+        connectedBooked += connRows.filter(r => r.status === "booked_deposit_paid").length;
+        convosUniqueFiltered += convoRows.length;
+        convosBooked += convoRows.filter(r => r.status === "booked_deposit_paid").length;
       }
 
       if (cancelled) return;
@@ -554,6 +560,8 @@ function DashboardHome() {
       setConvLeadsBooked(leadsBooked);
       setConvConnectedUnique(connectedUniqueFiltered);
       setConvConnectedBooked(connectedBooked);
+      setConvConvosUnique(convosUniqueFiltered);
+      setConvConvosBooked(convosBooked);
 
     })();
     return () => { cancelled = true; };
