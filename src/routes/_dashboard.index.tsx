@@ -451,6 +451,12 @@ function DashboardHome() {
       } else if (convPeriod === "week") {
         const base = sydneyMidnightUTC(year, month, day);
         fromIso = new Date(base.getTime() - 7 * 86400_000).toISOString();
+      } else if (convPeriod === "30d") {
+        const base = sydneyMidnightUTC(year, month, day);
+        fromIso = new Date(base.getTime() - 30 * 86400_000).toISOString();
+      } else if (convPeriod === "60d") {
+        const base = sydneyMidnightUTC(year, month, day);
+        fromIso = new Date(base.getTime() - 60 * 86400_000).toISOString();
       } else if (convPeriod === "month") {
         fromIso = sydneyMidnightUTC(year, month, 1).toISOString();
       } else if (convPeriod === "year") {
@@ -665,6 +671,8 @@ function DashboardHome() {
               >
                 <option value="day">Today</option>
                 <option value="week">Last 7 days</option>
+                <option value="30d">Past 30 days</option>
+                <option value="60d">Past 60 days</option>
                 <option value="month">This month</option>
                 <option value="year">This year</option>
                 <option value="all">All time</option>
@@ -737,7 +745,7 @@ function DashboardHome() {
               <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How leads and calls convert into bookings</div>
             </div>
             <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
-              {(["day","week","month","year","all"] as const).map((p) => (
+              {(["day","week","30d","60d","month","year","all"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setConvPeriod(p)}
@@ -752,10 +760,9 @@ function DashboardHome() {
                     color: convPeriod === p ? "#111" : "#888",
                     boxShadow: convPeriod === p ? "0 1px 2px rgba(0,0,0,0.05)" : "none",
                     fontFamily: FONT,
-                    textTransform: "capitalize",
                   }}
                 >
-                  {p}
+                  {{ day: "Today", week: "7 days", "30d": "30 days", "60d": "60 days", month: "Month", year: "Year", all: "All" }[p]}
                 </button>
               ))}
             </div>
