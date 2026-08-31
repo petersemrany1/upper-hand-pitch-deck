@@ -65,24 +65,29 @@ function MyRecordingsPage() {
       }
       const rows = (data ?? []) as CallRow[];
       setCalls(rows);
+      setLoading(false);
 
-      const leadIds = [...new Set(rows.map((r) => r.lead_id).filter(Boolean))] as string[];
-      if (leadIds.length > 0) {
+      // Lead names are cosmetic — load them in the background and never let a
+      // failure here block the list itself.
+      try {
+        const leadIds = [...new Set(rows.map((r) => r.lead_id).filter(Boolean))] as string[];
         const names: Record<string, string> = {};
         for (let i = 0; i < leadIds.length; i += 100) {
           const chunk = leadIds.slice(i, i + 100);
-          const { data: leads } = await supabase
+          const { data: leads, error: leadsErr } = await supabase
             .from("meta_leads")
             .select("id, first_name, last_name")
             .in("id", chunk);
+          if (leadsErr) { console.error("lead name lookup failed", leadsErr); break; }
           for (const l of leads ?? []) {
             const full = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
             if (full) names[l.id as string] = full;
           }
         }
         if (!cancelled) setLeadNames(names);
+      } catch (e) {
+        console.error("lead name lookup crashed", e);
       }
-      setLoading(false);
     })();
     return () => { cancelled = true; };
   }, [repId]);
