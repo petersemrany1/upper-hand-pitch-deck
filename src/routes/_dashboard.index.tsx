@@ -579,6 +579,7 @@ function DashboardHome() {
 
   const leadsPct = convLeadsTotal > 0 ? Math.round((convLeadsBooked / convLeadsTotal) * 1000) / 10 : 0;
   const connectsPct = convConnectedUnique > 0 ? Math.round((convConnectedBooked / convConnectedUnique) * 1000) / 10 : 0;
+  const convosPct = convConvosUnique > 0 ? Math.round((convConvosBooked / convConvosUnique) * 1000) / 10 : 0;
 
   const confirmTarget = async () => {
     const n = Number(targetInput);
@@ -669,7 +670,7 @@ function DashboardHome() {
                 <option value="all">All time</option>
               </select>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Leads → Bookings<InfoTip text={LEADS_CONV_TOOLTIP} /></div>
                 <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convLeadsTotal > 0 ? leadsConvColor(leadsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
@@ -677,12 +678,19 @@ function DashboardHome() {
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convLeadsBooked} of {convLeadsTotal} leads</div>
               </div>
-              <div style={{ padding: 20 }}>
+              <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
                 <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Calls → Bookings<InfoTip text={CONNECTS_CONV_TOOLTIP} /></div>
                 <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConnectedUnique > 0 ? connectsConvColor(connectsPct) : "#111", marginTop: 8, lineHeight: 1 }}>
                   {connectsPct}%
                 </div>
                 <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConnectedBooked} of {convConnectedUnique} connects</div>
+              </div>
+              <div style={{ padding: 20 }}>
+                <div style={{ fontSize: 12, color: "#999", fontWeight: 500 }}>Convos → Sales<InfoTip text={CONVOS_CONV_TOOLTIP} /></div>
+                <div style={{ fontSize: 32, fontWeight: 600, letterSpacing: "-0.03em", color: convConvosUnique > 0 ? convosConvColor(convosPct) : "#111", marginTop: 8, lineHeight: 1 }}>
+                  {convosPct}%
+                </div>
+                <div style={{ fontSize: 12, color: "#999", marginTop: 8 }}>{convConvosBooked} of {convConvosUnique} convos</div>
               </div>
             </div>
           </Card>
