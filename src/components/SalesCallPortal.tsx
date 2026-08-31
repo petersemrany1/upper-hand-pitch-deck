@@ -4557,6 +4557,22 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             Resend payment link
           </button>
         )}
+        {!paymentReceivedAt && (
+          <button
+            onClick={() => void bypassPayment()}
+            disabled={bypassingPayment}
+            title="Skip the card payment and mark the booking fee as paid"
+            className="w-full rounded-[6px]"
+            style={{
+              background: "#fffbeb", color: "#92400e", border: "1px solid #f59e0b",
+              fontSize: 12, fontWeight: 600, padding: "8px 20px", marginTop: 4,
+              cursor: bypassingPayment ? "not-allowed" : "pointer",
+              opacity: bypassingPayment ? 0.6 : 1,
+            }}
+          >
+            {bypassingPayment ? "Marking as paid…" : "⚠️ Bypass payment — mark as paid"}
+          </button>
+        )}
 
         <button
           onClick={() => void book()}
