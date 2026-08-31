@@ -257,7 +257,7 @@ function DashboardHome() {
   const [renewalToast, setRenewalToast] = useState<string | null>(null);
 
   // Conversion widget state
-  type ConvPeriod = "day" | "week" | "month" | "year" | "all";
+  type ConvPeriod = "day" | "week" | "30d" | "60d" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
   const [convLeadsTotal, setConvLeadsTotal] = useState(0);     // leads created in period
   const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // of those leads, how many are booked
