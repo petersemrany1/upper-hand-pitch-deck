@@ -47,10 +47,19 @@ function connectsConvColor(pct: number): string {
   return CONV_RED;
 }
 
+/** Convos → Sales: green >=70, orange 50-70, red <50. */
+function convosConvColor(pct: number): string {
+  if (pct >= 70) return CONV_GREEN;
+  if (pct >= 50) return CONV_ORANGE;
+  return CONV_RED;
+}
+
 const LEADS_CONV_TOOLTIP =
   "Of all new patient enquiries that came in during this period, the percentage that booked an appointment. Target 20%.";
 const CONNECTS_CONV_TOOLTIP =
   "Of all the people you actually got on the phone for more than 10 seconds, the percentage that booked. Target 60%.";
+const CONVOS_CONV_TOOLTIP =
+  "Of all the people who stayed on the phone for a real conversation (2 minutes or more), the percentage that booked. Target 70%.";
 
 function InfoTip({ text }: { text: string }) {
   return (
@@ -254,6 +263,8 @@ function DashboardHome() {
   const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // of those leads, how many are booked
   const [convConnectedUnique, setConvConnectedUnique] = useState(0); // unique leads we got through to (completed calls)
   const [convConnectedBooked, setConvConnectedBooked] = useState(0); // of those, how many are booked
+  const [convConvosUnique, setConvConvosUnique] = useState(0);       // unique leads with a 2min+ conversation
+  const [convConvosBooked, setConvConvosBooked] = useState(0);       // of those, how many are booked
 
   const loadData = useCallback(async () => {
     const todayIso = startOfToday().toISOString();
