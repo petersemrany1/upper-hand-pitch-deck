@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   type StripeEnv,
   createStripeClient,
@@ -159,4 +160,45 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
+  });
+
+/**
+ * Manual deposit override for the Book Appointment screen.
+ * Used when Stripe checkout is unavailable (e.g. account verification pending)
+ * and the rep takes the booking fee another way. Marks the lead's deposit as
+ * paid so the booking can be locked in. Does NOT change the lead status —
+ * that still happens through the normal Book Appointment flow.
+ */
+export const markDepositPaidManually = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { leadId: string; note?: string }) => {
+    if (!/^[0-9a-fA-F-]{36}$/.test(data.leadId)) throw new Error("Invalid leadId");
+    return data;
+  })
+  .handler(async ({ data, context }) => {
+    const { supabase } = context;
+    const { data: lead, error: readErr } = await supabase
+      .from("meta_leads")
+      .select("id, deposit_paid_at, call_notes")
+      .eq("id", data.leadId)
+      .maybeSingle();
+    if (readErr) return { success: false as const, error: readErr.message };
+    if (!lead) return { success: false as const, error: "Lead not found" };
+    if (lead.deposit_paid_at) {
+      return { success: true as const, depositPaidAt: lead.deposit_paid_at as string };
+    }
+
+    const paidAt = new Date().toISOString();
+    const stamp = `Booking fee marked as paid manually (payment bypass)${data.note ? ` — ${data.note}` : ""} on ${paidAt}.`;
+    const { error: updErr } = await supabase
+      .from("meta_leads")
+      .update({
+        deposit_paid_at: paidAt,
+        deposit_amount: 75,
+        call_notes: lead.call_notes ? `${lead.call_notes}\n\n${stamp}` : stamp,
+      })
+      .eq("id", data.leadId);
+    if (updErr) return { success: false as const, error: updErr.message };
+
+    return { success: true as const, depositPaidAt: paidAt };
   });

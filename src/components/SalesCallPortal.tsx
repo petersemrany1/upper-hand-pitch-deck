@@ -23,6 +23,7 @@ import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHou
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
+import { markDepositPaidManually } from "@/utils/payments.functions";
 import { openMessenger, setMessengerThread } from "@/hooks/useMessenger";
 import { useConversation } from "@elevenlabs/react";
 import { savePracticeCallRecording, enqueuePracticeCallSave } from "@/lib/practice-recordings.functions";
@@ -3058,6 +3059,23 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   }, [paymentReceivedAt, confirmationSent, patientSmsDraft, openPatientConfirmationDraft]);
 
 
+  // Manual bypass: Stripe card checkout is unavailable (account verification),
+  // so the rep can mark the booking fee as paid and continue the booking.
+  const [bypassingPayment, setBypassingPayment] = useState(false);
+  const bypassPayment = async () => {
+    if (bypassingPayment) return;
+    if (!window.confirm("Mark the $75 booking fee as PAID without taking a card payment?")) return;
+    setBypassingPayment(true);
+    const r = await markDepositPaidManually({ data: { leadId: lead.id } });
+    setBypassingPayment(false);
+    if (r.success) {
+      setPaymentReceivedAt(r.depositPaidAt);
+      toast.success("Booking fee marked as paid — you can book now");
+    } else {
+      toast.error(r.error ?? "Could not mark the booking fee as paid");
+    }
+  };
+
   const sendPaymentLink = async () => {
     if (!lead.phone) { toast.error("No phone number on this lead"); return; }
     const missing: string[] = [];
@@ -4555,6 +4573,22 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             }}
           >
             Resend payment link
+          </button>
+        )}
+        {!paymentReceivedAt && (
+          <button
+            onClick={() => void bypassPayment()}
+            disabled={bypassingPayment}
+            title="Skip the card payment and mark the booking fee as paid"
+            className="w-full rounded-[6px]"
+            style={{
+              background: "#fffbeb", color: "#92400e", border: "1px solid #f59e0b",
+              fontSize: 12, fontWeight: 600, padding: "8px 20px", marginTop: 4,
+              cursor: bypassingPayment ? "not-allowed" : "pointer",
+              opacity: bypassingPayment ? 0.6 : 1,
+            }}
+          >
+            {bypassingPayment ? "Marking as paid…" : "⚠️ Bypass payment — mark as paid"}
           </button>
         )}
 
