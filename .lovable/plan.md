@@ -48,7 +48,8 @@ Column lockdown: the existing payment-column guard trigger / grant pattern on `m
 ## 2. Files added
 
 - `src/lib/square.server.ts` — server client (`SQUARE_ACCESS_TOKEN`, base URL from `SQUARE_ENVIRONMENT`), `createSquarePayment`, `refundSquarePayment`, `getSquareErrorMessage`, `verifySquareWebhook` (HMAC-SHA256 over notification URL + raw body, base64, **constant-time** compare via a length-checked XOR loop — not `includes`).
-- `src/lib/square.ts` — browser: `isSquareConfigured()`, `loadSquareSdk()` (Web Payments SDK from the sandbox/production CDN), `getSquareEnvironment()` from `VITE_SQUARE_*`.
+- `src/lib/square.ts` — browser: `loadSquareSdk(environment)` (Web Payments SDK from the sandbox or production CDN, chosen at runtime).
+- `src/utils/square-config.functions.ts` — `getSquareConfig` server fn returning `{ applicationId, locationId, environment, configured }`, read from `SQUARE_APPLICATION_ID` / `SQUARE_LOCATION_ID` / `SQUARE_ENVIRONMENT` inside the handler. **No `VITE_SQUARE_*` variables anywhere** — the browser fetches this before mounting the card form, so sandbox → production is a secrets change plus publish, with no code edit or rebuild-time config.
 - `src/components/SquareCardForm.tsx` — mounts the Square card field, tokenises in the browser (no PAN ever reaches our server), calls the pay server fn, renders the identical "Payment processed. You can close this payment window and continue the call." message; no redirect/navigation on success.
 - `src/components/SquareTestModeBanner.tsx` — same look/wording pattern as `PaymentTestModeBanner`, shown when environment is sandbox.
 - `src/utils/square-deposit.functions.ts` — `startDepositPayment` (public, token-or-uuid lookup, returns amount + configured flag, **no patient name**) and `paySquareDeposit` (takes the card nonce, calls Square CreatePayment).
