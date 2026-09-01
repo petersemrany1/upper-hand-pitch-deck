@@ -11,6 +11,8 @@ import { createStripeClient, getStripeErrorMessage, resolveStripeEnv } from "@/l
 
 export type RefundOutcome =
   | { status: "refunded"; refundId: string; account: "managed" | "htg" }
+  // Square settles asynchronously: accepted now, confirmed by refund.updated.
+  | { status: "pending"; refundId: string; account: "square" }
   | { status: "manual"; reason: string }
   | { status: "failed"; error: string };
 
