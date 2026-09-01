@@ -124,7 +124,9 @@ Existing Stripe rows that today read `refund_status='failed'` are left as-is (mi
 
 ## 8. Confirmed facts
 
-- Square location name: **Hair Transplant Group**. Production location id **LYXMY9D6HZT1X** — this goes into the `SQUARE_LOCATION_ID` / `VITE_SQUARE_LOCATION_ID` secrets, and sandbox will hold its own different id. The code reads it from the env var only; neither id is ever hard-coded.
+- Square location name (production): **Hair Transplant Group**, location id **LYXMY9D6HZT1X**. Held in `SQUARE_LOCATION_ID` only; never hard-coded.
+- **Sandbox verified live via list-locations:** location `LNS0EYRXFK2XX` — "Default Test Account", **country AU, currency AUD**, en-AU, Parliament Dr, Canberra ACT 2600, ACTIVE, CREDIT_CARD_PROCESSING enabled. A 7500 AUD CreatePayment is valid here, so the sandbox test exercises the real Australian flow. No new sandbox account needed.
+- **Config now in place:** `SQUARE_APPLICATION_ID`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID` (= `LNS0EYRXFK2XX`), `SQUARE_ENVIRONMENT` (= `sandbox`), `SQUARE_WEBHOOK_SIGNATURE_KEY`, `OPS_ALERT_EMAIL` (= peter@gobold.com.au). Nothing further is needed before build.
 - Webhook URL to register (repeated for clarity, exact, no trailing slash): `https://hairtransplantgroup.lovable.app/api/public/square/webhook`
 
 ## 9. Things to flag
