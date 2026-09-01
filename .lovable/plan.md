@@ -1,37 +1,97 @@
-## Per-user tab access
+# Square for the $75 patient booking fee (sales portal only)
 
-Add a per-user `allowed_tabs` list so admins can pick exactly which sidebar tabs each user sees, on top of the existing role.
+Stripe stays in place for B2B clinic pack links, existing refunds and everything else. New patient deposits are taken on Square (AUD), routed by an explicit `payment_processor` column — never inferred.
 
-### Tab keys (one per sidebar item)
-`dashboard`, `training`, `partner_clinics`, `sales_portal`, `leaderboard`, `appointments`, `leads`, `analytics`, `phone`, `pitch_deck`, `clinics`, `sent_links`
+## 1. Migration (exact SQL)
 
-### Database
-- Add `allowed_tabs text[]` to `public.sales_reps` (nullable).
-- `null` = fall back to existing role defaults (so nothing breaks for current users).
-- Admins always see everything regardless of the column.
+```sql
+ALTER TABLE public.meta_leads
+  ADD COLUMN IF NOT EXISTS payment_processor text,
+  ADD COLUMN IF NOT EXISTS square_payment_id text,
+  ADD COLUMN IF NOT EXISTS square_order_id text,
+  ADD COLUMN IF NOT EXISTS deposit_token uuid;
 
-### Invite dialog (Settings → Invite Rep)
-After the existing "Access level" buttons, add a "Tab access" section:
-- 12 checkboxes grouped: General (Dashboard, Training, Partner Clinics), Sales (Sales Portal, Leaderboard, Appointments, Leads, Analytics, Phone), Clinic Acquisition (Pitch Deck, Clinics, Sent Links).
-- Selecting a role pre-checks its sensible defaults (rep → Dashboard, Training, Sales Portal; admin → all; clinic setter → Clinics, Phone), but the admin can tick/untick anything.
-- Hidden if role = admin (admins always get everything).
-- Saved through `inviteRep` as a new `allowedTabs` field.
+ALTER TABLE public.clinic_appointments
+  ADD COLUMN IF NOT EXISTS payment_processor text,
+  ADD COLUMN IF NOT EXISTS square_payment_id text,
+  ADD COLUMN IF NOT EXISTS square_refund_id text;
 
-### Edit user dialog
-Same checkbox section so admins can change access for an existing user. Saved via `updateRep`.
+ALTER TABLE public.meta_leads
+  ADD CONSTRAINT meta_leads_payment_processor_chk
+  CHECK (payment_processor IS NULL OR payment_processor IN ('stripe','square'));
+ALTER TABLE public.clinic_appointments
+  ADD CONSTRAINT clinic_appointments_payment_processor_chk
+  CHECK (payment_processor IS NULL OR payment_processor IN ('stripe','square'));
 
-### Sidebar enforcement
-`AppSidebar` reads `allowed_tabs` from the user's `sales_reps` row (already fetched there) and filters `topItem`, `trainingItem`, `partnerClinicsItem`, and each folder's `items` to only those whose key is allowed. Empty folders are hidden.
+-- Backfill: everything already paid/attempted is Stripe.
+UPDATE public.meta_leads
+   SET payment_processor = 'stripe'
+ WHERE payment_processor IS NULL
+   AND (deposit_paid_at IS NOT NULL OR stripe_payment_intent_id IS NOT NULL);
 
-### Route enforcement
-Lightweight guard: a `useTabAccess(tab)` hook used by each gated route to redirect to `/` (or the first allowed tab) if the user opens a URL they can't access. Admins bypass.
+UPDATE public.clinic_appointments
+   SET payment_processor = 'stripe'
+ WHERE payment_processor IS NULL
+   AND stripe_payment_intent_id IS NOT NULL;
 
-### Files to touch
-- new migration: add `allowed_tabs text[]` column
-- `src/utils/sales-call.functions.ts` — accept/save `allowedTabs` in `inviteRep` + `updateRep`
-- `src/routes/_dashboard.settings.tsx` — checkbox UI in invite + edit dialogs
-- `src/components/AppSidebar.tsx` — filter nav by `allowed_tabs`
-- `src/hooks/useAuth.ts` (or new `useTabAccess`) — expose allowed tabs
-- guarded route files — call `useTabAccess` at the top
+-- One deposit token per lead, generated for all rows now and by default later.
+UPDATE public.meta_leads SET deposit_token = gen_random_uuid() WHERE deposit_token IS NULL;
+ALTER TABLE public.meta_leads ALTER COLUMN deposit_token SET DEFAULT gen_random_uuid();
+CREATE UNIQUE INDEX IF NOT EXISTS meta_leads_deposit_token_key
+  ON public.meta_leads (deposit_token);
+CREATE INDEX IF NOT EXISTS meta_leads_square_payment_id_idx
+  ON public.meta_leads (square_payment_id) WHERE square_payment_id IS NOT NULL;
+```
 
-Want me to go ahead and build this?
+Column lockdown: the existing payment-column guard trigger / grant pattern on `meta_leads` and `clinic_appointments` is extended to the seven new columns so only the service role can write them (clinics and reps cannot update them, and `deposit_token` is never selectable by `anon`). Exact statements are written to mirror whatever guard is already on `stripe_payment_intent_id` — I re-read that guard and copy it column-for-column rather than inventing a new scheme. No `stripe_` column or value is modified.
+
+## 2. Files added
+
+- `src/lib/square.server.ts` — server client (`SQUARE_ACCESS_TOKEN`, base URL from `SQUARE_ENVIRONMENT`), `createSquarePayment`, `refundSquarePayment`, `getSquareErrorMessage`, `verifySquareWebhook` (HMAC-SHA256 over notification URL + raw body, base64, **constant-time** compare via a length-checked XOR loop — not `includes`).
+- `src/lib/square.ts` — browser: `isSquareConfigured()`, `loadSquareSdk()` (Web Payments SDK from the sandbox/production CDN), `getSquareEnvironment()` from `VITE_SQUARE_*`.
+- `src/components/SquareCardForm.tsx` — mounts the Square card field, tokenises in the browser (no PAN ever reaches our server), calls the pay server fn, renders the identical "Payment processed. You can close this payment window and continue the call." message; no redirect/navigation on success.
+- `src/components/SquareTestModeBanner.tsx` — same look/wording pattern as `PaymentTestModeBanner`, shown when environment is sandbox.
+- `src/utils/square-deposit.functions.ts` — `startDepositPayment` (public, token-or-uuid lookup, returns amount + configured flag, **no patient name**) and `paySquareDeposit` (takes the card nonce, calls Square CreatePayment).
+- `src/utils/square-fulfilment.server.ts` — `fulfilSquareDeposit(payment)`: same logic as `fulfilDepositPayment` (idempotency, `deposit_paid_at`, `deposit_amount`, `square_payment_id`, `payment_processor='square'`, appointment backfill, status flip only when an appointment row exists, same ops email with an idempotency key derived from the Square payment id).
+- `src/routes/api.public.square.webhook.ts` — `payment.updated` handler.
+- `src/utils/ops-alert.server.ts` — `sendRefundFailureAlert()` and a shared `opsAlertEmail()` reading `OPS_ALERT_EMAIL`.
+
+## 3. Files changed
+
+- `src/routes/pay-deposit.tsx` — accepts `?t=<token>` (new) and `?lead=<uuid>` (legacy, strict UUID, 30-day sunset comment); renders `SquareCardForm` instead of `DepositEmbeddedCheckout`. Copy, headings and meta unchanged.
+- `src/components/ChargeCardOverPhoneModal.tsx` — swaps the embedded Stripe checkout for `SquareCardForm` in assisted mode; still no navigation on completion.
+- `src/utils/stripe.functions.ts` / `src/utils/resend.functions.ts` — the deposit SMS link becomes `…/pay-deposit?t=<deposit_token>`. Message bodies otherwise byte-identical, including clinic/doctor merge fields and the 10s auto-send countdown.
+- `src/utils/deposit-refund.server.ts` — `refundDeposit(...)` becomes a processor-aware router: `square` → Square RefundPayment (idempotency key, 7500 AUD, payment_id) returning `square_refund_id`; `stripe` → existing managed→legacy paths untouched. Double-refund guard preserved (returns early if a refund id already exists).
+- `src/utils/consult-outcome.functions.ts` — `processConsultOutcome` passes the processor + payment id; `resolveAppointmentDeposit` and `disqualifyAppointment` stop calling `STRIPE_HTG_SECRET_KEY` directly and go through the router (bug (a)); every failure path also fires the refund-failure alert email (bug (b)). Triggers unchanged: show/proceeded refund, no-show never refunds, admin disqualify refunds.
+- `src/utils/deposit-fulfilment.server.ts` and `src/utils/chase.functions.ts` — hard-coded `peter@gobold.com.au` replaced with `OPS_ALERT_EMAIL` (falling back to the current address if unset).
+- `src/utils/payments.functions.ts` — `createDepositCheckout` stops returning `patientName`; kept only for legacy in-flight Stripe sessions.
+- `src/integrations/supabase/types.ts` regenerates after the migration.
+
+Untouched: `sent-links.tsx` B2B pack links, reminder edge function, booking gates, status-lock trigger, leaderboard, `dashboard_conversion_stats`.
+
+## 4. Square payment call
+
+CreatePayment body: `source_id` (browser token), `amount_money {amount: 7500, currency: "AUD"}`, `location_id` from `SQUARE_LOCATION_ID`, `autocomplete: true`, `idempotency_key` = deterministic hash of lead id + attempt counter, `reference_id` = lead id, `note` = "Booking fee — <patient> — <clinic>". No `statement_description_identifier` (US-only). Statement text comes from the Square location business name.
+
+## 5. Webhook
+
+`POST /api/public/square/webhook` → read raw body, verify `x-square-hmacsha256-signature` against `SQUARE_WEBHOOK_SIGNATURE_KEY` with a constant-time compare, reject 401 on mismatch. On `payment.updated` with `status === "COMPLETED"` call `fulfilSquareDeposit`. Idempotency: return early when `deposit_paid_at` is set and `square_payment_id` matches; the ops email uses `idempotencyKey: payment-received-<square_payment_id>`, so replays never double-credit or re-send. Any other status → `{received:true, ignored:...}`.
+
+## 6. Test plan
+
+1. **Patient link** — send a deposit SMS to a sandbox lead, open `?t=token`, confirm no name is shown, pay with Square's sandbox card, confirm the banner shows sandbox mode; verify `?lead=<uuid>` still loads and a non-UUID/unknown id returns the generic "couldn't find your booking" copy with no data leak.
+2. **Rep-assisted modal** — with an active Twilio test call, take a payment in the modal; assert the call stays connected, no navigation occurs, and the "Payment processed…" message renders.
+3. **Webhook fulfilment** — replay the sandbox `payment.updated` event twice: first credits `deposit_paid_at`/`square_payment_id`/`payment_processor='square'`, backfills the appointment and flips to `booked_deposit_paid`; second returns "already processed" with no second email. Also send a tampered signature and expect 401.
+4. **Refund on show** — mark a sandbox Square-paid consult "show": expect a Square refund id written with `refund_status='refunded'`; re-run to confirm the guard blocks a second refund; force a failure (bad payment id) to confirm `refund_status='failed'` plus an alert email to `OPS_ALERT_EMAIL`. Repeat "show" on an old Stripe-paid appointment to confirm the Stripe path is unchanged, and confirm "no show" refunds nothing.
+
+## 7. Things to flag
+
+- **Square has no hosted embedded checkout equal to Stripe's.** The Web Payments SDK card form is the closest match and is what this plan uses, so the patient page layout will be our own markup rather than a Stripe iframe. Visually it can be made to match, but it is not pixel-identical to today's Stripe frame — that is the one place "identical screens" can't be literal.
+- **Upside:** the assisted flow finally becomes exactly card number + expiry + CVC (plus postcode, which Square AU normally requires) — no email, no cardholder name, no Apple Pay row. That is what you originally wanted and Stripe wouldn't allow.
+- Square AU may require a postal code on the card form depending on the location settings; if so it's one extra field and cannot be removed.
+- `SQUARE_LOCATION_ID` and `VITE_SQUARE_LOCATION_ID` hold the same value; the browser one is fine to expose, but the server must use the server copy so a tampered client can't redirect funds.
+- Square sandbox and production have separate application IDs, access tokens, location ids and webhook signature keys — switching `SQUARE_ENVIRONMENT` alone is not enough, all five values must be swapped together.
+- Square webhook signing uses the **exact** notification URL string configured in the Square dashboard; if the published URL differs by even a trailing slash, verification fails. Needs to be set to `https://hairtransplantgroup.lovable.app/api/public/square/webhook`.
+- `resolveAppointmentDeposit` looks the appointment up with `.maybeSingle()` by lead, which errors if a lead ever has two appointment rows. Not in scope, but it will bite eventually.
+- Square refunds settle asynchronously (`PENDING` → `COMPLETED`). We'll write `refund_status='refunded'` when Square accepts it, same as today's Stripe behaviour; if you want true settlement confirmation we'd need to also handle `refund.updated` — say the word and I'll add it.
+- Square identity verification still applies to the Square account; if it isn't verified, payments will decline exactly like Stripe does now. The bypass button stays in place as the fallback.
