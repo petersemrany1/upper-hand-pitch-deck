@@ -11,6 +11,8 @@ import { createStripeClient, getStripeErrorMessage, resolveStripeEnv } from "@/l
 
 export type RefundOutcome =
   | { status: "refunded"; refundId: string; account: "managed" | "htg" }
+  // Square settles asynchronously: accepted now, confirmed by refund.updated.
+  | { status: "pending"; refundId: string; account: "square" }
   | { status: "manual"; reason: string }
   | { status: "failed"; error: string };
 
@@ -97,14 +99,41 @@ async function refundOnHtg(
   }
 }
 
-export async function refundDeposit(
-  paymentIntentId: string,
+async function refundOnSquare(
+  squarePaymentId: string,
   appointmentId: string,
 ): Promise<RefundOutcome> {
-  const managed = await refundOnManaged(paymentIntentId, appointmentId);
+  const { refundSquarePayment } = await import("@/lib/square.server");
+  const result = await refundSquarePayment({
+    paymentId: squarePaymentId,
+    amountCents: 7500,
+    idempotencyKey: `refund-${appointmentId}`.slice(0, 45),
+    reason: "Attended consultation — booking fee refund",
+  });
+  if ("error" in result) return { status: "failed", error: result.error };
+  if (result.status?.toUpperCase() === "COMPLETED") {
+    return { status: "refunded", refundId: result.refundId, account: "htg" };
+  }
+  return { status: "pending", refundId: result.refundId, account: "square" };
+}
+
+/**
+ * Processor-aware refund router. The processor is taken from the explicit
+ * `payment_processor` column — never inferred from the id shape.
+ */
+export async function refundDeposit(
+  paymentId: string,
+  appointmentId: string,
+  processor: "stripe" | "square" = "stripe",
+): Promise<RefundOutcome> {
+  if (processor === "square") {
+    return refundOnSquare(paymentId, appointmentId);
+  }
+
+  const managed = await refundOnManaged(paymentId, appointmentId);
   if (managed !== "not_this_account") return managed;
 
-  const legacy = await refundOnHtg(paymentIntentId, appointmentId);
+  const legacy = await refundOnHtg(paymentId, appointmentId);
   if (legacy.status === "failed" && isLikelyUnknownEverywhere(legacy.error)) {
     return {
       status: "manual",

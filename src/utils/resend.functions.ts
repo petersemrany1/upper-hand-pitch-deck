@@ -4,8 +4,30 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession } from "./stripe.functions";
 
-// Public page that mounts the embedded $75 booking-fee checkout.
+// Public page that mounts the $75 booking-fee card form.
 const DEPOSIT_PAY_BASE_URL = "https://hairtransplantgroup.lovable.app/pay-deposit";
+
+/**
+ * Deposit links use the lead's private deposit_token (?t=) so the internal
+ * lead id is never exposed in an SMS. Falls back to the legacy ?lead= form if
+ * the token can't be read.
+ */
+async function depositPayUrl(leadId: string): Promise<string> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("meta_leads")
+      .select("deposit_token")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (data?.deposit_token) {
+      return `${DEPOSIT_PAY_BASE_URL}?t=${encodeURIComponent(data.deposit_token)}`;
+    }
+  } catch (e) {
+    console.warn("depositPayUrl: token lookup failed", e);
+  }
+  return `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(leadId)}`;
+}
 
 // Resend is accessed through the Lovable connector gateway, NOT api.resend.com
 // directly. The workspace's Resend connection injects RESEND_API_KEY as a
@@ -1036,7 +1058,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
 
     // In-app embedded checkout page (managed payments). The session itself is
     // created server-side when the patient opens the link.
-    const stripeUrl = `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(data.leadId)}`;
+    const stripeUrl = await depositPayUrl(data.leadId);
 
     const bookingDisplay = (() => {
       try {
@@ -1464,7 +1486,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const stripeUrl = `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(data.leadId)}`;
+    const stripeUrl = await depositPayUrl(data.leadId);
     const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${stripeUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");

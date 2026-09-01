@@ -330,8 +330,11 @@ export type Database = {
           patient_email: string | null
           patient_name: string
           patient_phone: string | null
+          payment_processor: string | null
           refund_processed_at: string | null
           refund_status: string | null
+          square_payment_id: string | null
+          square_refund_id: string | null
           stripe_payment_intent_id: string | null
           stripe_refund_id: string | null
           updated_at: string
@@ -360,8 +363,11 @@ export type Database = {
           patient_email?: string | null
           patient_name: string
           patient_phone?: string | null
+          payment_processor?: string | null
           refund_processed_at?: string | null
           refund_status?: string | null
+          square_payment_id?: string | null
+          square_refund_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_refund_id?: string | null
           updated_at?: string
@@ -390,8 +396,11 @@ export type Database = {
           patient_email?: string | null
           patient_name?: string
           patient_phone?: string | null
+          payment_processor?: string | null
           refund_processed_at?: string | null
           refund_status?: string | null
+          square_payment_id?: string | null
+          square_refund_id?: string | null
           stripe_payment_intent_id?: string | null
           stripe_refund_id?: string | null
           updated_at?: string
@@ -1519,6 +1528,7 @@ export type Database = {
           day_number: number
           deposit_amount: number | null
           deposit_paid_at: string | null
+          deposit_token: string | null
           email: string | null
           finance_eligible: boolean | null
           finance_form_answers: Json | null
@@ -1530,12 +1540,15 @@ export type Database = {
           lead_class: string
           lead_class_reason: string | null
           lead_id: string | null
+          payment_processor: string | null
           phone: string | null
           pipeline_summary: string | null
           pipeline_summary_updated_at: string | null
           previous_lead_id: string | null
           raw_payload: Json | null
           rep_id: string | null
+          square_order_id: string | null
+          square_payment_id: string | null
           status: string
           stripe_checkout_session_id: string | null
           stripe_payment_intent_id: string | null
@@ -1556,6 +1569,7 @@ export type Database = {
           day_number?: number
           deposit_amount?: number | null
           deposit_paid_at?: string | null
+          deposit_token?: string | null
           email?: string | null
           finance_eligible?: boolean | null
           finance_form_answers?: Json | null
@@ -1567,12 +1581,15 @@ export type Database = {
           lead_class?: string
           lead_class_reason?: string | null
           lead_id?: string | null
+          payment_processor?: string | null
           phone?: string | null
           pipeline_summary?: string | null
           pipeline_summary_updated_at?: string | null
           previous_lead_id?: string | null
           raw_payload?: Json | null
           rep_id?: string | null
+          square_order_id?: string | null
+          square_payment_id?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null
@@ -1593,6 +1610,7 @@ export type Database = {
           day_number?: number
           deposit_amount?: number | null
           deposit_paid_at?: string | null
+          deposit_token?: string | null
           email?: string | null
           finance_eligible?: boolean | null
           finance_form_answers?: Json | null
@@ -1604,12 +1622,15 @@ export type Database = {
           lead_class?: string
           lead_class_reason?: string | null
           lead_id?: string | null
+          payment_processor?: string | null
           phone?: string | null
           pipeline_summary?: string | null
           pipeline_summary_updated_at?: string | null
           previous_lead_id?: string | null
           raw_payload?: Json | null
           rep_id?: string | null
+          square_order_id?: string | null
+          square_payment_id?: string | null
           status?: string
           stripe_checkout_session_id?: string | null
           stripe_payment_intent_id?: string | null

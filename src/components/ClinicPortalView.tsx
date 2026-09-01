@@ -31,9 +31,21 @@ export type ClinicAppointment = {
   consult_summary: string | null;
   deposit_amount: number | null;
   stripe_payment_intent_id: string | null;
-  refund_status: "refunded" | "refunded_manual" | "failed" | null;
+  // "refund_pending" = processor accepted it, waiting on settlement webhook.
+  // "failed"         = processor error, retryable.
+  // "manual_required"= no processor path, needs a bank transfer.
+  refund_status:
+    | "refunded"
+    | "refunded_manual"
+    | "refund_pending"
+    | "manual_required"
+    | "failed"
+    | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
+  square_payment_id?: string | null;
+  square_refund_id?: string | null;
+  payment_processor?: string | null;
   disqualified_reason?: string | null;
   disqualified_at?: string | null;
   disqualified_by?: string | null;
@@ -602,6 +614,12 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                             Deposit refunded{a.refund_status === "refunded_manual" ? " (manual)" : ""}
                           </span>
                         )}
+                        {a.refund_status === "refund_pending" && (
+                          <span style={{ background: "#fff7e6", color: "#8a5a00", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund pending</span>
+                        )}
+                        {a.refund_status === "manual_required" && (
+                          <span style={{ background: "#fff7e6", color: "#8a5a00", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Manual refund needed</span>
+                        )}
                         {a.refund_status === "failed" && (
                           <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
                         )}
@@ -1092,22 +1110,43 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
       <ChaseSection appt={appt} onChange={onChange} />
 
       {/* Refund status cards (replace outcome buttons when applicable) */}
-      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded" && appt.stripe_refund_id && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refunded" && (appt.stripe_refund_id || appt.square_refund_id) && (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#1a7a4a", display: "flex", alignItems: "center", gap: 8 }}>
             <span>✓</span> ${depositAmount} deposit refunded
           </div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>
-            Processed {refundDate} · Stripe ref {appt.stripe_refund_id}
+            Processed {refundDate} · {appt.square_refund_id ? `Square ref ${appt.square_refund_id}` : `Stripe ref ${appt.stripe_refund_id}`}
           </div>
           <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Refund complete — no further action needed</div>
         </div>
       )}
 
-      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "failed" && !appt.stripe_refund_id && (
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "refund_pending" && (
+        <div style={{ background: "#fff7e6", border: "1px solid #f0d9a8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#8a5a00", marginBottom: 4 }}>Refund in progress</div>
+          <div style={{ fontSize: 11, color: "#8a5a00" }}>
+            The ${depositAmount} refund has been accepted and is settling with the bank. This page updates automatically once it completes.
+          </div>
+        </div>
+      )}
+
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "manual_required" && (
+        <div style={{ background: "#fff7e6", border: "1px solid #f0d9a8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#8a5a00", marginBottom: 6 }}>Manual refund needed</div>
+          <div style={{ fontSize: 11, color: "#8a5a00", marginBottom: 10 }}>
+            No card payment could be matched to this booking, so the ${depositAmount} has to be returned by bank transfer.
+          </div>
+          <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>
+            Mark refunded manually
+          </button>
+        </div>
+      )}
+
+      {(appt.outcome === "show" || appt.outcome === "proceeded") && appt.refund_status === "failed" && !appt.stripe_refund_id && !appt.square_refund_id && (
         <div style={{ background: "#fdf0f0", border: "1px solid #f0b8b8", borderRadius: 10, padding: 14, marginBottom: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "#b83232", marginBottom: 6 }}>Refund failed</div>
-          <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The deposit refund did not go through. Try again or process it manually in Stripe.</div>
+          <div style={{ fontSize: 11, color: "#b83232", marginBottom: 10 }}>The payment processor rejected the refund. Try again, or process it by hand.</div>
           <button onClick={() => setSummaryMode("show")} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#b83232", color: "#fff", borderColor: "#b83232" }}>
             Retry refund
           </button>

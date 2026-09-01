@@ -207,7 +207,9 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     // 1. Re-fetch authoritative appointment state.
     const { data: appt, error: fetchErr } = await supabaseAdmin
       .from("clinic_appointments")
-      .select("id, clinic_id, lead_id, stripe_payment_intent_id, stripe_refund_id, refund_status, deposit_amount")
+      .select(
+        "id, clinic_id, lead_id, stripe_payment_intent_id, stripe_refund_id, refund_status, deposit_amount, payment_processor, square_payment_id, square_refund_id",
+      )
       .eq("id", appointmentId)
       .maybeSingle();
 
@@ -229,54 +231,72 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
     }
 
     // 3. If already refunded previously, don't try again — just confirm.
-    if (appt.stripe_refund_id) {
+    if (appt.stripe_refund_id || appt.square_refund_id) {
       return { success: true as const, refunded: false as const };
     }
 
-    // 4. Always fire the refund (patient showed up — deposit comes back).
-    // Deposits may sit on the NEW managed Stripe account or on the OLD HTG
-    // account; refundDeposit tries managed first, then legacy, then tells us
-    // to refund by hand. Older bookings without a saved payment id get one
-    // recovered from either account.
     const { refundDeposit, findManagedDepositPaymentIntent } = await import(
       "./deposit-refund.server"
     );
+    const { sendRefundFailureAlert } = await import("./ops-alert.server");
 
-    let paymentIntentId = appt.stripe_payment_intent_id;
-    if (!paymentIntentId) {
-      paymentIntentId = await findManagedDepositPaymentIntent(appt.lead_id);
+    const isSquare = appt.payment_processor === "square" || Boolean(appt.square_payment_id);
+
+    let paymentId: string | null = isSquare
+      ? appt.square_payment_id
+      : appt.stripe_payment_intent_id;
+
+    if (!isSquare && !paymentId) {
+      // Older bookings without a saved payment id get one recovered from
+      // either Stripe account.
+      paymentId = await findManagedDepositPaymentIntent(appt.lead_id);
+      if (!paymentId && process.env.STRIPE_HTG_SECRET_KEY) {
+        paymentId = await findPaidDepositPaymentIntent(
+          process.env.STRIPE_HTG_SECRET_KEY,
+          appt.lead_id,
+          appointmentId,
+        );
+      }
+      if (paymentId && paymentId !== appt.stripe_payment_intent_id) {
+        await supabaseAdmin
+          .from("clinic_appointments")
+          .update({ stripe_payment_intent_id: paymentId, payment_processor: "stripe" })
+          .eq("id", appointmentId)
+          .is("stripe_refund_id", null);
+      }
     }
-    if (!paymentIntentId && process.env.STRIPE_HTG_SECRET_KEY) {
-      paymentIntentId = await findPaidDepositPaymentIntent(
-        process.env.STRIPE_HTG_SECRET_KEY,
-        appt.lead_id,
-        appointmentId,
-      );
-    }
-    if (paymentIntentId && paymentIntentId !== appt.stripe_payment_intent_id) {
+
+    if (!paymentId) {
+      // No processor path exists — this needs a bank transfer, which is a
+      // different thing from a processor error.
       await supabaseAdmin
         .from("clinic_appointments")
-        .update({ stripe_payment_intent_id: paymentIntentId })
-        .eq("id", appointmentId)
-        .is("stripe_refund_id", null);
-    }
-
-    if (!paymentIntentId) {
+        .update({ refund_status: "manual_required" })
+        .eq("id", appointmentId);
       return { success: true as const, refunded: false as const, manual: true as const };
     }
 
-    const outcome = await refundDeposit(paymentIntentId, appointmentId);
+    const outcome = await refundDeposit(
+      paymentId,
+      appointmentId,
+      isSquare ? "square" : "stripe",
+    );
 
     if (outcome.status === "manual") {
       await supabaseAdmin
         .from("clinic_appointments")
-        // "failed" is the portal's vocabulary for "not refunded yet" — it
-        // surfaces the "mark refunded manually" action for the clinic.
-        .update({ refund_status: "failed" })
+        .update({ refund_status: "manual_required" })
         .eq("id", appointmentId);
       await logError("processConsultOutcome", `Manual refund required: ${outcome.reason}`, {
         appointmentId,
-        paymentIntentId,
+        paymentIntentId: paymentId,
+      });
+      await sendRefundFailureAlert({
+        leadId: appt.lead_id,
+        appointmentId,
+        processor: isSquare ? "square" : "stripe",
+        paymentId,
+        error: outcome.reason,
       });
       return {
         success: true as const,
@@ -291,8 +311,33 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
         .from("clinic_appointments")
         .update({ refund_status: "failed" })
         .eq("id", appointmentId);
-      await logError("processConsultOutcome", outcome.error, { appointmentId, paymentIntentId });
+      await logError("processConsultOutcome", outcome.error, {
+        appointmentId,
+        paymentIntentId: paymentId,
+      });
+      await sendRefundFailureAlert({
+        leadId: appt.lead_id,
+        appointmentId,
+        processor: isSquare ? "square" : "stripe",
+        paymentId,
+        error: outcome.error,
+      });
       return { success: false as const, error: outcome.error, outcomeSaved: true as const };
+    }
+
+    // Square accepts the refund then settles asynchronously; refund.updated
+    // flips it to 'refunded' and stamps refund_processed_at.
+    if (outcome.status === "pending") {
+      await supabaseAdmin
+        .from("clinic_appointments")
+        .update({ refund_status: "refund_pending", square_refund_id: outcome.refundId })
+        .eq("id", appointmentId);
+      return {
+        success: true as const,
+        refunded: true as const,
+        refundId: outcome.refundId,
+        refundProcessedAt: null,
+      };
     }
 
     const processedAt = new Date().toISOString();
@@ -300,7 +345,9 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       .from("clinic_appointments")
       .update({
         refund_status: "refunded",
-        stripe_refund_id: outcome.refundId,
+        ...(isSquare
+          ? { square_refund_id: outcome.refundId }
+          : { stripe_refund_id: outcome.refundId }),
         refund_processed_at: processedAt,
       })
       .eq("id", appointmentId);
@@ -309,7 +356,7 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       success: true as const,
       refunded: true as const,
       refundId: outcome.refundId,
-      refundProcessedAt: processedAt,
+      refundProcessedAt: processedAt as string | null,
     };
   });
 

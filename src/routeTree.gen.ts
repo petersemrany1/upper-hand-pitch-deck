@@ -63,6 +63,7 @@ import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './rout
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api.public.payments.webhook'
+import { Route as ApiPublicSquareWebhookRouteImport } from './routes/api.public.square.webhook'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
@@ -369,6 +370,11 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicSquareWebhookRoute = ApiPublicSquareWebhookRouteImport.update({
+  id: '/api/public/square/webhook',
+  path: '/api/public/square/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -441,6 +447,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -498,6 +505,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -558,6 +566,7 @@ export interface FileRoutesById {
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/square/webhook': typeof ApiPublicSquareWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
@@ -618,6 +627,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
     | '/api/public/payments/webhook'
+    | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -675,6 +685,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
     | '/api/public/payments/webhook'
+    | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -734,6 +745,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
     | '/api/public/payments/webhook'
+    | '/api/public/square/webhook'
     | '/lovable/email/queue/process'
     | '/lovable/email/transactional/preview'
     | '/lovable/email/transactional/send'
@@ -761,6 +773,7 @@ export interface RootRouteChildren {
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
   ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
+  ApiPublicSquareWebhookRoute: typeof ApiPublicSquareWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
   LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
@@ -1146,6 +1159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/square/webhook': {
+      id: '/api/public/square/webhook'
+      path: '/api/public/square/webhook'
+      fullPath: '/api/public/square/webhook'
+      preLoaderRoute: typeof ApiPublicSquareWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
       path: '/lovable/email/queue/process'
@@ -1286,6 +1306,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksTwilioMessageStatusRoute:
     ApiPublicHooksTwilioMessageStatusRoute,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
+  ApiPublicSquareWebhookRoute: ApiPublicSquareWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
   LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
