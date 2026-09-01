@@ -33,14 +33,6 @@ export const Route = createFileRoute("/squarepayment")({
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function SquarePayment() {
   const { lead, t } = Route.useSearch();
@@ -49,7 +41,7 @@ function SquarePayment() {
   const raw = t ?? lead;
   const reference = raw && UUID_RE.test(raw) ? raw : undefined;
 
-  const merchant = clinic?.clinicName ?? "Hair Transplant Group";
+  const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
   return (
@@ -72,10 +64,7 @@ function SquarePayment() {
 
         {/* Merchant */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-[#1b1b1b] text-[13px] font-semibold tracking-wide text-white">
-            {initials(merchant)}
-          </div>
-          <h1 className="mt-3 text-[17px] font-semibold text-[#1b1b1b]">{merchant}</h1>
+          <h1 className="text-[17px] font-semibold text-[#1b1b1b]">{merchant}</h1>
           {clinic?.doctorName ? (
             <p className="mt-0.5 text-[13px] text-[#6a6a6a]">{clinic.doctorName}</p>
           ) : null}
@@ -133,7 +122,7 @@ function SquarePayment() {
               ? `Questions? Call ${merchant} on ${clinic.phone}.`
               : "Questions? Reply to the SMS you received or call your consultant."}
           </p>
-          <p className="mt-3 text-[11px] text-[#a3a3a3]">Booked via Hair Transplant Group</p>
+          
         </div>
       </main>
     </div>
