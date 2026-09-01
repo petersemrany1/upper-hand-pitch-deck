@@ -3138,7 +3138,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (r.success) {
       setPaymentLinkSent(true);
       window.dispatchEvent(new CustomEvent("lead-payment-link-sent", { detail: { leadId: lead.id } }));
-      toast.success("Payment link sent — waiting for Stripe confirmation");
+      toast.success("Payment link sent — waiting for payment confirmation");
     } else {
       toast.error(r.error ?? "Failed to send payment link");
     }
@@ -7223,17 +7223,8 @@ function RightPanel({
         defaultAmount={Number(panelClinic?.consult_price_deposit ?? 75)}
         patientName={[active.first_name, active.last_name].filter(Boolean).join(" ") || "Patient"}
         leadId={active.id}
-        onSuccess={async (payment) => {
-          await supabase
-            .from("clinic_appointments")
-            .update({
-              stripe_payment_intent_id: payment.paymentIntentId,
-              deposit_amount: payment.amount,
-              refund_status: null,
-              refund_processed_at: null,
-              stripe_refund_id: null,
-            })
-            .eq("lead_id", active.id);
+        onSuccess={() => {
+          toast.success("$75 booking fee processed successfully");
         }}
       />
 
@@ -7267,7 +7258,7 @@ function RightPanel({
                 Send $75 deposit link?
               </div>
               <div style={{ fontSize: 13, color: "#555", marginTop: 6, lineHeight: 1.5 }}>
-                A Stripe payment link will be sent via SMS to{" "}
+                A secure payment link will be sent via SMS to{" "}
                 <strong style={{ color: "#111" }}>{active.first_name ?? "this lead"}</strong>{" "}
                 at <strong style={{ color: "#111" }}>{active.phone}</strong>.
               </div>
