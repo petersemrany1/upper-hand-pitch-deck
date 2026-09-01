@@ -36,7 +36,7 @@ function publicOrigin(requestUrl: string): string {
 
 async function depositPayUrl(leadId: string): Promise<string> {
   const { getRequest } = await import("@tanstack/react-start/server");
-  const baseUrl = new URL("/pay-deposit", publicOrigin(getRequest().url));
+  const baseUrl = new URL("/squarepayment", publicOrigin(getRequest().url));
 
 
   try {
