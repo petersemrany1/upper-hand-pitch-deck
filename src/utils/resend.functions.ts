@@ -1058,7 +1058,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
 
     // In-app embedded checkout page (managed payments). The session itself is
     // created server-side when the patient opens the link.
-    const stripeUrl = `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(data.leadId)}`;
+    const stripeUrl = await depositPayUrl(data.leadId);
 
     const bookingDisplay = (() => {
       try {
@@ -1486,7 +1486,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const stripeUrl = `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(data.leadId)}`;
+    const stripeUrl = await depositPayUrl(data.leadId);
     const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${stripeUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
