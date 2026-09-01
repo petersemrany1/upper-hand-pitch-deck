@@ -113,7 +113,21 @@ Existing Stripe rows that today read `refund_status='failed'` are left as-is (mi
 3. **Webhook fulfilment** — replay the sandbox `payment.updated` event twice: first credits `deposit_paid_at`/`square_payment_id`/`payment_processor='square'`, backfills the appointment and flips to `booked_deposit_paid`; second returns "already processed" with no second email. Also send a tampered signature and expect 401.
 4. **Refund on show** — mark a sandbox Square-paid consult "show": expect a Square refund id written with `refund_status='refunded'`; re-run to confirm the guard blocks a second refund; force a failure (bad payment id) to confirm `refund_status='failed'` plus an alert email to `OPS_ALERT_EMAIL`. Repeat "show" on an old Stripe-paid appointment to confirm the Stripe path is unchanged, and confirm "no show" refunds nothing.
 
-## 7. Things to flag
+## 7. GST treatment (Amendment 2) — reported, not replicated
+
+- **Today on Stripe:** patient links set `automatic_tax: { enabled: true }`, so Stripe collects the payer's country/postcode and calculates AU GST on the $75 itself. Because the Stripe price is $75 and automatic tax is on, Stripe's behaviour depends on whether that price is flagged tax-inclusive — if inclusive, the patient pays $75 and Stripe reports ~$6.82 GST inside it; if exclusive, Stripe adds 10% on top. The rep-assisted modal already has automatic tax **off**, so assisted payments have never been tax-calculated at all — the two entry points are already inconsistent today.
+- **On Square:** there is no automatic tax on the Payments API. CreatePayment charges exactly `amount_money` — the patient is charged **$75.00 AUD flat, every time, both entry points**. No line-item tax is calculated or reported by Square, and nothing is added on top.
+- **Net effect:** patient-facing price is unchanged ($75). What changes is that Square will not report a GST component per payment. Since the fee is fully refunded on attendance, most of these are not really revenue anyway — but this is a question for your accountant, not something I should decide.
+- **What can be configured on the Square location:** Square AU lets you set tax rates and mark the business as GST-registered under Settings → Taxes, but those rates apply to Square Point of Sale / Invoices / Online Checkout item lines — they do **not** apply to raw Payments API charges like ours. So there is nothing to configure that would restore automatic tax on this flow. If you need per-payment GST reporting, the options are Square Invoices (different patient experience) or treating it in your bookkeeping.
+- I am not attempting to replicate automatic tax.
+
+## 8. Confirmed facts
+
+- Square location name: **Hair Transplant Group**. Production location id **LYXMY9D6HZT1X** — this goes into the `SQUARE_LOCATION_ID` / `VITE_SQUARE_LOCATION_ID` secrets, and sandbox will hold its own different id. The code reads it from the env var only; neither id is ever hard-coded.
+- Webhook URL to register (repeated for clarity, exact, no trailing slash): `https://hairtransplantgroup.lovable.app/api/public/square/webhook`
+
+## 9. Things to flag
+
 
 - **Square has no hosted embedded checkout equal to Stripe's.** The Web Payments SDK card form is the closest match and is what this plan uses, so the patient page layout will be our own markup rather than a Stripe iframe. Visually it can be made to match, but it is not pixel-identical to today's Stripe frame — that is the one place "identical screens" can't be literal.
 - **Upside:** the assisted flow finally becomes exactly card number + expiry + CVC (plus postcode, which Square AU normally requires) — no email, no cardholder name, no Apple Pay row. That is what you originally wanted and Stripe wouldn't allow.
