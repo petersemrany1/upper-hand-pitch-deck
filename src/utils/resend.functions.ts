@@ -1058,7 +1058,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
 
     // In-app embedded checkout page (managed payments). The session itself is
     // created server-side when the patient opens the link.
-    const stripeUrl = await depositPayUrl(data.leadId);
+    const depositUrl = await depositPayUrl(data.leadId);
 
     const bookingDisplay = (() => {
       try {
@@ -1077,7 +1077,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
 
     const doctorDisplay = data.doctorName ?? "your specialist";
 
-    const message = `Hi ${data.firstName}, your consultation with ${doctorDisplay} is confirmed for ${bookingDisplay}. To secure your spot, please pay the $75 refundable deposit here: ${stripeUrl} — it's fully refunded when you arrive. See you soon!`;
+    const message = `Hi ${data.firstName}, your consultation with ${doctorDisplay} is confirmed for ${bookingDisplay}. To secure your spot, please pay the $75 refundable deposit here: ${depositUrl} — it's fully refunded when you arrive. See you soon!`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
@@ -1134,7 +1134,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
         console.error("Failed to log deposit SMS:", logErr);
       }
 
-      return { success: true as const, sid: result.sid as string, stripeUrl };
+      return { success: true as const, sid: result.sid as string, depositUrl };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       await logError("sendDepositSmsToPatient", msg, { leadId: data.leadId });
@@ -1486,8 +1486,8 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const stripeUrl = await depositPayUrl(data.leadId);
-    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${stripeUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
+    const depositUrl = await depositPayUrl(data.leadId);
+    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
@@ -1542,7 +1542,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
         });
       } catch { /* noop */ }
 
-      return { success: true as const, sid: result.sid as string, stripeUrl };
+      return { success: true as const, sid: result.sid as string, depositUrl };
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       await logError("sendStandaloneDepositSms", msg, { leadId: data.leadId });
