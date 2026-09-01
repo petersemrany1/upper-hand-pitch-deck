@@ -50,21 +50,37 @@ function PayDeposit() {
 
       <main className="mx-auto w-full max-w-md px-4 py-10 sm:py-16">
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-xl">
-          {/* Brand header — mirrors a hosted checkout: logo, merchant, amount */}
+          {/* Brand header — branded to the clinic the patient is booked with */}
           <header className="bg-foreground px-6 pb-6 pt-8 text-center">
-            <img
-              src={htgLogo}
-              alt="Hair Transplant Group"
-              className="mx-auto h-14 w-auto rounded-md"
-            />
-            <p className="mt-4 text-sm font-medium uppercase tracking-widest text-background/60">
-              Hair Transplant Group
+            <p className="text-lg font-semibold tracking-tight text-background sm:text-xl">
+              {clinic ? clinic.clinicName : "Hair Transplant Group"}
             </p>
-            <p className="mt-3 text-4xl font-semibold tracking-tight text-background">
+            {clinic?.doctorName ? (
+              <p className="mt-1 text-sm text-background/70">{clinic.doctorName}</p>
+            ) : null}
+            {clinic ? (
+              <p className="mt-1 text-xs text-background/50">
+                {[clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ")}
+              </p>
+            ) : null}
+            {clinic?.phone ? (
+              <p className="mt-0.5 text-xs text-background/50">{clinic.phone}</p>
+            ) : null}
+            <p className="mt-4 text-4xl font-semibold tracking-tight text-background">
               $75.00
               <span className="ml-2 align-middle text-base font-normal text-background/60">AUD</span>
             </p>
             <p className="mt-1 text-sm text-background/60">Refundable booking fee</p>
+            <div className="mt-5 flex items-center justify-center gap-2 border-t border-background/10 pt-4">
+              <img
+                src={htgLogo}
+                alt="Hair Transplant Group"
+                className="h-6 w-auto rounded-sm opacity-80"
+              />
+              <span className="text-[11px] text-background/50">
+                Booked via Hair Transplant Group
+              </span>
+            </div>
           </header>
 
           {/* Summary */}
