@@ -48,7 +48,8 @@ Column lockdown: the existing payment-column guard trigger / grant pattern on `m
 ## 2. Files added
 
 - `src/lib/square.server.ts` — server client (`SQUARE_ACCESS_TOKEN`, base URL from `SQUARE_ENVIRONMENT`), `createSquarePayment`, `refundSquarePayment`, `getSquareErrorMessage`, `verifySquareWebhook` (HMAC-SHA256 over notification URL + raw body, base64, **constant-time** compare via a length-checked XOR loop — not `includes`).
-- `src/lib/square.ts` — browser: `isSquareConfigured()`, `loadSquareSdk()` (Web Payments SDK from the sandbox/production CDN), `getSquareEnvironment()` from `VITE_SQUARE_*`.
+- `src/lib/square.ts` — browser: `loadSquareSdk(environment)` (Web Payments SDK from the sandbox or production CDN, chosen at runtime).
+- `src/utils/square-config.functions.ts` — `getSquareConfig` server fn returning `{ applicationId, locationId, environment, configured }`, read from `SQUARE_APPLICATION_ID` / `SQUARE_LOCATION_ID` / `SQUARE_ENVIRONMENT` inside the handler. **No `VITE_SQUARE_*` variables anywhere** — the browser fetches this before mounting the card form, so sandbox → production is a secrets change plus publish, with no code edit or rebuild-time config.
 - `src/components/SquareCardForm.tsx` — mounts the Square card field, tokenises in the browser (no PAN ever reaches our server), calls the pay server fn, renders the identical "Payment processed. You can close this payment window and continue the call." message; no redirect/navigation on success.
 - `src/components/SquareTestModeBanner.tsx` — same look/wording pattern as `PaymentTestModeBanner`, shown when environment is sandbox.
 - `src/utils/square-deposit.functions.ts` — `startDepositPayment` (public, token-or-uuid lookup, returns amount + configured flag, **no patient name**) and `paySquareDeposit` (takes the card nonce, calls Square CreatePayment).
@@ -123,7 +124,9 @@ Existing Stripe rows that today read `refund_status='failed'` are left as-is (mi
 
 ## 8. Confirmed facts
 
-- Square location name: **Hair Transplant Group**. Production location id **LYXMY9D6HZT1X** — this goes into the `SQUARE_LOCATION_ID` / `VITE_SQUARE_LOCATION_ID` secrets, and sandbox will hold its own different id. The code reads it from the env var only; neither id is ever hard-coded.
+- Square location name (production): **Hair Transplant Group**, location id **LYXMY9D6HZT1X**. Held in `SQUARE_LOCATION_ID` only; never hard-coded.
+- **Sandbox verified live via list-locations:** location `LNS0EYRXFK2XX` — "Default Test Account", **country AU, currency AUD**, en-AU, Parliament Dr, Canberra ACT 2600, ACTIVE, CREDIT_CARD_PROCESSING enabled. A 7500 AUD CreatePayment is valid here, so the sandbox test exercises the real Australian flow. No new sandbox account needed.
+- **Config now in place:** `SQUARE_APPLICATION_ID`, `SQUARE_ACCESS_TOKEN`, `SQUARE_LOCATION_ID` (= `LNS0EYRXFK2XX`), `SQUARE_ENVIRONMENT` (= `sandbox`), `SQUARE_WEBHOOK_SIGNATURE_KEY`, `OPS_ALERT_EMAIL` (= peter@gobold.com.au). Nothing further is needed before build.
 - Webhook URL to register (repeated for clarity, exact, no trailing slash): `https://hairtransplantgroup.lovable.app/api/public/square/webhook`
 
 ## 9. Things to flag
@@ -132,7 +135,7 @@ Existing Stripe rows that today read `refund_status='failed'` are left as-is (mi
 - **Square has no hosted embedded checkout equal to Stripe's.** The Web Payments SDK card form is the closest match and is what this plan uses, so the patient page layout will be our own markup rather than a Stripe iframe. Visually it can be made to match, but it is not pixel-identical to today's Stripe frame — that is the one place "identical screens" can't be literal.
 - **Upside:** the assisted flow finally becomes exactly card number + expiry + CVC (plus postcode, which Square AU normally requires) — no email, no cardholder name, no Apple Pay row. That is what you originally wanted and Stripe wouldn't allow.
 - Square AU may require a postal code on the card form depending on the location settings; if so it's one extra field and cannot be removed.
-- `SQUARE_LOCATION_ID` and `VITE_SQUARE_LOCATION_ID` hold the same value; the browser one is fine to expose, but the server must use the server copy so a tampered client can't redirect funds.
+- The browser gets the application id and location id from the `getSquareConfig` server fn; the payment handler always reads `SQUARE_LOCATION_ID` server-side and never trusts a location id sent from the client, so a tampered client can't redirect funds.
 - Square sandbox and production have separate application IDs, access tokens, location ids and webhook signature keys — switching `SQUARE_ENVIRONMENT` alone is not enough, all five values must be swapped together.
 - Square webhook signing uses the **exact** notification URL string configured in the Square dashboard; if the published URL differs by even a trailing slash, verification fails. Needs to be set to `https://hairtransplantgroup.lovable.app/api/public/square/webhook`.
 - `resolveAppointmentDeposit` looks the appointment up with `.maybeSingle()` by lead, which errors if a lead ever has two appointment rows. Not in scope, but it will bite eventually.
