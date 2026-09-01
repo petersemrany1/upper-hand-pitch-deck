@@ -18,17 +18,21 @@ const PUBLIC_SITE_ORIGIN = "https://hairtransplantgroup.lovable.app";
 
 function publicOrigin(requestUrl: string): string {
   try {
-    const host = new URL(requestUrl).hostname;
-    const isGated =
-      host.startsWith("id-preview--") ||
-      host.includes("-dev.lovable.app") ||
-      host === "localhost" ||
-      host === "127.0.0.1";
-    return isGated ? PUBLIC_SITE_ORIGIN : new URL(requestUrl).origin;
+    const url = new URL(requestUrl);
+    const host = url.hostname.toLowerCase();
+    // Allowlist, not blocklist: preview hosts come in several shapes
+    // (id-preview--<uuid>, n-<hash>--<uuid>, project--<uuid>-dev, ...) and all
+    // of them require a Lovable login. Anything on lovable.app that is not the
+    // published site, plus local dev, is rewritten to the public domain.
+    const isPublic =
+      host === "hairtransplantgroup.lovable.app" || !host.endsWith("lovable.app");
+    const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
+    return isPublic && !isLocal ? url.origin : PUBLIC_SITE_ORIGIN;
   } catch {
     return PUBLIC_SITE_ORIGIN;
   }
 }
+
 
 async function depositPayUrl(leadId: string): Promise<string> {
   const { getRequest } = await import("@tanstack/react-start/server");
