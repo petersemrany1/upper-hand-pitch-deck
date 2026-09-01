@@ -6,14 +6,38 @@ import { createStripeCheckoutSession } from "./stripe.functions";
 
 /**
  * Deposit links use the lead's private deposit_token (?t=) so the internal
- * lead id is never exposed in an SMS. Falls back to the legacy ?lead= form if
- * the token can't be read. The request origin is deliberate: links sent from
- * preview must stay on preview for end-to-end sandbox testing, while links
- * sent from the published app stay on the published domain.
+ * lead id is never exposed in an SMS.
+ *
+ * The link MUST point at the published, publicly reachable domain. Preview
+ * hosts (id-preview--*.lovable.app) sit behind the Lovable sign-in gate, so a
+ * patient tapping a preview-origin link is asked to log into Lovable and can
+ * never pay. Only reuse the request origin when it is already a public host
+ * (the published lovable.app site or a custom domain).
  */
+const PUBLIC_SITE_ORIGIN = "https://hairtransplantgroup.lovable.app";
+
+function publicOrigin(requestUrl: string): string {
+  try {
+    const url = new URL(requestUrl);
+    const host = url.hostname.toLowerCase();
+    // Allowlist, not blocklist: preview hosts come in several shapes
+    // (id-preview--<uuid>, n-<hash>--<uuid>, project--<uuid>-dev, ...) and all
+    // of them require a Lovable login. Anything on lovable.app that is not the
+    // published site, plus local dev, is rewritten to the public domain.
+    const isPublic =
+      host === "hairtransplantgroup.lovable.app" || !host.endsWith("lovable.app");
+    const isLocal = host === "localhost" || host === "127.0.0.1" || host.endsWith(".local");
+    return isPublic && !isLocal ? url.origin : PUBLIC_SITE_ORIGIN;
+  } catch {
+    return PUBLIC_SITE_ORIGIN;
+  }
+}
+
+
 async function depositPayUrl(leadId: string): Promise<string> {
   const { getRequest } = await import("@tanstack/react-start/server");
-  const baseUrl = new URL("/pay-deposit", getRequest().url);
+  const baseUrl = new URL("/pay-deposit", publicOrigin(getRequest().url));
+
 
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");

@@ -8,8 +8,10 @@ import { paySquareDeposit, startDepositPayment } from "@/utils/square-deposit.fu
 type CardInstance = {
   attach: (selector: string | HTMLElement) => Promise<void>;
   tokenize: () => Promise<{ status: string; token?: string; errors?: { message?: string }[] }>;
+  configure?: (options: Record<string, unknown>) => Promise<void>;
   destroy: () => Promise<void>;
 };
+
 
 type Props = {
   /** Deposit token (preferred) or legacy lead uuid. */
@@ -63,13 +65,21 @@ export function SquareCardForm({ reference, onPaid, onConfig }: Props) {
         const sdk = await loadSquareSdk(cfg.environment);
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
-        const card = (await payments.card()) as unknown as CardInstance;
+        // Pre-fill the postal code so patients only ever type card number,
+        // expiry and CVV — the old Stripe link never asked for a postcode, and
+        // Square's field rejects an Australian postcode while the account is in
+        // sandbox (it validates as a US ZIP there).
+        const postalCode = cfg.environment === "production" ? "2000" : "94103";
+        const card = (await payments.card({ postalCode })) as unknown as CardInstance;
+
         if (cancelled) {
           await card.destroy().catch(() => {});
           return;
         }
         if (containerRef.current) await card.attach(containerRef.current);
+        await card.configure?.({ postalCode }).catch(() => {});
         cardRef.current = card;
+
         setLoading(false);
       } catch (e) {
         if (cancelled) return;
