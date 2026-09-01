@@ -33,17 +33,39 @@ const SDK_URLS: Record<SquareBrowserEnvironment, string> = {
 };
 
 let sdkPromise: Promise<SquareSdk> | null = null;
+let sdkEnvironment: SquareBrowserEnvironment | null = null;
+
+function loadedSdkEnvironment(): SquareBrowserEnvironment | null {
+  const script = document.querySelector<HTMLScriptElement>("script[data-square-sdk-environment]");
+  const environment = script?.dataset.squareSdkEnvironment;
+  return environment === "sandbox" || environment === "production" ? environment : null;
+}
 
 export function loadSquareSdk(environment: SquareBrowserEnvironment): Promise<SquareSdk> {
   if (typeof window === "undefined") {
     return Promise.reject(new Error("Square SDK can only load in the browser"));
   }
-  if (window.Square) return Promise.resolve(window.Square);
-  if (sdkPromise) return sdkPromise;
+
+  const existingEnvironment = loadedSdkEnvironment() ?? sdkEnvironment;
+  if (window.Square && existingEnvironment === environment) return Promise.resolve(window.Square);
+  if (sdkPromise && sdkEnvironment === environment) return sdkPromise;
+
+  // A long-lived preview tab can retain the SDK from the other Square
+  // environment after configuration changes or HMR. Pairing that SDK with a
+  // sandbox application id causes Square's misleading "applicationId format"
+  // error, so discard it before loading the correct script.
+  if (existingEnvironment && existingEnvironment !== environment) {
+    document.querySelectorAll("script[data-square-sdk-environment]").forEach((script) => script.remove());
+    window.Square = undefined;
+    sdkPromise = null;
+  }
+
+  sdkEnvironment = environment;
 
   sdkPromise = new Promise<SquareSdk>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = SDK_URLS[environment];
+    script.dataset.squareSdkEnvironment = environment;
     script.async = true;
     script.onload = () => {
       if (window.Square) resolve(window.Square);
@@ -51,6 +73,7 @@ export function loadSquareSdk(environment: SquareBrowserEnvironment): Promise<Sq
     };
     script.onerror = () => {
       sdkPromise = null;
+      sdkEnvironment = null;
       reject(new Error("Could not load the secure card form. Please refresh and try again."));
     };
     document.head.appendChild(script);
