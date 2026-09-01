@@ -299,6 +299,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // app_settings key "paused_lead_locations" as a JSON array of lowercase
   // strings, e.g. ["sydney"].
   const [pausedLocations, setPausedLocations] = useState<string[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [leadsLoaded, setLeadsLoaded] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -311,7 +314,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const raw = (data?.value ?? []) as unknown;
       const arr = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
       setPausedLocations(arr.map((s) => s.toLowerCase()));
+      setSettingsLoaded(true);
     };
+
     void load();
     const ch = supabase.channel("paused-locations")
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.paused_lead_locations" }, () => void load())
@@ -780,15 +785,26 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const { data } = await baseQuery.in("id", testLeadIds);
         fetched = (data ?? []) as Lead[];
       } else {
-        // Fetch the most recent N leads AND every lead still in "new" status
-        // (regardless of age) so older untouched leads never fall off the queue.
-        const [{ data: recent }, { data: news }] = await Promise.all([
+        // Fetch the most recent N leads AND every lead in an actionable status
+        // (regardless of age) so older untouched / follow-up leads never fall
+        // off the queue because of the recency cap.
+        const ACTIONABLE_STATUSES = ["new", "no_answer", "callback_scheduled", "had_convo_chase_up", "intake"];
+        const [{ data: recent, error: recentErr }, { data: actionable, error: actionableErr }] = await Promise.all([
           baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT),
-          supabase.from("meta_leads").select(SALES_CALL_LEAD_SELECT).eq("status", "new"),
+          supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .in("status", ACTIONABLE_STATUSES)
+            .order("created_at", { ascending: false })
+            .limit(1000),
         ]);
+        if (recentErr || actionableErr) {
+          console.error("sales-call lead load failed", recentErr ?? actionableErr);
+          return; // keep whatever we already have; don't shrink the queue
+        }
         const byId = new Map<string, Lead>();
         for (const l of (recent ?? []) as Lead[]) byId.set(l.id, l);
-        for (const l of (news ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
+        for (const l of (actionable ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
         fetched = Array.from(byId.values());
       }
       setLeads((prev) => {
@@ -797,7 +813,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
         return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
       });
+      setLeadsLoaded(true);
     };
+
     void load();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
@@ -1103,7 +1121,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Show start-session screen / advance queue when no active lead
   if (!active) {
     if (!sessionActive && !manualMode) {
+      // Don't let a session start before leads AND the paused/priority location
+      // settings have landed — a snapshot queue built on partial data locks the
+      // rep into a tiny queue (and can surface paused cities).
+      if (!leadsLoaded || !settingsLoaded) {
+        return (
+          <>
+            {callbackBanner}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>Loading your leads…</div>
+              <div style={{ fontSize: 13, color: "#888" }}>Hang on — building your call queue.</div>
+            </div>
+          </>
+        );
+      }
       const queueCount = buildSessionQueue().length;
+
       return (
         <>
           {callbackBanner}
