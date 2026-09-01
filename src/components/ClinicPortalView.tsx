@@ -611,6 +611,12 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                             Deposit refunded{a.refund_status === "refunded_manual" ? " (manual)" : ""}
                           </span>
                         )}
+                        {a.refund_status === "refund_pending" && (
+                          <span style={{ background: "#fff7e6", color: "#8a5a00", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund pending</span>
+                        )}
+                        {a.refund_status === "manual_required" && (
+                          <span style={{ background: "#fff7e6", color: "#8a5a00", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Manual refund needed</span>
+                        )}
                         {a.refund_status === "failed" && (
                           <span style={{ background: "#fdf0f0", color: "#b83232", padding: "3px 8px", fontSize: 10, fontWeight: 600, borderRadius: 10 }}>Refund failed</span>
                         )}
