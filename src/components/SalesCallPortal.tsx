@@ -314,7 +314,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const raw = (data?.value ?? []) as unknown;
       const arr = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : [];
       setPausedLocations(arr.map((s) => s.toLowerCase()));
+      setSettingsLoaded(true);
     };
+
     void load();
     const ch = supabase.channel("paused-locations")
       .on("postgres_changes", { event: "*", schema: "public", table: "app_settings", filter: "key=eq.paused_lead_locations" }, () => void load())
