@@ -508,13 +508,21 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
           (payload) => {
             const newStatus = (payload.new as { status?: string } | null)?.status;
             if (newStatus === "ringing") startRingback();
-            else if (newStatus && newStatus !== "ringing" && newStatus !== "initiated" && newStatus !== "queued") {
-              // in-progress, completed, busy, no-answer, failed, canceled
+            else if (
+              newStatus &&
+              ["in-progress", "completed", "busy", "no-answer", "failed", "canceled"].includes(newStatus)
+            ) {
+              // Only ANSWERED or TERMINAL statuses may silence the ringback.
+              // Intermediate/out-of-order events (initiated, queued, ringing
+              // from the other leg) must never kill it — doing so left the rep
+              // hearing "one ring then silence" and hanging up on a call the
+              // patient was still answering.
               stopRingback();
             }
           },
         )
         .subscribe();
+
     };
     const teardownStatus = () => {
       if (statusChannel) {
