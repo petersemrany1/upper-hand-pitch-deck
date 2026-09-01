@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { DepositEmbeddedCheckout } from "@/components/DepositEmbeddedCheckout";
-import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
-import { isPaymentsConfigured } from "@/lib/stripe";
+import { useState } from "react";
+import { SquareCardForm } from "@/components/SquareCardForm";
+import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 
 export const Route = createFileRoute("/pay-deposit")({
   head: () => ({
