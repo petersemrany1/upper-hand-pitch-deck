@@ -108,6 +108,7 @@ export const startDepositPayment = createServerFn({ method: "POST" })
             process.env["SQUARE_APPLICATION_ID"],
         ),
         alreadyPaid: Boolean(lead.deposit_paid_at),
+        clinic: await lookupClinic(lead.id, lead.clinic_id),
       };
     } catch {
       return { ok: false, error: NOT_FOUND };
