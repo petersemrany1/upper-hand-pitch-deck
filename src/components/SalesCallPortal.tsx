@@ -299,6 +299,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // app_settings key "paused_lead_locations" as a JSON array of lowercase
   // strings, e.g. ["sydney"].
   const [pausedLocations, setPausedLocations] = useState<string[]>([]);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [leadsLoaded, setLeadsLoaded] = useState(false);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
