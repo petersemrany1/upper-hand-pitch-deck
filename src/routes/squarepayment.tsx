@@ -49,7 +49,7 @@ function SquarePayment() {
   const raw = t ?? lead;
   const reference = raw && UUID_RE.test(raw) ? raw : undefined;
 
-  const merchant = clinic?.clinicName ?? "Hair Transplant Group";
+  const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
   return (
@@ -72,10 +72,7 @@ function SquarePayment() {
 
         {/* Merchant */}
         <div className="flex flex-col items-center text-center">
-          <div className="flex size-12 items-center justify-center rounded-full bg-[#1b1b1b] text-[13px] font-semibold tracking-wide text-white">
-            {initials(merchant)}
-          </div>
-          <h1 className="mt-3 text-[17px] font-semibold text-[#1b1b1b]">{merchant}</h1>
+          <h1 className="text-[17px] font-semibold text-[#1b1b1b]">{merchant}</h1>
           {clinic?.doctorName ? (
             <p className="mt-0.5 text-[13px] text-[#6a6a6a]">{clinic.doctorName}</p>
           ) : null}
