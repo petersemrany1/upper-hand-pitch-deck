@@ -78,6 +78,34 @@ CreatePayment body: `source_id` (browser token), `amount_money {amount: 7500, cu
 
 `POST /api/public/square/webhook` → read raw body, verify `x-square-hmacsha256-signature` against `SQUARE_WEBHOOK_SIGNATURE_KEY` with a constant-time compare, reject 401 on mismatch. On `payment.updated` with `status === "COMPLETED"` call `fulfilSquareDeposit`. Idempotency: return early when `deposit_paid_at` is set and `square_payment_id` matches; the ops email uses `idempotencyKey: payment-received-<square_payment_id>`, so replays never double-credit or re-send. Any other status → `{received:true, ignored:...}`.
 
+**Exact URL to register in the Square dashboard** (both events on one subscription, no trailing slash):
+
+```text
+https://hairtransplantgroup.lovable.app/api/public/square/webhook
+```
+
+Subscribed events: `payment.updated` and `refund.updated`. The same signature key covers both. The signature is computed over this URL string plus the raw body, so it must be registered character-for-character as above — any trailing slash or `www.` would break verification.
+
+## 5b. Refund lifecycle (Amendment 1)
+
+`refund_status` becomes an explicit four-value vocabulary, replacing the current overloaded `'failed'`:
+
+| value | meaning |
+| --- | --- |
+| `refund_pending` | processor accepted the refund, not yet settled |
+| `refunded` | processor confirmed COMPLETED (`refund_processed_at` set here, and only here) |
+| `failed` | processor error — retryable |
+| `manual_required` | no processor path exists (old closed Stripe account, no payment id) — needs a bank transfer |
+
+Flow for Square: RefundPayment accepted → write `square_refund_id` + `refund_status='refund_pending'`, leave `refund_processed_at` null. Then `refund.updated`:
+- `COMPLETED` → `refund_status='refunded'`, `refund_processed_at=now()`.
+- `FAILED` / `REJECTED` → `refund_status='failed'` and fire the refund-failure alert email (patient, lead id, processor, Square error) to `OPS_ALERT_EMAIL`.
+- `PENDING` → no change.
+
+Matched by `square_refund_id`, and idempotent: a replayed `refund.updated` for a refund already at `refunded` is a no-op, and the alert email is keyed `refund-failed-<square_refund_id>` so it sends once.
+
+Existing Stripe rows that today read `refund_status='failed'` are left as-is (migration does not reinterpret history); the manual-refund paths in `consult-outcome.functions.ts` switch to writing `manual_required` going forward.
+
 ## 6. Test plan
 
 1. **Patient link** — send a deposit SMS to a sandbox lead, open `?t=token`, confirm no name is shown, pay with Square's sandbox card, confirm the banner shows sandbox mode; verify `?lead=<uuid>` still loads and a non-UUID/unknown id returns the generic "couldn't find your booking" copy with no data leak.
