@@ -126,9 +126,24 @@ export const createHtgDepositSession = createServerFn({ method: "POST" })
     if (!data.leadId) {
       return { success: false as const, error: "A lead is required to create a deposit link." };
     }
+    let url = `https://hairtransplantgroup.lovable.app/pay-deposit?lead=${encodeURIComponent(data.leadId)}`;
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: lead } = await supabaseAdmin
+        .from("meta_leads")
+        .select("deposit_token")
+        .eq("id", data.leadId)
+        .maybeSingle();
+      if (lead?.deposit_token) {
+        url = `https://hairtransplantgroup.lovable.app/pay-deposit?t=${encodeURIComponent(lead.deposit_token)}`;
+      }
+    } catch (e) {
+      console.warn("createHtgDepositSession: token lookup failed", e);
+    }
+
     return {
       success: true as const,
-      url: `https://hairtransplantgroup.lovable.app/pay-deposit?lead=${encodeURIComponent(data.leadId)}`,
+      url,
       id: `managed_${data.leadId}`,
     };
   });
