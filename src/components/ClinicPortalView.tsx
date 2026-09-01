@@ -43,6 +43,9 @@ export type ClinicAppointment = {
     | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
+  square_payment_id?: string | null;
+  square_refund_id?: string | null;
+  payment_processor?: string | null;
   disqualified_reason?: string | null;
   disqualified_at?: string | null;
   disqualified_by?: string | null;
