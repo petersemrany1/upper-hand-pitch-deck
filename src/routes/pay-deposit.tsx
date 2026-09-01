@@ -111,6 +111,7 @@ function PayDeposit() {
               <SquareCardForm
                 reference={reference}
                 onConfig={(cfg) => setEnvironment(cfg.environment)}
+                onClinic={setClinic}
               />
             )}
           </div>
@@ -129,7 +130,9 @@ function PayDeposit() {
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Questions about this payment? Reply to the SMS you received or call your consultant.
+          {clinic?.phone
+            ? `Questions about this payment or your appointment? Call ${clinic.clinicName} on ${clinic.phone}.`
+            : "Questions about this payment? Reply to the SMS you received or call your consultant."}
         </p>
       </main>
     </div>
