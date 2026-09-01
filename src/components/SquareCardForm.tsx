@@ -63,7 +63,14 @@ export function SquareCardForm({ reference, onPaid, onConfig }: Props) {
         const sdk = await loadSquareSdk(cfg.environment);
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
-        const card = (await payments.card()) as unknown as CardInstance;
+        // Supplying postalCode hides Square's postal-code input. The field was
+        // asking Australian patients for a US-style ZIP and rejecting valid
+        // postcodes, which the old Stripe link never did. Card number, expiry
+        // and CVV only — same as before.
+        const card = (await payments.card({
+          postalCode: "2000",
+        } as unknown as Record<string, unknown>)) as unknown as CardInstance;
+
         if (cancelled) {
           await card.destroy().catch(() => {});
           return;
