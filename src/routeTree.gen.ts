@@ -14,6 +14,7 @@ import { Route as ClinicPortalRouteImport } from './routes/clinic-portal'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SquarepaymentRouteImport } from './routes/squarepayment'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
@@ -90,6 +91,11 @@ const PayDepositRoute = PayDepositRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SquarepaymentRoute = SquarepaymentRouteImport.update({
+  id: '/squarepayment',
+  path: '/squarepayment',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ThankYouRoute = ThankYouRouteImport.update({
@@ -400,6 +406,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
@@ -458,6 +465,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
@@ -518,6 +526,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/pay-deposit': typeof PayDepositRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
@@ -580,6 +589,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pay-deposit'
     | '/reset-password'
+    | '/squarepayment'
     | '/thank-you'
     | '/analytics'
     | '/booked-appointments'
@@ -638,6 +648,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pay-deposit'
     | '/reset-password'
+    | '/squarepayment'
     | '/thank-you'
     | '/analytics'
     | '/booked-appointments'
@@ -697,6 +708,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/pay-deposit'
     | '/reset-password'
+    | '/squarepayment'
     | '/thank-you'
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
@@ -758,6 +770,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PayDepositRoute: typeof PayDepositRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SquarepaymentRoute: typeof SquarepaymentRoute
   ThankYouRoute: typeof ThankYouRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   ClinicQuoteQuoteIdRoute: typeof ClinicQuoteQuoteIdRoute
@@ -814,6 +827,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/squarepayment': {
+      id: '/squarepayment'
+      path: '/squarepayment'
+      fullPath: '/squarepayment'
+      preLoaderRoute: typeof SquarepaymentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/thank-you': {
@@ -1287,6 +1307,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PayDepositRoute: PayDepositRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SquarepaymentRoute: SquarepaymentRoute,
   ThankYouRoute: ThankYouRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   ClinicQuoteQuoteIdRoute: ClinicQuoteQuoteIdRoute,
