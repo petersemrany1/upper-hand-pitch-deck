@@ -67,9 +67,8 @@ export function SquareCardForm({ reference, onPaid, onConfig }: Props) {
         // asking Australian patients for a US-style ZIP and rejecting valid
         // postcodes, which the old Stripe link never did. Card number, expiry
         // and CVV only — same as before.
-        const card = (await payments.card({
-          postalCode: "2000",
-        } as unknown as Record<string, unknown>)) as unknown as CardInstance;
+        const card = (await payments.card({ postalCode: "2000" })) as unknown as CardInstance;
+
 
         if (cancelled) {
           await card.destroy().catch(() => {});
