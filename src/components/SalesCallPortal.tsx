@@ -1103,7 +1103,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Show start-session screen / advance queue when no active lead
   if (!active) {
     if (!sessionActive && !manualMode) {
+      // Don't let a session start before leads AND the paused/priority location
+      // settings have landed — a snapshot queue built on partial data locks the
+      // rep into a tiny queue (and can surface paused cities).
+      if (!leadsLoaded || !settingsLoaded) {
+        return (
+          <>
+            {callbackBanner}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>Loading your leads…</div>
+              <div style={{ fontSize: 13, color: "#888" }}>Hang on — building your call queue.</div>
+            </div>
+          </>
+        );
+      }
       const queueCount = buildSessionQueue().length;
+
       return (
         <>
           {callbackBanner}
