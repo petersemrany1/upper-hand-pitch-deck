@@ -540,6 +540,11 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         setSnapshot({ activeCallSid: sid });
         subscribeToStatus(sid);
       }
+      // Start the local ringback here rather than waiting for the
+      // webhook -> DB -> realtime hop. That hop can lag or be missed entirely,
+      // which left the rep in silence and made a live, still-ringing call feel
+      // dead. The SDK event is the earliest reliable signal we control.
+      startRingback();
       if (currentStatus !== "in-call") setSnapshot({ status: "connecting" });
     });
     // Early-media detection: some carriers (e.g. Optus "the number you are
@@ -547,18 +552,30 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // fires `accept`. In that case real audio is already streaming through
     // WebRTC while our synthetic ringback is still playing on top, causing
     // the user to hear both at once. The Voice SDK's `volume` event reports
-    // input/output RMS levels every ~50ms — the first time output volume goes
-    // above silence, kill the synthetic ringback so only the carrier audio
-    // (whether ringback, announcement, or voicemail) is heard.
+    // input/output RMS levels every ~50ms.
+    //
+    // The old threshold (a single sample above 0.005) was low enough that
+    // comfort noise / codec noise on an unanswered leg tripped it, silencing
+    // the ringback after roughly one ring burst. The rep then heard nothing,
+    // assumed the call had dropped, and hung up while the patient was still
+    // answering. Now we require sustained, clearly audible output.
     let earlyMediaSilenced = false;
+    let loudSamples = 0;
     (outgoing as unknown as { on: (e: string, cb: (input: number, output: number) => void) => void })
       .on("volume", (_input: number, output: number) => {
         if (earlyMediaSilenced) return;
-        if (output > 0.005) {
-          earlyMediaSilenced = true;
-          stopRingback();
+        if (output > 0.05) {
+          loudSamples += 1;
+          // ~50ms per sample: require ~400ms of continuous real audio.
+          if (loudSamples >= 8) {
+            earlyMediaSilenced = true;
+            stopRingback();
+          }
+        } else {
+          loudSamples = 0;
         }
       });
+
     outgoing.on("accept", (c: Call) => {
       if (!isCurrentOutgoing()) return;
       console.log("Voice SDK: call accepted, sid =", c.parameters?.CallSid);
