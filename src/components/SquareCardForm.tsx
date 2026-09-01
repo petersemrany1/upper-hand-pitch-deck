@@ -8,8 +8,10 @@ import { paySquareDeposit, startDepositPayment } from "@/utils/square-deposit.fu
 type CardInstance = {
   attach: (selector: string | HTMLElement) => Promise<void>;
   tokenize: () => Promise<{ status: string; token?: string; errors?: { message?: string }[] }>;
+  configure?: (options: Record<string, unknown>) => Promise<void>;
   destroy: () => Promise<void>;
 };
+
 
 type Props = {
   /** Deposit token (preferred) or legacy lead uuid. */
