@@ -33,14 +33,6 @@ export const Route = createFileRoute("/squarepayment")({
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-function initials(name: string) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-}
 
 function SquarePayment() {
   const { lead, t } = Route.useSearch();
@@ -130,7 +122,7 @@ function SquarePayment() {
               ? `Questions? Call ${merchant} on ${clinic.phone}.`
               : "Questions? Reply to the SMS you received or call your consultant."}
           </p>
-          <p className="mt-3 text-[11px] text-[#a3a3a3]">Booked via Hair Transplant Group</p>
+          
         </div>
       </main>
     </div>
