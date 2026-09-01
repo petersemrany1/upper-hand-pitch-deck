@@ -16,10 +16,22 @@ export type SquareConfig = {
  */
 export const getSquareConfig = createServerFn({ method: "GET" }).handler(
   async (): Promise<SquareConfig> => {
-    const applicationId = process.env["SQUARE_APPLICATION_ID"] ?? "";
-    const locationId = process.env["SQUARE_LOCATION_ID"] ?? "";
+    const rawApplicationId = (process.env["SQUARE_APPLICATION_ID"] ?? "").trim();
+    const locationId = (process.env["SQUARE_LOCATION_ID"] ?? "").trim();
     const environment =
       process.env["SQUARE_ENVIRONMENT"] === "production" ? "production" : "sandbox";
+
+    // Square's Web Payments SDK requires the sandbox application id to carry the
+    // `sandbox-` prefix (e.g. `sandbox-sq0idb-...`). Dashboards often surface the
+    // bare id, which makes the SDK throw
+    // "The Payment 'applicationId' option is not in the correct format".
+    let applicationId = rawApplicationId;
+    if (environment === "sandbox" && applicationId.startsWith("sq0idb-")) {
+      applicationId = `sandbox-${applicationId}`;
+    }
+    if (environment === "production" && applicationId.startsWith("sandbox-")) {
+      applicationId = applicationId.replace(/^sandbox-/, "");
+    }
 
     return {
       configured: Boolean(applicationId && locationId && process.env["SQUARE_ACCESS_TOKEN"]),
@@ -29,3 +41,4 @@ export const getSquareConfig = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
