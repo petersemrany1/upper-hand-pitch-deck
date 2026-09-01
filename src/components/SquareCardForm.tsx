@@ -3,7 +3,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { loadSquareSdk } from "@/lib/square";
 import { getSquareConfig, type SquareConfig } from "@/utils/square-config.functions";
-import { paySquareDeposit, startDepositPayment } from "@/utils/square-deposit.functions";
+import {
+  paySquareDeposit,
+  startDepositPayment,
+  type DepositClinicInfo,
+} from "@/utils/square-deposit.functions";
 
 type CardInstance = {
   attach: (selector: string | HTMLElement) => Promise<void>;
@@ -18,9 +22,10 @@ type Props = {
   reference: string;
   onPaid?: (payment: { paymentId: string; amount: number }) => void;
   onConfig?: (config: SquareConfig) => void;
+  onClinic?: (clinic: DepositClinicInfo | null) => void;
 };
 
-export function SquareCardForm({ reference, onPaid, onConfig }: Props) {
+export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<CardInstance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +61,7 @@ export function SquareCardForm({ reference, onPaid, onConfig }: Props) {
           return;
         }
         setAmount(begin.amount);
+        onClinic?.(begin.clinic ?? null);
         if (begin.alreadyPaid) {
           setDone(true);
           setLoading(false);
