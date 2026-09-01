@@ -154,7 +154,12 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
       ) : null}
 
       {!loading && !error ? (
-        <Button type="button" className="w-full" onClick={handleSubmit} disabled={submitting}>
+        <Button
+          type="button"
+          className="h-11 w-full rounded-lg bg-[#1b1b1b] text-[15px] font-medium text-white hover:bg-[#333333]"
+          onClick={handleSubmit}
+          disabled={submitting}
+        >
           {submitting ? "Processing…" : `Pay $${amount.toFixed(2)} AUD`}
         </Button>
       ) : null}
