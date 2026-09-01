@@ -57,6 +57,19 @@ function SquarePayment() {
       <SquareTestModeBanner environment={environment} />
 
       <main className="mx-auto w-full max-w-[440px] px-4 pb-16 pt-8 sm:pt-14">
+        {/* Square logo */}
+        <div className="mb-6 flex justify-center">
+          <svg
+            aria-label="Square"
+            className="h-7 w-auto text-[#1b1b1b]"
+            viewBox="0 0 512 512"
+            fill="currentColor"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path d="M48 96c-26.5 0-48 21.5-48 48v224c0 26.5 21.5 48 48 48h224c26.5 0 48-21.5 48-48V144c0-26.5-21.5-48-48-48H48zm112 176c0 8.8-7.2 16-16 16H96c-8.8 0-16-7.2-16-16v-64c0-8.8 7.2-16 16-16h48c8.8 0 16 7.2 16 16v64z" />
+          </svg>
+        </div>
+
         {/* Merchant */}
         <div className="flex flex-col items-center text-center">
           <div className="flex size-12 items-center justify-center rounded-full bg-[#1b1b1b] text-[13px] font-semibold tracking-wide text-white">
