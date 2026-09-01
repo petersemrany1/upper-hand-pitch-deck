@@ -31,7 +31,16 @@ export type ClinicAppointment = {
   consult_summary: string | null;
   deposit_amount: number | null;
   stripe_payment_intent_id: string | null;
-  refund_status: "refunded" | "refunded_manual" | "failed" | null;
+  // "refund_pending" = processor accepted it, waiting on settlement webhook.
+  // "failed"         = processor error, retryable.
+  // "manual_required"= no processor path, needs a bank transfer.
+  refund_status:
+    | "refunded"
+    | "refunded_manual"
+    | "refund_pending"
+    | "manual_required"
+    | "failed"
+    | null;
   refund_processed_at: string | null;
   stripe_refund_id: string | null;
   disqualified_reason?: string | null;
