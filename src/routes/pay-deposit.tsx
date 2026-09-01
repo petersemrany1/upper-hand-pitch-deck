@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Lock, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
+import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
 import htgLogo from "@/assets/htg-logo.png";
 
 export const Route = createFileRoute("/pay-deposit")({
@@ -39,6 +40,7 @@ const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0
 function PayDeposit() {
   const { lead, t } = Route.useSearch();
   const [environment, setEnvironment] = useState<string | undefined>(undefined);
+  const [clinic, setClinic] = useState<DepositClinicInfo | null>(null);
   const raw = t ?? lead;
   const reference = raw && UUID_RE.test(raw) ? raw : undefined;
 
