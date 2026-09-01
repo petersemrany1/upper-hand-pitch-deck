@@ -36,15 +36,6 @@ export function SquareCardForm({ reference, onPaid, onConfig }: Props) {
 
     (async () => {
       try {
-        const [cfg, begin] = await Promise.all([config({}), start({ data: { reference } as never })]);
-        void begin;
-      } catch {
-        /* handled below */
-      }
-    })();
-
-    (async () => {
-      try {
         const cfg = (await config({})) as SquareConfig;
         if (cancelled) return;
         onConfig?.(cfg);
