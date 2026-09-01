@@ -57,16 +57,12 @@ export function ChargeCardOverPhoneModal({
         </header>
 
         <div className="max-h-[calc(100vh-9rem)] overflow-y-auto p-3 sm:p-5">
-          {!paymentsConfigured ? (
-            <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-              Payments are not configured for this build. Complete payment go-live and republish
-              before taking a card payment.
-            </p>
-          ) : leadId ? (
-            <DepositEmbeddedCheckout
-              leadId={leadId}
-              returnUrl={currentUrl.toString()}
-              assisted
+          {leadId ? (
+            <SquareCardForm
+              reference={leadId}
+              onPaid={(payment) =>
+                onSuccess?.({ paymentIntentId: payment.paymentId, amount: payment.amount })
+              }
             />
           ) : (
             <p className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-foreground">
