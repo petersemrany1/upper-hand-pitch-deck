@@ -4,15 +4,17 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession } from "./stripe.functions";
 
-// Public page that mounts the $75 booking-fee card form.
-const DEPOSIT_PAY_BASE_URL = "https://hairtransplantgroup.lovable.app/pay-deposit";
-
 /**
  * Deposit links use the lead's private deposit_token (?t=) so the internal
  * lead id is never exposed in an SMS. Falls back to the legacy ?lead= form if
- * the token can't be read.
+ * the token can't be read. The request origin is deliberate: links sent from
+ * preview must stay on preview for end-to-end sandbox testing, while links
+ * sent from the published app stay on the published domain.
  */
 async function depositPayUrl(leadId: string): Promise<string> {
+  const { getRequest } = await import("@tanstack/react-start/server");
+  const baseUrl = new URL("/pay-deposit", getRequest().url);
+
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
@@ -21,12 +23,14 @@ async function depositPayUrl(leadId: string): Promise<string> {
       .eq("id", leadId)
       .maybeSingle();
     if (data?.deposit_token) {
-      return `${DEPOSIT_PAY_BASE_URL}?t=${encodeURIComponent(data.deposit_token)}`;
+      baseUrl.searchParams.set("t", data.deposit_token);
+      return baseUrl.toString();
     }
   } catch (e) {
     console.warn("depositPayUrl: token lookup failed", e);
   }
-  return `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(leadId)}`;
+  baseUrl.searchParams.set("lead", leadId);
+  return baseUrl.toString();
 }
 
 // Resend is accessed through the Lovable connector gateway, NOT api.resend.com
@@ -1056,8 +1060,8 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    // In-app embedded checkout page (managed payments). The session itself is
-    // created server-side when the patient opens the link.
+    // Public Square checkout page. The card nonce is created in the browser;
+    // the charge itself is performed server-side.
     const depositUrl = await depositPayUrl(data.leadId);
 
     const bookingDisplay = (() => {
@@ -1464,7 +1468,7 @@ Look ONLY at leads tagged [ENGAGED - NOT CONVERTED]. These are people who had re
     }
   });
 
-// Send a standalone $75 deposit Stripe payment link via SMS to a patient,
+// Send a standalone $75 deposit payment link via SMS to a patient,
 // without requiring a confirmed booking (date/clinic/doctor).
 export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
