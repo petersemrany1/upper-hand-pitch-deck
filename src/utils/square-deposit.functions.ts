@@ -59,14 +59,19 @@ async function lookupClinic(leadId: string, clinicId: string | null): Promise<De
     .maybeSingle();
   if (!clinic) return null;
 
-  // Doctor comes from the appointment row when one exists.
+  // Doctor comes from the clinic's active doctor roster (first active doctor).
   let doctorName: string | null = null;
-  const { data: appt } = await supabaseAdmin
-    .from("clinic_appointments")
-    .select("doctor_name")
-    .eq("lead_id", leadId)
+  const { data: doctor } = await supabaseAdmin
+    .from("partner_doctors")
+    .select("name, title")
+    .eq("clinic_id", clinicId)
+    .eq("is_active", true)
+    .order("created_at", { ascending: true })
+    .limit(1)
     .maybeSingle();
-  if (appt?.doctor_name) doctorName = appt.doctor_name;
+  if (doctor?.name) {
+    doctorName = doctor.title ? `${doctor.title} ${doctor.name}` : doctor.name;
+  }
 
   return {
     clinicName: clinic.clinic_name,
