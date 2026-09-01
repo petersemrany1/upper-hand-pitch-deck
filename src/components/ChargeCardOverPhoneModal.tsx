@@ -1,7 +1,6 @@
 import { X } from "lucide-react";
-import { DepositEmbeddedCheckout } from "@/components/DepositEmbeddedCheckout";
+import { SquareCardForm } from "@/components/SquareCardForm";
 import { Button } from "@/components/ui/button";
-import { isPaymentsConfigured } from "@/lib/stripe";
 
 type Props = {
   open: boolean;
@@ -13,10 +12,10 @@ type Props = {
 };
 
 /**
- * Staff-assisted deposits use the exact same embedded Checkout flow as the
- * patient payment link. This keeps card entry and the resulting charge on the
- * same managed Stripe account and avoids creating account-bound PaymentMethods
- * in a separate Elements integration.
+ * Staff-assisted deposits use the same Square card form as the patient payment
+ * link. Card entry is tokenised in the browser, the charge happens server-side
+ * and nothing navigates on completion, so an active Twilio call is never
+ * interrupted.
  */
 export function ChargeCardOverPhoneModal({
   open,
@@ -24,13 +23,9 @@ export function ChargeCardOverPhoneModal({
   defaultAmount,
   patientName,
   leadId,
+  onSuccess,
 }: Props) {
   if (!open) return null;
-
-  const paymentsConfigured = isPaymentsConfigured();
-  const currentUrl = new URL(window.location.href);
-  currentUrl.searchParams.set("deposit", "success");
-  currentUrl.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
 
   return (
     <div
