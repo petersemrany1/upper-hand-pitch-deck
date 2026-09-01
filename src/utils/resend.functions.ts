@@ -4,8 +4,30 @@ import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession } from "./stripe.functions";
 
-// Public page that mounts the embedded $75 booking-fee checkout.
+// Public page that mounts the $75 booking-fee card form.
 const DEPOSIT_PAY_BASE_URL = "https://hairtransplantgroup.lovable.app/pay-deposit";
+
+/**
+ * Deposit links use the lead's private deposit_token (?t=) so the internal
+ * lead id is never exposed in an SMS. Falls back to the legacy ?lead= form if
+ * the token can't be read.
+ */
+async function depositPayUrl(leadId: string): Promise<string> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("meta_leads")
+      .select("deposit_token")
+      .eq("id", leadId)
+      .maybeSingle();
+    if (data?.deposit_token) {
+      return `${DEPOSIT_PAY_BASE_URL}?t=${encodeURIComponent(data.deposit_token)}`;
+    }
+  } catch (e) {
+    console.warn("depositPayUrl: token lookup failed", e);
+  }
+  return `${DEPOSIT_PAY_BASE_URL}?lead=${encodeURIComponent(leadId)}`;
+}
 
 // Resend is accessed through the Lovable connector gateway, NOT api.resend.com
 // directly. The workspace's Resend connection injects RESEND_API_KEY as a
