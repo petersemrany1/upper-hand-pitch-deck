@@ -785,15 +785,26 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const { data } = await baseQuery.in("id", testLeadIds);
         fetched = (data ?? []) as Lead[];
       } else {
-        // Fetch the most recent N leads AND every lead still in "new" status
-        // (regardless of age) so older untouched leads never fall off the queue.
-        const [{ data: recent }, { data: news }] = await Promise.all([
+        // Fetch the most recent N leads AND every lead in an actionable status
+        // (regardless of age) so older untouched / follow-up leads never fall
+        // off the queue because of the recency cap.
+        const ACTIONABLE_STATUSES = ["new", "no_answer", "callback_scheduled", "had_convo_chase_up", "intake"];
+        const [{ data: recent, error: recentErr }, { data: actionable, error: actionableErr }] = await Promise.all([
           baseQuery.order("created_at", { ascending: false }).limit(SALES_CALL_LEAD_LIMIT),
-          supabase.from("meta_leads").select(SALES_CALL_LEAD_SELECT).eq("status", "new"),
+          supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .in("status", ACTIONABLE_STATUSES)
+            .order("created_at", { ascending: false })
+            .limit(1000),
         ]);
+        if (recentErr || actionableErr) {
+          console.error("sales-call lead load failed", recentErr ?? actionableErr);
+          return; // keep whatever we already have; don't shrink the queue
+        }
         const byId = new Map<string, Lead>();
         for (const l of (recent ?? []) as Lead[]) byId.set(l.id, l);
-        for (const l of (news ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
+        for (const l of (actionable ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
         fetched = Array.from(byId.values());
       }
       setLeads((prev) => {
@@ -802,7 +813,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
         return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
       });
+      setLeadsLoaded(true);
     };
+
     void load();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
