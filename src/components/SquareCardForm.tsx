@@ -25,6 +25,17 @@ type Props = {
   onClinic?: (clinic: DepositClinicInfo | null) => void;
 };
 
+const CHECKOUT_STEP_TIMEOUT_MS = 12_000;
+
+function withCheckoutTimeout<T>(promise: Promise<T>, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      window.setTimeout(() => reject(new Error(message)), CHECKOUT_STEP_TIMEOUT_MS);
+    }),
+  ]);
+}
+
 export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<CardInstance | null>(null);
@@ -43,7 +54,20 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
 
     (async () => {
       try {
-        const cfg = (await config({})) as SquareConfig;
+        // Start both independent requests together. Previously the booking
+        // lookup did not begin until after the config state update; on some
+        // mobile browsers that left the form indefinitely on "Loading".
+        const [cfgResult, begin] = await Promise.all([
+          withCheckoutTimeout(
+            config({}) as Promise<SquareConfig>,
+            "The secure card form took too long to load. Please refresh and try again.",
+          ),
+          withCheckoutTimeout(
+            start({ data: { ref: reference } }),
+            "Your booking took too long to load. Please refresh and try again.",
+          ),
+        ]);
+        const cfg = cfgResult as SquareConfig;
         if (cancelled) return;
         onConfig?.(cfg);
 
@@ -53,8 +77,6 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           return;
         }
 
-        const begin = await start({ data: { ref: reference } });
-        if (cancelled) return;
         if (!begin.ok) {
           setError(begin.error);
           setLoading(false);
@@ -68,7 +90,10 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           return;
         }
 
-        const sdk = await loadSquareSdk(cfg.environment);
+        const sdk = await withCheckoutTimeout(
+          loadSquareSdk(cfg.environment),
+          "The secure card service took too long to load. Please refresh and try again.",
+        );
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
         // Pre-fill the postal code so patients only ever type card number,
@@ -82,7 +107,11 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           await card.destroy().catch(() => {});
           return;
         }
-        if (containerRef.current) await card.attach(containerRef.current);
+        if (!containerRef.current) throw new Error("Could not open the secure card form. Please refresh and try again.");
+        await withCheckoutTimeout(
+          card.attach(containerRef.current),
+          "The card fields took too long to load. Please refresh and try again.",
+        );
         await card.configure?.({ postalCode }).catch(() => {});
         cardRef.current = card;
 
