@@ -15,9 +15,9 @@ const FALLBACK_CALLER_ID = "+61483938205";
 // heard mid-dial. Every DB touch here is now time-boxed, and the bookkeeping
 // write no longer blocks the TwiML response.
 const DB_TIMEOUT_MS = 2500;
-const CALLER_ID_TTL_MS = 30_000;
+const CALLER_ID_TTL_MS = 5 * 60_000;
 
-let cachedCallerId: { number: string; at: number } | null = null;
+let cachedCallerIds: { numbers: string[]; at: number } | null = null;
 
 function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T | null> {
   return Promise.race([
@@ -34,40 +34,50 @@ function withTimeout<T>(p: PromiseLike<T>, ms: number, label: string): Promise<T
   ]);
 }
 
-// Pick least-recently-used ACTIVE number from the pool so outbound calls
-// always present a verified, currently-owned AU number. The previously
-// hard-coded number was retired, which made Twilio substitute an arbitrary
-// fallback (recipients sometimes saw it as a foreign/Japanese number).
-async function pickCallerId(sb: ReturnType<typeof createClient>): Promise<string> {
-  if (cachedCallerId && Date.now() - cachedCallerId.at < CALLER_ID_TTL_MS) {
-    return cachedCallerId.number;
+// Keep one stable caller ID per destination while distributing patients across
+// the active pool. Rotating to a different number on every rapid retry looks
+// like spam-dialling to Australian carriers and can cause the destination leg
+// to be rejected after one ring. A deterministic assignment avoids that while
+// still balancing the pool across different patients.
+function stableIndex(value: string, size: number): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
   }
+  return (hash >>> 0) % size;
+}
+
+async function pickCallerId(sb: ReturnType<typeof createClient>, destination: string): Promise<string> {
+  let numbers =
+    cachedCallerIds && Date.now() - cachedCallerIds.at < CALLER_ID_TTL_MS
+      ? cachedCallerIds.numbers
+      : null;
+
+  if (!numbers) {
   try {
     const result = await withTimeout(
       sb
         .from("phone_numbers")
-        .select("id, number, call_count")
+        .select("number")
         .eq("status", "active")
-        .order("last_used_at", { ascending: true, nullsFirst: true })
-        .limit(1)
-        .maybeSingle(),
+        .order("number", { ascending: true }),
       DB_TIMEOUT_MS,
       "pickCallerId query",
     );
-    const data = result?.data as { id: string; number: string; call_count: number | null } | null | undefined;
-    if (data?.number) {
-      // Fire-and-forget: usage stats must never delay the TwiML response.
-      void sb.from("phone_numbers")
-        .update({ last_used_at: new Date().toISOString(), call_count: (data.call_count ?? 0) + 1 })
-        .eq("id", data.id)
-        .then(({ error }) => { if (error) console.error("voice-outbound: phone_numbers update", error); });
-      cachedCallerId = { number: data.number, at: Date.now() };
-      return data.number;
+    const rows = result?.data as { number: string }[] | null | undefined;
+    if (rows?.length) {
+      numbers = rows.map((row) => row.number).filter(Boolean);
+      cachedCallerIds = { numbers, at: Date.now() };
     }
   } catch (e) {
     console.error("voice-outbound: pickCallerId failed", e);
   }
-  return cachedCallerId?.number ?? FALLBACK_CALLER_ID;
+  }
+
+  const available = numbers ?? cachedCallerIds?.numbers ?? [];
+  if (available.length === 0) return FALLBACK_CALLER_ID;
+  return available[stableIndex(destination, available.length)] ?? FALLBACK_CALLER_ID;
 }
 
 // Mirror of src/utils/phone.ts — keep in sync. Returns E.164 (+61...)
@@ -184,7 +194,7 @@ serve(async (req) => {
   // Pick the caller-ID BEFORE building the TwiML, so we can write the
   // actual dialled from_number and get accurate per-number analytics.
   const sbForCaller = (supabaseUrl && serviceKey) ? createClient(supabaseUrl, serviceKey) : null;
-  const callerId = sbForCaller ? await pickCallerId(sbForCaller) : FALLBACK_CALLER_ID;
+  const callerId = sbForCaller ? await pickCallerId(sbForCaller, formatted) : FALLBACK_CALLER_ID;
 
   // Server-side safety net: ensure a call_records row exists tagged with
   // clinic_id, lead_id, rep_id, and the REAL from_number (overwrites any
