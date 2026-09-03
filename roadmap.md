@@ -10,5 +10,5 @@
 - [x] No blank scroll space below the card (hard viewport lock)
 - [x] Apple Pay: hairtransplantgroup.lovable.app registered with Square (VERIFIED); button only renders in Safari on Apple devices
 
-- [x] Checkout: Apple Pay option shown in Chrome/non-Safari via iPhone QR handoff (Apple Pay JS is Safari-only).
-- [x] Checkout: fixed mobile viewport clipping on first load (use min-h-[100svh] flow instead of fixed inset-0).
+- [x] Checkout: remove the Chrome QR handoff; Apple Pay appears only when Square confirms native support.
+- [x] Checkout: lock first render to Chrome's measured visual viewport so no scroll is needed to correct sizing.

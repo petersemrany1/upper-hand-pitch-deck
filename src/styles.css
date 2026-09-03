@@ -1,4 +1,10 @@
 @import "tailwindcss";
+
+.square-checkout-viewport {
+  height: var(--square-checkout-height, 100dvh);
+  max-height: var(--square-checkout-height, 100dvh);
+  overscroll-behavior: none;
+}
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
