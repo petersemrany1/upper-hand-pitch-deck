@@ -7266,6 +7266,26 @@ function RightPanel({
                 <strong style={{ color: "#111" }}>{active.first_name ?? "this lead"}</strong>{" "}
                 at <strong style={{ color: "#111" }}>{active.phone}</strong>.
               </div>
+              {/* The checkout page is branded to exactly this clinic. */}
+              <div style={{
+                marginTop: 12, padding: "10px 12px", borderRadius: 8,
+                background: "#f8f9fb", border: `1px solid ${COLORS.line}`,
+                fontSize: 12, lineHeight: 1.5, color: "#333",
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Payment page will show
+                </div>
+                <div style={{ fontWeight: 600, color: "#111", marginTop: 4 }}>
+                  {panelClinic?.clinic_name ?? "— no clinic selected —"}
+                </div>
+                {panelDoctor?.name ? <div>{panelDoctor.name}</div> : null}
+                {panelClinic && (panelClinic.address || panelClinic.city || panelClinic.state) ? (
+                  <div style={{ color: "#666" }}>
+                    {[panelClinic.address, panelClinic.city, panelClinic.state].filter(Boolean).join(", ")}
+                  </div>
+                ) : null}
+                {panelClinic?.phone ? <div style={{ color: "#666" }}>{panelClinic.phone}</div> : null}
+              </div>
             </div>
             <div style={{
               display: "flex", gap: 8, padding: "16px 22px 18px",
