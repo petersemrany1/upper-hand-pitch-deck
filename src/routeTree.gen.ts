@@ -16,6 +16,7 @@ import { Route as PayDepositRouteImport } from './routes/pay-deposit'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SquarepaymentRouteImport } from './routes/squarepayment'
 import { Route as ThankYouRouteImport } from './routes/thank-you'
+import { Route as DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport } from './routes/[.]well-known.apple-developer-merchantid-domain-association'
 import { Route as DashboardIndexRouteImport } from './routes/_dashboard.index'
 import { Route as DashboardAnalyticsRouteImport } from './routes/_dashboard.analytics'
 import { Route as DashboardBookedAppointmentsRouteImport } from './routes/_dashboard.booked-appointments'
@@ -103,6 +104,12 @@ const ThankYouRoute = ThankYouRouteImport.update({
   path: '/thank-you',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute =
+  DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport.update({
+    id: '/.well-known/apple-developer-merchantid-domain-association',
+    path: '/.well-known/apple-developer-merchantid-domain-association',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -408,6 +415,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
+  '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/chase-queue': typeof DashboardChaseQueueRoute
@@ -467,6 +475,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
+  '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/analytics': typeof DashboardAnalyticsRoute
   '/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/chase-queue': typeof DashboardChaseQueueRoute
@@ -528,6 +537,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/squarepayment': typeof SquarepaymentRoute
   '/thank-you': typeof ThankYouRoute
+  '/.well-known/apple-developer-merchantid-domain-association': typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   '/_dashboard/analytics': typeof DashboardAnalyticsRoute
   '/_dashboard/booked-appointments': typeof DashboardBookedAppointmentsRoute
   '/_dashboard/chase-queue': typeof DashboardChaseQueueRoute
@@ -591,6 +601,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/squarepayment'
     | '/thank-you'
+    | '/.well-known/apple-developer-merchantid-domain-association'
     | '/analytics'
     | '/booked-appointments'
     | '/chase-queue'
@@ -650,6 +661,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/squarepayment'
     | '/thank-you'
+    | '/.well-known/apple-developer-merchantid-domain-association'
     | '/analytics'
     | '/booked-appointments'
     | '/chase-queue'
@@ -710,6 +722,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/squarepayment'
     | '/thank-you'
+    | '/.well-known/apple-developer-merchantid-domain-association'
     | '/_dashboard/analytics'
     | '/_dashboard/booked-appointments'
     | '/_dashboard/chase-queue'
@@ -772,6 +785,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SquarepaymentRoute: typeof SquarepaymentRoute
   ThankYouRoute: typeof ThankYouRoute
+  DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute
   ApiCoachStreamRoute: typeof ApiCoachStreamRoute
   ClinicQuoteQuoteIdRoute: typeof ClinicQuoteQuoteIdRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
@@ -841,6 +855,13 @@ declare module '@tanstack/react-router' {
       path: '/thank-you'
       fullPath: '/thank-you'
       preLoaderRoute: typeof ThankYouRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/apple-developer-merchantid-domain-association': {
+      id: '/.well-known/apple-developer-merchantid-domain-association'
+      path: '/.well-known/apple-developer-merchantid-domain-association'
+      fullPath: '/.well-known/apple-developer-merchantid-domain-association'
+      preLoaderRoute: typeof DotwellKnownAppleDeveloperMerchantidDomainAssociationRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_dashboard/': {
@@ -1309,6 +1330,8 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SquarepaymentRoute: SquarepaymentRoute,
   ThankYouRoute: ThankYouRoute,
+  DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute:
+    DotwellKnownAppleDeveloperMerchantidDomainAssociationRoute,
   ApiCoachStreamRoute: ApiCoachStreamRoute,
   ClinicQuoteQuoteIdRoute: ClinicQuoteQuoteIdRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
