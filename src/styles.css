@@ -18,6 +18,12 @@
   flex: none;
 }
 
+.square-checkout-merchant {
+  height: 48px;
+  min-height: 48px;
+  overflow: hidden;
+}
+
 .square-card-form {
   display: grid;
   gap: 8px;
@@ -70,6 +76,7 @@
   }
   .square-checkout-card { padding: 9px 10px; }
   .square-checkout-card > div:first-child img { height: 18px; }
+  .square-checkout-merchant { height: 42px; min-height: 42px; }
   .square-checkout-merchant,
   .square-checkout-summary,
   .square-checkout-total,
