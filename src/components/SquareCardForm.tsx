@@ -269,13 +269,14 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
       </div>
 
 
-      {applePayReady || googlePayReady ? (
+      {true ? (
         <div className="relative flex items-center py-1">
           <div className="flex-1 border-t border-[#e0e2e5]" />
           <span className="px-2 text-[11px] text-[#8c8c8c]">Or pay with card</span>
           <div className="flex-1 border-t border-[#e0e2e5]" />
         </div>
       ) : null}
+
 
       <div ref={containerRef} className={loading ? "hidden" : "min-h-[80px]"} />
 
