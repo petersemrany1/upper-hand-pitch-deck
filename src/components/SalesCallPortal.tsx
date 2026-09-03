@@ -3390,7 +3390,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const set = (k: keyof typeof form, v: string) => {
     if (k === "clinicId") setClinicExplicitlySelected(Boolean(v));
     setForm((prev) => {
-      const next = { ...prev, [k]: v };
+      const next = k === "clinicId"
+        ? { ...prev, clinicId: v, doctorId: "" }
+        : { ...prev, [k]: v };
       try {
         if (typeof window !== "undefined") window.localStorage.setItem(FORM_KEY, JSON.stringify(next));
       } catch { /* ignore */ }
@@ -6319,7 +6321,7 @@ function RightPanel({
     void (async () => {
       const { data: clinics } = await supabase
         .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
         .eq("is_active", true)
         .order("clinic_name");
       const list = (clinics ?? []) as Clinic[];
@@ -6915,7 +6917,7 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
-            <option value="">No clinic assigned</option>
+            <option value="">Select clinic…</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
@@ -6949,7 +6951,7 @@ function RightPanel({
             )}
           </>
         ) : (
-          <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>No clinic assigned</div>
+          <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>Select a clinic to enable the payment link</div>
         )}
       </div>
 
