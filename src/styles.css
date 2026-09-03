@@ -2,38 +2,25 @@
 @import "tw-animate-css";
 
 .square-checkout-viewport {
-  position: fixed;
-  left: 0;
-  top: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
-  overflow: hidden;
-  overscroll-behavior: none;
-  touch-action: pan-x;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 .square-checkout-main {
-  justify-content: flex-start;
   padding-top: max(12px, env(safe-area-inset-top));
-  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
 .square-card-form {
   display: grid;
   gap: 8px;
-  min-height: 239px;
-}
-
-.square-card-fields {
-  height: 112px;
 }
 
 .square-wallet-slot {
-  height: 40px;
-  overflow: hidden;
+  min-height: 40px;
 }
 
 .square-loading-block,
@@ -50,35 +37,22 @@
   to { background-position: -200% 0; }
 }
 
-.square-checkout-viewport[data-compact="true"] .square-checkout-main {
-    padding-top: 6px;
-    padding-bottom: 4px;
+/* Short phones: tighten spacing so everything still fits one screen */
+@media (max-height: 720px) {
+  .square-checkout-main {
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .square-checkout-card { padding: 12px 12px; }
+  .square-checkout-card > div:first-child img { height: 20px; }
+  .square-checkout-merchant,
+  .square-checkout-summary,
+  .square-checkout-total,
+  .square-checkout-form,
+  .square-checkout-footer { margin-top: 8px; }
+  .square-checkout-footer p:last-child { display: none; }
 }
 
-.square-checkout-viewport[data-compact="true"] .square-checkout-card {
-    padding: 10px 12px;
-}
-
-.square-checkout-viewport[data-compact="true"] .square-checkout-card > div:first-child img {
-    height: 20px;
-}
-
-.square-checkout-viewport[data-compact="true"] .square-checkout-merchant,
-.square-checkout-viewport[data-compact="true"] .square-checkout-summary,
-.square-checkout-viewport[data-compact="true"] .square-checkout-total,
-.square-checkout-viewport[data-compact="true"] .square-checkout-form,
-.square-checkout-viewport[data-compact="true"] .square-checkout-footer {
-    margin-top: 6px;
-}
-
-.square-checkout-viewport[data-compact="true"] .square-checkout-summary {
-    padding-top: 7px;
-    padding-bottom: 7px;
-}
-
-.square-checkout-viewport[data-compact="true"] .square-checkout-footer p:last-child {
-    display: none;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .square-loading-block,
