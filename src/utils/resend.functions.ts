@@ -1514,8 +1514,24 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
+    // The checkout page brands itself from the lead's clinic_id, so persist the
+    // clinic the rep actually selected before generating the link. Without this
+    // the patient sees whichever clinic was previously on the lead.
+    if (data.clinicId) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await supabaseAdmin
+          .from("meta_leads")
+          .update({ clinic_id: data.clinicId })
+          .eq("id", data.leadId);
+      } catch (e) {
+        console.warn("sendStandaloneDepositSms: clinic persist failed", e);
+      }
+    }
+
     const depositUrl = await depositPayUrl(data.leadId);
     const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
+
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
