@@ -73,7 +73,11 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
 
     (async () => {
       try {
-        const [cfgResult, begin] = await Promise.all([
+        // Production is the live default. Starting the SDK request immediately
+        // overlaps its download with both server calls and removes the previous
+        // serial network waterfall on payment-link opens.
+        const productionSdk = loadSquareSdk("production");
+        const [cfgResult, begin, prefetchedSdk] = await Promise.all([
           withCheckoutTimeout(
             config({}) as Promise<SquareConfig>,
             "The secure card form took too long to load. Please refresh and try again.",
@@ -81,6 +85,10 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           withCheckoutTimeout(
             start({ data: { ref: reference } }),
             "Your booking took too long to load. Please refresh and try again.",
+          ),
+          withCheckoutTimeout(
+            productionSdk,
+            "The secure card service took too long to load. Please refresh and try again.",
           ),
         ]);
         const cfg = cfgResult as SquareConfig;
@@ -106,10 +114,12 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           return;
         }
 
-        const sdk = await withCheckoutTimeout(
-          loadSquareSdk(cfg.environment),
-          "The secure card service took too long to load. Please refresh and try again.",
-        );
+        const sdk = cfg.environment === "production"
+          ? prefetchedSdk
+          : await withCheckoutTimeout(
+              loadSquareSdk(cfg.environment),
+              "The secure card service took too long to load. Please refresh and try again.",
+            );
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
 
@@ -127,7 +137,6 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           card.attach(containerRef.current),
           "The card fields took too long to load. Please refresh and try again.",
         );
-        await card.configure?.({ postalCode }).catch(() => {});
         cardRef.current = card;
 
         setLoading(false);
@@ -248,37 +257,31 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
   }
 
   return (
-    <div className="space-y-3">
-      {loading ? (
-        <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-          Loading secure card form…
-        </div>
-      ) : null}
-
-      <div className="grid gap-2">
+    <div className="square-card-form">
+      <div className="square-wallet-slot">
         <div
           id="sq-apple-pay"
           ref={applePayRef}
-          className={applePayReady ? "min-h-[40px] w-full" : "h-0 w-full overflow-hidden"}
+          className={applePayReady ? "h-10 w-full" : "hidden"}
         />
         <div
           id="sq-google-pay"
           ref={googlePayRef}
-          className={googlePayReady ? "min-h-[40px] w-full" : "h-0 w-full overflow-hidden"}
+          className={googlePayReady ? "h-10 w-full" : "hidden"}
         />
+        {loading ? <div className="square-loading-block h-10 w-full" aria-label="Loading secure payment options" /> : null}
       </div>
 
+      <div className="relative flex h-7 items-center">
+        <div className="flex-1 border-t border-[#e0e2e5]" />
+        <span className="px-2 text-[11px] text-[#8c8c8c]">Or pay with card</span>
+        <div className="flex-1 border-t border-[#e0e2e5]" />
+      </div>
 
-      {true ? (
-        <div className="relative flex items-center py-1">
-          <div className="flex-1 border-t border-[#e0e2e5]" />
-          <span className="px-2 text-[11px] text-[#8c8c8c]">Or pay with card</span>
-          <div className="flex-1 border-t border-[#e0e2e5]" />
-        </div>
-      ) : null}
-
-
-      <div ref={containerRef} className={loading ? "hidden" : "min-h-[80px]"} />
+      <div className="relative h-24 overflow-hidden">
+        <div ref={containerRef} className="h-24" />
+        {loading ? <div className="square-loading-card absolute inset-0" aria-label="Loading secure card form" /> : null}
+      </div>
 
       {error ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -295,7 +298,9 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         >
           {submitting ? "Processing…" : `Pay $${amount.toFixed(2)} AUD`}
         </Button>
-      ) : null}
+      ) : (
+        <div className="square-loading-block h-11 w-full" aria-hidden="true" />
+      )}
     </div>
   );
 }
