@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
@@ -49,6 +49,29 @@ function SquarePayment() {
   const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    const resetScroll = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    resetScroll();
+    window.addEventListener("pageshow", resetScroll);
+    const frame = window.requestAnimationFrame(resetScroll);
+    const timeout = window.setTimeout(resetScroll, 250);
+
+    return () => {
+      window.removeEventListener("pageshow", resetScroll);
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
+
   return (
     <div className="square-checkout-viewport flex w-full flex-col bg-[#f6f7f9] font-sans antialiased">
       <SquareTestModeBanner environment={environment} />
@@ -64,9 +87,9 @@ function SquarePayment() {
 
           {/* Merchant */}
           <div className="square-checkout-merchant mt-3 flex min-h-11 flex-col items-center justify-center text-center">
-            <h2 className="text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
+            <h2 className="max-w-full truncate text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
             {clinic?.doctorName ? (
-              <p className="text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
+              <p className="max-w-full truncate text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
             ) : null}
             {location ? <p className="max-w-full truncate text-[11px] text-[#8c8c8c]">{location}</p> : null}
           </div>
