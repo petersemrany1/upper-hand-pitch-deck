@@ -5,16 +5,43 @@
 
 export type SquareBrowserEnvironment = "sandbox" | "production";
 
+type TokenResult = {
+  status: string;
+  token?: string;
+  verificationToken?: string;
+  errors?: { message?: string }[];
+};
+
+type CardMethod = {
+  attach: (selector: string | HTMLElement) => Promise<void>;
+  tokenize: () => Promise<TokenResult>;
+  configure?: (options: Record<string, unknown>) => Promise<void>;
+  destroy: () => Promise<void>;
+};
+
+type PaymentRequestOptions = {
+  countryCode: string;
+  currencyCode: string;
+  total: { label: string; amount: string; pending?: boolean };
+};
+
+type DigitalWalletMethod = {
+  attach: (selector: string) => Promise<void>;
+  destroy: () => Promise<void>;
+  addEventListener: (
+    event: "ontokenization",
+    listener: (event: {
+      detail: { tokenResult: TokenResult };
+      complete?: (status: "success" | "failure" | string) => void;
+    }) => void | Promise<void>,
+  ) => void;
+};
+
 type SquarePayments = {
-  card: (options?: Record<string, unknown>) => Promise<{
-    attach: (selector: string | HTMLElement) => Promise<void>;
-    tokenize: () => Promise<{
-      status: string;
-      token?: string;
-      errors?: { message?: string }[];
-    }>;
-    destroy: () => Promise<void>;
-  }>;
+  card: (options?: Record<string, unknown>) => Promise<CardMethod>;
+  paymentRequest: (options: PaymentRequestOptions) => PaymentRequestOptions & { __type?: "paymentRequest" };
+  applePay: (request: ReturnType<SquarePayments["paymentRequest"]>) => Promise<DigitalWalletMethod>;
+  googlePay: (request: ReturnType<SquarePayments["paymentRequest"]>) => Promise<DigitalWalletMethod>;
 };
 
 type SquareSdk = {
@@ -82,4 +109,4 @@ export function loadSquareSdk(environment: SquareBrowserEnvironment): Promise<Sq
   return sdkPromise;
 }
 
-export type { SquarePayments, SquareSdk };
+export type { SquarePayments, SquareSdk, CardMethod, DigitalWalletMethod, TokenResult };

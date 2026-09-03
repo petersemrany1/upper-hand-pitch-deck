@@ -3,6 +3,7 @@ import { useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
+import logoAsset from "@/assets/square-logo-black.svg.asset.json";
 
 export const Route = createFileRoute("/squarepayment")({
   head: () => ({
@@ -45,57 +46,55 @@ function SquarePayment() {
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] font-sans antialiased">
+    <div className="h-screen overflow-hidden bg-[#f6f7f9] font-sans antialiased">
       <SquareTestModeBanner environment={environment} />
 
-      <main className="mx-auto w-full max-w-[440px] px-4 pb-16 pt-8 sm:pt-14">
-        {/* Square logo */}
-        <div className="mb-6 flex justify-center">
-          <svg
-            aria-label="Square"
-            className="h-7 w-auto text-[#1b1b1b]"
-            viewBox="0 0 512 512"
-            fill="currentColor"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path d="M48 96c-26.5 0-48 21.5-48 48v224c0 26.5 21.5 48 48 48h224c26.5 0 48-21.5 48-48V144c0-26.5-21.5-48-48-48H48zm112 176c0 8.8-7.2 16-16 16H96c-8.8 0-16-7.2-16-16v-64c0-8.8 7.2-16 16-16h48c8.8 0 16 7.2 16 16v64z" />
-          </svg>
-        </div>
+      <main className="mx-auto flex h-full max-w-[440px] flex-col justify-center px-4 py-4">
+        <div className="w-full rounded-xl border border-[#e0e2e5] bg-white p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          {/* Square logo */}
+          <div className="mb-4 flex justify-center">
+            <img
+              src={logoAsset.url}
+              alt="Square"
+              className="h-8 w-auto"
+            />
+          </div>
 
-        {/* Merchant */}
-        <div className="flex flex-col items-center text-center">
-          <h1 className="text-[17px] font-semibold text-[#1b1b1b]">{merchant}</h1>
-          {clinic?.doctorName ? (
-            <p className="mt-0.5 text-[13px] text-[#6a6a6a]">{clinic.doctorName}</p>
-          ) : null}
-          {location ? <p className="mt-0.5 text-[12px] text-[#8c8c8c]">{location}</p> : null}
-        </div>
+          {/* Merchant */}
+          <div className="flex flex-col items-center text-center">
+            <h1 className="text-[16px] font-semibold text-[#1b1b1b]">{merchant}</h1>
+            {clinic?.doctorName ? (
+              <p className="mt-0.5 text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
+            ) : null}
+            {location ? <p className="mt-0.5 text-[11px] text-[#8c8c8c]">{location}</p> : null}
+          </div>
 
-        {/* Payment card */}
-        <div className="mt-6 rounded-xl border border-[#e0e2e5] bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-          <p className="text-[13px] font-medium text-[#6a6a6a]">Amount due</p>
-          <p className="mt-1 text-[34px] font-semibold leading-none tracking-tight text-[#1b1b1b]">
-            $75.00 <span className="text-[15px] font-normal text-[#8c8c8c]">AUD</span>
-          </p>
+          {/* Amount */}
+          <div className="mt-4 text-center">
+            <p className="text-[12px] font-medium text-[#6a6a6a]">Amount due</p>
+            <p className="mt-0.5 text-[30px] font-semibold leading-none tracking-tight text-[#1b1b1b]">
+              $75.00 <span className="text-[14px] font-normal text-[#8c8c8c]">AUD</span>
+            </p>
+          </div>
 
-          <div className="mt-5 space-y-2 border-t border-[#ececee] pt-4 text-[13px]">
+          <div className="mt-4 space-y-1.5 border-t border-[#ececee] pt-3 text-[12px]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-[#1b1b1b]">Consultation booking fee</p>
-                <p className="mt-0.5 text-[12px] text-[#8c8c8c]">
+                <p className="text-[11px] text-[#8c8c8c]">
                   Refunded in full when you attend your appointment
                 </p>
               </div>
               <p className="shrink-0 font-medium text-[#1b1b1b]">$75.00</p>
             </div>
-            <div className="flex items-center justify-between border-t border-[#ececee] pt-2 text-[13px] font-semibold text-[#1b1b1b]">
+            <div className="flex items-center justify-between border-t border-[#ececee] pt-1.5 text-[12px] font-semibold text-[#1b1b1b]">
               <span>Total</span>
               <span>$75.00 AUD</span>
             </div>
           </div>
 
-          <div className="mt-6">
-            <p className="mb-2 text-[13px] font-medium text-[#1b1b1b]">Card information</p>
+          <div className="mt-4">
+            <p className="mb-1.5 text-[13px] font-medium text-[#1b1b1b]">Card information</p>
             {!reference ? (
               <p className="rounded-lg border border-[#e0e2e5] bg-[#f6f7f9] p-4 text-[13px] text-[#4a4a4a]">
                 This payment link is missing your booking reference. Please use the link sent to you
@@ -112,17 +111,16 @@ function SquarePayment() {
         </div>
 
         {/* Footer */}
-        <div className="mt-5 text-center">
-          <p className="text-[12px] text-[#8c8c8c]">
+        <div className="mt-4 text-center">
+          <p className="text-[11px] text-[#8c8c8c]">
             Payments processed securely by Square. Your card details are encrypted and never touch
             our servers.
           </p>
-          <p className="mt-2 text-[12px] text-[#8c8c8c]">
+          <p className="mt-1 text-[11px] text-[#8c8c8c]">
             {clinic?.phone
               ? `Questions? Call ${merchant} on ${clinic.phone}.`
               : "Questions? Reply to the SMS you received or call your consultant."}
           </p>
-          
         </div>
       </main>
     </div>

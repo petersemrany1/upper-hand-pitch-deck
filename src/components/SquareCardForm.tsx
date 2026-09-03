@@ -2,20 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { loadSquareSdk } from "@/lib/square";
+import type { CardMethod, DigitalWalletMethod, TokenResult } from "@/lib/square";
 import { getSquareConfig, type SquareConfig } from "@/utils/square-config.functions";
 import {
   paySquareDeposit,
   startDepositPayment,
   type DepositClinicInfo,
 } from "@/utils/square-deposit.functions";
-
-type CardInstance = {
-  attach: (selector: string | HTMLElement) => Promise<void>;
-  tokenize: () => Promise<{ status: string; token?: string; errors?: { message?: string }[] }>;
-  configure?: (options: Record<string, unknown>) => Promise<void>;
-  destroy: () => Promise<void>;
-};
-
 
 type Props = {
   /** Deposit token (preferred) or legacy lead uuid. */
@@ -38,25 +31,47 @@ function withCheckoutTimeout<T>(promise: Promise<T>, message: string): Promise<T
 
 export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const cardRef = useRef<CardInstance | null>(null);
+  const applePayRef = useRef<HTMLDivElement | null>(null);
+  const googlePayRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<CardMethod | null>(null);
+  const walletsRef = useRef<DigitalWalletMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [amount, setAmount] = useState(75);
   const [done, setDone] = useState(false);
+  const [applePayReady, setApplePayReady] = useState(false);
+  const [googlePayReady, setGooglePayReady] = useState(false);
 
   const start = useServerFn(startDepositPayment);
   const pay = useServerFn(paySquareDeposit);
   const config = useServerFn(getSquareConfig);
+
+  async function charge(sourceId: string, verificationToken?: string) {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await pay({ data: { ref: reference, sourceId, ...(verificationToken ? { verificationToken } : {}) } });
+      if (!result.ok) {
+        setError(result.error);
+        return false;
+      }
+      setDone(true);
+      onPaid?.({ paymentId: result.paymentId, amount: result.amount });
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Payment failed. Please try again.");
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        // Start both independent requests together. Previously the booking
-        // lookup did not begin until after the config state update; on some
-        // mobile browsers that left the form indefinitely on "Loading".
         const [cfgResult, begin] = await Promise.all([
           withCheckoutTimeout(
             config({}) as Promise<SquareConfig>,
@@ -96,17 +111,31 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         );
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
-        // Pre-fill the postal code so patients only ever type card number,
-        // expiry and CVV — the old Stripe link never asked for a postcode, and
-        // Square's field rejects an Australian postcode while the account is in
-        // sandbox (it validates as a US ZIP there).
+
         const postalCode = cfg.environment === "production" ? "2000" : "94103";
-        const card = (await payments.card({ postalCode })) as unknown as CardInstance;
+        const paymentRequest = payments.paymentRequest({
+          countryCode: "AU",
+          currencyCode: "AUD",
+          total: {
+            label: "Consultation booking fee",
+            amount: begin.amount.toFixed(2),
+            pending: false,
+          },
+        });
+
+        const [card, applePay, googlePay] = await Promise.all([
+          payments.card({ postalCode }),
+          payments.applePay(paymentRequest).catch(() => null),
+          payments.googlePay(paymentRequest).catch(() => null),
+        ]);
 
         if (cancelled) {
           await card.destroy().catch(() => {});
+          await applePay?.destroy().catch(() => {});
+          await googlePay?.destroy().catch(() => {});
           return;
         }
+
         if (!containerRef.current) throw new Error("Could not open the secure card form. Please refresh and try again.");
         await withCheckoutTimeout(
           card.attach(containerRef.current),
@@ -114,6 +143,43 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         );
         await card.configure?.({ postalCode }).catch(() => {});
         cardRef.current = card;
+
+        const activeWallets: DigitalWalletMethod[] = [];
+        const walletTokenHandler = async (event: {
+          detail: { tokenResult: TokenResult };
+          complete?: (status: string) => void;
+        }) => {
+          const { tokenResult } = event.detail;
+          if (tokenResult.status !== "OK" || !tokenResult.token) {
+            setError(tokenResult.errors?.[0]?.message ?? "Digital wallet payment failed. Please try again.");
+            event.complete?.("failure");
+            return;
+          }
+          const ok = await charge(tokenResult.token, tokenResult.verificationToken);
+          event.complete?.(ok ? "success" : "failure");
+        };
+
+        if (applePay && applePayRef.current) {
+          try {
+            await applePay.attach("#sq-apple-pay");
+            applePay.addEventListener("ontokenization", walletTokenHandler);
+            activeWallets.push(applePay);
+            setApplePayReady(true);
+          } catch {
+            await applePay.destroy().catch(() => {});
+          }
+        }
+        if (googlePay && googlePayRef.current) {
+          try {
+            await googlePay.attach("#sq-google-pay");
+            googlePay.addEventListener("ontokenization", walletTokenHandler);
+            activeWallets.push(googlePay);
+            setGooglePayReady(true);
+          } catch {
+            await googlePay.destroy().catch(() => {});
+          }
+        }
+        walletsRef.current = activeWallets;
 
         setLoading(false);
       } catch (e) {
@@ -128,34 +194,20 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
       const card = cardRef.current;
       cardRef.current = null;
       card?.destroy().catch(() => {});
+      walletsRef.current.forEach((w) => w.destroy().catch(() => {}));
+      walletsRef.current = [];
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference]);
 
   async function handleSubmit() {
     if (!cardRef.current || submitting) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      const tokenResult = await cardRef.current.tokenize();
-      if (tokenResult.status !== "OK" || !tokenResult.token) {
-        setError(tokenResult.errors?.[0]?.message ?? "Please check the card details and try again.");
-        setSubmitting(false);
-        return;
-      }
-      const result = await pay({ data: { ref: reference, sourceId: tokenResult.token } });
-      if (!result.ok) {
-        setError(result.error);
-        setSubmitting(false);
-        return;
-      }
-      setDone(true);
-      onPaid?.({ paymentId: result.paymentId, amount: result.amount });
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Payment failed. Please try again.");
-    } finally {
-      setSubmitting(false);
+    const tokenResult = await cardRef.current.tokenize();
+    if (tokenResult.status !== "OK" || !tokenResult.token) {
+      setError(tokenResult.errors?.[0]?.message ?? "Please check the card details and try again.");
+      return;
     }
+    await charge(tokenResult.token, tokenResult.verificationToken);
   }
 
   if (done) {
@@ -167,14 +219,35 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {loading ? (
         <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
           Loading secure card form…
         </div>
       ) : null}
 
-      <div ref={containerRef} className={loading ? "hidden" : "min-h-[90px]"} />
+      <div className="grid gap-2">
+        <div
+          id="sq-apple-pay"
+          ref={applePayRef}
+          className={applePayReady ? "min-h-[40px] w-full" : "h-0 w-full overflow-hidden"}
+        />
+        <div
+          id="sq-google-pay"
+          ref={googlePayRef}
+          className={googlePayReady ? "min-h-[40px] w-full" : "h-0 w-full overflow-hidden"}
+        />
+      </div>
+
+      {applePayReady || googlePayReady ? (
+        <div className="relative flex items-center py-1">
+          <div className="flex-1 border-t border-[#e0e2e5]" />
+          <span className="px-2 text-[11px] text-[#8c8c8c]">Or pay with card</span>
+          <div className="flex-1 border-t border-[#e0e2e5]" />
+        </div>
+      ) : null}
+
+      <div ref={containerRef} className={loading ? "hidden" : "min-h-[80px]"} />
 
       {error ? (
         <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
