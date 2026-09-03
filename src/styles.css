@@ -1,11 +1,20 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+html.square-checkout-lock,
+body.square-checkout-lock {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: relative;
+}
+
 .square-checkout-viewport {
   position: fixed;
-  inset: 0;
-  height: 100vh;
-  height: 100svh;
+  left: 0;
+  right: 0;
+  top: var(--sq-top, 0px);
+  height: var(--sq-vh, 100svh);
   min-height: 0;
   width: 100%;
   overflow: hidden;
@@ -13,6 +22,7 @@
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
+
 
 .square-checkout-main {
   padding-top: max(12px, env(safe-area-inset-top));
