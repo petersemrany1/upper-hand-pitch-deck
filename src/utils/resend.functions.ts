@@ -59,6 +59,53 @@ async function depositPayUrl(leadId: string, clinicId?: string): Promise<string>
   return baseUrl.toString();
 }
 
+/**
+ * A payment link is only valid for a clinic the rep explicitly selected.
+ * Validates the clinic exists, persists it on the lead, and verifies the write
+ * so the checkout page can never brand itself to a stale clinic.
+ */
+async function requireClinicSnapshot(
+  fnName: string,
+  leadId: string,
+  clinicId: string | null | undefined,
+): Promise<{ ok: true; clinicName: string } | { ok: false; error: string }> {
+  if (!clinicId) {
+    return { ok: false, error: "Select a clinic before sending the payment link" };
+  }
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: clinic, error: clinicError } = await supabaseAdmin
+      .from("partner_clinics")
+      .select("id, clinic_name")
+      .eq("id", clinicId)
+      .maybeSingle();
+    if (clinicError) throw clinicError;
+    if (!clinic) {
+      return { ok: false, error: "That clinic no longer exists — select a clinic and try again" };
+    }
+
+    const { data: savedLead, error: clinicSaveError } = await supabaseAdmin
+      .from("meta_leads")
+      .update({ clinic_id: clinicId })
+      .eq("id", leadId)
+      .select("clinic_id")
+      .maybeSingle();
+    if (clinicSaveError || savedLead?.clinic_id !== clinicId) {
+      throw clinicSaveError ?? new Error("The selected clinic did not save");
+    }
+    return { ok: true, clinicName: clinic.clinic_name };
+  } catch (e) {
+    await logError(`${fnName}.clinic`, e instanceof Error ? e.message : String(e), {
+      leadId,
+      clinicId,
+    });
+    return {
+      ok: false,
+      error: "The selected clinic could not be saved, so the payment link was not sent. Please try again.",
+    };
+  }
+}
+
 // Resend is accessed through the Lovable connector gateway, NOT api.resend.com
 // directly. The workspace's Resend connection injects RESEND_API_KEY as a
 // gateway credential (`lovc_...`); Lovable authenticates to Resend on our
