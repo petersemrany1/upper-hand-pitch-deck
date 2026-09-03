@@ -20,3 +20,7 @@
 - [x] Checkout: defeat browser scroll restoration on SMS opens and preserve all clinic/address lines inside a fixed top-anchored small viewport.
 - [x] Checkout: snapshot the selected clinic in each payment link and verify clinic persistence before sending SMS.
 - [x] Payment links: require a fresh explicit clinic selection; never preselect a stale lead clinic, and carry that exact clinic into checkout.
+
+## Outbound call drop audit (read-only, 2026-09-03)
+- [ ] Audit dialler front end, server call routes, caller ID rotation, call logs
+- [ ] Temporary read-only Twilio call-log diagnostic script (remove after)
