@@ -7305,13 +7305,17 @@ function RightPanel({
               <button
                 onClick={async () => {
                   if (sendingDepositLink) return;
+                  if (!panelClinic) {
+                    toast.error("Select a clinic before sending the payment link");
+                    return;
+                  }
                   setSendingDepositLink(true);
                   const r = await sendStandaloneDepositSms({
                     data: {
                       leadId: active.id,
                       firstName: active.first_name ?? "there",
                       phone: active.phone!,
-                      clinicId: panelClinic?.id,
+                      clinicId: panelClinic.id,
                       doctorName: panelDoctor?.name,
                     },
                   });
