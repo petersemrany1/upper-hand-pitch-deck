@@ -11,4 +11,4 @@
 - [x] Apple Pay: hairtransplantgroup.lovable.app registered with Square (VERIFIED); button only renders in Safari on Apple devices
 
 - [x] Checkout: remove the Chrome QR handoff; Apple Pay appears only when Square confirms native support.
-- [x] Checkout: lock first render to Chrome's measured visual viewport so no scroll is needed to correct sizing.
+- [x] Checkout: use a fixed small-viewport canvas so mobile browser toolbar changes cannot shift or scroll the first render.
