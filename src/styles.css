@@ -21,7 +21,7 @@
 .square-card-form {
   display: grid;
   gap: 8px;
-  min-height: 207px;
+  min-height: 223px;
 }
 
 .square-wallet-slot {

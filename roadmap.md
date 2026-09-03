@@ -13,3 +13,4 @@
 - [x] Checkout: remove the Chrome QR handoff; Apple Pay appears only when Square confirms native support.
 - [x] Checkout: use a fixed small-viewport canvas so mobile browser toolbar changes cannot shift or scroll the first render.
 - [x] Checkout: reserve the final Square form footprint from first paint and top-anchor compact phone layouts so async fields cannot re-centre or clip the page.
+- [x] Checkout: start the Square SDK download alongside booking/config reads and reserve clinic-detail height to prevent late first-load shifts.

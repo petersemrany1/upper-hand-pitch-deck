@@ -23,6 +23,11 @@ export const Route = createFileRoute("/squarepayment")({
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
     ],
+    links: [
+      { rel: "preconnect", href: "https://web.squarecdn.com" },
+      { rel: "preconnect", href: "https://cash-f.squarecdn.com", crossOrigin: "anonymous" },
+      { rel: "dns-prefetch", href: "https://web.squarecdn.com" },
+    ],
   }),
   // `t` is the deposit token (current links). `lead` is the legacy lead uuid.
   validateSearch: (search: Record<string, unknown>): { lead?: string; t?: string } => ({
@@ -57,7 +62,7 @@ function SquarePayment() {
           </div>
 
           {/* Merchant */}
-          <div className="square-checkout-merchant mt-3 flex flex-col items-center text-center">
+          <div className="square-checkout-merchant mt-3 flex h-11 flex-col items-center justify-center overflow-hidden text-center">
             <h2 className="text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
             {clinic?.doctorName ? (
               <p className="text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>

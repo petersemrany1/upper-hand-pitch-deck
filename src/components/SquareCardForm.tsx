@@ -73,7 +73,11 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
 
     (async () => {
       try {
-        const [cfgResult, begin] = await Promise.all([
+        // Production is the live default. Starting the SDK request immediately
+        // overlaps its download with both server calls and removes the previous
+        // serial network waterfall on payment-link opens.
+        const productionSdk = loadSquareSdk("production");
+        const [cfgResult, begin, prefetchedSdk] = await Promise.all([
           withCheckoutTimeout(
             config({}) as Promise<SquareConfig>,
             "The secure card form took too long to load. Please refresh and try again.",
@@ -81,6 +85,10 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           withCheckoutTimeout(
             start({ data: { ref: reference } }),
             "Your booking took too long to load. Please refresh and try again.",
+          ),
+          withCheckoutTimeout(
+            productionSdk,
+            "The secure card service took too long to load. Please refresh and try again.",
           ),
         ]);
         const cfg = cfgResult as SquareConfig;
@@ -106,10 +114,12 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           return;
         }
 
-        const sdk = await withCheckoutTimeout(
-          loadSquareSdk(cfg.environment),
-          "The secure card service took too long to load. Please refresh and try again.",
-        );
+        const sdk = cfg.environment === "production"
+          ? prefetchedSdk
+          : await withCheckoutTimeout(
+              loadSquareSdk(cfg.environment),
+              "The secure card service took too long to load. Please refresh and try again.",
+            );
         if (cancelled) return;
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
 
@@ -127,7 +137,6 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           card.attach(containerRef.current),
           "The card fields took too long to load. Please refresh and try again.",
         );
-        await card.configure?.({ postalCode }).catch(() => {});
         cardRef.current = card;
 
         setLoading(false);
@@ -269,8 +278,8 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         <div className="flex-1 border-t border-[#e0e2e5]" />
       </div>
 
-      <div className="relative h-[80px] overflow-hidden">
-        <div ref={containerRef} className="h-[80px]" />
+      <div className="relative h-24 overflow-hidden">
+        <div ref={containerRef} className="h-24" />
         {loading ? <div className="square-loading-card absolute inset-0" aria-label="Loading secure card form" /> : null}
       </div>
 
