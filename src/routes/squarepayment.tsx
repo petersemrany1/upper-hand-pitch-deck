@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
@@ -40,6 +40,7 @@ export const Route = createFileRoute("/squarepayment")({
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 function SquarePayment() {
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const { lead, t } = Route.useSearch();
   const [environment, setEnvironment] = useState<string | undefined>(undefined);
   const [clinic, setClinic] = useState<DepositClinicInfo | null>(null);
@@ -49,8 +50,53 @@ function SquarePayment() {
   const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyPosition = body.style.position;
+    const previousBodyWidth = body.style.width;
+
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.width = "100%";
+
+    const syncVisibleViewport = () => {
+      const visibleViewport = window.visualViewport;
+      const visibleHeight = Math.round(visibleViewport?.height ?? window.innerHeight);
+      const visibleTop = Math.round(visibleViewport?.offsetTop ?? 0);
+      viewport.style.height = `${visibleHeight}px`;
+      viewport.style.top = `${visibleTop}px`;
+      viewport.dataset.compact = visibleHeight <= 700 ? "true" : "false";
+    };
+
+    syncVisibleViewport();
+    const frame = window.requestAnimationFrame(syncVisibleViewport);
+    const settleTimer = window.setTimeout(syncVisibleViewport, 250);
+    window.visualViewport?.addEventListener("resize", syncVisibleViewport);
+    window.visualViewport?.addEventListener("scroll", syncVisibleViewport);
+    window.addEventListener("resize", syncVisibleViewport);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+      window.visualViewport?.removeEventListener("resize", syncVisibleViewport);
+      window.visualViewport?.removeEventListener("scroll", syncVisibleViewport);
+      window.removeEventListener("resize", syncVisibleViewport);
+      root.style.overflow = previousRootOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.position = previousBodyPosition;
+      body.style.width = previousBodyWidth;
+    };
+  }, []);
+
   return (
-    <div className="square-checkout-viewport flex w-full flex-col overflow-hidden bg-[#f6f7f9] font-sans antialiased">
+    <div ref={viewportRef} className="square-checkout-viewport flex w-full flex-col overflow-hidden bg-[#f6f7f9] font-sans antialiased">
       <SquareTestModeBanner environment={environment} />
 
       <main className="square-checkout-main mx-auto flex min-h-0 w-full max-w-[420px] flex-1 flex-col overflow-hidden px-4 py-3">
@@ -62,12 +108,12 @@ function SquarePayment() {
           </div>
 
           {/* Merchant */}
-          <div className="square-checkout-merchant mt-3 flex h-11 flex-col items-center justify-center overflow-hidden text-center">
+          <div className="square-checkout-merchant mt-3 flex min-h-11 flex-col items-center justify-center text-center">
             <h2 className="text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
             {clinic?.doctorName ? (
               <p className="text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
             ) : null}
-            {location ? <p className="text-[11px] text-[#8c8c8c]">{location}</p> : null}
+            {location ? <p className="max-w-full truncate text-[11px] text-[#8c8c8c]">{location}</p> : null}
           </div>
 
           {/* Headline: refundable booking fee */}
