@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
@@ -44,11 +44,35 @@ function SquarePayment() {
   const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const updateVisibleHeight = () => {
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      root.style.setProperty("--square-checkout-height", `${Math.round(height)}px`);
+      window.scrollTo(0, 0);
+    };
+
+    updateVisibleHeight();
+    window.requestAnimationFrame(updateVisibleHeight);
+    window.visualViewport?.addEventListener("resize", updateVisibleHeight);
+    window.visualViewport?.addEventListener("scroll", updateVisibleHeight);
+    window.addEventListener("resize", updateVisibleHeight);
+    window.addEventListener("pageshow", updateVisibleHeight);
+
+    return () => {
+      window.visualViewport?.removeEventListener("resize", updateVisibleHeight);
+      window.visualViewport?.removeEventListener("scroll", updateVisibleHeight);
+      window.removeEventListener("resize", updateVisibleHeight);
+      window.removeEventListener("pageshow", updateVisibleHeight);
+      root.style.removeProperty("--square-checkout-height");
+    };
+  }, []);
+
   return (
-    <div className="flex min-h-[100svh] w-full flex-col bg-[#f6f7f9] font-sans antialiased">
+    <div className="square-checkout-viewport flex w-full flex-col overflow-hidden bg-[#f6f7f9] font-sans antialiased">
       <SquareTestModeBanner environment={environment} />
 
-      <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-4 py-4">
+      <main className="mx-auto flex min-h-0 w-full max-w-[420px] flex-1 flex-col justify-center overflow-hidden px-4 py-3">
 
         <div className="w-full rounded-xl border border-[#e0e2e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           {/* Square wordmark */}
