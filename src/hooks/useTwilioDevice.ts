@@ -230,13 +230,14 @@ async function ensureDevice(): Promise<void> {
       } as ConstructorParameters<typeof DeviceType>[1]);
       device = d;
 
-      // Enable the built-in incoming ringtone so Peter actually hears the
-      // call alongside the top banner.
+      // Disable the SDK's built-in incoming ringtone — the incoming-call
+      // banner plays our own synthetic ringtone, and having both on made it
+      // sound like two phones ringing at the same time.
       try {
         const audioApi = (d as unknown as { audio?: { incoming?: (on: boolean) => void; disconnect?: (on: boolean) => void; outgoing?: (on: boolean) => void } }).audio;
-        audioApi?.incoming?.(true);
+        audioApi?.incoming?.(false);
       } catch (e) {
-        console.warn("Voice SDK: failed to enable incoming ringtone", e);
+        console.warn("Voice SDK: failed to disable built-in incoming ringtone", e);
       }
 
 
