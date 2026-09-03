@@ -3529,6 +3529,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   const handleSendDeposit = async () => {
     if (!bookedData || !lead.phone) { toast.error("No phone number on this lead"); return; }
+    if (!form.clinicId) { toast.error("Select a clinic before sending the payment link"); return; }
     setSendingDeposit(true);
     const r = await sendDepositSmsToPatient({
       data: {
