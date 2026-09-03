@@ -7,5 +7,5 @@
 ## Square checkout (Sep 3)
 - [x] Big "REFUNDABLE BOOKING FEE" heading on /squarepayment
 - [x] Google Pay: skip wallets inside cross-origin iframes (fixes "something went wrong")
-- [ ] No blank scroll space below the card (hard viewport lock)
-- [ ] Apple Pay button: register domain with Square + only visible in Safari
+- [x] No blank scroll space below the card (hard viewport lock)
+- [x] Apple Pay: hairtransplantgroup.lovable.app registered with Square (VERIFIED); button only renders in Safari on Apple devices
