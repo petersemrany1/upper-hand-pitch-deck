@@ -14,3 +14,4 @@
 - [x] Checkout: use a fixed small-viewport canvas so mobile browser toolbar changes cannot shift or scroll the first render.
 - [x] Checkout: reserve the final Square form footprint from first paint and top-anchor compact phone layouts so async fields cannot re-centre or clip the page.
 - [x] Checkout: start the Square SDK download alongside booking/config reads and reserve clinic-detail height to prevent late first-load shifts.
+- [x] Checkout: top-anchor every phone height and support safe-area insets so mobile browser toolbar changes cannot reposition the form.

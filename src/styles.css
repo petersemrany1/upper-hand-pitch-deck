@@ -15,7 +15,9 @@
 }
 
 .square-checkout-main {
-  justify-content: center;
+  justify-content: flex-start;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
 }
 
 .square-card-form {
@@ -45,7 +47,6 @@
 
 @media (max-height: 650px) {
   .square-checkout-main {
-    justify-content: flex-start;
     padding-top: 6px;
     padding-bottom: 4px;
   }
