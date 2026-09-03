@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
