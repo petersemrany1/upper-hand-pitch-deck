@@ -87,9 +87,9 @@ function SquarePayment() {
 
           {/* Merchant */}
           <div className="square-checkout-merchant mt-3 flex min-h-11 flex-col items-center justify-center text-center">
-            <h2 className="text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
+            <h2 className="max-w-full truncate text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
             {clinic?.doctorName ? (
-              <p className="text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
+              <p className="max-w-full truncate text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
             ) : null}
             {location ? <p className="max-w-full truncate text-[11px] text-[#8c8c8c]">{location}</p> : null}
           </div>
