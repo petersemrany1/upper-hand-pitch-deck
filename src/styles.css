@@ -5,12 +5,82 @@
   position: fixed;
   inset: 0;
   width: 100%;
-  height: 100vh;
-  height: 100svh;
-  max-height: 100svh;
+  height: 100dvh;
+  max-height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: pan-x;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.square-checkout-main {
+  justify-content: center;
+}
+
+.square-card-form {
+  display: grid;
+  gap: 8px;
+  min-height: 207px;
+}
+
+.square-wallet-slot {
+  height: 40px;
+  overflow: hidden;
+}
+
+.square-loading-block,
+.square-loading-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--muted) 25%, var(--card) 50%, var(--muted) 75%);
+  background-size: 200% 100%;
+  animation: square-checkout-loading 1.2s ease-in-out infinite;
+}
+
+@keyframes square-checkout-loading {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (max-height: 650px) {
+  .square-checkout-main {
+    justify-content: flex-start;
+    padding-top: 6px;
+    padding-bottom: 4px;
+  }
+
+  .square-checkout-card {
+    padding: 10px 12px;
+  }
+
+  .square-checkout-card > div:first-child img {
+    height: 20px;
+  }
+
+  .square-checkout-merchant,
+  .square-checkout-summary,
+  .square-checkout-total,
+  .square-checkout-form,
+  .square-checkout-footer {
+    margin-top: 6px;
+  }
+
+  .square-checkout-summary {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .square-checkout-footer p:last-child {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .square-loading-block,
+  .square-loading-card {
+    animation: none;
+  }
 }
 
 @custom-variant dark (&:is(.dark *));
