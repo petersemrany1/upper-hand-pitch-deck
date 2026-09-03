@@ -45,10 +45,11 @@ function SquarePayment() {
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-[#f6f7f9] font-sans antialiased">
+    <div className="flex min-h-[100svh] w-full flex-col bg-[#f6f7f9] font-sans antialiased">
       <SquareTestModeBanner environment={environment} />
 
-      <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center overflow-y-auto px-4 py-4">
+      <main className="mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-4 py-4">
+
         <div className="w-full rounded-xl border border-[#e0e2e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
           {/* Square wordmark */}
           <div className="flex justify-center">
