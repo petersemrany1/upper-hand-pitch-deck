@@ -9,3 +9,6 @@
 - [x] Google Pay: skip wallets inside cross-origin iframes (fixes "something went wrong")
 - [x] No blank scroll space below the card (hard viewport lock)
 - [x] Apple Pay: hairtransplantgroup.lovable.app registered with Square (VERIFIED); button only renders in Safari on Apple devices
+
+- [x] Checkout: Apple Pay option shown in Chrome/non-Safari via iPhone QR handoff (Apple Pay JS is Safari-only).
+- [x] Checkout: fixed mobile viewport clipping on first load (use min-h-[100svh] flow instead of fixed inset-0).
