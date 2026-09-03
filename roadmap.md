@@ -18,3 +18,4 @@
 - [x] Checkout: size the fixed canvas from the initial visual viewport and allow the complete clinic/card fields to render without clipping.
 - [x] Checkout: remove vertical re-centring and reserve the final Square iframe height so first load and loaded layout stay fixed.
 - [x] Checkout: defeat browser scroll restoration on SMS opens and preserve all clinic/address lines inside a fixed top-anchored small viewport.
+- [x] Checkout: snapshot the selected clinic in each payment link and verify clinic persistence before sending SMS.

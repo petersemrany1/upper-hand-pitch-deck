@@ -13,6 +13,7 @@ import {
 type Props = {
   /** Deposit token (preferred) or legacy lead uuid. */
   reference: string;
+  clinicId?: string;
   onPaid?: (payment: { paymentId: string; amount: number }) => void;
   onConfig?: (config: SquareConfig) => void;
   onClinic?: (clinic: DepositClinicInfo | null) => void;
@@ -29,7 +30,7 @@ function withCheckoutTimeout<T>(promise: Promise<T>, message: string): Promise<T
   ]);
 }
 
-export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props) {
+export function SquareCardForm({ reference, clinicId, onPaid, onConfig, onClinic }: Props) {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const applePayRef = useRef<HTMLDivElement | null>(null);
@@ -83,7 +84,7 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
             "The secure card form took too long to load. Please refresh and try again.",
           ),
           withCheckoutTimeout(
-            start({ data: { ref: reference } }),
+            start({ data: { ref: reference, ...(clinicId ? { clinicId } : {}) } }),
             "Your booking took too long to load. Please refresh and try again.",
           ),
           withCheckoutTimeout(
@@ -236,7 +237,7 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
       walletsRef.current = [];
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reference]);
+  }, [reference, clinicId]);
 
   async function handleSubmit() {
     if (!cardRef.current || submitting) return;
