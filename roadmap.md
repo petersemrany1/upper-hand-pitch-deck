@@ -16,3 +16,4 @@
 - [x] Checkout: start the Square SDK download alongside booking/config reads and reserve clinic-detail height to prevent late first-load shifts.
 - [x] Checkout: top-anchor every phone height and support safe-area insets so mobile browser toolbar changes cannot reposition the form.
 - [x] Checkout: size the fixed canvas from the initial visual viewport and allow the complete clinic/card fields to render without clipping.
+- [x] Checkout: remove vertical re-centring and reserve the final Square iframe height so first load and loaded layout stay fixed.

@@ -53,7 +53,7 @@ function SquarePayment() {
     <div className="square-checkout-viewport flex w-full flex-col bg-[#f6f7f9] font-sans antialiased">
       <SquareTestModeBanner environment={environment} />
 
-      <main className="square-checkout-main mx-auto flex w-full max-w-[420px] flex-1 flex-col justify-center px-4">
+      <main className="square-checkout-main mx-auto flex w-full max-w-[420px] flex-1 flex-col px-4">
 
 
         <div data-checkout-card className="square-checkout-card w-full rounded-xl border border-[#e0e2e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
