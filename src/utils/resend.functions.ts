@@ -59,6 +59,53 @@ async function depositPayUrl(leadId: string, clinicId?: string): Promise<string>
   return baseUrl.toString();
 }
 
+/**
+ * A payment link is only valid for a clinic the rep explicitly selected.
+ * Validates the clinic exists, persists it on the lead, and verifies the write
+ * so the checkout page can never brand itself to a stale clinic.
+ */
+async function requireClinicSnapshot(
+  fnName: string,
+  leadId: string,
+  clinicId: string | null | undefined,
+): Promise<{ ok: true; clinicName: string } | { ok: false; error: string }> {
+  if (!clinicId) {
+    return { ok: false, error: "Select a clinic before sending the payment link" };
+  }
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: clinic, error: clinicError } = await supabaseAdmin
+      .from("partner_clinics")
+      .select("id, clinic_name")
+      .eq("id", clinicId)
+      .maybeSingle();
+    if (clinicError) throw clinicError;
+    if (!clinic) {
+      return { ok: false, error: "That clinic no longer exists — select a clinic and try again" };
+    }
+
+    const { data: savedLead, error: clinicSaveError } = await supabaseAdmin
+      .from("meta_leads")
+      .update({ clinic_id: clinicId })
+      .eq("id", leadId)
+      .select("clinic_id")
+      .maybeSingle();
+    if (clinicSaveError || savedLead?.clinic_id !== clinicId) {
+      throw clinicSaveError ?? new Error("The selected clinic did not save");
+    }
+    return { ok: true, clinicName: clinic.clinic_name };
+  } catch (e) {
+    await logError(`${fnName}.clinic`, e instanceof Error ? e.message : String(e), {
+      leadId,
+      clinicId,
+    });
+    return {
+      ok: false,
+      error: "The selected clinic could not be saved, so the payment link was not sent. Please try again.",
+    };
+  }
+}
+
 // Resend is accessed through the Lovable connector gateway, NOT api.resend.com
 // directly. The workspace's Resend connection injects RESEND_API_KEY as a
 // gateway credential (`lovc_...`); Lovable authenticates to Resend on our
@@ -1087,32 +1134,12 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    if (!data.clinicId) {
-      return { success: false as const, error: "Select a clinic before sending the payment link" };
-    }
-
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: savedLead, error: clinicSaveError } = await supabaseAdmin
-        .from("meta_leads")
-        .update({ clinic_id: data.clinicId })
-        .eq("id", data.leadId)
-        .select("clinic_id")
-        .maybeSingle();
-      if (clinicSaveError || savedLead?.clinic_id !== data.clinicId) {
-        throw clinicSaveError ?? new Error("The selected clinic did not save");
-      }
-    } catch (e) {
-      await logError(
-        "sendDepositSmsToPatient.clinic",
-        e instanceof Error ? e.message : String(e),
-        { leadId: data.leadId, clinicId: data.clinicId },
-      );
-      return {
-        success: false as const,
-        error: "The selected clinic could not be saved, so the payment link was not sent. Please try again.",
-      };
-    }
+    const snapshot = await requireClinicSnapshot(
+      "sendDepositSmsToPatient",
+      data.leadId,
+      data.clinicId,
+    );
+    if (!snapshot.ok) return { success: false as const, error: snapshot.error };
 
     // Snapshot the selected clinic in this specific link so later lead edits
     // cannot change the merchant branding the patient sees.
@@ -1544,40 +1571,19 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    // The checkout page brands itself from the lead's clinic_id, so persist the
-    // clinic the rep actually selected before generating the link. Without this
-    // the patient sees whichever clinic was previously on the lead.
-    if (!data.clinicId) {
-      return { success: false as const, error: "Select a clinic before sending the payment link" };
-    }
-
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: savedLead, error: clinicSaveError } = await supabaseAdmin
-        .from("meta_leads")
-        .update({ clinic_id: data.clinicId })
-        .eq("id", data.leadId)
-        .select("clinic_id")
-        .maybeSingle();
-      if (clinicSaveError || savedLead?.clinic_id !== data.clinicId) {
-        throw clinicSaveError ?? new Error("The selected clinic did not save");
-      }
-    } catch (e) {
-      await logError(
-        "sendStandaloneDepositSms.clinic",
-        e instanceof Error ? e.message : String(e),
-        { leadId: data.leadId, clinicId: data.clinicId },
-      );
-      return {
-        success: false as const,
-        error: "The selected clinic could not be saved, so the payment link was not sent. Please try again.",
-      };
-    }
+    // The checkout page brands itself from the selected clinic, so validate and
+    // persist it before generating the link.
+    const snapshot = await requireClinicSnapshot(
+      "sendStandaloneDepositSms",
+      data.leadId,
+      data.clinicId,
+    );
+    if (!snapshot.ok) return { success: false as const, error: snapshot.error };
 
     // Snapshot the selected clinic into this URL as well as the lead. This makes
     // the checkout deterministic even if the lead is later reassigned.
     const depositUrl = await depositPayUrl(data.leadId, data.clinicId);
-    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
+    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit for ${snapshot.clinicName}: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
 
 
     const raw = data.phone.replace(/[\s\-()]/g, "");

@@ -3130,7 +3130,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         leadId: lead.id,
         firstName: lead.first_name ?? "there",
         phone: lead.phone,
-        clinicId: form.clinicId || lead.clinic_id || undefined,
+        // Only ever the clinic the rep explicitly selected — never a stale
+        // clinic stored on the lead.
+        clinicId: form.clinicId,
         doctorName: selectedDoctor?.name || undefined,
       },
     });
@@ -3527,13 +3529,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   const handleSendDeposit = async () => {
     if (!bookedData || !lead.phone) { toast.error("No phone number on this lead"); return; }
+    if (!form.clinicId) { toast.error("Select a clinic before sending the payment link"); return; }
     setSendingDeposit(true);
     const r = await sendDepositSmsToPatient({
       data: {
         leadId: lead.id,
         firstName: lead.first_name ?? "there",
         phone: lead.phone,
-        clinicId: form.clinicId || lead.clinic_id || "",
+        clinicId: form.clinicId,
         clinicName: bookedData.clinicName,
         doctorName: bookedData.doctorName,
         bookingDate: bookedData.date,
@@ -7263,6 +7266,26 @@ function RightPanel({
                 <strong style={{ color: "#111" }}>{active.first_name ?? "this lead"}</strong>{" "}
                 at <strong style={{ color: "#111" }}>{active.phone}</strong>.
               </div>
+              {/* The checkout page is branded to exactly this clinic. */}
+              <div style={{
+                marginTop: 12, padding: "10px 12px", borderRadius: 8,
+                background: "#f8f9fb", border: `1px solid ${COLORS.line}`,
+                fontSize: 12, lineHeight: 1.5, color: "#333",
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: COLORS.muted, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  Payment page will show
+                </div>
+                <div style={{ fontWeight: 600, color: "#111", marginTop: 4 }}>
+                  {panelClinic?.clinic_name ?? "— no clinic selected —"}
+                </div>
+                {panelDoctor?.name ? <div>{panelDoctor.name}</div> : null}
+                {panelClinic && (panelClinic.address || panelClinic.city || panelClinic.state) ? (
+                  <div style={{ color: "#666" }}>
+                    {[panelClinic.address, panelClinic.city, panelClinic.state].filter(Boolean).join(", ")}
+                  </div>
+                ) : null}
+                {panelClinic?.phone ? <div style={{ color: "#666" }}>{panelClinic.phone}</div> : null}
+              </div>
             </div>
             <div style={{
               display: "flex", gap: 8, padding: "16px 22px 18px",
@@ -7282,13 +7305,17 @@ function RightPanel({
               <button
                 onClick={async () => {
                   if (sendingDepositLink) return;
+                  if (!panelClinic) {
+                    toast.error("Select a clinic before sending the payment link");
+                    return;
+                  }
                   setSendingDepositLink(true);
                   const r = await sendStandaloneDepositSms({
                     data: {
                       leadId: active.id,
                       firstName: active.first_name ?? "there",
                       phone: active.phone!,
-                      clinicId: panelClinic?.id,
+                      clinicId: panelClinic.id,
                       doctorName: panelDoctor?.name,
                     },
                   });
@@ -7307,13 +7334,13 @@ function RightPanel({
                     toast.error(r.error || "Failed to send deposit link");
                   }
                 }}
-                disabled={sendingDepositLink}
+                disabled={sendingDepositLink || !panelClinic}
                 style={{
                   flex: 1, background: COLORS.coral, color: "#fff",
                   border: "none", borderRadius: 8,
                   fontSize: 13, fontWeight: 600, padding: "10px 12px",
-                  cursor: sendingDepositLink ? "not-allowed" : "pointer",
-                  opacity: sendingDepositLink ? 0.7 : 1,
+                  cursor: sendingDepositLink || !panelClinic ? "not-allowed" : "pointer",
+                  opacity: sendingDepositLink || !panelClinic ? 0.7 : 1,
                   boxShadow: `0 4px 14px ${COLORS.coral}55`,
                 }}
               >
