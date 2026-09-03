@@ -283,7 +283,7 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         </p>
       ) : null}
 
-      {!loading && !error ? (
+      {!loading ? (
         <Button
           type="button"
           className="h-11 w-full rounded-lg bg-[#1b1b1b] text-[15px] font-medium text-white hover:bg-[#333333]"
