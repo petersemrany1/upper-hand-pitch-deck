@@ -1591,40 +1591,19 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    // The checkout page brands itself from the lead's clinic_id, so persist the
-    // clinic the rep actually selected before generating the link. Without this
-    // the patient sees whichever clinic was previously on the lead.
-    if (!data.clinicId) {
-      return { success: false as const, error: "Select a clinic before sending the payment link" };
-    }
-
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const { data: savedLead, error: clinicSaveError } = await supabaseAdmin
-        .from("meta_leads")
-        .update({ clinic_id: data.clinicId })
-        .eq("id", data.leadId)
-        .select("clinic_id")
-        .maybeSingle();
-      if (clinicSaveError || savedLead?.clinic_id !== data.clinicId) {
-        throw clinicSaveError ?? new Error("The selected clinic did not save");
-      }
-    } catch (e) {
-      await logError(
-        "sendStandaloneDepositSms.clinic",
-        e instanceof Error ? e.message : String(e),
-        { leadId: data.leadId, clinicId: data.clinicId },
-      );
-      return {
-        success: false as const,
-        error: "The selected clinic could not be saved, so the payment link was not sent. Please try again.",
-      };
-    }
+    // The checkout page brands itself from the selected clinic, so validate and
+    // persist it before generating the link.
+    const snapshot = await requireClinicSnapshot(
+      "sendStandaloneDepositSms",
+      data.leadId,
+      data.clinicId,
+    );
+    if (!snapshot.ok) return { success: false as const, error: snapshot.error };
 
     // Snapshot the selected clinic into this URL as well as the lead. This makes
     // the checkout deterministic even if the lead is later reassigned.
     const depositUrl = await depositPayUrl(data.leadId, data.clinicId);
-    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
+    const message = `Hi ${data.firstName}, here's the link to pay your $75 refundable consultation deposit for ${snapshot.clinicName}: ${depositUrl} — it's fully refunded when you arrive at your appointment. Any questions just reply here.`;
 
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
