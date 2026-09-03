@@ -7334,13 +7334,13 @@ function RightPanel({
                     toast.error(r.error || "Failed to send deposit link");
                   }
                 }}
-                disabled={sendingDepositLink}
+                disabled={sendingDepositLink || !panelClinic}
                 style={{
                   flex: 1, background: COLORS.coral, color: "#fff",
                   border: "none", borderRadius: 8,
                   fontSize: 13, fontWeight: 600, padding: "10px 12px",
-                  cursor: sendingDepositLink ? "not-allowed" : "pointer",
-                  opacity: sendingDepositLink ? 0.7 : 1,
+                  cursor: sendingDepositLink || !panelClinic ? "not-allowed" : "pointer",
+                  opacity: sendingDepositLink || !panelClinic ? 0.7 : 1,
                   boxShadow: `0 4px 14px ${COLORS.coral}55`,
                 }}
               >
