@@ -56,46 +56,23 @@ function SquarePayment() {
       window.history.scrollRestoration = "manual";
     }
 
-    const root = document.documentElement;
-    root.classList.add("square-checkout-lock");
-    document.body.classList.add("square-checkout-lock");
-
-    const vv = window.visualViewport;
-
-    const sync = () => {
-      const height = vv?.height ?? window.innerHeight;
-      const top = vv?.offsetTop ?? 0;
-      root.style.setProperty("--sq-vh", `${Math.round(height)}px`);
-      root.style.setProperty("--sq-top", `${Math.round(top)}px`);
+    const resetScroll = () => {
       window.scrollTo(0, 0);
-      root.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
     };
 
-    sync();
-    window.addEventListener("pageshow", sync);
-    window.addEventListener("resize", sync);
-    window.addEventListener("orientationchange", sync);
-    vv?.addEventListener("resize", sync);
-    vv?.addEventListener("scroll", sync);
-    const frame = window.requestAnimationFrame(sync);
-    const timeouts = [60, 250, 600].map((ms) => window.setTimeout(sync, ms));
+    resetScroll();
+    window.addEventListener("pageshow", resetScroll);
+    const frame = window.requestAnimationFrame(resetScroll);
+    const timeout = window.setTimeout(resetScroll, 250);
 
     return () => {
-      window.removeEventListener("pageshow", sync);
-      window.removeEventListener("resize", sync);
-      window.removeEventListener("orientationchange", sync);
-      vv?.removeEventListener("resize", sync);
-      vv?.removeEventListener("scroll", sync);
+      window.removeEventListener("pageshow", resetScroll);
       window.cancelAnimationFrame(frame);
-      timeouts.forEach((id) => window.clearTimeout(id));
-      root.classList.remove("square-checkout-lock");
-      document.body.classList.remove("square-checkout-lock");
-      root.style.removeProperty("--sq-vh");
-      root.style.removeProperty("--sq-top");
+      window.clearTimeout(timeout);
     };
   }, []);
-
 
   return (
     <div className="square-checkout-viewport flex w-full flex-col bg-[#f6f7f9] font-sans antialiased">
