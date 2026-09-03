@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useLayoutEffect, useState } from "react";
+import { useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
@@ -43,30 +43,6 @@ function SquarePayment() {
 
   const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
-
-  useLayoutEffect(() => {
-    const root = document.documentElement;
-    const updateVisibleHeight = () => {
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      root.style.setProperty("--square-checkout-height", `${Math.round(height)}px`);
-      window.scrollTo(0, 0);
-    };
-
-    updateVisibleHeight();
-    window.requestAnimationFrame(updateVisibleHeight);
-    window.visualViewport?.addEventListener("resize", updateVisibleHeight);
-    window.visualViewport?.addEventListener("scroll", updateVisibleHeight);
-    window.addEventListener("resize", updateVisibleHeight);
-    window.addEventListener("pageshow", updateVisibleHeight);
-
-    return () => {
-      window.visualViewport?.removeEventListener("resize", updateVisibleHeight);
-      window.visualViewport?.removeEventListener("scroll", updateVisibleHeight);
-      window.removeEventListener("resize", updateVisibleHeight);
-      window.removeEventListener("pageshow", updateVisibleHeight);
-      root.style.removeProperty("--square-checkout-height");
-    };
-  }, []);
 
   return (
     <div className="square-checkout-viewport flex w-full flex-col overflow-hidden bg-[#f6f7f9] font-sans antialiased">
