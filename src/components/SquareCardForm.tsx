@@ -260,12 +260,14 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           ref={applePayRef}
           className={applePayReady ? "min-h-[40px] w-full" : "h-0 w-full overflow-hidden"}
         />
+        {!loading && !applePayReady ? <ApplePayHandoff /> : null}
         <div
           id="sq-google-pay"
           ref={googlePayRef}
           className={googlePayReady ? "min-h-[40px] w-full" : "h-0 w-full overflow-hidden"}
         />
       </div>
+
 
       {applePayReady || googlePayReady ? (
         <div className="relative flex items-center py-1">
