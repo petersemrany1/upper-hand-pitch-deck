@@ -1071,6 +1071,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       leadId: string;
       firstName: string;
       phone: string;
+      clinicId: string;
       clinicName: string;
       doctorName: string | null;
       bookingDate: string;
@@ -1086,9 +1087,36 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    // Public Square checkout page. The card nonce is created in the browser;
-    // the charge itself is performed server-side.
-    const depositUrl = await depositPayUrl(data.leadId);
+    if (!data.clinicId) {
+      return { success: false as const, error: "Select a clinic before sending the payment link" };
+    }
+
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { data: savedLead, error: clinicSaveError } = await supabaseAdmin
+        .from("meta_leads")
+        .update({ clinic_id: data.clinicId })
+        .eq("id", data.leadId)
+        .select("clinic_id")
+        .maybeSingle();
+      if (clinicSaveError || savedLead?.clinic_id !== data.clinicId) {
+        throw clinicSaveError ?? new Error("The selected clinic did not save");
+      }
+    } catch (e) {
+      await logError(
+        "sendDepositSmsToPatient.clinic",
+        e instanceof Error ? e.message : String(e),
+        { leadId: data.leadId, clinicId: data.clinicId },
+      );
+      return {
+        success: false as const,
+        error: "The selected clinic could not be saved, so the payment link was not sent. Please try again.",
+      };
+    }
+
+    // Snapshot the selected clinic in this specific link so later lead edits
+    // cannot change the merchant branding the patient sees.
+    const depositUrl = await depositPayUrl(data.leadId, data.clinicId);
 
     const bookingDisplay = (() => {
       try {
