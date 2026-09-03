@@ -113,26 +113,11 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         const payments = sdk.payments(cfg.applicationId, cfg.locationId);
 
         const postalCode = cfg.environment === "production" ? "2000" : "94103";
-        const paymentRequest = payments.paymentRequest({
-          countryCode: "AU",
-          currencyCode: "AUD",
-          total: {
-            label: "Consultation booking fee",
-            amount: begin.amount.toFixed(2),
-            pending: false,
-          },
-        });
 
-        const [card, applePay, googlePay] = await Promise.all([
-          payments.card({ postalCode }),
-          payments.applePay(paymentRequest).catch(() => null),
-          payments.googlePay(paymentRequest).catch(() => null),
-        ]);
+        const card = await payments.card({ postalCode });
 
         if (cancelled) {
           await card.destroy().catch(() => {});
-          await applePay?.destroy().catch(() => {});
-          await googlePay?.destroy().catch(() => {});
           return;
         }
 
@@ -144,6 +129,8 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         await card.configure?.({ postalCode }).catch(() => {});
         cardRef.current = card;
 
+        setLoading(false);
+
         const activeWallets: DigitalWalletMethod[] = [];
         const walletTokenHandler = async (event: {
           detail: { tokenResult: TokenResult };
@@ -151,7 +138,10 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         }) => {
           const { tokenResult } = event.detail;
           if (tokenResult.status !== "OK" || !tokenResult.token) {
-            setError(tokenResult.errors?.[0]?.message ?? "Digital wallet payment failed. Please try again.");
+            setError(
+              tokenResult.errors?.[0]?.message ??
+                "That digital wallet payment didn't go through. Please pay with your card below.",
+            );
             event.complete?.("failure");
             return;
           }
@@ -159,24 +149,62 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
           event.complete?.(ok ? "success" : "failure");
         };
 
-        if (applePay && applePayRef.current) {
+        // Apple Pay / Google Pay only work reliably on a top-level page. Inside a
+        // cross-origin iframe (e.g. an embedded preview) Google's sheet fails with
+        // a generic "something went wrong", so the buttons are hidden there.
+        const topLevel = (() => {
           try {
-            await applePay.attach("#sq-apple-pay");
-            applePay.addEventListener("ontokenization", walletTokenHandler);
-            activeWallets.push(applePay);
-            setApplePayReady(true);
+            return window.self === window.top;
           } catch {
-            await applePay.destroy().catch(() => {});
+            return false;
           }
-        }
-        if (googlePay && googlePayRef.current) {
-          try {
-            await googlePay.attach("#sq-google-pay");
-            googlePay.addEventListener("ontokenization", walletTokenHandler);
-            activeWallets.push(googlePay);
-            setGooglePayReady(true);
-          } catch {
-            await googlePay.destroy().catch(() => {});
+        })();
+
+        if (topLevel) {
+          const paymentRequest = payments.paymentRequest({
+            countryCode: "AU",
+            currencyCode: "AUD",
+            total: {
+              label: "Refundable booking fee",
+              amount: begin.amount.toFixed(2),
+              pending: false,
+            },
+          });
+
+          const [applePay, googlePay] = await Promise.all([
+            payments.applePay(paymentRequest).catch(() => null),
+            payments.googlePay(paymentRequest).catch(() => null),
+          ]);
+
+          if (cancelled) {
+            await applePay?.destroy().catch(() => {});
+            await googlePay?.destroy().catch(() => {});
+            return;
+          }
+
+          if (applePay && applePayRef.current) {
+            try {
+              await applePay.attach("#sq-apple-pay");
+              applePay.addEventListener("ontokenization", walletTokenHandler);
+              activeWallets.push(applePay);
+              setApplePayReady(true);
+            } catch {
+              await applePay.destroy().catch(() => {});
+            }
+          }
+          if (googlePay && googlePayRef.current) {
+            try {
+              await googlePay.attach("#sq-google-pay", {
+                buttonColor: "black",
+                buttonType: "pay",
+                buttonSizeMode: "fill",
+              });
+              googlePay.addEventListener("ontokenization", walletTokenHandler);
+              activeWallets.push(googlePay);
+              setGooglePayReady(true);
+            } catch {
+              await googlePay.destroy().catch(() => {});
+            }
           }
         }
         walletsRef.current = activeWallets;
@@ -255,7 +283,7 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         </p>
       ) : null}
 
-      {!loading && !error ? (
+      {!loading ? (
         <Button
           type="button"
           className="h-11 w-full rounded-lg bg-[#1b1b1b] text-[15px] font-medium text-white hover:bg-[#333333]"

@@ -26,7 +26,7 @@ type PaymentRequestOptions = {
 };
 
 type DigitalWalletMethod = {
-  attach: (selector: string) => Promise<void>;
+  attach: (selector: string, options?: Record<string, unknown>) => Promise<void>;
   destroy: () => Promise<void>;
   addEventListener: (
     event: "ontokenization",
