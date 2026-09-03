@@ -14,6 +14,16 @@
   padding-bottom: max(16px, env(safe-area-inset-bottom));
 }
 
+.square-checkout-card {
+  flex: none;
+}
+
+.square-checkout-merchant {
+  height: 48px;
+  min-height: 48px;
+  overflow: hidden;
+}
+
 .square-card-form {
   display: grid;
   gap: 8px;
@@ -21,6 +31,12 @@
 
 .square-wallet-slot {
   min-height: 40px;
+}
+
+/* Square adds its secure iframe asynchronously. Reserve its final footprint
+   before the SDK arrives so the checkout never re-centres or jumps on load. */
+.square-card-fields {
+  min-height: 144px;
 }
 
 .square-loading-block,
@@ -51,6 +67,25 @@
   .square-checkout-form,
   .square-checkout-footer { margin-top: 8px; }
   .square-checkout-footer p:last-child { display: none; }
+}
+
+@media (max-height: 620px) {
+  .square-checkout-main {
+    padding-top: max(4px, env(safe-area-inset-top));
+    padding-bottom: max(4px, env(safe-area-inset-bottom));
+  }
+  .square-checkout-card { padding: 9px 10px; }
+  .square-checkout-card > div:first-child img { height: 18px; }
+  .square-checkout-merchant { height: 42px; min-height: 42px; }
+  .square-checkout-merchant,
+  .square-checkout-summary,
+  .square-checkout-total,
+  .square-checkout-form,
+  .square-checkout-footer { margin-top: 5px; }
+  .square-checkout-summary { padding-top: 7px; padding-bottom: 7px; }
+  .square-checkout-summary h1 { font-size: 17px; }
+  .square-checkout-summary p:nth-child(2) { font-size: 28px; }
+  .square-checkout-footer { display: none; }
 }
 
 
