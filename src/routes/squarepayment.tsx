@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
@@ -48,6 +48,29 @@ function SquarePayment() {
 
   const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
+
+  useLayoutEffect(() => {
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    const resetScroll = () => {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    resetScroll();
+    window.addEventListener("pageshow", resetScroll);
+    const frame = window.requestAnimationFrame(resetScroll);
+    const timeout = window.setTimeout(resetScroll, 250);
+
+    return () => {
+      window.removeEventListener("pageshow", resetScroll);
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, []);
 
   return (
     <div className="square-checkout-viewport flex w-full flex-col bg-[#f6f7f9] font-sans antialiased">

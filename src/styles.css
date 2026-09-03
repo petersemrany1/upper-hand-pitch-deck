@@ -2,9 +2,14 @@
 @import "tw-animate-css";
 
 .square-checkout-viewport {
-  min-height: 100vh;
-  min-height: 100dvh;
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100svh;
+  min-height: 0;
   width: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -19,8 +24,8 @@
 }
 
 .square-checkout-merchant {
-  height: 48px;
-  min-height: 48px;
+  height: 56px;
+  min-height: 56px;
   overflow: hidden;
 }
 
@@ -76,7 +81,7 @@
   }
   .square-checkout-card { padding: 9px 10px; }
   .square-checkout-card > div:first-child img { height: 18px; }
-  .square-checkout-merchant { height: 42px; min-height: 42px; }
+  .square-checkout-merchant { height: 52px; min-height: 52px; }
   .square-checkout-merchant,
   .square-checkout-summary,
   .square-checkout-total,
