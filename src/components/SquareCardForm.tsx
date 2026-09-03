@@ -278,8 +278,8 @@ export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props)
         <div className="flex-1 border-t border-[#e0e2e5]" />
       </div>
 
-      <div className="relative h-24 overflow-hidden">
-        <div ref={containerRef} className="h-24" />
+      <div className="square-card-fields relative overflow-hidden">
+        <div ref={containerRef} className="h-full" />
         {loading ? <div className="square-loading-card absolute inset-0" aria-label="Loading secure card form" /> : null}
       </div>
 
