@@ -2870,7 +2870,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
-    clinicId: lead.clinic_id ?? "",
+    // Clinic must be chosen for this booking. Never silently reuse the lead's
+    // previous clinic because that can brand a new payment link incorrectly.
+    clinicId: "",
     doctorId: "",
     gender: "",
     dob: "",
@@ -2884,11 +2886,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     try {
       if (typeof window !== "undefined") {
         const saved = window.localStorage.getItem(FORM_KEY);
-        if (saved) return { ...defaultForm, ...JSON.parse(saved) };
+        if (saved) {
+          const restored = JSON.parse(saved) as Partial<typeof defaultForm>;
+          // Restore the booking draft, but force a fresh clinic/doctor choice
+          // before any new payment link can be sent.
+          return { ...defaultForm, ...restored, clinicId: "", doctorId: "" };
+        }
       }
     } catch { /* ignore */ }
     return defaultForm;
   });
+  const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
   const [sendingHandover, setSendingHandover] = useState(false);
@@ -3112,7 +3120,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const sendPaymentLink = async () => {
     if (!lead.phone) { toast.error("No phone number on this lead"); return; }
     const missing: string[] = [];
-    if (!form.clinicId) missing.push("clinic");
+    if (!form.clinicId || !clinicExplicitlySelected) missing.push("clinic");
     if (!form.gender) missing.push("gender");
     if (doctors.length > 0 && !form.doctorId) missing.push("doctor");
     if (!form.funding) missing.push("funding type");
@@ -3380,8 +3388,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.clinicId]);
   const set = (k: keyof typeof form, v: string) => {
+    if (k === "clinicId") setClinicExplicitlySelected(Boolean(v));
     setForm((prev) => {
-      const next = { ...prev, [k]: v };
+      const next = k === "clinicId"
+        ? { ...prev, clinicId: v, doctorId: "" }
+        : { ...prev, [k]: v };
       try {
         if (typeof window !== "undefined") window.localStorage.setItem(FORM_KEY, JSON.stringify(next));
       } catch { /* ignore */ }
@@ -4559,7 +4570,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         {/* Payment-link gate — must be paid before booking can be locked in */}
         {(() => {
           const missing: string[] = [];
-          if (!form.clinicId) missing.push("clinic");
+          if (!form.clinicId || !clinicExplicitlySelected) missing.push("clinic");
           if (!form.gender) missing.push("gender");
           if (doctors.length > 0 && !form.doctorId) missing.push("doctor");
           if (!form.funding) missing.push("funding type");
@@ -4568,8 +4579,19 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           const formIncomplete = missing.length > 0;
           return !paymentReceivedAt ? (
             <button
-              onClick={() => { if (!paymentLinkSent) void sendPaymentLink(); }}
-              disabled={sendingPaymentLink || !lead.phone || formIncomplete || paymentLinkSent}
+              onClick={() => {
+                if (!form.clinicId || !clinicExplicitlySelected) {
+                  toast.error("Select a clinic before sending the payment link");
+                  return;
+                }
+                if (formIncomplete) {
+                  toast.error(`Fill in ${missing.join(", ")} before sending the payment link`);
+                  return;
+                }
+                if (!paymentLinkSent) void sendPaymentLink();
+              }}
+              disabled={sendingPaymentLink || !lead.phone || paymentLinkSent}
+              aria-disabled={formIncomplete || undefined}
               title={formIncomplete ? `Fill in: ${missing.join(", ")}` : undefined}
               className="w-full rounded-[6px]"
               style={{
@@ -6299,17 +6321,16 @@ function RightPanel({
     void (async () => {
       const { data: clinics } = await supabase
         .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
         .eq("is_active", true)
         .order("clinic_name");
       const list = (clinics ?? []) as Clinic[];
       setPanelClinics(list);
-      // Only auto-pick when the lead has a clinic_id, or when there's exactly one active partner clinic.
-      // The rep can still switch clinics via the dropdown — but we won't silently choose one.
-      const matched = active.clinic_id ? list.find((c) => c.id === active.clinic_id) ?? null : null;
-      const picked = matched;
-      setPanelClinic(picked);
-      await loadDoctorForClinic(picked?.id ?? null);
+      // Payment links require a fresh, explicit clinic selection. Never seed
+      // this control from active.clinic_id because it may belong to an older
+      // booking and would make the wrong clinic look selected.
+      setPanelClinic(null);
+      await loadDoctorForClinic(null);
     })();
   }, [active.id, active.clinic_id, loadDoctorForClinic]);
 
@@ -6896,7 +6917,7 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
-            <option value="">No clinic assigned</option>
+            <option value="">Select clinic…</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
@@ -6930,7 +6951,7 @@ function RightPanel({
             )}
           </>
         ) : (
-          <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>No clinic assigned</div>
+          <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>Select a clinic to enable the payment link</div>
         )}
       </div>
 
@@ -7196,14 +7217,15 @@ function RightPanel({
             if (sendingDepositLink) return;
             setConfirmDepositOpen(true);
           }}
-          disabled={sendingDepositLink || !active.phone || !panelClinic}
+          disabled={sendingDepositLink || !active.phone}
+          aria-disabled={!panelClinic || undefined}
           style={{
-            flex: 1, background: COLORS.coral, color: "#fff",
+            flex: 1, background: panelClinic ? COLORS.coral : "#e5e7eb", color: panelClinic ? "#fff" : "#9ca3af",
             border: "none", borderRadius: 8,
             fontSize: 13, fontWeight: 600, padding: "8px 12px",
             cursor: sendingDepositLink || !active.phone || !panelClinic ? "not-allowed" : "pointer",
-            opacity: sendingDepositLink || !active.phone || !panelClinic ? 0.6 : 1,
-            boxShadow: `0 4px 14px ${COLORS.coral}55`,
+            opacity: sendingDepositLink || !active.phone ? 0.6 : 1,
+            boxShadow: panelClinic ? `0 4px 14px ${COLORS.coral}55` : "none",
           }}
         >
           {sendingDepositLink ? "Sending…" : "💳 Send payment link"}

@@ -1558,9 +1558,12 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
       leadId: string;
       firstName: string;
       phone: string;
-      clinicId?: string;
+      clinicId: string;
       doctorName?: string;
-    }) => data
+    }) => {
+      if (!data.clinicId) throw new Error("Select a clinic before sending the payment link");
+      return data;
+    }
   )
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
