@@ -29,7 +29,84 @@ function withCheckoutTimeout<T>(promise: Promise<T>, message: string): Promise<T
   ]);
 }
 
+/**
+ * Apple Pay on the Web only runs inside Safari/WebKit on Apple hardware.
+ * On Chrome (and any other browser) we still show the Apple Pay option, but
+ * clicking it hands the same checkout URL off to the customer's iPhone via a
+ * QR code — the same pattern Apple itself uses for third-party browsers.
+ */
+function ApplePayHandoff() {
+  const [open, setOpen] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const url = typeof window === "undefined" ? "" : window.location.href;
+
+  useEffect(() => {
+    if (!open || qr || !url) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { default: QRCode } = await import("qrcode");
+        const dataUrl = await QRCode.toDataURL(url, { margin: 1, width: 320 });
+        if (!cancelled) setQr(dataUrl);
+      } catch {
+        /* QR is optional — the link fallback below still works. */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, qr, url]);
+
+  return (
+    <div className="w-full">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-black text-[15px] font-medium text-white transition-opacity hover:opacity-90"
+        aria-expanded={open}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-current">
+          <path d="M16.4 12.9c0-2 1.6-3 1.7-3.1-.9-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.4 0-2.6.8-3.3 2-1.4 2.4-.4 6 1 8 .7.9 1.5 2 2.5 2 1 0 1.4-.6 2.6-.6 1.2 0 1.5.6 2.6.6 1.1 0 1.8-1 2.5-2 .5-.7.7-1.1 1-1.9-2.4-.9-2.6-3.9-1.6-4.4zM14.6 6.6c.6-.7 1-1.7.9-2.6-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.8 2.5 1 .1 2-.5 2.4-1.2z" />
+        </svg>
+        Pay with Apple&nbsp;Pay
+      </button>
+
+      {open ? (
+        <div className="mt-2 rounded-lg border border-[#e0e2e5] bg-[#f7f8f9] p-3 text-center">
+          <p className="text-[12px] leading-snug text-[#4a4a4a]">
+            Apple Pay only runs in Safari on an Apple device. Scan this with your iPhone camera to
+            finish with Apple Pay.
+          </p>
+          {qr ? (
+            <img
+              src={qr}
+              alt="QR code to open this checkout on your iPhone"
+              className="mx-auto mt-2 h-36 w-36 rounded bg-white p-1"
+            />
+          ) : (
+            <div className="mx-auto mt-2 h-36 w-36 animate-pulse rounded bg-white" />
+          )}
+          <button
+            type="button"
+            className="mt-2 text-[12px] font-medium text-[#006aff] underline"
+            onClick={() => {
+              void navigator.clipboard?.writeText(url).then(() => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 2000);
+              });
+            }}
+          >
+            {copied ? "Link copied" : "Copy payment link instead"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function SquareCardForm({ reference, onPaid, onConfig, onClinic }: Props) {
+
   const containerRef = useRef<HTMLDivElement | null>(null);
   const applePayRef = useRef<HTMLDivElement | null>(null);
   const googlePayRef = useRef<HTMLDivElement | null>(null);
