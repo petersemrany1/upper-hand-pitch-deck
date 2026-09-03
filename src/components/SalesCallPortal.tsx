@@ -3130,7 +3130,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         leadId: lead.id,
         firstName: lead.first_name ?? "there",
         phone: lead.phone,
-        clinicId: form.clinicId || lead.clinic_id || undefined,
+        // Only ever the clinic the rep explicitly selected — never a stale
+        // clinic stored on the lead.
+        clinicId: form.clinicId,
         doctorName: selectedDoctor?.name || undefined,
       },
     });
