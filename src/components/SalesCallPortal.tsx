@@ -2886,7 +2886,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     try {
       if (typeof window !== "undefined") {
         const saved = window.localStorage.getItem(FORM_KEY);
-        if (saved) return { ...defaultForm, ...JSON.parse(saved) };
+        if (saved) {
+          const restored = JSON.parse(saved) as Partial<typeof defaultForm>;
+          // Restore the booking draft, but force a fresh clinic/doctor choice
+          // before any new payment link can be sent.
+          return { ...defaultForm, ...restored, clinicId: "", doctorId: "" };
+        }
       }
     } catch { /* ignore */ }
     return defaultForm;
