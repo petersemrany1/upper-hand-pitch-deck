@@ -3388,7 +3388,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.clinicId]);
   const set = (k: keyof typeof form, v: string) => {
-    if (k === "clinicId") setClinicExplicitlySelected(Boolean(v));
+    if (k === "clinicId") {
+      setClinicExplicitlySelected(Boolean(v));
+      if (typeof window !== "undefined") {
+        const key = `salescall.selectedClinic.${lead.id}`;
+        if (v) window.sessionStorage.setItem(key, v);
+        else window.sessionStorage.removeItem(key);
+        window.dispatchEvent(new CustomEvent("salescall-clinic-selected", {
+          detail: { leadId: lead.id, clinicId: v },
+        }));
+      }
+    }
     setForm((prev) => {
       const next = k === "clinicId"
         ? { ...prev, clinicId: v, doctorId: "" }
@@ -6310,12 +6320,17 @@ function RightPanel({
   const handleSelectPanelClinic = useCallback((clinicId: string) => {
     const next = panelClinics.find((c) => c.id === clinicId) ?? null;
     setPanelClinic(next);
+    if (typeof window !== "undefined") {
+      const key = `salescall.selectedClinic.${active.id}`;
+      if (next) window.sessionStorage.setItem(key, next.id);
+      else window.sessionStorage.removeItem(key);
+    }
     // Reset selling points so they regenerate for the new clinic's doctor
     setSellingPoints(null);
     setSellingPointsForDoctorId(null);
     setShowSellingPoints(false);
     void loadDoctorForClinic(next?.id ?? null);
-  }, [panelClinics, loadDoctorForClinic]);
+  }, [active.id, panelClinics, loadDoctorForClinic]);
 
   useEffect(() => {
     void (async () => {
@@ -6326,13 +6341,32 @@ function RightPanel({
         .order("clinic_name");
       const list = (clinics ?? []) as Clinic[];
       setPanelClinics(list);
-      // Payment links require a fresh, explicit clinic selection. Never seed
-      // this control from active.clinic_id because it may belong to an older
-      // booking and would make the wrong clinic look selected.
-      setPanelClinic(null);
-      await loadDoctorForClinic(null);
+      // Reuse only the clinic explicitly selected during this lead's current
+      // sales-call session. Never seed from active.clinic_id because that may
+      // belong to an older booking.
+      const selectedId = typeof window !== "undefined"
+        ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
+        : null;
+      const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
+      setPanelClinic(selected);
+      await loadDoctorForClinic(selected?.id ?? null);
     })();
   }, [active.id, active.clinic_id, loadDoctorForClinic]);
+
+  useEffect(() => {
+    const syncSelectedClinic = (event: Event) => {
+      const detail = (event as CustomEvent<{ leadId?: string; clinicId?: string }>).detail;
+      if (detail?.leadId !== active.id) return;
+      const selected = panelClinics.find((clinic) => clinic.id === detail.clinicId) ?? null;
+      setPanelClinic(selected);
+      setSellingPoints(null);
+      setSellingPointsForDoctorId(null);
+      setShowSellingPoints(false);
+      void loadDoctorForClinic(selected?.id ?? null);
+    };
+    window.addEventListener("salescall-clinic-selected", syncSelectedClinic as EventListener);
+    return () => window.removeEventListener("salescall-clinic-selected", syncSelectedClinic as EventListener);
+  }, [active.id, panelClinics, loadDoctorForClinic]);
 
 
 
