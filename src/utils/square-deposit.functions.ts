@@ -89,8 +89,9 @@ async function lookupClinic(leadId: string, clinicId: string | null): Promise<De
  * validated as a UUID before it ever reaches the database.
  */
 export const startDepositPayment = createServerFn({ method: "POST" })
-  .inputValidator((data: { ref: string }) => {
+  .inputValidator((data: { ref: string; clinicId?: string }) => {
     if (!UUID_RE.test(data.ref)) throw new Error("Invalid reference");
+    if (data.clinicId && !UUID_RE.test(data.clinicId)) throw new Error("Invalid clinic reference");
     return data;
   })
   .handler(async ({ data }): Promise<DepositStartResult> => {
@@ -108,7 +109,7 @@ export const startDepositPayment = createServerFn({ method: "POST" })
             process.env["SQUARE_APPLICATION_ID"],
         ),
         alreadyPaid: Boolean(lead.deposit_paid_at),
-        clinic: await lookupClinic(lead.id, lead.clinic_id),
+        clinic: await lookupClinic(lead.id, data.clinicId ?? lead.clinic_id),
       };
     } catch {
       return { ok: false, error: NOT_FOUND };

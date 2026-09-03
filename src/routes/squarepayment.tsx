@@ -30,9 +30,10 @@ export const Route = createFileRoute("/squarepayment")({
     ],
   }),
   // `t` is the deposit token (current links). `lead` is the legacy lead uuid.
-  validateSearch: (search: Record<string, unknown>): { lead?: string; t?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { lead?: string; t?: string; c?: string } => ({
     lead: typeof search.lead === "string" ? search.lead : undefined,
     t: typeof search.t === "string" ? search.t : undefined,
+    c: typeof search.c === "string" ? search.c : undefined,
   }),
   component: SquarePayment,
 });
@@ -40,11 +41,12 @@ export const Route = createFileRoute("/squarepayment")({
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 function SquarePayment() {
-  const { lead, t } = Route.useSearch();
+  const { lead, t, c } = Route.useSearch();
   const [environment, setEnvironment] = useState<string | undefined>(undefined);
   const [clinic, setClinic] = useState<DepositClinicInfo | null>(null);
   const raw = t ?? lead;
   const reference = raw && UUID_RE.test(raw) ? raw : undefined;
+  const clinicId = c && UUID_RE.test(c) ? c : undefined;
 
   const merchant = clinic?.clinicName ?? "Your clinic";
   const location = [clinic?.address, clinic?.city, clinic?.state].filter(Boolean).join(", ");
@@ -121,6 +123,7 @@ function SquarePayment() {
             ) : (
               <SquareCardForm
                 reference={reference}
+                clinicId={clinicId}
                 onConfig={(cfg) => setEnvironment(cfg.environment)}
                 onClinic={setClinic}
               />
