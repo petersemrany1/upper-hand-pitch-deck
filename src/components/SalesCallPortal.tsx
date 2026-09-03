@@ -3536,7 +3536,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         leadId: lead.id,
         firstName: lead.first_name ?? "there",
         phone: lead.phone,
-        clinicId: form.clinicId || lead.clinic_id || "",
+        clinicId: form.clinicId,
         clinicName: bookedData.clinicName,
         doctorName: bookedData.doctorName,
         bookingDate: bookedData.date,
