@@ -957,11 +957,29 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     // Call metrics come from Twilio-derived call_records. The Twilio status
     // callback writes `duration` in seconds; `duration_seconds` is legacy.
     // Sales-call portal only: exclude clinic prospecting dials (clinic_id set, no lead_id).
-    const { data: calls } = await supabaseAdmin.from("call_records")
-      .select("id, rep_id, lead_id, clinic_id, duration, duration_seconds, outcome, status, called_at")
-      .gte("called_at", from.toISOString()).lte("called_at", to.toISOString())
-      .or("clinic_id.is.null,lead_id.not.is.null")
-      .order("called_at", { ascending: true });
+    // IMPORTANT: the Data API caps every response at 1000 rows. Over a 30-day
+    // window Bec alone dials well past that, so an unpaginated read silently
+    // truncated the leaderboard to the OLDEST 1000 dials (which is why calls /
+    // convos / conv% disagreed with the dashboard). Page through explicitly.
+    type LeaderboardCall = {
+      id: string; rep_id: string | null; lead_id: string | null; clinic_id: string | null;
+      duration: number | null; duration_seconds: number | null;
+      outcome: string | null; status: string | null; called_at: string;
+    };
+    const calls: LeaderboardCall[] = [];
+    const PAGE = 1000;
+    for (let page = 0; page < 60; page++) {
+      const { data: chunk } = await supabaseAdmin.from("call_records")
+        .select("id, rep_id, lead_id, clinic_id, duration, duration_seconds, outcome, status, called_at")
+        .gte("called_at", from.toISOString()).lte("called_at", to.toISOString())
+        .or("clinic_id.is.null,lead_id.not.is.null")
+        .order("called_at", { ascending: true })
+        .range(page * PAGE, page * PAGE + PAGE - 1);
+      const rows = (chunk ?? []) as unknown as LeaderboardCall[];
+      calls.push(...rows);
+      if (rows.length < PAGE) break;
+    }
+
 
     // Bookings are counted from appointment rows, using booked_at as the time
     // the booking was made (dedicated field, falls back to created_at via
@@ -987,12 +1005,17 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       ...((metaBookings ?? []).map((b) => b.id).filter(Boolean) as string[]),
     ]));
 
-    const { data: leadRows } = relevantLeadIds.length > 0
-      ? await supabaseAdmin
+    // Chunk the lead lookup too: `.in()` on 1000+ ids also hits the row cap.
+    const leadRows: { id: string; rep_id: string | null; first_name: string | null; last_name: string | null }[] = [];
+    for (let i = 0; i < relevantLeadIds.length; i += 500) {
+      const slice = relevantLeadIds.slice(i, i + 500);
+      const { data: chunk } = await supabaseAdmin
         .from("meta_leads")
         .select("id, rep_id, first_name, last_name")
-        .in("id", relevantLeadIds)
-      : { data: [] };
+        .in("id", slice);
+      leadRows.push(...((chunk ?? []) as unknown as typeof leadRows));
+    }
+
     const repCreatedAt = new Map((reps ?? []).map((r) => [r.id as string, new Date(r.created_at as string).getTime()]));
     const repCanOwnAt = (repId: string | null | undefined, at: string | null | undefined) => {
       if (!repId || !at) return false;
