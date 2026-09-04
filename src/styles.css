@@ -2,21 +2,15 @@
 @import "tw-animate-css";
 
 .square-checkout-viewport {
-  position: fixed;
-  inset: 0;
-  height: 100vh;
-  height: 100svh;
-  min-height: 0;
+  min-height: 100svh;
   width: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 .square-checkout-main {
-  padding-top: max(12px, env(safe-area-inset-top));
-  padding-bottom: max(16px, env(safe-area-inset-bottom));
+  padding-top: max(16px, env(safe-area-inset-top));
+  padding-bottom: max(28px, env(safe-area-inset-bottom));
 }
 
 .square-checkout-card {
@@ -24,9 +18,7 @@
 }
 
 .square-checkout-merchant {
-  height: 60px;
-  min-height: 60px;
-  overflow: hidden;
+  min-height: 0;
 }
 
 .square-card-form {
@@ -57,42 +49,6 @@
   from { background-position: 200% 0; }
   to { background-position: -200% 0; }
 }
-
-/* Short phones: tighten spacing so everything still fits one screen */
-@media (max-height: 720px) {
-  .square-checkout-main {
-    padding-top: max(6px, env(safe-area-inset-top));
-    padding-bottom: max(8px, env(safe-area-inset-bottom));
-  }
-  .square-checkout-card { padding: 12px 12px; }
-  .square-checkout-card > div:first-child img { height: 20px; }
-  .square-checkout-merchant,
-  .square-checkout-summary,
-  .square-checkout-total,
-  .square-checkout-form,
-  .square-checkout-footer { margin-top: 8px; }
-  .square-checkout-footer p:last-child { display: none; }
-}
-
-@media (max-height: 620px) {
-  .square-checkout-main {
-    padding-top: max(4px, env(safe-area-inset-top));
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
-  }
-  .square-checkout-card { padding: 9px 10px; }
-  .square-checkout-card > div:first-child img { height: 18px; }
-  .square-checkout-merchant { height: 60px; min-height: 60px; }
-  .square-checkout-merchant,
-  .square-checkout-summary,
-  .square-checkout-total,
-  .square-checkout-form,
-  .square-checkout-footer { margin-top: 5px; }
-  .square-checkout-summary { padding-top: 7px; padding-bottom: 7px; }
-  .square-checkout-summary h1 { font-size: 17px; }
-  .square-checkout-summary p:nth-child(2) { font-size: 28px; }
-  .square-checkout-footer { display: none; }
-}
-
 
 @media (prefers-reduced-motion: reduce) {
   .square-loading-block,

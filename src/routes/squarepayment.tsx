@@ -3,7 +3,6 @@ import { useLayoutEffect, useState } from "react";
 import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
-import logoAsset from "@/assets/square-logo-black.svg.asset.json";
 
 export const Route = createFileRoute("/squarepayment")({
   head: () => ({
@@ -79,21 +78,14 @@ function SquarePayment() {
       <SquareTestModeBanner environment={environment} />
 
       <main className="square-checkout-main mx-auto flex w-full max-w-[420px] flex-1 flex-col px-4">
-
-
         <div data-checkout-card className="square-checkout-card w-full rounded-xl border border-[#e0e2e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-          {/* Square wordmark */}
-          <div className="flex justify-center">
-            <img src={logoAsset.url} alt="Square" className="h-6 w-auto" />
-          </div>
-
           {/* Merchant */}
-          <div className="square-checkout-merchant mt-3 flex min-h-11 flex-col items-center justify-center text-center">
+          <div className="square-checkout-merchant mt-1 flex flex-col items-center justify-center text-center">
             <h2 className="max-w-full truncate text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>
             {clinic?.doctorName ? (
               <p className="max-w-full truncate text-[12px] text-[#6a6a6a]">{clinic.doctorName}</p>
             ) : null}
-            {location ? <p className="max-w-full truncate text-[11px] text-[#8c8c8c]">{location}</p> : null}
+            {location ? <p className="max-w-full break-words text-[11px] text-[#8c8c8c]">{location}</p> : null}
           </div>
 
           {/* Headline: refundable booking fee */}
