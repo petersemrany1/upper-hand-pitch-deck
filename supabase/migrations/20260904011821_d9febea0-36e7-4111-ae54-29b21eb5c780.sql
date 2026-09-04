@@ -1,0 +1,1 @@
+ALTER FUNCTION public.dashboard_conversion_stats(timestamp with time zone, uuid) SET search_path = public;
