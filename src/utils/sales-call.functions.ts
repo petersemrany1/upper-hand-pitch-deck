@@ -972,6 +972,9 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       const { data: chunk } = await supabaseAdmin.from("call_records")
         .select("id, rep_id, lead_id, clinic_id, duration, duration_seconds, outcome, status, called_at")
         .gte("called_at", from.toISOString()).lte("called_at", to.toISOString())
+        // Outbound dials only — inbound calls are not rep "calls made" and were
+        // inflating calls/convos vs the dashboard.
+        .eq("direction", "outbound")
         .or("clinic_id.is.null,lead_id.not.is.null")
         .order("called_at", { ascending: true })
         .range(page * PAGE, page * PAGE + PAGE - 1);
