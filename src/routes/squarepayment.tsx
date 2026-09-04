@@ -4,7 +4,6 @@ import { SquareCardForm } from "@/components/SquareCardForm";
 import { SquareTestModeBanner } from "@/components/SquareTestModeBanner";
 import type { DepositClinicInfo } from "@/utils/square-deposit.functions";
 
-
 export const Route = createFileRoute("/squarepayment")({
   head: () => ({
     meta: [
@@ -79,10 +78,7 @@ function SquarePayment() {
       <SquareTestModeBanner environment={environment} />
 
       <main className="square-checkout-main mx-auto flex w-full max-w-[420px] flex-1 flex-col px-4">
-
-
         <div data-checkout-card className="square-checkout-card w-full rounded-xl border border-[#e0e2e5] bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
-
           {/* Merchant */}
           <div className="square-checkout-merchant mt-1 flex flex-col items-center justify-center text-center">
             <h2 className="max-w-full truncate text-[15px] font-semibold leading-tight text-[#1b1b1b]">{merchant}</h2>

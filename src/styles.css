@@ -50,8 +50,6 @@
   to { background-position: -200% 0; }
 }
 
-
-
 @media (prefers-reduced-motion: reduce) {
   .square-loading-block,
   .square-loading-card {
