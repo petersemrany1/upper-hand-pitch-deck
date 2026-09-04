@@ -1005,12 +1005,17 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       ...((metaBookings ?? []).map((b) => b.id).filter(Boolean) as string[]),
     ]));
 
-    const { data: leadRows } = relevantLeadIds.length > 0
-      ? await supabaseAdmin
+    // Chunk the lead lookup too: `.in()` on 1000+ ids also hits the row cap.
+    const leadRows: { id: string; rep_id: string | null; first_name: string | null; last_name: string | null }[] = [];
+    for (let i = 0; i < relevantLeadIds.length; i += 500) {
+      const slice = relevantLeadIds.slice(i, i + 500);
+      const { data: chunk } = await supabaseAdmin
         .from("meta_leads")
         .select("id, rep_id, first_name, last_name")
-        .in("id", relevantLeadIds)
-      : { data: [] };
+        .in("id", slice);
+      leadRows.push(...((chunk ?? []) as unknown as typeof leadRows));
+    }
+
     const repCreatedAt = new Map((reps ?? []).map((r) => [r.id as string, new Date(r.created_at as string).getTime()]));
     const repCanOwnAt = (repId: string | null | undefined, at: string | null | undefined) => {
       if (!repId || !at) return false;
