@@ -909,6 +909,7 @@ function NumbersPage() {
 
         {/* TAB 3 — packs & delivery */}
         {tab === "packs" && (
+        <>
         <div style={{ ...CARD, marginTop: 18 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div style={{ fontSize: 15, fontWeight: 600 }}>Clinic packs — delivered vs owed</div>
@@ -1130,6 +1131,7 @@ function NumbersPage() {
             </div>
           )}
         </div>
+        </>
         )}
 
         {/* SECTION A — city detail (tab 2) */}
