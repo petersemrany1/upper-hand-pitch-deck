@@ -378,6 +378,13 @@ export type Database = {
             foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
@@ -869,6 +876,13 @@ export type Database = {
             foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
@@ -1092,6 +1106,13 @@ export type Database = {
             foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: true
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
@@ -1182,6 +1203,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: true
             referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "booking_rep_attribution"
             referencedColumns: ["appointment_id"]
           },
           {
@@ -1285,6 +1313,13 @@ export type Database = {
             columns: ["appointment_id"]
             isOneToOne: false
             referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinicflow_quotes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
             referencedColumns: ["appointment_id"]
           },
           {
@@ -2099,6 +2134,47 @@ export type Database = {
         }
         Relationships: []
       }
+      rep_hour_overrides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          hours: number
+          id: string
+          note: string | null
+          rep_id: string
+          updated_at: string
+          work_date: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          hours: number
+          id?: string
+          note?: string | null
+          rep_id: string
+          updated_at?: string
+          work_date: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          hours?: number
+          id?: string
+          note?: string | null
+          rep_id?: string
+          updated_at?: string
+          work_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rep_hour_overrides_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rep_module_progress: {
         Row: {
           beats_done: boolean
@@ -2209,6 +2285,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      rep_rates: {
+        Row: {
+          booking_bonus: number | null
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          hourly_rate: number | null
+          id: string
+          note: string | null
+          rep_id: string
+          updated_at: string
+        }
+        Insert: {
+          booking_bonus?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          hourly_rate?: number | null
+          id?: string
+          note?: string | null
+          rep_id: string
+          updated_at?: string
+        }
+        Update: {
+          booking_bonus?: number | null
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          hourly_rate?: number | null
+          id?: string
+          note?: string | null
+          rep_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rep_rates_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "sales_reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rep_sessions: {
         Row: {
@@ -2587,6 +2707,56 @@ export type Database = {
         }
         Relationships: []
       }
+      booking_rep_attribution: {
+        Row: {
+          ad_name: string | null
+          appointment_id: string | null
+          attribution: string | null
+          booked_date: string | null
+          cohort_date: string | null
+          lead_id: string | null
+          location: string | null
+          rep_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinic_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["lead_id"]
+          },
+          {
+            foreignKeyName: "clinic_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "meta_leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rep_call_days: {
+        Row: {
+          calc_hours: number | null
+          calls: number | null
+          first_call: string | null
+          last_call: string | null
+          rep_id: string | null
+          work_date: string | null
+        }
+        Relationships: []
+      }
+      rep_day_key_calls: {
+        Row: {
+          ad_name: string | null
+          leads: number | null
+          location: string | null
+          rep_id: string | null
+          talk_secs: number | null
+          work_date: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       ad_cost_per_show_monthly: {
@@ -2664,6 +2834,19 @@ export type Database = {
       is_clinic_setter_user: { Args: never; Returns: boolean }
       is_clinic_user_for: { Args: { _clinic_id: string }; Returns: boolean }
       jwt_email_trusted: { Args: never; Returns: string }
+      labour_by_key: {
+        Args: { p_from?: string; p_mode?: string; p_to?: string }
+        Returns: {
+          bonus_cost: number
+          bonus_missing_rate: number
+          bookings: number
+          hourly_cost: number
+          hours: number
+          hours_fallback: number
+          hours_missing_rate: number
+          key: string
+        }[]
+      }
       meta_lead_classify: { Args: { _prior: string }; Returns: string }
       meta_lead_close_siblings: { Args: { _booked: string }; Returns: number }
       meta_lead_prior_id: {
@@ -2674,6 +2857,18 @@ export type Database = {
           _phone: string
         }
         Returns: string
+      }
+      money_monthly: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          bonus_cost: number
+          labour_cost: number
+          location: string
+          month: string
+          revenue: number
+          showed: number
+          spend: number
+        }[]
       }
       move_to_dlq: {
         Args: {
@@ -2691,6 +2886,46 @@ export type Database = {
           message: Json
           msg_id: number
           read_ct: number
+        }[]
+      }
+      rep_hours_report: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          bonus_cost: number
+          booking_bonus: number
+          bookings: number
+          bookings_unresolved: number
+          calc_hours: number
+          calls: number
+          effective_hours: number
+          first_call: string
+          flag_long: boolean
+          flag_no_location: boolean
+          flag_sparse: boolean
+          has_rate: boolean
+          hourly_cost: number
+          hourly_rate: number
+          last_call: string
+          override_hours: number
+          override_note: string
+          rep_id: string
+          rep_name: string
+          work_date: string
+        }[]
+      }
+      rep_rate_for: {
+        Args: { _date: string; _rep: string }
+        Returns: {
+          booking_bonus: number
+          hourly_rate: number
+        }[]
+      }
+      revenue_by_key: {
+        Args: { p_from?: string; p_mode?: string; p_to?: string }
+        Returns: {
+          key: string
+          revenue: number
+          shows: number
         }[]
       }
     }
