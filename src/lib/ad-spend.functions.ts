@@ -195,12 +195,46 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         revenue: num(r.revenue),
       }));
 
-    return {
-      labourByLocation: mapLabour(labLoc.data),
-      labourByAd: mapLabour(labAd.data),
-      revenueByLocation: mapRevenue(revLoc.data),
-      revenueByAd: mapRevenue(revAd.data),
-      moneyMonthly: ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
+    // Subtract Peter-only rows from the all-reps rows when the toggle is on.
+    const subLabour = (base: LabourRow[], sub: unknown): LabourRow[] => {
+      const subMap = new Map(
+        mapLabour(sub).map((r) => [r.key.toLowerCase(), r]),
+      );
+      return base.map((r) => {
+        const s = subMap.get(r.key.toLowerCase());
+        if (!s) return r;
+        return {
+          key: r.key,
+          hours: r.hours - s.hours,
+          hourly_cost: r.hourly_cost - s.hourly_cost,
+          hours_missing_rate: r.hours_missing_rate - s.hours_missing_rate,
+          hours_fallback: r.hours_fallback - s.hours_fallback,
+          bookings: r.bookings - s.bookings,
+          bonus_cost: r.bonus_cost - s.bonus_cost,
+          bonus_missing_rate: r.bonus_missing_rate - s.bonus_missing_rate,
+        };
+      });
+    };
+    const subMoney = (base: MoneyMonthPoint[], sub: unknown): MoneyMonthPoint[] => {
+      const subRows = ((sub ?? []) as Record<string, unknown>[]);
+      const subMap = new Map(
+        subRows.map((r) => [`${r.month}|${String(r.location ?? "").toLowerCase()}`, r]),
+      );
+      return base.map((r) => {
+        const s = subMap.get(`${r.month}|${r.location.toLowerCase()}`) as Record<string, unknown> | undefined;
+        if (!s) return r;
+        return {
+          ...r,
+          labour_cost: r.labour_cost - num(s.labour_cost),
+          bonus_cost: r.bonus_cost - num(s.bonus_cost),
+        };
+      });
+    };
+
+    const labourLocRows = subLabour(mapLabour(labLoc.data), labLocP.data);
+    const labourAdRows = subLabour(mapLabour(labAd.data), labAdP.data);
+    const moneyMonthRows = subMoney(
+      ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
         month: String(r.month ?? ""),
         location: String(r.location ?? ""),
         spend: num(r.spend),
@@ -209,6 +243,16 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         labour_cost: num(r.labour_cost),
         bonus_cost: num(r.bonus_cost),
       })) as MoneyMonthPoint[],
+      moneyMonthP.data,
+    );
+
+    return {
+      peterExcluded: peterId !== null,
+      labourByLocation: labourLocRows,
+      labourByAd: labourAdRows,
+      revenueByLocation: mapRevenue(revLoc.data),
+      revenueByAd: mapRevenue(revAd.data),
+      moneyMonthly: moneyMonthRows,
       ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),
