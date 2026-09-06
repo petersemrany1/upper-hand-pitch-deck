@@ -120,7 +120,20 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         rpc: (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
       }).rpc(fn, args);
 
-    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth] = await Promise.all([
+    // Optional: subtract one rep's (Peter's) labour + bonus from every key so
+    // the owner can view costs with their own pay removed.
+    let peterId: string | null = null;
+    if (data.excludePeter) {
+      const { data: peter } = await db
+        .from("sales_reps")
+        .select("id")
+        .ilike("name", "%peter%semrany%")
+        .limit(1)
+        .maybeSingle();
+      peterId = peter?.id ?? null;
+    }
+
+    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
       db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
@@ -130,6 +143,9 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "location" }),
       rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
       rpc("money_monthly", { p_from: from, p_to: to }),
+      peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
+      peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
+      peterId ? rpc("money_monthly", { p_from: from, p_to: to, p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
     ]);
 
 
