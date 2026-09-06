@@ -221,6 +221,20 @@ function NumbersPage() {
     }
   }, [fetchSpend, range.from, range.to]);
 
+  const loadPacks = useCallback(async () => {
+    try {
+      const res = await fetchPacks();
+      setPacks(res.packs);
+      setClinicOpts(res.clinics);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }, [fetchPacks]);
+
+  useEffect(() => {
+    if (authReady && session && isAdmin) void loadPacks();
+  }, [authReady, session, isAdmin, loadPacks]);
+
   // ---- Section A: location cards + total
   const visibleLocations = locFilter
     ? locations.filter((l) => l.location?.toLowerCase() === locFilter.toLowerCase())
