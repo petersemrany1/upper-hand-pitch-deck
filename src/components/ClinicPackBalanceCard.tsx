@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
@@ -35,6 +35,10 @@ type Pack = {
   status: "active" | "completed";
   notes: string | null;
   created_at: string;
+  pack_name: string | null;
+  amount_paid_ex_gst: number | null;
+  date_paid: string | null;
+  pack_type: "paid" | "free_trial" | "guarantee_credit" | "goodwill";
 };
 
 type Props = {
@@ -51,6 +55,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [editingPack, setEditingPack] = useState<Pack | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -246,7 +251,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           )}
 
           {showHistory && isAdmin && (
-            <PackHistoryList packs={packs} showedUp={showedUp} onChange={load} />
+            <PackHistoryList packs={packs} showedUp={showedUp} onChange={load} onEdit={(p) => setEditingPack(p)} />
           )}
         </>
       )}
@@ -256,6 +261,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           clinicId={clinicId}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); void load(); }}
+        />
+      )}
+
+      {editingPack && isAdmin && (
+        <AddPackModal
+          clinicId={clinicId}
+          pack={editingPack}
+          onClose={() => setEditingPack(null)}
+          onSaved={() => { setEditingPack(null); void load(); }}
         />
       )}
     </div>
@@ -271,8 +285,8 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-function PackHistoryList({ packs, showedUp, onChange }: {
-  packs: Pack[]; showedUp: number; onChange: () => void;
+function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
+  packs: Pack[]; showedUp: number; onChange: () => void; onEdit: (p: Pack) => void;
 }) {
   // Allocate delivered per pack (FIFO)
   const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
@@ -304,18 +318,34 @@ function PackHistoryList({ packs, showedUp, onChange }: {
           }}>
             <div>
               <strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered
+              {p.pack_name && <span style={{ color: GREY_TEXT_DARK, marginLeft: 10 }}>{p.pack_name}</span>}
               <span style={{ color: GREY_TEXT, marginLeft: 10 }}>
                 purchased {new Date(p.purchased_at).toLocaleDateString()}
               </span>
+              <span style={{ color: p.amount_paid_ex_gst == null ? AMBER : GREY_TEXT, marginLeft: 10 }}>
+                · {p.amount_paid_ex_gst == null ? "amount missing" : `$${p.amount_paid_ex_gst.toLocaleString()} ex GST`}
+              </span>
+              {p.pack_type !== "paid" && (
+                <span style={{ color: GREY_TEXT, marginLeft: 10 }}>· {p.pack_type.replace("_", " ")}</span>
+              )}
               {p.notes && <span style={{ color: GREY_TEXT, marginLeft: 10, fontStyle: "italic" }}>· {p.notes}</span>}
             </div>
-            <button
-              onClick={() => del(p.id)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }}
-              title="Delete pack"
-            >
-              <Trash2 size={14} />
-            </button>
+            <div style={{ display: "flex", gap: SPACE_4 }}>
+              <button
+                onClick={() => onEdit(p)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY_TEXT_DARK, padding: SPACE_4 }}
+                title="Edit pack"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => del(p.id)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }}
+                title="Delete pack"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -323,27 +353,43 @@ function PackHistoryList({ packs, showedUp, onChange }: {
   );
 }
 
-function AddPackModal({ clinicId, onClose, onSaved }: {
-  clinicId: string; onClose: () => void; onSaved: () => void;
+function AddPackModal({ clinicId, pack, onClose, onSaved }: {
+  clinicId: string; pack?: Pack; onClose: () => void; onSaved: () => void;
 }) {
-  const [sizeStr, setSizeStr] = useState<string>("10");
-  const [purchasedAt, setPurchasedAt] = useState<string>(sydneyTodayISO());
-  const [notes, setNotes] = useState("");
+  const [sizeStr, setSizeStr] = useState<string>(pack ? String(pack.pack_size) : "10");
+  const [purchasedAt, setPurchasedAt] = useState<string>(pack ? pack.purchased_at.slice(0, 10) : sydneyTodayISO());
+  const [packName, setPackName] = useState(pack?.pack_name ?? "");
+  const [amountStr, setAmountStr] = useState<string>(pack?.amount_paid_ex_gst != null ? String(pack.amount_paid_ex_gst) : "");
+  const [datePaid, setDatePaid] = useState<string>(pack?.date_paid ?? sydneyTodayISO());
+  const [packType, setPackType] = useState<Pack["pack_type"]>(pack?.pack_type ?? "paid");
+  const [notes, setNotes] = useState(pack?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const size = parseInt(sizeStr, 10);
+  const amount = amountStr === "" ? null : Number(amountStr);
 
   const save = async () => {
     if (!Number.isFinite(size) || size <= 0) { toast.error("Pack size must be greater than 0"); return; }
+    if (amount != null && (!Number.isFinite(amount) || amount < 0)) { toast.error("Amount paid must be 0 or more"); return; }
+    if (packType === "paid" && amount == null) {
+      if (!confirm("No amount paid entered — revenue and value-owed figures will show '—' for this pack. Save anyway?")) return;
+    }
     setSaving(true);
-    const { error } = await supabase.from("clinic_packs").insert({
+    const row = {
       clinic_id: clinicId,
       pack_size: size,
       purchased_at: purchasedAt,
+      pack_name: packName.trim() || null,
+      amount_paid_ex_gst: amount,
+      date_paid: datePaid || null,
+      pack_type: packType,
       notes: notes.trim() || null,
-    });
+    };
+    const { error } = pack
+      ? await supabase.from("clinic_packs").update(row).eq("id", pack.id)
+      : await supabase.from("clinic_packs").insert(row);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(`Added ${size}-patient pack`);
+    toast.success(pack ? "Pack updated" : `Added ${size}-patient pack`);
     onSaved();
   };
 
@@ -358,10 +404,21 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
       <div onMouseDown={(e) => e.stopPropagation()} style={{
         background: "#fff", borderRadius: RADIUS_CARD, padding: SPACE_24, width: "90%", maxWidth: 420,
       }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>Add patient pack</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>{pack ? "Edit pack" : "Add patient pack"}</h3>
         <p style={{ fontSize: 13, color: GREY_TEXT, margin: "0 0 20px" }}>
-          The clinic will see this balance in their portal. A credit is consumed each time a patient shows up.
+          Enter the amount paid so the Numbers page can work out revenue and value owed. A credit is consumed each time a patient shows up.
         </p>
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Pack name (optional)
+        </label>
+        <input
+          type="text"
+          value={packName}
+          onChange={(e) => setPackName(e.target.value)}
+          placeholder="e.g. 10-show pack"
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16 }}
+        />
 
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Pack size (number of patients)
@@ -401,6 +458,50 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
         />
 
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Amount paid (ex GST)
+        </label>
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          value={amountStr}
+          onChange={(e) => setAmountStr(e.target.value)}
+          placeholder="e.g. 8000"
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${amountStr === "" && packType === "paid" ? AMBER : GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_8 }}
+        />
+        <div style={{ fontSize: 12, color: amountStr === "" && packType === "paid" ? AMBER : GREY_TEXT, marginBottom: SPACE_16 }}>
+          {amountStr === "" && packType === "paid"
+            ? "Needed so revenue, rate per show and value owed keep working."
+            : size > 0 && amount != null && amount > 0
+              ? `That's $${(amount / size).toFixed(2)} per show.`
+              : "Leave blank only for free or credited packs."}
+        </div>
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Date paid
+        </label>
+        <input
+          type="date"
+          value={datePaid}
+          onChange={(e) => setDatePaid(e.target.value)}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16 }}
+        />
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Pack type
+        </label>
+        <select
+          value={packType}
+          onChange={(e) => setPackType(e.target.value as Pack["pack_type"])}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16, background: "#fff" }}
+        >
+          <option value="paid">Paid</option>
+          <option value="free_trial">Free trial</option>
+          <option value="guarantee_credit">Guarantee credit</option>
+          <option value="goodwill">Goodwill</option>
+        </select>
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Notes (optional)
         </label>
         <textarea
@@ -420,7 +521,7 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
             padding: "10px 16px", borderRadius: RADIUS_BTN, border: "none",
             background: NAVY, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.6 : 1,
-          }}>{saving ? "Saving…" : "Add pack"}</button>
+          }}>{saving ? "Saving…" : pack ? "Save pack" : "Add pack"}</button>
         </div>
       </div>
     </div>
