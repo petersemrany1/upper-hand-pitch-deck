@@ -26,6 +26,7 @@ import {
   type LocationSummaryRow,
   type MonthlyPoint,
   type NeedsOutcomeRow,
+  type PackEconomicsRow,
   type SpendRow,
   type LabourRow,
   type RevenueRow,
@@ -129,6 +130,7 @@ function NumbersPage() {
   const [revenueByAd, setRevenueByAd] = useState<RevenueRow[]>([]);
   const [moneyMonthly, setMoneyMonthly] = useState<MoneyMonthPoint[]>([]);
   const [needsOutcome, setNeedsOutcome] = useState<NeedsOutcomeRow[]>([]);
+  const [packEconomics, setPackEconomics] = useState<PackEconomicsRow[]>([]);
 
   const [syncState, setSyncState] = useState<{
     last_synced_at: string | null;
@@ -161,6 +163,7 @@ function NumbersPage() {
       setRevenueByAd(res.revenueByAd);
       setMoneyMonthly(res.moneyMonthly);
       setNeedsOutcome(res.needsOutcome);
+      setPackEconomics(res.packEconomics);
 
       setSyncState(res.syncState);
     } catch (e) {
@@ -753,6 +756,78 @@ function NumbersPage() {
           </div>
         )}
 
+        {/* SECTION A2 — clinic packs: purchased vs delivered vs owed */}
+        <div style={{ ...CARD, marginTop: 18 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>Clinic packs — delivered vs owed</div>
+            <div style={{ fontSize: 12, color: "#6b6b6b" }}>
+              {packTotals.owed} show{packTotals.owed === 1 ? "" : "s"} still owed
+              {packTotals.valueOwed > 0 ? ` · ${money(packTotals.valueOwed)} of work paid for and not yet delivered` : ""}
+            </div>
+          </div>
+          <div style={{ overflowX: "auto", marginTop: 12 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "#6b6b6b" }}>
+                  <th style={th2}>Clinic</th>
+                  <th style={th2r}>Purchased</th>
+                  <th style={th2r}>Delivered</th>
+                  <th style={th2r}>Still owed</th>
+                  <th style={th2r}>Value owed</th>
+                  <th style={th2r}>Paid</th>
+                  <th style={th2r}>Rate / show</th>
+                  <th style={th2r}>Free shows</th>
+                </tr>
+              </thead>
+              <tbody>
+                {packEconomics.map((p) => (
+                  <tr key={p.clinic_id} style={{ borderTop: "0.5px solid #f0f0ee" }}>
+                    <td style={td2}>
+                      {p.clinic_name}
+                      {p.city ? <span style={{ color: "#9a9a97" }}> · {p.city}</span> : null}
+                      {p.over_delivered > 0 && (
+                        <span style={{ color: "#b03030", marginLeft: 6 }}>
+                          over by {p.over_delivered}
+                        </span>
+                      )}
+                      {p.packs_missing_amount > 0 && (
+                        <span style={{ color: "#8a5a2b", marginLeft: 6 }}>
+                          {p.packs_missing_amount} pack{p.packs_missing_amount === 1 ? "" : "s"} missing $
+                        </span>
+                      )}
+                    </td>
+                    <td style={td2r}>{p.shows_purchased || "—"}</td>
+                    <td style={td2r}>{p.shows_delivered || "—"}</td>
+                    <td style={{ ...td2r, fontWeight: p.shows_owed > 0 ? 600 : 400, color: p.shows_owed > 0 ? "#8a5a2b" : "#6b6b6b" }}>
+                      {p.shows_owed || "—"}
+                    </td>
+                    <td style={td2r}>{p.value_owed > 0 ? money(p.value_owed) : "—"}</td>
+                    <td style={td2r}>{p.amount_paid_ex_gst > 0 ? money(p.amount_paid_ex_gst) : "—"}</td>
+                    <td style={td2r}>
+                      {p.effective_rate ? money(p.effective_rate) : "—"}
+                      {p.effective_rate ? <span style={{ color: "#9a9a97" }}> vs {money(p.list_rate)}</span> : null}
+                    </td>
+                    <td style={td2r}>{p.free_shows_delivered || "—"}</td>
+                  </tr>
+                ))}
+                <tr style={{ borderTop: "0.5px solid #111", fontWeight: 600 }}>
+                  <td style={td2}>TOTAL</td>
+                  <td style={td2r}>{packTotals.purchased}</td>
+                  <td style={td2r}>{packTotals.delivered}</td>
+                  <td style={{ ...td2r, color: packTotals.owed > 0 ? "#8a5a2b" : "#6b6b6b" }}>{packTotals.owed}</td>
+                  <td style={td2r}>{packTotals.valueOwed > 0 ? money(packTotals.valueOwed) : "—"}</td>
+                  <td style={td2r}>{packTotals.paid > 0 ? money(packTotals.paid) : "—"}</td>
+                  <td style={td2r}>—</td>
+                  <td style={td2r}>{packTotals.freeShows || "—"}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div style={{ fontSize: 11, color: "#9a9a97", marginTop: 10 }}>
+            Revenue is recognised on shows delivered, at each clinic's real rate per show (money paid ÷ shows delivered, free shows included in the count). Shows still owed are paid work not yet done.
+          </div>
+        </div>
+
         {/* SECTION A */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {[...visibleLocations].sort((a, b) => a.location.localeCompare(b.location)).concat(visibleLocations.length > 1 ? [total] : []).map((l, i) => {
@@ -830,6 +905,21 @@ function NumbersPage() {
                         {m.revenue > 0
                           ? `${(((unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost) / m.revenue) * 100).toFixed(1)}%`
                           : "—"}
+                      </div>
+                    </>
+                  )}
+
+                  {isTotal && packTotals.owed > 0 && (
+                    <>
+                      <div style={{ color: "#8a5a2b" }}>
+                        Shows still owed
+                        <div style={{ fontSize: 10.5, color: "#9a9a97" }}>
+                          {packTotals.delivered} of {packTotals.purchased} purchased delivered
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", color: "#8a5a2b" }}>{packTotals.owed}</div>
+                      <div style={{ textAlign: "right", color: "#8a5a2b", fontSize: 11 }}>
+                        {packTotals.valueOwed > 0 ? money(packTotals.valueOwed) : "—"}
                       </div>
                     </>
                   )}
