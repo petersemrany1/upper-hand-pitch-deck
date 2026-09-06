@@ -154,10 +154,44 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       for (const c of clinics ?? []) clinicNames.set(c.id, c.clinic_name);
     }
 
-    const firstErr = perf.error ?? locs.error ?? monthly.error;
+    const firstErr =
+      perf.error ?? locs.error ?? monthly.error ?? labLoc.error ?? labAd.error ??
+      revLoc.error ?? revAd.error ?? moneyMonth.error;
     if (firstErr) throw new Error(`Report query failed: ${firstErr.message}`);
 
+    const num = (v: unknown) => Number(v ?? 0);
+    const mapLabour = (rows: unknown): LabourRow[] =>
+      ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+        key: String(r.key ?? ""),
+        hours: num(r.hours),
+        hourly_cost: num(r.hourly_cost),
+        hours_missing_rate: num(r.hours_missing_rate),
+        hours_fallback: num(r.hours_fallback),
+        bookings: num(r.bookings),
+        bonus_cost: num(r.bonus_cost),
+        bonus_missing_rate: num(r.bonus_missing_rate),
+      }));
+    const mapRevenue = (rows: unknown): RevenueRow[] =>
+      ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+        key: String(r.key ?? ""),
+        shows: num(r.shows),
+        revenue: num(r.revenue),
+      }));
+
     return {
+      labourByLocation: mapLabour(labLoc.data),
+      labourByAd: mapLabour(labAd.data),
+      revenueByLocation: mapRevenue(revLoc.data),
+      revenueByAd: mapRevenue(revAd.data),
+      moneyMonthly: ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
+        month: String(r.month ?? ""),
+        location: String(r.location ?? ""),
+        spend: num(r.spend),
+        showed: num(r.showed),
+        revenue: num(r.revenue),
+        labour_cost: num(r.labour_cost),
+        bonus_cost: num(r.bonus_cost),
+      })) as MoneyMonthPoint[],
       ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),
@@ -170,6 +204,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         ...r,
         spend: Number(r.spend ?? 0),
       })),
+
       needsOutcome: (unresolved ?? []).map((a) => ({
         appointment_id: a.id,
         patient_name: a.patient_name,
