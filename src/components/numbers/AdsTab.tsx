@@ -132,14 +132,14 @@ export function AdsTab({
                     style={{ borderTop: "0.5px solid #f0f0ee", cursor: "pointer", opacity: dim ? 0.6 : 1 }}
                   >
                     <td style={{ ...td2, paddingLeft: 18, whiteSpace: "normal", minWidth: 220, maxWidth: 380, fontWeight: 600, color: INK }}>
-                      {r.ad_name}
+                      {r.unattributed ? "Website & untracked leads" : r.ad_name}
                       {r.name_collision && (
                         <span title="Possible renamed or reused ad name" style={{ marginLeft: 6, color: "#8a5a2b" }}>
                           <AlertTriangle className="inline h-3 w-3" />
                         </span>
                       )}
                       {r.unattributed && (
-                        <div style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>Leads with no ad name — no spend attached</div>
+                        <div style={{ fontSize: 11, color: MUTED, fontWeight: 400 }}>No ad or campaign on the lead — not costed against ads and not counted in any city</div>
                       )}
                     </td>
                     <td style={td2}>{r.location ?? "—"}</td>
@@ -164,7 +164,7 @@ export function AdsTab({
         </div>
         <Footnote>
           Winning = cost per showed at least 20% under the average shown above. Poor = 20% over. Too early = fewer than 3 showed appointments.
-          Not booking = 10+ leads and not one booking. Ads are matched to leads by ad name.
+          Not booking = 10+ leads and not one booking. Ads are matched to leads by ad name. Website enquiries have no ad and sit outside the city figures.
         </Footnote>
       </div>
     </div>

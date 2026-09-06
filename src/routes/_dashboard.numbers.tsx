@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
+import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -15,6 +15,7 @@ import {
   listClinicPacks,
   upsertClinicPack,
   deleteClinicPack,
+  backfillMetaSpend,
   type ClinicPackRow,
   type ClinicOption,
   type AdPerformanceRow,
@@ -25,12 +26,13 @@ import {
   type LabourRow,
   type RevenueRow,
 } from "@/lib/ad-spend.functions";
-import { CARD, FONT, INK, MUTED, type RangeKey, money, oneDp, pctOrDash, resolveRange, td2, td2r, th2, th2r, todaySydney } from "@/components/numbers/format";
+import { AMBER, CARD, FONT, INK, MUTED, type RangeKey, money, oneDp, pctOrDash, resolveRange, td2, td2r, th2, th2r, todaySydney } from "@/components/numbers/format";
 import { buildAdStats, buildAllCities, diagnoseCity, sumCityStats } from "@/components/numbers/model";
 import { CityRail } from "@/components/numbers/CityRail";
 import { CityDetail } from "@/components/numbers/CityDetail";
 import { CompareTable } from "@/components/numbers/CompareTable";
 import { AdsTab } from "@/components/numbers/AdsTab";
+import { Note } from "@/components/numbers/primitives";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
   head: () => ({
@@ -95,6 +97,12 @@ function NumbersPage() {
   const [needsOutcome, setNeedsOutcome] = useState<NeedsOutcomeRow[]>([]);
   const [packEconomics, setPackEconomics] = useState<PackEconomicsRow[]>([]);
 
+  const [spendCoverage, setSpendCoverage] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
+  const [spendDuplicates, setSpendDuplicates] = useState(0);
+  const runBackfill = useServerFn(backfillMetaSpend);
+  const [backfillSince, setBackfillSince] = useState("2026-04-20");
+  const [backfilling, setBackfilling] = useState(false);
+
   const [syncState, setSyncState] = useState<{
     last_synced_at: string | null;
     last_status: string | null;
@@ -147,6 +155,8 @@ function NumbersPage() {
       setRevenueByLocation(res.revenueByLocation);
       setNeedsOutcome(res.needsOutcome);
       setPackEconomics(res.packEconomics);
+      setSpendCoverage(res.spendCoverage);
+      setSpendDuplicates(res.spendDuplicates);
       setSyncState(res.syncState);
     } catch (e) {
       toast.error((e as Error).message || "Could not load the numbers");
@@ -245,6 +255,37 @@ function NumbersPage() {
   };
 
   const scopeLabel = locFilter || "All cities";
+
+  // Ad spend older than the first synced day doesn't exist, so any range that
+  // reaches back further divides too little spend by too many leads.
+  const spendGap =
+    spendCoverage.from !== null && (range.from === null || range.from < spendCoverage.from);
+  const fmtDate = (iso: string) =>
+    new Date(`${iso}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+
+  const useSpendWindow = () => {
+    if (!spendCoverage.from) return;
+    setCustomFrom(spendCoverage.from);
+    setCustomTo(todaySydney());
+    setRangeKey("custom");
+  };
+
+  const backfill = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(backfillSince)) {
+      toast.error("Pick a start date for the backfill");
+      return;
+    }
+    setBackfilling(true);
+    try {
+      const r = await runBackfill({ data: { since: backfillSince } });
+      toast.success(`Pulled ${r.rows} spend rows from Meta for ${r.since} → ${r.until}`);
+      await load();
+    } catch (e) {
+      toast.error((e as Error).message || "Backfill failed");
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
@@ -385,7 +426,38 @@ function NumbersPage() {
           >
             {spendPanel ? "Hide spend entries" : "Edit spend by hand"}
           </button>
+
+          <div style={{ ...CARD, padding: "4px 6px 4px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }} title="Pull daily ad spend from Meta from this date to today. Re-pulling a day corrects it, never duplicates it.">
+            <span style={{ color: MUTED }}>Backfill Meta spend from</span>
+            <input type="date" value={backfillSince} onChange={(e) => setBackfillSince(e.target.value)} style={{ border: "none", fontSize: 12, background: "transparent" }} />
+            <button
+              onClick={() => void backfill()}
+              disabled={backfilling}
+              style={{ fontSize: 12, padding: "5px 10px", borderRadius: 8, border: "none", background: INK, color: "#fff", cursor: backfilling ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, opacity: backfilling ? 0.6 : 1 }}
+            >
+              <Download className="h-3 w-3" /> {backfilling ? "Pulling…" : "Pull"}
+            </button>
+          </div>
         </div>
+
+        {(spendGap || spendDuplicates > 0) && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {spendGap && spendCoverage.from && (
+              <Note tone="amber">
+                Ad spend is only recorded from {fmtDate(spendCoverage.from)}. Leads that came in before that have no spend against them, so cost per lead, per booked and per showed are understated for this range.{" "}
+                <button onClick={useSpendWindow} style={{ background: "transparent", border: "none", padding: 0, color: AMBER, fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: "inherit" }}>
+                  Show since {fmtDate(spendCoverage.from)} only
+                </button>
+                {" "}or backfill older spend from Meta above.
+              </Note>
+            )}
+            {spendDuplicates > 0 && (
+              <Note tone="red">
+                {spendDuplicates} day{spendDuplicates === 1 ? "" : "s"} have the same ad recorded twice (a hand-entered row beside a Meta row). Spend is double counted on those days — open "Edit spend by hand" and delete the manual copy.
+              </Note>
+            )}
+          </div>
+        )}
 
         {/* Needs-outcome panel */}
         {showUnresolved && (

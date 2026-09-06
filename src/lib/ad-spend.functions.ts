@@ -191,6 +191,20 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       for (const c of clinics ?? []) clinicNames.set(c.id, c.clinic_name);
     }
 
+    // How far back the spend data goes, and whether any day has the same ad
+    // recorded twice (a hand-entered row next to a Meta row double counts).
+    const [spendFirst, spendLast, spendKeys] = await Promise.all([
+      db.from("ad_spend_daily").select("date").order("date", { ascending: true }).limit(1).maybeSingle(),
+      db.from("ad_spend_daily").select("date").order("date", { ascending: false }).limit(1).maybeSingle(),
+      db.from("ad_spend_daily").select("date, ad_name, source").limit(5000),
+    ]);
+    const seen = new Map<string, number>();
+    for (const r of spendKeys.data ?? []) {
+      const k = `${r.date}|${String(r.ad_name).trim().toLowerCase()}`;
+      seen.set(k, (seen.get(k) ?? 0) + 1);
+    }
+    const spendDuplicates = Array.from(seen.values()).filter((n) => n > 1).length;
+
     const firstErr =
       perf.error ?? locs.error ?? monthly.error ?? labLoc.error ?? labAd.error ??
       revLoc.error ?? revAd.error ?? moneyMonth.error;
@@ -268,6 +282,11 @@ export const getNumbersReport = createServerFn({ method: "GET" })
 
     return {
       peterExcluded: peterId !== null,
+      spendCoverage: {
+        from: (spendFirst.data?.date as string | undefined) ?? null,
+        to: (spendLast.data?.date as string | undefined) ?? null,
+      },
+      spendDuplicates,
       labourByLocation: labourLocRows,
       labourByAd: labourAdRows,
       revenueByLocation: mapRevenue(revLoc.data),
@@ -547,4 +566,20 @@ export const deleteClinicPack = createServerFn({ method: "POST" })
     const { error } = await db.from("clinic_packs").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+const BackfillSchema = z.object({
+  since: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+
+// Admin-triggered Meta spend pull for a date range (used to fill the gap
+// before the nightly sync existed). Same code path as the webhook.
+export const backfillMetaSpend = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => BackfillSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.claims as Record<string, unknown>);
+    const { syncMetaSpend } = await import("@/lib/meta-spend.server");
+    return syncMetaSpend({ since: data.since, until: data.until });
   });

@@ -82,7 +82,7 @@ describe("judgeAd", () => {
     expect(judgeAd(ad({ ad_name: "e", spend: 900, leads: 12, booked: 0, showed: 0 }), 100).label).toBe("Not booking");
   });
   test("unattributed rows are never judged", () => {
-    expect(judgeAd(ad({ ad_name: "f", unattributed: true, leads: 50, showed: 10 }), 100).label).toBe("No ad name");
+    expect(judgeAd(ad({ ad_name: "f", unattributed: true, leads: 50, showed: 10 }), 100).label).toBe("Website");
   });
 });
 
@@ -137,6 +137,12 @@ describe("diagnoseCity", () => {
     expect(d.headline).toBe("Byron Bay is struggling with marketing");
     expect(d.signals.find((s) => s.key === "marketing")?.bad).toBe(true);
     expect(d.signals.find((s) => s.key === "labour")?.bad).toBe(false);
+  });
+
+  test("leads 15% dearer than average is already a marketing problem", () => {
+    const d = diagnoseCity(city({ key: "Gold Coast", spend: 230, leads: 20, booked: 5, showed: 4, noshow: 1, hours: 10, hourly_cost: 400 }), avg, fmt);
+    expect(d.key).toBe("marketing");
+    expect(d.signals.find((s) => s.key === "marketing")?.tone).toBe("amber");
   });
 
   test("cheap leads that take many hours per booking → labour", () => {

@@ -189,7 +189,7 @@ const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
   poor: { key: "poor", label: "Poor", rank: 2 },
   notBooking: { key: "notBooking", label: "Not booking", rank: 3 },
   early: { key: "early", label: "Too early", rank: 4 },
-  noName: { key: "noName", label: "No ad name", rank: 5 },
+  noName: { key: "noName", label: "Website", rank: 5 },
 };
 
 /**
@@ -279,6 +279,12 @@ export type Diagnosis = {
 
 const MIN_LEADS = 10;
 const MIN_APPTS_FOR_SHOW_RATE = 5;
+/** Leads costing this much more than average is a marketing problem (1.1 = 10% over). */
+export const MARKETING_OVER_AVG = 1.1;
+/** Reps needing this much more time or leads per booking is a labour problem. */
+export const LABOUR_OVER_AVG = 1.3;
+/** Show rate this far under average is a no-show problem. */
+export const SHOWS_UNDER_AVG = 0.8;
 
 /**
  * Reads a city against the account average and names the weak link:
@@ -295,7 +301,7 @@ export function diagnoseCity(c: CityStats, avg: CityStats, fmt: { money: (n: num
   // Marketing: cost per lead vs average.
   const cpl = compareToAvg(c.costPerLead, avg.costPerLead, true);
   const noLeads = c.spend > 0 && c.leads === 0;
-  const marketingBad = noLeads || (cpl.ratio !== null && cpl.ratio >= 1.3);
+  const marketingBad = noLeads || (cpl.ratio !== null && cpl.ratio >= MARKETING_OVER_AVG);
   const marketing: Signal = {
     key: "marketing",
     title: "Marketing",
@@ -305,7 +311,7 @@ export function diagnoseCity(c: CityStats, avg: CityStats, fmt: { money: (n: num
       : c.costPerLead === null
         ? "no ad spend recorded"
         : `${cpl.label}${avg.costPerLead !== null ? ` · avg ${fmt.money(avg.costPerLead)}` : ""}`,
-    tone: noLeads ? "red" : cpl.tone,
+    tone: noLeads ? "red" : marketingBad && cpl.tone === "grey" ? "amber" : cpl.tone,
     bad: marketingBad,
   };
 
@@ -313,7 +319,7 @@ export function diagnoseCity(c: CityStats, avg: CityStats, fmt: { money: (n: num
   const hpb = compareToAvg(c.hoursPerBooking, avg.hoursPerBooking, true);
   const lpb = compareToAvg(c.leadsPerBooking, avg.leadsPerBooking, true);
   const noBookings = c.leads >= MIN_LEADS && c.booked === 0;
-  const labourBad = noBookings || (hpb.ratio !== null && hpb.ratio >= 1.3) || (lpb.ratio !== null && lpb.ratio >= 1.3);
+  const labourBad = noBookings || (hpb.ratio !== null && hpb.ratio >= LABOUR_OVER_AVG) || (lpb.ratio !== null && lpb.ratio >= LABOUR_OVER_AVG);
   const labourTone: Tone = noBookings ? "red" : worstTone(hpb.tone, lpb.tone);
   const labour: Signal = {
     key: "labour",
@@ -340,7 +346,7 @@ export function diagnoseCity(c: CityStats, avg: CityStats, fmt: { money: (n: num
   const appts = c.showed + c.noshow;
   const sr = compareToAvg(c.showRate, avg.showRate, false);
   const enoughAppts = appts >= MIN_APPTS_FOR_SHOW_RATE;
-  const showsBad = enoughAppts && sr.ratio !== null && sr.ratio <= 0.8;
+  const showsBad = enoughAppts && sr.ratio !== null && sr.ratio <= SHOWS_UNDER_AVG;
   const shows: Signal = {
     key: "shows",
     title: "Shows",

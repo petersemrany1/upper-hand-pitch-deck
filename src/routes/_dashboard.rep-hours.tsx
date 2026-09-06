@@ -397,8 +397,8 @@ function RepHoursPage() {
             </tbody>
           </table>
           <div style={{ padding: "10px 18px 16px", fontSize: 11, color: "#6b6b6b" }}>
-            Hours run from the first call of the day to the end of the last call, in Sydney time. No breaks are
-            deducted — use the pencil to correct any day.
+            Hours are the calling sessions in the day, in Sydney time: a gap of 45 minutes or more between calls
+            counts as a break and is not paid. Use the pencil to correct any day.
           </div>
         </div>
       </div>

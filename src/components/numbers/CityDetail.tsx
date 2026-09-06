@@ -158,7 +158,7 @@ export function CityDetail({
         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
           {!countMyPay && <Note tone="grey">Your own pay is excluded from labour.</Note>}
           {isAll && unallocated && unallocCost > 0 && (
-            <Note tone="grey">Includes {money(unallocCost)} of labour ({oneDp(unallocated.hours)} h) on leads with no campaign, which can't be tied to a city.</Note>
+            <Note tone="grey">Includes {money(unallocCost)} of labour ({oneDp(unallocated.hours)} h) on website and untracked leads, which have no city.</Note>
           )}
           {s.hoursMissingRate > 0 && <Note>{oneDp(s.hoursMissingRate)} hours are from a rep with no rate set — labour is understated.</Note>}
           {s.hoursFallback > 0 && <Note>{oneDp(s.hoursFallback)} hours were split by leads contacted rather than call time.</Note>}
