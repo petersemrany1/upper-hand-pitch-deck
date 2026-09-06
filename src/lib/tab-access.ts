@@ -9,6 +9,7 @@ export type TabKey =
   | "appointments"
   | "leads"
   | "analytics"
+  | "numbers"
   | "phone"
   | "pitch_deck"
   | "clinics"
