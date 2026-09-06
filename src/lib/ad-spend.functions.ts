@@ -470,6 +470,7 @@ export type ClinicPackRow = {
   amount_paid_ex_gst: number | null;
   date_paid: string | null;
   pack_type: string;
+  free_shows_included: number;
   notes: string | null;
   purchased_at: string;
   status: string;
@@ -482,7 +483,7 @@ export const listClinicPacks = createServerFn({ method: "GET" })
     const [packs, clinics] = await Promise.all([
       db
         .from("clinic_packs")
-        .select("id, clinic_id, pack_name, pack_size, amount_paid_ex_gst, date_paid, pack_type, notes, purchased_at, status")
+        .select("id, clinic_id, pack_name, pack_size, amount_paid_ex_gst, date_paid, pack_type, free_shows_included, notes, purchased_at, status")
         .order("purchased_at", { ascending: false }),
       db.from("partner_clinics").select("id, clinic_name, city").order("clinic_name"),
     ]);
@@ -505,6 +506,7 @@ const PackUpsertSchema = z.object({
   amount_paid_ex_gst: z.number().min(0).nullable().optional(),
   date_paid: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   pack_type: z.enum(["paid", "free_trial", "guarantee_credit", "goodwill"]),
+  free_shows_included: z.number().int().min(0).nullable().optional(),
   notes: z.string().nullable().optional(),
 });
 
@@ -520,6 +522,7 @@ export const upsertClinicPack = createServerFn({ method: "POST" })
       amount_paid_ex_gst: data.amount_paid_ex_gst ?? null,
       date_paid: data.date_paid || null,
       pack_type: data.pack_type,
+      free_shows_included: data.free_shows_included ?? 0,
       notes: data.notes?.trim() || null,
     };
     if (data.id) {

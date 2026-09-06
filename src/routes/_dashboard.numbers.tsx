@@ -148,6 +148,7 @@ function NumbersPage() {
     last_message: string | null;
   } | null>(null);
 
+  const [tab, setTab] = useState<"work" | "money" | "packs">("work");
   const [showUnresolved, setShowUnresolved] = useState(false);
   const [sortKey, setSortKey] = useState<string>("costPct");
   const [sortAsc, setSortAsc] = useState(true);
@@ -177,7 +178,7 @@ function NumbersPage() {
         owed: a.owed + p.shows_owed,
         valueOwed: a.valueOwed + p.value_owed,
         paid: a.paid + p.amount_paid_ex_gst,
-        freeShows: a.freeShows + p.free_shows_delivered,
+        freeShows: a.freeShows + p.shows_free_purchased,
       }),
       { purchased: 0, delivered: 0, owed: 0, valueOwed: 0, paid: 0, freeShows: 0 },
     );
@@ -545,6 +546,34 @@ function NumbersPage() {
           </button>
         </div>
 
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 6, background: "#eeeeec", borderRadius: 10, padding: 3, alignSelf: "flex-start" }}>
+          {([
+            ["work", "Is it working?"],
+            ["money", "Where the money goes"],
+            ["packs", "Packs & delivery"],
+          ] as const).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              style={{
+                fontSize: 12.5,
+                padding: "7px 14px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                background: tab === k ? "#fff" : "transparent",
+                fontWeight: tab === k ? 600 : 400,
+                color: "#111",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+
+
         {/* Range picker */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, background: "#f0f0ee", padding: 4, borderRadius: 10 }}>
@@ -805,7 +834,82 @@ function NumbersPage() {
           </div>
         )}
 
-        {/* SECTION A2 — clinic packs: purchased vs delivered vs owed */}
+        {/* TAB 1 — is it working? */}
+        {tab === "work" && (
+          <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
+            <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Is it working?</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ textAlign: "left", color: "#6b6b6b", fontSize: 12 }}>
+                  <th style={{ ...th2, paddingLeft: 18 }}>City</th>
+                  <th style={th2r}>Revenue</th>
+                  <th style={th2r}>Total cost</th>
+                  <th style={th2r}>Profit</th>
+                  <th style={th2r}>Cost %</th>
+                  <th style={{ ...th2, paddingRight: 18 }}>Verdict</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...visibleLocations]
+                  .sort((a, b) => a.location.localeCompare(b.location))
+                  .map((l) => {
+                    const m = buildMoney(l.location, l.spend, l.showed, l.booked, labLocMap, revLocMap);
+                    const tp = m.totalPctNum;
+                    const verdict =
+                      m.revenue <= 0
+                        ? { label: "Unproven", color: "#6b6b6b", bg: "#f2f2f0" }
+                        : tp !== null && tp < 0.3
+                          ? { label: "Working", color: "#2f6f4f", bg: "#eef7f0" }
+                          : tp !== null && tp <= 0.5
+                            ? { label: "Tight", color: "#8a5a2b", bg: "#fdf5e6" }
+                            : { label: "Losing money", color: "#b03030", bg: "#fdeeee" };
+                    return (
+                      <tr
+                        key={l.location}
+                        onClick={() => { setLocFilter(l.location); setTab("money"); }}
+                        title="Click for the detail behind these numbers"
+                        style={{ borderTop: "0.5px solid #f0f0ee", cursor: "pointer" }}
+                      >
+                        <td style={{ ...td2, paddingLeft: 18, fontWeight: 600 }}>{l.location}</td>
+                        <td style={td2r}>{m.revenue ? money(m.revenue) : "—"}</td>
+                        <td style={td2r}>{m.hoursOk ? money(m.totalCost) : "—"}</td>
+                        <td style={{ ...td2r, fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
+                          {m.hoursOk ? money(m.grossProfit) : "—"}
+                        </td>
+                        <td style={{ ...td2r, color: verdict.color, fontWeight: 600 }}>
+                          {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
+                        </td>
+                        <td style={{ ...td2, paddingRight: 18 }}>
+                          <span style={{ background: verdict.bg, color: verdict.color, fontWeight: 600, fontSize: 12, padding: "3px 9px", borderRadius: 999 }}>
+                            {verdict.label}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+            <div style={{ padding: "14px 18px 18px", borderTop: "0.5px solid #e8e8e6", fontSize: 13.5 }}>
+              {(() => {
+                const m = buildMoney("TOTAL", total.spend, total.showed, total.booked, labLocMap, revLocMap, totalLabour, totalRevenue);
+                return (
+                  <span>
+                    Total profit{" "}
+                    <strong style={{ color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
+                      {m.hoursOk ? money(m.grossProfit) : "—"}
+                    </strong>{" "}
+                    · blended cost{" "}
+                    <strong>{m.totalPctNum === null ? "—" : `${(m.totalPctNum * 100).toFixed(1)}%`}</strong>
+                  </span>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3 — packs & delivery */}
+        {tab === "packs" && (
+        <>
         <div style={{ ...CARD, marginTop: 18 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
             <div style={{ fontSize: 15, fontWeight: 600 }}>Clinic packs — delivered vs owed</div>
@@ -856,7 +960,7 @@ function NumbersPage() {
                       {p.effective_rate ? money(p.effective_rate) : "—"}
                       {p.effective_rate ? <span style={{ color: "#9a9a97" }}> vs {money(p.list_rate)}</span> : null}
                     </td>
-                    <td style={td2r}>{p.free_shows_delivered || "—"}</td>
+                    <td style={td2r}>{p.shows_free_purchased || "—"}</td>
                   </tr>
                 ))}
                 <tr style={{ borderTop: "0.5px solid #111", fontWeight: 600 }}>
@@ -873,7 +977,7 @@ function NumbersPage() {
             </table>
           </div>
           <div style={{ fontSize: 11, color: "#9a9a97", marginTop: 10 }}>
-            Revenue is recognised on shows delivered, at each clinic's real rate per show (money paid ÷ shows delivered, free shows included in the count). Shows still owed are paid work not yet done.
+            Rate per show is money paid ÷ all shows in the pack, free shows included. Revenue is recognised on shows delivered at that rate and can never exceed the money received, so over-delivered shows earn nothing. Shows still owed are paid work not yet done.
           </div>
         </div>
 
@@ -919,6 +1023,7 @@ function NumbersPage() {
                   </select>
                   <input placeholder="Pack name e.g. 10-show pack" value={editingPack.pack_name ?? ""} onChange={(e) => setEditingPack({ ...editingPack, pack_name: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, minWidth: 160 }} />
                   <input type="number" min={1} placeholder="Shows" value={editingPack.pack_size ?? ""} onChange={(e) => setEditingPack({ ...editingPack, pack_size: Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 80 }} />
+                  <input type="number" min={0} placeholder="Free shows" title="How many of these shows are free (included at no charge)" value={editingPack.free_shows_included ?? 0} onChange={(e) => setEditingPack({ ...editingPack, free_shows_included: Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 100 }} />
                   <input type="number" min={0} step="0.01" placeholder="Paid ex GST" value={editingPack.amount_paid_ex_gst ?? ""} onChange={(e) => setEditingPack({ ...editingPack, amount_paid_ex_gst: e.target.value === "" ? null : Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 110 }} />
                   <input type="date" value={editingPack.date_paid ?? ""} onChange={(e) => setEditingPack({ ...editingPack, date_paid: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12 }} />
                   <select
@@ -943,6 +1048,7 @@ function NumbersPage() {
                             clinic_id: editingPack.clinic_id,
                             pack_name: editingPack.pack_name ?? null,
                             pack_size: Number(editingPack.pack_size),
+                            free_shows_included: Number(editingPack.free_shows_included ?? 0),
                             amount_paid_ex_gst: editingPack.amount_paid_ex_gst ?? null,
                             date_paid: editingPack.date_paid || null,
                             pack_type: (editingPack.pack_type ?? "paid") as "paid" | "free_trial" | "guarantee_credit" | "goodwill",
@@ -991,7 +1097,13 @@ function NumbersPage() {
                           <td style={{ ...td2r, color: p.amount_paid_ex_gst == null ? "#8a5a2b" : undefined }}>
                             {p.amount_paid_ex_gst == null ? "missing" : money(p.amount_paid_ex_gst)}
                           </td>
-                          <td style={td2}>{p.date_paid ?? "—"}</td>
+                          <td style={td2}>
+                            {p.date_paid ?? (
+                              <span title="No date paid recorded" style={{ color: "#8a5a2b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <AlertTriangle size={12} /> no date
+                              </span>
+                            )}
+                          </td>
                           <td style={td2}>{p.pack_type}</td>
                           <td style={{ ...td2, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>{p.notes ?? ""}</td>
                           <td style={td2r}>
@@ -1027,8 +1139,11 @@ function NumbersPage() {
             </div>
           )}
         </div>
+        </>
+        )}
 
-        {/* SECTION A */}
+        {/* SECTION A — city detail (tab 2) */}
+        {tab === "money" && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {[...visibleLocations].sort((a, b) => a.location.localeCompare(b.location)).concat(visibleLocations.length > 1 ? [total] : []).map((l, i) => {
             const isTotal = l.location === "TOTAL" && i === visibleLocations.length;
@@ -1044,9 +1159,6 @@ function NumbersPage() {
                 <div style={{ fontSize: 11, color: "#6b6b6b" }}>True cost per show</div>
                 <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: -1, lineHeight: 1.1 }}>
                   {m.trueCps === null ? "—" : money(m.trueCps)}
-                </div>
-                <div style={{ fontSize: 11, color: "#9a9a97", marginTop: 2 }}>
-                  Ads only: {cost(l.spend, l.showed)}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 12, fontSize: 12 }}>
                   <div style={{ color: "#6b6b6b" }}>Leads</div><div style={{ textAlign: "right" }}>{l.leads}</div>
@@ -1192,8 +1304,10 @@ function NumbersPage() {
           })}
 
         </div>
+        )}
 
         {/* SECTION B */}
+        {tab === "money" && (
         <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
           <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Ad leaderboard</div>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
@@ -1283,8 +1397,10 @@ function NumbersPage() {
             </div>
           )}
         </div>
+        )}
 
         {/* SECTION C */}
+        {tab === "money" && (
         <div style={CARD}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Cost per show by month</div>
           {chart.data.length === 0 ? (
@@ -1327,6 +1443,7 @@ function NumbersPage() {
             Solid lines: ad cost per show. Dashed lines: total cost (ads + rep pay + bonuses) as a share of revenue.
           </div>
         </div>
+        )}
 
       </div>
 
