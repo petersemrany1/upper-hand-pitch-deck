@@ -835,78 +835,159 @@ function NumbersPage() {
           </div>
         )}
 
-        {/* TAB 1 — is it working? */}
-        {tab === "work" && (
-          <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
-            <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Is it working?</div>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ textAlign: "left", color: "#6b6b6b", fontSize: 12 }}>
-                  <th style={{ ...th2, paddingLeft: 18 }}>City</th>
-                  <th style={th2r}>Revenue</th>
-                  <th style={th2r}>Total cost</th>
-                  <th style={th2r}>Profit</th>
-                  <th style={th2r}>Cost %</th>
-                  <th style={{ ...th2, paddingRight: 18 }}>Verdict</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...visibleLocations]
-                  .sort((a, b) => a.location.localeCompare(b.location))
-                  .map((l) => {
-                    const m = buildMoney(l.location, l.spend, l.showed, l.booked, labLocMap, revLocMap);
-                    const tp = m.totalPctNum;
-                    const verdict =
-                      m.revenue <= 0
-                        ? { label: "Unproven", color: "#6b6b6b", bg: "#f2f2f0" }
-                        : tp !== null && tp < 0.3
-                          ? { label: "Working", color: "#2f6f4f", bg: "#eef7f0" }
-                          : tp !== null && tp <= 0.5
-                            ? { label: "Tight", color: "#8a5a2b", bg: "#fdf5e6" }
-                            : { label: "Losing money", color: "#b03030", bg: "#fdeeee" };
-                    return (
-                      <tr
-                        key={l.location}
-                        onClick={() => { setLocFilter(l.location); setTab("money"); }}
-                        title="Click for the detail behind these numbers"
-                        style={{ borderTop: "0.5px solid #f0f0ee", cursor: "pointer" }}
-                      >
-                        <td style={{ ...td2, paddingLeft: 18, fontWeight: 600 }}>{l.location}</td>
-                        <td style={td2r}>{m.revenue ? money(m.revenue) : "—"}</td>
-                        <td style={td2r}>{m.hoursOk ? money(m.totalCost) : "—"}</td>
-                        <td style={{ ...td2r, fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
-                          {m.hoursOk ? money(m.grossProfit) : "—"}
-                        </td>
-                        <td style={{ ...td2r, color: verdict.color, fontWeight: 600 }}>
-                          {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
-                        </td>
-                        <td style={{ ...td2, paddingRight: 18 }}>
-                          <span style={{ background: verdict.bg, color: verdict.color, fontWeight: 600, fontSize: 12, padding: "3px 9px", borderRadius: 999 }}>
-                            {verdict.label}
-                          </span>
-                        </td>
+        {/* TAB 1 — overview */}
+        {tab === "overview" && (() => {
+          const keys = Array.from(
+            new Set([
+              ...visibleLocations.map((l) => l.location),
+              ...(locFilter ? [] : revenueByLocation.map((r) => r.key)),
+            ]),
+          ).filter((k) => k && k.toLowerCase() !== "(unallocated)");
+
+          const cityRows = keys.map((key) => {
+            const loc = visibleLocations.find((l) => l.location?.toLowerCase() === key.toLowerCase());
+            const m = buildMoney(key, loc?.spend ?? 0, loc?.showed ?? 0, loc?.booked ?? 0, labLocMap, revLocMap);
+            const status =
+              m.revenue <= 0
+                ? { label: "Unproven", color: "#6b6b6b", dot: "#c2c2be" }
+                : m.totalPctNum !== null && m.totalPctNum < 0.3
+                  ? { label: "Healthy", color: "#2f6f4f", dot: "#2f6f4f" }
+                  : m.totalPctNum !== null && m.totalPctNum <= 0.5
+                    ? { label: "Watch", color: "#8a5a2b", dot: "#c98a2e" }
+                    : { label: "Losing", color: "#b03030", dot: "#b03030" };
+            return { key, m, status, spend: loc?.spend ?? 0 };
+          });
+          // Worst first: highest cost % at the top, cities with no revenue last.
+          cityRows.sort((a, b) => (b.m.totalPctNum ?? -1) - (a.m.totalPctNum ?? -1));
+
+          const tot = buildMoney("TOTAL", total.spend, total.showed, total.booked, labLocMap, revLocMap, totalLabour, totalRevenue);
+          const cityRevenue = cityRows.reduce((s, r) => s + r.m.revenue, 0);
+          const reconciles = Math.abs(cityRevenue - tot.revenue) < 1;
+
+          const attention: { text: string; go: () => void }[] = [];
+          for (const r of cityRows) {
+            if (r.m.totalPctNum !== null && r.m.totalPctNum > 0.5)
+              attention.push({
+                text: `${r.key} costs ${(r.m.totalPctNum * 100).toFixed(1)}% of revenue — losing money`,
+                go: () => { setLocFilter(r.key); setTab("costs"); },
+              });
+          }
+          for (const r of cityRows) {
+            if (r.m.revenue <= 0 && r.spend > 0)
+              attention.push({
+                text: `${r.key}: ${money(r.spend)} spent, no revenue yet`,
+                go: () => { setLocFilter(r.key); setTab("money"); },
+              });
+          }
+          if (needsOutcome.length > 0)
+            attention.push({
+              text: `${needsOutcome.length} appointment${needsOutcome.length === 1 ? "" : "s"} need an outcome marked`,
+              go: () => setShowUnresolved(true),
+            });
+          if (packTotals.owed > 0)
+            attention.push({
+              text: `${packTotals.owed} shows paid for and not yet delivered${packTotals.valueOwed > 0 ? ` (${money(packTotals.valueOwed)})` : ""}`,
+              go: () => setTab("packs"),
+            });
+          const attentionTop = attention.slice(0, 3);
+
+          const bigLabel: CSSProperties = { fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: "#8a8a86", fontWeight: 500 };
+          const bigValue: CSSProperties = { fontSize: 30, fontWeight: 600, color: "#111", fontVariantNumeric: "tabular-nums", marginTop: 4 };
+          const numTd: CSSProperties = { ...td2r, fontVariantNumeric: "tabular-nums", color: "#3d3d3a" };
+
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* Top strip */}
+              <div style={{ ...CARD, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, padding: "20px 22px" }}>
+                <div title="Revenue recognised on shows delivered, valued at each clinic's rate per show (money paid ÷ all shows in the pack). Never more than the clinic has actually paid.">
+                  <div style={bigLabel}>Revenue</div>
+                  <div style={bigValue}>{tot.revenue ? money(tot.revenue) : "—"}</div>
+                </div>
+                <div title="Ad spend + rep hourly pay + booking bonuses in this range.">
+                  <div style={bigLabel}>Cost</div>
+                  <div style={bigValue}>{tot.hoursOk ? money(tot.totalCost) : "—"}</div>
+                </div>
+                <div title="Revenue minus total cost.">
+                  <div style={bigLabel}>Profit</div>
+                  <div style={bigValue}>{tot.hoursOk ? money(tot.grossProfit) : "—"}</div>
+                </div>
+                <div title="Total cost ÷ revenue.">
+                  <div style={bigLabel}>Cost % revenue</div>
+                  <div style={bigValue}>{tot.totalPctNum === null ? "—" : `${(tot.totalPctNum * 100).toFixed(1)}%`}</div>
+                </div>
+              </div>
+
+              {/* City table */}
+              <div style={{ ...CARD, padding: 0 }}>
+                <div style={{ maxHeight: 7 * 38 + 34, overflowY: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ textAlign: "left", color: "#8a8a86", fontSize: 11.5 }}>
+                        <th style={{ ...th2, paddingLeft: 20 }} title="City of the clinic where the consult happened.">City</th>
+                        <th style={th2r} title="Shows delivered in this city × that clinic's rate per show, capped at money received.">Revenue</th>
+                        <th style={th2r} title="Ad spend for this city's campaigns + rep hourly pay split by talk time + booking bonuses.">Cost</th>
+                        <th style={th2r} title="Revenue minus cost.">Profit</th>
+                        <th style={th2r} title="Cost ÷ revenue.">Cost %</th>
+                        <th style={{ ...th2, paddingRight: 20 }} title="Under 30% Healthy · 30–50% Watch · over 50% Losing · no revenue Unproven.">Status</th>
                       </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-            <div style={{ padding: "14px 18px 18px", borderTop: "0.5px solid #e8e8e6", fontSize: 13.5 }}>
-              {(() => {
-                const m = buildMoney("TOTAL", total.spend, total.showed, total.booked, labLocMap, revLocMap, totalLabour, totalRevenue);
-                return (
-                  <span>
-                    Total profit{" "}
-                    <strong style={{ color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
-                      {m.hoursOk ? money(m.grossProfit) : "—"}
-                    </strong>{" "}
-                    · blended cost{" "}
-                    <strong>{m.totalPctNum === null ? "—" : `${(m.totalPctNum * 100).toFixed(1)}%`}</strong>
-                  </span>
-                );
-              })()}
+                    </thead>
+                    <tbody>
+                      {cityRows.map((r) => (
+                        <tr
+                          key={r.key}
+                          onClick={() => { setLocFilter(r.key); setTab("costs"); }}
+                          title="Click for the workings behind these numbers"
+                          style={{ borderTop: "0.5px solid #f0f0ee", cursor: "pointer" }}
+                        >
+                          <td style={{ ...td2, paddingLeft: 20, fontWeight: 600 }}>{r.key}</td>
+                          <td style={{ ...numTd, color: "#111", fontWeight: 600 }}>{r.m.revenue ? money(r.m.revenue) : "—"}</td>
+                          <td style={numTd}>{r.m.hoursOk ? money(r.m.totalCost) : "—"}</td>
+                          <td style={numTd}>{r.m.hoursOk ? money(r.m.grossProfit) : "—"}</td>
+                          <td style={numTd}>{r.m.totalPctNum === null ? "—" : `${(r.m.totalPctNum * 100).toFixed(1)}%`}</td>
+                          <td style={{ ...td2, paddingRight: 20, color: r.status.color }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                              <span style={{ width: 7, height: 7, borderRadius: 999, background: r.status.dot }} />
+                              {r.status.label}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                      {cityRows.length === 0 && (
+                        <tr><td colSpan={6} style={{ ...td2, padding: 18, color: "#8a8a86" }}>Nothing in this range yet.</td></tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div
+                  style={{ padding: "10px 20px", borderTop: "0.5px solid #e8e8e6", fontSize: 12, color: reconciles ? "#8a8a86" : "#b03030", fontVariantNumeric: "tabular-nums" }}
+                  title="Clinic revenue must equal the sum of the city rows. If it doesn't, some shows aren't attributed to a city."
+                >
+                  {reconciles
+                    ? `Reconciles: clinic revenue ${money(tot.revenue)} = sum of cities ${money(cityRevenue)}`
+                    : `Does not reconcile: clinic revenue ${money(tot.revenue)} vs sum of cities ${money(cityRevenue)}`}
+                </div>
+              </div>
+
+              {/* What needs attention */}
+              {attentionTop.length > 0 && (
+                <div style={{ ...CARD, padding: "16px 20px" }}>
+                  <div style={{ ...bigLabel, marginBottom: 10 }}>What needs attention</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {attentionTop.map((a) => (
+                      <button
+                        key={a.text}
+                        onClick={a.go}
+                        style={{ textAlign: "left", fontSize: 13.5, color: "#111", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+                      >
+                        {a.text} <span style={{ color: "#8a8a86" }}>→</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 3 — packs & delivery */}
         {tab === "packs" && (
