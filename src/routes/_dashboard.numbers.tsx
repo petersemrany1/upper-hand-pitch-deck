@@ -99,11 +99,7 @@ const costNum = (spend: number, divisor: number): number | null =>
   !spend || !divisor ? null : spend / divisor;
 
 function NumbersPage() {
-  const { session, role, authReady } = useAuth() as {
-    session: unknown;
-    role: string | null;
-    authReady: boolean;
-  };
+  const { session, role, ready: authReady } = useAuth();
   const isAdmin = role === "admin";
 
   const fetchReport = useServerFn(getNumbersReport);

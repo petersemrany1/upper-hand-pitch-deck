@@ -27,6 +27,7 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "appointments",
   "leads",
   "analytics",
+  "numbers",
   "phone",
   "pitch_deck",
   "clinics",
@@ -45,6 +46,7 @@ export const TAB_LABELS: Record<TabKey, string> = {
   appointments: "Appointments",
   leads: "Leads",
   analytics: "Analytics",
+  numbers: "Numbers",
   phone: "Phone",
   pitch_deck: "Pitch Deck",
   clinics: "Clinics",
@@ -56,7 +58,7 @@ export const TAB_LABELS: Record<TabKey, string> = {
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "phone", "chase_queue", "recordings"] },
+  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "phone", "chase_queue", "recordings"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "sales_test_leads"] },
 ];
 
@@ -69,6 +71,7 @@ export const TAB_TO_URL: Record<TabKey, string> = {
   appointments: "/booked-appointments",
   leads: "/leads",
   analytics: "/analytics",
+  numbers: "/numbers",
   phone: "/inbox",
   pitch_deck: "/pitch-deck",
   clinics: "/clinics",
