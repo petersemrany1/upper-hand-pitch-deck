@@ -148,7 +148,7 @@ function NumbersPage() {
     last_message: string | null;
   } | null>(null);
 
-  const [tab, setTab] = useState<"work" | "money" | "packs">("work");
+  const [tab, setTab] = useState<"overview" | "money" | "costs" | "packs">("overview");
   const [showUnresolved, setShowUnresolved] = useState(false);
   const [sortKey, setSortKey] = useState<string>("costPct");
   const [sortAsc, setSortAsc] = useState(true);
@@ -549,9 +549,10 @@ function NumbersPage() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 6, background: "#eeeeec", borderRadius: 10, padding: 3, alignSelf: "flex-start" }}>
           {([
-            ["work", "Is it working?"],
-            ["money", "Where the money goes"],
-            ["packs", "Packs & delivery"],
+            ["overview", "Overview"],
+            ["money", "Performance"],
+            ["costs", "Costs"],
+            ["packs", "Clinics & packs"],
           ] as const).map(([k, label]) => (
             <button
               key={k}
