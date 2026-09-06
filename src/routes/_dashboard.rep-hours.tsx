@@ -88,6 +88,7 @@ function RepHoursPage() {
 
   const fetchReport = useServerFn(getRepHours);
   const saveRate = useServerFn(saveRepRate);
+  const splitRate = useServerFn(splitRepRate);
   const removeRate = useServerFn(deleteRepRate);
   const saveOverride = useServerFn(saveHourOverride);
   const removeOverride = useServerFn(clearHourOverride);
