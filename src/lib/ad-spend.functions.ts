@@ -96,6 +96,25 @@ export type LabourRow = {
 
 export type RevenueRow = { key: string; shows: number; revenue: number };
 
+export type PackEconomicsRow = {
+  clinic_id: string;
+  clinic_name: string;
+  city: string | null;
+  shows_purchased: number;
+  shows_paid_purchased: number;
+  shows_free_purchased: number;
+  amount_paid_ex_gst: number;
+  packs_missing_amount: number;
+  shows_delivered: number;
+  free_shows_delivered: number;
+  effective_rate: number | null;
+  paid_rate: number | null;
+  shows_owed: number;
+  value_owed: number;
+  over_delivered: number;
+  list_rate: number;
+};
+
 export type MoneyMonthPoint = {
   month: string;
   location: string;
@@ -133,7 +152,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       peterId = peter?.id ?? null;
     }
 
-    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP] = await Promise.all([
+    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP, packEcon] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
       db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
@@ -146,6 +165,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
       peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
       peterId ? rpc("money_monthly", { p_from: from, p_to: to, p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
+      rpc("clinic_pack_economics", {}),
     ]);
 
 
@@ -253,6 +273,24 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       revenueByLocation: mapRevenue(revLoc.data),
       revenueByAd: mapRevenue(revAd.data),
       moneyMonthly: moneyMonthRows,
+      packEconomics: ((packEcon.data ?? []) as Record<string, unknown>[]).map((r) => ({
+        clinic_id: String(r.clinic_id ?? ""),
+        clinic_name: String(r.clinic_name ?? ""),
+        city: (r.city as string | null) ?? null,
+        shows_purchased: num(r.shows_purchased),
+        shows_paid_purchased: num(r.shows_paid_purchased),
+        shows_free_purchased: num(r.shows_free_purchased),
+        amount_paid_ex_gst: num(r.amount_paid_ex_gst),
+        packs_missing_amount: num(r.packs_missing_amount),
+        shows_delivered: num(r.shows_delivered),
+        free_shows_delivered: num(r.free_shows_delivered),
+        effective_rate: r.effective_rate == null ? null : num(r.effective_rate),
+        paid_rate: r.paid_rate == null ? null : num(r.paid_rate),
+        shows_owed: num(r.shows_owed),
+        value_owed: num(r.value_owed),
+        over_delivered: num(r.over_delivered),
+        list_rate: num(r.list_rate),
+      })) as PackEconomicsRow[],
       ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),
