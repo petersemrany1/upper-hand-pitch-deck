@@ -31,6 +31,7 @@ import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardMyRecordingsRouteImport } from './routes/_dashboard.my-recordings'
+import { Route as DashboardNumbersRouteImport } from './routes/_dashboard.numbers'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
@@ -186,6 +187,11 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
 const DashboardMyRecordingsRoute = DashboardMyRecordingsRouteImport.update({
   id: '/my-recordings',
   path: '/my-recordings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardNumbersRoute = DashboardNumbersRouteImport.update({
+  id: '/numbers',
+  path: '/numbers',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
@@ -435,6 +441,7 @@ export interface FileRoutesByFullPath {
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
+  '/numbers': typeof DashboardNumbersRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
@@ -496,6 +503,7 @@ export interface FileRoutesByTo {
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
+  '/numbers': typeof DashboardNumbersRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
@@ -559,6 +567,7 @@ export interface FileRoutesById {
   '/_dashboard/letter-campaign': typeof DashboardLetterCampaignRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/my-recordings': typeof DashboardMyRecordingsRoute
+  '/_dashboard/numbers': typeof DashboardNumbersRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
@@ -624,6 +633,7 @@ export interface FileRouteTypes {
     | '/letter-campaign'
     | '/logs'
     | '/my-recordings'
+    | '/numbers'
     | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
@@ -685,6 +695,7 @@ export interface FileRouteTypes {
     | '/letter-campaign'
     | '/logs'
     | '/my-recordings'
+    | '/numbers'
     | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
@@ -747,6 +758,7 @@ export interface FileRouteTypes {
     | '/_dashboard/letter-campaign'
     | '/_dashboard/logs'
     | '/_dashboard/my-recordings'
+    | '/_dashboard/numbers'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sales-call'
@@ -973,6 +985,13 @@ declare module '@tanstack/react-router' {
       path: '/my-recordings'
       fullPath: '/my-recordings'
       preLoaderRoute: typeof DashboardMyRecordingsRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/numbers': {
+      id: '/_dashboard/numbers'
+      path: '/numbers'
+      fullPath: '/numbers'
+      preLoaderRoute: typeof DashboardNumbersRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/partner-clinics': {
@@ -1302,6 +1321,7 @@ interface DashboardRouteChildren {
   DashboardLetterCampaignRoute: typeof DashboardLetterCampaignRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardMyRecordingsRoute: typeof DashboardMyRecordingsRoute
+  DashboardNumbersRoute: typeof DashboardNumbersRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
@@ -1327,6 +1347,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLetterCampaignRoute: DashboardLetterCampaignRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardMyRecordingsRoute: DashboardMyRecordingsRoute,
+  DashboardNumbersRoute: DashboardNumbersRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
