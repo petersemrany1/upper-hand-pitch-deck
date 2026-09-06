@@ -3003,12 +3003,16 @@ export type Database = {
           clinic_name: string
           effective_rate: number
           free_shows_delivered: number
+          list_rate: number
           over_delivered: number
           packs_missing_amount: number
+          paid_rate: number
           shows_delivered: number
           shows_free_purchased: number
+          shows_owed: number
           shows_paid_purchased: number
           shows_purchased: number
+          value_owed: number
         }[]
       }
       current_clinic_id: { Args: never; Returns: string }
