@@ -538,6 +538,28 @@ function NumbersPage() {
             ))}
           </select>
 
+          <label
+            style={{
+              ...CARD,
+              padding: "6px 12px",
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+            title="Untick to see every cost, profit and cost-per-show figure with Peter's hours and booking bonuses removed"
+          >
+            <input
+              type="checkbox"
+              checked={countMyPay}
+              onChange={(e) => setCountMyPay(e.target.checked)}
+              style={{ accentColor: "#111", cursor: "pointer" }}
+            />
+            Count my pay as a cost
+          </label>
+
           {needsOutcome.length > 0 && (
             <button
               onClick={() => setShowUnresolved((v) => !v)}
