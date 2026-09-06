@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   LineChart,
@@ -57,7 +57,7 @@ export const Route = createFileRoute("/_dashboard/numbers")({
 
 const FONT =
   '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif';
-const CARD: React.CSSProperties = {
+const CARD: CSSProperties = {
   background: "#fff",
   border: "0.5px solid #e8e8e6",
   borderRadius: 14,
@@ -103,10 +103,10 @@ function oneInX(num: number, den: number): string {
 const costNum = (spend: number, divisor: number): number | null =>
   !spend || !divisor ? null : spend / divisor;
 
-const th2: React.CSSProperties = { padding: "6px 8px", fontWeight: 500, whiteSpace: "nowrap" };
-const th2r: React.CSSProperties = { ...th2, textAlign: "right" };
-const td2: React.CSSProperties = { padding: "7px 8px", whiteSpace: "nowrap" };
-const td2r: React.CSSProperties = { ...td2, textAlign: "right" };
+const th2: CSSProperties = { padding: "6px 8px", fontWeight: 500, whiteSpace: "nowrap" };
+const th2r: CSSProperties = { ...th2, textAlign: "right" };
+const td2: CSSProperties = { padding: "7px 8px", whiteSpace: "nowrap" };
+const td2r: CSSProperties = { ...td2, textAlign: "right" };
 
 function NumbersPage() {
   const { session, role, ready: authReady } = useAuth();
@@ -494,7 +494,7 @@ function NumbersPage() {
     </th>
   );
 
-  const td: React.CSSProperties = { padding: "10px", fontSize: 13, textAlign: "right", whiteSpace: "nowrap" };
+  const td: CSSProperties = { padding: "10px", fontSize: 13, textAlign: "right", whiteSpace: "nowrap" };
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
