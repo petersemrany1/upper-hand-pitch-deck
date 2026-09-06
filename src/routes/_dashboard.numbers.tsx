@@ -22,6 +22,11 @@ import {
   setAppointmentOutcomeFromNumbers,
   upsertManualSpend,
   deleteSpendRow,
+  listClinicPacks,
+  upsertClinicPack,
+  deleteClinicPack,
+  type ClinicPackRow,
+  type ClinicOption,
   type AdPerformanceRow,
   type LocationSummaryRow,
   type MonthlyPoint,
@@ -151,6 +156,15 @@ function NumbersPage() {
   const [spendRows, setSpendRows] = useState<SpendRow[]>([]);
   const [editing, setEditing] = useState<Partial<SpendRow> | null>(null);
 
+  // ---- Editable clinic packs
+  const fetchPacks = useServerFn(listClinicPacks);
+  const savePack = useServerFn(upsertClinicPack);
+  const removePack = useServerFn(deleteClinicPack);
+  const [packs, setPacks] = useState<ClinicPackRow[]>([]);
+  const [clinicOpts, setClinicOpts] = useState<ClinicOption[]>([]);
+  const [editingPack, setEditingPack] = useState<Partial<ClinicPackRow> | null>(null);
+  const [showPackEditor, setShowPackEditor] = useState(false);
+
   const range = useMemo(() => resolveRange(rangeKey, customFrom, customTo), [rangeKey, customFrom, customTo]);
 
   // Pack totals: revenue is recognised on shows delivered, so anything
@@ -206,6 +220,20 @@ function NumbersPage() {
       toast.error((e as Error).message);
     }
   }, [fetchSpend, range.from, range.to]);
+
+  const loadPacks = useCallback(async () => {
+    try {
+      const res = await fetchPacks();
+      setPacks(res.packs);
+      setClinicOpts(res.clinics);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }, [fetchPacks]);
+
+  useEffect(() => {
+    if (authReady && session && isAdmin) void loadPacks();
+  }, [authReady, session, isAdmin, loadPacks]);
 
   // ---- Section A: location cards + total
   const visibleLocations = locFilter
@@ -847,6 +875,157 @@ function NumbersPage() {
           <div style={{ fontSize: 11, color: "#9a9a97", marginTop: 10 }}>
             Revenue is recognised on shows delivered, at each clinic's real rate per show (money paid ÷ shows delivered, free shows included in the count). Shows still owed are paid work not yet done.
           </div>
+        </div>
+
+        {/* SECTION A3 — editable clinic packs */}
+        <div style={{ ...CARD, marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>Packs — what each clinic paid</div>
+              <div style={{ fontSize: 12, color: "#6b6b6b" }}>Enter money received here. The table above, revenue and value-owed figures update from these rows.</div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setShowPackEditor((v) => !v)}
+                style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid #d9d9d6", background: "#fff", cursor: "pointer" }}
+              >
+                {showPackEditor ? "Hide packs" : "Manage packs"}
+              </button>
+              <button
+                onClick={() => {
+                  setShowPackEditor(true);
+                  setEditingPack({ pack_size: 10, pack_type: "paid", date_paid: todaySydney() });
+                }}
+                style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "none", background: "#111", color: "#fff", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 5 }}
+              >
+                <Plus size={13} /> Add pack
+              </button>
+            </div>
+          </div>
+
+          {showPackEditor && (
+            <div style={{ marginTop: 12 }}>
+              {editingPack && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", padding: 10, border: "0.5px solid #e0d9c8", background: "#fdfbf5", borderRadius: 10, marginBottom: 10 }}>
+                  <select
+                    value={editingPack.clinic_id ?? ""}
+                    onChange={(e) => setEditingPack({ ...editingPack, clinic_id: e.target.value })}
+                    style={{ ...CARD, padding: "6px 8px", fontSize: 12, minWidth: 180 }}
+                  >
+                    <option value="">Clinic…</option>
+                    {clinicOpts.map((c) => (
+                      <option key={c.id} value={c.id}>{c.clinic_name}{c.city ? ` (${c.city})` : ""}</option>
+                    ))}
+                  </select>
+                  <input placeholder="Pack name e.g. 10-show pack" value={editingPack.pack_name ?? ""} onChange={(e) => setEditingPack({ ...editingPack, pack_name: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, minWidth: 160 }} />
+                  <input type="number" min={1} placeholder="Shows" value={editingPack.pack_size ?? ""} onChange={(e) => setEditingPack({ ...editingPack, pack_size: Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 80 }} />
+                  <input type="number" min={0} step="0.01" placeholder="Paid ex GST" value={editingPack.amount_paid_ex_gst ?? ""} onChange={(e) => setEditingPack({ ...editingPack, amount_paid_ex_gst: e.target.value === "" ? null : Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 110 }} />
+                  <input type="date" value={editingPack.date_paid ?? ""} onChange={(e) => setEditingPack({ ...editingPack, date_paid: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12 }} />
+                  <select
+                    value={editingPack.pack_type ?? "paid"}
+                    onChange={(e) => setEditingPack({ ...editingPack, pack_type: e.target.value })}
+                    style={{ ...CARD, padding: "6px 8px", fontSize: 12 }}
+                  >
+                    <option value="paid">Paid</option>
+                    <option value="free_trial">Free trial</option>
+                    <option value="guarantee_credit">Guarantee credit</option>
+                    <option value="goodwill">Goodwill</option>
+                  </select>
+                  <input placeholder="Notes (optional)" value={editingPack.notes ?? ""} onChange={(e) => setEditingPack({ ...editingPack, notes: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, minWidth: 140 }} />
+                  <button
+                    onClick={async () => {
+                      if (!editingPack.clinic_id) { toast.error("Pick a clinic"); return; }
+                      if (!editingPack.pack_size || editingPack.pack_size < 1) { toast.error("Pack needs at least 1 show"); return; }
+                      try {
+                        await savePack({
+                          data: {
+                            id: editingPack.id,
+                            clinic_id: editingPack.clinic_id,
+                            pack_name: editingPack.pack_name ?? null,
+                            pack_size: Number(editingPack.pack_size),
+                            amount_paid_ex_gst: editingPack.amount_paid_ex_gst ?? null,
+                            date_paid: editingPack.date_paid || null,
+                            pack_type: (editingPack.pack_type ?? "paid") as "paid" | "free_trial" | "guarantee_credit" | "goodwill",
+                            notes: editingPack.notes ?? null,
+                          },
+                        });
+                        toast.success(editingPack.id ? "Pack updated" : "Pack added");
+                        setEditingPack(null);
+                        await Promise.all([loadPacks(), load()]);
+                      } catch (e) {
+                        toast.error((e as Error).message);
+                      }
+                    }}
+                    style={{ fontSize: 12, padding: "6px 14px", borderRadius: 8, border: "none", background: "#111", color: "#fff", cursor: "pointer" }}
+                  >
+                    Save
+                  </button>
+                  <button onClick={() => setEditingPack(null)} style={{ fontSize: 12, padding: "6px 12px", borderRadius: 8, border: "0.5px solid #d9d9d6", background: "#fff", cursor: "pointer" }}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
+                  <thead>
+                    <tr style={{ textAlign: "left", color: "#6b6b6b" }}>
+                      <th style={th2}>Clinic</th>
+                      <th style={th2}>Pack</th>
+                      <th style={th2r}>Shows</th>
+                      <th style={th2r}>Paid ex GST</th>
+                      <th style={th2}>Date paid</th>
+                      <th style={th2}>Type</th>
+                      <th style={th2}>Notes</th>
+                      <th style={th2r}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {packs.map((p) => {
+                      const clinic = clinicOpts.find((c) => c.id === p.clinic_id);
+                      return (
+                        <tr key={p.id} style={{ borderTop: "0.5px solid #f0f0ee" }}>
+                          <td style={td2}>{clinic?.clinic_name ?? "—"}</td>
+                          <td style={td2}>{p.pack_name ?? "—"}</td>
+                          <td style={td2r}>{p.pack_size}</td>
+                          <td style={{ ...td2r, color: p.amount_paid_ex_gst == null ? "#8a5a2b" : undefined }}>
+                            {p.amount_paid_ex_gst == null ? "missing" : money(p.amount_paid_ex_gst)}
+                          </td>
+                          <td style={td2}>{p.date_paid ?? "—"}</td>
+                          <td style={td2}>{p.pack_type}</td>
+                          <td style={{ ...td2, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>{p.notes ?? ""}</td>
+                          <td style={td2r}>
+                            <button onClick={() => setEditingPack({ ...p })} title="Edit pack" style={{ border: "none", background: "none", cursor: "pointer", color: "#6b6b6b", padding: 4 }}>
+                              <Pencil size={13} />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Delete this pack?")) return;
+                                try {
+                                  await removePack({ data: { id: p.id } });
+                                  toast.success("Pack deleted");
+                                  await Promise.all([loadPacks(), load()]);
+                                } catch (e) {
+                                  toast.error((e as Error).message);
+                                }
+                              }}
+                              title="Delete pack"
+                              style={{ border: "none", background: "none", cursor: "pointer", color: "#b03030", padding: 4 }}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {packs.length === 0 && (
+                      <tr><td colSpan={8} style={{ ...td2, color: "#9a9a97" }}>No packs yet — use Add pack.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* SECTION A */}
