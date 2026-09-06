@@ -111,22 +111,35 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
       source: "meta",
     }));
 
+  // One read for the whole range, then batched writes: rows Meta already
+  // gave us are updated in place, everything else is inserted in one go.
+  const existing = await supabaseAdmin
+    .from("ad_spend_daily")
+    .select("id, date, ad_name")
+    .gte("date", since)
+    .lte("date", until)
+    .limit(10000);
+  if (existing.error) return fail(`Read failed: ${existing.error.message}`);
+  const byKey = new Map<string, string>();
+  for (const r of existing.data ?? []) byKey.set(`${r.date}|${String(r.ad_name).trim().toLowerCase()}`, r.id);
+
+  const toInsert: typeof upserts = [];
   let written = 0;
   for (const row of upserts) {
-    const existing = await supabaseAdmin
-      .from("ad_spend_daily")
-      .select("id")
-      .eq("date", row.date)
-      .eq("ad_name", row.ad_name)
-      .maybeSingle();
-    if (existing.data?.id) {
-      const { error } = await supabaseAdmin.from("ad_spend_daily").update(row).eq("id", existing.data.id);
+    const id = byKey.get(`${row.date}|${row.ad_name.trim().toLowerCase()}`);
+    if (id) {
+      const { error } = await supabaseAdmin.from("ad_spend_daily").update(row).eq("id", id);
       if (error) return fail(`Write failed: ${error.message}`);
+      written += 1;
     } else {
-      const { error } = await supabaseAdmin.from("ad_spend_daily").insert([row]);
-      if (error) return fail(`Write failed: ${error.message}`);
+      toInsert.push(row);
     }
-    written += 1;
+  }
+  for (let i = 0; i < toInsert.length; i += 200) {
+    const chunk = toInsert.slice(i, i + 200);
+    const { error } = await supabaseAdmin.from("ad_spend_daily").insert(chunk);
+    if (error) return fail(`Write failed: ${error.message}`);
+    written += chunk.length;
   }
 
   await supabaseAdmin

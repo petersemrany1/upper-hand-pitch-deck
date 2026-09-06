@@ -102,6 +102,7 @@ function NumbersPage() {
   const runBackfill = useServerFn(backfillMetaSpend);
   const [backfillSince, setBackfillSince] = useState("2026-04-20");
   const [backfilling, setBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState("");
 
   const [syncState, setSyncState] = useState<{
     last_synced_at: string | null;
@@ -276,14 +277,34 @@ function NumbersPage() {
       return;
     }
     setBackfilling(true);
+    // One request per month so no single call runs long enough to time out.
+    const today = todaySydney();
+    const months: [string, string][] = [];
+    let cursor = backfillSince;
+    while (cursor <= today) {
+      const end = new Date(`${cursor}T00:00:00Z`);
+      end.setUTCMonth(end.getUTCMonth() + 1);
+      end.setUTCDate(0); // last day of cursor's month
+      const until = end.toISOString().slice(0, 10) < today ? end.toISOString().slice(0, 10) : today;
+      months.push([cursor, until]);
+      const next = new Date(`${until}T00:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      cursor = next.toISOString().slice(0, 10);
+    }
+    let total = 0;
     try {
-      const r = await runBackfill({ data: { since: backfillSince } });
-      toast.success(`Pulled ${r.rows} spend rows from Meta for ${r.since} → ${r.until}`);
+      for (const [since, until] of months) {
+        setBackfillProgress(`${since} → ${until}`);
+        const r = await runBackfill({ data: { since, until } });
+        total += r.rows;
+      }
+      toast.success(`Pulled ${total} spend rows from Meta since ${backfillSince}`);
       await load();
     } catch (e) {
-      toast.error((e as Error).message || "Backfill failed");
+      toast.error(`${(e as Error).message || "Backfill failed"} (${total} rows written so far)`);
     } finally {
       setBackfilling(false);
+      setBackfillProgress("");
     }
   };
 
@@ -435,7 +456,7 @@ function NumbersPage() {
               disabled={backfilling}
               style={{ fontSize: 12, padding: "5px 10px", borderRadius: 8, border: "none", background: INK, color: "#fff", cursor: backfilling ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, opacity: backfilling ? 0.6 : 1 }}
             >
-              <Download className="h-3 w-3" /> {backfilling ? "Pulling…" : "Pull"}
+              <Download className="h-3 w-3" /> {backfilling ? `Pulling ${backfillProgress}…` : "Pull"}
             </button>
           </div>
         </div>
