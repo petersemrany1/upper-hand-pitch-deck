@@ -715,31 +715,43 @@ export type Database = {
       }
       clinic_packs: {
         Row: {
+          amount_paid_ex_gst: number | null
           clinic_id: string
           created_at: string
+          date_paid: string | null
           id: string
           notes: string | null
+          pack_name: string | null
           pack_size: number
+          pack_type: string
           purchased_at: string
           status: string
           updated_at: string
         }
         Insert: {
+          amount_paid_ex_gst?: number | null
           clinic_id: string
           created_at?: string
+          date_paid?: string | null
           id?: string
           notes?: string | null
+          pack_name?: string | null
           pack_size: number
+          pack_type?: string
           purchased_at?: string
           status?: string
           updated_at?: string
         }
         Update: {
+          amount_paid_ex_gst?: number | null
           clinic_id?: string
           created_at?: string
+          date_paid?: string | null
           id?: string
           notes?: string | null
+          pack_name?: string | null
           pack_size?: number
+          pack_type?: string
           purchased_at?: string
           status?: string
           updated_at?: string
@@ -2803,6 +2815,23 @@ export type Database = {
           spend: number
           unattributed: boolean
           upcoming: number
+        }[]
+      }
+      clinic_pack_economics: {
+        Args: never
+        Returns: {
+          amount_paid_ex_gst: number
+          city: string
+          clinic_id: string
+          clinic_name: string
+          effective_rate: number
+          free_shows_delivered: number
+          over_delivered: number
+          packs_missing_amount: number
+          shows_delivered: number
+          shows_free_purchased: number
+          shows_paid_purchased: number
+          shows_purchased: number
         }[]
       }
       current_clinic_id: { Args: never; Returns: string }
