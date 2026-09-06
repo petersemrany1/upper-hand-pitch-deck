@@ -156,6 +156,15 @@ function NumbersPage() {
   const [spendRows, setSpendRows] = useState<SpendRow[]>([]);
   const [editing, setEditing] = useState<Partial<SpendRow> | null>(null);
 
+  // ---- Editable clinic packs
+  const fetchPacks = useServerFn(listClinicPacks);
+  const savePack = useServerFn(upsertClinicPack);
+  const removePack = useServerFn(deleteClinicPack);
+  const [packs, setPacks] = useState<ClinicPackRow[]>([]);
+  const [clinicOpts, setClinicOpts] = useState<ClinicOption[]>([]);
+  const [editingPack, setEditingPack] = useState<Partial<ClinicPackRow> | null>(null);
+  const [showPackEditor, setShowPackEditor] = useState(false);
+
   const range = useMemo(() => resolveRange(rangeKey, customFrom, customTo), [rangeKey, customFrom, customTo]);
 
   // Pack totals: revenue is recognised on shows delivered, so anything
