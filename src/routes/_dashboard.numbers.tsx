@@ -117,6 +117,7 @@ function NumbersPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [locFilter, setLocFilter] = useState("");
+  const [countMyPay, setCountMyPay] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
@@ -149,7 +150,7 @@ function NumbersPage() {
     setLoading(true);
     try {
       const res = await fetchReport({
-        data: { from: range.from, to: range.to, location: locFilter || null },
+        data: { from: range.from, to: range.to, location: locFilter || null, excludePeter: !countMyPay },
       });
       setAds(res.ads);
       setLocations(res.locations);
@@ -167,7 +168,7 @@ function NumbersPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchReport, range.from, range.to, locFilter]);
+  }, [fetchReport, range.from, range.to, locFilter, countMyPay]);
 
   useEffect(() => {
     if (authReady && session && isAdmin) void load();
@@ -536,6 +537,28 @@ function NumbersPage() {
               <option key={l.location} value={l.location}>{l.location}</option>
             ))}
           </select>
+
+          <label
+            style={{
+              ...CARD,
+              padding: "6px 12px",
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+            title="Untick to see every cost, profit and cost-per-show figure with Peter's hours and booking bonuses removed"
+          >
+            <input
+              type="checkbox"
+              checked={countMyPay}
+              onChange={(e) => setCountMyPay(e.target.checked)}
+              style={{ accentColor: "#111", cursor: "pointer" }}
+            />
+            Count my pay as a cost
+          </label>
 
           {needsOutcome.length > 0 && (
             <button

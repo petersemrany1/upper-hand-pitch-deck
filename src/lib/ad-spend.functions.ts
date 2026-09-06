@@ -9,6 +9,7 @@ const RangeSchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   location: z.string().nullable().optional(),
+  excludePeter: z.boolean().optional(),
 });
 
 export type AdPerformanceRow = {
@@ -119,7 +120,20 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         rpc: (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
       }).rpc(fn, args);
 
-    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth] = await Promise.all([
+    // Optional: subtract one rep's (Peter's) labour + bonus from every key so
+    // the owner can view costs with their own pay removed.
+    let peterId: string | null = null;
+    if (data.excludePeter) {
+      const { data: peter } = await db
+        .from("sales_reps")
+        .select("id")
+        .ilike("name", "%peter%semrany%")
+        .limit(1)
+        .maybeSingle();
+      peterId = peter?.id ?? null;
+    }
+
+    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
       db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
@@ -129,6 +143,9 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "location" }),
       rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
       rpc("money_monthly", { p_from: from, p_to: to }),
+      peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
+      peterId ? rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad", p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
+      peterId ? rpc("money_monthly", { p_from: from, p_to: to, p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
     ]);
 
 
@@ -178,12 +195,46 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         revenue: num(r.revenue),
       }));
 
-    return {
-      labourByLocation: mapLabour(labLoc.data),
-      labourByAd: mapLabour(labAd.data),
-      revenueByLocation: mapRevenue(revLoc.data),
-      revenueByAd: mapRevenue(revAd.data),
-      moneyMonthly: ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
+    // Subtract Peter-only rows from the all-reps rows when the toggle is on.
+    const subLabour = (base: LabourRow[], sub: unknown): LabourRow[] => {
+      const subMap = new Map(
+        mapLabour(sub).map((r) => [r.key.toLowerCase(), r]),
+      );
+      return base.map((r) => {
+        const s = subMap.get(r.key.toLowerCase());
+        if (!s) return r;
+        return {
+          key: r.key,
+          hours: r.hours - s.hours,
+          hourly_cost: r.hourly_cost - s.hourly_cost,
+          hours_missing_rate: r.hours_missing_rate - s.hours_missing_rate,
+          hours_fallback: r.hours_fallback - s.hours_fallback,
+          bookings: r.bookings - s.bookings,
+          bonus_cost: r.bonus_cost - s.bonus_cost,
+          bonus_missing_rate: r.bonus_missing_rate - s.bonus_missing_rate,
+        };
+      });
+    };
+    const subMoney = (base: MoneyMonthPoint[], sub: unknown): MoneyMonthPoint[] => {
+      const subRows = ((sub ?? []) as Record<string, unknown>[]);
+      const subMap = new Map(
+        subRows.map((r) => [`${r.month}|${String(r.location ?? "").toLowerCase()}`, r]),
+      );
+      return base.map((r) => {
+        const s = subMap.get(`${r.month}|${r.location.toLowerCase()}`) as Record<string, unknown> | undefined;
+        if (!s) return r;
+        return {
+          ...r,
+          labour_cost: r.labour_cost - num(s.labour_cost),
+          bonus_cost: r.bonus_cost - num(s.bonus_cost),
+        };
+      });
+    };
+
+    const labourLocRows = subLabour(mapLabour(labLoc.data), labLocP.data);
+    const labourAdRows = subLabour(mapLabour(labAd.data), labAdP.data);
+    const moneyMonthRows = subMoney(
+      ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
         month: String(r.month ?? ""),
         location: String(r.location ?? ""),
         spend: num(r.spend),
@@ -192,6 +243,16 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         labour_cost: num(r.labour_cost),
         bonus_cost: num(r.bonus_cost),
       })) as MoneyMonthPoint[],
+      moneyMonthP.data,
+    );
+
+    return {
+      peterExcluded: peterId !== null,
+      labourByLocation: labourLocRows,
+      labourByAd: labourAdRows,
+      revenueByLocation: mapRevenue(revLoc.data),
+      revenueByAd: mapRevenue(revAd.data),
+      moneyMonthly: moneyMonthRows,
       ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),

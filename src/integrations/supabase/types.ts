@@ -2835,7 +2835,12 @@ export type Database = {
       is_clinic_user_for: { Args: { _clinic_id: string }; Returns: boolean }
       jwt_email_trusted: { Args: never; Returns: string }
       labour_by_key: {
-        Args: { p_from?: string; p_mode?: string; p_to?: string }
+        Args: {
+          p_from?: string
+          p_mode?: string
+          p_rep?: string
+          p_to?: string
+        }
         Returns: {
           bonus_cost: number
           bonus_missing_rate: number
@@ -2859,7 +2864,7 @@ export type Database = {
         Returns: string
       }
       money_monthly: {
-        Args: { p_from?: string; p_to?: string }
+        Args: { p_from?: string; p_rep?: string; p_to?: string }
         Returns: {
           bonus_cost: number
           labour_cost: number
