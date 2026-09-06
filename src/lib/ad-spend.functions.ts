@@ -459,3 +459,89 @@ export const deleteSpendRow = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+export type ClinicOption = { id: string; clinic_name: string; city: string | null };
+
+export type ClinicPackRow = {
+  id: string;
+  clinic_id: string;
+  pack_name: string | null;
+  pack_size: number;
+  amount_paid_ex_gst: number | null;
+  date_paid: string | null;
+  pack_type: string;
+  notes: string | null;
+  purchased_at: string;
+  status: string;
+};
+
+export const listClinicPacks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await assertAdmin(context.claims as Record<string, unknown>);
+    const [packs, clinics] = await Promise.all([
+      db
+        .from("clinic_packs")
+        .select("id, clinic_id, pack_name, pack_size, amount_paid_ex_gst, date_paid, pack_type, notes, purchased_at, status")
+        .order("purchased_at", { ascending: false }),
+      db.from("partner_clinics").select("id, clinic_name, city").order("clinic_name"),
+    ]);
+    if (packs.error) throw new Error(packs.error.message);
+    if (clinics.error) throw new Error(clinics.error.message);
+    return {
+      packs: (packs.data ?? []).map((r) => ({
+        ...r,
+        amount_paid_ex_gst: r.amount_paid_ex_gst == null ? null : Number(r.amount_paid_ex_gst),
+      })) as ClinicPackRow[],
+      clinics: (clinics.data ?? []) as ClinicOption[],
+    };
+  });
+
+const PackUpsertSchema = z.object({
+  id: z.string().uuid().optional(),
+  clinic_id: z.string().uuid(),
+  pack_name: z.string().nullable().optional(),
+  pack_size: z.number().int().min(0),
+  amount_paid_ex_gst: z.number().min(0).nullable().optional(),
+  date_paid: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  pack_type: z.enum(["paid", "free_trial", "guarantee_credit", "goodwill"]),
+  notes: z.string().nullable().optional(),
+});
+
+export const upsertClinicPack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => PackUpsertSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await assertAdmin(context.claims as Record<string, unknown>);
+    const row = {
+      clinic_id: data.clinic_id,
+      pack_name: data.pack_name?.trim() || null,
+      pack_size: data.pack_size,
+      amount_paid_ex_gst: data.amount_paid_ex_gst ?? null,
+      date_paid: data.date_paid || null,
+      pack_type: data.pack_type,
+      notes: data.notes?.trim() || null,
+    };
+    if (data.id) {
+      const { error } = await db.from("clinic_packs").update(row).eq("id", data.id);
+      if (error) throw new Error(error.message);
+      return { ok: true, id: data.id };
+    }
+    const { data: inserted, error } = await db
+      .from("clinic_packs")
+      .insert([{ ...row, status: "active" }])
+      .select("id")
+      .single();
+    if (error) throw new Error(error.message);
+    return { ok: true, id: inserted?.id ?? null };
+  });
+
+export const deleteClinicPack = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await assertAdmin(context.claims as Record<string, unknown>);
+    const { error } = await db.from("clinic_packs").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
