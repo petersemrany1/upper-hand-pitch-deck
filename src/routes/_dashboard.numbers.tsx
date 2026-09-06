@@ -1023,6 +1023,7 @@ function NumbersPage() {
                   </select>
                   <input placeholder="Pack name e.g. 10-show pack" value={editingPack.pack_name ?? ""} onChange={(e) => setEditingPack({ ...editingPack, pack_name: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, minWidth: 160 }} />
                   <input type="number" min={1} placeholder="Shows" value={editingPack.pack_size ?? ""} onChange={(e) => setEditingPack({ ...editingPack, pack_size: Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 80 }} />
+                  <input type="number" min={0} placeholder="Free shows" title="How many of these shows are free (included at no charge)" value={editingPack.free_shows_included ?? 0} onChange={(e) => setEditingPack({ ...editingPack, free_shows_included: Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 100 }} />
                   <input type="number" min={0} step="0.01" placeholder="Paid ex GST" value={editingPack.amount_paid_ex_gst ?? ""} onChange={(e) => setEditingPack({ ...editingPack, amount_paid_ex_gst: e.target.value === "" ? null : Number(e.target.value) })} style={{ ...CARD, padding: "6px 8px", fontSize: 12, width: 110 }} />
                   <input type="date" value={editingPack.date_paid ?? ""} onChange={(e) => setEditingPack({ ...editingPack, date_paid: e.target.value })} style={{ ...CARD, padding: "6px 8px", fontSize: 12 }} />
                   <select
@@ -1047,6 +1048,7 @@ function NumbersPage() {
                             clinic_id: editingPack.clinic_id,
                             pack_name: editingPack.pack_name ?? null,
                             pack_size: Number(editingPack.pack_size),
+                            free_shows_included: Number(editingPack.free_shows_included ?? 0),
                             amount_paid_ex_gst: editingPack.amount_paid_ex_gst ?? null,
                             date_paid: editingPack.date_paid || null,
                             pack_type: (editingPack.pack_type ?? "paid") as "paid" | "free_trial" | "guarantee_credit" | "goodwill",
@@ -1095,7 +1097,13 @@ function NumbersPage() {
                           <td style={{ ...td2r, color: p.amount_paid_ex_gst == null ? "#8a5a2b" : undefined }}>
                             {p.amount_paid_ex_gst == null ? "missing" : money(p.amount_paid_ex_gst)}
                           </td>
-                          <td style={td2}>{p.date_paid ?? "—"}</td>
+                          <td style={td2}>
+                            {p.date_paid ?? (
+                              <span title="No date paid recorded" style={{ color: "#8a5a2b", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                <AlertTriangle size={12} /> no date
+                              </span>
+                            )}
+                          </td>
                           <td style={td2}>{p.pack_type}</td>
                           <td style={{ ...td2, maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis" }}>{p.notes ?? ""}</td>
                           <td style={td2r}>
