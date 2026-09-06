@@ -61,10 +61,11 @@ const FMT = { money, pct: pctOrDash, oneDp };
 // narrow ones. Kept as a scoped stylesheet so the inline-styled cards stay
 // self-contained.
 const SHELL_CSS = `
-.numbers-shell{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+.numbers-shell{display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start}
+.numbers-shell>*{min-width:0}
 @media (min-width:1024px){.numbers-shell{grid-template-columns:250px minmax(0,1fr)}.numbers-rail{position:sticky;top:16px}}
-@media (max-width:720px){.numbers-funnel{grid-template-columns:1fr!important}.numbers-arrow{padding:6px 0!important;align-items:flex-start!important}.numbers-split{grid-template-columns:1fr!important}}
-@media (max-width:1023px){.numbers-rail-list{flex-direction:row!important;overflow-x:auto;gap:6px!important;padding-bottom:4px}.numbers-rail-item{min-width:160px;flex:0 0 auto}.numbers-rail-divider,.numbers-rail-note{display:none}}
+@media (max-width:900px){.numbers-funnel{grid-template-columns:1fr!important}.numbers-arrow{padding:6px 0!important;width:auto!important;align-items:flex-start!important}.numbers-split{grid-template-columns:1fr!important}}
+@media (max-width:1023px){.numbers-rail-list{flex-direction:row!important;overflow-x:auto;gap:6px!important;padding-bottom:4px}.numbers-rail-item{width:auto!important;min-width:170px;flex:0 0 auto}.numbers-rail-divider,.numbers-rail-note{display:none}}
 .numbers-rail-item:hover{background:#f0f0ee}
 .numbers-rail-item[aria-current="true"]:hover{background:#111}
 `;
