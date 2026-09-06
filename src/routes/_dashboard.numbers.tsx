@@ -103,6 +103,11 @@ function oneInX(num: number, den: number): string {
 const costNum = (spend: number, divisor: number): number | null =>
   !spend || !divisor ? null : spend / divisor;
 
+const th2: React.CSSProperties = { padding: "6px 8px", fontWeight: 500, whiteSpace: "nowrap" };
+const th2r: React.CSSProperties = { ...th2, textAlign: "right" };
+const td2: React.CSSProperties = { padding: "7px 8px", whiteSpace: "nowrap" };
+const td2r: React.CSSProperties = { ...td2, textAlign: "right" };
+
 function NumbersPage() {
   const { session, role, ready: authReady } = useAuth();
   const isAdmin = role === "admin";
@@ -147,6 +152,22 @@ function NumbersPage() {
   const [editing, setEditing] = useState<Partial<SpendRow> | null>(null);
 
   const range = useMemo(() => resolveRange(rangeKey, customFrom, customTo), [rangeKey, customFrom, customTo]);
+
+  // Pack totals: revenue is recognised on shows delivered, so anything
+  // purchased and not yet delivered is work owed.
+  const packTotals = useMemo(() => {
+    return packEconomics.reduce(
+      (a, p) => ({
+        purchased: a.purchased + p.shows_purchased,
+        delivered: a.delivered + p.shows_delivered,
+        owed: a.owed + p.shows_owed,
+        valueOwed: a.valueOwed + p.value_owed,
+        paid: a.paid + p.amount_paid_ex_gst,
+        freeShows: a.freeShows + p.free_shows_delivered,
+      }),
+      { purchased: 0, delivered: 0, owed: 0, valueOwed: 0, paid: 0, freeShows: 0 },
+    );
+  }, [packEconomics]);
 
   const load = useCallback(async () => {
     setLoading(true);
