@@ -707,15 +707,22 @@ function NumbersPage() {
           {[...visibleLocations].sort((a, b) => a.location.localeCompare(b.location)).concat(visibleLocations.length > 1 ? [total] : []).map((l, i) => {
             const isTotal = l.location === "TOTAL" && i === visibleLocations.length;
             const unresolvedShare = l.booked ? l.needs_outcome / l.booked : 0;
+            const m = isTotal
+              ? buildMoney("TOTAL", l.spend, l.showed, l.booked, labLocMap, revLocMap, totalLabour, totalRevenue)
+              : buildMoney(l.location, l.spend, l.showed, l.booked, labLocMap, revLocMap);
+            const tp = m.totalPctNum;
+            const tpColor = tp === null ? "#6b6b6b" : tp < 0.25 ? "#2f6f4f" : tp <= 0.4 ? "#8a5a2b" : "#b03030";
             return (
               <div key={`${l.location}-${i}`} style={{ ...CARD, borderColor: isTotal ? "#111" : "#e8e8e6" }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{l.location}</div>
-                <div style={{ fontSize: 11, color: "#6b6b6b" }}>Cost per show</div>
+                <div style={{ fontSize: 11, color: "#6b6b6b" }}>True cost per show</div>
                 <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: -1, lineHeight: 1.1 }}>
-                  {cost(l.spend, l.showed)}
+                  {m.trueCps === null ? "—" : money(m.trueCps)}
+                </div>
+                <div style={{ fontSize: 11, color: "#9a9a97", marginTop: 2 }}>
+                  Ads only: {cost(l.spend, l.showed)}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 12, fontSize: 12 }}>
-                  <div style={{ color: "#6b6b6b" }}>Ad spend</div><div style={{ textAlign: "right" }}>{l.spend ? money(l.spend) : "—"}</div>
                   <div style={{ color: "#6b6b6b" }}>Leads</div><div style={{ textAlign: "right" }}>{l.leads}</div>
                   <div style={{ color: "#6b6b6b" }}>Booked</div><div style={{ textAlign: "right" }}>{l.booked}</div>
                   <div style={{ color: "#6b6b6b" }}>Showed</div><div style={{ textAlign: "right" }}>{l.showed}</div>
@@ -726,6 +733,57 @@ function NumbersPage() {
                   <div style={{ color: "#6b6b6b" }}>Cost per lead</div><div style={{ textAlign: "right" }}>{cost(l.spend, l.leads)}</div>
                   <div style={{ color: "#6b6b6b" }}>Cost per booked</div><div style={{ textAlign: "right" }}>{cost(l.spend, l.booked)}</div>
                 </div>
+
+                {/* Money block */}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "0.5px solid #f0f0ee", display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 10px", fontSize: 12, alignItems: "baseline" }}>
+                  <div style={{ color: "#6b6b6b" }}>Revenue</div>
+                  <div style={{ textAlign: "right", fontWeight: 600 }}>{m.revenue ? money(m.revenue) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#9a9a97", fontSize: 11 }}>{l.showed} × show</div>
+
+                  <div style={{ color: "#6b6b6b" }}>Ad spend</div>
+                  <div style={{ textAlign: "right" }}>{l.spend ? money(l.spend) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.adsPctNum === null ? "—" : `${(m.adsPctNum * 100).toFixed(1)}%`}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Rep cost (hourly)</div>
+                  <div style={{ textAlign: "right" }}>{m.hoursOk ? money(m.hourlyCost) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.hoursOk && m.revenue > 0 ? `${((m.hourlyCost / m.revenue) * 100).toFixed(1)}%` : "—"}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Booking bonuses</div>
+                  <div style={{ textAlign: "right" }}>{money(m.bonusCost)}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.revenue > 0 ? `${((m.bonusCost / m.revenue) * 100).toFixed(1)}%` : "—"}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Labour (both)</div>
+                  <div style={{ textAlign: "right" }}>{m.hoursOk ? money(m.labourCost) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.labourPctNum === null ? "—" : `${(m.labourPctNum * 100).toFixed(1)}%`}
+                  </div>
+
+                  <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid #e8e8e6", marginTop: 2 }} />
+
+                  <div style={{ fontWeight: 600 }}>TOTAL COST</div>
+                  <div style={{ textAlign: "right", fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>
+                    {m.hoursOk ? money(m.totalCost) : "—"}
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
+                    {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Gross profit</div>
+                  <div style={{ textAlign: "right", fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
+                    {m.hoursOk ? money(m.grossProfit) : "—"}
+                  </div>
+                  <div />
+                </div>
+                <div style={{ fontSize: 10.5, color: "#9a9a97", marginTop: 6 }}>
+                  includes owner time at replacement rate
+                </div>
+
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: "0.5px solid #f0f0ee", fontSize: 12 }}>
                   <div>
                     Booking rate <strong>{pct(l.booked, l.leads)}</strong>{" "}
@@ -735,15 +793,43 @@ function NumbersPage() {
                     Show rate <strong>{pct(l.showed, l.showed + l.noshow)}</strong>{" "}
                     <span style={{ color: "#6b6b6b" }}>({l.showed} of {l.showed + l.noshow})</span>
                   </div>
+                  <div>
+                    Rep hours <strong>{m.hoursOk ? m.hours.toFixed(1) : "—"}</strong>{" "}
+                    <span style={{ color: "#6b6b6b" }}>
+                      ({m.bookingsPerHour === null ? "—" : m.bookingsPerHour.toFixed(2)} bookings per hour)
+                    </span>
+                  </div>
                 </div>
+
+                {!m.hoursOk && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: "#b03030", background: "#fdeeee", padding: "6px 8px", borderRadius: 8 }}>
+                    Hours could not be calculated — labour and total cost are not shown.
+                  </div>
+                )}
+                {m.hoursMissingRate > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                    {m.hoursMissingRate.toFixed(1)} hours from a rep with no rate set — labour is understated.
+                  </div>
+                )}
+                {m.hoursFallback > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                    {m.hoursFallback.toFixed(1)} hours split by leads contacted, not call time.
+                  </div>
+                )}
+                {m.bonusMissingRate > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                    {m.bonusMissingRate} bookings with no bonus rate set.
+                  </div>
+                )}
                 {unresolvedShare > 0.1 && (
-                  <div style={{ marginTop: 10, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
                     {l.needs_outcome} appointments unresolved — cost per show may be understated.
                   </div>
                 )}
               </div>
             );
           })}
+
         </div>
 
         {/* SECTION B */}
