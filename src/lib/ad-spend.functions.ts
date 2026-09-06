@@ -82,6 +82,29 @@ async function assertAdmin(claims: Record<string, unknown> | null | undefined) {
   return supabaseAdmin;
 }
 
+export type LabourRow = {
+  key: string;
+  hours: number;
+  hourly_cost: number;
+  hours_missing_rate: number;
+  hours_fallback: number;
+  bookings: number;
+  bonus_cost: number;
+  bonus_missing_rate: number;
+};
+
+export type RevenueRow = { key: string; shows: number; revenue: number };
+
+export type MoneyMonthPoint = {
+  month: string;
+  location: string;
+  spend: number;
+  showed: number;
+  revenue: number;
+  labour_cost: number;
+  bonus_cost: number;
+};
+
 export const getNumbersReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => RangeSchema.parse(input ?? {}))
@@ -90,13 +113,24 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     const from = data.from ?? undefined;
     const to = data.to ?? undefined;
     const location = data.location && data.location.length > 0 ? data.location : undefined;
+    // New reporting RPCs are not in the generated types yet.
+    const rpc = (fn: string, args: Record<string, unknown>) =>
+      (db as unknown as {
+        rpc: (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+      }).rpc(fn, args);
 
-    const [perf, locs, monthly, sync] = await Promise.all([
+    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
       db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
       db.from("ad_spend_sync_state").select("*").eq("id", 1).maybeSingle(),
+      rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location" }),
+      rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
+      rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "location" }),
+      rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
+      rpc("money_monthly", { p_from: from, p_to: to }),
     ]);
+
 
     // Unresolved outcomes: past-dated appointments with no outcome recorded.
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
