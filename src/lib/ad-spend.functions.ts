@@ -96,6 +96,25 @@ export type LabourRow = {
 
 export type RevenueRow = { key: string; shows: number; revenue: number };
 
+export type PackEconomicsRow = {
+  clinic_id: string;
+  clinic_name: string;
+  city: string | null;
+  shows_purchased: number;
+  shows_paid_purchased: number;
+  shows_free_purchased: number;
+  amount_paid_ex_gst: number;
+  packs_missing_amount: number;
+  shows_delivered: number;
+  free_shows_delivered: number;
+  effective_rate: number | null;
+  paid_rate: number | null;
+  shows_owed: number;
+  value_owed: number;
+  over_delivered: number;
+  list_rate: number;
+};
+
 export type MoneyMonthPoint = {
   month: string;
   location: string;
