@@ -154,7 +154,13 @@ function NumbersPage() {
       setAds(res.ads);
       setLocations(res.locations);
       setMonthly(res.monthly);
+      setLabourByLocation(res.labourByLocation);
+      setLabourByAd(res.labourByAd);
+      setRevenueByLocation(res.revenueByLocation);
+      setRevenueByAd(res.revenueByAd);
+      setMoneyMonthly(res.moneyMonthly);
       setNeedsOutcome(res.needsOutcome);
+
       setSyncState(res.syncState);
     } catch (e) {
       toast.error((e as Error).message || "Could not load the numbers");
