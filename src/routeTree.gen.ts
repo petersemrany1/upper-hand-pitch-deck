@@ -34,6 +34,7 @@ import { Route as DashboardMyRecordingsRouteImport } from './routes/_dashboard.m
 import { Route as DashboardNumbersRouteImport } from './routes/_dashboard.numbers'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
+import { Route as DashboardRepHoursRouteImport } from './routes/_dashboard.rep-hours'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
 import { Route as DashboardSalesCallTestRouteImport } from './routes/_dashboard.sales-call-test'
 import { Route as DashboardSalesTestLeadsRouteImport } from './routes/_dashboard.sales-test-leads'
@@ -204,6 +205,11 @@ const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
 const DashboardPitchDeckRoute = DashboardPitchDeckRouteImport.update({
   id: '/pitch-deck',
   path: '/pitch-deck',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardRepHoursRoute = DashboardRepHoursRouteImport.update({
+  id: '/rep-hours',
+  path: '/rep-hours',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardSalesCallRoute = DashboardSalesCallRouteImport.update({
@@ -444,6 +450,7 @@ export interface FileRoutesByFullPath {
   '/numbers': typeof DashboardNumbersRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/rep-hours': typeof DashboardRepHoursRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sales-call-test': typeof DashboardSalesCallTestRoute
   '/sales-test-leads': typeof DashboardSalesTestLeadsRoute
@@ -506,6 +513,7 @@ export interface FileRoutesByTo {
   '/numbers': typeof DashboardNumbersRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
+  '/rep-hours': typeof DashboardRepHoursRoute
   '/sales-call': typeof DashboardSalesCallRoute
   '/sales-call-test': typeof DashboardSalesCallTestRoute
   '/sales-test-leads': typeof DashboardSalesTestLeadsRoute
@@ -570,6 +578,7 @@ export interface FileRoutesById {
   '/_dashboard/numbers': typeof DashboardNumbersRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
+  '/_dashboard/rep-hours': typeof DashboardRepHoursRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
   '/_dashboard/sales-call-test': typeof DashboardSalesCallTestRoute
   '/_dashboard/sales-test-leads': typeof DashboardSalesTestLeadsRoute
@@ -636,6 +645,7 @@ export interface FileRouteTypes {
     | '/numbers'
     | '/partner-clinics'
     | '/pitch-deck'
+    | '/rep-hours'
     | '/sales-call'
     | '/sales-call-test'
     | '/sales-test-leads'
@@ -698,6 +708,7 @@ export interface FileRouteTypes {
     | '/numbers'
     | '/partner-clinics'
     | '/pitch-deck'
+    | '/rep-hours'
     | '/sales-call'
     | '/sales-call-test'
     | '/sales-test-leads'
@@ -761,6 +772,7 @@ export interface FileRouteTypes {
     | '/_dashboard/numbers'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
+    | '/_dashboard/rep-hours'
     | '/_dashboard/sales-call'
     | '/_dashboard/sales-call-test'
     | '/_dashboard/sales-test-leads'
@@ -1006,6 +1018,13 @@ declare module '@tanstack/react-router' {
       path: '/pitch-deck'
       fullPath: '/pitch-deck'
       preLoaderRoute: typeof DashboardPitchDeckRouteImport
+      parentRoute: typeof DashboardRoute
+    }
+    '/_dashboard/rep-hours': {
+      id: '/_dashboard/rep-hours'
+      path: '/rep-hours'
+      fullPath: '/rep-hours'
+      preLoaderRoute: typeof DashboardRepHoursRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/sales-call': {
@@ -1324,6 +1343,7 @@ interface DashboardRouteChildren {
   DashboardNumbersRoute: typeof DashboardNumbersRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
+  DashboardRepHoursRoute: typeof DashboardRepHoursRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
   DashboardSalesCallTestRoute: typeof DashboardSalesCallTestRoute
   DashboardSalesTestLeadsRoute: typeof DashboardSalesTestLeadsRoute
@@ -1350,6 +1370,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardNumbersRoute: DashboardNumbersRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
+  DashboardRepHoursRoute: DashboardRepHoursRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
   DashboardSalesCallTestRoute: DashboardSalesCallTestRoute,
   DashboardSalesTestLeadsRoute: DashboardSalesTestLeadsRoute,

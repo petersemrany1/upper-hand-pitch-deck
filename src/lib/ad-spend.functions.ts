@@ -82,6 +82,29 @@ async function assertAdmin(claims: Record<string, unknown> | null | undefined) {
   return supabaseAdmin;
 }
 
+export type LabourRow = {
+  key: string;
+  hours: number;
+  hourly_cost: number;
+  hours_missing_rate: number;
+  hours_fallback: number;
+  bookings: number;
+  bonus_cost: number;
+  bonus_missing_rate: number;
+};
+
+export type RevenueRow = { key: string; shows: number; revenue: number };
+
+export type MoneyMonthPoint = {
+  month: string;
+  location: string;
+  spend: number;
+  showed: number;
+  revenue: number;
+  labour_cost: number;
+  bonus_cost: number;
+};
+
 export const getNumbersReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => RangeSchema.parse(input ?? {}))
@@ -90,13 +113,24 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     const from = data.from ?? undefined;
     const to = data.to ?? undefined;
     const location = data.location && data.location.length > 0 ? data.location : undefined;
+    // New reporting RPCs are not in the generated types yet.
+    const rpc = (fn: string, args: Record<string, unknown>) =>
+      (db as unknown as {
+        rpc: (f: string, a: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+      }).rpc(fn, args);
 
-    const [perf, locs, monthly, sync] = await Promise.all([
+    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
       db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
       db.from("ad_spend_sync_state").select("*").eq("id", 1).maybeSingle(),
+      rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "location" }),
+      rpc("labour_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
+      rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "location" }),
+      rpc("revenue_by_key", { p_from: from, p_to: to, p_mode: "ad" }),
+      rpc("money_monthly", { p_from: from, p_to: to }),
     ]);
+
 
     // Unresolved outcomes: past-dated appointments with no outcome recorded.
     const today = new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
@@ -120,10 +154,44 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       for (const c of clinics ?? []) clinicNames.set(c.id, c.clinic_name);
     }
 
-    const firstErr = perf.error ?? locs.error ?? monthly.error;
+    const firstErr =
+      perf.error ?? locs.error ?? monthly.error ?? labLoc.error ?? labAd.error ??
+      revLoc.error ?? revAd.error ?? moneyMonth.error;
     if (firstErr) throw new Error(`Report query failed: ${firstErr.message}`);
 
+    const num = (v: unknown) => Number(v ?? 0);
+    const mapLabour = (rows: unknown): LabourRow[] =>
+      ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+        key: String(r.key ?? ""),
+        hours: num(r.hours),
+        hourly_cost: num(r.hourly_cost),
+        hours_missing_rate: num(r.hours_missing_rate),
+        hours_fallback: num(r.hours_fallback),
+        bookings: num(r.bookings),
+        bonus_cost: num(r.bonus_cost),
+        bonus_missing_rate: num(r.bonus_missing_rate),
+      }));
+    const mapRevenue = (rows: unknown): RevenueRow[] =>
+      ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
+        key: String(r.key ?? ""),
+        shows: num(r.shows),
+        revenue: num(r.revenue),
+      }));
+
     return {
+      labourByLocation: mapLabour(labLoc.data),
+      labourByAd: mapLabour(labAd.data),
+      revenueByLocation: mapRevenue(revLoc.data),
+      revenueByAd: mapRevenue(revAd.data),
+      moneyMonthly: ((moneyMonth.data ?? []) as Record<string, unknown>[]).map((r) => ({
+        month: String(r.month ?? ""),
+        location: String(r.location ?? ""),
+        spend: num(r.spend),
+        showed: num(r.showed),
+        revenue: num(r.revenue),
+        labour_cost: num(r.labour_cost),
+        bonus_cost: num(r.bonus_cost),
+      })) as MoneyMonthPoint[],
       ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),
@@ -136,6 +204,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         ...r,
         spend: Number(r.spend ?? 0),
       })),
+
       needsOutcome: (unresolved ?? []).map((a) => ({
         appointment_id: a.id,
         patient_name: a.patient_name,

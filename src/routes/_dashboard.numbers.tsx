@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -11,7 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -27,7 +27,11 @@ import {
   type MonthlyPoint,
   type NeedsOutcomeRow,
   type SpendRow,
+  type LabourRow,
+  type RevenueRow,
+  type MoneyMonthPoint,
 } from "@/lib/ad-spend.functions";
+
 
 export const Route = createFileRoute("/_dashboard/numbers")({
   head: () => ({
@@ -118,7 +122,13 @@ function NumbersPage() {
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
   const [locations, setLocations] = useState<LocationSummaryRow[]>([]);
   const [monthly, setMonthly] = useState<MonthlyPoint[]>([]);
+  const [labourByLocation, setLabourByLocation] = useState<LabourRow[]>([]);
+  const [labourByAd, setLabourByAd] = useState<LabourRow[]>([]);
+  const [revenueByLocation, setRevenueByLocation] = useState<RevenueRow[]>([]);
+  const [revenueByAd, setRevenueByAd] = useState<RevenueRow[]>([]);
+  const [moneyMonthly, setMoneyMonthly] = useState<MoneyMonthPoint[]>([]);
   const [needsOutcome, setNeedsOutcome] = useState<NeedsOutcomeRow[]>([]);
+
   const [syncState, setSyncState] = useState<{
     last_synced_at: string | null;
     last_status: string | null;
@@ -126,7 +136,7 @@ function NumbersPage() {
   } | null>(null);
 
   const [showUnresolved, setShowUnresolved] = useState(false);
-  const [sortKey, setSortKey] = useState<string>("cps");
+  const [sortKey, setSortKey] = useState<string>("costPct");
   const [sortAsc, setSortAsc] = useState(true);
   const [drill, setDrill] = useState<{ ad: AdPerformanceRow; rows: unknown[] } | null>(null);
   const [spendPanel, setSpendPanel] = useState(false);
@@ -144,7 +154,13 @@ function NumbersPage() {
       setAds(res.ads);
       setLocations(res.locations);
       setMonthly(res.monthly);
+      setLabourByLocation(res.labourByLocation);
+      setLabourByAd(res.labourByAd);
+      setRevenueByLocation(res.revenueByLocation);
+      setRevenueByAd(res.revenueByAd);
+      setMoneyMonthly(res.moneyMonthly);
       setNeedsOutcome(res.needsOutcome);
+
       setSyncState(res.syncState);
     } catch (e) {
       toast.error((e as Error).message || "Could not load the numbers");
@@ -198,17 +214,129 @@ function NumbersPage() {
 
   const accountAvgCps = total.showed > 0 && total.spend > 0 ? total.spend / total.showed : null;
 
+  // ---- Labour + revenue lookups (by location and by ad)
+  const labLocMap = useMemo(
+    () => new Map(labourByLocation.map((l) => [l.key.toLowerCase(), l])),
+    [labourByLocation],
+  );
+  const labAdMap = useMemo(
+    () => new Map(labourByAd.map((l) => [l.key.toLowerCase(), l])),
+    [labourByAd],
+  );
+  const revLocMap = useMemo(
+    () => new Map(revenueByLocation.map((r) => [r.key.toLowerCase(), r])),
+    [revenueByLocation],
+  );
+  const revAdMap = useMemo(
+    () => new Map(revenueByAd.map((r) => [r.key.toLowerCase(), r])),
+    [revenueByAd],
+  );
+
+  type Money = {
+    revenue: number;
+    hours: number;
+    hourlyCost: number;
+    bonusCost: number;
+    labourCost: number;
+    totalCost: number;
+    grossProfit: number;
+    hoursOk: boolean;
+    hoursMissingRate: number;
+    hoursFallback: number;
+    bonusMissingRate: number;
+    adsPctNum: number | null;
+    labourPctNum: number | null;
+    totalPctNum: number | null;
+    trueCps: number | null;
+    bookingsPerHour: number | null;
+  };
+
+  const buildMoney = useCallback(
+    (
+      key: string,
+      spend: number,
+      shows: number,
+      bookings: number,
+      labMap: Map<string, LabourRow>,
+      revMap: Map<string, RevenueRow>,
+      labOverride?: LabourRow | null,
+      revOverride?: RevenueRow | null,
+    ): Money => {
+      const lab = labOverride ?? labMap.get(key.toLowerCase()) ?? null;
+      const rev = revOverride ?? revMap.get(key.toLowerCase()) ?? null;
+      const revenue = rev?.revenue ?? 0;
+      const hours = lab?.hours ?? 0;
+      const hourlyCost = lab?.hourly_cost ?? 0;
+      const bonusCost = lab?.bonus_cost ?? 0;
+      const labourCost = hourlyCost + bonusCost;
+      const totalCost = spend + labourCost;
+      const hoursOk = hours > 0;
+      return {
+        revenue,
+        hours,
+        hourlyCost,
+        bonusCost,
+        labourCost,
+        totalCost,
+        grossProfit: revenue - totalCost,
+        hoursOk,
+        hoursMissingRate: lab?.hours_missing_rate ?? 0,
+        hoursFallback: lab?.hours_fallback ?? 0,
+        bonusMissingRate: lab?.bonus_missing_rate ?? 0,
+        adsPctNum: revenue > 0 ? spend / revenue : null,
+        labourPctNum: revenue > 0 && hoursOk ? labourCost / revenue : null,
+        totalPctNum: revenue > 0 && hoursOk ? totalCost / revenue : null,
+        trueCps: hoursOk && shows > 0 ? totalCost / shows : null,
+        bookingsPerHour: hoursOk ? bookings / hours : null,
+      };
+    },
+    [],
+  );
+
+  const totalLabour: LabourRow = useMemo(() => {
+    const src = locFilter
+      ? labourByLocation.filter((l) => l.key.toLowerCase() === locFilter.toLowerCase())
+      : labourByLocation;
+    return src.reduce<LabourRow>(
+      (a, l) => ({
+        key: "TOTAL",
+        hours: a.hours + l.hours,
+        hourly_cost: a.hourly_cost + l.hourly_cost,
+        hours_missing_rate: a.hours_missing_rate + l.hours_missing_rate,
+        hours_fallback: a.hours_fallback + l.hours_fallback,
+        bookings: a.bookings + l.bookings,
+        bonus_cost: a.bonus_cost + l.bonus_cost,
+        bonus_missing_rate: a.bonus_missing_rate + l.bonus_missing_rate,
+      }),
+      { key: "TOTAL", hours: 0, hourly_cost: 0, hours_missing_rate: 0, hours_fallback: 0, bookings: 0, bonus_cost: 0, bonus_missing_rate: 0 },
+    );
+  }, [labourByLocation, locFilter]);
+
+  const totalRevenue: RevenueRow = useMemo(() => {
+    const src = locFilter
+      ? revenueByLocation.filter((r) => r.key.toLowerCase() === locFilter.toLowerCase())
+      : revenueByLocation;
+    return src.reduce<RevenueRow>(
+      (a, r) => ({ key: "TOTAL", shows: a.shows + r.shows, revenue: a.revenue + r.revenue }),
+      { key: "TOTAL", shows: 0, revenue: 0 },
+    );
+  }, [revenueByLocation, locFilter]);
+
   // ---- Section B: leaderboard rows
   const rows = useMemo(() => {
-    const enriched = ads.map((a) => ({
-      ...a,
-      cpl: costNum(a.spend, a.leads),
-      cpb: costNum(a.spend, a.booked),
-      cps: costNum(a.spend, a.showed),
-      lowData: a.showed < 3,
-      bookingRate: a.leads ? a.booked / a.leads : null,
-      showRate: a.showed + a.noshow ? a.showed / (a.showed + a.noshow) : null,
-    }));
+    const enriched = ads.map((a) => {
+      const m = buildMoney(a.ad_name, a.unattributed ? 0 : a.spend, a.showed, a.booked, labAdMap, revAdMap);
+      return {
+        ...a,
+        cpl: costNum(a.spend, a.leads),
+        cpb: costNum(a.spend, a.booked),
+        cps: costNum(a.spend, a.showed),
+        lowData: a.showed < 3,
+        bookingRate: a.leads ? a.booked / a.leads : null,
+        showRate: a.showed + a.noshow ? a.showed / (a.showed + a.noshow) : null,
+        m,
+      };
+    });
     const val = (r: (typeof enriched)[number]): number | string | null => {
       switch (sortKey) {
         case "ad": return r.ad_name.toLowerCase();
@@ -219,9 +347,15 @@ function NumbersPage() {
         case "showed": return r.showed;
         case "cpl": return r.cpl;
         case "cpb": return r.cpb;
+        case "cps": return r.cps;
+        case "repCost": return r.m.hourlyCost || null;
+        case "bonus": return r.m.bonusCost || null;
+        case "totalCost": return r.m.totalCost || null;
+        case "revenue": return r.m.revenue || null;
+        case "trueCps": return r.m.trueCps;
         case "bookingRate": return r.bookingRate;
         case "showRate": return r.showRate;
-        default: return r.cps;
+        default: return r.m.totalPctNum;
       }
     };
     return enriched.sort((a, b) => {
@@ -237,9 +371,9 @@ function NumbersPage() {
         return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       return sortAsc ? av - bv : bv - av;
     });
-  }, [ads, sortKey, sortAsc]);
+  }, [ads, sortKey, sortAsc, buildMoney, labAdMap, revAdMap]);
 
-  // ---- Section C: chart data
+  // ---- Section C: chart data (ad-only cost per show + total cost as % of revenue)
   const chart = useMemo(() => {
     const locs = Array.from(new Set(monthly.map((m) => m.location))).sort();
     const byMonth = new Map<string, Record<string, number | string>>();
@@ -249,11 +383,20 @@ function NumbersPage() {
       if (m.spend > 0 && m.showed > 0) row[m.location] = Math.round(m.spend / m.showed);
       byMonth.set(key, row);
     }
+    for (const m of moneyMonthly) {
+      const key = m.month.slice(0, 7);
+      const row = byMonth.get(key) ?? { month: key };
+      const totalCost = m.spend + m.labour_cost + m.bonus_cost;
+      if (m.revenue > 0 && m.labour_cost > 0)
+        row[`${m.location} total %`] = Math.round((totalCost / m.revenue) * 1000) / 10;
+      byMonth.set(key, row);
+    }
     return {
       locs,
       data: Array.from(byMonth.values()).sort((a, b) => String(a.month).localeCompare(String(b.month))),
     };
-  }, [monthly]);
+  }, [monthly, moneyMonthly]);
+
 
   if (authReady && session && !isAdmin) {
     return (
@@ -406,6 +549,26 @@ function NumbersPage() {
               <AlertTriangle className="h-3 w-3" /> Needs outcome ({needsOutcome.length})
             </button>
           )}
+
+          <Link
+            to="/rep-hours"
+            style={{
+              fontSize: 12,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "0.5px solid #d8d8d5",
+              background: "#fff",
+              color: "#111",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Clock className="h-3 w-3" /> Rep hours &amp; rates
+          </Link>
+
+
 
           <button
             onClick={() => {
@@ -564,15 +727,22 @@ function NumbersPage() {
           {[...visibleLocations].sort((a, b) => a.location.localeCompare(b.location)).concat(visibleLocations.length > 1 ? [total] : []).map((l, i) => {
             const isTotal = l.location === "TOTAL" && i === visibleLocations.length;
             const unresolvedShare = l.booked ? l.needs_outcome / l.booked : 0;
+            const m = isTotal
+              ? buildMoney("TOTAL", l.spend, l.showed, l.booked, labLocMap, revLocMap, totalLabour, totalRevenue)
+              : buildMoney(l.location, l.spend, l.showed, l.booked, labLocMap, revLocMap);
+            const tp = m.totalPctNum;
+            const tpColor = tp === null ? "#6b6b6b" : tp < 0.25 ? "#2f6f4f" : tp <= 0.4 ? "#8a5a2b" : "#b03030";
             return (
               <div key={`${l.location}-${i}`} style={{ ...CARD, borderColor: isTotal ? "#111" : "#e8e8e6" }}>
                 <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{l.location}</div>
-                <div style={{ fontSize: 11, color: "#6b6b6b" }}>Cost per show</div>
+                <div style={{ fontSize: 11, color: "#6b6b6b" }}>True cost per show</div>
                 <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: -1, lineHeight: 1.1 }}>
-                  {cost(l.spend, l.showed)}
+                  {m.trueCps === null ? "—" : money(m.trueCps)}
+                </div>
+                <div style={{ fontSize: 11, color: "#9a9a97", marginTop: 2 }}>
+                  Ads only: {cost(l.spend, l.showed)}
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 12, fontSize: 12 }}>
-                  <div style={{ color: "#6b6b6b" }}>Ad spend</div><div style={{ textAlign: "right" }}>{l.spend ? money(l.spend) : "—"}</div>
                   <div style={{ color: "#6b6b6b" }}>Leads</div><div style={{ textAlign: "right" }}>{l.leads}</div>
                   <div style={{ color: "#6b6b6b" }}>Booked</div><div style={{ textAlign: "right" }}>{l.booked}</div>
                   <div style={{ color: "#6b6b6b" }}>Showed</div><div style={{ textAlign: "right" }}>{l.showed}</div>
@@ -583,6 +753,57 @@ function NumbersPage() {
                   <div style={{ color: "#6b6b6b" }}>Cost per lead</div><div style={{ textAlign: "right" }}>{cost(l.spend, l.leads)}</div>
                   <div style={{ color: "#6b6b6b" }}>Cost per booked</div><div style={{ textAlign: "right" }}>{cost(l.spend, l.booked)}</div>
                 </div>
+
+                {/* Money block */}
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "0.5px solid #f0f0ee", display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 10px", fontSize: 12, alignItems: "baseline" }}>
+                  <div style={{ color: "#6b6b6b" }}>Revenue</div>
+                  <div style={{ textAlign: "right", fontWeight: 600 }}>{m.revenue ? money(m.revenue) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#9a9a97", fontSize: 11 }}>{l.showed} × show</div>
+
+                  <div style={{ color: "#6b6b6b" }}>Ad spend</div>
+                  <div style={{ textAlign: "right" }}>{l.spend ? money(l.spend) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.adsPctNum === null ? "—" : `${(m.adsPctNum * 100).toFixed(1)}%`}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Rep cost (hourly)</div>
+                  <div style={{ textAlign: "right" }}>{m.hoursOk ? money(m.hourlyCost) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.hoursOk && m.revenue > 0 ? `${((m.hourlyCost / m.revenue) * 100).toFixed(1)}%` : "—"}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Booking bonuses</div>
+                  <div style={{ textAlign: "right" }}>{money(m.bonusCost)}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.revenue > 0 ? `${((m.bonusCost / m.revenue) * 100).toFixed(1)}%` : "—"}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Labour (both)</div>
+                  <div style={{ textAlign: "right" }}>{m.hoursOk ? money(m.labourCost) : "—"}</div>
+                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
+                    {m.labourPctNum === null ? "—" : `${(m.labourPctNum * 100).toFixed(1)}%`}
+                  </div>
+
+                  <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid #e8e8e6", marginTop: 2 }} />
+
+                  <div style={{ fontWeight: 600 }}>TOTAL COST</div>
+                  <div style={{ textAlign: "right", fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>
+                    {m.hoursOk ? money(m.totalCost) : "—"}
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
+                    {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
+                  </div>
+
+                  <div style={{ color: "#6b6b6b" }}>Gross profit</div>
+                  <div style={{ textAlign: "right", fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
+                    {m.hoursOk ? money(m.grossProfit) : "—"}
+                  </div>
+                  <div />
+                </div>
+                <div style={{ fontSize: 10.5, color: "#9a9a97", marginTop: 6 }}>
+                  includes owner time at replacement rate
+                </div>
+
                 <div style={{ marginTop: 12, paddingTop: 10, borderTop: "0.5px solid #f0f0ee", fontSize: 12 }}>
                   <div>
                     Booking rate <strong>{pct(l.booked, l.leads)}</strong>{" "}
@@ -592,21 +813,49 @@ function NumbersPage() {
                     Show rate <strong>{pct(l.showed, l.showed + l.noshow)}</strong>{" "}
                     <span style={{ color: "#6b6b6b" }}>({l.showed} of {l.showed + l.noshow})</span>
                   </div>
+                  <div>
+                    Rep hours <strong>{m.hoursOk ? m.hours.toFixed(1) : "—"}</strong>{" "}
+                    <span style={{ color: "#6b6b6b" }}>
+                      ({m.bookingsPerHour === null ? "—" : m.bookingsPerHour.toFixed(2)} bookings per hour)
+                    </span>
+                  </div>
                 </div>
+
+                {!m.hoursOk && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: "#b03030", background: "#fdeeee", padding: "6px 8px", borderRadius: 8 }}>
+                    Hours could not be calculated — labour and total cost are not shown.
+                  </div>
+                )}
+                {m.hoursMissingRate > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                    {m.hoursMissingRate.toFixed(1)} hours from a rep with no rate set — labour is understated.
+                  </div>
+                )}
+                {m.hoursFallback > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                    {m.hoursFallback.toFixed(1)} hours split by leads contacted, not call time.
+                  </div>
+                )}
+                {m.bonusMissingRate > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                    {m.bonusMissingRate} bookings with no bonus rate set.
+                  </div>
+                )}
                 {unresolvedShare > 0.1 && (
-                  <div style={{ marginTop: 10, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
                     {l.needs_outcome} appointments unresolved — cost per show may be understated.
                   </div>
                 )}
               </div>
             );
           })}
+
         </div>
 
         {/* SECTION B */}
         <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
           <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Ad leaderboard</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
             <thead>
               <tr>
                 {th("ad", "Ad name", "left")}
@@ -617,7 +866,13 @@ function NumbersPage() {
                 {th("showed", "Showed")}
                 {th("cpl", "Cost/lead")}
                 {th("cpb", "Cost/booked")}
-                {th("cps", "COST PER SHOW")}
+                {th("cps", "Cost/show (ads)")}
+                {th("repCost", "Rep cost")}
+                {th("bonus", "Booking bonuses")}
+                {th("totalCost", "Total cost")}
+                {th("revenue", "Revenue")}
+                {th("costPct", "COST % OF REVENUE")}
+                {th("trueCps", "True cost/show")}
                 {th("bookingRate", "Booking rate")}
                 {th("showRate", "Show rate")}
               </tr>
@@ -631,6 +886,8 @@ function NumbersPage() {
                     : r.cps <= accountAvgCps
                       ? "#2f6f4f"
                       : "#b03030";
+                const tp = r.m.totalPctNum;
+                const tpColor = dim || tp === null ? "#111" : tp < 0.25 ? "#2f6f4f" : tp <= 0.4 ? "#8a5a2b" : "#b03030";
                 return (
                   <tr
                     key={`${r.ad_name}-${r.unattributed}`}
@@ -658,22 +915,30 @@ function NumbersPage() {
                     <td style={td}>{r.showed}</td>
                     <td style={td}>{r.unattributed ? "—" : cost(r.spend, r.leads)}</td>
                     <td style={td}>{r.unattributed ? "—" : cost(r.spend, r.booked)}</td>
-                    <td style={{ ...td, fontWeight: 700, fontSize: 14, color: cpsColor }}>
+                    <td style={{ ...td, color: cpsColor }}>
                       {r.unattributed ? "—" : cost(r.spend, r.showed)}
                     </td>
+                    <td style={td}>{r.m.hoursOk ? money(r.m.hourlyCost) : "—"}</td>
+                    <td style={td}>{r.m.bonusCost ? money(r.m.bonusCost) : "—"}</td>
+                    <td style={td}>{r.m.hoursOk ? money(r.m.totalCost) : "—"}</td>
+                    <td style={td}>{r.m.revenue ? money(r.m.revenue) : "—"}</td>
+                    <td style={{ ...td, fontWeight: 700, fontSize: 14, color: tpColor }}>
+                      {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
+                    </td>
+                    <td style={td}>{r.m.trueCps === null ? "—" : money(r.m.trueCps)}</td>
                     <td style={td}>{pct(r.booked, r.leads)}</td>
                     <td style={td}>{pct(r.showed, r.showed + r.noshow)}</td>
                   </tr>
                 );
               })}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={11} style={{ padding: 16, fontSize: 13, color: "#6b6b6b" }}>Nothing in this range yet.</td></tr>
+                <tr><td colSpan={17} style={{ padding: 16, fontSize: 13, color: "#6b6b6b" }}>Nothing in this range yet.</td></tr>
               )}
             </tbody>
           </table>
           {accountAvgCps !== null && (
             <div style={{ padding: "10px 18px 16px", fontSize: 11, color: "#6b6b6b" }}>
-              Account average cost per show: {money(accountAvgCps)} — green is better than average, red is worse.
+              Account average cost per show: {money(accountAvgCps)}. Cost as a share of revenue: green under 25%, amber to 40%, red above.
             </div>
           )}
         </div>
@@ -684,22 +949,44 @@ function NumbersPage() {
           {chart.data.length === 0 ? (
             <div style={{ fontSize: 13, color: "#6b6b6b" }}>No spend and show data to chart yet.</div>
           ) : (
-            <div style={{ width: "100%", height: 280 }}>
+            <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer>
                 <LineChart data={chart.data}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0ee" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                  <ReTooltip formatter={(v: number) => money(Number(v))} />
+                  <YAxis yAxisId="cost" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                  <YAxis yAxisId="pct" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                  <ReTooltip
+                    formatter={(v: number, name: string) =>
+                      String(name).endsWith("total %") ? `${Number(v).toFixed(1)}%` : money(Number(v))
+                    }
+                  />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {chart.locs.map((loc, i) => (
-                    <Line key={loc} type="monotone" dataKey={loc} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot connectNulls />
+                    <Line key={loc} yAxisId="cost" type="monotone" dataKey={loc} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot connectNulls />
+                  ))}
+                  {chart.locs.map((loc, i) => (
+                    <Line
+                      key={`${loc}-pct`}
+                      yAxisId="pct"
+                      type="monotone"
+                      dataKey={`${loc} total %`}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeDasharray="4 3"
+                      strokeWidth={1.5}
+                      dot={false}
+                      connectNulls
+                    />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
           )}
+          <div style={{ fontSize: 11, color: "#6b6b6b", marginTop: 8 }}>
+            Solid lines: ad cost per show. Dashed lines: total cost (ads + rep pay + bonuses) as a share of revenue.
+          </div>
         </div>
+
       </div>
 
       {/* Drilldown */}
