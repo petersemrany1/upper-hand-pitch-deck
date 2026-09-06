@@ -122,7 +122,13 @@ function NumbersPage() {
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
   const [locations, setLocations] = useState<LocationSummaryRow[]>([]);
   const [monthly, setMonthly] = useState<MonthlyPoint[]>([]);
+  const [labourByLocation, setLabourByLocation] = useState<LabourRow[]>([]);
+  const [labourByAd, setLabourByAd] = useState<LabourRow[]>([]);
+  const [revenueByLocation, setRevenueByLocation] = useState<RevenueRow[]>([]);
+  const [revenueByAd, setRevenueByAd] = useState<RevenueRow[]>([]);
+  const [moneyMonthly, setMoneyMonthly] = useState<MoneyMonthPoint[]>([]);
   const [needsOutcome, setNeedsOutcome] = useState<NeedsOutcomeRow[]>([]);
+
   const [syncState, setSyncState] = useState<{
     last_synced_at: string | null;
     last_status: string | null;
