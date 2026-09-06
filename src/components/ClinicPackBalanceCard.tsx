@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
@@ -35,6 +35,10 @@ type Pack = {
   status: "active" | "completed";
   notes: string | null;
   created_at: string;
+  pack_name: string | null;
+  amount_paid_ex_gst: number | null;
+  date_paid: string | null;
+  pack_type: "paid" | "free_trial" | "guarantee_credit" | "goodwill";
 };
 
 type Props = {
