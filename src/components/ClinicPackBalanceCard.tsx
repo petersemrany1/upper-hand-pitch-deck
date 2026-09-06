@@ -458,6 +458,50 @@ function AddPackModal({ clinicId, pack, onClose, onSaved }: {
         />
 
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Amount paid (ex GST)
+        </label>
+        <input
+          type="number"
+          min={0}
+          step="0.01"
+          value={amountStr}
+          onChange={(e) => setAmountStr(e.target.value)}
+          placeholder="e.g. 8000"
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${amountStr === "" && packType === "paid" ? AMBER : GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_8 }}
+        />
+        <div style={{ fontSize: 12, color: amountStr === "" && packType === "paid" ? AMBER : GREY_TEXT, marginBottom: SPACE_16 }}>
+          {amountStr === "" && packType === "paid"
+            ? "Needed so revenue, rate per show and value owed keep working."
+            : size > 0 && amount != null && amount > 0
+              ? `That's $${(amount / size).toFixed(2)} per show.`
+              : "Leave blank only for free or credited packs."}
+        </div>
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Date paid
+        </label>
+        <input
+          type="date"
+          value={datePaid}
+          onChange={(e) => setDatePaid(e.target.value)}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16 }}
+        />
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Pack type
+        </label>
+        <select
+          value={packType}
+          onChange={(e) => setPackType(e.target.value as Pack["pack_type"])}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16, background: "#fff" }}
+        >
+          <option value="paid">Paid</option>
+          <option value="free_trial">Free trial</option>
+          <option value="guarantee_credit">Guarantee credit</option>
+          <option value="goodwill">Goodwill</option>
+        </select>
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Notes (optional)
         </label>
         <textarea
@@ -477,7 +521,7 @@ function AddPackModal({ clinicId, pack, onClose, onSaved }: {
             padding: "10px 16px", borderRadius: RADIUS_BTN, border: "none",
             background: NAVY, color: "#fff", fontSize: 14, fontWeight: 600, cursor: saving ? "not-allowed" : "pointer",
             opacity: saving ? 0.6 : 1,
-          }}>{saving ? "Saving…" : "Add pack"}</button>
+          }}>{saving ? "Saving…" : pack ? "Save pack" : "Add pack"}</button>
         </div>
       </div>
     </div>
