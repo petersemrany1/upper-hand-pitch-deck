@@ -484,7 +484,12 @@ function DashboardHome() {
       // Test leads (name containing "test") are excluded server-side.
       const { data: statsRows, error: statsErr } = await supabase.rpc(
         "dashboard_conversion_stats",
-        { p_from: fromIso ?? "", p_rep: scopeId ?? "", p_city: convCity || undefined },
+        // Generated types mark these required, but SQL treats NULL as "no filter".
+        {
+          p_from: (fromIso ?? null) as unknown as string,
+          p_rep: (scopeId ?? null) as unknown as string,
+          p_city: (convCity || null) as unknown as string,
+        },
       );
       if (cancelled) return;
       if (statsErr) {
