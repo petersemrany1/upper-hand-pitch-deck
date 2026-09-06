@@ -120,6 +120,9 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       for (const c of clinics ?? []) clinicNames.set(c.id, c.clinic_name);
     }
 
+    const firstErr = perf.error ?? locs.error ?? monthly.error;
+    if (firstErr) throw new Error(`Report query failed: ${firstErr.message}`);
+
     return {
       ads: ((perf.data ?? []) as unknown as AdPerformanceRow[]).map((r) => ({
         ...r,
