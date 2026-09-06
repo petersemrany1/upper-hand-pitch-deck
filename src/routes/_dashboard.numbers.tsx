@@ -19,19 +19,17 @@ import {
   type ClinicOption,
   type AdPerformanceRow,
   type LocationSummaryRow,
-  type MonthlyPoint,
   type NeedsOutcomeRow,
   type PackEconomicsRow,
   type SpendRow,
   type LabourRow,
   type RevenueRow,
-  type MoneyMonthPoint,
 } from "@/lib/ad-spend.functions";
-import { CARD, FONT, INK, MUTED, type RangeKey, money, resolveRange, td2, td2r, th2, th2r, todaySydney } from "@/components/numbers/format";
-import { buildAdStats, buildAllCities, sumCityStats } from "@/components/numbers/model";
-import { CitySwitcher } from "@/components/numbers/CitySwitcher";
-import { FunnelTab } from "@/components/numbers/FunnelTab";
-import { CompareTab, type TrendPoint } from "@/components/numbers/CompareTab";
+import { CARD, FONT, INK, MUTED, type RangeKey, money, oneDp, pctOrDash, resolveRange, td2, td2r, th2, th2r, todaySydney } from "@/components/numbers/format";
+import { buildAdStats, buildAllCities, diagnoseCity, sumCityStats } from "@/components/numbers/model";
+import { CityRail } from "@/components/numbers/CityRail";
+import { CityDetail } from "@/components/numbers/CityDetail";
+import { CompareTable } from "@/components/numbers/CompareTable";
 import { AdsTab } from "@/components/numbers/AdsTab";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
@@ -55,14 +53,21 @@ export const Route = createFileRoute("/_dashboard/numbers")({
   component: NumbersPage,
 });
 
-type Tab = "funnel" | "compare" | "ads" | "packs";
+type View = "performance" | "packs";
 
-const TABS: [Tab, string, string][] = [
-  ["funnel", "What do leads cost?", "Cost per lead, leads that book, cost per showed appointment"],
-  ["compare", "Marketing vs labour", "Ad spend against rep pay, city by city"],
-  ["ads", "Which ads work?", "A plain verdict on every ad"],
-  ["packs", "Clinics & packs", "What each clinic paid and what is still owed"],
-];
+const FMT = { money, pct: pctOrDash, oneDp };
+
+// Responsive shell: city rail beside the detail on wide screens, stacked on
+// narrow ones. Kept as a scoped stylesheet so the inline-styled cards stay
+// self-contained.
+const SHELL_CSS = `
+.numbers-shell{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}
+@media (min-width:1024px){.numbers-shell{grid-template-columns:250px minmax(0,1fr)}.numbers-rail{position:sticky;top:16px}}
+@media (max-width:720px){.numbers-funnel{grid-template-columns:1fr!important}.numbers-arrow{padding:6px 0!important;align-items:flex-start!important}.numbers-split{grid-template-columns:1fr!important}}
+@media (max-width:1023px){.numbers-rail-list{flex-direction:row!important;overflow-x:auto;gap:6px!important;padding-bottom:4px}.numbers-rail-item{min-width:160px;flex:0 0 auto}.numbers-rail-divider,.numbers-rail-note{display:none}}
+.numbers-rail-item:hover{background:#f0f0ee}
+.numbers-rail-item[aria-current="true"]:hover{background:#111}
+`;
 
 function NumbersPage() {
   const { session, role, ready: authReady } = useAuth();
@@ -84,10 +89,8 @@ function NumbersPage() {
 
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
   const [locations, setLocations] = useState<LocationSummaryRow[]>([]);
-  const [monthly, setMonthly] = useState<MonthlyPoint[]>([]);
   const [labourByLocation, setLabourByLocation] = useState<LabourRow[]>([]);
   const [revenueByLocation, setRevenueByLocation] = useState<RevenueRow[]>([]);
-  const [moneyMonthly, setMoneyMonthly] = useState<MoneyMonthPoint[]>([]);
   const [needsOutcome, setNeedsOutcome] = useState<NeedsOutcomeRow[]>([]);
   const [packEconomics, setPackEconomics] = useState<PackEconomicsRow[]>([]);
 
@@ -97,7 +100,7 @@ function NumbersPage() {
     last_message: string | null;
   } | null>(null);
 
-  const [tab, setTab] = useState<Tab>("funnel");
+  const [view, setView] = useState<View>("performance");
   const [showUnresolved, setShowUnresolved] = useState(false);
   const [drill, setDrill] = useState<{ ad: AdPerformanceRow; rows: unknown[] } | null>(null);
   const [spendPanel, setSpendPanel] = useState(false);
@@ -139,10 +142,8 @@ function NumbersPage() {
       });
       setAds(res.ads);
       setLocations(res.locations);
-      setMonthly(res.monthly);
       setLabourByLocation(res.labourByLocation);
       setRevenueByLocation(res.revenueByLocation);
-      setMoneyMonthly(res.moneyMonthly);
       setNeedsOutcome(res.needsOutcome);
       setPackEconomics(res.packEconomics);
       setSyncState(res.syncState);
@@ -197,29 +198,14 @@ function NumbersPage() {
 
   const adStats = useMemo(() => buildAdStats(ads), [ads]);
 
-  // Monthly trend (ad-only cost per showed + total cost as % of revenue)
-  const trend = useMemo(() => {
-    const locs = Array.from(new Set(monthly.map((m) => m.location))).sort();
-    const byMonth = new Map<string, TrendPoint>();
-    for (const m of monthly) {
-      const key = m.month.slice(0, 7);
-      const row = byMonth.get(key) ?? { month: key };
-      if (m.spend > 0 && m.showed > 0) row[m.location] = Math.round(m.spend / m.showed);
-      byMonth.set(key, row);
-    }
-    for (const m of moneyMonthly) {
-      const key = m.month.slice(0, 7);
-      const row = byMonth.get(key) ?? { month: key };
-      const totalCost = m.spend + m.labour_cost + m.bonus_cost;
-      if (m.revenue > 0 && m.labour_cost > 0)
-        row[`${m.location} total %`] = Math.round((totalCost / m.revenue) * 1000) / 10;
-      byMonth.set(key, row);
-    }
-    return {
-      locs,
-      data: Array.from(byMonth.values()).sort((a, b) => String(a.month).localeCompare(String(b.month))),
-    };
-  }, [monthly, moneyMonthly]);
+  // One verdict per city, read against the account average.
+  const diagnosed = useMemo(
+    () => cities.map((c) => ({ city: c, diagnosis: diagnoseCity(c, all, FMT) })),
+    [cities, all],
+  );
+  const scopeDiagnosis = locFilter
+    ? diagnosed.find((d) => d.city.key.toLowerCase() === locFilter.toLowerCase())?.diagnosis ?? null
+    : null;
 
   if (authReady && session && !isAdmin) {
     return (
@@ -261,10 +247,22 @@ function NumbersPage() {
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
+      <style>{SHELL_CSS}</style>
       <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
         {/* Header */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
           <h1 style={{ fontSize: 26, fontWeight: 600, color: INK, margin: 0 }}>Numbers</h1>
+          <div style={{ display: "flex", gap: 4, background: "#eeeeec", borderRadius: 10, padding: 3, marginLeft: 8 }}>
+            {([["performance", "Performance"], ["packs", "Clinics & packs"]] as [View, string][]).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setView(k)}
+                style={{ fontSize: 12.5, padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", background: view === k ? "#fff" : "transparent", fontWeight: view === k ? 600 : 400, color: INK }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div style={{ flex: 1 }} />
           <div style={{ fontSize: 12, color: syncState?.last_status === "error" ? "#b03030" : MUTED }}>
             Spend last synced:{" "}
@@ -279,32 +277,6 @@ function NumbersPage() {
           >
             <RefreshCw className="h-3 w-3" /> Refresh
           </button>
-        </div>
-
-        {/* City switcher — the main control */}
-        <CitySwitcher cities={cityNames} selected={locFilter} onSelect={setLocFilter} />
-
-        {/* Question tabs */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: "#eeeeec", borderRadius: 10, padding: 3, alignSelf: "flex-start" }}>
-          {TABS.map(([k, label, hint]) => (
-            <button
-              key={k}
-              onClick={() => setTab(k)}
-              title={hint}
-              style={{
-                fontSize: 12.5,
-                padding: "7px 14px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                background: tab === k ? "#fff" : "transparent",
-                fontWeight: tab === k ? 600 : 400,
-                color: INK,
-              }}
-            >
-              {label}
-            </button>
-          ))}
         </div>
 
         {/* Range + secondary controls */}
@@ -555,39 +527,40 @@ function NumbersPage() {
           </div>
         )}
 
-        {loading && cities.length === 0 && (
-          <div style={{ fontSize: 13, color: MUTED, padding: "8px 2px" }}>Loading the numbers…</div>
-        )}
-
-        {tab === "funnel" && (
-          <FunnelTab scope={scope} cities={cities} all={all} selected={locFilter} onSelect={setLocFilter} />
-        )}
-
-        {tab === "compare" && (
-          <CompareTab
-            scope={scope}
-            cities={cities}
-            all={all}
-            selected={locFilter}
-            onSelect={setLocFilter}
-            unallocated={unallocated}
-            countMyPay={countMyPay}
-            trend={trend}
-          />
-        )}
-
-        {tab === "ads" && (
-          <AdsTab
-            rows={adStats.rows}
-            avgCostPerShow={adStats.avgCostPerShow}
-            loading={loading}
-            scopeLabel={scopeLabel}
-            onDrill={(ad) => void openDrill(ad)}
-          />
+        {view === "performance" && (
+          <div className="numbers-shell">
+            <div className="numbers-rail">
+              <CityRail all={all} items={diagnosed} selected={locFilter} onSelect={setLocFilter} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+              {loading && cities.length === 0 ? (
+                <div style={{ ...CARD, fontSize: 13, color: MUTED }}>Loading the numbers…</div>
+              ) : (
+                <>
+                  <CityDetail
+                    scope={scope}
+                    avg={all}
+                    isAll={!locFilter}
+                    diagnosis={scopeDiagnosis}
+                    unallocated={unallocated}
+                    countMyPay={countMyPay}
+                  />
+                  <AdsTab
+                    rows={adStats.rows}
+                    avgCostPerShow={adStats.avgCostPerShow}
+                    loading={loading}
+                    scopeLabel={scopeLabel}
+                    onDrill={(ad) => void openDrill(ad)}
+                  />
+                  <CompareTable rows={diagnosed} all={all} selected={locFilter} onSelect={setLocFilter} />
+                </>
+              )}
+            </div>
+          </div>
         )}
 
         {/* TAB 3 — packs & delivery */}
-        {tab === "packs" && (
+        {view === "packs" && (
         <>
         <div style={{ ...CARD, marginTop: 18 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>

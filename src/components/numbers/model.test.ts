@@ -97,3 +97,82 @@ describe("buildAdStats", () => {
     expect(rows.find((r) => r.ad_name === "z")?.adCostPerShow).toBeNull();
   });
 });
+
+import { compareToAvg, diagnoseCity, oneIn } from "./model";
+
+const fmt = { money: (n: number) => `$${Math.round(n)}`, pct: (r: number | null) => (r === null ? "—" : `${Math.round(r * 100)}%`), oneDp: (n: number | null) => (n === null ? "—" : n.toFixed(1)) };
+
+const city = (o: Partial<Parameters<typeof buildCityStats>[1] & { hours: number; hourly_cost: number; bonus_cost: number; revenue: number }> & { key: string }) =>
+  buildCityStats(
+    o.key,
+    { location: o.key, spend: o.spend ?? 0, leads: o.leads ?? 0, booked: o.booked ?? 0, showed: o.showed ?? 0, noshow: o.noshow ?? 0, upcoming: 0, needs_outcome: 0, disqualified: 0 },
+    { key: o.key, hours: o.hours ?? 0, hourly_cost: o.hourly_cost ?? 0, bonus_cost: o.bonus_cost ?? 0, hours_missing_rate: 0, hours_fallback: 0, bookings: o.booked ?? 0, bonus_missing_rate: 0 },
+    { key: o.key, shows: o.showed ?? 0, revenue: o.revenue ?? 0 },
+  );
+
+describe("compareToAvg", () => {
+  test("lower-is-better costs", () => {
+    expect(compareToAvg(30, 10, true)).toMatchObject({ tone: "red", label: "3.0× avg" });
+    expect(compareToAvg(13, 10, true)).toMatchObject({ tone: "amber", label: "+30% vs avg" });
+    expect(compareToAvg(10.2, 10, true)).toMatchObject({ tone: "grey", label: "on par" });
+    expect(compareToAvg(7, 10, true)).toMatchObject({ tone: "green", label: "−30% vs avg" });
+  });
+  test("higher-is-better rates flip the tone", () => {
+    expect(compareToAvg(0.1, 0.2, false).tone).toBe("red");
+    expect(compareToAvg(0.3, 0.2, false).tone).toBe("green");
+  });
+  test("missing average gives no chip", () => {
+    expect(compareToAvg(5, null, true).ratio).toBeNull();
+    expect(compareToAvg(5, 0, true).label).toBe("—");
+  });
+});
+
+describe("diagnoseCity", () => {
+  // Average: $10/lead, 25% book, 2 h/booking, 80% show.
+  const avg = city({ key: "avg", spend: 1000, leads: 100, booked: 25, showed: 16, noshow: 4, hours: 50, hourly_cost: 2000 });
+
+  test("expensive leads but normal conversion → marketing", () => {
+    const d = diagnoseCity(city({ key: "Byron Bay", spend: 600, leads: 20, booked: 5, showed: 4, noshow: 1, hours: 10, hourly_cost: 400 }), avg, fmt);
+    expect(d.key).toBe("marketing");
+    expect(d.headline).toBe("Byron Bay is struggling with marketing");
+    expect(d.signals.find((s) => s.key === "marketing")?.bad).toBe(true);
+    expect(d.signals.find((s) => s.key === "labour")?.bad).toBe(false);
+  });
+
+  test("cheap leads that take many hours per booking → labour", () => {
+    const d = diagnoseCity(city({ key: "Perth", spend: 200, leads: 20, booked: 2, showed: 2, noshow: 0, hours: 12, hourly_cost: 480 }), avg, fmt);
+    expect(d.key).toBe("labour");
+    expect(d.short).toBe("Labour");
+  });
+
+  test("books fine but people don't turn up → no-shows", () => {
+    const d = diagnoseCity(city({ key: "Sydney", spend: 200, leads: 20, booked: 5, showed: 2, noshow: 3, hours: 10, hourly_cost: 400 }), avg, fmt);
+    expect(d.key).toBe("shows");
+    expect(d.headline).toBe("Sydney is losing people to no-shows");
+  });
+
+  test("everything near average → on track", () => {
+    const d = diagnoseCity(city({ key: "Melbourne", spend: 500, leads: 50, booked: 12, showed: 8, noshow: 2, hours: 24, hourly_cost: 960 }), avg, fmt);
+    expect(d.key).toBe("healthy");
+  });
+
+  test("two problems → mixed", () => {
+    const d = diagnoseCity(city({ key: "Hobart", spend: 600, leads: 20, booked: 2, showed: 2, noshow: 0, hours: 12, hourly_cost: 480 }), avg, fmt);
+    expect(d.key).toBe("mixed");
+    expect(d.headline).toBe("Hobart is struggling with marketing and labour");
+  });
+
+  test("under 10 leads is too early", () => {
+    expect(diagnoseCity(city({ key: "Darwin", spend: 100, leads: 4, booked: 1 }), avg, fmt).key).toBe("early");
+  });
+
+  test("spend with no leads at all is a marketing problem, not too early", () => {
+    expect(diagnoseCity(city({ key: "Cairns", spend: 300, leads: 0 }), avg, fmt).key).toBe("marketing");
+  });
+});
+
+test("oneIn", () => {
+  expect(oneIn(0.25)).toBe("1 in 4.0");
+  expect(oneIn(0.05)).toBe("1 in 20");
+  expect(oneIn(null)).toBe("—");
+});

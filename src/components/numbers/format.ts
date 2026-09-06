@@ -78,7 +78,7 @@ export const moneyOrDash = (n: number | null | undefined) =>
 export const pctOrDash = (ratio: number | null | undefined) => {
   if (ratio === null || ratio === undefined || !Number.isFinite(ratio)) return "—";
   const v = ratio * 100;
-  return `${v < 10 ? v.toFixed(1) : v.toFixed(0)}%`;
+  return `${v > 0 && v < 10 ? v.toFixed(1) : v.toFixed(0)}%`;
 };
 
 export const ratio = (num: number, den: number): number | null => (den > 0 ? num / den : null);

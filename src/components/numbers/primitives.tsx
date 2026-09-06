@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AMBER, BIG, CARD, FAINT, INK, LABEL, MUTED, TONE, type Tone } from "./format";
+import type { Benchmark } from "./model";
 
 /** One big number with a label above and a one-line explanation below. */
 export function StatTile({
@@ -101,4 +102,32 @@ export function Note({ children, tone = "amber" }: { children: ReactNode; tone?:
       {children}
     </div>
   );
+}
+
+/** Small "2.2× avg" / "−20% vs avg" chip next to a figure. */
+export function Delta({ b, hide }: { b: Benchmark; hide?: boolean }) {
+  if (hide || b.ratio === null) return null;
+  const t = TONE[b.tone];
+  return (
+    <span
+      style={{
+        display: "inline-block",
+        marginLeft: 8,
+        padding: "1px 7px",
+        borderRadius: 999,
+        background: t.bg,
+        color: t.text,
+        fontSize: 11,
+        fontWeight: 600,
+        verticalAlign: "middle",
+        whiteSpace: "nowrap",
+      }}
+    >
+      {b.label}
+    </span>
+  );
+}
+
+export function Dot({ tone, size = 8 }: { tone: Tone; size?: number }) {
+  return <span style={{ display: "inline-block", width: size, height: size, borderRadius: 999, background: TONE[tone].dot, flexShrink: 0 }} />;
 }

@@ -1,5 +1,5 @@
 import type { AdPerformanceRow, LabourRow, LocationSummaryRow, RevenueRow } from "@/lib/ad-spend.functions";
-import { perUnit, ratio } from "./format";
+import { perUnit, ratio, type Tone } from "./format";
 
 // One row of "how is this city doing" — the same shape whether it is a
 // single city or the whole account, so every tab can treat them alike.
@@ -226,4 +226,167 @@ export function buildAdStats(ads: AdPerformanceRow[]): { rows: AdStats[]; avgCos
     verdict: judgeAd(a, avgCostPerShow),
   }));
   return { rows, avgCostPerShow };
+}
+
+// ---- Benchmarks: every city figure is read against the account average so
+// the eye finds the outlier without reading every number.
+
+export type Benchmark = {
+  ratio: number | null; // value ÷ average
+  tone: Tone;
+  label: string; // "2.2× avg", "+18% vs avg", "−20% vs avg", "on par", "—"
+};
+
+/**
+ * Compare a figure with the average. `lowerIsBetter` for costs and
+ * hours-per-booking; rates like booking % and show rate want higher.
+ */
+export function compareToAvg(value: number | null, avg: number | null, lowerIsBetter: boolean): Benchmark {
+  if (value === null || avg === null || avg <= 0 || !Number.isFinite(value / avg)) {
+    return { ratio: null, tone: "grey", label: "—" };
+  }
+  const ratio = value / avg;
+  // "worse" is a multiplier above 1 whichever direction is good.
+  const worse = lowerIsBetter ? ratio : ratio === 0 ? Infinity : 1 / ratio;
+  const tone: Tone = worse <= 0.85 ? "green" : worse <= 1.2 ? "grey" : worse <= 1.5 ? "amber" : "red";
+  let label: string;
+  if (ratio >= 1.5) label = `${ratio.toFixed(1)}× avg`;
+  else if (Math.abs(ratio - 1) < 0.05) label = "on par";
+  else label = `${ratio > 1 ? "+" : "−"}${Math.round(Math.abs(ratio - 1) * 100)}% vs avg`;
+  return { ratio, tone, label };
+}
+
+export type SignalKey = "marketing" | "labour" | "shows";
+
+export type Signal = {
+  key: SignalKey;
+  title: string; // "Marketing", "Labour", "Shows"
+  value: string; // the city figure, formatted by the caller
+  detail: string; // one line of evidence
+  tone: Tone;
+  bad: boolean;
+};
+
+export type DiagnosisKey = "healthy" | "marketing" | "labour" | "shows" | "mixed" | "early" | "nodata";
+
+export type Diagnosis = {
+  key: DiagnosisKey;
+  short: string; // rail label: "On track", "Labour", "Marketing", "No-shows", "Mixed", "Too early"
+  headline: string; // "Byron Bay is struggling with labour"
+  tone: Tone;
+  signals: Signal[];
+};
+
+const MIN_LEADS = 10;
+const MIN_APPTS_FOR_SHOW_RATE = 5;
+
+/**
+ * Reads a city against the account average and names the weak link:
+ *  - marketing: leads cost a lot more than average (or spend with no leads)
+ *  - labour:    reps need far more hours, or far more leads, per booking
+ *  - shows:     people book but don't turn up
+ */
+export function diagnoseCity(c: CityStats, avg: CityStats, fmt: { money: (n: number) => string; pct: (r: number | null) => string; oneDp: (n: number | null) => string }): Diagnosis {
+  const name = c.key;
+  if (c.spend <= 0 && c.leads <= 0 && c.booked <= 0) {
+    return { key: "nodata", short: "No data", headline: `${name} has nothing in this range`, tone: "grey", signals: [] };
+  }
+
+  // Marketing: cost per lead vs average.
+  const cpl = compareToAvg(c.costPerLead, avg.costPerLead, true);
+  const noLeads = c.spend > 0 && c.leads === 0;
+  const marketingBad = noLeads || (cpl.ratio !== null && cpl.ratio >= 1.3);
+  const marketing: Signal = {
+    key: "marketing",
+    title: "Marketing",
+    value: noLeads ? "no leads" : c.costPerLead === null ? "—" : `${fmt.money(c.costPerLead)} / lead`,
+    detail: noLeads
+      ? `${fmt.money(c.spend)} spent and no leads came in`
+      : c.costPerLead === null
+        ? "no ad spend recorded"
+        : `${cpl.label}${avg.costPerLead !== null ? ` · avg ${fmt.money(avg.costPerLead)}` : ""}`,
+    tone: noLeads ? "red" : cpl.tone,
+    bad: marketingBad,
+  };
+
+  // Labour: hours per booking (if we have hours) and leads per booking.
+  const hpb = compareToAvg(c.hoursPerBooking, avg.hoursPerBooking, true);
+  const lpb = compareToAvg(c.leadsPerBooking, avg.leadsPerBooking, true);
+  const noBookings = c.leads >= MIN_LEADS && c.booked === 0;
+  const labourBad = noBookings || (hpb.ratio !== null && hpb.ratio >= 1.3) || (lpb.ratio !== null && lpb.ratio >= 1.3);
+  const labourTone: Tone = noBookings ? "red" : worstTone(hpb.tone, lpb.tone);
+  const labour: Signal = {
+    key: "labour",
+    title: "Labour",
+    value: noBookings
+      ? "no bookings"
+      : c.hoursPerBooking !== null
+        ? `${fmt.oneDp(c.hoursPerBooking)} h / booking`
+        : c.leadsPerBooking !== null
+          ? `1 in ${fmt.oneDp(c.leadsPerBooking)} books`
+          : "—",
+    detail: noBookings
+      ? `${c.leads} leads and not one booked`
+      : c.hoursPerBooking !== null
+        ? `${hpb.label}${avg.hoursPerBooking !== null ? ` · avg ${fmt.oneDp(avg.hoursPerBooking)} h` : ""} · 1 in ${fmt.oneDp(c.leadsPerBooking)} leads books (${lpb.label})`
+        : c.leadsPerBooking !== null
+          ? `${lpb.label}${avg.leadsPerBooking !== null ? ` · avg 1 in ${fmt.oneDp(avg.leadsPerBooking)}` : ""}`
+          : "no bookings yet",
+    tone: labourTone,
+    bad: labourBad,
+  };
+
+  // Shows: show rate vs average, only once there are enough appointments.
+  const appts = c.showed + c.noshow;
+  const sr = compareToAvg(c.showRate, avg.showRate, false);
+  const enoughAppts = appts >= MIN_APPTS_FOR_SHOW_RATE;
+  const showsBad = enoughAppts && sr.ratio !== null && sr.ratio <= 0.8;
+  const shows: Signal = {
+    key: "shows",
+    title: "Shows",
+    value: c.showRate === null ? "—" : `${fmt.pct(c.showRate)} show up`,
+    detail: !enoughAppts
+      ? `${appts} appointment${appts === 1 ? "" : "s"} with an outcome — too few to judge`
+      : `${c.showed} showed, ${c.noshow} no-show · ${sr.label}${avg.showRate !== null ? ` · avg ${fmt.pct(avg.showRate)}` : ""}`,
+    tone: !enoughAppts ? "grey" : sr.tone,
+    bad: showsBad,
+  };
+
+  const signals = [marketing, labour, shows];
+
+  if (c.leads < MIN_LEADS && !noLeads) {
+    return { key: "early", short: "Too early", headline: `${name}: too early to judge`, tone: "grey", signals };
+  }
+
+  const bad = signals.filter((s) => s.bad).map((s) => s.key);
+  if (bad.length === 0) {
+    return { key: "healthy", short: "On track", headline: `${name} is on track`, tone: "green", signals };
+  }
+  if (bad.length >= 2) {
+    const words = bad.map((k) => (k === "shows" ? "no-shows" : k));
+    return {
+      key: "mixed",
+      short: "Mixed",
+      headline: `${name} is struggling with ${words.slice(0, -1).join(", ")} and ${words[words.length - 1]}`,
+      tone: "red",
+      signals,
+    };
+  }
+  const k = bad[0];
+  const short = k === "marketing" ? "Marketing" : k === "labour" ? "Labour" : "No-shows";
+  const headline = k === "shows" ? `${name} is losing people to no-shows` : `${name} is struggling with ${k}`;
+  const tone = signals.find((s) => s.key === k)?.tone ?? "amber";
+  return { key: k, short, headline, tone: tone === "grey" ? "amber" : tone, signals };
+}
+
+const TONE_RANK: Record<Tone, number> = { green: 0, grey: 1, amber: 2, red: 3 };
+function worstTone(a: Tone, b: Tone): Tone {
+  return TONE_RANK[a] >= TONE_RANK[b] ? a : b;
+}
+
+/** "1 in 7.9" from a rate, or "—". */
+export function oneIn(rate: number | null): string {
+  if (rate === null || rate <= 0) return "—";
+  const x = 1 / rate;
+  return `1 in ${x < 10 ? x.toFixed(1) : Math.round(x)}`;
 }
