@@ -1,16 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as ReTooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,7 +27,12 @@ import {
   type RevenueRow,
   type MoneyMonthPoint,
 } from "@/lib/ad-spend.functions";
-
+import { CARD, FONT, INK, MUTED, type RangeKey, money, resolveRange, td2, td2r, th2, th2r, todaySydney } from "@/components/numbers/format";
+import { buildAdStats, buildAllCities, sumCityStats } from "@/components/numbers/model";
+import { CitySwitcher } from "@/components/numbers/CitySwitcher";
+import { FunnelTab } from "@/components/numbers/FunnelTab";
+import { CompareTab, type TrendPoint } from "@/components/numbers/CompareTab";
+import { AdsTab } from "@/components/numbers/AdsTab";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
   head: () => ({
@@ -60,58 +55,14 @@ export const Route = createFileRoute("/_dashboard/numbers")({
   component: NumbersPage,
 });
 
-const FONT =
-  '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif';
-const CARD: CSSProperties = {
-  background: "#fff",
-  border: "0.5px solid #e8e8e6",
-  borderRadius: 14,
-  padding: 18,
-};
+type Tab = "funnel" | "compare" | "ads" | "packs";
 
-type RangeKey = "month" | "30d" | "90d" | "all" | "custom";
-
-function todaySydney(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
-}
-function shift(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-function resolveRange(key: RangeKey, cf: string, ct: string): { from: string | null; to: string | null } {
-  const today = todaySydney();
-  if (key === "month") return { from: `${today.slice(0, 7)}-01`, to: today };
-  if (key === "30d") return { from: shift(today, -29), to: today };
-  if (key === "90d") return { from: shift(today, -89), to: today };
-  if (key === "custom") return { from: cf || null, to: ct || null };
-  return { from: null, to: null };
-}
-
-const money = (n: number) =>
-  `$${n.toLocaleString("en-AU", { maximumFractionDigits: 0 })}`;
-
-/** Cost metric: "—" whenever spend is zero or the divisor is zero. */
-function cost(spend: number, divisor: number): string {
-  if (!spend || !divisor || !Number.isFinite(spend / divisor)) return "—";
-  return money(spend / divisor);
-}
-function pct(num: number, den: number): string {
-  if (!den) return "—";
-  return `${((num / den) * 100).toFixed(1)}%`;
-}
-function oneInX(num: number, den: number): string {
-  if (!num || !den) return "—";
-  return `1 in ${(den / num).toFixed(1)}`;
-}
-const costNum = (spend: number, divisor: number): number | null =>
-  !spend || !divisor ? null : spend / divisor;
-
-const th2: CSSProperties = { padding: "6px 8px", fontWeight: 500, whiteSpace: "nowrap" };
-const th2r: CSSProperties = { ...th2, textAlign: "right" };
-const td2: CSSProperties = { padding: "7px 8px", whiteSpace: "nowrap" };
-const td2r: CSSProperties = { ...td2, textAlign: "right" };
+const TABS: [Tab, string, string][] = [
+  ["funnel", "What do leads cost?", "Cost per lead, leads that book, cost per showed appointment"],
+  ["compare", "Marketing vs labour", "Ad spend against rep pay, city by city"],
+  ["ads", "Which ads work?", "A plain verdict on every ad"],
+  ["packs", "Clinics & packs", "What each clinic paid and what is still owed"],
+];
 
 function NumbersPage() {
   const { session, role, ready: authReady } = useAuth();
@@ -135,9 +86,7 @@ function NumbersPage() {
   const [locations, setLocations] = useState<LocationSummaryRow[]>([]);
   const [monthly, setMonthly] = useState<MonthlyPoint[]>([]);
   const [labourByLocation, setLabourByLocation] = useState<LabourRow[]>([]);
-  const [labourByAd, setLabourByAd] = useState<LabourRow[]>([]);
   const [revenueByLocation, setRevenueByLocation] = useState<RevenueRow[]>([]);
-  const [revenueByAd, setRevenueByAd] = useState<RevenueRow[]>([]);
   const [moneyMonthly, setMoneyMonthly] = useState<MoneyMonthPoint[]>([]);
   const [needsOutcome, setNeedsOutcome] = useState<NeedsOutcomeRow[]>([]);
   const [packEconomics, setPackEconomics] = useState<PackEconomicsRow[]>([]);
@@ -148,10 +97,8 @@ function NumbersPage() {
     last_message: string | null;
   } | null>(null);
 
-  const [tab, setTab] = useState<"overview" | "money" | "costs" | "packs">("overview");
+  const [tab, setTab] = useState<Tab>("funnel");
   const [showUnresolved, setShowUnresolved] = useState(false);
-  const [sortKey, setSortKey] = useState<string>("costPct");
-  const [sortAsc, setSortAsc] = useState(true);
   const [drill, setDrill] = useState<{ ad: AdPerformanceRow; rows: unknown[] } | null>(null);
   const [spendPanel, setSpendPanel] = useState(false);
   const [spendRows, setSpendRows] = useState<SpendRow[]>([]);
@@ -194,13 +141,10 @@ function NumbersPage() {
       setLocations(res.locations);
       setMonthly(res.monthly);
       setLabourByLocation(res.labourByLocation);
-      setLabourByAd(res.labourByAd);
       setRevenueByLocation(res.revenueByLocation);
-      setRevenueByAd(res.revenueByAd);
       setMoneyMonthly(res.moneyMonthly);
       setNeedsOutcome(res.needsOutcome);
       setPackEconomics(res.packEconomics);
-
       setSyncState(res.syncState);
     } catch (e) {
       toast.error((e as Error).message || "Could not load the numbers");
@@ -236,209 +180,27 @@ function NumbersPage() {
     if (authReady && session && isAdmin) void loadPacks();
   }, [authReady, session, isAdmin, loadPacks]);
 
-  // ---- Section A: location cards + total
-  const visibleLocations = locFilter
-    ? locations.filter((l) => l.location?.toLowerCase() === locFilter.toLowerCase())
-    : locations;
-
-  const total = visibleLocations.reduce(
-    (a, l) => ({
-      location: "TOTAL",
-      spend: a.spend + l.spend,
-      leads: a.leads + l.leads,
-      booked: a.booked + l.booked,
-      showed: a.showed + l.showed,
-      noshow: a.noshow + l.noshow,
-      upcoming: a.upcoming + l.upcoming,
-      needs_outcome: a.needs_outcome + l.needs_outcome,
-      disqualified: a.disqualified + l.disqualified,
-    }),
-    {
-      location: "TOTAL",
-      spend: 0,
-      leads: 0,
-      booked: 0,
-      showed: 0,
-      noshow: 0,
-      upcoming: 0,
-      needs_outcome: 0,
-      disqualified: 0,
-    } as LocationSummaryRow,
+  // ---- Per-city figures. Locations, labour and revenue come back for every
+  // city regardless of the filter, so switching city is instant client-side;
+  // only the ad list is filtered server-side.
+  const { cities, all, unallocated } = useMemo(
+    () => buildAllCities(locations, labourByLocation, revenueByLocation),
+    [locations, labourByLocation, revenueByLocation],
   );
+  const cityNames = useMemo(() => cities.map((c) => c.key), [cities]);
 
-  const accountAvgCps = total.showed > 0 && total.spend > 0 ? total.spend / total.showed : null;
+  const scope = useMemo(() => {
+    if (!locFilter) return all;
+    const c = cities.find((x) => x.key.toLowerCase() === locFilter.toLowerCase());
+    return c ?? sumCityStats(locFilter, []);
+  }, [locFilter, cities, all]);
 
-  // ---- Labour + revenue lookups (by location and by ad)
-  const labLocMap = useMemo(
-    () => new Map(labourByLocation.map((l) => [l.key.toLowerCase(), l])),
-    [labourByLocation],
-  );
-  const labAdMap = useMemo(
-    () => new Map(labourByAd.map((l) => [l.key.toLowerCase(), l])),
-    [labourByAd],
-  );
-  const revLocMap = useMemo(
-    () => new Map(revenueByLocation.map((r) => [r.key.toLowerCase(), r])),
-    [revenueByLocation],
-  );
-  const revAdMap = useMemo(
-    () => new Map(revenueByAd.map((r) => [r.key.toLowerCase(), r])),
-    [revenueByAd],
-  );
+  const adStats = useMemo(() => buildAdStats(ads), [ads]);
 
-  type Money = {
-    revenue: number;
-    hours: number;
-    hourlyCost: number;
-    bonusCost: number;
-    labourCost: number;
-    totalCost: number;
-    grossProfit: number;
-    hoursOk: boolean;
-    hoursMissingRate: number;
-    hoursFallback: number;
-    bonusMissingRate: number;
-    adsPctNum: number | null;
-    labourPctNum: number | null;
-    totalPctNum: number | null;
-    trueCps: number | null;
-    bookingsPerHour: number | null;
-  };
-
-  const buildMoney = useCallback(
-    (
-      key: string,
-      spend: number,
-      shows: number,
-      bookings: number,
-      labMap: Map<string, LabourRow>,
-      revMap: Map<string, RevenueRow>,
-      labOverride?: LabourRow | null,
-      revOverride?: RevenueRow | null,
-    ): Money => {
-      const lab = labOverride ?? labMap.get(key.toLowerCase()) ?? null;
-      const rev = revOverride ?? revMap.get(key.toLowerCase()) ?? null;
-      const revenue = rev?.revenue ?? 0;
-      const hours = lab?.hours ?? 0;
-      const hourlyCost = lab?.hourly_cost ?? 0;
-      const bonusCost = lab?.bonus_cost ?? 0;
-      const labourCost = hourlyCost + bonusCost;
-      const totalCost = spend + labourCost;
-      const hoursOk = hours > 0;
-      return {
-        revenue,
-        hours,
-        hourlyCost,
-        bonusCost,
-        labourCost,
-        totalCost,
-        grossProfit: revenue - totalCost,
-        hoursOk,
-        hoursMissingRate: lab?.hours_missing_rate ?? 0,
-        hoursFallback: lab?.hours_fallback ?? 0,
-        bonusMissingRate: lab?.bonus_missing_rate ?? 0,
-        adsPctNum: revenue > 0 ? spend / revenue : null,
-        labourPctNum: revenue > 0 && hoursOk ? labourCost / revenue : null,
-        totalPctNum: revenue > 0 && hoursOk ? totalCost / revenue : null,
-        trueCps: hoursOk && shows > 0 ? totalCost / shows : null,
-        bookingsPerHour: hoursOk ? bookings / hours : null,
-      };
-    },
-    [],
-  );
-
-  const totalLabour: LabourRow = useMemo(() => {
-    const src = locFilter
-      ? labourByLocation.filter((l) => l.key.toLowerCase() === locFilter.toLowerCase())
-      : labourByLocation;
-    return src.reduce<LabourRow>(
-      (a, l) => ({
-        key: "TOTAL",
-        hours: a.hours + l.hours,
-        hourly_cost: a.hourly_cost + l.hourly_cost,
-        hours_missing_rate: a.hours_missing_rate + l.hours_missing_rate,
-        hours_fallback: a.hours_fallback + l.hours_fallback,
-        bookings: a.bookings + l.bookings,
-        bonus_cost: a.bonus_cost + l.bonus_cost,
-        bonus_missing_rate: a.bonus_missing_rate + l.bonus_missing_rate,
-      }),
-      { key: "TOTAL", hours: 0, hourly_cost: 0, hours_missing_rate: 0, hours_fallback: 0, bookings: 0, bonus_cost: 0, bonus_missing_rate: 0 },
-    );
-  }, [labourByLocation, locFilter]);
-
-  // Labour that couldn't be tied to any city (calls on leads with no campaign).
-  // Included in TOTAL, so surface it as its own line rather than hiding it.
-  const unallocatedLabour = useMemo(
-    () => labourByLocation.find((l) => l.key.toLowerCase() === "(unallocated)") ?? null,
-    [labourByLocation],
-  );
-
-  const totalRevenue: RevenueRow = useMemo(() => {
-
-    const src = locFilter
-      ? revenueByLocation.filter((r) => r.key.toLowerCase() === locFilter.toLowerCase())
-      : revenueByLocation;
-    return src.reduce<RevenueRow>(
-      (a, r) => ({ key: "TOTAL", shows: a.shows + r.shows, revenue: a.revenue + r.revenue }),
-      { key: "TOTAL", shows: 0, revenue: 0 },
-    );
-  }, [revenueByLocation, locFilter]);
-
-  // ---- Section B: leaderboard rows
-  const rows = useMemo(() => {
-    const enriched = ads.map((a) => {
-      const m = buildMoney(a.ad_name, a.unattributed ? 0 : a.spend, a.showed, a.booked, labAdMap, revAdMap);
-      return {
-        ...a,
-        cpl: costNum(a.spend, a.leads),
-        cpb: costNum(a.spend, a.booked),
-        cps: costNum(a.spend, a.showed),
-        lowData: a.showed < 3,
-        bookingRate: a.leads ? a.booked / a.leads : null,
-        showRate: a.showed + a.noshow ? a.showed / (a.showed + a.noshow) : null,
-        m,
-      };
-    });
-    const val = (r: (typeof enriched)[number]): number | string | null => {
-      switch (sortKey) {
-        case "ad": return r.ad_name.toLowerCase();
-        case "location": return r.location ?? "";
-        case "spend": return r.spend;
-        case "leads": return r.leads;
-        case "booked": return r.booked;
-        case "showed": return r.showed;
-        case "cpl": return r.cpl;
-        case "cpb": return r.cpb;
-        case "cps": return r.cps;
-        case "repCost": return r.m.hourlyCost || null;
-        case "bonus": return r.m.bonusCost || null;
-        case "totalCost": return r.m.totalCost || null;
-        case "revenue": return r.m.revenue || null;
-        case "trueCps": return r.m.trueCps;
-        case "bookingRate": return r.bookingRate;
-        case "showRate": return r.showRate;
-        default: return r.m.totalPctNum;
-      }
-    };
-    return enriched.sort((a, b) => {
-      // Unattributed and low-data ads always sink to the bottom.
-      if (a.unattributed !== b.unattributed) return a.unattributed ? 1 : -1;
-      if (a.lowData !== b.lowData) return a.lowData ? 1 : -1;
-      const av = val(a);
-      const bv = val(b);
-      if (av === null && bv === null) return 0;
-      if (av === null) return 1;
-      if (bv === null) return -1;
-      if (typeof av === "string" || typeof bv === "string")
-        return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
-      return sortAsc ? av - bv : bv - av;
-    });
-  }, [ads, sortKey, sortAsc, buildMoney, labAdMap, revAdMap]);
-
-  // ---- Section C: chart data (ad-only cost per show + total cost as % of revenue)
-  const chart = useMemo(() => {
+  // Monthly trend (ad-only cost per showed + total cost as % of revenue)
+  const trend = useMemo(() => {
     const locs = Array.from(new Set(monthly.map((m) => m.location))).sort();
-    const byMonth = new Map<string, Record<string, number | string>>();
+    const byMonth = new Map<string, TrendPoint>();
     for (const m of monthly) {
       const key = m.month.slice(0, 7);
       const row = byMonth.get(key) ?? { month: key };
@@ -459,17 +221,14 @@ function NumbersPage() {
     };
   }, [monthly, moneyMonthly]);
 
-
   if (authReady && session && !isAdmin) {
     return (
-      <div style={{ padding: 32, fontFamily: FONT, color: "#111" }}>
+      <div style={{ padding: 32, fontFamily: FONT, color: INK }}>
         <h1 style={{ fontSize: 20, fontWeight: 600 }}>Not available</h1>
-        <p style={{ color: "#6b6b6b", fontSize: 14 }}>This page is for admins only.</p>
+        <p style={{ color: MUTED, fontSize: 14 }}>This page is for admins only.</p>
       </div>
     );
   }
-
-  const COLORS = ["#111111", "#2f6f4f", "#8a5a2b", "#3a5a9a", "#8a2b4a", "#6b6b6b"];
 
   const markOutcome = async (id: string, outcome: "show" | "noshow" | "disqualified") => {
     try {
@@ -498,40 +257,16 @@ function NumbersPage() {
     }
   };
 
-  const th = (key: string, label: string, align: "left" | "right" = "right") => (
-    <th
-      onClick={() => {
-        if (sortKey === key) setSortAsc(!sortAsc);
-        else {
-          setSortKey(key);
-          setSortAsc(key === "cps" || key === "cpl" || key === "cpb" || key === "ad" || key === "location");
-        }
-      }}
-      style={{
-        textAlign: align,
-        padding: "8px 10px",
-        fontSize: 11,
-        fontWeight: 600,
-        color: sortKey === key ? "#111" : "#6b6b6b",
-        cursor: "pointer",
-        whiteSpace: "nowrap",
-        borderBottom: "0.5px solid #e8e8e6",
-      }}
-    >
-      {label}
-      {sortKey === key ? (sortAsc ? " ↑" : " ↓") : ""}
-    </th>
-  );
-
-  const td: CSSProperties = { padding: "10px", fontSize: 13, textAlign: "right", whiteSpace: "nowrap" };
+  const scopeLabel = locFilter || "All cities";
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
       <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Header */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
-          <h1 style={{ fontSize: 26, fontWeight: 600, color: "#111", margin: 0 }}>Numbers</h1>
+          <h1 style={{ fontSize: 26, fontWeight: 600, color: INK, margin: 0 }}>Numbers</h1>
           <div style={{ flex: 1 }} />
-          <div style={{ fontSize: 12, color: syncState?.last_status === "error" ? "#b03030" : "#6b6b6b" }}>
+          <div style={{ fontSize: 12, color: syncState?.last_status === "error" ? "#b03030" : MUTED }}>
             Spend last synced:{" "}
             {syncState?.last_synced_at
               ? new Date(syncState.last_synced_at).toLocaleString("en-AU", { timeZone: APP_TIMEZONE })
@@ -546,17 +281,16 @@ function NumbersPage() {
           </button>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 6, background: "#eeeeec", borderRadius: 10, padding: 3, alignSelf: "flex-start" }}>
-          {([
-            ["overview", "Overview"],
-            ["money", "Performance"],
-            ["costs", "Costs"],
-            ["packs", "Clinics & packs"],
-          ] as const).map(([k, label]) => (
+        {/* City switcher — the main control */}
+        <CitySwitcher cities={cityNames} selected={locFilter} onSelect={setLocFilter} />
+
+        {/* Question tabs */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, background: "#eeeeec", borderRadius: 10, padding: 3, alignSelf: "flex-start" }}>
+          {TABS.map(([k, label, hint]) => (
             <button
               key={k}
               onClick={() => setTab(k)}
+              title={hint}
               style={{
                 fontSize: 12.5,
                 padding: "7px 14px",
@@ -565,7 +299,7 @@ function NumbersPage() {
                 cursor: "pointer",
                 background: tab === k ? "#fff" : "transparent",
                 fontWeight: tab === k ? 600 : 400,
-                color: "#111",
+                color: INK,
               }}
             >
               {label}
@@ -573,9 +307,7 @@ function NumbersPage() {
           ))}
         </div>
 
-
-
-        {/* Range picker */}
+        {/* Range + secondary controls */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, background: "#f0f0ee", padding: 4, borderRadius: 10 }}>
             {([
@@ -596,7 +328,7 @@ function NumbersPage() {
                   cursor: "pointer",
                   background: rangeKey === k ? "#fff" : "transparent",
                   fontWeight: rangeKey === k ? 600 : 400,
-                  color: "#111",
+                  color: INK,
                 }}
               >
                 {label}
@@ -609,16 +341,6 @@ function NumbersPage() {
               <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} style={{ ...CARD, padding: "6px 10px", fontSize: 12 }} />
             </>
           )}
-          <select
-            value={locFilter}
-            onChange={(e) => setLocFilter(e.target.value)}
-            style={{ ...CARD, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}
-          >
-            <option value="">All locations</option>
-            {locations.map((l) => (
-              <option key={l.location} value={l.location}>{l.location}</option>
-            ))}
-          </select>
 
           <label
             style={{
@@ -637,7 +359,7 @@ function NumbersPage() {
               type="checkbox"
               checked={countMyPay}
               onChange={(e) => setCountMyPay(e.target.checked)}
-              style={{ accentColor: "#111", cursor: "pointer" }}
+              style={{ accentColor: INK, cursor: "pointer" }}
             />
             Count my pay as a cost
           </label>
@@ -671,7 +393,7 @@ function NumbersPage() {
               borderRadius: 999,
               border: "0.5px solid #d8d8d5",
               background: "#fff",
-              color: "#111",
+              color: INK,
               textDecoration: "none",
               display: "flex",
               alignItems: "center",
@@ -680,8 +402,6 @@ function NumbersPage() {
           >
             <Clock className="h-3 w-3" /> Rep hours &amp; rates
           </Link>
-
-
 
           <button
             onClick={() => {
@@ -835,159 +555,36 @@ function NumbersPage() {
           </div>
         )}
 
-        {/* TAB 1 — overview */}
-        {tab === "overview" && (() => {
-          const keys = Array.from(
-            new Set([
-              ...visibleLocations.map((l) => l.location),
-              ...(locFilter ? [] : revenueByLocation.map((r) => r.key)),
-            ]),
-          ).filter((k) => k && k.toLowerCase() !== "(unallocated)");
+        {loading && cities.length === 0 && (
+          <div style={{ fontSize: 13, color: MUTED, padding: "8px 2px" }}>Loading the numbers…</div>
+        )}
 
-          const cityRows = keys.map((key) => {
-            const loc = visibleLocations.find((l) => l.location?.toLowerCase() === key.toLowerCase());
-            const m = buildMoney(key, loc?.spend ?? 0, loc?.showed ?? 0, loc?.booked ?? 0, labLocMap, revLocMap);
-            const status =
-              m.revenue <= 0
-                ? { label: "Unproven", color: "#6b6b6b", dot: "#c2c2be" }
-                : m.totalPctNum !== null && m.totalPctNum < 0.3
-                  ? { label: "Healthy", color: "#2f6f4f", dot: "#2f6f4f" }
-                  : m.totalPctNum !== null && m.totalPctNum <= 0.5
-                    ? { label: "Watch", color: "#8a5a2b", dot: "#c98a2e" }
-                    : { label: "Losing", color: "#b03030", dot: "#b03030" };
-            return { key, m, status, spend: loc?.spend ?? 0 };
-          });
-          // Worst first: highest cost % at the top, cities with no revenue last.
-          cityRows.sort((a, b) => (b.m.totalPctNum ?? -1) - (a.m.totalPctNum ?? -1));
+        {tab === "funnel" && (
+          <FunnelTab scope={scope} cities={cities} all={all} selected={locFilter} onSelect={setLocFilter} />
+        )}
 
-          const tot = buildMoney("TOTAL", total.spend, total.showed, total.booked, labLocMap, revLocMap, totalLabour, totalRevenue);
-          const cityRevenue = cityRows.reduce((s, r) => s + r.m.revenue, 0);
-          const reconciles = Math.abs(cityRevenue - tot.revenue) < 1;
+        {tab === "compare" && (
+          <CompareTab
+            scope={scope}
+            cities={cities}
+            all={all}
+            selected={locFilter}
+            onSelect={setLocFilter}
+            unallocated={unallocated}
+            countMyPay={countMyPay}
+            trend={trend}
+          />
+        )}
 
-          const attention: { text: string; go: () => void }[] = [];
-          for (const r of cityRows) {
-            if (r.m.totalPctNum !== null && r.m.totalPctNum > 0.5)
-              attention.push({
-                text: `${r.key} costs ${(r.m.totalPctNum * 100).toFixed(1)}% of revenue — losing money`,
-                go: () => { setLocFilter(r.key); setTab("costs"); },
-              });
-          }
-          for (const r of cityRows) {
-            if (r.m.revenue <= 0 && r.spend > 0)
-              attention.push({
-                text: `${r.key}: ${money(r.spend)} spent, no revenue yet`,
-                go: () => { setLocFilter(r.key); setTab("money"); },
-              });
-          }
-          if (needsOutcome.length > 0)
-            attention.push({
-              text: `${needsOutcome.length} appointment${needsOutcome.length === 1 ? "" : "s"} need an outcome marked`,
-              go: () => setShowUnresolved(true),
-            });
-          if (packTotals.owed > 0)
-            attention.push({
-              text: `${packTotals.owed} shows paid for and not yet delivered${packTotals.valueOwed > 0 ? ` (${money(packTotals.valueOwed)})` : ""}`,
-              go: () => setTab("packs"),
-            });
-          const attentionTop = attention.slice(0, 3);
-
-          const bigLabel: CSSProperties = { fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: "#8a8a86", fontWeight: 500 };
-          const bigValue: CSSProperties = { fontSize: 30, fontWeight: 600, color: "#111", fontVariantNumeric: "tabular-nums", marginTop: 4 };
-          const numTd: CSSProperties = { ...td2r, fontVariantNumeric: "tabular-nums", color: "#3d3d3a" };
-
-          return (
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-              {/* Top strip */}
-              <div style={{ ...CARD, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, padding: "20px 22px" }}>
-                <div title="Revenue recognised on shows delivered, valued at each clinic's rate per show (money paid ÷ all shows in the pack). Never more than the clinic has actually paid.">
-                  <div style={bigLabel}>Revenue</div>
-                  <div style={bigValue}>{tot.revenue ? money(tot.revenue) : "—"}</div>
-                </div>
-                <div title="Ad spend + rep hourly pay + booking bonuses in this range.">
-                  <div style={bigLabel}>Cost</div>
-                  <div style={bigValue}>{tot.hoursOk ? money(tot.totalCost) : "—"}</div>
-                </div>
-                <div title="Revenue minus total cost.">
-                  <div style={bigLabel}>Profit</div>
-                  <div style={bigValue}>{tot.hoursOk ? money(tot.grossProfit) : "—"}</div>
-                </div>
-                <div title="Total cost ÷ revenue.">
-                  <div style={bigLabel}>Cost % revenue</div>
-                  <div style={bigValue}>{tot.totalPctNum === null ? "—" : `${(tot.totalPctNum * 100).toFixed(1)}%`}</div>
-                </div>
-              </div>
-
-              {/* City table */}
-              <div style={{ ...CARD, padding: 0 }}>
-                <div style={{ maxHeight: 7 * 38 + 34, overflowY: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ textAlign: "left", color: "#8a8a86", fontSize: 11.5 }}>
-                        <th style={{ ...th2, paddingLeft: 20 }} title="City of the clinic where the consult happened.">City</th>
-                        <th style={th2r} title="Shows delivered in this city × that clinic's rate per show, capped at money received.">Revenue</th>
-                        <th style={th2r} title="Ad spend for this city's campaigns + rep hourly pay split by talk time + booking bonuses.">Cost</th>
-                        <th style={th2r} title="Revenue minus cost.">Profit</th>
-                        <th style={th2r} title="Cost ÷ revenue.">Cost %</th>
-                        <th style={{ ...th2, paddingRight: 20 }} title="Under 30% Healthy · 30–50% Watch · over 50% Losing · no revenue Unproven.">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {cityRows.map((r) => (
-                        <tr
-                          key={r.key}
-                          onClick={() => { setLocFilter(r.key); setTab("costs"); }}
-                          title="Click for the workings behind these numbers"
-                          style={{ borderTop: "0.5px solid #f0f0ee", cursor: "pointer" }}
-                        >
-                          <td style={{ ...td2, paddingLeft: 20, fontWeight: 600 }}>{r.key}</td>
-                          <td style={{ ...numTd, color: "#111", fontWeight: 600 }}>{r.m.revenue ? money(r.m.revenue) : "—"}</td>
-                          <td style={numTd}>{r.m.hoursOk ? money(r.m.totalCost) : "—"}</td>
-                          <td style={numTd}>{r.m.hoursOk ? money(r.m.grossProfit) : "—"}</td>
-                          <td style={numTd}>{r.m.totalPctNum === null ? "—" : `${(r.m.totalPctNum * 100).toFixed(1)}%`}</td>
-                          <td style={{ ...td2, paddingRight: 20, color: r.status.color }}>
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                              <span style={{ width: 7, height: 7, borderRadius: 999, background: r.status.dot }} />
-                              {r.status.label}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                      {cityRows.length === 0 && (
-                        <tr><td colSpan={6} style={{ ...td2, padding: 18, color: "#8a8a86" }}>Nothing in this range yet.</td></tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <div
-                  style={{ padding: "10px 20px", borderTop: "0.5px solid #e8e8e6", fontSize: 12, color: reconciles ? "#8a8a86" : "#b03030", fontVariantNumeric: "tabular-nums" }}
-                  title="Clinic revenue must equal the sum of the city rows. If it doesn't, some shows aren't attributed to a city."
-                >
-                  {reconciles
-                    ? `Reconciles: clinic revenue ${money(tot.revenue)} = sum of cities ${money(cityRevenue)}`
-                    : `Does not reconcile: clinic revenue ${money(tot.revenue)} vs sum of cities ${money(cityRevenue)}`}
-                </div>
-              </div>
-
-              {/* What needs attention */}
-              {attentionTop.length > 0 && (
-                <div style={{ ...CARD, padding: "16px 20px" }}>
-                  <div style={{ ...bigLabel, marginBottom: 10 }}>What needs attention</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {attentionTop.map((a) => (
-                      <button
-                        key={a.text}
-                        onClick={a.go}
-                        style={{ textAlign: "left", fontSize: 13.5, color: "#111", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
-                      >
-                        {a.text} <span style={{ color: "#8a8a86" }}>→</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {tab === "ads" && (
+          <AdsTab
+            rows={adStats.rows}
+            avgCostPerShow={adStats.avgCostPerShow}
+            loading={loading}
+            scopeLabel={scopeLabel}
+            onDrill={(ad) => void openDrill(ad)}
+          />
+        )}
 
         {/* TAB 3 — packs & delivery */}
         {tab === "packs" && (
@@ -1222,309 +819,6 @@ function NumbersPage() {
           )}
         </div>
         </>
-        )}
-
-        {/* SECTION A — city detail (tab 2) */}
-        {(tab === "money" || tab === "costs") && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
-          {[...visibleLocations].sort((a, b) => a.location.localeCompare(b.location)).concat(visibleLocations.length > 1 ? [total] : []).map((l, i) => {
-            const isTotal = l.location === "TOTAL" && i === visibleLocations.length;
-            const unresolvedShare = l.booked ? l.needs_outcome / l.booked : 0;
-            const m = isTotal
-              ? buildMoney("TOTAL", l.spend, l.showed, l.booked, labLocMap, revLocMap, totalLabour, totalRevenue)
-              : buildMoney(l.location, l.spend, l.showed, l.booked, labLocMap, revLocMap);
-            const tp = m.totalPctNum;
-            const tpColor = tp === null ? "#6b6b6b" : tp < 0.25 ? "#2f6f4f" : tp <= 0.4 ? "#8a5a2b" : "#b03030";
-            return (
-              <div key={`${l.location}-${i}`} style={{ ...CARD, borderColor: isTotal ? "#111" : "#e8e8e6" }}>
-                <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>{l.location}</div>
-                <div style={{ fontSize: 11, color: "#6b6b6b" }}>True cost per show</div>
-                <div style={{ fontSize: 34, fontWeight: 600, letterSpacing: -1, lineHeight: 1.1 }}>
-                  {m.trueCps === null ? "—" : money(m.trueCps)}
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 12, fontSize: 12 }}>
-                  <div style={{ color: "#6b6b6b" }}>Leads</div><div style={{ textAlign: "right" }}>{l.leads}</div>
-                  <div style={{ color: "#6b6b6b" }}>Booked</div><div style={{ textAlign: "right" }}>{l.booked}</div>
-                  <div style={{ color: "#6b6b6b" }}>Showed</div><div style={{ textAlign: "right" }}>{l.showed}</div>
-                  <div style={{ color: "#6b6b6b" }}>No-showed</div><div style={{ textAlign: "right" }}>{l.noshow}</div>
-                  <div style={{ color: "#6b6b6b" }}>Upcoming</div><div style={{ textAlign: "right" }}>{l.upcoming}</div>
-                  <div style={{ color: "#8a5a2b" }}>Needs outcome</div><div style={{ textAlign: "right", color: "#8a5a2b" }}>{l.needs_outcome}</div>
-                  <div style={{ color: "#6b6b6b" }}>Disqualified</div><div style={{ textAlign: "right" }}>{l.disqualified}</div>
-                  <div style={{ color: "#6b6b6b" }}>Cost per lead</div><div style={{ textAlign: "right" }}>{cost(l.spend, l.leads)}</div>
-                  <div style={{ color: "#6b6b6b" }}>Cost per booked</div><div style={{ textAlign: "right" }}>{cost(l.spend, l.booked)}</div>
-                </div>
-
-                {/* Money block */}
-                <div style={{ marginTop: 14, paddingTop: 12, borderTop: "0.5px solid #f0f0ee", display: "grid", gridTemplateColumns: "1fr auto auto", gap: "6px 10px", fontSize: 12, alignItems: "baseline" }}>
-                  <div style={{ color: "#6b6b6b" }}>Revenue</div>
-                  <div style={{ textAlign: "right", fontWeight: 600 }}>{m.revenue ? money(m.revenue) : "—"}</div>
-                  <div style={{ textAlign: "right", color: "#9a9a97", fontSize: 11 }}>{l.showed} × show</div>
-
-                  <div style={{ color: "#6b6b6b" }}>Ad spend</div>
-                  <div style={{ textAlign: "right" }}>{l.spend ? money(l.spend) : "—"}</div>
-                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
-                    {m.adsPctNum === null ? "—" : `${(m.adsPctNum * 100).toFixed(1)}%`}
-                  </div>
-
-                  <div style={{ color: "#6b6b6b" }}>Rep cost (hourly)</div>
-                  <div style={{ textAlign: "right" }}>{m.hoursOk ? money(m.hourlyCost) : "—"}</div>
-                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
-                    {m.hoursOk && m.revenue > 0 ? `${((m.hourlyCost / m.revenue) * 100).toFixed(1)}%` : "—"}
-                  </div>
-
-                  <div style={{ color: "#6b6b6b" }}>Booking bonuses</div>
-                  <div style={{ textAlign: "right" }}>{money(m.bonusCost)}</div>
-                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
-                    {m.revenue > 0 ? `${((m.bonusCost / m.revenue) * 100).toFixed(1)}%` : "—"}
-                  </div>
-
-                  <div style={{ color: "#6b6b6b" }}>Labour (both)</div>
-                  <div style={{ textAlign: "right" }}>{m.hoursOk ? money(m.labourCost) : "—"}</div>
-                  <div style={{ textAlign: "right", color: "#6b6b6b", fontSize: 11 }}>
-                    {m.labourPctNum === null ? "—" : `${(m.labourPctNum * 100).toFixed(1)}%`}
-                  </div>
-
-                  {isTotal && unallocatedLabour && !locFilter && (unallocatedLabour.hours > 0 || unallocatedLabour.hourly_cost > 0) && (
-                    <>
-                      <div style={{ color: "#8a5a2b" }}>
-                        …of which (unallocated)
-                        <div style={{ fontSize: 10.5, color: "#9a9a97" }}>
-                          {unallocatedLabour.hours.toFixed(1)} h on leads with no campaign
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right", color: "#8a5a2b" }}>
-                        {money(unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost)}
-                      </div>
-                      <div style={{ textAlign: "right", color: "#8a5a2b", fontSize: 11 }}>
-                        {m.revenue > 0
-                          ? `${(((unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost) / m.revenue) * 100).toFixed(1)}%`
-                          : "—"}
-                      </div>
-                    </>
-                  )}
-
-                  {isTotal && packTotals.owed > 0 && (
-                    <>
-                      <div style={{ color: "#8a5a2b" }}>
-                        Shows still owed
-                        <div style={{ fontSize: 10.5, color: "#9a9a97" }}>
-                          {packTotals.delivered} of {packTotals.purchased} purchased delivered
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "right", color: "#8a5a2b" }}>{packTotals.owed}</div>
-                      <div style={{ textAlign: "right", color: "#8a5a2b", fontSize: 11 }}>
-                        {packTotals.valueOwed > 0 ? money(packTotals.valueOwed) : "—"}
-                      </div>
-                    </>
-                  )}
-
-                  <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid #e8e8e6", marginTop: 2 }} />
-
-                  <div style={{ fontWeight: 600 }}>TOTAL COST</div>
-                  <div style={{ textAlign: "right", fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>
-                    {m.hoursOk ? money(m.totalCost) : "—"}
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
-                    {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
-                  </div>
-
-
-                  <div style={{ color: "#6b6b6b" }}>Gross profit</div>
-                  <div style={{ textAlign: "right", fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
-                    {m.hoursOk ? money(m.grossProfit) : "—"}
-                  </div>
-                  <div />
-                </div>
-                <div style={{ fontSize: 10.5, color: "#9a9a97", marginTop: 6 }}>
-                  includes owner time at replacement rate
-                </div>
-
-                <div style={{ marginTop: 12, paddingTop: 10, borderTop: "0.5px solid #f0f0ee", fontSize: 12 }}>
-                  <div>
-                    Booking rate <strong>{pct(l.booked, l.leads)}</strong>{" "}
-                    <span style={{ color: "#6b6b6b" }}>({oneInX(l.booked, l.leads)} leads books)</span>
-                  </div>
-                  <div>
-                    Show rate <strong>{pct(l.showed, l.showed + l.noshow)}</strong>{" "}
-                    <span style={{ color: "#6b6b6b" }}>({l.showed} of {l.showed + l.noshow})</span>
-                  </div>
-                  <div>
-                    Rep hours <strong>{m.hoursOk ? m.hours.toFixed(1) : "—"}</strong>{" "}
-                    <span style={{ color: "#6b6b6b" }}>
-                      ({m.bookingsPerHour === null ? "—" : m.bookingsPerHour.toFixed(2)} bookings per hour)
-                    </span>
-                  </div>
-                </div>
-
-                {!m.hoursOk && (
-                  <div style={{ marginTop: 10, fontSize: 11, color: "#b03030", background: "#fdeeee", padding: "6px 8px", borderRadius: 8 }}>
-                    Hours could not be calculated — labour and total cost are not shown.
-                  </div>
-                )}
-                {m.hoursMissingRate > 0 && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
-                    {m.hoursMissingRate.toFixed(1)} hours from a rep with no rate set — labour is understated.
-                  </div>
-                )}
-                {m.hoursFallback > 0 && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
-                    {m.hoursFallback.toFixed(1)} hours split by leads contacted, not call time.
-                  </div>
-                )}
-                {m.bonusMissingRate > 0 && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
-                    {m.bonusMissingRate} bookings with no bonus rate set.
-                  </div>
-                )}
-                {unresolvedShare > 0.1 && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "#8a5a2b", background: "#fdf5e6", padding: "6px 8px", borderRadius: 8 }}>
-                    {l.needs_outcome} appointments unresolved — cost per show may be understated.
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-        </div>
-        )}
-
-        {/* SECTION B */}
-        {(tab === "money" || tab === "costs") && (
-        <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
-          <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Ad leaderboard</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
-            <thead>
-              <tr>
-                {th("ad", "Ad name", "left")}
-                {th("location", "Location", "left")}
-                {th("spend", "Spend")}
-                {th("leads", "Leads")}
-                {th("booked", "Booked")}
-                {th("showed", "Showed")}
-                {th("cpl", "Cost/lead")}
-                {th("cpb", "Cost/booked")}
-                {th("cps", "Cost/show (ads)")}
-                {th("repCost", "Rep cost")}
-                {th("bonus", "Booking bonuses")}
-                {th("totalCost", "Total cost")}
-                {th("revenue", "Revenue")}
-                {th("costPct", "COST % OF REVENUE")}
-                {th("trueCps", "True cost/show")}
-                {th("bookingRate", "Booking rate")}
-                {th("showRate", "Show rate")}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const dim = r.lowData || r.unattributed;
-                const cpsColor =
-                  r.cps === null || accountAvgCps === null || dim
-                    ? "#111"
-                    : r.cps <= accountAvgCps
-                      ? "#2f6f4f"
-                      : "#b03030";
-                const tp = r.m.totalPctNum;
-                const tpColor = dim || tp === null ? "#111" : tp < 0.25 ? "#2f6f4f" : tp <= 0.4 ? "#8a5a2b" : "#b03030";
-                return (
-                  <tr
-                    key={`${r.ad_name}-${r.unattributed}`}
-                    onClick={() => void openDrill(r)}
-                    style={{ borderBottom: "0.5px solid #f0f0ee", cursor: "pointer", opacity: dim ? 0.55 : 1 }}
-                  >
-                    <td style={{ ...td, textAlign: "left", maxWidth: 320, whiteSpace: "normal" }}>
-                      {r.ad_name}
-                      {r.name_collision && (
-                        <span title="possible renamed or reused ad name" style={{ marginLeft: 6, color: "#8a5a2b" }}>
-                          <AlertTriangle className="inline h-3 w-3" />
-                        </span>
-                      )}
-                      {r.unattributed && (
-                        <div style={{ fontSize: 11, color: "#6b6b6b" }}>no ad name on the lead — no spend attached</div>
-                      )}
-                      {r.lowData && !r.unattributed && (
-                        <div style={{ fontSize: 11, color: "#6b6b6b" }}>fewer than 3 shows — not enough data yet</div>
-                      )}
-                    </td>
-                    <td style={{ ...td, textAlign: "left" }}>{r.location ?? "—"}</td>
-                    <td style={td}>{r.unattributed ? "—" : r.spend ? money(r.spend) : "—"}</td>
-                    <td style={td}>{r.leads}</td>
-                    <td style={td}>{r.booked}</td>
-                    <td style={td}>{r.showed}</td>
-                    <td style={td}>{r.unattributed ? "—" : cost(r.spend, r.leads)}</td>
-                    <td style={td}>{r.unattributed ? "—" : cost(r.spend, r.booked)}</td>
-                    <td style={{ ...td, color: cpsColor }}>
-                      {r.unattributed ? "—" : cost(r.spend, r.showed)}
-                    </td>
-                    <td style={td}>{r.m.hoursOk ? money(r.m.hourlyCost) : "—"}</td>
-                    <td style={td}>{r.m.bonusCost ? money(r.m.bonusCost) : "—"}</td>
-                    <td style={td}>{r.m.hoursOk ? money(r.m.totalCost) : "—"}</td>
-                    <td style={td}>{r.m.revenue ? money(r.m.revenue) : "—"}</td>
-                    <td style={{ ...td, fontWeight: 700, fontSize: 14, color: tpColor }}>
-                      {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
-                    </td>
-                    <td style={td}>{r.m.trueCps === null ? "—" : money(r.m.trueCps)}</td>
-                    <td style={td}>{pct(r.booked, r.leads)}</td>
-                    <td style={td}>{pct(r.showed, r.showed + r.noshow)}</td>
-                  </tr>
-                );
-              })}
-              {!loading && rows.length === 0 && (
-                <tr><td colSpan={17} style={{ padding: 16, fontSize: 13, color: "#6b6b6b" }}>Nothing in this range yet.</td></tr>
-              )}
-            </tbody>
-          </table>
-          {accountAvgCps !== null && (
-            <div style={{ padding: "10px 18px 16px", fontSize: 11, color: "#6b6b6b" }}>
-              Account average cost per show: {money(accountAvgCps)}. Cost as a share of revenue: green under 25%, amber to 40%, red above.
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* SECTION C */}
-        {(tab === "money" || tab === "costs") && (
-        <div style={CARD}>
-          <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Cost per show by month</div>
-          {chart.data.length === 0 ? (
-            <div style={{ fontSize: 13, color: "#6b6b6b" }}>No spend and show data to chart yet.</div>
-          ) : (
-            <div style={{ width: "100%", height: 300 }}>
-              <ResponsiveContainer>
-                <LineChart data={chart.data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0ee" />
-                  <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis yAxisId="cost" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                  <YAxis yAxisId="pct" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
-                  <ReTooltip
-                    formatter={(v: number, name: string) =>
-                      String(name).endsWith("total %") ? `${Number(v).toFixed(1)}%` : money(Number(v))
-                    }
-                  />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                  {chart.locs.map((loc, i) => (
-                    <Line key={loc} yAxisId="cost" type="monotone" dataKey={loc} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot connectNulls />
-                  ))}
-                  {chart.locs.map((loc, i) => (
-                    <Line
-                      key={`${loc}-pct`}
-                      yAxisId="pct"
-                      type="monotone"
-                      dataKey={`${loc} total %`}
-                      stroke={COLORS[i % COLORS.length]}
-                      strokeDasharray="4 3"
-                      strokeWidth={1.5}
-                      dot={false}
-                      connectNulls
-                    />
-                  ))}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          <div style={{ fontSize: 11, color: "#6b6b6b", marginTop: 8 }}>
-            Solid lines: ad cost per show. Dashed lines: total cost (ads + rep pay + bonuses) as a share of revenue.
-          </div>
-        </div>
         )}
 
       </div>
