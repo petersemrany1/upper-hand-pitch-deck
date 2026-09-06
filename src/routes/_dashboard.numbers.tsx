@@ -168,7 +168,7 @@ function NumbersPage() {
     } finally {
       setLoading(false);
     }
-  }, [fetchReport, range.from, range.to, locFilter]);
+  }, [fetchReport, range.from, range.to, locFilter, countMyPay]);
 
   useEffect(() => {
     if (authReady && session && isAdmin) void load();
