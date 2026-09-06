@@ -712,7 +712,18 @@ function DashboardHome() {
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Conversion</div>
               <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How leads and calls convert into bookings</div>
             </div>
-            <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <select
+                value={convCity}
+                onChange={(e) => setConvCity(e.target.value)}
+                style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+              >
+                <option value="">All cities</option>
+                {cityOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
               {(["day","week","30d","60d","month","year","all"] as const).map((p) => (
                 <button
                   key={p}
