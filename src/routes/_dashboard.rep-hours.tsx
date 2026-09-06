@@ -103,6 +103,8 @@ function RepHoursPage() {
   const [repFilter, setRepFilter] = useState("");
   const [rateForm, setRateForm] = useState<Partial<RepRateRow> | null>(null);
   const [hourEdit, setHourEdit] = useState<{ row: RepDayRow; hours: string; note: string } | null>(null);
+  // Set when the admin tries to change the amounts on a currently-live rate.
+  const [rateGuard, setRateGuard] = useState<{ form: Partial<RepRateRow>; newFrom: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
