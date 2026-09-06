@@ -620,19 +620,31 @@ function DashboardHome() {
               <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
                 Conversion rates
               </div>
-              <select
-                value={convPeriod}
-                onChange={(e) => setConvPeriod(e.target.value as typeof convPeriod)}
-                style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
-              >
-                <option value="day">Today</option>
-                <option value="week">Last 7 days</option>
-                <option value="30d">Past 30 days</option>
-                <option value="60d">Past 60 days</option>
-                <option value="month">This month</option>
-                <option value="year">This year</option>
-                <option value="all">All time</option>
-              </select>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select
+                  value={convCity}
+                  onChange={(e) => setConvCity(e.target.value)}
+                  style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+                >
+                  <option value="">All cities</option>
+                  {cityOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <select
+                  value={convPeriod}
+                  onChange={(e) => setConvPeriod(e.target.value as typeof convPeriod)}
+                  style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+                >
+                  <option value="day">Today</option>
+                  <option value="week">Last 7 days</option>
+                  <option value="30d">Past 30 days</option>
+                  <option value="60d">Past 60 days</option>
+                  <option value="month">This month</option>
+                  <option value="year">This year</option>
+                  <option value="all">All time</option>
+                </select>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
