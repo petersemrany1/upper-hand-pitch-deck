@@ -178,7 +178,7 @@ function NumbersPage() {
         owed: a.owed + p.shows_owed,
         valueOwed: a.valueOwed + p.value_owed,
         paid: a.paid + p.amount_paid_ex_gst,
-        freeShows: a.freeShows + p.free_shows_delivered,
+        freeShows: a.freeShows + p.shows_free_purchased,
       }),
       { purchased: 0, delivered: 0, owed: 0, valueOwed: 0, paid: 0, freeShows: 0 },
     );
@@ -960,7 +960,7 @@ function NumbersPage() {
                       {p.effective_rate ? money(p.effective_rate) : "—"}
                       {p.effective_rate ? <span style={{ color: "#9a9a97" }}> vs {money(p.list_rate)}</span> : null}
                     </td>
-                    <td style={td2r}>{p.free_shows_delivered || "—"}</td>
+                    <td style={td2r}>{p.shows_free_purchased || "—"}</td>
                   </tr>
                 ))}
                 <tr style={{ borderTop: "0.5px solid #111", fontWeight: 600 }}>
