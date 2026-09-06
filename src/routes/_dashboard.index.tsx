@@ -484,7 +484,7 @@ function DashboardHome() {
       // Test leads (name containing "test") are excluded server-side.
       const { data: statsRows, error: statsErr } = await supabase.rpc(
         "dashboard_conversion_stats",
-        { p_from: fromIso ?? undefined, p_rep: scopeId ?? undefined },
+        { p_from: fromIso ?? "", p_rep: scopeId ?? "", p_city: convCity || undefined },
       );
       if (cancelled) return;
       if (statsErr) {
