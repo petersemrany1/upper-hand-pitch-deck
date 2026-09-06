@@ -14,6 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_spend_daily: {
+        Row: {
+          ad_id: string | null
+          ad_name: string
+          adset_name: string | null
+          campaign_name: string | null
+          clicks: number
+          created_at: string
+          date: string
+          id: string
+          impressions: number
+          location: string | null
+          source: string
+          spend_aud: number
+          updated_at: string
+        }
+        Insert: {
+          ad_id?: string | null
+          ad_name: string
+          adset_name?: string | null
+          campaign_name?: string | null
+          clicks?: number
+          created_at?: string
+          date: string
+          id?: string
+          impressions?: number
+          location?: string | null
+          source?: string
+          spend_aud?: number
+          updated_at?: string
+        }
+        Update: {
+          ad_id?: string | null
+          ad_name?: string
+          adset_name?: string | null
+          campaign_name?: string | null
+          clicks?: number
+          created_at?: string
+          date?: string
+          id?: string
+          impressions?: number
+          location?: string | null
+          source?: string
+          spend_aud?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ad_spend_sync_state: {
+        Row: {
+          created_at: string
+          id: number
+          last_message: string | null
+          last_status: string | null
+          last_synced_at: string | null
+          rows_upserted: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          last_message?: string | null
+          last_status?: string | null
+          last_synced_at?: string | null
+          rows_upserted?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          last_message?: string | null
+          last_status?: string | null
+          last_synced_at?: string | null
+          rows_upserted?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
@@ -293,6 +371,13 @@ export type Database = {
             foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinic_appointment_notes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
@@ -412,6 +497,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "partner_clinics"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_appointments_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["lead_id"]
           },
           {
             foreignKeyName: "clinic_appointments_lead_id_fkey"
@@ -770,6 +862,13 @@ export type Database = {
             foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinicflow_chase_requests_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
@@ -986,6 +1085,13 @@ export type Database = {
             foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
             columns: ["appointment_id"]
             isOneToOne: true
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "clinicflow_intakes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
             referencedRelation: "clinic_appointments"
             referencedColumns: ["id"]
           },
@@ -1071,6 +1177,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: true
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
           {
             foreignKeyName: "clinicflow_pipeline_status_appointment_id_fkey"
             columns: ["appointment_id"]
@@ -1167,6 +1280,13 @@ export type Database = {
           valid_until?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clinicflow_quotes_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
           {
             foreignKeyName: "clinicflow_quotes_appointment_id_fkey"
             columns: ["appointment_id"]
@@ -1638,6 +1758,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "meta_leads_previous_lead_id_fkey"
+            columns: ["previous_lead_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["lead_id"]
+          },
           {
             foreignKeyName: "meta_leads_previous_lead_id_fkey"
             columns: ["previous_lead_id"]
@@ -2434,9 +2561,80 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      ad_lead_outcomes: {
+        Row: {
+          ad_name: string | null
+          adset_name: string | null
+          appointment_date: string | null
+          appointment_id: string | null
+          appointment_time: string | null
+          campaign_name: string | null
+          created_at: string | null
+          first_name: string | null
+          is_booked: boolean | null
+          is_disqualified: boolean | null
+          is_noshow: boolean | null
+          is_showed: boolean | null
+          is_upcoming: boolean | null
+          last_name: string | null
+          lead_id: string | null
+          location: string | null
+          needs_outcome: boolean | null
+          outcome: string | null
+          phone: string | null
+          status: string | null
+          unattributed: boolean | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      ad_cost_per_show_monthly: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          location: string
+          month: string
+          showed: number
+          spend: number
+        }[]
+      }
+      ad_location_from_campaign: {
+        Args: { p_campaign: string }
+        Returns: string
+      }
+      ad_location_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          booked: number
+          disqualified: number
+          leads: number
+          location: string
+          needs_outcome: number
+          noshow: number
+          showed: number
+          spend: number
+          upcoming: number
+        }[]
+      }
+      ad_performance: {
+        Args: { p_from?: string; p_location?: string; p_to?: string }
+        Returns: {
+          ad_name: string
+          booked: number
+          clicks: number
+          disqualified: number
+          impressions: number
+          leads: number
+          location: string
+          name_collision: boolean
+          needs_outcome: number
+          noshow: number
+          showed: number
+          spend: number
+          unattributed: boolean
+          upcoming: number
+        }[]
+      }
       current_clinic_id: { Args: never; Returns: string }
       current_sales_rep_id: { Args: never; Returns: string }
       current_sales_rep_role: { Args: never; Returns: string }

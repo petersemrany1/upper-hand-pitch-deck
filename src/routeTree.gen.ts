@@ -31,6 +31,7 @@ import { Route as DashboardLeadsRouteImport } from './routes/_dashboard.leads'
 import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard.letter-campaign'
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardMyRecordingsRouteImport } from './routes/_dashboard.my-recordings'
+import { Route as DashboardNumbersRouteImport } from './routes/_dashboard.numbers'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardSalesCallRouteImport } from './routes/_dashboard.sales-call'
@@ -55,6 +56,7 @@ import { Route as DashboardTrainingProductKnowledgeRouteImport } from './routes/
 import { Route as DashboardTrainingReadAlongRouteImport } from './routes/_dashboard.training.read-along'
 import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/_dashboard.training.sales-call-example'
 import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
+import { Route as ApiPublicMetaAdSpendRouteImport } from './routes/api.public.meta-ad-spend'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
 import { Route as ApiPublicSamLeadsRouteImport } from './routes/api.public.sam-leads'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
@@ -185,6 +187,11 @@ const DashboardLogsRoute = DashboardLogsRouteImport.update({
 const DashboardMyRecordingsRoute = DashboardMyRecordingsRouteImport.update({
   id: '/my-recordings',
   path: '/my-recordings',
+  getParentRoute: () => DashboardRoute,
+} as any)
+const DashboardNumbersRoute = DashboardNumbersRouteImport.update({
+  id: '/numbers',
+  path: '/numbers',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
@@ -326,6 +333,11 @@ const ApiPublicClinicLeadsRoute = ApiPublicClinicLeadsRouteImport.update({
   path: '/api/public/clinic-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMetaAdSpendRoute = ApiPublicMetaAdSpendRouteImport.update({
+  id: '/api/public/meta-ad-spend',
+  path: '/api/public/meta-ad-spend',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
   id: '/api/public/meta-leads',
   path: '/api/public/meta-leads',
@@ -429,6 +441,7 @@ export interface FileRoutesByFullPath {
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
+  '/numbers': typeof DashboardNumbersRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
@@ -452,6 +465,7 @@ export interface FileRoutesByFullPath {
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
+  '/api/public/meta-ad-spend': typeof ApiPublicMetaAdSpendRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -489,6 +503,7 @@ export interface FileRoutesByTo {
   '/letter-campaign': typeof DashboardLetterCampaignRoute
   '/logs': typeof DashboardLogsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
+  '/numbers': typeof DashboardNumbersRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/sales-call': typeof DashboardSalesCallRoute
@@ -512,6 +527,7 @@ export interface FileRoutesByTo {
   '/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
+  '/api/public/meta-ad-spend': typeof ApiPublicMetaAdSpendRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -551,6 +567,7 @@ export interface FileRoutesById {
   '/_dashboard/letter-campaign': typeof DashboardLetterCampaignRoute
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/my-recordings': typeof DashboardMyRecordingsRoute
+  '/_dashboard/numbers': typeof DashboardNumbersRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/sales-call': typeof DashboardSalesCallRoute
@@ -575,6 +592,7 @@ export interface FileRoutesById {
   '/_dashboard/training/read-along': typeof DashboardTrainingReadAlongRoute
   '/_dashboard/training/sales-call-example': typeof DashboardTrainingSalesCallExampleRoute
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
+  '/api/public/meta-ad-spend': typeof ApiPublicMetaAdSpendRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
@@ -615,6 +633,7 @@ export interface FileRouteTypes {
     | '/letter-campaign'
     | '/logs'
     | '/my-recordings'
+    | '/numbers'
     | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
@@ -638,6 +657,7 @@ export interface FileRouteTypes {
     | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/clinic-leads'
+    | '/api/public/meta-ad-spend'
     | '/api/public/meta-leads'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
@@ -675,6 +695,7 @@ export interface FileRouteTypes {
     | '/letter-campaign'
     | '/logs'
     | '/my-recordings'
+    | '/numbers'
     | '/partner-clinics'
     | '/pitch-deck'
     | '/sales-call'
@@ -698,6 +719,7 @@ export interface FileRouteTypes {
     | '/training/read-along'
     | '/training/sales-call-example'
     | '/api/public/clinic-leads'
+    | '/api/public/meta-ad-spend'
     | '/api/public/meta-leads'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
@@ -736,6 +758,7 @@ export interface FileRouteTypes {
     | '/_dashboard/letter-campaign'
     | '/_dashboard/logs'
     | '/_dashboard/my-recordings'
+    | '/_dashboard/numbers'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/sales-call'
@@ -760,6 +783,7 @@ export interface FileRouteTypes {
     | '/_dashboard/training/read-along'
     | '/_dashboard/training/sales-call-example'
     | '/api/public/clinic-leads'
+    | '/api/public/meta-ad-spend'
     | '/api/public/meta-leads'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
@@ -791,6 +815,7 @@ export interface RootRouteChildren {
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   KioskAppointmentIdRoute: typeof KioskAppointmentIdRoute
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
+  ApiPublicMetaAdSpendRoute: typeof ApiPublicMetaAdSpendRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
   ApiPublicSamLeadsRoute: typeof ApiPublicSamLeadsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
@@ -962,6 +987,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardMyRecordingsRouteImport
       parentRoute: typeof DashboardRoute
     }
+    '/_dashboard/numbers': {
+      id: '/_dashboard/numbers'
+      path: '/numbers'
+      fullPath: '/numbers'
+      preLoaderRoute: typeof DashboardNumbersRouteImport
+      parentRoute: typeof DashboardRoute
+    }
     '/_dashboard/partner-clinics': {
       id: '/_dashboard/partner-clinics'
       path: '/partner-clinics'
@@ -1130,6 +1162,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicClinicLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta-ad-spend': {
+      id: '/api/public/meta-ad-spend'
+      path: '/api/public/meta-ad-spend'
+      fullPath: '/api/public/meta-ad-spend'
+      preLoaderRoute: typeof ApiPublicMetaAdSpendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/meta-leads': {
       id: '/api/public/meta-leads'
       path: '/api/public/meta-leads'
@@ -1282,6 +1321,7 @@ interface DashboardRouteChildren {
   DashboardLetterCampaignRoute: typeof DashboardLetterCampaignRoute
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardMyRecordingsRoute: typeof DashboardMyRecordingsRoute
+  DashboardNumbersRoute: typeof DashboardNumbersRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardSalesCallRoute: typeof DashboardSalesCallRoute
@@ -1307,6 +1347,7 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLetterCampaignRoute: DashboardLetterCampaignRoute,
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardMyRecordingsRoute: DashboardMyRecordingsRoute,
+  DashboardNumbersRoute: DashboardNumbersRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardSalesCallRoute: DashboardSalesCallRoute,
@@ -1337,6 +1378,7 @@ const rootRouteChildren: RootRouteChildren = {
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   KioskAppointmentIdRoute: KioskAppointmentIdRoute,
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
+  ApiPublicMetaAdSpendRoute: ApiPublicMetaAdSpendRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
   ApiPublicSamLeadsRoute: ApiPublicSamLeadsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
