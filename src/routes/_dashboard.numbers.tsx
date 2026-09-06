@@ -799,7 +799,35 @@ function NumbersPage() {
                     {m.hoursOk ? money(m.totalCost) : "—"}
                   </div>
                   <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
+                  {isTotal && unallocatedLabour && !locFilter && (unallocatedLabour.hours > 0 || unallocatedLabour.hourly_cost > 0) && (
+                    <>
+                      <div style={{ color: "#8a5a2b" }}>
+                        …of which (unallocated)
+                        <div style={{ fontSize: 10.5, color: "#9a9a97" }}>
+                          {unallocatedLabour.hours.toFixed(1)} h on leads with no campaign
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", color: "#8a5a2b" }}>
+                        {money(unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost)}
+                      </div>
+                      <div style={{ textAlign: "right", color: "#8a5a2b", fontSize: 11 }}>
+                        {m.revenue > 0
+                          ? `${(((unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost) / m.revenue) * 100).toFixed(1)}%`
+                          : "—"}
+                      </div>
+                    </>
+                  )}
+
+                  <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid #e8e8e6", marginTop: 2 }} />
+
+                  <div style={{ fontWeight: 600 }}>TOTAL COST</div>
+                  <div style={{ textAlign: "right", fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>
+                    {m.hoursOk ? money(m.totalCost) : "—"}
+                  </div>
+                  <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
                     {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
+                  </div>
+
                   </div>
 
                   <div style={{ color: "#6b6b6b" }}>Gross profit</div>
