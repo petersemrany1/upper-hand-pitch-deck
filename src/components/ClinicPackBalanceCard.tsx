@@ -353,27 +353,43 @@ function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
   );
 }
 
-function AddPackModal({ clinicId, onClose, onSaved }: {
-  clinicId: string; onClose: () => void; onSaved: () => void;
+function AddPackModal({ clinicId, pack, onClose, onSaved }: {
+  clinicId: string; pack?: Pack; onClose: () => void; onSaved: () => void;
 }) {
-  const [sizeStr, setSizeStr] = useState<string>("10");
-  const [purchasedAt, setPurchasedAt] = useState<string>(sydneyTodayISO());
-  const [notes, setNotes] = useState("");
+  const [sizeStr, setSizeStr] = useState<string>(pack ? String(pack.pack_size) : "10");
+  const [purchasedAt, setPurchasedAt] = useState<string>(pack ? pack.purchased_at.slice(0, 10) : sydneyTodayISO());
+  const [packName, setPackName] = useState(pack?.pack_name ?? "");
+  const [amountStr, setAmountStr] = useState<string>(pack?.amount_paid_ex_gst != null ? String(pack.amount_paid_ex_gst) : "");
+  const [datePaid, setDatePaid] = useState<string>(pack?.date_paid ?? sydneyTodayISO());
+  const [packType, setPackType] = useState<Pack["pack_type"]>(pack?.pack_type ?? "paid");
+  const [notes, setNotes] = useState(pack?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const size = parseInt(sizeStr, 10);
+  const amount = amountStr === "" ? null : Number(amountStr);
 
   const save = async () => {
     if (!Number.isFinite(size) || size <= 0) { toast.error("Pack size must be greater than 0"); return; }
+    if (amount != null && (!Number.isFinite(amount) || amount < 0)) { toast.error("Amount paid must be 0 or more"); return; }
+    if (packType === "paid" && amount == null) {
+      if (!confirm("No amount paid entered — revenue and value-owed figures will show '—' for this pack. Save anyway?")) return;
+    }
     setSaving(true);
-    const { error } = await supabase.from("clinic_packs").insert({
+    const row = {
       clinic_id: clinicId,
       pack_size: size,
       purchased_at: purchasedAt,
+      pack_name: packName.trim() || null,
+      amount_paid_ex_gst: amount,
+      date_paid: datePaid || null,
+      pack_type: packType,
       notes: notes.trim() || null,
-    });
+    };
+    const { error } = pack
+      ? await supabase.from("clinic_packs").update(row).eq("id", pack.id)
+      : await supabase.from("clinic_packs").insert(row);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(`Added ${size}-patient pack`);
+    toast.success(pack ? "Pack updated" : `Added ${size}-patient pack`);
     onSaved();
   };
 
@@ -388,10 +404,21 @@ function AddPackModal({ clinicId, onClose, onSaved }: {
       <div onMouseDown={(e) => e.stopPropagation()} style={{
         background: "#fff", borderRadius: RADIUS_CARD, padding: SPACE_24, width: "90%", maxWidth: 420,
       }}>
-        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>Add patient pack</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 700, color: NAVY, margin: "0 0 4px" }}>{pack ? "Edit pack" : "Add patient pack"}</h3>
         <p style={{ fontSize: 13, color: GREY_TEXT, margin: "0 0 20px" }}>
-          The clinic will see this balance in their portal. A credit is consumed each time a patient shows up.
+          Enter the amount paid so the Numbers page can work out revenue and value owed. A credit is consumed each time a patient shows up.
         </p>
+
+        <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
+          Pack name (optional)
+        </label>
+        <input
+          type="text"
+          value={packName}
+          onChange={(e) => setPackName(e.target.value)}
+          placeholder="e.g. 10-show pack"
+          style={{ width: "100%", padding: "10px 12px", borderRadius: RADIUS_BTN, border: `1px solid ${GREY_BORDER}`, fontSize: 14, marginBottom: SPACE_16 }}
+        />
 
         <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: GREY_TEXT_DARK, marginBottom: SPACE_8 }}>
           Pack size (number of patients)
