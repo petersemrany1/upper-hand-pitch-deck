@@ -744,6 +744,7 @@ function DashboardHome() {
                   {{ day: "Today", week: "7 days", "30d": "30 days", "60d": "60 days", month: "Month", year: "Year", all: "All" }[p]}
                 </button>
               ))}
+              </div>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
