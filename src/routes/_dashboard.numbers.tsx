@@ -117,6 +117,7 @@ function NumbersPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [locFilter, setLocFilter] = useState("");
+  const [countMyPay, setCountMyPay] = useState(true);
   const [loading, setLoading] = useState(true);
 
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
@@ -149,7 +150,7 @@ function NumbersPage() {
     setLoading(true);
     try {
       const res = await fetchReport({
-        data: { from: range.from, to: range.to, location: locFilter || null },
+        data: { from: range.from, to: range.to, location: locFilter || null, excludePeter: !countMyPay },
       });
       setAds(res.ads);
       setLocations(res.locations);
