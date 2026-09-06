@@ -1993,6 +1993,7 @@ export type Database = {
           email: string | null
           id: string
           is_active: boolean
+          location: string | null
           min_appointment_gap_mins: number
           nearby_landmarks: string | null
           parking_info: string | null
@@ -2013,6 +2014,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          location?: string | null
           min_appointment_gap_mins?: number
           nearby_landmarks?: string | null
           parking_info?: string | null
@@ -2033,6 +2035,7 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          location?: string | null
           min_appointment_gap_mins?: number
           nearby_landmarks?: string | null
           parking_info?: string | null
