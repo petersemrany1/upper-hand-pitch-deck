@@ -285,8 +285,8 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-function PackHistoryList({ packs, showedUp, onChange }: {
-  packs: Pack[]; showedUp: number; onChange: () => void;
+function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
+  packs: Pack[]; showedUp: number; onChange: () => void; onEdit: (p: Pack) => void;
 }) {
   // Allocate delivered per pack (FIFO)
   const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
