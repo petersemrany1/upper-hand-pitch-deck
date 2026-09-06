@@ -82,7 +82,9 @@ const clock = (iso: string | null) =>
 type Rep = { id: string; name: string; is_active: boolean };
 
 function RepHoursPage() {
-  const { session, isAdmin, authReady } = useAuth();
+  const { session, role, ready: authReady } = useAuth();
+  const isAdmin = role === "admin";
+
   const fetchReport = useServerFn(getRepHours);
   const saveRate = useServerFn(saveRepRate);
   const removeRate = useServerFn(deleteRepRate);
