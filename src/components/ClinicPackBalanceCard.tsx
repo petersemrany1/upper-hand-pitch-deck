@@ -55,6 +55,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [editingPack, setEditingPack] = useState<Pack | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -250,7 +251,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           )}
 
           {showHistory && isAdmin && (
-            <PackHistoryList packs={packs} showedUp={showedUp} onChange={load} />
+            <PackHistoryList packs={packs} showedUp={showedUp} onChange={load} onEdit={(p) => setEditingPack(p)} />
           )}
         </>
       )}
@@ -260,6 +261,15 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           clinicId={clinicId}
           onClose={() => setShowAdd(false)}
           onSaved={() => { setShowAdd(false); void load(); }}
+        />
+      )}
+
+      {editingPack && isAdmin && (
+        <AddPackModal
+          clinicId={clinicId}
+          pack={editingPack}
+          onClose={() => setEditingPack(null)}
+          onSaved={() => { setEditingPack(null); void load(); }}
         />
       )}
     </div>
