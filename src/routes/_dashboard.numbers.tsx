@@ -312,7 +312,15 @@ function NumbersPage() {
     );
   }, [labourByLocation, locFilter]);
 
+  // Labour that couldn't be tied to any city (calls on leads with no campaign).
+  // Included in TOTAL, so surface it as its own line rather than hiding it.
+  const unallocatedLabour = useMemo(
+    () => labourByLocation.find((l) => l.key.toLowerCase() === "(unallocated)") ?? null,
+    [labourByLocation],
+  );
+
   const totalRevenue: RevenueRow = useMemo(() => {
+
     const src = locFilter
       ? revenueByLocation.filter((r) => r.key.toLowerCase() === locFilter.toLowerCase())
       : revenueByLocation;
@@ -784,6 +792,25 @@ function NumbersPage() {
                     {m.labourPctNum === null ? "—" : `${(m.labourPctNum * 100).toFixed(1)}%`}
                   </div>
 
+                  {isTotal && unallocatedLabour && !locFilter && (unallocatedLabour.hours > 0 || unallocatedLabour.hourly_cost > 0) && (
+                    <>
+                      <div style={{ color: "#8a5a2b" }}>
+                        …of which (unallocated)
+                        <div style={{ fontSize: 10.5, color: "#9a9a97" }}>
+                          {unallocatedLabour.hours.toFixed(1)} h on leads with no campaign
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", color: "#8a5a2b" }}>
+                        {money(unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost)}
+                      </div>
+                      <div style={{ textAlign: "right", color: "#8a5a2b", fontSize: 11 }}>
+                        {m.revenue > 0
+                          ? `${(((unallocatedLabour.hourly_cost + unallocatedLabour.bonus_cost) / m.revenue) * 100).toFixed(1)}%`
+                          : "—"}
+                      </div>
+                    </>
+                  )}
+
                   <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid #e8e8e6", marginTop: 2 }} />
 
                   <div style={{ fontWeight: 600 }}>TOTAL COST</div>
@@ -793,6 +820,7 @@ function NumbersPage() {
                   <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
                     {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
                   </div>
+
 
                   <div style={{ color: "#6b6b6b" }}>Gross profit</div>
                   <div style={{ textAlign: "right", fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
