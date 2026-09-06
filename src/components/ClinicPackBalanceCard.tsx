@@ -318,18 +318,34 @@ function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
           }}>
             <div>
               <strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered
+              {p.pack_name && <span style={{ color: GREY_TEXT_DARK, marginLeft: 10 }}>{p.pack_name}</span>}
               <span style={{ color: GREY_TEXT, marginLeft: 10 }}>
                 purchased {new Date(p.purchased_at).toLocaleDateString()}
               </span>
+              <span style={{ color: p.amount_paid_ex_gst == null ? AMBER : GREY_TEXT, marginLeft: 10 }}>
+                · {p.amount_paid_ex_gst == null ? "amount missing" : `$${p.amount_paid_ex_gst.toLocaleString()} ex GST`}
+              </span>
+              {p.pack_type !== "paid" && (
+                <span style={{ color: GREY_TEXT, marginLeft: 10 }}>· {p.pack_type.replace("_", " ")}</span>
+              )}
               {p.notes && <span style={{ color: GREY_TEXT, marginLeft: 10, fontStyle: "italic" }}>· {p.notes}</span>}
             </div>
-            <button
-              onClick={() => del(p.id)}
-              style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }}
-              title="Delete pack"
-            >
-              <Trash2 size={14} />
-            </button>
+            <div style={{ display: "flex", gap: SPACE_4 }}>
+              <button
+                onClick={() => onEdit(p)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY_TEXT_DARK, padding: SPACE_4 }}
+                title="Edit pack"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => del(p.id)}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }}
+                title="Delete pack"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           </div>
         ))}
       </div>
