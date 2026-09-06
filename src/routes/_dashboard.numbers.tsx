@@ -1225,7 +1225,7 @@ function NumbersPage() {
         )}
 
         {/* SECTION A — city detail (tab 2) */}
-        {tab === "money" && (
+        {(tab === "money" || tab === "costs") && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
           {[...visibleLocations].sort((a, b) => a.location.localeCompare(b.location)).concat(visibleLocations.length > 1 ? [total] : []).map((l, i) => {
             const isTotal = l.location === "TOTAL" && i === visibleLocations.length;
@@ -1389,7 +1389,7 @@ function NumbersPage() {
         )}
 
         {/* SECTION B */}
-        {tab === "money" && (
+        {(tab === "money" || tab === "costs") && (
         <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
           <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Ad leaderboard</div>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
@@ -1482,7 +1482,7 @@ function NumbersPage() {
         )}
 
         {/* SECTION C */}
-        {tab === "money" && (
+        {(tab === "money" || tab === "costs") && (
         <div style={CARD}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 12 }}>Cost per show by month</div>
           {chart.data.length === 0 ? (
