@@ -520,14 +520,8 @@ function DashboardHome() {
     return () => { cancelled = true; };
   }, [authReady, session, isAdmin, convPeriod, convCity]);
 
-  // Distinct clinic cities for the conversion filter.
-  const cityOptions = useMemo(() => {
-    const set = new Set<string>();
-    for (const c of clinicMap.values()) {
-      if (c.city?.trim()) set.add(c.city.trim());
-    }
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [clinicMap]);
+  // Campaign cities for the conversion filter (ad campaigns, not clinic cities).
+  const cityOptions = ["Byron Bay", "Melbourne", "Perth", "Sydney"];
 
   const firstName = useMemo(() => {
     if (repName) return repName.split(/\s+/)[0];
