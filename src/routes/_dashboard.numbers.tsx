@@ -312,7 +312,15 @@ function NumbersPage() {
     );
   }, [labourByLocation, locFilter]);
 
+  // Labour that couldn't be tied to any city (calls on leads with no campaign).
+  // Included in TOTAL, so surface it as its own line rather than hiding it.
+  const unallocatedLabour = useMemo(
+    () => labourByLocation.find((l) => l.key.toLowerCase() === "(unallocated)") ?? null,
+    [labourByLocation],
+  );
+
   const totalRevenue: RevenueRow = useMemo(() => {
+
     const src = locFilter
       ? revenueByLocation.filter((r) => r.key.toLowerCase() === locFilter.toLowerCase())
       : revenueByLocation;
