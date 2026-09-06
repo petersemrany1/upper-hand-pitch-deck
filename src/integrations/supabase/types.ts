@@ -2441,7 +2441,7 @@ export type Database = {
       current_sales_rep_id: { Args: never; Returns: string }
       current_sales_rep_role: { Args: never; Returns: string }
       dashboard_conversion_stats: {
-        Args: { p_from?: string; p_rep?: string }
+        Args: { p_city?: string; p_from: string; p_rep: string }
         Returns: {
           connected_booked: number
           connected_unique: number

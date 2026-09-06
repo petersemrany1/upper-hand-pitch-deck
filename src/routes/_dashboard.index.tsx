@@ -259,6 +259,7 @@ function DashboardHome() {
   // Conversion widget state
   type ConvPeriod = "day" | "week" | "30d" | "60d" | "month" | "year" | "all";
   const [convPeriod, setConvPeriod] = useState<ConvPeriod>("month");
+  const [convCity, setConvCity] = useState<string>("");
   const [convLeadsTotal, setConvLeadsTotal] = useState(0);     // leads created in period
   const [convLeadsBooked, setConvLeadsBooked] = useState(0);   // of those leads, how many are booked
   const [convConnectedUnique, setConvConnectedUnique] = useState(0); // unique leads we got through to (completed calls)
@@ -483,7 +484,12 @@ function DashboardHome() {
       // Test leads (name containing "test") are excluded server-side.
       const { data: statsRows, error: statsErr } = await supabase.rpc(
         "dashboard_conversion_stats",
-        { p_from: fromIso ?? undefined, p_rep: scopeId ?? undefined },
+        // Generated types mark these required, but SQL treats NULL as "no filter".
+        {
+          p_from: (fromIso ?? null) as unknown as string,
+          p_rep: (scopeId ?? null) as unknown as string,
+          p_city: (convCity || null) as unknown as string,
+        },
       );
       if (cancelled) return;
       if (statsErr) {
@@ -512,7 +518,16 @@ function DashboardHome() {
 
     })();
     return () => { cancelled = true; };
-  }, [authReady, session, isAdmin, convPeriod]);
+  }, [authReady, session, isAdmin, convPeriod, convCity]);
+
+  // Distinct clinic cities for the conversion filter.
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of clinicMap.values()) {
+      if (c.city?.trim()) set.add(c.city.trim());
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [clinicMap]);
 
   const firstName = useMemo(() => {
     if (repName) return repName.split(/\s+/)[0];
@@ -605,19 +620,31 @@ function DashboardHome() {
               <div style={{ fontSize: 12, color: "#999", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500 }}>
                 Conversion rates
               </div>
-              <select
-                value={convPeriod}
-                onChange={(e) => setConvPeriod(e.target.value as typeof convPeriod)}
-                style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
-              >
-                <option value="day">Today</option>
-                <option value="week">Last 7 days</option>
-                <option value="30d">Past 30 days</option>
-                <option value="60d">Past 60 days</option>
-                <option value="month">This month</option>
-                <option value="year">This year</option>
-                <option value="all">All time</option>
-              </select>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select
+                  value={convCity}
+                  onChange={(e) => setConvCity(e.target.value)}
+                  style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+                >
+                  <option value="">All cities</option>
+                  {cityOptions.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+                <select
+                  value={convPeriod}
+                  onChange={(e) => setConvPeriod(e.target.value as typeof convPeriod)}
+                  style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+                >
+                  <option value="day">Today</option>
+                  <option value="week">Last 7 days</option>
+                  <option value="30d">Past 30 days</option>
+                  <option value="60d">Past 60 days</option>
+                  <option value="month">This month</option>
+                  <option value="year">This year</option>
+                  <option value="all">All time</option>
+                </select>
+              </div>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 0 }}>
               <div style={{ padding: 20, borderRight: "0.5px solid #f0f0ee" }}>
@@ -685,7 +712,18 @@ function DashboardHome() {
               <div style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Conversion</div>
               <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>How leads and calls convert into bookings</div>
             </div>
-            <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <select
+                value={convCity}
+                onChange={(e) => setConvCity(e.target.value)}
+                style={{ fontSize: 12, padding: "6px 10px", border: "0.5px solid #e8e8e6", borderRadius: 8, background: "#fff", fontFamily: FONT, cursor: "pointer" }}
+              >
+                <option value="">All cities</option>
+                {cityOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <div style={{ display: "flex", gap: 4, background: "#f4f4f2", padding: 4, borderRadius: 8 }}>
               {(["day","week","30d","60d","month","year","all"] as const).map((p) => (
                 <button
                   key={p}
@@ -706,6 +744,7 @@ function DashboardHome() {
                   {{ day: "Today", week: "7 days", "30d": "30 days", "60d": "60 days", month: "Month", year: "Year", all: "All" }[p]}
                 </button>
               ))}
+              </div>
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
