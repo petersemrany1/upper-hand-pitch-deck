@@ -1433,6 +1433,7 @@ function NumbersPage() {
             Solid lines: ad cost per show. Dashed lines: total cost (ads + rep pay + bonuses) as a share of revenue.
           </div>
         </div>
+        )}
 
       </div>
 
