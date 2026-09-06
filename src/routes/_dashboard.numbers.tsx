@@ -136,7 +136,7 @@ function NumbersPage() {
   } | null>(null);
 
   const [showUnresolved, setShowUnresolved] = useState(false);
-  const [sortKey, setSortKey] = useState<string>("cps");
+  const [sortKey, setSortKey] = useState<string>("costPct");
   const [sortAsc, setSortAsc] = useState(true);
   const [drill, setDrill] = useState<{ ad: AdPerformanceRow; rows: unknown[] } | null>(null);
   const [spendPanel, setSpendPanel] = useState(false);
