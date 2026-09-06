@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -11,7 +11,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw } from "lucide-react";
+import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -27,7 +27,11 @@ import {
   type MonthlyPoint,
   type NeedsOutcomeRow,
   type SpendRow,
+  type LabourRow,
+  type RevenueRow,
+  type MoneyMonthPoint,
 } from "@/lib/ad-spend.functions";
+
 
 export const Route = createFileRoute("/_dashboard/numbers")({
   head: () => ({
