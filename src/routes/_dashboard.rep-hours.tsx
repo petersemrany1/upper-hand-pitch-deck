@@ -8,6 +8,7 @@ import { APP_TIMEZONE } from "@/lib/timezone";
 import {
   getRepHours,
   saveRepRate,
+  splitRepRate,
   deleteRepRate,
   saveHourOverride,
   clearHourOverride,
@@ -87,6 +88,7 @@ function RepHoursPage() {
 
   const fetchReport = useServerFn(getRepHours);
   const saveRate = useServerFn(saveRepRate);
+  const splitRate = useServerFn(splitRepRate);
   const removeRate = useServerFn(deleteRepRate);
   const saveOverride = useServerFn(saveHourOverride);
   const removeOverride = useServerFn(clearHourOverride);
@@ -101,6 +103,8 @@ function RepHoursPage() {
   const [repFilter, setRepFilter] = useState("");
   const [rateForm, setRateForm] = useState<Partial<RepRateRow> | null>(null);
   const [hourEdit, setHourEdit] = useState<{ row: RepDayRow; hours: string; note: string } | null>(null);
+  // Set when the admin tries to change the amounts on a currently-live rate.
+  const [rateGuard, setRateGuard] = useState<{ form: Partial<RepRateRow>; newFrom: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -480,7 +484,12 @@ function RepHoursPage() {
                     setRateForm(null);
                     void load();
                   } catch (e) {
-                    toast.error((e as Error).message);
+                    const msg = (e as Error).message ?? "";
+                    if (msg.includes("LIVE_RATE_EDIT")) {
+                      setRateGuard({ form: rateForm, newFrom: today });
+                      return;
+                    }
+                    toast.error(msg);
                   }
                 }}
                 style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff", cursor: "pointer", fontSize: 13 }}
@@ -491,6 +500,89 @@ function RepHoursPage() {
           </div>
         </div>
       )}
+
+      {/* Live-rate guard: split vs correct a mistake */}
+      {rateGuard && (
+        <div
+          onClick={() => setRateGuard(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 60 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ ...CARD, width: "100%", maxWidth: 460 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <AlertTriangle className="h-4 w-4" style={{ color: "#b45309" }} />
+              <div style={{ fontSize: 15, fontWeight: 600 }}>This rate is currently in use</div>
+              <button onClick={() => setRateGuard(null)} style={{ marginLeft: "auto", border: "none", background: "none", cursor: "pointer" }}>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div style={{ fontSize: 13, color: "#4b4b4b", lineHeight: 1.5, marginBottom: 14 }}>
+              Changing the amounts on this rate would re-cost every past day it covers. Normally you
+              want to keep history and start the new amounts from a date — that closes off the old
+              rate the day before and opens a new one.
+            </div>
+            <label style={{ fontSize: 11, color: "#6b6b6b" }}>New amounts start from</label>
+            <input
+              type="date"
+              value={rateGuard.newFrom}
+              onChange={(e) => setRateGuard({ ...rateGuard, newFrom: e.target.value })}
+              style={{ padding: "8px 10px", border: "0.5px solid #d8d8d5", borderRadius: 8, width: "100%", marginBottom: 12, fontSize: 13 }}
+            />
+            <button
+              onClick={async () => {
+                try {
+                  const res = await splitRate({
+                    data: {
+                      id: rateGuard.form.id!,
+                      new_from: rateGuard.newFrom,
+                      hourly_rate: rateGuard.form.hourly_rate ?? null,
+                      booking_bonus: rateGuard.form.booking_bonus ?? null,
+                      note: rateGuard.form.note ?? null,
+                    },
+                  });
+                  toast.success(`Old rate ended ${res.ended}, new rate starts ${rateGuard.newFrom}`);
+                  setRateGuard(null);
+                  setRateForm(null);
+                  void load();
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+              style={{ padding: "9px 14px", borderRadius: 10, border: "none", background: "#111", color: "#fff", cursor: "pointer", fontSize: 13, width: "100%" }}
+            >
+              Split the rate (keeps history)
+            </button>
+            <button
+              onClick={async () => {
+                if (!confirm("Only do this if the old amount was typed in wrong. Every past day covered by this rate will be re-costed. Continue?")) return;
+                try {
+                  await saveRate({
+                    data: {
+                      id: rateGuard.form.id,
+                      rep_id: rateGuard.form.rep_id!,
+                      hourly_rate: rateGuard.form.hourly_rate ?? null,
+                      booking_bonus: rateGuard.form.booking_bonus ?? null,
+                      effective_from: rateGuard.form.effective_from ?? today,
+                      effective_to: rateGuard.form.effective_to ?? null,
+                      note: rateGuard.form.note ?? null,
+                      confirmCorrection: true,
+                    },
+                  });
+                  toast.success("Rate corrected");
+                  setRateGuard(null);
+                  setRateForm(null);
+                  void load();
+                } catch (e) {
+                  toast.error((e as Error).message);
+                }
+              }}
+              style={{ marginTop: 8, padding: "9px 14px", borderRadius: 10, border: "0.5px solid #d8d8d5", background: "#fff", color: "#b91c1c", cursor: "pointer", fontSize: 13, width: "100%" }}
+            >
+              No — I'm correcting a mistake, overwrite it
+            </button>
+          </div>
+        </div>
+      )}
+
 
       {/* Hours override modal */}
       {hourEdit && (

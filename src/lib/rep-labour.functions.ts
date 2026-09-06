@@ -132,7 +132,13 @@ const RateSchema = z.object({
   effective_from: DateStr,
   effective_to: DateStr.nullable().optional(),
   note: z.string().max(400).nullable().optional(),
+  // Guard: editing a currently-live rate rewrites history. The caller must
+  // explicitly confirm it is correcting a data-entry mistake, otherwise the
+  // change has to go through splitRepRate instead.
+  confirmCorrection: z.boolean().optional(),
 });
+
+const eq = (a: unknown, b: unknown) => (a ?? null) === (b ?? null);
 
 export const saveRepRate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -148,6 +154,25 @@ export const saveRepRate = createServerFn({ method: "POST" })
       note: data.note ?? null,
     };
     if (data.id) {
+      if (!data.confirmCorrection) {
+        const { data: existing } = await db
+          .from("rep_rates")
+          .select("hourly_rate, booking_bonus, effective_to, effective_from")
+          .eq("id", data.id)
+          .maybeSingle();
+        if (existing) {
+          const today = new Date().toISOString().slice(0, 10);
+          const isLive =
+            (existing.effective_to === null || String(existing.effective_to) >= today) &&
+            String(existing.effective_from) <= today;
+          const amountChanged =
+            !eq(n(existing.hourly_rate), row.hourly_rate) ||
+            !eq(n(existing.booking_bonus), row.booking_bonus);
+          if (isLive && amountChanged) {
+            throw new Error("LIVE_RATE_EDIT");
+          }
+        }
+      }
       const { error } = await db.from("rep_rates").update(row).eq("id", data.id);
       if (error) throw new Error(error.message);
       return { ok: true, id: data.id };
@@ -156,6 +181,60 @@ export const saveRepRate = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true, id: ins.id as string };
   });
+
+const SplitSchema = z.object({
+  id: z.string().uuid(),
+  new_from: DateStr,
+  hourly_rate: z.number().min(0).nullable().optional(),
+  booking_bonus: z.number().min(0).nullable().optional(),
+  note: z.string().max(400).nullable().optional(),
+});
+
+// End-dates the existing rate the day before new_from and creates a new row
+// from new_from, so historical days keep costing at the old rate.
+export const splitRepRate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => SplitSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = (await assertAdmin(context.claims as Record<string, unknown>)) as unknown as LooseDb;
+    const { data: existing, error: readErr } = await db
+      .from("rep_rates")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!existing) throw new Error("Rate not found");
+    if (String(existing.effective_from) >= data.new_from) {
+      throw new Error("The new start date must be after the existing rate's start date.");
+    }
+    const prevEnd = new Date(`${data.new_from}T00:00:00Z`);
+    prevEnd.setUTCDate(prevEnd.getUTCDate() - 1);
+    const endStr = prevEnd.toISOString().slice(0, 10);
+
+    const { error: updErr } = await db
+      .from("rep_rates")
+      .update({ effective_to: endStr })
+      .eq("id", data.id);
+    if (updErr) throw new Error(updErr.message);
+
+    const { data: ins, error: insErr } = await db
+      .from("rep_rates")
+      .insert([
+        {
+          rep_id: existing.rep_id,
+          hourly_rate: data.hourly_rate ?? n(existing.hourly_rate),
+          booking_bonus: data.booking_bonus ?? n(existing.booking_bonus),
+          effective_from: data.new_from,
+          effective_to: existing.effective_to ?? null,
+          note: data.note ?? null,
+        },
+      ])
+      .select("id")
+      .single();
+    if (insErr) throw new Error(insErr.message);
+    return { ok: true, id: ins.id as string, ended: endStr };
+  });
+
 
 export const deleteRepRate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
