@@ -166,15 +166,6 @@ function NumbersPage() {
     }
   }, [fetchSpend, range.from, range.to]);
 
-  if (authReady && session && !isAdmin) {
-    return (
-      <div style={{ padding: 32, fontFamily: FONT, color: "#111" }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Not available</h1>
-        <p style={{ color: "#6b6b6b", fontSize: 14 }}>This page is for admins only.</p>
-      </div>
-    );
-  }
-
   // ---- Section A: location cards + total
   const visibleLocations = locFilter
     ? locations.filter((l) => l.location?.toLowerCase() === locFilter.toLowerCase())
@@ -263,6 +254,15 @@ function NumbersPage() {
       data: Array.from(byMonth.values()).sort((a, b) => String(a.month).localeCompare(String(b.month))),
     };
   }, [monthly]);
+
+  if (authReady && session && !isAdmin) {
+    return (
+      <div style={{ padding: 32, fontFamily: FONT, color: "#111" }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600 }}>Not available</h1>
+        <p style={{ color: "#6b6b6b", fontSize: 14 }}>This page is for admins only.</p>
+      </div>
+    );
+  }
 
   const COLORS = ["#111111", "#2f6f4f", "#8a5a2b", "#3a5a9a", "#8a2b4a", "#6b6b6b"];
 
