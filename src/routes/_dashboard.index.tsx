@@ -518,7 +518,16 @@ function DashboardHome() {
 
     })();
     return () => { cancelled = true; };
-  }, [authReady, session, isAdmin, convPeriod]);
+  }, [authReady, session, isAdmin, convPeriod, convCity]);
+
+  // Distinct clinic cities for the conversion filter.
+  const cityOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const c of clinicMap.values()) {
+      if (c.city?.trim()) set.add(c.city.trim());
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [clinicMap]);
 
   const firstName = useMemo(() => {
     if (repName) return repName.split(/\s+/)[0];
