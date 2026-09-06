@@ -835,7 +835,7 @@ function NumbersPage() {
         {/* SECTION B */}
         <div style={{ ...CARD, padding: 0, overflowX: "auto" }}>
           <div style={{ padding: "16px 18px 6px", fontSize: 15, fontWeight: 600 }}>Ad leaderboard</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1100 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1600 }}>
             <thead>
               <tr>
                 {th("ad", "Ad name", "left")}
@@ -846,7 +846,13 @@ function NumbersPage() {
                 {th("showed", "Showed")}
                 {th("cpl", "Cost/lead")}
                 {th("cpb", "Cost/booked")}
-                {th("cps", "COST PER SHOW")}
+                {th("cps", "Cost/show (ads)")}
+                {th("repCost", "Rep cost")}
+                {th("bonus", "Booking bonuses")}
+                {th("totalCost", "Total cost")}
+                {th("revenue", "Revenue")}
+                {th("costPct", "COST % OF REVENUE")}
+                {th("trueCps", "True cost/show")}
                 {th("bookingRate", "Booking rate")}
                 {th("showRate", "Show rate")}
               </tr>
@@ -860,6 +866,8 @@ function NumbersPage() {
                     : r.cps <= accountAvgCps
                       ? "#2f6f4f"
                       : "#b03030";
+                const tp = r.m.totalPctNum;
+                const tpColor = dim || tp === null ? "#111" : tp < 0.25 ? "#2f6f4f" : tp <= 0.4 ? "#8a5a2b" : "#b03030";
                 return (
                   <tr
                     key={`${r.ad_name}-${r.unattributed}`}
@@ -887,22 +895,30 @@ function NumbersPage() {
                     <td style={td}>{r.showed}</td>
                     <td style={td}>{r.unattributed ? "—" : cost(r.spend, r.leads)}</td>
                     <td style={td}>{r.unattributed ? "—" : cost(r.spend, r.booked)}</td>
-                    <td style={{ ...td, fontWeight: 700, fontSize: 14, color: cpsColor }}>
+                    <td style={{ ...td, color: cpsColor }}>
                       {r.unattributed ? "—" : cost(r.spend, r.showed)}
                     </td>
+                    <td style={td}>{r.m.hoursOk ? money(r.m.hourlyCost) : "—"}</td>
+                    <td style={td}>{r.m.bonusCost ? money(r.m.bonusCost) : "—"}</td>
+                    <td style={td}>{r.m.hoursOk ? money(r.m.totalCost) : "—"}</td>
+                    <td style={td}>{r.m.revenue ? money(r.m.revenue) : "—"}</td>
+                    <td style={{ ...td, fontWeight: 700, fontSize: 14, color: tpColor }}>
+                      {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
+                    </td>
+                    <td style={td}>{r.m.trueCps === null ? "—" : money(r.m.trueCps)}</td>
                     <td style={td}>{pct(r.booked, r.leads)}</td>
                     <td style={td}>{pct(r.showed, r.showed + r.noshow)}</td>
                   </tr>
                 );
               })}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={11} style={{ padding: 16, fontSize: 13, color: "#6b6b6b" }}>Nothing in this range yet.</td></tr>
+                <tr><td colSpan={17} style={{ padding: 16, fontSize: 13, color: "#6b6b6b" }}>Nothing in this range yet.</td></tr>
               )}
             </tbody>
           </table>
           {accountAvgCps !== null && (
             <div style={{ padding: "10px 18px 16px", fontSize: 11, color: "#6b6b6b" }}>
-              Account average cost per show: {money(accountAvgCps)} — green is better than average, red is worse.
+              Account average cost per show: {money(accountAvgCps)}. Cost as a share of revenue: green under 25%, amber to 40%, red above.
             </div>
           )}
         </div>
@@ -913,22 +929,44 @@ function NumbersPage() {
           {chart.data.length === 0 ? (
             <div style={{ fontSize: 13, color: "#6b6b6b" }}>No spend and show data to chart yet.</div>
           ) : (
-            <div style={{ width: "100%", height: 280 }}>
+            <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer>
                 <LineChart data={chart.data}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0ee" />
                   <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                  <ReTooltip formatter={(v: number) => money(Number(v))} />
+                  <YAxis yAxisId="cost" tick={{ fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                  <YAxis yAxisId="pct" orientation="right" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}%`} />
+                  <ReTooltip
+                    formatter={(v: number, name: string) =>
+                      String(name).endsWith("total %") ? `${Number(v).toFixed(1)}%` : money(Number(v))
+                    }
+                  />
                   <Legend wrapperStyle={{ fontSize: 11 }} />
                   {chart.locs.map((loc, i) => (
-                    <Line key={loc} type="monotone" dataKey={loc} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot connectNulls />
+                    <Line key={loc} yAxisId="cost" type="monotone" dataKey={loc} stroke={COLORS[i % COLORS.length]} strokeWidth={2} dot connectNulls />
+                  ))}
+                  {chart.locs.map((loc, i) => (
+                    <Line
+                      key={`${loc}-pct`}
+                      yAxisId="pct"
+                      type="monotone"
+                      dataKey={`${loc} total %`}
+                      stroke={COLORS[i % COLORS.length]}
+                      strokeDasharray="4 3"
+                      strokeWidth={1.5}
+                      dot={false}
+                      connectNulls
+                    />
                   ))}
                 </LineChart>
               </ResponsiveContainer>
             </div>
           )}
+          <div style={{ fontSize: 11, color: "#6b6b6b", marginTop: 8 }}>
+            Solid lines: ad cost per show. Dashed lines: total cost (ads + rep pay + bonuses) as a share of revenue.
+          </div>
         </div>
+
       </div>
 
       {/* Drilldown */}
