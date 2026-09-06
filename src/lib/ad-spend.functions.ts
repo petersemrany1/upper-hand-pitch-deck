@@ -9,6 +9,7 @@ const RangeSchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   location: z.string().nullable().optional(),
+  excludePeter: z.boolean().optional(),
 });
 
 export type AdPerformanceRow = {
