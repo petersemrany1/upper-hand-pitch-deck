@@ -214,17 +214,129 @@ function NumbersPage() {
 
   const accountAvgCps = total.showed > 0 && total.spend > 0 ? total.spend / total.showed : null;
 
+  // ---- Labour + revenue lookups (by location and by ad)
+  const labLocMap = useMemo(
+    () => new Map(labourByLocation.map((l) => [l.key.toLowerCase(), l])),
+    [labourByLocation],
+  );
+  const labAdMap = useMemo(
+    () => new Map(labourByAd.map((l) => [l.key.toLowerCase(), l])),
+    [labourByAd],
+  );
+  const revLocMap = useMemo(
+    () => new Map(revenueByLocation.map((r) => [r.key.toLowerCase(), r])),
+    [revenueByLocation],
+  );
+  const revAdMap = useMemo(
+    () => new Map(revenueByAd.map((r) => [r.key.toLowerCase(), r])),
+    [revenueByAd],
+  );
+
+  type Money = {
+    revenue: number;
+    hours: number;
+    hourlyCost: number;
+    bonusCost: number;
+    labourCost: number;
+    totalCost: number;
+    grossProfit: number;
+    hoursOk: boolean;
+    hoursMissingRate: number;
+    hoursFallback: number;
+    bonusMissingRate: number;
+    adsPctNum: number | null;
+    labourPctNum: number | null;
+    totalPctNum: number | null;
+    trueCps: number | null;
+    bookingsPerHour: number | null;
+  };
+
+  const buildMoney = useCallback(
+    (
+      key: string,
+      spend: number,
+      shows: number,
+      bookings: number,
+      labMap: Map<string, LabourRow>,
+      revMap: Map<string, RevenueRow>,
+      labOverride?: LabourRow | null,
+      revOverride?: RevenueRow | null,
+    ): Money => {
+      const lab = labOverride ?? labMap.get(key.toLowerCase()) ?? null;
+      const rev = revOverride ?? revMap.get(key.toLowerCase()) ?? null;
+      const revenue = rev?.revenue ?? 0;
+      const hours = lab?.hours ?? 0;
+      const hourlyCost = lab?.hourly_cost ?? 0;
+      const bonusCost = lab?.bonus_cost ?? 0;
+      const labourCost = hourlyCost + bonusCost;
+      const totalCost = spend + labourCost;
+      const hoursOk = hours > 0;
+      return {
+        revenue,
+        hours,
+        hourlyCost,
+        bonusCost,
+        labourCost,
+        totalCost,
+        grossProfit: revenue - totalCost,
+        hoursOk,
+        hoursMissingRate: lab?.hours_missing_rate ?? 0,
+        hoursFallback: lab?.hours_fallback ?? 0,
+        bonusMissingRate: lab?.bonus_missing_rate ?? 0,
+        adsPctNum: revenue > 0 ? spend / revenue : null,
+        labourPctNum: revenue > 0 && hoursOk ? labourCost / revenue : null,
+        totalPctNum: revenue > 0 && hoursOk ? totalCost / revenue : null,
+        trueCps: hoursOk && shows > 0 ? totalCost / shows : null,
+        bookingsPerHour: hoursOk ? bookings / hours : null,
+      };
+    },
+    [],
+  );
+
+  const totalLabour: LabourRow = useMemo(() => {
+    const src = locFilter
+      ? labourByLocation.filter((l) => l.key.toLowerCase() === locFilter.toLowerCase())
+      : labourByLocation;
+    return src.reduce<LabourRow>(
+      (a, l) => ({
+        key: "TOTAL",
+        hours: a.hours + l.hours,
+        hourly_cost: a.hourly_cost + l.hourly_cost,
+        hours_missing_rate: a.hours_missing_rate + l.hours_missing_rate,
+        hours_fallback: a.hours_fallback + l.hours_fallback,
+        bookings: a.bookings + l.bookings,
+        bonus_cost: a.bonus_cost + l.bonus_cost,
+        bonus_missing_rate: a.bonus_missing_rate + l.bonus_missing_rate,
+      }),
+      { key: "TOTAL", hours: 0, hourly_cost: 0, hours_missing_rate: 0, hours_fallback: 0, bookings: 0, bonus_cost: 0, bonus_missing_rate: 0 },
+    );
+  }, [labourByLocation, locFilter]);
+
+  const totalRevenue: RevenueRow = useMemo(() => {
+    const src = locFilter
+      ? revenueByLocation.filter((r) => r.key.toLowerCase() === locFilter.toLowerCase())
+      : revenueByLocation;
+    return src.reduce<RevenueRow>(
+      (a, r) => ({ key: "TOTAL", shows: a.shows + r.shows, revenue: a.revenue + r.revenue }),
+      { key: "TOTAL", shows: 0, revenue: 0 },
+    );
+  }, [revenueByLocation, locFilter]);
+
   // ---- Section B: leaderboard rows
   const rows = useMemo(() => {
-    const enriched = ads.map((a) => ({
-      ...a,
-      cpl: costNum(a.spend, a.leads),
-      cpb: costNum(a.spend, a.booked),
-      cps: costNum(a.spend, a.showed),
-      lowData: a.showed < 3,
-      bookingRate: a.leads ? a.booked / a.leads : null,
-      showRate: a.showed + a.noshow ? a.showed / (a.showed + a.noshow) : null,
-    }));
+    const enriched = ads.map((a) => {
+      const m = buildMoney(a.ad_name, a.unattributed ? 0 : a.spend, a.showed, a.booked, labAdMap, revAdMap);
+      return {
+        ...a,
+        cpl: costNum(a.spend, a.leads),
+        cpb: costNum(a.spend, a.booked),
+        cps: costNum(a.spend, a.showed),
+        lowData: a.showed < 3,
+        bookingRate: a.leads ? a.booked / a.leads : null,
+        showRate: a.showed + a.noshow ? a.showed / (a.showed + a.noshow) : null,
+        m,
+      };
+    });
     const val = (r: (typeof enriched)[number]): number | string | null => {
       switch (sortKey) {
         case "ad": return r.ad_name.toLowerCase();
@@ -235,9 +347,15 @@ function NumbersPage() {
         case "showed": return r.showed;
         case "cpl": return r.cpl;
         case "cpb": return r.cpb;
+        case "cps": return r.cps;
+        case "repCost": return r.m.hourlyCost || null;
+        case "bonus": return r.m.bonusCost || null;
+        case "totalCost": return r.m.totalCost || null;
+        case "revenue": return r.m.revenue || null;
+        case "trueCps": return r.m.trueCps;
         case "bookingRate": return r.bookingRate;
         case "showRate": return r.showRate;
-        default: return r.cps;
+        default: return r.m.totalPctNum;
       }
     };
     return enriched.sort((a, b) => {
@@ -253,9 +371,9 @@ function NumbersPage() {
         return sortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
       return sortAsc ? av - bv : bv - av;
     });
-  }, [ads, sortKey, sortAsc]);
+  }, [ads, sortKey, sortAsc, buildMoney, labAdMap, revAdMap]);
 
-  // ---- Section C: chart data
+  // ---- Section C: chart data (ad-only cost per show + total cost as % of revenue)
   const chart = useMemo(() => {
     const locs = Array.from(new Set(monthly.map((m) => m.location))).sort();
     const byMonth = new Map<string, Record<string, number | string>>();
@@ -265,11 +383,20 @@ function NumbersPage() {
       if (m.spend > 0 && m.showed > 0) row[m.location] = Math.round(m.spend / m.showed);
       byMonth.set(key, row);
     }
+    for (const m of moneyMonthly) {
+      const key = m.month.slice(0, 7);
+      const row = byMonth.get(key) ?? { month: key };
+      const totalCost = m.spend + m.labour_cost + m.bonus_cost;
+      if (m.revenue > 0 && m.labour_cost > 0)
+        row[`${m.location} total %`] = Math.round((totalCost / m.revenue) * 1000) / 10;
+      byMonth.set(key, row);
+    }
     return {
       locs,
       data: Array.from(byMonth.values()).sort((a, b) => String(a.month).localeCompare(String(b.month))),
     };
-  }, [monthly]);
+  }, [monthly, moneyMonthly]);
+
 
   if (authReady && session && !isAdmin) {
     return (
