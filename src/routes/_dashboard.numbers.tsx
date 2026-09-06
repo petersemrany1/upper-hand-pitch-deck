@@ -792,13 +792,6 @@ function NumbersPage() {
                     {m.labourPctNum === null ? "—" : `${(m.labourPctNum * 100).toFixed(1)}%`}
                   </div>
 
-                  <div style={{ gridColumn: "1 / -1", borderTop: "0.5px solid #e8e8e6", marginTop: 2 }} />
-
-                  <div style={{ fontWeight: 600 }}>TOTAL COST</div>
-                  <div style={{ textAlign: "right", fontSize: 20, fontWeight: 700, letterSpacing: -0.5 }}>
-                    {m.hoursOk ? money(m.totalCost) : "—"}
-                  </div>
-                  <div style={{ textAlign: "right", fontSize: 15, fontWeight: 700, color: tpColor }}>
                   {isTotal && unallocatedLabour && !locFilter && (unallocatedLabour.hours > 0 || unallocatedLabour.hourly_cost > 0) && (
                     <>
                       <div style={{ color: "#8a5a2b" }}>
@@ -828,7 +821,6 @@ function NumbersPage() {
                     {tp === null ? "—" : `${(tp * 100).toFixed(1)}%`}
                   </div>
 
-                  </div>
 
                   <div style={{ color: "#6b6b6b" }}>Gross profit</div>
                   <div style={{ textAlign: "right", fontWeight: 600, color: m.grossProfit >= 0 ? "#2f6f4f" : "#b03030" }}>
