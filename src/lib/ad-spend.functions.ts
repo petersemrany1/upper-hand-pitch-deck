@@ -87,9 +87,9 @@ export const getNumbersReport = createServerFn({ method: "GET" })
   .inputValidator((input) => RangeSchema.parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const db = await assertAdmin(context.claims as Record<string, unknown>);
-    const from = data.from ?? null;
-    const to = data.to ?? null;
-    const location = data.location && data.location.length > 0 ? data.location : null;
+    const from = data.from ?? undefined;
+    const to = data.to ?? undefined;
+    const location = data.location && data.location.length > 0 ? data.location : undefined;
 
     const [perf, locs, monthly, sync] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
@@ -191,11 +191,14 @@ export const setAppointmentOutcomeFromNumbers = createServerFn({ method: "POST" 
   .inputValidator((input) => OutcomeSchema.parse(input))
   .handler(async ({ data, context }) => {
     const db = await assertAdmin(context.claims as Record<string, unknown>);
-    const patch: Record<string, unknown> = { outcome: data.outcome };
-    if (data.outcome === "disqualified") {
-      patch.disqualified_at = new Date().toISOString();
-      patch.disqualified_reason = "Marked from Numbers page";
-    }
+    const patch =
+      data.outcome === "disqualified"
+        ? {
+            outcome: data.outcome,
+            disqualified_at: new Date().toISOString(),
+            disqualified_reason: "Marked from Numbers page",
+          }
+        : { outcome: data.outcome };
     const { error } = await db
       .from("clinic_appointments")
       .update(patch)
