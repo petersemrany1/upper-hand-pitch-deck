@@ -550,6 +550,26 @@ function NumbersPage() {
             </button>
           )}
 
+          <Link
+            to="/rep-hours"
+            style={{
+              fontSize: 12,
+              padding: "6px 12px",
+              borderRadius: 999,
+              border: "0.5px solid #d8d8d5",
+              background: "#fff",
+              color: "#111",
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <Clock className="h-3 w-3" /> Rep hours &amp; rates
+          </Link>
+
+
+
           <button
             onClick={() => {
               setSpendPanel((v) => !v);
