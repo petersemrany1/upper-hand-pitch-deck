@@ -754,6 +754,7 @@ export type Database = {
           clinic_id: string
           created_at: string
           date_paid: string | null
+          free_shows_included: number
           id: string
           notes: string | null
           pack_name: string | null
@@ -768,6 +769,7 @@ export type Database = {
           clinic_id: string
           created_at?: string
           date_paid?: string | null
+          free_shows_included?: number
           id?: string
           notes?: string | null
           pack_name?: string | null
@@ -782,6 +784,7 @@ export type Database = {
           clinic_id?: string
           created_at?: string
           date_paid?: string | null
+          free_shows_included?: number
           id?: string
           notes?: string | null
           pack_name?: string | null
@@ -2894,6 +2897,7 @@ export type Database = {
           effective_rate: number | null
           list_rate: number | null
           shows_delivered: number | null
+          shows_purchased: number | null
         }
         Relationships: []
       }
