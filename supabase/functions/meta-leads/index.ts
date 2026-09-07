@@ -175,30 +175,8 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // Lead routing: auto-assign brand new leads to the owner set in Settings.
-  // Runs before insert so the lead never sits unassigned in the queue.
-  try {
-    const { data: routing } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "lead_routing")
-      .maybeSingle();
-    const cfg = (routing?.value ?? null) as
-      | { enabled?: boolean; mode?: string; rep_id?: string | null }
-      | null;
-    if (cfg?.enabled && cfg.rep_id) {
-      const { data: rep } = await supabase
-        .from("sales_reps")
-        .select("id, is_active")
-        .eq("id", cfg.rep_id)
-        .maybeSingle();
-      if (rep?.id && rep.is_active !== false) {
-        (row as Record<string, unknown>).rep_id = rep.id;
-      }
-    }
-  } catch (e) {
-    console.error("meta-leads routing lookup failed:", e);
-  }
+  // Leads arrive unassigned: whoever is dialling takes the next one.
+  // A rep is stamped on the lead when they book it.
 
   const { data, error } = await supabase
     .from("meta_leads")

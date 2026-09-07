@@ -17,7 +17,6 @@ import { Mic, CalendarCheck, Play, Pause, ArrowUp } from "lucide-react";
 import { TrainingProgressSection } from "@/components/settings/TrainingProgressSection";
 import { TeamSection } from "@/components/settings/TeamSection";
 import { PhoneNumbersSection } from "@/components/settings/PhoneNumbersSection";
-import { LeadRoutingSection } from "@/components/settings/LeadRoutingSection";
 
 
 
@@ -104,7 +103,6 @@ function SettingsPage() {
           {isAdmin && <TeamSection />}
           {isAdmin && <TrainingProgressSection />}
           {isAdmin && <PhoneNumbersSection />}
-          {isAdmin && <LeadRoutingSection />}
 
           <AccountSection user={user} />
           <NotificationsSection defaultEmail={user?.email ?? null} />
