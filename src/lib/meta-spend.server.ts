@@ -67,43 +67,62 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
   const until = isDate(opts.until) ? opts.until : today;
 
   const accountId = accountIdRaw.startsWith("act_") ? accountIdRaw : `act_${accountIdRaw}`;
-  const params = new URLSearchParams({
-    level: "ad",
-    fields: "ad_id,ad_name,adset_name,campaign_name,spend,impressions,clicks",
+  const ALL_AD_STATUSES = [
+    "ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "PENDING_REVIEW", "DISAPPROVED",
+    "PREAPPROVED", "PENDING_BILLING_INFO", "CAMPAIGN_PAUSED", "ADSET_PAUSED",
+    "IN_PROCESS", "WITH_ISSUES",
+  ];
+  const buildUrl = (includeAllStatuses: boolean) => {
+    const params = new URLSearchParams({
+      level: "ad",
+      fields: "ad_id,ad_name,adset_name,campaign_name,spend,impressions,clicks",
+      time_increment: "1",
+      time_range: JSON.stringify({ since, until }),
+      limit: "500",
+      access_token: accessToken,
+    });
     // Meta leaves out ads that have since been deleted or archived unless
     // asked. Old campaigns switched off when new ones launched still spent
     // real money, so ask for every status.
-    filtering: JSON.stringify([
-      {
-        field: "ad.effective_status",
-        operator: "IN",
-        value: [
-          "ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "PENDING_REVIEW", "DISAPPROVED",
-          "PREAPPROVED", "PENDING_BILLING_INFO", "CAMPAIGN_PAUSED", "ADSET_PAUSED",
-          "IN_PROCESS", "WITH_ISSUES",
-        ],
-      },
-    ]),
-    time_increment: "1",
-    time_range: JSON.stringify({ since, until }),
-    limit: "500",
-    access_token: accessToken,
-  });
+    if (includeAllStatuses) {
+      params.set("filtering", JSON.stringify([{ field: "ad.effective_status", operator: "IN", value: ALL_AD_STATUSES }]));
+    }
+    return `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/insights?${params.toString()}`;
+  };
 
-  let url: string | null = `https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/insights?${params.toString()}`;
   const rows: Insight[] = [];
-  let pages = 0;
-
-  try {
+  const fetchAll = async (includeAllStatuses: boolean): Promise<string | null> => {
+    let url: string | null = buildUrl(includeAllStatuses);
+    let pages = 0;
     while (url && pages < 60) {
       const res = await fetch(url);
-      const payload = (await res.json()) as { data?: Insight[]; paging?: { next?: string }; error?: { message?: string } };
+      const payload = (await res.json()) as {
+        data?: Insight[];
+        paging?: { next?: string };
+        error?: { message?: string; code?: number; error_subcode?: number; type?: string };
+      };
       if (!res.ok || payload.error) {
-        return fail(`Meta API error: ${payload.error?.message ?? res.status}`, res.status === 401 || res.status === 403 ? 401 : 502);
+        const e = payload.error;
+        return `${e?.message ?? res.status}${e?.code !== undefined ? ` (code ${e.code}${e?.error_subcode ? `/${e.error_subcode}` : ""})` : ""}`;
       }
       rows.push(...(payload.data ?? []));
       url = payload.paging?.next ?? null;
       pages += 1;
+    }
+    return null;
+  };
+
+  try {
+    // Try with every ad status first; if Meta rejects that request, fall
+    // back to the default (live ads only) so the sync never goes dark, and
+    // say which one failed.
+    let err = await fetchAll(true);
+    if (err) {
+      const withFilter = err;
+      rows.length = 0;
+      err = await fetchAll(false);
+      if (err) return fail(`Meta API error: ${err} (also failed with all-status filter: ${withFilter})`, 502);
+      console.warn(`[meta-spend] all-status filter rejected by Meta, fell back to live ads only: ${withFilter}`);
     }
   } catch (e) {
     if (e instanceof MetaSyncError) throw e;
