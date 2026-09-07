@@ -70,6 +70,20 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
   const params = new URLSearchParams({
     level: "ad",
     fields: "ad_id,ad_name,adset_name,campaign_name,spend,impressions,clicks",
+    // Meta leaves out ads that have since been deleted or archived unless
+    // asked. Old campaigns switched off when new ones launched still spent
+    // real money, so ask for every status.
+    filtering: JSON.stringify([
+      {
+        field: "ad.effective_status",
+        operator: "IN",
+        value: [
+          "ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "PENDING_REVIEW", "DISAPPROVED",
+          "PREAPPROVED", "PENDING_BILLING_INFO", "CAMPAIGN_PAUSED", "ADSET_PAUSED",
+          "IN_PROCESS", "WITH_ISSUES",
+        ],
+      },
+    ]),
     time_increment: "1",
     time_range: JSON.stringify({ since, until }),
     limit: "500",
