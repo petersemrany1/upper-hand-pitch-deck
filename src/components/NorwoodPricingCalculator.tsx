@@ -94,32 +94,15 @@ function financeWeeklyText(lo: number, hi: number): string | null {
   return `≈ $${w}/week on 5-yr finance (partial range)`;
 }
 
-export default function NorwoodPricingCalculator({
-  open: openProp,
-  onOpenChange,
-  embedded = false,
-}: {
-  /** Controlled open state (the Sales Call panel hosts its own toggle). */
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Render only the calculator body — no section padding, no toggle button. */
-  embedded?: boolean;
-} = {}) {
-  const [openState, setOpenState] = useState(false);
-  const open = openProp ?? openState;
-  const setOpen = (next: boolean | ((v: boolean) => boolean)) => {
-    const value = typeof next === "function" ? next(open) : next;
-    setOpenState(value);
-    onOpenChange?.(value);
-  };
+export default function NorwoodPricingCalculator() {
+  const [open, setOpen] = useState(false);
   const [clinic, setClinic] = useState<"nitai" | "byron" | "bijan" | "boss">("nitai");
   const clinicLabel = (c: string) =>
     c === "nitai" ? "Nitai" : c === "byron" ? "Byron" : c === "bijan" ? "Bijan" : "Boss";
   const [pricePerGraft, setPricePerGraft] = useState<number>(5);
 
   return (
-    <div style={embedded ? undefined : { padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
-      {!embedded && (
+    <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
       <button
         onClick={() => setOpen((v) => !v)}
         style={{
@@ -134,9 +117,8 @@ export default function NorwoodPricingCalculator({
           cursor: "pointer",
         }}
       >
-        {open ? "Hide pricing calculator" : "Pricing by Norwood"}
+        {open ? "Hide pricing calculator" : "💰 Pricing by Norwood"}
       </button>
-      )}
 
       {open && (
         <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 10 }}>
