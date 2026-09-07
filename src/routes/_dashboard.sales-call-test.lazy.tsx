@@ -4,31 +4,16 @@ import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { useAuth } from "@/hooks/useAuth";
-import { simulateDepositPaid, resetPeterTestLead } from "@/utils/test-sandbox.functions";
+import { resetPeterTestLead } from "@/utils/test-sandbox.functions";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
 const TEST_LEAD_IDS = [PETER_TEST_LEAD_ID, TEST_TESTED_LEAD_ID];
 
 function TestControlBar() {
-  const simulate = useServerFn(simulateDepositPaid);
   const reset = useServerFn(resetPeterTestLead);
-  const [busy, setBusy] = useState<null | "paid" | "reset">(null);
+  const [busy, setBusy] = useState<null | "reset">(null);
   const [msg, setMsg] = useState<string | null>(null);
-
-  async function onMarkPaid() {
-    if (busy) return;
-    setBusy("paid");
-    setMsg(null);
-    try {
-      await simulate({ data: { leadId: PETER_TEST_LEAD_ID } });
-      setMsg("✅ Deposit marked as paid. Reloading…");
-      setTimeout(() => window.location.reload(), 400);
-    } catch (e) {
-      setMsg(`❌ ${(e as Error).message}`);
-      setBusy(null);
-    }
-  }
 
   async function onReset() {
     if (busy) return;
@@ -68,22 +53,6 @@ function TestControlBar() {
       }}
     >
       <span style={{ opacity: 0.7 }}>🧪 Test controls:</span>
-      <button
-        onClick={onMarkPaid}
-        disabled={busy !== null}
-        style={{
-          background: "#10b981",
-          color: "white",
-          border: "none",
-          padding: "6px 12px",
-          borderRadius: 8,
-          fontWeight: 600,
-          cursor: busy ? "wait" : "pointer",
-          opacity: busy === "paid" ? 0.6 : 1,
-        }}
-      >
-        {busy === "paid" ? "Marking…" : "Mark as Paid"}
-      </button>
       <button
         onClick={onReset}
         disabled={busy !== null}
