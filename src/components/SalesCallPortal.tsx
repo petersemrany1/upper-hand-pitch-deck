@@ -1116,6 +1116,44 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return priorityFirst.map((l) => l.id);
   }, [leads, attemptsByDay, isLeadLocationPaused, isPriorityLead]);
 
+  // Every "new" lead that still hasn't been dialled today (most recent first).
+  // The session queue is a snapshot taken at start-of-session, so leads that
+  // land mid-day would otherwise never be served. This list feeds both the
+  // live top-up below and the end-of-day guard.
+  const pendingNewLeadIds = useMemo(() => {
+    const todayKey = localDateKey(new Date());
+    return leads
+      .filter((l) => !isLeadLocationPaused(l))
+      .filter((l) => normaliseStatus(l.status, l) === "new")
+      .filter((l) => (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0)
+      .sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return tb - ta;
+      })
+      .map((l) => l.id);
+  }, [leads, attemptsByDay, isLeadLocationPaused]);
+
+  // Live top-up: splice any brand-new leads in right after the lead the rep is
+  // on, so fresh enquiries stay at the front of the queue without yanking them
+  // off the call they're currently in.
+  useEffect(() => {
+    if (!sessionActive) return;
+    if (pendingNewLeadIds.length === 0) return;
+    setSessionQueue((q) => {
+      const known = new Set(q);
+      const fresh = pendingNewLeadIds.filter((id) => !known.has(id));
+      if (fresh.length === 0) return q;
+      const cut = Math.min(Math.max(sessionIndex + 1, 0), q.length);
+      return [...q.slice(0, cut), ...fresh, ...q.slice(cut)];
+    });
+  }, [pendingNewLeadIds, sessionActive, sessionIndex]);
+
+  // End-of-session guard modal ("you still have new leads").
+  const [endGuardOpen, setEndGuardOpen] = useState(false);
+
+
+
 
 
   // Show start-session screen / advance queue when no active lead
