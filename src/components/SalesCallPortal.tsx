@@ -1152,6 +1152,31 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // End-of-session guard modal ("you still have new leads").
   const [endGuardOpen, setEndGuardOpen] = useState(false);
 
+  const endSessionNow = useCallback(() => {
+    sessionEndRequestedRef.current = true;
+    // End Session is a deliberate exit. Force-clear any stale outcome gate so
+    // the user can always leave the session.
+    if (gateActive()) {
+      outcomeRequiredRef.current = false;
+      outcomePendingRef.current = false;
+      try {
+        if (activeId) {
+          window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
+          window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+        }
+      } catch {
+        // Ignore storage cleanup failures; ending the session must still work.
+      }
+    }
+    setEndGuardOpen(false);
+    setPendingOutcomeLeadId(null);
+    setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null);
+    if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+    closeRepSession();
+  }, [activeId]);
+
+
+
 
 
 
