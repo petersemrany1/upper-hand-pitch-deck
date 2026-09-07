@@ -6635,14 +6635,22 @@ function RightPanel({
   // callNow(); the rep can cancel at any second. Nothing happens unless the
   // phone device is ready and the lead is callable.
   const AUTO_DIAL_SECONDS = 3;
+  const AUTO_DIAL_DEVICE_WAIT_MS = 20000;
   const [autoDialCountdown, setAutoDialCountdown] = useState<number | null>(null);
+  // Countdown finished but the phone device was still registering: dial the
+  // moment it's ready, or give up after AUTO_DIAL_DEVICE_WAIT_MS.
+  const [autoDialWaiting, setAutoDialWaiting] = useState(false);
   const autoDialHandledTokenRef = useRef(0);
   const callNowRef = useRef(callNow);
   callNowRef.current = callNow;
+  const cancelAutoDial = useCallback(() => {
+    setAutoDialCountdown(null);
+    setAutoDialWaiting(false);
+  }, []);
   useEffect(() => {
     // Any change of lead cancels a running countdown.
-    setAutoDialCountdown(null);
-  }, [active.id]);
+    cancelAutoDial();
+  }, [active.id, cancelAutoDial]);
   useEffect(() => {
     if (autoDialArmToken <= autoDialHandledTokenRef.current) return;
     autoDialHandledTokenRef.current = autoDialArmToken;
@@ -6656,22 +6664,32 @@ function RightPanel({
     if (autoDialCountdown === null) return;
     if (autoDialCountdown <= 0) {
       setAutoDialCountdown(null);
-      if (deviceStatus !== "ready") {
-        toast.error("Dialler not ready — press Call Now when it is");
-        return;
-      }
-      void callNowRef.current();
+      if (deviceStatus === "ready") void callNowRef.current();
+      else setAutoDialWaiting(true);
       return;
     }
     const t = window.setTimeout(() => setAutoDialCountdown((c) => (c === null ? null : c - 1)), 1000);
     return () => window.clearTimeout(t);
   }, [autoDialCountdown, deviceStatus]);
   useEffect(() => {
-    if (autoDialCountdown === null) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAutoDialCountdown(null); };
+    if (!autoDialWaiting) return;
+    if (deviceStatus === "ready") {
+      setAutoDialWaiting(false);
+      void callNowRef.current();
+      return;
+    }
+    const t = window.setTimeout(() => {
+      setAutoDialWaiting(false);
+      toast.error("Dialler not ready — press Call Now when it is");
+    }, AUTO_DIAL_DEVICE_WAIT_MS);
+    return () => window.clearTimeout(t);
+  }, [autoDialWaiting, deviceStatus]);
+  useEffect(() => {
+    if (autoDialCountdown === null && !autoDialWaiting) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelAutoDial(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [autoDialCountdown]);
+  }, [autoDialCountdown, autoDialWaiting, cancelAutoDial]);
 
   const sendImage = async (url: string) => {
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
@@ -6988,16 +7006,20 @@ function RightPanel({
             </>
           )
         ) : !inCall ? (
-          autoDialCountdown !== null ? (
+          autoDialCountdown !== null || autoDialWaiting ? (
             <div
               role="status"
               aria-live="polite"
               className="w-full rounded-[8px] flex items-center justify-between gap-3"
               style={{ background: "#111", color: "#fff", fontSize: 15, fontWeight: 600, padding: "12px 14px" }}
             >
-              <span>📞 Calling {active.first_name ?? "lead"} in {autoDialCountdown}…</span>
+              <span>
+                {autoDialWaiting
+                  ? `📞 Connecting dialler… calling ${active.first_name ?? "lead"} as soon as it's ready`
+                  : `📞 Calling ${active.first_name ?? "lead"} in ${autoDialCountdown}…`}
+              </span>
               <button
-                onClick={() => setAutoDialCountdown(null)}
+                onClick={cancelAutoDial}
                 style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "transparent", border: "1px solid #666", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit" }}
               >
                 Cancel (Esc)
