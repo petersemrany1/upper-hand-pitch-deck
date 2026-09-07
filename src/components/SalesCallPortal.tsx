@@ -1116,6 +1116,69 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return priorityFirst.map((l) => l.id);
   }, [leads, attemptsByDay, isLeadLocationPaused, isPriorityLead]);
 
+  // Every "new" lead that still hasn't been dialled today (most recent first).
+  // The session queue is a snapshot taken at start-of-session, so leads that
+  // land mid-day would otherwise never be served. This list feeds both the
+  // live top-up below and the end-of-day guard.
+  const pendingNewLeadIds = useMemo(() => {
+    const todayKey = localDateKey(new Date());
+    return leads
+      .filter((l) => !isLeadLocationPaused(l))
+      .filter((l) => normaliseStatus(l.status, l) === "new")
+      .filter((l) => (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0)
+      .sort((a, b) => {
+        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return tb - ta;
+      })
+      .map((l) => l.id);
+  }, [leads, attemptsByDay, isLeadLocationPaused]);
+
+  // Live top-up: splice any brand-new leads in right after the lead the rep is
+  // on, so fresh enquiries stay at the front of the queue without yanking them
+  // off the call they're currently in.
+  useEffect(() => {
+    if (!sessionActive) return;
+    if (pendingNewLeadIds.length === 0) return;
+    setSessionQueue((q) => {
+      const known = new Set(q);
+      const fresh = pendingNewLeadIds.filter((id) => !known.has(id));
+      if (fresh.length === 0) return q;
+      const cut = Math.min(Math.max(sessionIndex + 1, 0), q.length);
+      return [...q.slice(0, cut), ...fresh, ...q.slice(cut)];
+    });
+  }, [pendingNewLeadIds, sessionActive, sessionIndex]);
+
+  // End-of-session guard modal ("you still have new leads").
+  const [endGuardOpen, setEndGuardOpen] = useState(false);
+
+  const endSessionNow = useCallback(() => {
+    sessionEndRequestedRef.current = true;
+    // End Session is a deliberate exit. Force-clear any stale outcome gate so
+    // the user can always leave the session.
+    if (gateActive()) {
+      outcomeRequiredRef.current = false;
+      outcomePendingRef.current = false;
+      try {
+        if (activeId) {
+          window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
+          window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
+        }
+      } catch {
+        // Ignore storage cleanup failures; ending the session must still work.
+      }
+    }
+    setEndGuardOpen(false);
+    setPendingOutcomeLeadId(null);
+    setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null);
+    if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+    closeRepSession();
+  }, [activeId]);
+
+
+
+
+
 
 
   // Show start-session screen / advance queue when no active lead
@@ -1242,7 +1305,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         });
       }
       // If leads.length === 0 we're still loading — wait for the next render.
-    } else {
+    } else if (pendingNewLeadIds.length === 0) {
       queueMicrotask(() => {
         setSessionActive(false);
         setSessionPaused(false);
@@ -1252,6 +1315,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         toast.success("Session complete — great work!");
       });
     }
+    // Queue ran dry but new leads are still waiting — the top-up effect will
+    // splice them in on the next tick, so don't end the session.
+
     return null;
   }
 
@@ -1259,13 +1325,52 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   return (
     <>
       {callbackBanner}
+      {endGuardOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 26, maxWidth: 420, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>
+              {pendingNewLeadIds.length} new lead{pendingNewLeadIds.length === 1 ? '' : 's'} still uncalled
+            </div>
+            <div style={{ fontSize: 14, color: '#555', lineHeight: 1.5, marginBottom: 20 }}>
+              New enquiries go first. Finish these before you finish the day.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => endSessionNow()}
+                style={{ fontSize: 13, fontWeight: 600, color: '#777', background: 'transparent', border: '1px solid #ddd', borderRadius: 8, padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                End anyway
+              </button>
+              <button
+                onClick={() => {
+                  setEndGuardOpen(false);
+                  const nextNew = pendingNewLeadIds[0];
+                  if (!nextNew) return;
+                  const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextNew);
+                  setSessionQueue(placement.queue);
+                  setSessionIndex(placement.index);
+                  setActiveId(nextNew);
+                  setStep("mindset");
+                  setCompleted(new Set());
+                  setAmpPrefill(""); setAudioPrefill("");
+                }}
+                style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#f4522d', border: 'none', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Keep calling
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {sessionActive && !practiceMode && (
         <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             {[
               { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
               { num: sessionBookings as number | string, label: 'Booked', color: '#f4522d' },
+              { num: pendingNewLeadIds.length as number | string, label: 'New left', color: pendingNewLeadIds.length > 0 ? '#f59e0b' : '#4ade80' },
               { num: Math.max(0, sessionQueue.length - sessionIndex) as number | string, label: 'Remaining', color: '#f59e0b' },
+
               { num: `${Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:${Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:${(sessionSeconds%60).toString().padStart(2,'0')}`, label: sessionPaused ? 'On break' : 'Session time', color: sessionPaused ? '#f59e0b' : '#fff' },
             ].map(s => (
               <div key={String(s.label)} style={{ textAlign: 'center', minWidth: 58 }}>
@@ -1284,28 +1389,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             </button>
             <button
               onClick={() => {
-                sessionEndRequestedRef.current = true;
-                // End Session is a deliberate exit. Force-clear any stale
-                // outcome gate so the user can always leave the session.
-                if (gateActive()) {
-                  outcomeRequiredRef.current = false;
-                  outcomePendingRef.current = false;
-                  try {
-                    if (activeId) {
-                      window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
-                      window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
-                    }
-                  } catch {
-                    // Ignore storage cleanup failures; ending the session must still work.
-                  }
-                }
-                setPendingOutcomeLeadId(null);
-                setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
+                // Don't let the day finish with untouched new leads.
+                if (pendingNewLeadIds.length > 0) { setEndGuardOpen(true); return; }
+                endSessionNow();
               }}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               End session
             </button>
+
           </div>
         </div>
       )}
