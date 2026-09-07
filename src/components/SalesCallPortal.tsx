@@ -440,6 +440,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, [plannedHours]);
   const BOOKINGS_PER_HOUR = 1;
   const sessionGoal = Math.max(1, Math.round(plannedHours * BOOKINGS_PER_HOUR));
+  // "How many hours are you working today?" — asked right after Start.
+  const [hoursPromptOpen, setHoursPromptOpen] = useState(false);
+  const [hoursDraft, setHoursDraft] = useState("");
   // Auto-dial: after the portal moves the rep to the next lead on its own,
   // RightPanel counts down and dials. Armed only on queue-driven advances,
   // never on manual picks, deeplinks or "previous". Always on in a session
@@ -1185,83 +1188,67 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       const queueCount = buildSessionQueue().length;
 
+      const beginSession = async () => {
+        sessionEndRequestedRef.current = false;
+        // Tidy the "new" list first: leads dialled hours ago with
+        // nobody answering become no_answer (rule in abandoned.ts).
+        try {
+          const swept = await sweepAbandonedCalls({ data: undefined as never });
+          if (swept.success && swept.swept > 0) console.log(`[salescall] swept ${swept.swept} abandoned leads to no_answer`);
+        } catch (err) {
+          console.error("sweepAbandonedCalls failed", err);
+        }
+        const q = buildSessionQueue();
+        let startedAt: string;
+        try {
+          const row = await startRepSession({ data: undefined as never });
+          startedAt = row.started_at;
+        } catch (err) {
+          console.error("startRepSession failed", err);
+          startedAt = new Date().toISOString();
+        }
+        setSessionQueue(q);
+        setSessionIndex(0);
+        setSessionCalls(0);
+        setSessionBookings(0);
+        setSessionSeconds(0);
+        setSessionStartedAt(startedAt);
+        setSessionPaused(false);
+        setSessionActive(true);
+        if (q.length > 0) {
+          if (gateActive()) {
+            setPendingLeadId(q[0]);
+            toast.error("Please set a call outcome first");
+            return;
+          }
+          setActiveId(q[0]);
+          setStep("mindset");
+          setCompleted(new Set());
+          setAmpPrefill("");
+          setAudioPrefill("");
+          armAutoDial();
+        }
+      };
+
+      const submitHours = () => {
+        const v = Number(hoursDraft);
+        if (!Number.isFinite(v) || v < 0.5 || v > 16) {
+          toast.error("Enter the hours you're working today, e.g. 4");
+          return;
+        }
+        setPlannedHours(Math.round(v * 2) / 2);
+        setHoursPromptOpen(false);
+        void beginSession();
+      };
+
       return (
         <>
           {callbackBanner}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", overflow: "auto" }}>
-            <div style={{ width: "100%", maxWidth: 520, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "#fff", border: "1px solid #e2e6ec", borderRadius: 12, padding: "14px 18px" }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Hours calling today</div>
-                <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>Goal: {sessionGoal} booking{sessionGoal === 1 ? "" : "s"} — one an hour</div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <button
-                  type="button"
-                  aria-label="Fewer hours"
-                  onClick={() => setPlannedHours((h) => Math.max(1, Math.round((h - 0.5) * 2) / 2))}
-                  style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #d9d9d6", background: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
-                >−</button>
-                <input
-                  type="number"
-                  min={1}
-                  max={12}
-                  step={0.5}
-                  value={plannedHours}
-                  onChange={(e) => {
-                    const v = Number(e.target.value);
-                    if (Number.isFinite(v) && v >= 1 && v <= 12) setPlannedHours(v);
-                  }}
-                  style={{ width: 64, textAlign: "center", fontSize: 18, fontWeight: 700, padding: "6px 4px", border: "1px solid #d9d9d6", borderRadius: 8, fontFamily: "inherit" }}
-                />
-                <button
-                  type="button"
-                  aria-label="More hours"
-                  onClick={() => setPlannedHours((h) => Math.min(12, Math.round((h + 0.5) * 2) / 2))}
-                  style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #d9d9d6", background: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
-                >+</button>
-              </div>
-            </div>
             <button
-              onClick={async () => {
-                sessionEndRequestedRef.current = false;
-                // Tidy the "new" list first: leads dialled hours ago with
-                // nobody answering become no_answer (rule in abandoned.ts).
-                try {
-                  const swept = await sweepAbandonedCalls({ data: undefined as never });
-                  if (swept.success && swept.swept > 0) console.log(`[salescall] swept ${swept.swept} abandoned leads to no_answer`);
-                } catch (err) {
-                  console.error("sweepAbandonedCalls failed", err);
-                }
-                const q = buildSessionQueue();
-                let startedAt: string;
-                try {
-                  const row = await startRepSession({ data: undefined as never });
-                  startedAt = row.started_at;
-                } catch (err) {
-                  console.error("startRepSession failed", err);
-                  startedAt = new Date().toISOString();
-                }
-                setSessionQueue(q);
-                setSessionIndex(0);
-                setSessionCalls(0);
-                setSessionBookings(0);
-                setSessionSeconds(0);
-                setSessionStartedAt(startedAt);
-                setSessionPaused(false);
-                setSessionActive(true);
-                if (q.length > 0) {
-                  if (gateActive()) {
-                    setPendingLeadId(q[0]);
-                    toast.error("Please set a call outcome first");
-                    return;
-                  }
-                  setActiveId(q[0]);
-                  setStep("mindset");
-                  setCompleted(new Set());
-                  setAmpPrefill("");
-                  setAudioPrefill("");
-                  armAutoDial();
-                }
+              onClick={() => {
+                setHoursDraft(plannedHours ? String(plannedHours) : "");
+                setHoursPromptOpen(true);
               }}
               style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 16, fontSize: 22, fontWeight: 600, padding: "32px 0", width: "100%", maxWidth: 520, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 20px rgba(244,82,45,0.25)", letterSpacing: "-0.01em" }}
             >
@@ -1269,6 +1256,40 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             </button>
             <AdminTestButton />
           </div>
+          {hoursPromptOpen && (
+            <div
+              onClick={() => setHoursPromptOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 120 }}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="How many hours are you working today?"
+                onClick={(e) => e.stopPropagation()}
+                style={{ background: "#fff", borderRadius: 16, padding: "26px 28px", width: "100%", maxWidth: 420, boxShadow: "0 20px 60px rgba(0,0,0,0.25)" }}
+              >
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#111", marginBottom: 16 }}>How many hours are you working today?</div>
+                <input
+                  autoFocus
+                  type="number"
+                  inputMode="decimal"
+                  min={0.5}
+                  max={16}
+                  step={0.5}
+                  value={hoursDraft}
+                  onChange={(e) => setHoursDraft(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") submitHours(); if (e.key === "Escape") setHoursPromptOpen(false); }}
+                  style={{ width: "100%", fontSize: 28, fontWeight: 700, textAlign: "center", padding: "12px 10px", border: "1px solid #d9d9d6", borderRadius: 12, fontFamily: "inherit", boxSizing: "border-box" }}
+                />
+                <button
+                  onClick={submitHours}
+                  style={{ marginTop: 16, width: "100%", background: "#f4522d", color: "#fff", border: "none", borderRadius: 12, fontSize: 17, fontWeight: 700, padding: "14px 0", cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Start
+                </button>
+              </div>
+            </div>
+          )}
         </>
       );
     }
