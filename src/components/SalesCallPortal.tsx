@@ -1136,6 +1136,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // that is no longer due (called today by someone — reps share one pool —
   // or since booked / retired). Callbacks and ring-backs arrive through the
   // missed-call queue and never pass through here.
+  // Callbacks and ring-backs surface on every rep's screen at once. If
+  // anyone dialled that person in the last few minutes, another rep must
+  // not ring them again.
+  const RECENT_DIAL_MS = 10 * 60 * 1000;
+  const dialledRecently = useCallback((id: string): boolean => {
+    const last = callHistory[id]?.lastAttemptAt;
+    if (!last) return false;
+    const t = new Date(last).getTime();
+    return Number.isFinite(t) && Date.now() - t < RECENT_DIAL_MS;
+  }, [callHistory]);
   const advanceIndexFrom = useCallback((from: number): number => {
     const q = sessionQueueRef.current;
     let i = Math.max(0, from);
@@ -1590,7 +1600,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onChangeLead={() => {
             // Missed-call priority: if anyone rang us back, jump to them
             // FIRST — regardless of whether a formal session is running.
-            const mcq = missedCallQueue;
+            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
+            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
             if (mcq.length > 0) {
               const [nextMissedId, ...restMissed] = mcq;
               setMissedCallQueue(restMissed);
@@ -1662,7 +1673,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
             // Missed-call priority also applies right after logging an outcome.
-            const mcq = missedCallQueue;
+            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
+            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
             if (mcq.length > 0) {
               if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
               const [nextMissedId, ...restMissed] = mcq;
