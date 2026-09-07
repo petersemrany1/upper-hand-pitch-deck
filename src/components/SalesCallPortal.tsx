@@ -1325,28 +1325,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             </button>
             <button
               onClick={() => {
-                sessionEndRequestedRef.current = true;
-                // End Session is a deliberate exit. Force-clear any stale
-                // outcome gate so the user can always leave the session.
-                if (gateActive()) {
-                  outcomeRequiredRef.current = false;
-                  outcomePendingRef.current = false;
-                  try {
-                    if (activeId) {
-                      window.sessionStorage.removeItem(`salescall.gate.${activeId}`);
-                      window.sessionStorage.removeItem(`htg.outcomeGate.${activeId}`);
-                    }
-                  } catch {
-                    // Ignore storage cleanup failures; ending the session must still work.
-                  }
-                }
-                setPendingOutcomeLeadId(null);
-                setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null); if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); closeRepSession();
+                // Don't let the day finish with untouched new leads.
+                if (pendingNewLeadIds.length > 0) { setEndGuardOpen(true); return; }
+                endSessionNow();
               }}
               style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               End session
             </button>
+
           </div>
         </div>
       )}
