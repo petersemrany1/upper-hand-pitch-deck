@@ -17,8 +17,7 @@ import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
   saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
-  getCurrentRepSession, startRepSession, endRepSession,
-} from "@/utils/sales-call.functions";
+  getCurrentRepSession, startRepSession, endRepSession, sweepAbandonedCalls } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
@@ -426,6 +425,21 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
   const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
   const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
+  // Hours the rep plans to call today. Goal is one booking an hour.
+  const [plannedHours, setPlannedHours] = useState<number>(() => {
+    const fromSession = Number(sessionRestored?.plannedHours);
+    if (Number.isFinite(fromSession) && fromSession > 0) return fromSession;
+    try {
+      const saved = Number(window.localStorage.getItem("salesCall.plannedHours"));
+      if (Number.isFinite(saved) && saved > 0) return saved;
+    } catch { /* storage unavailable */ }
+    return 6;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("salesCall.plannedHours", String(plannedHours)); } catch { /* noop */ }
+  }, [plannedHours]);
+  const BOOKINGS_PER_HOUR = 1;
+  const sessionGoal = Math.max(1, Math.round(plannedHours * BOOKINGS_PER_HOUR));
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
@@ -519,9 +533,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     sessionStorage.setItem("salesCall.session", JSON.stringify({
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
-      startedAt: sessionStartedAt,
+      startedAt: sessionStartedAt, plannedHours,
     }));
-  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt]);
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
@@ -1168,9 +1182,49 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         <>
           {callbackBanner}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", overflow: "auto" }}>
+            <div style={{ width: "100%", maxWidth: 520, marginBottom: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: "#fff", border: "1px solid #e2e6ec", borderRadius: 12, padding: "14px 18px" }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>Hours calling today</div>
+                <div style={{ fontSize: 12, color: "#777", marginTop: 2 }}>Goal: {sessionGoal} booking{sessionGoal === 1 ? "" : "s"} — one an hour</div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <button
+                  type="button"
+                  aria-label="Fewer hours"
+                  onClick={() => setPlannedHours((h) => Math.max(1, Math.round((h - 0.5) * 2) / 2))}
+                  style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #d9d9d6", background: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
+                >−</button>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  step={0.5}
+                  value={plannedHours}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v) && v >= 1 && v <= 12) setPlannedHours(v);
+                  }}
+                  style={{ width: 64, textAlign: "center", fontSize: 18, fontWeight: 700, padding: "6px 4px", border: "1px solid #d9d9d6", borderRadius: 8, fontFamily: "inherit" }}
+                />
+                <button
+                  type="button"
+                  aria-label="More hours"
+                  onClick={() => setPlannedHours((h) => Math.min(12, Math.round((h + 0.5) * 2) / 2))}
+                  style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid #d9d9d6", background: "#fff", cursor: "pointer", fontSize: 18, lineHeight: 1 }}
+                >+</button>
+              </div>
+            </div>
             <button
               onClick={async () => {
                 sessionEndRequestedRef.current = false;
+                // Tidy the "new" list first: leads dialled hours ago with
+                // nobody answering become no_answer (rule in abandoned.ts).
+                try {
+                  const swept = await sweepAbandonedCalls({ data: undefined as never });
+                  if (swept.success && swept.swept > 0) console.log(`[salescall] swept ${swept.swept} abandoned leads to no_answer`);
+                } catch (err) {
+                  console.error("sweepAbandonedCalls failed", err);
+                }
                 const q = buildSessionQueue();
                 let startedAt: string;
                 try {
@@ -1325,8 +1379,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             {[
               { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
-              { num: sessionBookings as number | string, label: 'Booked', color: '#f4522d' },
-              { num: Math.max(0, sessionQueue.length - sessionIndex) as number | string, label: 'Remaining', color: '#f59e0b' },
+              { num: `${sessionBookings} / ${sessionGoal}` as number | string, label: 'Booked · goal', color: '#f4522d' },
+              {
+                num: (sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On track' : `${Math.floor(sessionSeconds / 3600) - sessionBookings} behind`) as number | string,
+                label: 'Pace · 1 an hour',
+                color: sessionBookings >= Math.floor(sessionSeconds / 3600) ? '#4ade80' : '#f59e0b',
+              },
 
               { num: `${Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:${Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:${(sessionSeconds%60).toString().padStart(2,'0')}`, label: sessionPaused ? 'On break' : 'Session time', color: sessionPaused ? '#f59e0b' : '#fff' },
             ].map(s => (

@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
+import { abandonedLeadIds } from "@/components/sales-call/abandoned";
 
 // Gate helper: ensures the calling user is an admin in sales_reps.
 // Uses email matching (case-insensitive).
@@ -1398,4 +1399,45 @@ export const endRepSession = createServerFn({ method: "POST" })
       .is("ended_at", null);
     if (error) throw new Error(error.message);
     return { ok: true as const };
+  });
+
+// Marks leads that are still "new" but were dialled hours ago with nobody
+// answering as no_answer, so the new list only holds leads nobody has tried.
+// Rule lives in src/components/sales-call/abandoned.ts (unit tested). Runs
+// when a rep starts a calling session; safe to run any number of times.
+export const sweepAbandonedCalls = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const cols = "id, status, callback_scheduled_at, booking_date";
+    const [blank, fresh] = await Promise.all([
+      supabaseAdmin.from("meta_leads").select(cols).is("status", null).limit(5000),
+      supabaseAdmin.from("meta_leads").select(cols).in("status", ["", "new", "New"]).limit(5000),
+    ]);
+    if (blank.error) return { success: false as const, error: blank.error.message, swept: 0 };
+    if (fresh.error) return { success: false as const, error: fresh.error.message, swept: 0 };
+    const leads = [...(blank.data ?? []), ...(fresh.data ?? [])];
+    if (leads.length === 0) return { success: true as const, swept: 0 };
+
+    const calls: { lead_id: string | null; called_at: string | null; duration: number | null; duration_seconds: number | null }[] = [];
+    const ids = leads.map((l) => l.id);
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await supabaseAdmin
+        .from("call_records")
+        .select("lead_id, called_at, duration, duration_seconds")
+        .in("lead_id", ids.slice(i, i + 200))
+        .limit(10000);
+      if (error) return { success: false as const, error: error.message, swept: 0 };
+      calls.push(...(data ?? []));
+    }
+
+    const toSweep = abandonedLeadIds(leads, calls, new Date());
+    if (toSweep.length === 0) return { success: true as const, swept: 0 };
+    for (let i = 0; i < toSweep.length; i += 200) {
+      const { error } = await supabaseAdmin
+        .from("meta_leads")
+        .update({ status: "no_answer", updated_at: new Date().toISOString() })
+        .in("id", toSweep.slice(i, i + 200));
+      if (error) return { success: false as const, error: error.message, swept: i };
+    }
+    return { success: true as const, swept: toSweep.length };
   });
