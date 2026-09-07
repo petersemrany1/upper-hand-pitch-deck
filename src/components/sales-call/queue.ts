@@ -31,6 +31,7 @@ export type CallHistory = {
   /** Attempts so far today (local time). */
   todayAttempts: number;
   todayFirstAttemptAt: string | null;
+  todayLastAttemptAt: string | null;
 };
 
 export type HistoryMap = Record<string, CallHistory | undefined>;
@@ -39,7 +40,9 @@ export const YOUNG_LEAD_DAYS = 14;
 export const NOON_HOUR = 12;
 export const CALLBACK_WINDOW_MS = 60 * 60 * 1000;
 
-const EMPTY: CallHistory = { attempts: 0, firstCallAt: null, lastAttemptAt: null, todayAttempts: 0, todayFirstAttemptAt: null };
+const EMPTY: CallHistory = { attempts: 0, firstCallAt: null, lastAttemptAt: null, todayAttempts: 0, todayFirstAttemptAt: null, todayLastAttemptAt: null };
+/** A sitting is up to two dials (call, no answer, call straight back). */
+export const DIALS_PER_SITTING = 2;
 
 export const historyFor = (h: HistoryMap, id: string): CallHistory => h[id] ?? EMPTY;
 
@@ -77,16 +80,18 @@ export function isYoungLead(h: CallHistory, now: Date): boolean {
 }
 
 /**
- * Has this lead had its turn(s) for today? Once a day for everyone; a young
- * lead tried before noon gets one more go after noon.
+ * Has this lead had its turn(s) for today? One sitting a day for everyone;
+ * a young lead whose sitting was before noon gets a second sitting after
+ * noon. A sitting is up to DIALS_PER_SITTING dials, so the morning's
+ * call-and-call-back doesn't use up the afternoon.
  */
 export function isDueToday(h: CallHistory, now: Date): boolean {
   if (h.todayAttempts === 0) return true;
-  if (h.todayAttempts !== 1) return false;
+  if (h.todayAttempts > DIALS_PER_SITTING) return false;
   if (!isYoungLead(h, now)) return false;
-  const first = ms(h.todayFirstAttemptAt);
-  if (!Number.isFinite(first)) return false;
-  return !isAfternoon(new Date(first)) && isAfternoon(now);
+  const last = ms(h.todayLastAttemptAt ?? h.todayFirstAttemptAt);
+  if (!Number.isFinite(last)) return false;
+  return !isAfternoon(new Date(last)) && isAfternoon(now);
 }
 
 /** A scheduled callback that is live right now: at its time, up to an hour after. */
@@ -210,6 +215,7 @@ export function buildHistory(
     if (t >= dayStart.getTime()) {
       h.todayAttempts += 1;
       if (!h.todayFirstAttemptAt || t < ms(h.todayFirstAttemptAt)) h.todayFirstAttemptAt = row.called_at;
+      if (!h.todayLastAttemptAt || t > ms(h.todayLastAttemptAt)) h.todayLastAttemptAt = row.called_at;
     }
     out[row.lead_id] = h;
   }

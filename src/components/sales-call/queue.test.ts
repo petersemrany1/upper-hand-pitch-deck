@@ -26,7 +26,7 @@ const lead = (o: Partial<QueueLead> & { id: string }): QueueLead => ({
   ...o,
 });
 const hist = (o: Partial<CallHistory> = {}): CallHistory => ({
-  attempts: 0, firstCallAt: null, lastAttemptAt: null, todayAttempts: 0, todayFirstAttemptAt: null, ...o,
+  attempts: 0, firstCallAt: null, lastAttemptAt: null, todayAttempts: 0, todayFirstAttemptAt: null, todayLastAttemptAt: null, ...o,
 });
 
 describe("normaliseStatus", () => {
@@ -69,9 +69,15 @@ describe("once a day, twice for young leads", () => {
     const h = hist({ attempts: 1, firstCallAt: iso(TODAY, "13:00"), todayAttempts: 1, todayFirstAttemptAt: iso(TODAY, "13:00") });
     expect(isDueToday(h, at(TODAY, "16:00"))).toBe(false);
   });
-  test("twice today → done for the day", () => {
-    const h = hist({ attempts: 2, firstCallAt: iso(TODAY, "09:00"), todayAttempts: 2, todayFirstAttemptAt: iso(TODAY, "09:00") });
-    expect(isDueToday(h, AFTERNOON)).toBe(false);
+  test("a morning call-and-call-back (2 dials) still gets the afternoon turn", () => {
+    const h = hist({ attempts: 2, firstCallAt: iso(TODAY, "09:00"), todayAttempts: 2, todayFirstAttemptAt: iso(TODAY, "09:00"), todayLastAttemptAt: iso(TODAY, "09:01") });
+    expect(isDueToday(h, AFTERNOON)).toBe(true);
+  });
+  test("morning and afternoon sittings done → finished for the day", () => {
+    const h = hist({ attempts: 3, firstCallAt: iso(TODAY, "09:00"), todayAttempts: 3, todayFirstAttemptAt: iso(TODAY, "09:00"), todayLastAttemptAt: iso(TODAY, "14:05") });
+    expect(isDueToday(h, at(TODAY, "16:00"))).toBe(false);
+    const h2 = hist({ attempts: 2, firstCallAt: iso(TODAY, "09:00"), todayAttempts: 2, todayFirstAttemptAt: iso(TODAY, "09:00"), todayLastAttemptAt: iso(TODAY, "14:05") });
+    expect(isDueToday(h2, at(TODAY, "16:00"))).toBe(false);
   });
   test("old lead (first called 3 weeks ago) only once a day", () => {
     const h = hist({ attempts: 9, firstCallAt: iso("2026-08-15", "09:00"), todayAttempts: 1, todayFirstAttemptAt: iso(TODAY, "09:00") });
@@ -153,8 +159,8 @@ describe("buildQueue order", () => {
   test("leads already served today are left out, young morning-called leads return after noon", () => {
     const leads = [lead({ id: "young", status: "no_answer" }), lead({ id: "old", status: "no_answer" })];
     const history = {
-      young: hist({ attempts: 1, firstCallAt: iso(TODAY, "09:00"), lastAttemptAt: iso(TODAY, "09:00"), todayAttempts: 1, todayFirstAttemptAt: iso(TODAY, "09:00") }),
-      old: hist({ attempts: 6, firstCallAt: iso("2026-08-01", "09:00"), lastAttemptAt: iso(TODAY, "09:10"), todayAttempts: 1, todayFirstAttemptAt: iso(TODAY, "09:10") }),
+      young: hist({ attempts: 1, firstCallAt: iso(TODAY, "09:00"), lastAttemptAt: iso(TODAY, "09:00"), todayAttempts: 1, todayFirstAttemptAt: iso(TODAY, "09:00"), todayLastAttemptAt: iso(TODAY, "09:00") }),
+      old: hist({ attempts: 6, firstCallAt: iso("2026-08-01", "09:00"), lastAttemptAt: iso(TODAY, "09:10"), todayAttempts: 1, todayFirstAttemptAt: iso(TODAY, "09:10"), todayLastAttemptAt: iso(TODAY, "09:10") }),
     };
     expect(buildQueue({ leads, history, now: at(TODAY, "10:00") }).order).toEqual([]);
     expect(buildQueue({ leads, history, now: AFTERNOON }).order).toEqual(["young"]);
@@ -193,6 +199,7 @@ describe("buildHistory", () => {
       lastAttemptAt: iso(TODAY, "09:05"),
       todayAttempts: 2,
       todayFirstAttemptAt: iso(TODAY, "08:50"),
+      todayLastAttemptAt: iso(TODAY, "09:05"),
     });
     expect(h.b).toBeUndefined();
   });

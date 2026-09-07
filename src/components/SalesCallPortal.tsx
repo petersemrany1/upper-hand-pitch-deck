@@ -467,8 +467,17 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         // data) would flip sessionActive=true with an empty queue, falling
         // straight into the "Session complete" branch on every page load.
         const hasLocalQueue = Array.isArray(sessionRestored?.queue) && sessionRestored.queue.length > 0;
-        if (!hasLocalQueue) {
+        // A session left open yesterday is stale: its queue was built for
+        // that day. Close it and start the day fresh.
+        const startedToday = localDateKey(new Date(row.started_at)) === localDateKey(new Date());
+        if (!hasLocalQueue || !startedToday) {
           try { closeRepSession(); } catch { /* noop */ }
+          if (!startedToday) {
+            setSessionActive(false);
+            setSessionQueue([]);
+            setSessionIndex(0);
+            setActiveId(null);
+          }
           return;
         }
         setSessionStartedAt(row.started_at);
@@ -898,10 +907,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
         if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) return;
-        if (payload.eventType === "INSERT" && sessionActiveRef.current) {
-          const newId = (payload.new as { id?: string } | null)?.id;
-          if (newId) setSessionQueue((prev) => (prev.includes(newId) ? prev : [newId, ...prev]));
-        }
+        // New enquiries reach the session via the due-queue top-up effect,
+        // which places them right after the lead the rep is on.
         if (payload.eventType === "DELETE") {
           const oldId = (payload.old as { id?: string } | null)?.id;
           if (oldId) setLeads((prev) => prev.filter((l) => l.id !== oldId));
@@ -1122,6 +1129,21 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
   );
   const dueLeadIds = dueQueue.order;
+  const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
+  const dueSetRef = useRef(dueSet);
+  useEffect(() => { dueSetRef.current = dueSet; }, [dueSet]);
+  // From a queue position, find the next lead still worth serving: skip any
+  // that is no longer due (called today by someone — reps share one pool —
+  // or since booked / retired). Callbacks and ring-backs arrive through the
+  // missed-call queue and never pass through here.
+  const advanceIndexFrom = useCallback((from: number): number => {
+    const q = sessionQueueRef.current;
+    let i = Math.max(0, from);
+    let skipped = 0;
+    while (i < q.length && !dueSetRef.current.has(q[i])) { i += 1; skipped += 1; }
+    if (skipped > 0) toast(`Skipped ${skipped} lead${skipped === 1 ? "" : "s"} already called today`);
+    return i;
+  }, []);
   useEffect(() => {
     if (!sessionActive) return;
     const fresh = dueLeadIds.filter((id) => dueQueue.group[id] === "new");
@@ -1430,7 +1452,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <NotificationBell />
             <button
-              onClick={() => setSessionPaused(p => !p)}
+              onClick={() => {
+                const resuming = sessionPaused;
+                setSessionPaused((p) => !p);
+                // Coming back from a break: pick up with the lead on screen.
+                if (resuming && activeId) armAutoDial();
+              }}
               style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
             >
               {sessionPaused ? '▶ Resume' : '☕ Break'}
@@ -1519,7 +1546,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             onDepositPaid={() => {
               if (sessionActive) {
                 setSessionBookings((b) => b + 1);
-                const nextIndex = sessionIndex + 1;
+                const nextIndex = advanceIndexFrom(sessionIndex + 1);
                 setSessionIndex(nextIndex);
                 const nextId = sessionQueue[nextIndex];
                 if (nextId) {
@@ -1581,7 +1608,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               return;
             }
             if (sessionActive) {
-              const nextIndex = nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex);
+              const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
               setSessionIndex(nextIndex);
               const nextId = sessionQueue[nextIndex];
               if (nextId) {
@@ -1628,7 +1655,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
-          autoDialEnabled={sessionActive && !manualMode}
+          autoDialEnabled={sessionActive && !manualMode && !sessionPaused}
           autoDialArmToken={autoDialArmToken}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
@@ -1654,7 +1681,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
-              const nextIndex = nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex);
+              const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
               setSessionIndex(nextIndex);
               const nextId = sessionQueue[nextIndex];
               if (nextId) {
@@ -6612,9 +6639,9 @@ function RightPanel({
           if (armedLeadId === active.id) {
             setCallDurationAtHangup(callTimerRef.current);
             setOutcomePending(true);
-            if (connected) {
-              // They spoke: open the outcome module straight away so the rep
-              // decides what happens next (including calling back a dropout).
+            if (connected || dials >= 3) {
+              // They spoke (or this was a call-back after a dropout): open the
+              // outcome module straight away so the rep decides what's next.
               setOutcomeRequired(true);
               onOutcomeRequiredChange?.(true);
             }
@@ -6806,6 +6833,21 @@ function RightPanel({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [autoDialCountdown, redialCountdown, autoDialWaiting, cancelAutoDial]);
+  // Never dial for a rep who isn't there: a break, an incoming call, or a
+  // hidden tab cancels whatever was counting down.
+  useEffect(() => {
+    if (!autoDialEnabled) cancelAutoDial(autoDialCountdown !== null || redialCountdown !== null || autoDialWaiting ? "Auto-dial paused with the session" : undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDialEnabled]);
+  useEffect(() => {
+    if (deviceStatus === "ringing-incoming") cancelAutoDial("Auto-dial cancelled — incoming call");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceStatus]);
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === "hidden") cancelAutoDial("Auto-dial cancelled — tab not in view"); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [cancelAutoDial]);
 
   const sendImage = async (url: string) => {
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
