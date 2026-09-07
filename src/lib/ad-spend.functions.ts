@@ -583,3 +583,15 @@ export const backfillMetaSpend = createServerFn({ method: "POST" })
     const { syncMetaSpend } = await import("@/lib/meta-spend.server");
     return syncMetaSpend({ since: data.since, until: data.until });
   });
+
+// Admin data-quality audit for the Numbers page (see numbers-audit.server.ts).
+export const runNumbersDataAudit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await assertAdmin(context.claims as Record<string, unknown>);
+    const { runNumbersAudit } = await import("@/lib/numbers-audit.server");
+    return runNumbersAudit(db as unknown as Parameters<typeof runNumbersAudit>[0], {
+      accessToken: process.env.META_ACCESS_TOKEN,
+      accountId: process.env.META_AD_ACCOUNT_ID,
+    });
+  });

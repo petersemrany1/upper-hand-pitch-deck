@@ -16,6 +16,7 @@ import {
   upsertClinicPack,
   deleteClinicPack,
   backfillMetaSpend,
+  runNumbersDataAudit,
   type ClinicPackRow,
   type ClinicOption,
   type AdPerformanceRow,
@@ -100,6 +101,9 @@ function NumbersPage() {
   const [spendCoverage, setSpendCoverage] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
   const [spendDuplicates, setSpendDuplicates] = useState(0);
   const runBackfill = useServerFn(backfillMetaSpend);
+  const runAudit = useServerFn(runNumbersDataAudit);
+  const [audit, setAudit] = useState<Awaited<ReturnType<typeof runNumbersDataAudit>> | null>(null);
+  const [auditing, setAuditing] = useState(false);
   const [backfillSince, setBackfillSince] = useState("2026-04-20");
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState("");
@@ -462,6 +466,19 @@ function NumbersPage() {
             {spendPanel ? "Hide spend entries" : "Edit spend by hand"}
           </button>
 
+          <button
+            onClick={async () => {
+              setAuditing(true);
+              try { setAudit(await runAudit({ data: undefined as never })); }
+              catch (e) { toast.error((e as Error).message || "Audit failed"); }
+              finally { setAuditing(false); }
+            }}
+            disabled={auditing}
+            style={{ ...CARD, padding: "6px 12px", fontSize: 12, cursor: auditing ? "wait" : "pointer" }}
+            title="Check every table the page is built from for gaps, duplicates and broken links"
+          >
+            {auditing ? "Auditing…" : audit ? "Re-run data audit" : "Audit the data"}
+          </button>
           <div style={{ ...CARD, padding: "4px 6px 4px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }} title="Pull daily ad spend from Meta from this date to today. Re-pulling a day corrects it, never duplicates it.">
             <span style={{ color: MUTED }}>Backfill Meta spend from</span>
             <input type="date" value={backfillSince} onChange={(e) => setBackfillSince(e.target.value)} style={{ border: "none", fontSize: 12, background: "transparent" }} />
@@ -474,6 +491,32 @@ function NumbersPage() {
             </button>
           </div>
         </div>
+
+        {audit && (
+          <div style={{ ...CARD, padding: 0 }}>
+            <div style={{ padding: "12px 18px 6px", display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>Data audit</div>
+              <div style={{ fontSize: 12, color: MUTED }}>
+                {new Date(audit.generatedAt).toLocaleString("en-AU", { timeZone: APP_TIMEZONE })} · <button onClick={() => setAudit(null)} style={{ background: "transparent", border: "none", color: MUTED, cursor: "pointer", textDecoration: "underline", padding: 0, fontSize: 12 }}>hide</button>
+              </div>
+            </div>
+            {audit.sections.map((sec) => (
+              <div key={sec.title} style={{ borderTop: "0.5px solid #f0f0ee", padding: "8px 18px 10px" }}>
+                <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: "#8a8a86", fontWeight: 600, margin: "4px 0 6px" }}>{sec.title}</div>
+                {sec.items.map((it) => (
+                  <div key={it.label} style={{ display: "grid", gridTemplateColumns: "10px 1fr auto", columnGap: 10, alignItems: "start", padding: "5px 0" }}>
+                    <span style={{ marginTop: 5, width: 8, height: 8, borderRadius: 999, background: it.severity === "bad" ? "#b03030" : it.severity === "warn" ? "#c98a2e" : it.severity === "ok" ? "#2f6f4f" : "#c2c2be" }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, color: INK }}>{it.label}</div>
+                      {it.detail && <div style={{ fontSize: 11.5, color: MUTED, marginTop: 1, lineHeight: 1.4 }}>{it.detail}</div>}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: INK, textAlign: "right", fontVariantNumeric: "tabular-nums", maxWidth: 360 }}>{it.value}</div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
 
         {(spendGap || spendDuplicates > 0) && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
