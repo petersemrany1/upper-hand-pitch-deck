@@ -10,6 +10,8 @@ import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
+import { CALLBACK_WINDOW_MS, buildHistory, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
+import { normaliseStatus, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
@@ -396,8 +398,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // First-ever call timestamp per lead — used so "Day N" counts from the
   // first time the rep actually called them (not from when the lead landed).
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
-  const [dueCallbacks, setDueCallbacks] = useState<Lead[]>([]);
-  const [showCallbackAlert, setShowCallbackAlert] = useState(false);
+  // Per-lead call history the queue rules run on (attempts, first/last, today).
+  const [callHistory, setCallHistory] = useState<HistoryMap>({});
+  // Ticks once a minute so time-based rules (noon, callback windows) re-run.
+  const [clockTick, setClockTick] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setClockTick((n) => n + 1), 60000);
+    return () => clearInterval(t);
+  }, []);
   // Session mode.
   // Source of truth for "is a session active" and "when did it start" is the
   // DB (`rep_sessions` row with ended_at IS NULL). sessionStorage is kept only
@@ -679,25 +687,58 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     }
   }, [activeId, step]);
 
+  // Scheduled callbacks: each one surfaces at its time and stays live for an
+  // hour (CALLBACK_WINDOW_MS). It goes to the front via the missed-call queue,
+  // which Next Lead serves first in or out of a session. Once the hour is up
+  // and it was never reached, it's withdrawn again.
+  const callbackSurfacedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
+    let cancelled = false;
     const check = async () => {
       const now = new Date();
-      const fiveMinAgo = new Date(now.getTime() - 5 * 60000);
+      const windowStart = new Date(now.getTime() - CALLBACK_WINDOW_MS);
       const { data } = await supabase
         .from("meta_leads")
         .select(SALES_CALL_LEAD_SELECT)
-        .in("status", ["Callback Scheduled", "callback_scheduled"])
         .lte("callback_scheduled_at", now.toISOString())
-        .gte("callback_scheduled_at", fiveMinAgo.toISOString());
-      if (data && data.length > 0) {
-        setDueCallbacks(data as Lead[]);
-        setShowCallbackAlert(true);
+        .gte("callback_scheduled_at", windowStart.toISOString());
+      if (cancelled) return;
+      const rows = (data ?? []) as Lead[];
+      if (rows.length > 0) {
+        // The dialler must know these leads even if they fell outside the main list.
+        setLeads((prev) => {
+          const have = new Set(prev.map((l) => l.id));
+          const add = rows.filter((r) => !have.has(r.id));
+          return add.length ? [...add, ...prev] : prev;
+        });
+      }
+      const live = new Set(dueCallbackIds(rows, callHistory, now, isLeadLocationPaused));
+      const surfaced = callbackSurfacedRef.current;
+      // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
+      const stale = Array.from(surfaced).filter((id) => !live.has(id));
+      if (stale.length > 0) {
+        const staleSet = new Set(stale);
+        for (const id of stale) surfaced.delete(id);
+        setMissedCallQueue((prev) => prev.filter((id) => !staleSet.has(id)));
+        setSessionQueue((q) => q.filter((id, i) => i <= sessionIndexRef.current || !staleSet.has(id)));
+      }
+      for (const id of live) {
+        if (surfaced.has(id) || id === activeIdRef.current) continue;
+        surfaced.add(id);
+        setMissedCallQueue((prev) => (prev.includes(id) ? prev : [...prev, id]));
+        if (sessionActiveRef.current) {
+          const placement = placeLeadAfterCurrent(sessionQueueRef.current, activeIdRef.current, sessionIndexRef.current, id);
+          setSessionQueue(placement.queue);
+        }
+        const l = rows.find((r) => r.id === id);
+        const name = l ? [l.first_name, l.last_name].filter(Boolean).join(" ").trim() || "Lead" : "Lead";
+        toast(`⏰ Callback due now: ${name} — up next`);
       }
     };
     void check();
-    const interval = setInterval(() => void check(), 60000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(() => void check(), 30000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [callHistory, isLeadLocationPaused]);
 
   useEffect(() => {
     const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
@@ -744,13 +785,24 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         .select("lead_id, called_at")
         .in("lead_id", leadIds)
         .order("called_at", { ascending: true })
-        .limit(5000);
+        .limit(10000);
       const firsts: Record<string, string> = {};
       for (const row of firstRows ?? []) {
         if (!row.lead_id || !row.called_at) continue;
         if (!firsts[row.lead_id]) firsts[row.lead_id] = row.called_at as string;
       }
       setFirstCallByLead(firsts);
+      // All-time figures from the full history; today's figures from the
+      // 3-day query above, which is small enough never to be truncated.
+      const nowTs = new Date();
+      const history = buildHistory(firstRows ?? [], nowTs);
+      const recent = buildHistory(data ?? [], nowTs);
+      for (const [leadId, h] of Object.entries(recent)) {
+        if (!h) continue;
+        const base = history[leadId] ?? h;
+        history[leadId] = { ...base, todayAttempts: h.todayAttempts, todayFirstAttemptAt: h.todayFirstAttemptAt };
+      }
+      setCallHistory(history);
     };
     void load();
     const ch = supabase.channel("attempt-counts")
@@ -1021,133 +1073,40 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     );
   }, [leads, isLeadLocationPaused]);
 
-  // Build the ordered session queue.
-  // Order: new (most recent first) → no answer (≤21 calling-days, most recent
-  //        first) → overdue callbacks → callbacks today → had-convo chase-up
-  //        → remaining (leftovers, kept at end).
-  // Excluded statuses: not_interested, booked_deposit_paid, booked_no_deposit,
-  // had_convo_no_sale, cancelled, no_show, dropped.
-  const buildSessionQueue = useCallback((): string[] => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const todayKey = localDateKey(today);
-    const NO_ANSWER_MAX_CALLING_DAYS = 21;
-    const isNoAnswerOutcome = (o: string | null | undefined) => {
-      const x = (o ?? "").toLowerCase();
-      return x.includes("no") || x.includes("voicemail") || x.includes("missed") || x === "no-answer";
-    };
-    // Distinct calling-days we've attempted this lead (across all history we've loaded).
-    const callingDaysFor = (l: Lead) => Object.keys(attemptsByDay[l.id] ?? {}).length;
-    // Most recent day-key we attempted this lead (YYYY-MM-DD; string compare works).
-    const lastAttemptDayKey = (l: Lead): string | null => {
-      const keys = Object.keys(attemptsByDay[l.id] ?? {});
-      if (keys.length === 0) return null;
-      return keys.sort().at(-1)!;
-    };
-    const callbackOverdue = (l: Lead) => {
-      if (!l.callback_scheduled_at) return false;
-      const t = new Date(l.callback_scheduled_at).getTime();
-      return !Number.isNaN(t) && t <= Date.now();
-    };
-    const callbackToday = (l: Lead) => {
-      if (!l.callback_scheduled_at) return false;
-      return sameLocalDate(new Date(l.callback_scheduled_at), today);
-    };
-    const isNoAnswer = (l: Lead) => {
-      const lastKey = lastAttemptDayKey(l);
-      if (!lastKey) return false;
-      if (!isNoAnswerOutcome(attemptsByDay[l.id]?.[lastKey]?.lastOutcome)) return false;
-      return callingDaysFor(l) <= NO_ANSWER_MAX_CALLING_DAYS;
-    };
-    const isNewish = (l: Lead) =>
-      normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
+  // Build the ordered session queue. The rules live in ./sales-call/queue.ts
+  // (pure, unit tested): new → no answer → the rest, once a day each and
+  // twice a day for leads in their first 14 days. Scheduled callbacks are
+  // served separately at their time — see the callback watcher below.
+  const buildSessionQueue = useCallback(
+    (): string[] =>
+      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadLocationPaused, isPriority: isPriorityLead }).order,
+    // clockTick re-evaluates noon / callback windows once a minute.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
+  );
 
-    const eligible = leads.filter((l) => {
-      if (isLeadLocationPaused(l)) return false;
-      const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid" || s === "booked_no_deposit" || s === "had_convo_no_sale") return false;
-      const raw = (l.status ?? "").toLowerCase();
-      if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
-      return true;
-    });
-
-
-    const overdue: Lead[] = [];
-    const cbToday: Lead[] = [];
-    const chase: Lead[] = [];
-    const noAns: Lead[] = [];
-    const newLeads: Lead[] = [];
-    const remaining: Lead[] = [];
-    for (const l of eligible) {
-      // Priority order — first match wins.
-      if (isNewish(l)) { newLeads.push(l); continue; }
-      if (callbackOverdue(l)) { overdue.push(l); continue; }
-      if (callbackToday(l)) { cbToday.push(l); continue; }
-      if (normaliseStatus(l.status, l) === "had_convo_chase_up") { chase.push(l); continue; }
-      if (isNoAnswer(l)) { noAns.push(l); continue; }
-      remaining.push(l);
-    }
-
-    const cbSort = (a: Lead, b: Lead) => {
-      const ta = a.callback_scheduled_at ? new Date(a.callback_scheduled_at).getTime() : 0;
-      const tb = b.callback_scheduled_at ? new Date(b.callback_scheduled_at).getTime() : 0;
-      return ta - tb;
-    };
-    cbToday.sort(cbSort);
-    overdue.sort(cbSort);
-    // New leads: most recent first (created_at desc).
-    newLeads.sort((a, b) => {
-      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return tb - ta;
-    });
-    // No-answer: most recently attempted first, then least recent.
-    noAns.sort((a, b) => {
-      const ka = lastAttemptDayKey(a) ?? "";
-      const kb = lastAttemptDayKey(b) ?? "";
-      return kb.localeCompare(ka);
-    });
-
-    const ordered = [...newLeads, ...noAns, ...overdue, ...cbToday, ...chase, ...remaining];
-    // Priority city first (stable — keeps the section ordering above intact).
-    const priorityFirst = [
-      ...ordered.filter((l) => isPriorityLead(l)),
-      ...ordered.filter((l) => !isPriorityLead(l)),
-    ];
-    return priorityFirst.map((l) => l.id);
-  }, [leads, attemptsByDay, isLeadLocationPaused, isPriorityLead]);
-
-  // Every "new" lead that still hasn't been dialled today (most recent first).
-  // The session queue is a snapshot taken at start-of-session, so leads that
-  // land mid-day would otherwise never be served. This list feeds both the
-  // live top-up below and the end-of-day guard.
-  const pendingNewLeadIds = useMemo(() => {
-    const todayKey = localDateKey(new Date());
-    return leads
-      .filter((l) => !isLeadLocationPaused(l))
-      .filter((l) => normaliseStatus(l.status, l) === "new")
-      .filter((l) => (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0)
-      .sort((a, b) => {
-        const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-        const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-        return tb - ta;
-      })
-      .map((l) => l.id);
-  }, [leads, attemptsByDay, isLeadLocationPaused]);
-
-  // Live top-up: splice any brand-new leads in right after the lead the rep is
-  // on, so fresh enquiries stay at the front of the queue without yanking them
-  // off the call they're currently in.
+  // Everything due to be served right now, per the queue rules. Brand-new
+  // enquiries in it that aren't in the session queue yet are spliced in right
+  // after the lead the rep is on. Anything else that becomes due mid-session
+  // (a young lead's afternoon turn) is appended when the queue runs dry.
+  const dueQueue = useMemo(
+    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadLocationPaused, isPriority: isPriorityLead }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
+  );
+  const dueLeadIds = dueQueue.order;
   useEffect(() => {
     if (!sessionActive) return;
-    if (pendingNewLeadIds.length === 0) return;
+    const fresh = dueLeadIds.filter((id) => dueQueue.group[id] === "new");
+    if (fresh.length === 0) return;
     setSessionQueue((q) => {
       const known = new Set(q);
-      const fresh = pendingNewLeadIds.filter((id) => !known.has(id));
-      if (fresh.length === 0) return q;
+      const add = fresh.filter((id) => !known.has(id));
+      if (add.length === 0) return q;
       const cut = Math.min(Math.max(sessionIndex + 1, 0), q.length);
-      return [...q.slice(0, cut), ...fresh, ...q.slice(cut)];
+      return [...q.slice(0, cut), ...add, ...q.slice(cut)];
     });
-  }, [pendingNewLeadIds, sessionActive, sessionIndex]);
+  }, [dueLeadIds, dueQueue.group, sessionActive, sessionIndex]);
 
   // New leads the exhausted queue has already been topped up with. Each lead
   // is re-served at most once per session so a rep who keeps skipping a lead
@@ -1333,10 +1292,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     // arrived mid-session or were skipped), put them back on the end of the
     // queue — once each — so the day doesn't finish with fresh leads sitting
     // there. Only leads the queue builder still considers eligible qualify.
-    const eligible = new Set(buildSessionQueue());
-    const requeue = pendingNewLeadIds.filter(
-      (id) => eligible.has(id) && !requeuedOnceRef.current.has(id),
-    );
+    const requeue = dueLeadIds.filter((id) => !requeuedOnceRef.current.has(id));
     if (requeue.length > 0) {
       queueMicrotask(() => {
         for (const id of requeue) requeuedOnceRef.current.add(id);
@@ -4876,17 +4832,6 @@ const fmtShort = (s: string) =>
 
 /* The 7 statuses the rep can cycle through inline. Keeping them here so the
  * card and the popover stay in sync. */
-type StatusKey =
-  | "new"
-  | "no_answer"
-  | "callback_scheduled"
-  | "had_convo_chase_up"
-  | "had_convo_no_sale"
-  | "not_interested"
-  | "booked_no_deposit"
-  | "booked_deposit_paid"
-  | "dropped";
-
 const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: string; bg: string }[] = [
   { key: "new",                  label: "New",                  emoji: "🔵", color: "#1d4ed8", bg: "#dbeafe" },
   { key: "no_answer",            label: "No Answer",            emoji: "🟡", color: "#a16207", bg: "#fef9c3" },
@@ -4900,23 +4845,6 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
 ];
 
 // Map any legacy / loose status string we might find in the DB onto the new key set.
-function normaliseStatus(s: string | null | undefined, l?: Lead): StatusKey {
-  const raw = (s ?? "").toLowerCase().replace(/\s+/g, "_");
-  if (raw.includes("deposit_paid")) return "booked_deposit_paid";
-  if (raw.includes("booked")) {
-    if (l?.booking_date) return "booked_no_deposit";
-    return "booked_no_deposit";
-  }
-  if (raw.includes("callback")) return "callback_scheduled";
-  if (raw.includes("no_sale") || raw.includes("did_not_get_the_sale") || raw.includes("did_not_sale")) return "had_convo_no_sale";
-  if (raw.includes("chase") || raw.includes("had_convo")) return "had_convo_chase_up";
-  if (raw.includes("not_interested") || raw === "ineligible") return "not_interested";
-  if (raw.includes("no_answer") || raw === "contacted") return "no_answer";
-  if (raw === "dropped") return "dropped";
-  if (l?.callback_scheduled_at) return "callback_scheduled";
-  return "new";
-}
-
 function statusMeta(s: string | null | undefined, l?: Lead) {
   const key = normaliseStatus(s, l);
   return STATUS_OPTIONS.find((o) => o.key === key) ?? STATUS_OPTIONS[0];
