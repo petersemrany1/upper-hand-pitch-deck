@@ -292,13 +292,27 @@ function NumbersPage() {
       cursor = next.toISOString().slice(0, 10);
     }
     let total = 0;
+    let adLevel = 0;
+    let account = 0;
+    let accountKnown = false;
+    const byCampaign = new Map<string, number>();
     try {
       for (const [since, until] of months) {
         setBackfillProgress(`${since} → ${until}`);
         const r = await runBackfill({ data: { since, until } });
         total += r.rows;
+        adLevel += r.adLevelSpend;
+        if (r.accountSpend !== null) { account += r.accountSpend; accountKnown = true; }
+        for (const c of r.campaigns) byCampaign.set(c.name, (byCampaign.get(c.name) ?? 0) + c.spend);
       }
-      toast.success(`Pulled ${total} spend rows from Meta since ${backfillSince}`);
+      const top = Array.from(byCampaign.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6)
+        .map(([n, v]) => `${n}: ${money(v)}`).join(" · ");
+      toast.success(
+        `Pulled ${total} rows since ${backfillSince}. Ad-level spend ${money(adLevel)}` +
+        (accountKnown ? ` · Meta account total ${money(account)}` : "") +
+        (top ? `\nBy campaign: ${top}` : ""),
+        { duration: 20000 },
+      );
       await load();
     } catch (e) {
       toast.error(`${(e as Error).message || "Backfill failed"} (${total} rows written so far)`);

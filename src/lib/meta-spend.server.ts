@@ -44,7 +44,19 @@ export class MetaSyncError extends Error {
  * ad per day. Re-pulling a day corrects the figure instead of duplicating it.
  * Records the outcome in ad_spend_sync_state either way.
  */
-export async function syncMetaSpend(opts: { since?: string; until?: string } = {}): Promise<{ since: string; until: string; rows: number }> {
+export type MetaSyncResult = {
+  since: string;
+  until: string;
+  rows: number;
+  /** Sum of ad-level spend Meta returned for the range. */
+  adLevelSpend: number;
+  /** What Meta says the whole account spent in the range (independent of ad status). */
+  accountSpend: number | null;
+  /** Campaigns with spend in the range, largest first (for diagnosis). */
+  campaigns: { name: string; spend: number }[];
+};
+
+export async function syncMetaSpend(opts: { since?: string; until?: string } = {}): Promise<MetaSyncResult> {
   const accessToken = process.env.META_ACCESS_TOKEN;
   const accountIdRaw = process.env.META_AD_ACCOUNT_ID;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -129,6 +141,33 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
     return fail(`Meta API request failed: ${(e as Error).message}`);
   }
 
+  // Diagnosis: the account's own total for the range, and spend by campaign.
+  // If the account total is far above the ad-level sum, spend is sitting on
+  // ads the ad-level report doesn't return.
+  let accountSpend: number | null = null;
+  let campaigns: { name: string; spend: number }[] = [];
+  try {
+    const acct = new URLSearchParams({ level: "account", fields: "spend", time_range: JSON.stringify({ since, until }), access_token: accessToken });
+    const res = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/insights?${acct.toString()}`);
+    const payload = (await res.json()) as { data?: { spend?: string }[] };
+    if (res.ok && payload.data?.[0]?.spend !== undefined) accountSpend = Number(payload.data[0].spend);
+    const camp = new URLSearchParams({
+      level: "campaign", fields: "campaign_name,spend", time_range: JSON.stringify({ since, until }), limit: "200", access_token: accessToken,
+      filtering: JSON.stringify([{ field: "campaign.effective_status", operator: "IN", value: ["ACTIVE", "PAUSED", "DELETED", "ARCHIVED", "IN_PROCESS", "WITH_ISSUES"] }]),
+    });
+    const cres = await fetch(`https://graph.facebook.com/${GRAPH_VERSION}/${accountId}/insights?${camp.toString()}`);
+    const cpayload = (await cres.json()) as { data?: { campaign_name?: string; spend?: string }[] };
+    if (cres.ok) {
+      campaigns = (cpayload.data ?? [])
+        .map((c) => ({ name: c.campaign_name ?? "(unnamed)", spend: Number(c.spend ?? 0) }))
+        .filter((c) => c.spend > 0)
+        .sort((a, b) => b.spend - a.spend)
+        .slice(0, 12);
+    }
+  } catch (e) {
+    console.warn("[meta-spend] diagnostic totals failed", e);
+  }
+
   const upserts = rows
     .filter((r) => r.date_start && r.ad_name)
     .map((r) => ({
@@ -185,5 +224,7 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
     })
     .eq("id", 1);
 
-  return { since, until, rows: written };
+  const adLevelSpend = upserts.reduce((sum, r) => sum + r.spend_aud, 0);
+  console.log(`[meta-spend] ${since} → ${until}: ad-level $${adLevelSpend.toFixed(0)} across ${written} rows; account total ${accountSpend === null ? "n/a" : `$${accountSpend.toFixed(0)}`}`, campaigns);
+  return { since, until, rows: written, adLevelSpend, accountSpend, campaigns };
 }
