@@ -1325,13 +1325,52 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   return (
     <>
       {callbackBanner}
+      {endGuardOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 26, maxWidth: 420, width: '100%', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: '#111', marginBottom: 8 }}>
+              {pendingNewLeadIds.length} new lead{pendingNewLeadIds.length === 1 ? '' : 's'} still uncalled
+            </div>
+            <div style={{ fontSize: 14, color: '#555', lineHeight: 1.5, marginBottom: 20 }}>
+              New enquiries go first. Finish these before you finish the day.
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => endSessionNow()}
+                style={{ fontSize: 13, fontWeight: 600, color: '#777', background: 'transparent', border: '1px solid #ddd', borderRadius: 8, padding: '10px 14px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                End anyway
+              </button>
+              <button
+                onClick={() => {
+                  setEndGuardOpen(false);
+                  const nextNew = pendingNewLeadIds[0];
+                  if (!nextNew) return;
+                  const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextNew);
+                  setSessionQueue(placement.queue);
+                  setSessionIndex(placement.index);
+                  setActiveId(nextNew);
+                  setStep("mindset");
+                  setCompleted(new Set());
+                  setAmpPrefill(""); setAudioPrefill("");
+                }}
+                style={{ fontSize: 13, fontWeight: 700, color: '#fff', background: '#f4522d', border: 'none', borderRadius: 8, padding: '10px 16px', cursor: 'pointer', fontFamily: 'inherit' }}
+              >
+                Keep calling
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {sessionActive && !practiceMode && (
         <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             {[
               { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
               { num: sessionBookings as number | string, label: 'Booked', color: '#f4522d' },
+              { num: pendingNewLeadIds.length as number | string, label: 'New left', color: pendingNewLeadIds.length > 0 ? '#f59e0b' : '#4ade80' },
               { num: Math.max(0, sessionQueue.length - sessionIndex) as number | string, label: 'Remaining', color: '#f59e0b' },
+
               { num: `${Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:${Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:${(sessionSeconds%60).toString().padStart(2,'0')}`, label: sessionPaused ? 'On break' : 'Session time', color: sessionPaused ? '#f59e0b' : '#fff' },
             ].map(s => (
               <div key={String(s.label)} style={{ textAlign: 'center', minWidth: 58 }}>
