@@ -248,6 +248,8 @@ function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null
   return (activeIdx !== -1 ? activeIdx : fallbackIndex) + 1;
 }
 
+/** A callback or ring-back dialled by anyone this recently isn't served again. */
+const RECENT_DIAL_MS = 10 * 60 * 1000;
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
@@ -1139,7 +1141,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Callbacks and ring-backs surface on every rep's screen at once. If
   // anyone dialled that person in the last few minutes, another rep must
   // not ring them again.
-  const RECENT_DIAL_MS = 10 * 60 * 1000;
   const dialledRecently = useCallback((id: string): boolean => {
     const last = callHistory[id]?.lastAttemptAt;
     if (!last) return false;
