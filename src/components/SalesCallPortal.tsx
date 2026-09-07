@@ -442,13 +442,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const sessionGoal = Math.max(1, Math.round(plannedHours * BOOKINGS_PER_HOUR));
   // Auto-dial: after the portal moves the rep to the next lead on its own,
   // RightPanel counts down and dials. Armed only on queue-driven advances,
-  // never on manual picks, deeplinks or "previous". Toggle is remembered.
-  const [autoDial, setAutoDial] = useState<boolean>(() => {
-    try { return window.localStorage.getItem("salesCall.autoDial") !== "off"; } catch { return true; }
-  });
-  useEffect(() => {
-    try { window.localStorage.setItem("salesCall.autoDial", autoDial ? "on" : "off"); } catch { /* noop */ }
-  }, [autoDial]);
+  // never on manual picks, deeplinks or "previous". Always on in a session
+  // (Peter's call: reps can't switch it off).
   const [autoDialArmToken, setAutoDialArmToken] = useState(0);
   const armAutoDial = useCallback(() => setAutoDialArmToken((t) => t + 1), []);
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(
@@ -1396,7 +1391,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               { num: `${sessionBookings}/${sessionGoal}` as number | string, label: 'Booked', color: '#f4522d' },
               {
                 num: (sessionBookings >= Math.floor(sessionSeconds / 3600) ? '✓' : `−${Math.floor(sessionSeconds / 3600) - sessionBookings}`) as number | string,
-                label: sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On pace' : 'Behind',
+                label: sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On target' : 'Behind target',
                 color: sessionBookings >= Math.floor(sessionSeconds / 3600) ? '#4ade80' : '#f59e0b',
               },
 
@@ -1410,13 +1405,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <NotificationBell />
-            <button
-              onClick={() => setAutoDial((v) => !v)}
-              title="After each outcome, the next lead is dialled automatically after a short countdown"
-              style={{ fontSize: 13, fontWeight: 700, color: autoDial ? '#4ade80' : '#b8b8b8', background: 'transparent', border: `1px solid ${autoDial ? '#2f6f4f' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
-            >
-              {autoDial ? '⚡ Auto-dial on' : 'Auto-dial off'}
-            </button>
             <button
               onClick={() => setSessionPaused(p => !p)}
               style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -1616,7 +1604,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
-          autoDialEnabled={autoDial && sessionActive && !manualMode}
+          autoDialEnabled={sessionActive && !manualMode}
           autoDialArmToken={autoDialArmToken}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
@@ -6518,6 +6506,55 @@ function RightPanel({
     return () => clearInterval(i);
   }, [active.id, deviceActiveLeadId, deviceStatus]);
 
+  // ---- The calling process: dial; no answer → dial again straight away;
+  // no answer twice → log No Answer and move on. "No answer" means the callee
+  // never picked up (the browser leg only connects when they do, thanks to
+  // answerOnBridge) or the call was over inside NO_ANSWER_MAX_SECONDS — a
+  // voicemail the rep hung up on. Anything longer is a conversation and goes
+  // through the normal outcome gate.
+  const NO_ANSWER_MAX_SECONDS = 12;
+  const dialsThisSittingRef = useRef<{ leadId: string | null; count: number }>({ leadId: null, count: 0 });
+  const [redialCountdown, setRedialCountdown] = useState<number | null>(null);
+  const [autoOutcomeBusy, setAutoOutcomeBusy] = useState(false);
+  useEffect(() => {
+    dialsThisSittingRef.current = { leadId: active.id, count: 0 };
+    setRedialCountdown(null);
+  }, [active.id]);
+  useEffect(() => {
+    // Count every dial that starts for this lead (manual or automatic).
+    if (deviceStatus !== "connecting") return;
+    if (deviceActiveLeadId !== active.id && callAttemptLeadIdRef.current !== active.id) return;
+    const d = dialsThisSittingRef.current;
+    if (d.leadId !== active.id) dialsThisSittingRef.current = { leadId: active.id, count: 1 };
+    else d.count += 1;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceStatus]);
+  const logNoAnswerAndMoveOn = useCallback(async () => {
+    if (autoOutcomeBusy) return;
+    setAutoOutcomeBusy(true);
+    try {
+      const r = await updateLeadStatus({ data: { leadId: active.id, status: "no_answer" } });
+      if (!r?.success) {
+        toast.error(r?.error ?? "Could not log No Answer");
+        setOutcomePending(true);
+        return;
+      }
+      onLocalLeadUpdate?.(active.id, { status: "no_answer" } as Partial<Lead>);
+      setOutcomePending(false);
+      setOutcomeRequired(false);
+      setCallDurationAtHangup(0);
+      onOutcomeRequiredChange?.(false);
+      onOutcomePendingChange?.(false);
+      clearStoredGate(active.id);
+      setAutoDialNote("No answer twice — logged No Answer and moved on");
+      toast("No answer twice — logged No Answer, next lead");
+      onAfterOutcomeApplied?.(false);
+    } finally {
+      setAutoOutcomeBusy(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active.id, autoOutcomeBusy, onLocalLeadUpdate, onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied]);
+
   // Reset timer when the call ends. Capture the duration so the manual
   // "Next Lead" button can require an outcome if a call was just completed.
   useEffect(() => {
@@ -6525,7 +6562,19 @@ function RightPanel({
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
         const armedLeadId = callAttemptLeadIdRef.current;
-        if (armedLeadId && !leadHasBookedSale(active)) {
+        const answered = callTimerRef.current >= NO_ANSWER_MAX_SECONDS;
+        const dials = dialsThisSittingRef.current.leadId === active.id ? dialsThisSittingRef.current.count : 0;
+        const inSession = autoDialEnabled && !practiceMode;
+        if (armedLeadId === active.id && !answered && inSession && !leadHasBookedSale(active) && active.phone) {
+          if (dials < 2) {
+            // First no-answer: try once more straight away.
+            setAutoDialNote("No answer — trying once more");
+            setRedialCountdown(AUTO_DIAL_SECONDS);
+          } else {
+            // Second no-answer: log it and move on, no click needed.
+            void logNoAnswerAndMoveOn();
+          }
+        } else if (armedLeadId && !leadHasBookedSale(active)) {
           // Tell the parent which lead still owes an outcome — even if the
           // user has since navigated away from this lead, the parent will
           // snap back here and the modal will auto-open.
@@ -6543,6 +6592,22 @@ function RightPanel({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceStatus]);
+  useEffect(() => {
+    if (redialCountdown === null) return;
+    if (redialCountdown <= 0) {
+      setRedialCountdown(null);
+      if (deviceStatus === "ready") {
+        setAutoDialNote(`Second try dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
+        void callNowRef.current();
+      } else {
+        setAutoDialNote(`Second try waiting for the dialler (status: ${deviceStatus})`);
+        setAutoDialWaiting(true);
+      }
+      return;
+    }
+    const t = window.setTimeout(() => setRedialCountdown((c) => (c === null ? null : c - 1)), 1000);
+    return () => window.clearTimeout(t);
+  }, [redialCountdown, deviceStatus]);
 
   // Practice mode: drive the timer from the ElevenLabs conversation status
   useEffect(() => {
@@ -6648,6 +6713,7 @@ function RightPanel({
   callNowRef.current = callNow;
   const cancelAutoDial = useCallback((reason?: string) => {
     setAutoDialCountdown(null);
+    setRedialCountdown(null);
     setAutoDialWaiting(false);
     if (reason) setAutoDialNote(reason);
   }, []);
@@ -6659,7 +6725,7 @@ function RightPanel({
     if (autoDialArmToken <= autoDialHandledTokenRef.current) return;
     autoDialHandledTokenRef.current = autoDialArmToken;
     if (practiceMode) return;
-    if (!autoDialEnabled) { setAutoDialNote("Auto-dial is off"); return; }
+    if (!autoDialEnabled) { setAutoDialNote("Auto-dial only runs inside a calling session"); return; }
     if (!active.phone) { setAutoDialNote("Auto-dial skipped — no phone number"); return; }
     if (active.lead_class === "booked_active") { setAutoDialNote("Auto-dial skipped — this person already has a booking"); return; }
     if (inCall) { setAutoDialNote("Auto-dial skipped — a call is already in progress"); return; }
@@ -6699,11 +6765,11 @@ function RightPanel({
     return () => window.clearTimeout(t);
   }, [autoDialWaiting, deviceStatus]);
   useEffect(() => {
-    if (autoDialCountdown === null && !autoDialWaiting) return;
+    if (autoDialCountdown === null && redialCountdown === null && !autoDialWaiting) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelAutoDial("Auto-dial cancelled"); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [autoDialCountdown, autoDialWaiting, cancelAutoDial]);
+  }, [autoDialCountdown, redialCountdown, autoDialWaiting, cancelAutoDial]);
 
   const sendImage = async (url: string) => {
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
@@ -7020,7 +7086,7 @@ function RightPanel({
             </>
           )
         ) : !inCall ? (
-          autoDialCountdown !== null || autoDialWaiting ? (
+          autoDialCountdown !== null || redialCountdown !== null || autoDialWaiting ? (
             <div
               role="status"
               aria-live="polite"
@@ -7030,7 +7096,9 @@ function RightPanel({
               <span>
                 {autoDialWaiting
                   ? `📞 Connecting dialler… calling ${active.first_name ?? "lead"} as soon as it's ready`
-                  : `📞 Calling ${active.first_name ?? "lead"} in ${autoDialCountdown}…`}
+                  : redialCountdown !== null
+                    ? `📞 No answer — trying ${active.first_name ?? "lead"} again in ${redialCountdown}…`
+                    : `📞 Calling ${active.first_name ?? "lead"} in ${autoDialCountdown}…`}
               </span>
               <button
                 onClick={() => cancelAutoDial("Auto-dial cancelled")}

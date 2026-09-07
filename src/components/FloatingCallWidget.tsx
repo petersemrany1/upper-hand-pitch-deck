@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Phone, PhoneOff, Mic, MicOff, Pause, Play, Grid3x3, Minus, X, FileText, ArrowRight,
 } from "lucide-react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -113,6 +113,14 @@ export function FloatingCallWidget() {
   const isClinicSetter = role === "caller";
   const { clinicName, contactName, phone, leadId } = useCallContext(activeCallSid);
   const navigate = useNavigate();
+  // On the Sales Call pages the panel already shows the live call, so the
+  // widget must never pop open over the outcome buttons: stay a pill, and
+  // sit bottom-left, away from the right-hand panel.
+  const pathname = useRouterState({ select: (st) => st.location.pathname });
+  const onSalesCallPage = pathname.startsWith("/sales-call");
+  useEffect(() => {
+    if (onSalesCallPage) setExpanded(false);
+  }, [onSalesCallPage]);
 
   // If this is an inbound call, try to match it to a meta_lead so we can offer
   // a one-tap "Open in Sales Call" button (saves the rep ~15s of fumbling).
@@ -223,12 +231,14 @@ export function FloatingCallWidget() {
     try { window.localStorage.setItem("call-widget-offset", JSON.stringify(dragOffset)); } catch { /* noop */ }
   };
 
-  const draggableStyle: React.CSSProperties = {
-    right: `${16 + dragOffset.x}px`,
-    bottom: `${16 + dragOffset.y}px`,
-    left: "auto",
-    touchAction: "none",
-  };
+  const draggableStyle: React.CSSProperties = onSalesCallPage
+    ? { left: "16px", right: "auto", bottom: "16px", touchAction: "none" }
+    : {
+        right: `${16 + dragOffset.x}px`,
+        bottom: `${16 + dragOffset.y}px`,
+        left: "auto",
+        touchAction: "none",
+      };
 
   const startedAtRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<number | null>(null);
@@ -284,12 +294,12 @@ export function FloatingCallWidget() {
 
   // Auto-expand on first active call
   useEffect(() => {
-    if (isActive && prevStatusRef.current !== "in-call" && prevStatusRef.current !== "connecting") {
+    if (isActive && prevStatusRef.current !== "in-call" && prevStatusRef.current !== "connecting" && !onSalesCallPage) {
       setExpanded(true);
     }
     if (activeCallSid) prevSidRef.current = activeCallSid;
     prevStatusRef.current = status;
-  }, [status, isActive, activeCallSid]);
+  }, [status, isActive, activeCallSid, onSalesCallPage]);
 
   // Toast on state transitions so Peter has audible/visible feedback (#1).
   const toastedRef = useRef<{ connecting?: boolean; connected?: boolean }>({});
