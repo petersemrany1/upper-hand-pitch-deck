@@ -63,9 +63,15 @@ const NEVER_CALLED: ReadonlySet<StatusKey> = new Set<StatusKey>([
   "dropped",
 ]);
 
-export function isExcluded(l: QueueLead): boolean {
+export function isExcluded(l: QueueLead, now: Date = new Date()): boolean {
   if (isRetiredRawStatus(l.status)) return true;
   if (isReturningLead(l.lead_class)) return true;
+  // A booking in the diary locks the lead out, whatever its status says.
+  if (l.booking_date) {
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const b = new Date(`${String(l.booking_date).slice(0, 10)}T00:00:00`);
+    if (Number.isFinite(b.getTime()) && b.getTime() >= today.getTime()) return true;
+  }
   return NEVER_CALLED.has(normaliseStatus(l.status, l));
 }
 
@@ -110,7 +116,7 @@ export function callbackWindow(l: QueueLead, now: Date): "future" | "live" | "ex
  */
 export function dueCallbackIds<L extends QueueLead>(leads: L[], history: HistoryMap, now: Date, isPaused: (l: L) => boolean = () => false): string[] {
   return leads
-    .filter((l) => !isExcluded(l) && !isPaused(l))
+    .filter((l) => !isExcluded(l, now) && !isPaused(l))
     .filter((l) => callbackWindow(l, now) === "live")
     .filter((l) => {
       const last = ms(historyFor(history, l.id).lastAttemptAt);
@@ -149,7 +155,7 @@ export function buildQueue<L extends QueueLead>(input: {
   const afternoon = isAfternoon(now);
 
   const eligible = leads.filter((l) => {
-    if (isPaused(l) || isExcluded(l)) return false;
+    if (isPaused(l) || isExcluded(l, now)) return false;
     // A scheduled callback that hasn't expired is served by dueCallbackIds().
     const w = callbackWindow(l, now);
     if (w === "future" || w === "live") return false;

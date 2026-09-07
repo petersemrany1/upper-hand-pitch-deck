@@ -48,6 +48,11 @@ describe("exclusions", () => {
     expect(isExcluded(lead({ id: "n", status: "new" }))).toBe(false);
     expect(isExcluded(lead({ id: "c", status: "had_convo_chase_up" }))).toBe(false);
   });
+  test("an upcoming diary booking locks the lead out whatever the status says", () => {
+    expect(isExcluded(lead({ id: "b", status: "new", booking_date: "2026-09-10" }), MORNING)).toBe(true);
+    expect(isExcluded(lead({ id: "b2", status: "no_answer", booking_date: TODAY }), MORNING)).toBe(true);
+    expect(isExcluded(lead({ id: "past", status: "new", booking_date: "2026-08-01" }), MORNING)).toBe(false);
+  });
   test("post-consult leads never queue; a re-enquiry that never booked does", () => {
     expect(isExcluded(lead({ id: "p", status: "no_answer", lead_class: "post_consult" }))).toBe(true);
     expect(isExcluded(lead({ id: "r", status: "new", lead_class: "returning" }))).toBe(false);
