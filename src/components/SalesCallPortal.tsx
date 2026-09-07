@@ -71,6 +71,15 @@ function leadLocationText(l: Lead): string {
 }
 
 
+function leadCityLabel(l: Lead): string | null {
+  const h = leadLocationText(l);
+  if (h.includes("melbourne")) return "Melbourne";
+  if (h.includes("byron")) return "Byron Bay";
+  if (h.includes("sydney")) return "Sydney";
+  if (h.includes("perth")) return "Perth";
+  return null;
+}
+
 function leadHasBookedSale(lead: Lead) {
   const paid = lead as Lead & { deposit_paid_at?: string | null; stripe_payment_intent_id?: string | null };
   return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
@@ -1147,6 +1156,21 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const t = new Date(last).getTime();
     return Number.isFinite(t) && Date.now() - t < RECENT_DIAL_MS;
   }, [callHistory]);
+  // One line of history for the panel header: what happened last time.
+  const lastContactFor = useCallback((l: Lead): string => {
+    const h = callHistory[l.id];
+    if (!h || h.attempts === 0) return "Never called";
+    const s = normaliseStatus(l.status, l);
+    const what =
+      s === "no_answer" ? "No answer"
+      : s === "callback_scheduled" ? "Callback booked"
+      : s === "had_convo_chase_up" ? "Spoke, chasing up"
+      : s === "had_convo_no_sale" ? "Spoke, no sale"
+      : s === "new" ? "Called, no outcome logged"
+      : statusMeta(l.status, l).label;
+    const n = h.attempts;
+    return `${what} · ${n} ${n === 1 ? "try" : "tries"} · last ${fmtTime(h.lastAttemptAt)}`;
+  }, [callHistory]);
   const advanceIndexFrom = useCallback((from: number): number => {
     const q = sessionQueueRef.current;
     let i = Math.max(0, from);
@@ -1669,6 +1693,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onCallStarted={() => {}}
           autoDialEnabled={sessionActive && !manualMode && !sessionPaused}
           autoDialArmToken={autoDialArmToken}
+          step={step}
+          lastContact={lastContactFor(active)}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
@@ -6170,6 +6196,7 @@ function RightPanel({
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
   autoDialEnabled = false, autoDialArmToken = 0,
+  step, lastContact,
 }: {
   active: Lead;
   repId: string | null;
@@ -6189,6 +6216,10 @@ function RightPanel({
   onPendingOutcomeArmed?: (leadId: string) => void;
   autoDialEnabled?: boolean;
   autoDialArmToken?: number;
+  /** Which script step the rep is on — opens "Book and pay" at the end. */
+  step?: StepKey;
+  /** One line of history: "Never called" / "No answer · 2 tries · last …". */
+  lastContact?: string | null;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   // In practiceMode, skip Twilio device registration entirely — the practice
@@ -6378,6 +6409,11 @@ function RightPanel({
 
   // Send a photo panel
   const [showPhoto, setShowPhoto] = useState(false);
+  const [showPricing, setShowPricing] = useState(false);
+  const [showAllObjections, setShowAllObjections] = useState(false);
+  // "Book and pay" opens itself at the closing steps, or once money has
+  // moved; the rep can still open or close it by hand.
+  const [bookOpenManual, setBookOpenManual] = useState<boolean | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<{ label: string; url: string } | null>(null);
   const [sendingPhoto, setSendingPhoto] = useState(false);
 
@@ -6857,6 +6893,20 @@ function RightPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceStatus]);
   useEffect(() => {
+    if (practiceMode) return;
+    const onEnter = (e: KeyboardEvent) => {
+      if (e.key !== "Enter" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || (e.target as HTMLElement | null)?.isContentEditable) return;
+      if (inCall || outcomeRequired || autoDialCountdown !== null || redialCountdown !== null || autoDialWaiting) return;
+      if (deviceStatus !== "ready" || !active.phone) return;
+      e.preventDefault();
+      void callNowRef.current();
+    };
+    window.addEventListener("keydown", onEnter);
+    return () => window.removeEventListener("keydown", onEnter);
+  }, [practiceMode, inCall, outcomeRequired, autoDialCountdown, redialCountdown, autoDialWaiting, deviceStatus, active.phone]);
+  useEffect(() => {
     const onVis = () => { if (document.visibilityState === "hidden") cancelAutoDial("Auto-dial cancelled — tab not in view"); };
     document.addEventListener("visibilitychange", onVis);
     return () => document.removeEventListener("visibilitychange", onVis);
@@ -6882,56 +6932,6 @@ function RightPanel({
       {!practiceMode && active.previous_lead_id && (
         <ReturningLeadBanner leadId={active.id} previousLeadId={active.previous_lead_id} />
       )}
-      {/* Lead navigation — top of right column */}
-      {!practiceMode && (
-      <div style={{ padding: "12px 18px 0", display: "flex", justifyContent: "flex-end", gap: 12 }}>
-        {!handoverBlocksNextLead && (
-        <button
-          onClick={() => {
-            if (inCall) {
-              toast.error("End the call first");
-              return;
-            }
-            // Hard gate: if deposit has been paid, rep MUST send the
-            // clinic handover email before moving on to the next lead.
-            const depositPaidAt = (active as Lead & { deposit_paid_at?: string | null }).deposit_paid_at ?? null;
-            const handoverSentAt = (active as Lead & { handover_sent_at?: string | null }).handover_sent_at ?? null;
-            if (depositPaidAt && !handoverSentAt) {
-              setShowHandoverRequired(true);
-              return;
-            }
-            const alreadyBooked = leadHasBookedSale(active);
-            if (alreadyBooked) {
-              setOutcomePending(false);
-              setOutcomeRequired(false);
-              onOutcomeRequiredChange?.(false);
-              onChangeLead();
-              return;
-            }
-            if (outcomePending) {
-              setOutcomeRequired(true);
-              onOutcomeRequiredChange?.(true);
-              return;
-            }
-            if (outcomeRequired) {
-              toast.error("Please set a call outcome first");
-              return;
-            }
-            onChangeLead();
-          }}
-          style={{
-            fontSize: 13,
-            fontWeight: 600,
-            color: "#111",
-            background: "transparent",
-          }}
-        >
-          Next Lead →
-        </button>
-        )}
-      </div>
-      )}
-
       {showHandoverRequired && (
         <div
           onClick={() => setShowHandoverRequired(false)}
@@ -6969,99 +6969,14 @@ function RightPanel({
         </div>
       )}
 
-      {/* Section 1 — Lead card */}
-      <div style={{ padding: "12px 18px 18px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ fontSize: practiceMode ? 32 : 18, fontWeight: 500, color: "#111", lineHeight: 1.25 }}>
-            {fullName}
-          </div>
-          {!practiceMode && (
-          <button
-            onClick={() => { setComprehensiveUpdate(null); setShowJourney(true); }}
-            style={{
-              fontSize: 11,
-              fontWeight: 600,
-              textTransform: "uppercase",
-              letterSpacing: "0.04em",
-              padding: "5px 10px",
-              borderRadius: 14,
-              background: "#111",
-              color: "#fff",
-              whiteSpace: "nowrap",
-              flexShrink: 0,
-            }}
-          >
-            Customer Journey
-          </button>
-          )}
-        </div>
-        {(() => {
-          // Location can arrive from Meta (ad_set_name / campaign_name) or from the
-          // website booking form (raw_payload.location, sometimes nested one level).
-          const rp = (active.raw_payload && typeof active.raw_payload === "object")
-            ? (active.raw_payload as Record<string, unknown>)
-            : null;
-          const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null
-            ? (rp.raw_payload as Record<string, unknown>)
-            : null;
-          const haystack = [
-            active.ad_set_name ?? "",
-            active.campaign_name ?? "",
-            active.ad_name ?? "",
-            typeof rp?.location === "string" ? rp.location : "",
-            typeof nested?.location === "string" ? nested.location : "",
-          ].join(" ").toLowerCase();
-          const location = haystack.includes("melbourne") ? "MELBOURNE" : haystack.includes("byron") ? "BYRON" : haystack.includes("sydney") ? "SYDNEY" : haystack.includes("perth") ? "PERTH" : null;
-          if (!location) return null;
-
-          const colors = location === "MELBOURNE"
-            ? { bg: "#e0f2fe", fg: "#075985" }
-            : location === "SYDNEY"
-              ? { bg: "#f3e8ff", fg: "#6b21a8" }
-              : location === "PERTH"
-                ? { bg: "#fef3c7", fg: "#92400e" }
-                : { bg: "#dcfce7", fg: "#166534" };
-          return (
-            <div style={{ marginTop: 6 }}>
-              <span
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  padding: "3px 10px",
-                  borderRadius: 20,
-                  fontSize: 11,
-                  fontWeight: 600,
-                  letterSpacing: "0.04em",
-                  background: colors.bg,
-                  color: colors.fg,
-                  border: `0.5px solid ${colors.fg}33`,
-                }}
-              >
-                {location}
-              </span>
+      {/* Zone 1 — Who */}
+      <div style={{ padding: "14px 18px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            <div style={{ fontSize: practiceMode ? 28 : 18, fontWeight: 600, color: "#111", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {fullName}
             </div>
-          );
-        })()}
-        <div style={{ marginTop: 10 }}>
-          {active.funding_preference ? (
-            <span
-              style={{
-                display: "inline-block",
-                padding: "3px 10px",
-                borderRadius: 20,
-                fontSize: 12,
-                fontWeight: 500,
-                background: COLORS.amberBg,
-                color: COLORS.amberDark,
-                border: `0.5px solid ${COLORS.amber}`,
-              }}
-            >
-              {active.funding_preference}
-            </span>
-          ) : (
-            !practiceMode ? <span style={{ fontSize: 12, color: "#111", opacity: 0.5 }}>Funding unknown</span> : null
-          )}
-          {(() => {
+            {!practiceMode && (() => {
             const meta = statusMeta(active.status, active);
             return (
               <span style={{ position: "relative", display: "inline-block", marginLeft: 8 }}>
@@ -7113,21 +7028,80 @@ function RightPanel({
               </span>
             );
           })()}
+          </div>
+          {!practiceMode && !handoverBlocksNextLead && (
+        <button
+          onClick={() => {
+            if (inCall) {
+              toast.error("End the call first");
+              return;
+            }
+            // Hard gate: if deposit has been paid, rep MUST send the
+            // clinic handover email before moving on to the next lead.
+            const depositPaidAt = (active as Lead & { deposit_paid_at?: string | null }).deposit_paid_at ?? null;
+            const handoverSentAt = (active as Lead & { handover_sent_at?: string | null }).handover_sent_at ?? null;
+            if (depositPaidAt && !handoverSentAt) {
+              setShowHandoverRequired(true);
+              return;
+            }
+            const alreadyBooked = leadHasBookedSale(active);
+            if (alreadyBooked) {
+              setOutcomePending(false);
+              setOutcomeRequired(false);
+              onOutcomeRequiredChange?.(false);
+              onChangeLead();
+              return;
+            }
+            if (outcomePending) {
+              setOutcomeRequired(true);
+              onOutcomeRequiredChange?.(true);
+              return;
+            }
+            if (outcomeRequired) {
+              toast.error("Please set a call outcome first");
+              return;
+            }
+            onChangeLead();
+          }}
+          style={{ fontSize: 13, fontWeight: 600, color: "#111", background: "transparent", border: "none", padding: "6px 0", cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+        >
+          Next lead →
+        </button>
+          )}
         </div>
         {!practiceMode && (
-        <>
-        <div style={{ marginTop: 10, fontSize: 12, color: "#111" }}>
-          Created {fmtTime(active.created_at)}
-        </div>
-        <div style={{ marginTop: 4, fontSize: 12, color: "#111" }}>
-          Day {day} · Attempt {Math.min(attemptCounts[active.id] ?? 0, attempts)} of {attempts} today
-        </div>
-        </>
+          <>
+            <div style={{ marginTop: 6, fontSize: 12.5, color: "#666", lineHeight: 1.5 }}>
+              {[leadCityLabel(active), active.funding_preference ?? "Funding unknown", `enquired ${fmtTime(active.created_at)}, Day ${day}`].filter(Boolean).join(" · ")}
+            </div>
+            <div style={{ marginTop: 2, display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+              <div style={{ fontSize: 12.5, color: "#111", fontWeight: 500 }}>{lastContact ?? "Never called"}</div>
+              <button
+                onClick={() => { setComprehensiveUpdate(null); setShowJourney(true); }}
+                style={{ fontSize: 12, fontWeight: 600, color: "#111", background: "transparent", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", whiteSpace: "nowrap" }}
+              >
+                Customer journey
+              </button>
+            </div>
+          </>
+        )}
+        {practiceMode && active.funding_preference && (
+          <div style={{ marginTop: 6, fontSize: 12.5, color: "#666" }}>{active.funding_preference}</div>
         )}
       </div>
 
-      {/* Section 2 — Call control */}
-      <div style={{ padding: "0 18px 16px" }}>
+      {/* Zone 2 — Call card, pinned so End call is never scrolled away */}
+      <div style={{ position: "sticky", top: 0, zIndex: 5, background: "#fff", padding: "0 18px 12px", borderBottom: `1px solid ${COLORS.line}` }}>
+        <div style={{ border: `1px solid ${COLORS.line}`, borderRadius: 12, padding: 12, background: "#fafaf9" }}>
+          {!practiceMode && (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11.5, color: "#666", marginBottom: 8 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: 999, background: inCall ? COLORS.green : deviceStatus === "ready" ? "#111" : "#c2c2be" }} />
+                {inCall ? (deviceStatus === "connecting" ? "Ringing" : "On the call") : deviceStatus === "ready" ? "Ready" : "Dialler connecting"}
+              </span>
+              <span>Attempt {Math.min(attemptCounts[active.id] ?? 0, attempts)} of {attempts} today</span>
+            </div>
+          )}
         {practiceMode ? (
           !practiceInCall ? (
             <button
@@ -7141,7 +7115,7 @@ function RightPanel({
                 padding: "14px 16px",
               }}
             >
-              📞 Start Practice Call
+              Start practice call
             </button>
           ) : (
             <>
@@ -7172,7 +7146,7 @@ function RightPanel({
                   padding: "10px 12px",
                 }}
               >
-                🔴 End Practice Call
+                End practice call
               </button>
             </>
           )
@@ -7186,10 +7160,10 @@ function RightPanel({
             >
               <span>
                 {autoDialWaiting
-                  ? `📞 Connecting dialler… calling ${active.first_name ?? "lead"} as soon as it's ready`
+                  ? `Connecting dialler… calling ${active.first_name ?? "lead"} as soon as it's ready`
                   : redialCountdown !== null
-                    ? `📞 No answer — trying ${active.first_name ?? "lead"} again in ${redialCountdown}…`
-                    : `📞 Calling ${active.first_name ?? "lead"} in ${autoDialCountdown}…`}
+                    ? `No answer — trying ${active.first_name ?? "lead"} again in ${redialCountdown}…`
+                    : `Calling ${active.first_name ?? "lead"} in ${autoDialCountdown}…`}
               </span>
               <button
                 onClick={() => cancelAutoDial("Auto-dial cancelled")}
@@ -7210,7 +7184,7 @@ function RightPanel({
               padding: "14px 16px",
             }}
           >
-            📞 Call Now
+            Call {active.first_name ?? "now"}
           </button>
           )
         ) : (
@@ -7227,7 +7201,7 @@ function RightPanel({
                 letterSpacing: "0.05em",
               }}
             >
-              {deviceStatus === "connecting" ? "Connecting…" : `⏱ ${fmtTimer}`}
+              {deviceStatus === "connecting" ? "Ringing…" : fmtTimer}
             </div>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <button
@@ -7241,7 +7215,7 @@ function RightPanel({
                   padding: "10px 12px",
                 }}
               >
-                🔴 Hang Up
+                End call
               </button>
               <button
                 onClick={() => setKeypadOpen((v) => !v)}
@@ -7255,7 +7229,7 @@ function RightPanel({
                   padding: "10px 12px",
                 }}
               >
-                ⌨️ Keypad
+                Keypad
               </button>
             </div>
             {keypadOpen && (
@@ -7284,18 +7258,170 @@ function RightPanel({
             )}
           </>
         )}
-        {!practiceMode && (
-        <div style={{ marginTop: 10, fontSize: 12, color: COLORS.amberDark, fontWeight: 500 }}>
-          🚫 Do not leave a voicemail
+          {!practiceMode && (
+            <div style={{ marginTop: 8, fontSize: 11.5, color: "#666", lineHeight: 1.5 }}>
+              Don't leave a voicemail{autoDialNote ? ` · ${autoDialNote}` : ""}
+            </div>
+          )}
         </div>
-        )}
-        {!practiceMode && autoDialNote && (
-          <div style={{ marginTop: 6, fontSize: 11.5, color: "#777" }}>⚡ {autoDialNote}</div>
-        )}
       </div>
 
-      {/* Section 3 — Clinic info */}
-      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+      {/* Zone 3 — Handle the call */}
+      <div style={{ padding: "14px 18px 6px" }}>
+        <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#888" }}>Handle the call</div>
+        {objectionResp && (
+          <div
+            className="rounded-[8px]"
+            style={{
+              marginTop: 10,
+              background: "#ffffff",
+              border: `0.5px solid ${COLORS.line}`,
+              borderLeft: `2px solid ${COLORS.amber}`,
+              padding: "12px 14px",
+              fontSize: 13,
+              lineHeight: 1.7,
+              color: "#111",
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 500, color: COLORS.amberDark, marginBottom: 6 }}>
+              "{objectionResp.q}"
+            </div>
+            {objectionResp.a}
+            {(objectionResp as { note?: string }).note && (
+              <div style={{ marginTop: 8, fontSize: 12, color: COLORS.amberDark, fontStyle: "italic" }}>
+                {(objectionResp as { note?: string }).note}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          {(showAllObjections ? OBJECTION_PILLS : OBJECTION_PILLS.slice(0, 6)).map((p) => {
+            const isOpen = openObjection === p.key;
+            return (
+              <button
+                key={p.key}
+                onClick={() => setOpenObjection(isOpen ? null : p.key)}
+                style={{ height: 34, background: isOpen ? "#111" : "#fff", color: isOpen ? "#fff" : "#111", border: `1px solid ${isOpen ? "#111" : COLORS.line}`, borderRadius: 8, fontSize: 12.5, fontWeight: 500, textAlign: "left", padding: "0 10px", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+        {OBJECTION_PILLS.length > 6 && (
+          <button
+            onClick={() => setShowAllObjections((v) => !v)}
+            style={{ marginTop: 6, fontSize: 12, color: "#666", background: "transparent", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline" }}
+          >
+            {showAllObjections ? "Fewer objections" : `All ${OBJECTION_PILLS.length} objections`}
+          </button>
+        )}
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          <button onClick={() => { setShowPricing((v) => !v); if (!showPricing) setShowPhoto(false); }} style={{ flex: 1, height: 40, background: showPricing ? "#111" : "#fff", color: showPricing ? "#fff" : "#111", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            {showPricing ? "Hide pricing" : "Pricing"}
+          </button>
+          <button onClick={() => { setShowPhoto((v) => !v); setSelectedPhoto(null); if (!showPhoto) setShowPricing(false); }} style={{ flex: 1, height: 40, background: showPhoto ? "#111" : "#fff", color: showPhoto ? "#fff" : "#111", border: `1px solid ${COLORS.line}`, borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+            {showPhoto ? "Hide photos" : "Send a photo"}
+          </button>
+        </div>
+        {showPricing && (
+          <div style={{ marginTop: 10 }}>
+            <NorwoodPricingCalculator embedded open onOpenChange={(v) => { if (!v) setShowPricing(false); }} />
+          </div>
+        )}
+        {showPhoto && (() => {
+          const PHOTO_OPTIONS: { label: string; url: string }[] = [
+            { label: "Natural vs Un-natural", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/natural-vs-unnatural.jpg" },
+            { label: "Before & After 1", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-1.png" },
+            { label: "Before & After 2 (Bald)", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-2-bald.png" },
+            { label: "Norwood Scale", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/norwood-scale.png" },
+          ];
+          return (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+              {PHOTO_OPTIONS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setSelectedPhoto(p)}
+                  className="rounded-[8px]"
+                  style={{
+                    background: selectedPhoto?.label === p.label ? "#111" : "#eff6ff",
+                    color: selectedPhoto?.label === p.label ? "#fff" : "#2563eb",
+                    border: selectedPhoto?.label === p.label ? "1px solid #111" : `0.5px solid #bfdbfe`,
+                    fontSize: 12,
+                    fontWeight: 500,
+                    padding: "10px 8px",
+                    textAlign: "left",
+                    cursor: "pointer",
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+
+              {selectedPhoto && (
+                <div style={{ marginTop: 4, padding: 10, background: "#fafaf9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8 }}>
+                  <div style={{ fontSize: 11, color: "#666", marginBottom: 6, fontWeight: 500 }}>Preview</div>
+                  <img
+                    src={selectedPhoto.url}
+                    alt={selectedPhoto.label}
+                    style={{ width: "100%", borderRadius: 6, display: "block", marginBottom: 8 }}
+                  />
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button
+                      onClick={async () => {
+                        setSendingPhoto(true);
+                        try { await sendImage(selectedPhoto.url); } finally { setSendingPhoto(false); }
+                      }}
+                      disabled={sendingPhoto}
+                      style={{
+                        flex: 1, background: "#111", color: "#fff",
+                        border: "1px solid #111", borderRadius: 6,
+                        fontSize: 12, fontWeight: 500, padding: "8px 10px",
+                        cursor: sendingPhoto ? "not-allowed" : "pointer",
+                        opacity: sendingPhoto ? 0.6 : 1,
+                      }}
+                    >
+                      {sendingPhoto ? "Sending…" : "Send MMS"}
+                    </button>
+                    <button
+                      onClick={() => setSelectedPhoto(null)}
+                      style={{
+                        background: "#fff", color: "#111",
+                        border: `0.5px solid ${COLORS.line}`, borderRadius: 6,
+                        fontSize: 12, padding: "8px 10px", cursor: "pointer",
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Zone 4 — Book and pay */}
+      {(() => {
+        const closingStep = step === "price" || step === "finance" || step === "booking";
+        const autoOpen = closingStep || !!paymentReceivedAt || leadHasBookedSale(active);
+        const bookOpen = bookOpenManual ?? autoOpen;
+        return (
+          <div style={{ padding: "8px 18px 6px", borderTop: `1px solid ${COLORS.line}` }}>
+            <button
+              onClick={() => setBookOpenManual(!bookOpen)}
+              aria-expanded={bookOpen}
+              style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: "transparent", border: "none", padding: "8px 0", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#888" }}>Book and pay</span>
+              <span style={{ fontSize: 12, color: "#666", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                {panelClinic ? panelClinic.clinic_name : "No clinic yet"}
+                <span aria-hidden="true">{bookOpen ? "▴" : "▾"}</span>
+              </span>
+            </button>
+            {bookOpen && (
+              <div style={{ paddingBottom: 8 }}>
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
@@ -7351,11 +7477,9 @@ function RightPanel({
         ) : (
           <div style={{ marginTop: 6, fontSize: 13, color: "#666" }}>Select a clinic to enable the payment link</div>
         )}
-      </div>
-
       {/* Section 3b — Doctor Selling Points (collapsible, between Clinic & Objections) */}
       {panelDoctor && (
-        <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+        <div style={{ paddingTop: 12 }}>
           <button
             type="button"
             onClick={async () => {
@@ -7448,151 +7572,6 @@ function RightPanel({
         </div>
       )}
 
-      {/* Section 4 — Objections (pill bar) */}
-      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
-        <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
-          Objections
-        </div>
-
-        {objectionResp && (
-          <div
-            className="rounded-[8px]"
-            style={{
-              marginTop: 10,
-              background: "#ffffff",
-              border: `0.5px solid ${COLORS.line}`,
-              borderLeft: `2px solid ${COLORS.amber}`,
-              padding: "12px 14px",
-              fontSize: 13,
-              lineHeight: 1.7,
-              color: "#111",
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 500, color: COLORS.amberDark, marginBottom: 6 }}>
-              "{objectionResp.q}"
-            </div>
-            {objectionResp.a}
-            {(objectionResp as { note?: string }).note && (
-              <div style={{ marginTop: 8, fontSize: 12, color: COLORS.amberDark, fontStyle: "italic" }}>
-                {(objectionResp as { note?: string }).note}
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex flex-wrap gap-1.5" style={{ marginTop: 10 }}>
-          {OBJECTION_PILLS.map((p) => {
-            const isOpen = openObjection === p.key;
-            return (
-              <button
-                key={p.key}
-                onClick={() => setOpenObjection(isOpen ? null : p.key)}
-                style={{
-                  background: isOpen ? "#fffbeb" : "#ffffff",
-                  border: `0.5px solid ${isOpen ? COLORS.amber : "#e5e5e5"}`,
-                  borderRadius: 20,
-                  fontSize: 12,
-                  color: "#111",
-                  padding: "4px 10px",
-                }}
-              >
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Section 4b — Norwood pricing calculator */}
-      <NorwoodPricingCalculator />
-
-      {/* Section 5 — Send a photo */}
-      <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
-
-        <button
-          onClick={() => { setShowPhoto((v) => !v); setSelectedPhoto(null); }}
-          style={{
-            width: "100%", background: showPhoto ? "#111" : "#ffffff",
-            color: showPhoto ? "#fff" : "#111",
-            border: `1px solid #111`, borderRadius: 8,
-            fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
-          }}
-        >
-          {showPhoto ? "Hide photo options" : "📷 Send a photo"}
-        </button>
-
-        {showPhoto && (() => {
-          const PHOTO_OPTIONS: { label: string; url: string }[] = [
-            { label: "Natural vs Un-natural", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/natural-vs-unnatural.jpg" },
-            { label: "Before & After 1", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-1.png" },
-            { label: "Before & After 2 (Bald)", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/before-after-2-bald.png" },
-            { label: "Norwood Scale", url: "https://sfwokpeeffgrkxaptqji.supabase.co/storage/v1/object/public/mms-images/norwood-scale.png" },
-          ];
-          return (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
-              {PHOTO_OPTIONS.map((p) => (
-                <button
-                  key={p.label}
-                  onClick={() => setSelectedPhoto(p)}
-                  className="rounded-[8px]"
-                  style={{
-                    background: selectedPhoto?.label === p.label ? "#111" : "#eff6ff",
-                    color: selectedPhoto?.label === p.label ? "#fff" : "#2563eb",
-                    border: selectedPhoto?.label === p.label ? "1px solid #111" : `0.5px solid #bfdbfe`,
-                    fontSize: 12,
-                    fontWeight: 500,
-                    padding: "10px 8px",
-                    textAlign: "left",
-                    cursor: "pointer",
-                  }}
-                >
-                  {p.label}
-                </button>
-              ))}
-
-              {selectedPhoto && (
-                <div style={{ marginTop: 4, padding: 10, background: "#fafaf9", border: `0.5px solid ${COLORS.line}`, borderRadius: 8 }}>
-                  <div style={{ fontSize: 11, color: "#666", marginBottom: 6, fontWeight: 500 }}>Preview</div>
-                  <img
-                    src={selectedPhoto.url}
-                    alt={selectedPhoto.label}
-                    style={{ width: "100%", borderRadius: 6, display: "block", marginBottom: 8 }}
-                  />
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <button
-                      onClick={async () => {
-                        setSendingPhoto(true);
-                        try { await sendImage(selectedPhoto.url); } finally { setSendingPhoto(false); }
-                      }}
-                      disabled={sendingPhoto}
-                      style={{
-                        flex: 1, background: "#111", color: "#fff",
-                        border: "1px solid #111", borderRadius: 6,
-                        fontSize: 12, fontWeight: 500, padding: "8px 10px",
-                        cursor: sendingPhoto ? "not-allowed" : "pointer",
-                        opacity: sendingPhoto ? 0.6 : 1,
-                      }}
-                    >
-                      {sendingPhoto ? "Sending…" : "Send MMS"}
-                    </button>
-                    <button
-                      onClick={() => setSelectedPhoto(null)}
-                      style={{
-                        background: "#fff", color: "#111",
-                        border: `0.5px solid ${COLORS.line}`, borderRadius: 6,
-                        fontSize: 12, padding: "8px 10px", cursor: "pointer",
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
       {/* Section 5b — Send standalone $75 deposit link */}
       {paymentReceivedAt ? (
         <div style={{ padding: "14px 18px 0" }}>
@@ -7601,7 +7580,6 @@ function RightPanel({
             padding: "10px 14px", display: "flex", alignItems: "center", gap: 10,
             fontSize: 13, fontWeight: 600, color: "#065f46",
           }}>
-            <span style={{ fontSize: 16 }}>✅</span>
             <span>Payment received — ${paymentAmount ?? 75} · {new Date(paymentReceivedAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
           </div>
         </div>
@@ -7626,7 +7604,7 @@ function RightPanel({
             boxShadow: panelClinic ? `0 4px 14px ${COLORS.coral}55` : "none",
           }}
         >
-          {sendingDepositLink ? "Sending…" : "💳 Send payment link"}
+          {sendingDepositLink ? "Sending…" : "Send payment link"}
         </button>
         <button
           onClick={() => setChargeCardOpen(true)}
@@ -7637,9 +7615,15 @@ function RightPanel({
             cursor: "pointer",
           }}
         >
-          📞 Charge card over the phone
+          Charge card by phone
         </button>
       </div>
+
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <ChargeCardOverPhoneModal
         open={chargeCardOpen}
@@ -7771,8 +7755,8 @@ function RightPanel({
         </div>
       )}
 
-      {/* Section 6 — SMS */}
-      <div style={{ padding: "14px 18px 96px", borderTop: `0.5px solid ${COLORS.line}` }}>
+      {/* Zone 5 — Message */}
+      <div style={{ padding: "12px 18px 96px", borderTop: `1px solid ${COLORS.line}` }}>
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={() => setShowSms((v) => !v)}
@@ -7782,7 +7766,7 @@ function RightPanel({
               fontSize: 13, fontWeight: 600, padding: "8px 12px", cursor: "pointer",
             }}
           >
-            💬 {showSms ? "Hide SMS" : `Quick SMS ${active.first_name ?? ""}`.trim()}
+            {showSms ? "Hide SMS" : "Quick SMS"}
           </button>
           <button
             onClick={async () => {
@@ -7808,7 +7792,7 @@ function RightPanel({
               fontSize: 13, fontWeight: 500, padding: "8px 12px", cursor: "pointer",
             }}
           >
-            📱 Inbox
+            Inbox
           </button>
         </div>
         {showSms && (
