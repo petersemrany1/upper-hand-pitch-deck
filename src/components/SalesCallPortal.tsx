@@ -1149,6 +1149,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     });
   }, [pendingNewLeadIds, sessionActive, sessionIndex]);
 
+  // New leads the exhausted queue has already been topped up with. Each lead
+  // is re-served at most once per session so a rep who keeps skipping a lead
+  // can't be trapped in a loop, and the session can still end.
+  const requeuedOnceRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (sessionActive) requeuedOnceRef.current = new Set();
+  }, [sessionActive]);
+
   const endSessionNow = useCallback(() => {
     sessionEndRequestedRef.current = true;
     // End Session is a deliberate exit. Force-clear any stale outcome gate so
@@ -1283,6 +1291,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     }
     // sessionActive — auto-advance
     const nextId = sessionQueue[sessionIndex];
+    // Whatever happens below, never leave the rep on a blank screen: show a
+    // short holding message with a way out while the next lead is worked out.
+    const holding = (
+      <>
+        {callbackBanner}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
+          <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>Lining up your next lead…</div>
+          <button
+            onClick={() => endSessionNow()}
+            style={{ fontSize: 13, fontWeight: 600, color: "#555", background: "transparent", border: "1px solid #ccc", borderRadius: 8, padding: "8px 14px", cursor: "pointer", fontFamily: "inherit" }}
+          >
+            End session
+          </button>
+        </div>
+      </>
+    );
     if (nextId) {
       const leadLoaded = leads.some((l) => l.id === nextId);
       if (leadLoaded && activeId !== nextId) {
@@ -1302,20 +1326,38 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         });
       }
       // If leads.length === 0 we're still loading — wait for the next render.
-    } else if (pendingNewLeadIds.length === 0) {
-      queueMicrotask(() => {
-        setSessionActive(false);
-        setSessionPaused(false);
-        setSessionStartedAt(null);
-        if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
-        closeRepSession();
-        toast.success("Session complete — great work!");
-      });
+      return holding;
     }
-    // Queue ran dry but new leads are still waiting — the top-up effect will
-    // splice them in on the next tick, so don't end the session.
 
-    return null;
+    // Queue ran dry. If new leads still haven't been dialled today (they
+    // arrived mid-session or were skipped), put them back on the end of the
+    // queue — once each — so the day doesn't finish with fresh leads sitting
+    // there. Only leads the queue builder still considers eligible qualify.
+    const eligible = new Set(buildSessionQueue());
+    const requeue = pendingNewLeadIds.filter(
+      (id) => eligible.has(id) && !requeuedOnceRef.current.has(id),
+    );
+    if (requeue.length > 0) {
+      queueMicrotask(() => {
+        for (const id of requeue) requeuedOnceRef.current.add(id);
+        setSessionQueue((q) => {
+          const ahead = new Set(q.slice(sessionIndex));
+          const add = requeue.filter((id) => !ahead.has(id));
+          return add.length ? [...q, ...add] : q;
+        });
+      });
+      return holding;
+    }
+
+    queueMicrotask(() => {
+      setSessionActive(false);
+      setSessionPaused(false);
+      setSessionStartedAt(null);
+      if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
+      closeRepSession();
+      toast.success("Session complete — great work!");
+    });
+    return holding;
   }
 
 
