@@ -1022,11 +1022,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, [leads, isLeadLocationPaused]);
 
   // Build the ordered session queue.
-  // Order: new (most recent first) → overdue callbacks → callbacks today
-  //        → had-convo chase-up → no answer (≤21 calling-days, most recent first)
+  // Order: new (most recent first) → no answer (≤21 calling-days, most recent
+  //        first) → overdue callbacks → callbacks today → had-convo chase-up
   //        → remaining (leftovers, kept at end).
-  // Excluded statuses: not_interested, booked_deposit_paid, had_convo_no_sale,
-  // cancelled, no_show, dropped.
+  // Excluded statuses: not_interested, booked_deposit_paid, booked_no_deposit,
+  // had_convo_no_sale, cancelled, no_show, dropped.
   const buildSessionQueue = useCallback((): string[] => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const todayKey = localDateKey(today);
@@ -1064,7 +1064,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const eligible = leads.filter((l) => {
       if (isLeadLocationPaused(l)) return false;
       const s = normaliseStatus(l.status, l);
-      if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
+      if (s === "not_interested" || s === "booked_deposit_paid" || s === "booked_no_deposit" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
       if (raw === "cancelled" || raw === "no_show" || raw === "dropped") return false;
       return true;
@@ -1107,7 +1107,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return kb.localeCompare(ka);
     });
 
-    const ordered = [...newLeads, ...overdue, ...cbToday, ...chase, ...noAns, ...remaining];
+    const ordered = [...newLeads, ...noAns, ...overdue, ...cbToday, ...chase, ...remaining];
     // Priority city first (stable — keeps the section ordering above intact).
     const priorityFirst = [
       ...ordered.filter((l) => isPriorityLead(l)),
