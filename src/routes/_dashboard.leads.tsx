@@ -1,3 +1,4 @@
+import { isReturningLead } from "@/components/sales-call/status";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Mail, Phone as PhoneIcon, Trash2, Pencil, X, Plus, UserCheck, ChevronDown, ChevronRight, MapPin, Filter } from "lucide-react";
@@ -308,7 +309,8 @@ function LeadsPage() {
   // A re-enquiry from a patient who already has an upcoming appointment is an
   // extra duplicate row — delete it automatically and keep the booked lead.
   const bookedDuplicates = queueRows.filter((r) => r.lead_class === "booked_active");
-  const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active");
+  // Returning / post-consult people are never shown as leads (see status.ts).
+  const visibleRows = queueRows.filter((r) => r.lead_class !== "booked_active" && !isReturningLead(r.lead_class));
 
   useEffect(() => {
     const ids = bookedDuplicates.map((r) => r.id).filter((id) => !purgingRef.current.has(id));

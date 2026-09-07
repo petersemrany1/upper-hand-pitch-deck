@@ -1,4 +1,4 @@
-import { type StatusKey, isRetiredRawStatus, normaliseStatus } from "./status";
+import { type StatusKey, isRetiredRawStatus, isReturningLead, normaliseStatus } from "./status";
 
 // ---------------------------------------------------------------------------
 // Session queue rules (pure — no React, no Supabase — so they can be tested).
@@ -20,6 +20,7 @@ export type QueueLead = {
   created_at: string;
   callback_scheduled_at: string | null;
   booking_date?: string | null;
+  lead_class?: string | null;
 };
 
 export type CallHistory = {
@@ -61,6 +62,7 @@ const NEVER_CALLED: ReadonlySet<StatusKey> = new Set<StatusKey>([
 
 export function isExcluded(l: QueueLead): boolean {
   if (isRetiredRawStatus(l.status)) return true;
+  if (isReturningLead(l.lead_class)) return true;
   return NEVER_CALLED.has(normaliseStatus(l.status, l));
 }
 

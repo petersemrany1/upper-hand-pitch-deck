@@ -1,3 +1,4 @@
+import { isReturningLead } from "@/components/sales-call/status";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -205,6 +206,7 @@ type Lead = {
   phone: string | null;
   campaign_name: string | null;
   raw_payload?: unknown;
+  lead_class?: string | null;
 };
 
 
@@ -312,7 +314,7 @@ function DashboardHome() {
 
     const newLeadsQ = supabase
       .from("meta_leads")
-      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name, raw_payload")
+      .select("id, first_name, last_name, status, created_at, updated_at, callback_scheduled_at, phone, clinic_id, campaign_name, raw_payload, lead_class")
       .gte("created_at", todayIso)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -385,7 +387,8 @@ function DashboardHome() {
     );
     setRevenueMonth(revenue);
 
-    const leadsArr = (newLeadsRes.data ?? []) as Array<Lead & { clinic_id: string | null }>;
+    const leadsArr = ((newLeadsRes.data ?? []) as Array<Lead & { clinic_id: string | null }>)
+      .filter((l) => !isReturningLead(l.lead_class));
     setNewLeads(leadsArr);
     setNewLeadsCount(newLeadsCountRes.count ?? leadsArr.length);
     const lcm = new Map<string, string | null>();

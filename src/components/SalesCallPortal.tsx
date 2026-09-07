@@ -11,7 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildHistory, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
-import { normaliseStatus, type StatusKey } from "./sales-call/status";
+import { isReturningLead, normaliseStatus, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
@@ -883,6 +883,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         for (const l of (actionable ?? []) as Lead[]) if (!byId.has(l.id)) byId.set(l.id, l);
         fetched = Array.from(byId.values());
       }
+      // Returning / post-consult people are never shown as leads.
+      fetched = fetched.filter((l) => !isReturningLead(l.lead_class));
       setLeads((prev) => {
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
@@ -895,6 +897,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     void load();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
+        if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) return;
         if (payload.eventType === "INSERT" && sessionActiveRef.current) {
           const newId = (payload.new as { id?: string } | null)?.id;
           if (newId) setSessionQueue((prev) => (prev.includes(newId) ? prev : [newId, ...prev]));
@@ -6583,18 +6586,24 @@ function RightPanel({
       if (wasInCallRef.current) {
         wasInCallRef.current = false;
         const armedLeadId = callAttemptLeadIdRef.current;
-        const answered = callTimerRef.current >= NO_ANSWER_MAX_SECONDS;
+        // The browser leg only connects once the callee picks up, so any
+        // time on the call timer means they answered.
+        const connected = callTimerRef.current > 0;
+        // First attempt: a pick-up under NO_ANSWER_MAX_SECONDS is a voicemail
+        // the rep hung up on — still "no answer". Second attempt: any pick-up
+        // counts as a conversation, however short (a dropped call must come
+        // back to the rep, not be logged as no answer).
         const dials = dialsThisSittingRef.current.leadId === active.id ? dialsThisSittingRef.current.count : 0;
+        const noAnswer = dials < 2 ? callTimerRef.current < NO_ANSWER_MAX_SECONDS : !connected;
         const inSession = autoDialEnabled && !practiceMode;
-        if (armedLeadId === active.id && !answered && inSession && !leadHasBookedSale(active) && active.phone) {
-          if (dials < 2) {
-            // First no-answer: try once more straight away.
-            setAutoDialNote("No answer — trying once more");
-            setRedialCountdown(AUTO_DIAL_SECONDS);
-          } else {
-            // Second no-answer: log it and move on, no click needed.
-            void logNoAnswerAndMoveOn();
-          }
+        const callable = armedLeadId === active.id && !leadHasBookedSale(active) && !!active.phone;
+        if (callable && inSession && noAnswer && dials < 2) {
+          // First no-answer: try once more straight away.
+          setAutoDialNote("No answer — trying once more");
+          setRedialCountdown(AUTO_DIAL_SECONDS);
+        } else if (callable && inSession && noAnswer && dials === 2) {
+          // Second no-answer: log it and move on, no click needed.
+          void logNoAnswerAndMoveOn();
         } else if (armedLeadId && !leadHasBookedSale(active)) {
           // Tell the parent which lead still owes an outcome — even if the
           // user has since navigated away from this lead, the parent will
@@ -6603,6 +6612,12 @@ function RightPanel({
           if (armedLeadId === active.id) {
             setCallDurationAtHangup(callTimerRef.current);
             setOutcomePending(true);
+            if (connected) {
+              // They spoke: open the outcome module straight away so the rep
+              // decides what happens next (including calling back a dropout).
+              setOutcomeRequired(true);
+              onOutcomeRequiredChange?.(true);
+            }
           }
         }
       }
@@ -8078,6 +8093,15 @@ function RightPanel({
       {outcomeRequired && (
         <ForcedOutcomeModal
           active={active}
+          onCallBack={() => {
+            // Call dropped out: ring them straight back. The outcome is still
+            // owed once that call ends.
+            setOutcomeRequired(false);
+            onOutcomeRequiredChange?.(false);
+            setOutcomeView("menu");
+            setAutoDialNote("Calling back after a dropout");
+            void callNow();
+          }}
           callDuration={callDurationAtHangup}
           view={outcomeView}
           setView={setOutcomeView}
@@ -8109,10 +8133,11 @@ function RightPanel({
 function ForcedOutcomeModal({
   active, callDuration, view, setView,
   callbackDate, setCallbackDate, callbackTime, setCallbackTime,
-  busy, setBusy, onLocalLeadUpdate, onClosed,
+  busy, setBusy, onLocalLeadUpdate, onClosed, onCallBack,
 }: {
   active: Lead;
   callDuration: number;
+  onCallBack?: () => void;
   view: "menu" | "callback" | "drop";
   setView: (v: "menu" | "callback" | "drop") => void;
   callbackDate: string;
@@ -8247,6 +8272,17 @@ function ForcedOutcomeModal({
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>
               <span style={dotStyle("#000000")} /> Dropped
             </button>
+            {onCallBack && (
+              <button
+                style={{ ...optionStyle, marginTop: 10, borderColor: "#111", fontWeight: 700 }}
+                onMouseEnter={onHover}
+                onMouseLeave={onLeave}
+                disabled={busy}
+                onClick={onCallBack}
+              >
+                📞 Call dropped out — call back now
+              </button>
+            )}
           </>
         )}
 

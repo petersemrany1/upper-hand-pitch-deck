@@ -38,3 +38,14 @@ export function isRetiredRawStatus(s: string | null | undefined): boolean {
   const raw = (s ?? "").toLowerCase();
   return raw === "cancelled" || raw === "no_show" || raw === "dropped";
 }
+
+/**
+ * Lead classes the business never wants to see again in a lead list:
+ * people who have already been through a consult, and re-enquiries from
+ * someone already on file. (Peter's rule, 2026-09-08.)
+ */
+export const HIDDEN_LEAD_CLASSES: ReadonlySet<string> = new Set(["post_consult", "returning"]);
+
+export function isReturningLead(leadClass: string | null | undefined): boolean {
+  return HIDDEN_LEAD_CLASSES.has((leadClass ?? "").toLowerCase());
+}
