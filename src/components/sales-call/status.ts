@@ -40,11 +40,11 @@ export function isRetiredRawStatus(s: string | null | undefined): boolean {
 }
 
 /**
- * Lead classes the business never wants to see again in a lead list:
- * people who have already been through a consult, and re-enquiries from
- * someone already on file. (Peter's rule, 2026-09-08.)
+ * Lead classes never shown in a lead list: people who were booked in once
+ * (a past appointment exists). A re-enquiry from someone we never got over
+ * the line ("returning") stays in — another crack. (Peter's rule, 2026-09-08.)
  */
-export const HIDDEN_LEAD_CLASSES: ReadonlySet<string> = new Set(["post_consult", "returning"]);
+export const HIDDEN_LEAD_CLASSES: ReadonlySet<string> = new Set(["post_consult"]);
 
 export function isReturningLead(leadClass: string | null | undefined): boolean {
   return HIDDEN_LEAD_CLASSES.has((leadClass ?? "").toLowerCase());

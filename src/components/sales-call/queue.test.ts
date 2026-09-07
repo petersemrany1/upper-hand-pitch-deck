@@ -48,9 +48,9 @@ describe("exclusions", () => {
     expect(isExcluded(lead({ id: "n", status: "new" }))).toBe(false);
     expect(isExcluded(lead({ id: "c", status: "had_convo_chase_up" }))).toBe(false);
   });
-  test("returning and post-consult leads never queue, whatever their status", () => {
-    expect(isExcluded(lead({ id: "r", status: "new", lead_class: "returning" }))).toBe(true);
+  test("post-consult leads never queue; a re-enquiry that never booked does", () => {
     expect(isExcluded(lead({ id: "p", status: "no_answer", lead_class: "post_consult" }))).toBe(true);
+    expect(isExcluded(lead({ id: "r", status: "new", lead_class: "returning" }))).toBe(false);
     expect(isExcluded(lead({ id: "b", status: "new", lead_class: "booked_active" }))).toBe(false);
     expect(isExcluded(lead({ id: "f", status: "new", lead_class: "new" }))).toBe(false);
   });
