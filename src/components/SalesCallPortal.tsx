@@ -1280,7 +1280,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         });
       }
       // If leads.length === 0 we're still loading — wait for the next render.
-    } else {
+    } else if (pendingNewLeadIds.length === 0) {
       queueMicrotask(() => {
         setSessionActive(false);
         setSessionPaused(false);
@@ -1290,6 +1290,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         toast.success("Session complete — great work!");
       });
     }
+    // Queue ran dry but new leads are still waiting — the top-up effect will
+    // splice them in on the next tick, so don't end the session.
+
     return null;
   }
 
