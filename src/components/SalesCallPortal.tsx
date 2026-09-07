@@ -440,6 +440,17 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   }, [plannedHours]);
   const BOOKINGS_PER_HOUR = 1;
   const sessionGoal = Math.max(1, Math.round(plannedHours * BOOKINGS_PER_HOUR));
+  // Auto-dial: after the portal moves the rep to the next lead on its own,
+  // RightPanel counts down and dials. Armed only on queue-driven advances,
+  // never on manual picks, deeplinks or "previous". Toggle is remembered.
+  const [autoDial, setAutoDial] = useState<boolean>(() => {
+    try { return window.localStorage.getItem("salesCall.autoDial") !== "off"; } catch { return true; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("salesCall.autoDial", autoDial ? "on" : "off"); } catch { /* noop */ }
+  }, [autoDial]);
+  const [autoDialArmToken, setAutoDialArmToken] = useState(0);
+  const armAutoDial = useCallback(() => setAutoDialArmToken((t) => t + 1), []);
   const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(
     typeof sessionRestored?.startedAt === "string" ? sessionRestored.startedAt : null
   );
@@ -525,6 +536,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     setSessionQueue(testLeadIds);
     setSessionIndex(0);
     if (!sessionStartedAt) setSessionStartedAt(new Date().toISOString());
+    armAutoDial();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testLeadIds.join(",")]);
 
@@ -1253,6 +1265,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                   setCompleted(new Set());
                   setAmpPrefill("");
                   setAudioPrefill("");
+                  armAutoDial();
                 }
               }}
               style={{ background: "#f4522d", color: "#fff", border: "none", borderRadius: 16, fontSize: 22, fontWeight: 600, padding: "32px 0", width: "100%", maxWidth: 520, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 6px 20px rgba(244,82,45,0.25)", letterSpacing: "-0.01em" }}
@@ -1329,6 +1342,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           setCompleted((prev) => (prev.size === 0 ? prev : new Set()));
           setAmpPrefill("");
           setAudioPrefill("");
+          armAutoDial();
         });
       } else if (!leadLoaded && leads.length > 0) {
         // Leads have loaded but this queued id isn't in the result set
@@ -1379,10 +1393,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
             {[
               { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
-              { num: `${sessionBookings} / ${sessionGoal}` as number | string, label: 'Booked · goal', color: '#f4522d' },
+              { num: `${sessionBookings}/${sessionGoal}` as number | string, label: 'Booked', color: '#f4522d' },
               {
-                num: (sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On track' : `${Math.floor(sessionSeconds / 3600) - sessionBookings} behind`) as number | string,
-                label: 'Pace · 1 an hour',
+                num: (sessionBookings >= Math.floor(sessionSeconds / 3600) ? '✓' : `−${Math.floor(sessionSeconds / 3600) - sessionBookings}`) as number | string,
+                label: sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On pace' : 'Behind',
                 color: sessionBookings >= Math.floor(sessionSeconds / 3600) ? '#4ade80' : '#f59e0b',
               },
 
@@ -1396,6 +1410,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <NotificationBell />
+            <button
+              onClick={() => setAutoDial((v) => !v)}
+              title="After each outcome, the next lead is dialled automatically after a short countdown"
+              style={{ fontSize: 13, fontWeight: 700, color: autoDial ? '#4ade80' : '#b8b8b8', background: 'transparent', border: `1px solid ${autoDial ? '#2f6f4f' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+            >
+              {autoDial ? '⚡ Auto-dial on' : 'Auto-dial off'}
+            </button>
             <button
               onClick={() => setSessionPaused(p => !p)}
               style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
@@ -1494,6 +1515,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                   setStep("mindset");
                   setCompleted(new Set());
                   setAmpPrefill(""); setAudioPrefill("");
+                  armAutoDial();
                 } else {
                   setActiveId(null);
                   setSessionActive(false);
@@ -1543,6 +1565,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setStep("mindset");
               setCompleted(new Set());
               setAmpPrefill(""); setAudioPrefill("");
+              armAutoDial();
               return;
             }
             if (sessionActive) {
@@ -1554,6 +1577,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                 setStep("mindset");
                 setCompleted(new Set());
                 setAmpPrefill(""); setAudioPrefill("");
+                armAutoDial();
               } else {
                 setActiveId(null);
                 setSessionActive(false);
@@ -1592,6 +1616,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onOutcomeRequiredChange={(val) => { outcomeRequiredRef.current = val; }}
           onOutcomePendingChange={(val) => { outcomePendingRef.current = val; }}
           onCallStarted={() => {}}
+          autoDialEnabled={autoDial && sessionActive && !manualMode}
+          autoDialArmToken={autoDialArmToken}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
@@ -1611,6 +1637,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setStep("mindset");
               setCompleted(new Set());
               setAmpPrefill(""); setAudioPrefill("");
+              armAutoDial();
               return;
             }
             if (sessionActive) {
@@ -1623,6 +1650,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
                 setStep("mindset");
                 setCompleted(new Set());
                 setAmpPrefill(""); setAudioPrefill("");
+                armAutoDial();
               } else {
                 setActiveId(null);
                 setSessionActive(false);
@@ -6089,6 +6117,7 @@ function RightPanel({
   active, repId, mmsImages, attemptCounts, firstCallAt, onLocalLeadUpdate, onChangeLead, onPreviousLead, hasPreviousLead,
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
+  autoDialEnabled = false, autoDialArmToken = 0,
 }: {
   active: Lead;
   repId: string | null;
@@ -6106,6 +6135,8 @@ function RightPanel({
   practiceMode?: boolean;
   pendingOutcomeLeadId?: string | null;
   onPendingOutcomeArmed?: (leadId: string) => void;
+  autoDialEnabled?: boolean;
+  autoDialArmToken?: number;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   // In practiceMode, skip Twilio device registration entirely — the practice
@@ -6599,6 +6630,49 @@ function RightPanel({
     }
   };
 
+  // ---- Auto-dial countdown -------------------------------------------------
+  // Fires only when the parent arms it (queue-driven advance). 3-2-1, then
+  // callNow(); the rep can cancel at any second. Nothing happens unless the
+  // phone device is ready and the lead is callable.
+  const AUTO_DIAL_SECONDS = 3;
+  const [autoDialCountdown, setAutoDialCountdown] = useState<number | null>(null);
+  const autoDialHandledTokenRef = useRef(0);
+  const callNowRef = useRef(callNow);
+  callNowRef.current = callNow;
+  useEffect(() => {
+    // Any change of lead cancels a running countdown.
+    setAutoDialCountdown(null);
+  }, [active.id]);
+  useEffect(() => {
+    if (autoDialArmToken <= autoDialHandledTokenRef.current) return;
+    autoDialHandledTokenRef.current = autoDialArmToken;
+    if (!autoDialEnabled || practiceMode) return;
+    if (!active.phone || active.lead_class === "booked_active") return;
+    if (inCall) return;
+    setAutoDialCountdown(AUTO_DIAL_SECONDS);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDialArmToken]);
+  useEffect(() => {
+    if (autoDialCountdown === null) return;
+    if (autoDialCountdown <= 0) {
+      setAutoDialCountdown(null);
+      if (deviceStatus !== "ready") {
+        toast.error("Dialler not ready — press Call Now when it is");
+        return;
+      }
+      void callNowRef.current();
+      return;
+    }
+    const t = window.setTimeout(() => setAutoDialCountdown((c) => (c === null ? null : c - 1)), 1000);
+    return () => window.clearTimeout(t);
+  }, [autoDialCountdown, deviceStatus]);
+  useEffect(() => {
+    if (autoDialCountdown === null) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setAutoDialCountdown(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [autoDialCountdown]);
+
   const sendImage = async (url: string) => {
     const r = await sendLeadMms({ data: { leadId: active.id, mediaUrl: url, body: "" } });
     if (r.success) toast.success("Sent"); else toast.error(r.error);
@@ -6914,6 +6988,22 @@ function RightPanel({
             </>
           )
         ) : !inCall ? (
+          autoDialCountdown !== null ? (
+            <div
+              role="status"
+              aria-live="polite"
+              className="w-full rounded-[8px] flex items-center justify-between gap-3"
+              style={{ background: "#111", color: "#fff", fontSize: 15, fontWeight: 600, padding: "12px 14px" }}
+            >
+              <span>📞 Calling {active.first_name ?? "lead"} in {autoDialCountdown}…</span>
+              <button
+                onClick={() => setAutoDialCountdown(null)}
+                style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "transparent", border: "1px solid #666", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Cancel (Esc)
+              </button>
+            </div>
+          ) : (
           <button
             onClick={() => void callNow()}
             className="w-full rounded-[8px] flex items-center justify-center gap-2"
@@ -6927,6 +7017,7 @@ function RightPanel({
           >
             📞 Call Now
           </button>
+          )
         ) : (
           <>
             <div
