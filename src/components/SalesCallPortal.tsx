@@ -6640,12 +6640,16 @@ function RightPanel({
   // Countdown finished but the phone device was still registering: dial the
   // moment it's ready, or give up after AUTO_DIAL_DEVICE_WAIT_MS.
   const [autoDialWaiting, setAutoDialWaiting] = useState(false);
+  // One line under the call button saying what auto-dial last did and why,
+  // so a rep (or support) never has to guess why it didn't fire.
+  const [autoDialNote, setAutoDialNote] = useState<string | null>(null);
   const autoDialHandledTokenRef = useRef(0);
   const callNowRef = useRef(callNow);
   callNowRef.current = callNow;
-  const cancelAutoDial = useCallback(() => {
+  const cancelAutoDial = useCallback((reason?: string) => {
     setAutoDialCountdown(null);
     setAutoDialWaiting(false);
+    if (reason) setAutoDialNote(reason);
   }, []);
   useEffect(() => {
     // Any change of lead cancels a running countdown.
@@ -6654,9 +6658,12 @@ function RightPanel({
   useEffect(() => {
     if (autoDialArmToken <= autoDialHandledTokenRef.current) return;
     autoDialHandledTokenRef.current = autoDialArmToken;
-    if (!autoDialEnabled || practiceMode) return;
-    if (!active.phone || active.lead_class === "booked_active") return;
-    if (inCall) return;
+    if (practiceMode) return;
+    if (!autoDialEnabled) { setAutoDialNote("Auto-dial is off"); return; }
+    if (!active.phone) { setAutoDialNote("Auto-dial skipped — no phone number"); return; }
+    if (active.lead_class === "booked_active") { setAutoDialNote("Auto-dial skipped — this person already has a booking"); return; }
+    if (inCall) { setAutoDialNote("Auto-dial skipped — a call is already in progress"); return; }
+    setAutoDialNote(null);
     setAutoDialCountdown(AUTO_DIAL_SECONDS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoDialArmToken]);
@@ -6664,8 +6671,13 @@ function RightPanel({
     if (autoDialCountdown === null) return;
     if (autoDialCountdown <= 0) {
       setAutoDialCountdown(null);
-      if (deviceStatus === "ready") void callNowRef.current();
-      else setAutoDialWaiting(true);
+      if (deviceStatus === "ready") {
+        setAutoDialNote(`Auto-dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
+        void callNowRef.current();
+      } else {
+        setAutoDialNote(`Auto-dial waiting for the dialler (status: ${deviceStatus})`);
+        setAutoDialWaiting(true);
+      }
       return;
     }
     const t = window.setTimeout(() => setAutoDialCountdown((c) => (c === null ? null : c - 1)), 1000);
@@ -6675,18 +6687,20 @@ function RightPanel({
     if (!autoDialWaiting) return;
     if (deviceStatus === "ready") {
       setAutoDialWaiting(false);
+      setAutoDialNote(`Auto-dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
       void callNowRef.current();
       return;
     }
     const t = window.setTimeout(() => {
       setAutoDialWaiting(false);
+      setAutoDialNote(`Auto-dial gave up — dialler not ready after 20s (status: ${deviceStatus})`);
       toast.error("Dialler not ready — press Call Now when it is");
     }, AUTO_DIAL_DEVICE_WAIT_MS);
     return () => window.clearTimeout(t);
   }, [autoDialWaiting, deviceStatus]);
   useEffect(() => {
     if (autoDialCountdown === null && !autoDialWaiting) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelAutoDial(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") cancelAutoDial("Auto-dial cancelled"); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [autoDialCountdown, autoDialWaiting, cancelAutoDial]);
@@ -7019,7 +7033,7 @@ function RightPanel({
                   : `📞 Calling ${active.first_name ?? "lead"} in ${autoDialCountdown}…`}
               </span>
               <button
-                onClick={cancelAutoDial}
+                onClick={() => cancelAutoDial("Auto-dial cancelled")}
                 style={{ fontSize: 13, fontWeight: 700, color: "#fff", background: "transparent", border: "1px solid #666", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit" }}
               >
                 Cancel (Esc)
@@ -7115,6 +7129,9 @@ function RightPanel({
         <div style={{ marginTop: 10, fontSize: 12, color: COLORS.amberDark, fontWeight: 500 }}>
           🚫 Do not leave a voicemail
         </div>
+        )}
+        {!practiceMode && autoDialNote && (
+          <div style={{ marginTop: 6, fontSize: 11.5, color: "#777" }}>⚡ {autoDialNote}</div>
         )}
       </div>
 
