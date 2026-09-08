@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Users, Plus, X, Pencil, Trash2, Mail } from "lucide-react";
+import { Users, Plus, X, Pencil, Trash2, Mail, LogIn } from "lucide-react";
 import {
   inviteRep,
   listReps,
@@ -10,6 +10,7 @@ import {
   deleteRep,
   setRepPassword,
   setRepActive,
+  impersonateRep,
 } from "@/utils/sales-call.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -138,6 +139,22 @@ export function TeamSection() {
     }
   };
 
+  const onSignInAs = async (rep: Rep) => {
+    if (!rep.email) { toast.error(`${rep.name} has no login email`); return; }
+    if (!confirm(`Sign in as ${rep.name}? You will be signed out of your own account and can sign back in afterwards.`)) return;
+    const t = toast.loading(`Signing in as ${rep.name}…`);
+    const r = await impersonateRep({ data: { id: rep.id } });
+    if (!r.success) { toast.error(r.error, { id: t }); return; }
+    await supabase.auth.signOut();
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash: r.tokenHash,
+      type: "magiclink",
+    });
+    if (error) { toast.error(error.message, { id: t }); return; }
+    toast.success(`Signed in as ${rep.name}`, { id: t });
+    window.location.href = "/";
+  };
+
   const onToggleActive = async (rep: Rep, nextActive: boolean) => {
     if (!nextActive && !confirm(`Deactivate ${rep.name}? They will be signed out and unable to log in.`)) return;
     const prev = reps;
@@ -227,6 +244,13 @@ export function TeamSection() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => void onSignInAs(r)}
+                        className="p-1.5 rounded hover:bg-primary/10 transition-colors"
+                        title={`Sign in as ${r.name}`}
+                      >
+                        <LogIn className="h-3.5 w-3.5 text-primary" />
+                      </button>
                       <button
                         onClick={() => setEditing(r)}
                         className="p-1.5 rounded hover:bg-muted transition-colors"
