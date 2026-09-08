@@ -738,14 +738,14 @@ function EditHandoverModal({
         // Lead details
         const { data: lead } = await supabase
           .from("meta_leads")
-          .select("first_name,last_name,email,phone,funding_preference,finance_eligible,call_notes,clinic_id,status,deposit_paid_at,stripe_payment_intent_id")
+          .select("first_name,last_name,email,phone,funding_preference,finance_eligible,call_notes,clinic_id,status,deposit_paid_at,stripe_payment_intent_id,square_payment_id")
           .eq("id", reminder.lead_id)
           .maybeSingle();
 
         // Clinic appointment snapshot (intel_notes is the exact text sent last time)
         const { data: appt } = await supabase
           .from("clinic_appointments")
-          .select("id, clinic_id, intel_notes, stripe_payment_intent_id, deposit_amount")
+          .select("id, clinic_id, intel_notes, stripe_payment_intent_id, square_payment_id, deposit_amount")
           .eq("lead_id", reminder.lead_id)
           .maybeSingle();
 
@@ -785,7 +785,9 @@ function EditHandoverModal({
         const paid =
           Boolean(lead?.deposit_paid_at) ||
           Boolean(lead?.stripe_payment_intent_id) ||
-          Boolean((appt as { stripe_payment_intent_id?: string | null } | null)?.stripe_payment_intent_id) ||
+          Boolean(lead?.square_payment_id) ||
+          Boolean(appt?.stripe_payment_intent_id) ||
+          Boolean(appt?.square_payment_id) ||
           status.includes("deposit_paid");
         setDepositPaid(paid);
       } finally {

@@ -1022,8 +1022,9 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         return;
       }
       if ("alreadyRefunded" in r && r.alreadyRefunded) toast.success("Marked disqualified (already refunded)");
+      else if ("pending" in r && r.pending) toast.success("Disqualified — refund sent to Square, settles in a few days");
       else if ("refunded" in r && r.refunded) toast.success("Disqualified and refunded");
-      else if ("manual" in r && r.manual) toast.success("Marked disqualified — no Stripe payment, refund manually");
+      else if ("manual" in r && r.manual) toast.success("Marked disqualified — no card payment on file, refund manually");
       else toast.success("Marked disqualified");
       onChange();
       onClose();
@@ -1051,6 +1052,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const needsManualRefund =
     (appt.outcome === "show" || appt.outcome === "proceeded") &&
     !appt.stripe_payment_intent_id &&
+    !appt.square_payment_id &&
     !appt.refund_status &&
     isPastOrToday;
 
@@ -1159,14 +1161,14 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
             <span>✓</span> ${depositAmount} deposit refunded (manual)
           </div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Marked refunded on {refundDate}</div>
-          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Patient was refunded outside Stripe (e.g. bank transfer)</div>
+          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Patient was refunded outside the card processor (e.g. bank transfer)</div>
         </div>
       )}
 
       {needsManualRefund && isAdmin && (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Refund pending — paid outside Stripe</div>
-          <div style={{ fontSize: 11, color: "#92400e", marginBottom: 10 }}>No Stripe payment on file. Once you've refunded ${depositAmount} to {appt.patient_name} directly, mark it here.</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Refund pending — no card payment on file</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginBottom: 10 }}>No Square or Stripe payment on file. Once you've refunded ${depositAmount} to {appt.patient_name} directly, mark it here.</div>
           <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#92400e", color: "#fff", borderColor: "#92400e" }}>
             Mark deposit refunded
           </button>
@@ -1184,7 +1186,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
-          {appt.outcome && !appt.stripe_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
+          {appt.outcome && !appt.stripe_refund_id && !appt.square_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
             <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && appt.outcome !== "disqualified" && (
@@ -2071,21 +2073,28 @@ function LegendDot({ color, bg, label }: { color: string; bg: string; label: str
 
 /* ============== MODALS ============== */
 
+type PaidVia = { processor: "square" | "stripe"; paymentId: string } | null;
+
 function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false, clinicDefaultDeposit }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean; clinicDefaultDeposit: number }) {
   const [notes, setNotes] = useState(appt.consult_summary ?? "");
   const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Lazy-resolved Stripe info for legacy appointments where the payment intent
-  // wasn't saved on the row at booking time. Starts with whatever's on the row;
-  // gets filled in on mount via Stripe lookup.
-  const [resolvedPiId, setResolvedPiId] = useState<string | null>(appt.stripe_payment_intent_id);
+  // How the deposit was paid (Square or Stripe). Starts with whatever's on
+  // the row; for older bookings with nothing saved it is resolved on mount.
+  const initialPaidVia: PaidVia = appt.square_payment_id
+    ? { processor: "square", paymentId: appt.square_payment_id }
+    : appt.stripe_payment_intent_id
+      ? { processor: "stripe", paymentId: appt.stripe_payment_intent_id }
+      : null;
+  const alreadyRefunded = !!(appt.stripe_refund_id || appt.square_refund_id);
+  const [paidVia, setPaidVia] = useState<PaidVia>(initialPaidVia);
   const [resolvedDeposit, setResolvedDeposit] = useState<number | null>(appt.deposit_amount);
-  const [resolving, setResolving] = useState(!appt.stripe_payment_intent_id && !appt.stripe_refund_id);
+  const [resolving, setResolving] = useState(!initialPaidVia && !alreadyRefunded);
 
   useEffect(() => {
-    if (appt.stripe_payment_intent_id || appt.stripe_refund_id) return;
+    if (initialPaidVia || alreadyRefunded) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -2093,18 +2102,19 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         const r = await resolveAppointmentDeposit({ data: { appointmentId: appt.id } });
         if (cancelled) return;
         if (r.success) {
-          setResolvedPiId(r.paymentIntentId ?? null);
+          setPaidVia(r.processor && r.paymentId ? { processor: r.processor, paymentId: r.paymentId } : null);
           if (r.depositAmount != null) setResolvedDeposit(r.depositAmount);
         }
-      } catch { /* keep falling back to "no payment intent" copy */ }
+      } catch { /* keep falling back to "no card payment" copy */ }
       finally { if (!cancelled) setResolving(false); }
     })();
     return () => { cancelled = true; };
-  }, [appt.id, appt.stripe_payment_intent_id, appt.stripe_refund_id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appt.id]);
 
   const depositAmount = resolvedDeposit ?? clinicDefaultDeposit;
-  const alreadyRefunded = !!appt.stripe_refund_id;
-  const noPaymentIntent = !resolvedPiId;
+  const noPaymentIntent = !paidVia;
+  const processorName = paidVia?.processor === "square" ? "Square" : "Stripe";
 
   const submitLabel = alreadyRefunded
     ? "Save & close"
@@ -2136,7 +2146,9 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         }
         return;
       }
-      toast.success(result.refunded ? `Refunded $${depositAmount}` : "Saved");
+      if (!result.refunded) toast.success("Saved");
+      else if ("refundProcessedAt" in result && !result.refundProcessedAt) toast.success(`$${depositAmount} refund sent to ${processorName} — it settles in a few days`);
+      else toast.success(`Refunded $${depositAmount} via ${processorName}`);
       setSaving(false);
       onSaved();
     } catch (e) {
@@ -2167,7 +2179,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
       {alreadyRefunded ? (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
-          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>{appt.square_refund_id ? `Square ref ${appt.square_refund_id}` : `Stripe ref ${appt.stripe_refund_id}`}</div>
         </div>
       ) : resolving ? (
         <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
@@ -2175,14 +2187,14 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         </div>
       ) : noPaymentIntent ? (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Patient didn't pay via Stripe</div>
-          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through our payment system (likely paid by direct deposit or another method). No refund will be processed from here — the Admin team will be in contact with the patient to arrange the refund directly.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>No card payment on file</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through Square or Stripe (likely paid by bank transfer or another method). No refund will be processed from here — the Admin team will be in contact with the patient to arrange the refund directly.</div>
         </div>
       ) : (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e" }}>Deposit refund</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#92400e", marginTop: 2 }}>${depositAmount}</div>
-          <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>Will be refunded to the patient's card on submit</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>Will be refunded to the patient's card via {processorName} on submit</div>
         </div>
       )}
 

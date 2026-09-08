@@ -307,13 +307,13 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (data.clinicId) {
       const { data: leadRow } = await supabaseAdmin
         .from("meta_leads")
-        .select("first_name, last_name, phone, email, deposit_amount, stripe_payment_intent_id")
+        .select("first_name, last_name, phone, email, deposit_amount, stripe_payment_intent_id, square_payment_id")
         .eq("id", data.leadId)
         .maybeSingle();
       const patientName = `${leadRow?.first_name ?? ""} ${leadRow?.last_name ?? ""}`.trim() || "Patient";
       const { data: existing } = await supabaseAdmin
         .from("clinic_appointments")
-        .select("id, deposit_amount, stripe_payment_intent_id")
+        .select("id, deposit_amount, stripe_payment_intent_id, square_payment_id")
         .eq("lead_id", data.leadId)
         .limit(1);
       const nowIso = new Date().toISOString();
@@ -326,13 +326,24 @@ export const saveBooking = createServerFn({ method: "POST" })
         appointment_date: data.date,
         appointment_time: data.time,
       };
-      // Carry over deposit info from meta_leads if Stripe webhook already
-      // marked it paid before the booking row was created (race condition).
-      if (leadRow?.stripe_payment_intent_id) payload.stripe_payment_intent_id = leadRow.stripe_payment_intent_id;
+      // Carry over deposit info from meta_leads if the payment (Square or
+      // Stripe) landed before the booking row was created, so the clinic's
+      // refund goes back through the same processor.
+      if (leadRow?.square_payment_id) {
+        payload.square_payment_id = leadRow.square_payment_id;
+        payload.payment_processor = "square";
+      } else if (leadRow?.stripe_payment_intent_id) {
+        payload.stripe_payment_intent_id = leadRow.stripe_payment_intent_id;
+        payload.payment_processor = "stripe";
+      }
       if (leadRow?.deposit_amount != null) payload.deposit_amount = leadRow.deposit_amount;
       if (existing && existing.length > 0) {
         // Don't overwrite deposit fields already set on the appointment.
-        if (existing[0].stripe_payment_intent_id) delete payload.stripe_payment_intent_id;
+        if (existing[0].stripe_payment_intent_id || existing[0].square_payment_id) {
+          delete payload.stripe_payment_intent_id;
+          delete payload.square_payment_id;
+          delete payload.payment_processor;
+        }
         if (existing[0].deposit_amount != null) delete payload.deposit_amount;
         payload.booked_at = nowIso;
         const { error: apptErr } = await supabaseAdmin

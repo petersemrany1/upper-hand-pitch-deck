@@ -10,7 +10,7 @@
 import { createStripeClient, getStripeErrorMessage, resolveStripeEnv } from "@/lib/stripe.server";
 
 export type RefundOutcome =
-  | { status: "refunded"; refundId: string; account: "managed" | "htg" }
+  | { status: "refunded"; refundId: string; account: "managed" | "htg" | "square" }
   // Square settles asynchronously: accepted now, confirmed by refund.updated.
   | { status: "pending"; refundId: string; account: "square" }
   | { status: "manual"; reason: string }
@@ -102,20 +102,43 @@ async function refundOnHtg(
 async function refundOnSquare(
   squarePaymentId: string,
   appointmentId: string,
+  opts: RefundOptions,
 ): Promise<RefundOutcome> {
-  const { refundSquarePayment } = await import("@/lib/square.server");
+  const { refundSquarePayment, getSquarePayment } = await import("@/lib/square.server");
+
+  // Refund exactly what was charged. Prefer the amount recorded on the
+  // appointment; otherwise ask Square what the payment was for. Never guess.
+  let amountCents = opts.amountCents ?? null;
+  if (!amountCents) {
+    const payment = await getSquarePayment(squarePaymentId);
+    const charged = payment?.amount_money?.amount;
+    if (typeof charged === "number" && charged > 0) amountCents = charged;
+  }
+  if (!amountCents) {
+    return {
+      status: "failed",
+      error: "Could not confirm the Square payment amount, so nothing was refunded.",
+    };
+  }
+
   const result = await refundSquarePayment({
     paymentId: squarePaymentId,
-    amountCents: 7500,
+    amountCents,
     idempotencyKey: `refund-${appointmentId}`.slice(0, 45),
-    reason: "Attended consultation — booking fee refund",
+    reason: opts.reason ?? "Attended consultation — booking fee refund",
   });
   if ("error" in result) return { status: "failed", error: result.error };
   if (result.status?.toUpperCase() === "COMPLETED") {
-    return { status: "refunded", refundId: result.refundId, account: "htg" };
+    return { status: "refunded", refundId: result.refundId, account: "square" };
   }
   return { status: "pending", refundId: result.refundId, account: "square" };
 }
+
+export type RefundOptions = {
+  /** Amount to refund in cents. Square only; Stripe refunds the full intent. */
+  amountCents?: number | null;
+  reason?: string;
+};
 
 /**
  * Processor-aware refund router. The processor is taken from the explicit
@@ -125,9 +148,10 @@ export async function refundDeposit(
   paymentId: string,
   appointmentId: string,
   processor: "stripe" | "square" = "stripe",
+  opts: RefundOptions = {},
 ): Promise<RefundOutcome> {
   if (processor === "square") {
-    return refundOnSquare(paymentId, appointmentId);
+    return refundOnSquare(paymentId, appointmentId, opts);
   }
 
   const managed = await refundOnManaged(paymentId, appointmentId);

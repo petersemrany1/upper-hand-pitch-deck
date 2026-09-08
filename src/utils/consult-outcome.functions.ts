@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
+import type { Database } from "@/integrations/supabase/types";
 
 type ProcessInput = {
   appointmentId: string;
@@ -185,8 +186,94 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
   return await searchStripeByContact(stripeKey, leadRow?.email ?? null, leadRow?.phone ?? null, appointmentId);
 }
 
+type SupabaseAdmin = Awaited<ReturnType<typeof getSupabaseAdmin>>;
+
+type DepositPayment = {
+  processor: "stripe" | "square";
+  paymentId: string;
+  depositAmount: number | null;
+};
+
+type ApptDepositRow = {
+  id: string;
+  lead_id: string | null;
+  stripe_payment_intent_id: string | null;
+  square_payment_id: string | null;
+  payment_processor: string | null;
+  deposit_amount: number | null;
+};
+
+// Works out how the patient actually paid so the refund goes back the same
+// way. Order of trust: what is stamped on the appointment, then the lead row
+// (a deposit paid before the booking row existed), then the Stripe lookups
+// for old bookings. Whatever it finds is written onto the appointment so the
+// next read is instant and every refund path agrees on the processor.
+async function resolveDepositForAppointment(
+  supabaseAdmin: SupabaseAdmin,
+  appt: ApptDepositRow,
+): Promise<DepositPayment | null> {
+  if (appt.square_payment_id) {
+    return { processor: "square", paymentId: appt.square_payment_id, depositAmount: appt.deposit_amount };
+  }
+  if (appt.stripe_payment_intent_id) {
+    return { processor: "stripe", paymentId: appt.stripe_payment_intent_id, depositAmount: appt.deposit_amount };
+  }
+
+  const stamp = async (patch: Database["public"]["Tables"]["clinic_appointments"]["Update"]) => {
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update(patch)
+      .eq("id", appt.id)
+      .is("stripe_refund_id", null)
+      .is("square_refund_id", null);
+  };
+  const amountPatch = (amount: number | null): { deposit_amount?: number } =>
+    amount != null ? { deposit_amount: amount } : {};
+
+  if (appt.lead_id) {
+    const { data: lead } = await supabaseAdmin
+      .from("meta_leads")
+      .select("square_payment_id, stripe_payment_intent_id, deposit_amount")
+      .eq("id", appt.lead_id)
+      .maybeSingle();
+    const depositAmount = appt.deposit_amount ?? lead?.deposit_amount ?? null;
+    if (lead?.square_payment_id) {
+      await stamp({ square_payment_id: lead.square_payment_id, payment_processor: "square", ...amountPatch(depositAmount) });
+      return { processor: "square", paymentId: lead.square_payment_id, depositAmount };
+    }
+    if (lead?.stripe_payment_intent_id) {
+      await stamp({ stripe_payment_intent_id: lead.stripe_payment_intent_id, payment_processor: "stripe", ...amountPatch(depositAmount) });
+      return { processor: "stripe", paymentId: lead.stripe_payment_intent_id, depositAmount };
+    }
+  }
+
+  // Old bookings with nothing saved anywhere: recover the Stripe payment
+  // (managed account first, then the legacy HTG account).
+  const { findManagedDepositPaymentIntent } = await import("./deposit-refund.server");
+  const htgKey = process.env.STRIPE_HTG_SECRET_KEY;
+  let paymentId = await findManagedDepositPaymentIntent(appt.lead_id);
+  if (!paymentId && htgKey) {
+    paymentId = await findPaidDepositPaymentIntent(htgKey, appt.lead_id, appt.id);
+  }
+  if (!paymentId) return null;
+
+  let depositAmount: number | null = appt.deposit_amount;
+  if (depositAmount == null && htgKey) {
+    try {
+      const piResp = await fetch(`https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentId)}`, {
+        headers: { Authorization: "Bearer " + htgKey },
+      });
+      const pi = (await piResp.json()) as { amount_received?: number; amount?: number };
+      const cents = piResp.ok ? (pi.amount_received ?? pi.amount ?? null) : null;
+      if (typeof cents === "number") depositAmount = cents / 100;
+    } catch { /* amount stays unknown; UI falls back to the clinic default */ }
+  }
+  await stamp({ stripe_payment_intent_id: paymentId, payment_processor: "stripe", ...amountPatch(depositAmount) });
+  return { processor: "stripe", paymentId, depositAmount };
+}
+
 // Marks a clinic appointment as "show" or "proceeded" and refunds the
-// patient's deposit on the HTG Stripe account. The deposit is always
+// patient's deposit through whichever processor took it (Square or Stripe). The deposit is always
 // refunded once the patient shows up — whether they proceeded with the
 // procedure or not. The only no-refund path is "no show" (handled
 // elsewhere) or when the refund was already processed.
@@ -235,38 +322,12 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: true as const, refunded: false as const };
     }
 
-    const { refundDeposit, findManagedDepositPaymentIntent } = await import(
-      "./deposit-refund.server"
-    );
+    const { refundDeposit } = await import("./deposit-refund.server");
     const { sendRefundFailureAlert } = await import("./ops-alert.server");
 
-    const isSquare = appt.payment_processor === "square" || Boolean(appt.square_payment_id);
+    const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
 
-    let paymentId: string | null = isSquare
-      ? appt.square_payment_id
-      : appt.stripe_payment_intent_id;
-
-    if (!isSquare && !paymentId) {
-      // Older bookings without a saved payment id get one recovered from
-      // either Stripe account.
-      paymentId = await findManagedDepositPaymentIntent(appt.lead_id);
-      if (!paymentId && process.env.STRIPE_HTG_SECRET_KEY) {
-        paymentId = await findPaidDepositPaymentIntent(
-          process.env.STRIPE_HTG_SECRET_KEY,
-          appt.lead_id,
-          appointmentId,
-        );
-      }
-      if (paymentId && paymentId !== appt.stripe_payment_intent_id) {
-        await supabaseAdmin
-          .from("clinic_appointments")
-          .update({ stripe_payment_intent_id: paymentId, payment_processor: "stripe" })
-          .eq("id", appointmentId)
-          .is("stripe_refund_id", null);
-      }
-    }
-
-    if (!paymentId) {
+    if (!payment) {
       // No processor path exists — this needs a bank transfer, which is a
       // different thing from a processor error.
       await supabaseAdmin
@@ -276,11 +337,12 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
       return { success: true as const, refunded: false as const, manual: true as const };
     }
 
-    const outcome = await refundDeposit(
-      paymentId,
-      appointmentId,
-      isSquare ? "square" : "stripe",
-    );
+    const isSquare = payment.processor === "square";
+    const paymentId = payment.paymentId;
+
+    const outcome = await refundDeposit(paymentId, appointmentId, payment.processor, {
+      amountCents: payment.depositAmount != null ? Math.round(payment.depositAmount * 100) : null,
+    });
 
     if (outcome.status === "manual") {
       await supabaseAdmin
@@ -361,12 +423,11 @@ export const processConsultOutcome = createServerFn({ method: "POST" })
   });
 
 
-// Lazy-resolve the Stripe payment intent + deposit amount for an existing
-// clinic appointment that was booked before we started saving them on the row
-// (e.g. deposit paid via Stripe Checkout link, then "Confirm deposit paid"
-// flow created the appointment without the PI). The clinic-portal "show"
-// modal calls this when it opens so the refund button shows correctly
-// instead of the misleading "Patient didn't pay via Stripe" notice.
+// Lazy-resolve how the deposit was paid (Square or Stripe) plus the amount
+// for an appointment whose row never had the payment id written at booking
+// time (e.g. deposit paid via a link, then the booking row created later).
+// The clinic-portal "show" modal calls this when it opens so the refund
+// button reflects the real processor instead of a "didn't pay" notice.
 export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { appointmentId: string }) => data)
@@ -375,39 +436,21 @@ export const resolveAppointmentDeposit = createServerFn({ method: "POST" })
     const supabaseAdmin = await getSupabaseAdmin();
     const { data: appt } = await supabaseAdmin
       .from("clinic_appointments")
-      .select("id, lead_id, stripe_payment_intent_id, deposit_amount, stripe_refund_id")
+      .select("id, lead_id, stripe_payment_intent_id, square_payment_id, payment_processor, deposit_amount")
       .eq("id", appointmentId)
       .maybeSingle();
     if (!appt) return { success: false as const, error: "Appointment not found" };
-    if (appt.stripe_payment_intent_id) {
-      return { success: true as const, paymentIntentId: appt.stripe_payment_intent_id, depositAmount: appt.deposit_amount };
+
+    const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
+    if (!payment) {
+      return { success: true as const, processor: null, paymentId: null, depositAmount: null };
     }
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!stripeKey) return { success: false as const, error: "Stripe not configured" };
-
-    const paymentIntentId = await findPaidDepositPaymentIntent(stripeKey, appt.lead_id, appointmentId);
-    if (!paymentIntentId) return { success: true as const, paymentIntentId: null, depositAmount: null };
-
-    // Fetch the PI to also capture the deposit amount.
-    let depositAmount: number | null = appt.deposit_amount;
-    try {
-      const piResp = await fetch(`https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`, {
-        headers: { Authorization: "Bearer " + stripeKey },
-      });
-      const pi = (await piResp.json()) as { amount_received?: number; amount?: number };
-      if (piResp.ok) {
-        const cents = pi.amount_received ?? pi.amount ?? null;
-        if (typeof cents === "number") depositAmount = cents / 100;
-      }
-    } catch { /* ignore — amount stays null and UI falls back to clinic default */ }
-
-    await supabaseAdmin
-      .from("clinic_appointments")
-      .update({ stripe_payment_intent_id: paymentIntentId, ...(depositAmount != null ? { deposit_amount: depositAmount } : {}) })
-      .eq("id", appointmentId)
-      .is("stripe_refund_id", null);
-
-    return { success: true as const, paymentIntentId, depositAmount };
+    return {
+      success: true as const,
+      processor: payment.processor,
+      paymentId: payment.paymentId,
+      depositAmount: payment.depositAmount,
+    };
   });
 
 // Admin-only: mark an appointment as "disqualified" — patient showed up
@@ -440,7 +483,9 @@ export const disqualifyAppointment = createServerFn({ method: "POST" })
 
     const { data: appt, error: fetchErr } = await supabaseAdmin
       .from("clinic_appointments")
-      .select("id, stripe_payment_intent_id, stripe_refund_id, refund_status, outcome")
+      .select(
+        "id, lead_id, stripe_payment_intent_id, square_payment_id, payment_processor, stripe_refund_id, square_refund_id, refund_status, outcome, deposit_amount",
+      )
       .eq("id", data.appointmentId)
       .maybeSingle();
     if (fetchErr || !appt) {
@@ -472,60 +517,84 @@ export const disqualifyAppointment = createServerFn({ method: "POST" })
     }
 
     // Refund the deposit if it hasn't been refunded already.
-    if (appt.stripe_refund_id) {
+    if (appt.stripe_refund_id || appt.square_refund_id) {
       return { success: true as const, refunded: false as const, alreadyRefunded: true as const };
     }
-    if (!appt.stripe_payment_intent_id) {
-      // No Stripe payment on file — admin can mark manual refund separately.
+
+    const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
+    if (!payment) {
+      // No card payment on file — admin marks the manual refund separately.
+      await supabaseAdmin
+        .from("clinic_appointments")
+        .update({ refund_status: "manual_required" })
+        .eq("id", data.appointmentId);
       return { success: true as const, refunded: false as const, manual: true as const };
     }
 
-    const stripeKey = process.env.STRIPE_HTG_SECRET_KEY;
-    if (!stripeKey) {
+    const { refundDeposit } = await import("./deposit-refund.server");
+    const { sendRefundFailureAlert } = await import("./ops-alert.server");
+    const outcome = await refundDeposit(payment.paymentId, data.appointmentId, payment.processor, {
+      amountCents: payment.depositAmount != null ? Math.round(payment.depositAmount * 100) : null,
+      reason: "Disqualified at consultation — booking fee refund",
+    });
+
+    if (outcome.status === "manual") {
       await supabaseAdmin
         .from("clinic_appointments")
-        .update({ refund_status: "failed" })
+        .update({ refund_status: "manual_required" })
         .eq("id", data.appointmentId);
-      await logError("disqualifyAppointment", "STRIPE_HTG_SECRET_KEY not configured", { appointmentId: data.appointmentId });
-      return { success: false as const, error: "Stripe not configured", outcomeSaved: true as const };
-    }
-
-    try {
-      const params = new URLSearchParams();
-      params.append("payment_intent", appt.stripe_payment_intent_id);
-      params.append("metadata[appointment_id]", data.appointmentId);
-      params.append("metadata[reason]", "disqualified");
-
-      const response = await fetch("https://api.stripe.com/v1/refunds", {
-        method: "POST",
-        headers: { Authorization: "Bearer " + stripeKey, "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
+      await logError("disqualifyAppointment", `Manual refund required: ${outcome.reason}`, {
+        appointmentId: data.appointmentId,
+        paymentId: payment.paymentId,
       });
-      const result = (await response.json()) as { id?: string; error?: { message?: string } };
-      if (!response.ok || !result.id) {
-        await supabaseAdmin
-          .from("clinic_appointments")
-          .update({ refund_status: "failed" })
-          .eq("id", data.appointmentId);
-        await logError("disqualifyAppointment", result?.error?.message || "Stripe refund failed", { appointmentId: data.appointmentId });
-        return { success: false as const, error: result?.error?.message || "Stripe refund failed", outcomeSaved: true as const };
-      }
+      await sendRefundFailureAlert({
+        leadId: appt.lead_id,
+        appointmentId: data.appointmentId,
+        processor: payment.processor,
+        paymentId: payment.paymentId,
+        error: outcome.reason,
+      });
+      return { success: true as const, refunded: false as const, manual: true as const, manualReason: outcome.reason };
+    }
 
-      const processedAt = new Date().toISOString();
-      await supabaseAdmin
-        .from("clinic_appointments")
-        .update({ refund_status: "refunded", stripe_refund_id: result.id, refund_processed_at: processedAt })
-        .eq("id", data.appointmentId);
-
-      return { success: true as const, refunded: true as const, refundId: result.id };
-    } catch (err) {
-      const errMsg = err instanceof Error ? err.message : String(err);
+    if (outcome.status === "failed") {
       await supabaseAdmin
         .from("clinic_appointments")
         .update({ refund_status: "failed" })
         .eq("id", data.appointmentId);
-      await logError("disqualifyAppointment", errMsg, { appointmentId: data.appointmentId });
-      return { success: false as const, error: errMsg, outcomeSaved: true as const };
+      await logError("disqualifyAppointment", outcome.error, {
+        appointmentId: data.appointmentId,
+        paymentId: payment.paymentId,
+      });
+      await sendRefundFailureAlert({
+        leadId: appt.lead_id,
+        appointmentId: data.appointmentId,
+        processor: payment.processor,
+        paymentId: payment.paymentId,
+        error: outcome.error,
+      });
+      return { success: false as const, error: outcome.error, outcomeSaved: true as const };
     }
+
+    if (outcome.status === "pending") {
+      await supabaseAdmin
+        .from("clinic_appointments")
+        .update({ refund_status: "refund_pending", square_refund_id: outcome.refundId })
+        .eq("id", data.appointmentId);
+      return { success: true as const, refunded: true as const, refundId: outcome.refundId, pending: true as const };
+    }
+
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update({
+        refund_status: "refunded",
+        ...(payment.processor === "square"
+          ? { square_refund_id: outcome.refundId }
+          : { stripe_refund_id: outcome.refundId }),
+        refund_processed_at: new Date().toISOString(),
+      })
+      .eq("id", data.appointmentId);
+
+    return { success: true as const, refunded: true as const, refundId: outcome.refundId };
   });
 

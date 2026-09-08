@@ -3622,6 +3622,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (
       Boolean((lead as { deposit_paid_at?: string | null }).deposit_paid_at) ||
       Boolean((lead as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id) ||
+      Boolean((lead as { square_payment_id?: string | null }).square_payment_id) ||
       Boolean(lead.status && lead.status.toLowerCase().includes("deposit_paid"))
     ) {
       setDepositPaid(true);
@@ -3821,12 +3822,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             // automatically and the rep has to log a manual refund.
             const { data: leadDepositRow } = await supabase
               .from("meta_leads")
-              .select("stripe_payment_intent_id, deposit_amount")
+              .select("stripe_payment_intent_id, square_payment_id, deposit_amount")
               .eq("id", lead.id)
               .maybeSingle();
             const { data: existingClinicAppt } = await supabase
               .from("clinic_appointments")
-              .select("id, intel_notes, stripe_payment_intent_id, deposit_amount")
+              .select("id, intel_notes, stripe_payment_intent_id, square_payment_id, deposit_amount")
               .eq("lead_id", lead.id)
               .limit(1);
             const clinicPayloadBase: any = {
@@ -3837,11 +3838,23 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               appointment_date: date,
               appointment_time: time,
             };
-            if (leadDepositRow?.stripe_payment_intent_id) clinicPayloadBase.stripe_payment_intent_id = leadDepositRow.stripe_payment_intent_id;
+            // Carry the payment across as it was taken (Square or Stripe) so
+            // the clinic's refund goes back the same way.
+            if (leadDepositRow?.square_payment_id) {
+              clinicPayloadBase.square_payment_id = leadDepositRow.square_payment_id;
+              clinicPayloadBase.payment_processor = "square";
+            } else if (leadDepositRow?.stripe_payment_intent_id) {
+              clinicPayloadBase.stripe_payment_intent_id = leadDepositRow.stripe_payment_intent_id;
+              clinicPayloadBase.payment_processor = "stripe";
+            }
             if (leadDepositRow?.deposit_amount != null) clinicPayloadBase.deposit_amount = leadDepositRow.deposit_amount;
             if (existingClinicAppt && existingClinicAppt.length > 0) {
               // Don't overwrite deposit fields already set on the appointment.
-              if (existingClinicAppt[0].stripe_payment_intent_id) delete clinicPayloadBase.stripe_payment_intent_id;
+              if (existingClinicAppt[0].stripe_payment_intent_id || existingClinicAppt[0].square_payment_id) {
+                delete clinicPayloadBase.stripe_payment_intent_id;
+                delete clinicPayloadBase.square_payment_id;
+                delete clinicPayloadBase.payment_processor;
+              }
               if (existingClinicAppt[0].deposit_amount != null) delete clinicPayloadBase.deposit_amount;
               // Do not overwrite the handover email snapshot. The clinic portal
               // intel must stay exactly as sent in the handover email.
@@ -4029,12 +4042,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     const [{ data: freshLead }, { data: freshAppointment }, { data: freshCalls }] = await Promise.all([
       supabase
         .from("meta_leads")
-        .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
+        .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id, square_payment_id")
         .eq("id", lead.id)
         .single(),
       supabase
         .from("clinic_appointments")
-        .select("stripe_payment_intent_id")
+        .select("stripe_payment_intent_id, square_payment_id")
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -4059,7 +4072,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setPreviewDeposit(
       Boolean(freshLead?.deposit_paid_at) ||
       Boolean(freshLead?.stripe_payment_intent_id) ||
+      Boolean(freshLead?.square_payment_id) ||
       Boolean(freshAppointment?.stripe_payment_intent_id) ||
+      Boolean(freshAppointment?.square_payment_id) ||
       Boolean(paymentReceivedAt) ||
       depositPaid ||
       depositSent ||
