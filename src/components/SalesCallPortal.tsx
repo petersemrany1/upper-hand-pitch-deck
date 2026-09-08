@@ -1210,6 +1210,56 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
 
 
+  // The session bar is rendered in every state while a session is on —
+  // including the holding screen — so the numbers never vanish mid-session.
+  const sessionBar = (
+    <>
+      {sessionActive && !practiceMode && (
+        <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
+            {[
+              { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
+              { num: `${sessionBookings}/${sessionGoal}` as number | string, label: 'Booked', color: '#f4522d' },
+              {
+                num: (sessionBookings >= Math.floor(sessionSeconds / 3600) ? '✓' : `−${Math.floor(sessionSeconds / 3600) - sessionBookings}`) as number | string,
+                label: sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On target' : 'Behind target',
+                color: sessionBookings >= Math.floor(sessionSeconds / 3600) ? '#4ade80' : '#f59e0b',
+              },
+
+              { num: `${Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:${Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:${(sessionSeconds%60).toString().padStart(2,'0')}`, label: sessionPaused ? 'On break' : 'Session time', color: sessionPaused ? '#f59e0b' : '#fff' },
+            ].map(s => (
+              <div key={String(s.label)} style={{ textAlign: 'center', minWidth: 58 }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.num}</div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b8b8b8', marginTop: 5 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <NotificationBell />
+            <button
+              onClick={() => {
+                const resuming = sessionPaused;
+                setSessionPaused((p) => !p);
+                // Coming back from a break: pick up with the lead on screen.
+                if (resuming && activeId) armAutoDial();
+              }}
+              style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              {sessionPaused ? '▶ Resume' : '☕ Break'}
+            </button>
+            <button
+              onClick={() => endSessionNow()}
+              style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              End session
+            </button>
+
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   // Show start-session screen / advance queue when no active lead
   if (!active) {
     if (!sessionActive && !manualMode) {
@@ -1379,6 +1429,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const holding = (
       <>
         {callbackBanner}
+        {sessionBar}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: 40, background: "#f7f7f5", gap: 14 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: "#111" }}>Lining up your next lead…</div>
           <button
@@ -1454,49 +1505,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   return (
     <>
       {callbackBanner}
-      {sessionActive && !practiceMode && (
-        <div style={{ background: '#0b0b0b', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0, minHeight: 58, borderBottom: '1px solid #2a2a2a', boxShadow: '0 1px 0 rgba(255,255,255,0.06)' }}>
-          <div style={{ display: 'flex', gap: 28, alignItems: 'center' }}>
-            {[
-              { num: sessionCalls as number | string, label: 'Calls', color: '#fff' },
-              { num: `${sessionBookings}/${sessionGoal}` as number | string, label: 'Booked', color: '#f4522d' },
-              {
-                num: (sessionBookings >= Math.floor(sessionSeconds / 3600) ? '✓' : `−${Math.floor(sessionSeconds / 3600) - sessionBookings}`) as number | string,
-                label: sessionBookings >= Math.floor(sessionSeconds / 3600) ? 'On target' : 'Behind target',
-                color: sessionBookings >= Math.floor(sessionSeconds / 3600) ? '#4ade80' : '#f59e0b',
-              },
-
-              { num: `${Math.floor(sessionSeconds/3600).toString().padStart(2,'0')}:${Math.floor((sessionSeconds%3600)/60).toString().padStart(2,'0')}:${(sessionSeconds%60).toString().padStart(2,'0')}`, label: sessionPaused ? 'On break' : 'Session time', color: sessionPaused ? '#f59e0b' : '#fff' },
-            ].map(s => (
-              <div key={String(s.label)} style={{ textAlign: 'center', minWidth: 58 }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: s.color, lineHeight: 1 }}>{s.num}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#b8b8b8', marginTop: 5 }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <NotificationBell />
-            <button
-              onClick={() => {
-                const resuming = sessionPaused;
-                setSessionPaused((p) => !p);
-                // Coming back from a break: pick up with the lead on screen.
-                if (resuming && activeId) armAutoDial();
-              }}
-              style={{ fontSize: 13, fontWeight: 700, color: sessionPaused ? '#f59e0b' : '#e8e8e8', background: 'transparent', border: `1px solid ${sessionPaused ? '#f59e0b' : '#555'}`, borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              {sessionPaused ? '▶ Resume' : '☕ Break'}
-            </button>
-            <button
-              onClick={() => endSessionNow()}
-              style={{ fontSize: 13, fontWeight: 700, color: '#e8e8e8', background: 'transparent', border: '1px solid #555', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', fontFamily: 'inherit' }}
-            >
-              End session
-            </button>
-
-          </div>
-        </div>
-      )}
+      {sessionBar}
       <div className="h-full flex flex-col lg:flex-row" style={{ background: COLORS.bg, color: COLORS.text }}>
       {/* LEFT — vertical step nav (desktop only) */}
       <aside className="hidden md:flex flex-col flex-shrink-0" style={{ width: 220, background: "#ffffff", borderRight: `0.5px solid ${COLORS.line}` }}>

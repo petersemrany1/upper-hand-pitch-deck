@@ -77,11 +77,14 @@ function TestControlBar() {
 function SalesCallTestRoute() {
   const { role, ready } = useAuth();
   if (!ready) return null;
-  if (role !== "admin") {
+  // Admins and reps: the sandbox only ever touches the two test leads, and
+  // a rep login is the only way to test the dialler as a rep without
+  // ringing a real customer. The button that links here stays admin-only.
+  if (role !== "admin" && role !== "rep") {
     return (
       <div style={{ padding: 40, textAlign: "center" }}>
         <h2>Admin only</h2>
-        <p style={{ opacity: 0.7 }}>This sandbox is restricted to admins.</p>
+        <p style={{ opacity: 0.7 }}>This sandbox is for the sales team.</p>
         <Link to="/sales-call">Back to sales call</Link>
       </div>
     );
