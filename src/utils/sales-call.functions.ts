@@ -1441,3 +1441,41 @@ export const sweepAbandonedCalls = createServerFn({ method: "POST" })
     }
     return { success: true as const, swept: toSweep.length };
   });
+
+/* Admin-only: mint a one-time login token for another rep so the admin can
+   sign in as them without knowing their password. Returns a magic-link token
+   hash that the browser exchanges for a real session via verifyOtp. */
+export const impersonateRep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { id: string }) => ({ id: String(data.id ?? "") }))
+  .handler(async ({ data, context }) => {
+    let adminEmail: string;
+    try { adminEmail = await assertAdmin(context.userId); } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+    if (!data.id) return { success: false as const, error: "id required" };
+    const { data: rep } = await supabaseAdmin
+      .from("sales_reps")
+      .select("email, name")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!rep?.email) return { success: false as const, error: "That person has no login email" };
+    try {
+      const { data: link, error } = await supabaseAdmin.auth.admin.generateLink({
+        type: "magiclink",
+        email: rep.email,
+      });
+      if (error) return { success: false as const, error: error.message };
+      const tokenHash = link?.properties?.hashed_token;
+      if (!tokenHash) return { success: false as const, error: "Could not create login token" };
+      return {
+        success: true as const,
+        email: rep.email,
+        name: rep.name as string | null,
+        tokenHash,
+        adminEmail,
+      };
+    } catch (e) {
+      return { success: false as const, error: (e as Error).message };
+    }
+  });
