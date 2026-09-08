@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { LabourRow } from "@/lib/ad-spend.functions";
 import { type CityStats, type Diagnosis, compareToAvg, labourSentence, oneIn } from "./model";
 import { CARD, FAINT, GREEN, INK, LABEL, MUTED, RED, TONE, money, moneyOrDash, oneDp, pctOrDash } from "./format";
@@ -107,11 +108,16 @@ export function CityDetail({
           <Stage
             label="Showed"
             count={s.showed}
-            cost={s.adCostPerShow}
-            costLabel="per showed (ads)"
-            delta={bm(s.adCostPerShow, avg.adCostPerShow, true)}
+            cost={s.trueCostPerShow ?? s.adCostPerShow}
+            costLabel="per show"
+            breakdown={[
+              ["Marketing", moneyOrDash(s.adCostPerShow)],
+              ["Labour", s.hoursOk ? moneyOrDash(s.labourPerShow) : "not costed"],
+              ["Total per show", moneyOrDash(s.trueCostPerShow ?? s.adCostPerShow)],
+            ]}
+            delta={bm(s.trueCostPerShow ?? s.adCostPerShow, avg.trueCostPerShow ?? avg.adCostPerShow, true)}
             hideDelta={isAll}
-            foot={s.trueCostPerShow !== null ? `${money(s.trueCostPerShow)} with labour` : "labour not costed"}
+            foot="ads + rep pay, per showed appointment"
             strong
           />
         </div>
@@ -172,18 +178,34 @@ export function CityDetail({
 }
 
 function Stage({
-  label, count, cost, costLabel, delta, hideDelta, foot, footWarn, strong,
+  label, count, cost, costLabel, breakdown, delta, hideDelta, foot, footWarn, strong,
 }: {
   label: string; count: number; cost: number | null; costLabel: string;
+  /** Optional per-unit breakdown shown instead of the single cost line; the last row is the total. */
+  breakdown?: [string, string][];
   delta: ReturnType<typeof compareToAvg>; hideDelta: boolean; foot: string; footWarn?: boolean; strong?: boolean;
 }) {
   return (
     <div style={{ padding: "8px 0", minWidth: 0 }}>
       <div style={LABEL}>{label}</div>
       <div style={{ fontSize: 30, fontWeight: 600, color: INK, letterSpacing: -0.5, lineHeight: 1.1, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>{count}</div>
-      <div style={{ marginTop: 6, fontSize: 13, color: INK, fontWeight: strong ? 700 : 500, whiteSpace: "nowrap" }}>
-        {moneyOrDash(cost)} <span style={{ color: MUTED, fontWeight: 400 }}>{costLabel}</span>
-      </div>
+      {breakdown ? (
+        <div style={{ marginTop: 6, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 12, rowGap: 2, fontSize: 12.5, maxWidth: 220 }}>
+          {breakdown.map(([k, v], i) => {
+            const total = i === breakdown.length - 1;
+            return (
+              <Fragment key={k}>
+                <span style={{ color: total ? INK : MUTED, fontWeight: total ? 700 : 400, borderTop: total ? "1px solid #e6e6e4" : undefined, paddingTop: total ? 3 : 0 }}>{k}</span>
+                <span style={{ color: INK, fontWeight: total ? 700 : 500, textAlign: "right", fontVariantNumeric: "tabular-nums", borderTop: total ? "1px solid #e6e6e4" : undefined, paddingTop: total ? 3 : 0 }}>{v}</span>
+              </Fragment>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ marginTop: 6, fontSize: 13, color: INK, fontWeight: strong ? 700 : 500, whiteSpace: "nowrap" }}>
+          {moneyOrDash(cost)} <span style={{ color: MUTED, fontWeight: 400 }}>{costLabel}</span>
+        </div>
+      )}
       {!hideDelta && delta.ratio !== null && (
         <div style={{ marginTop: 4, marginLeft: -8 }}><Delta b={delta} /></div>
       )}
