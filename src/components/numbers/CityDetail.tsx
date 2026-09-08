@@ -1,7 +1,7 @@
 import type { LabourRow } from "@/lib/ad-spend.functions";
-import { type CityStats, type Diagnosis, compareToAvg, oneIn } from "./model";
+import { type CityStats, type Diagnosis, compareToAvg, labourSentence, oneIn } from "./model";
 import { CARD, FAINT, GREEN, INK, LABEL, MUTED, RED, TONE, money, moneyOrDash, oneDp, pctOrDash } from "./format";
-import { Delta, Dot, Note, SplitBar } from "./primitives";
+import { Delta, Dot, SplitBar } from "./primitives";
 
 /**
  * The selected city on one screen: verdict → funnel → marketing vs labour.
@@ -26,6 +26,13 @@ export function CityDetail({
   const s = scope;
   const bm = (value: number | null, a: number | null, lowerIsBetter: boolean) => compareToAvg(value, a, lowerIsBetter);
   const unallocCost = unallocated ? unallocated.hourly_cost + unallocated.bonus_cost : 0;
+  const sentence = labourSentence(s, avg, s.key, isAll, { oneDp });
+  const caveats: string[] = [];
+  if (!countMyPay) caveats.push("Your own pay is excluded from labour.");
+  if (isAll && unallocated && unallocCost > 0) caveats.push(`Includes ${money(unallocCost)} of labour (${oneDp(unallocated.hours)} h) on website and untracked leads, which have no city.`);
+  if (s.hoursMissingRate > 0) caveats.push(`${oneDp(s.hoursMissingRate)} hours are from a rep with no rate set, so labour is understated.`);
+  if (s.hoursFallback > 0) caveats.push(`${oneDp(s.hoursFallback)} hours were split by leads contacted rather than call time.`);
+  if (s.bonusMissingRate > 0) caveats.push(`${s.bonusMissingRate} bookings have no bonus rate set.`);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -114,12 +121,18 @@ export function CityDetail({
       <div style={{ ...CARD, padding: "14px 22px 18px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: INK }}>Marketing vs labour</div>
-          <div style={{ fontSize: 12, color: MUTED }}>
-            {s.hoursOk ? `${money(s.totalCost)} total cost` : "labour hours could not be calculated"}
-            {s.revenue > 0 && s.hoursOk ? ` · ${money(s.revenue)} revenue · ` : ""}
-            {s.revenue > 0 && s.hoursOk ? (
-              <span style={{ color: s.profit >= 0 ? GREEN : RED, fontWeight: 600 }}>{s.profit >= 0 ? "+" : ""}{money(s.profit)} profit</span>
-            ) : null}
+          <div style={{ fontSize: 12.5, color: MUTED }}>
+            {s.hoursOk ? (
+              <>
+                Cost <b style={{ color: INK }}>{money(s.totalCost)}</b>
+                {s.revenue > 0 && (
+                  <>
+                    {" · "}Revenue <b style={{ color: INK }}>{money(s.revenue)}</b>
+                    {" · "}Profit <b style={{ color: s.profit >= 0 ? GREEN : RED }}>{s.profit >= 0 ? "+" : ""}{money(s.profit)}</b>
+                  </>
+                )}
+              </>
+            ) : "labour hours could not be calculated"}
           </div>
         </div>
 
@@ -127,46 +140,32 @@ export function CityDetail({
           <SplitBar share={s.hoursOk ? s.marketingShare : null} height={10} title="Black is ad spend, tan is rep pay and bonuses." />
         </div>
 
-        <div className="numbers-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 14 }}>
+        <div className="numbers-split" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 16 }}>
           <Side
             title="Marketing"
             share={s.marketingShare}
             big={s.spend ? money(s.spend) : "—"}
-            rows={[
-              ["Cost per lead", moneyOrDash(s.costPerLead), bm(s.costPerLead, avg.costPerLead, true)],
-              ["Cost per showed", moneyOrDash(s.adCostPerShow), bm(s.adCostPerShow, avg.adCostPerShow, true)],
-              ["Leads per showed", s.showed ? oneDp(s.leads / s.showed) : "—", bm(s.showed ? s.leads / s.showed : null, avg.showed ? avg.leads / avg.showed : null, true)],
-            ]}
-            hideDelta={isAll}
+            sub={s.leads ? `${s.leads} leads from ads · ${moneyOrDash(s.costPerLead)} each` : "no leads from ads"}
             dotColor={INK}
           />
           <Side
             title="Labour"
             share={s.marketingShare === null ? null : 1 - s.marketingShare}
             big={s.hoursOk ? money(s.labourCost) : "—"}
-            sub={s.hoursOk ? `${oneDp(s.hours)} h at rate · ${money(s.bonusCost)} bonuses` : undefined}
-            rows={[
-              ["Rep hours per booking", oneDp(s.hoursPerBooking), bm(s.hoursPerBooking, avg.hoursPerBooking, true)],
-              ["Leads per booking", oneDp(s.leadsPerBooking), bm(s.leadsPerBooking, avg.leadsPerBooking, true)],
-              ["Labour per showed", moneyOrDash(s.labourPerShow), bm(s.labourPerShow, avg.labourPerShow, true)],
-            ]}
-            hideDelta={isAll}
+            sub={s.hoursOk ? `${oneDp(s.hours)} hours of calling · ${s.booked} booking${s.booked === 1 ? "" : "s"}` : "hours not available"}
             dotColor="#d8c6a8"
           />
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
-          {!countMyPay && <Note tone="grey">Your own pay is excluded from labour.</Note>}
-          {isAll && unallocated && unallocCost > 0 && (
-            <Note tone="grey">Includes {money(unallocCost)} of labour ({oneDp(unallocated.hours)} h) on website and untracked leads, which have no city.</Note>
-          )}
-          {s.hoursMissingRate > 0 && <Note>{oneDp(s.hoursMissingRate)} hours are from a rep with no rate set — labour is understated.</Note>}
-          {s.hoursFallback > 0 && <Note>{oneDp(s.hoursFallback)} hours were split by leads contacted rather than call time.</Note>}
-          {s.bonusMissingRate > 0 && <Note>{s.bonusMissingRate} bookings have no bonus rate set.</Note>}
-        </div>
-        <div style={{ fontSize: 11, color: FAINT, marginTop: 10, lineHeight: 1.5 }}>
-          More rep hours or more leads for every booking means this city is harder to convert, whatever the ads cost. Chips compare with the account average.
-        </div>
+        {sentence && (
+          <div style={{ marginTop: 16, padding: "11px 14px", borderRadius: 10, background: TONE[sentence.tone].bg, fontSize: 13.5, color: INK, lineHeight: 1.45 }}>
+            <b style={{ color: TONE[sentence.tone].text }}>{sentence.headline}</b> {sentence.detail}
+          </div>
+        )}
+
+        {(caveats.length > 0) && (
+          <div style={{ fontSize: 11.5, color: FAINT, marginTop: 10, lineHeight: 1.5 }}>{caveats.join(" ")}</div>
+        )}
       </div>
     </div>
   );
@@ -207,34 +206,15 @@ function Arrow({ rate, line1, line2, delta, hideDelta }: { rate: number | null; 
   );
 }
 
-function Side({
-  title, share, big, sub, rows, hideDelta, dotColor,
-}: {
-  title: string; share: number | null; big: string; sub?: string;
-  rows: [string, string, ReturnType<typeof compareToAvg>][]; hideDelta: boolean; dotColor: string;
-}) {
+function Side({ title, share, big, sub, dotColor }: { title: string; share: number | null; big: string; sub: string; dotColor: string }) {
   return (
-    <div style={{ padding: "12px 14px", borderRadius: 12, background: "#faf9f7", minWidth: 0 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ ...LABEL, display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 999, background: dotColor }} />
-          {title}
-        </span>
-        <span style={{ fontSize: 12, color: MUTED }}>{share === null ? "—" : `${Math.round(share * 100)}% of cost`}</span>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ ...LABEL, display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 9, height: 9, borderRadius: 999, background: dotColor, flexShrink: 0 }} />
+        {title}{share !== null ? ` · ${Math.round(share * 100)}%` : ""}
       </div>
-      <div style={{ fontSize: 26, fontWeight: 600, color: INK, letterSpacing: -0.5, lineHeight: 1.1, marginTop: 4, fontVariantNumeric: "tabular-nums" }}>{big}</div>
-      {sub && <div style={{ fontSize: 11.5, color: FAINT, marginTop: 2 }}>{sub}</div>}
-      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-        {rows.map(([k, v, d]) => (
-          <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 13 }}>
-            <span style={{ color: MUTED }}>{k}</span>
-            <span style={{ fontWeight: 600, color: INK, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-              {v}
-              <Delta b={d} hide={hideDelta} />
-            </span>
-          </div>
-        ))}
-      </div>
+      <div style={{ fontSize: 30, fontWeight: 700, color: INK, letterSpacing: -0.6, lineHeight: 1.1, marginTop: 6, fontVariantNumeric: "tabular-nums" }}>{big}</div>
+      <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4 }}>{sub}</div>
     </div>
   );
 }

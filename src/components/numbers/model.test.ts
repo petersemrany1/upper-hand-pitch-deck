@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AdPerformanceRow } from "@/lib/ad-spend.functions";
-import { buildAdStats, buildAllCities, buildCityStats, judgeAd, sumCityStats } from "./model";
+import { buildAdStats, buildAllCities, buildCityStats, judgeAd, labourSentence, sumCityStats } from "./model";
 
 const ad = (o: Partial<AdPerformanceRow> & { ad_name: string }): AdPerformanceRow => ({
   location: null, spend: 0, impressions: 0, clicks: 0, leads: 0, booked: 0, showed: 0, noshow: 0, upcoming: 0,
@@ -181,4 +181,55 @@ test("oneIn", () => {
   expect(oneIn(0.25)).toBe("1 in 4.0");
   expect(oneIn(0.05)).toBe("1 in 20");
   expect(oneIn(null)).toBe("—");
+});
+
+describe("labourSentence", () => {
+  const fmt = { oneDp: (n: number | null) => (n === null ? "—" : n.toFixed(1)) };
+  const loc = (location: string, spend: number, leads: number, booked: number) => ({
+    location, spend, leads, booked, showed: booked, noshow: 0, upcoming: 0, needs_outcome: 0, disqualified: 0,
+  });
+  const lab = (key: string, hours: number, bookings: number) => ({
+    key, hours, hourly_cost: hours * 40, bonus_cost: 0, hours_missing_rate: 0, hours_fallback: 0, bookings, bonus_missing_rate: 0,
+  });
+  // Average: $20 a lead, 2.5 hours a booking.
+  const avg = buildCityStats("all", loc("all", 2000, 100, 10), lab("all", 25, 10), null);
+
+  test("hard to convert when rep hours per booking are well over average", () => {
+    const melb = buildCityStats("Melbourne", loc("Melbourne", 1250, 50, 2), lab("Melbourne", 24, 2), null);
+    const r = labourSentence(melb, avg, "Melbourne", false, fmt);
+    expect(r?.headline).toBe("Melbourne is hard to convert.");
+    expect(r?.tone).toBe("red");
+    expect(r?.detail).toContain("12.0 hours of rep time per booking, average is 2.5.");
+    expect(r?.detail).toContain("Both the ads and the calling cost more than average.");
+  });
+
+  test("easy to convert, with the cost in the ads", () => {
+    const byron = buildCityStats("Byron Bay", loc("Byron Bay", 1500, 60, 7), lab("Byron Bay", 12.6, 7), null);
+    const r = labourSentence(byron, avg, "Byron Bay", false, fmt);
+    expect(r?.headline).toBe("Byron Bay is easy to convert.");
+    expect(r?.tone).toBe("green");
+    expect(r?.detail).toContain("The cost is in the ads.");
+  });
+
+  test("about average when neither side is out of line", () => {
+    const perth = buildCityStats("Perth", loc("Perth", 1000, 50, 5), lab("Perth", 12.5, 5), null);
+    const r = labourSentence(perth, avg, "Perth", false, fmt);
+    expect(r?.headline).toBe("Perth converts about average.");
+    expect(r?.detail).toContain("Both sides are at or under average.");
+  });
+
+  test("plenty of leads and no bookings is a red flag; few leads is too early", () => {
+    const dead = buildCityStats("Sydney", loc("Sydney", 500, 20, 0), lab("Sydney", 5, 0), null);
+    expect(labourSentence(dead, avg, "Sydney", false, fmt)?.headline).toBe("Sydney isn't converting.");
+    const young = buildCityStats("Sydney", loc("Sydney", 50, 3, 0), lab("Sydney", 1, 0), null);
+    expect(labourSentence(young, avg, "Sydney", false, fmt)?.tone).toBe("grey");
+  });
+
+  test("no hours means no sentence; all-cities view has no comparison", () => {
+    const noHours = buildCityStats("Perth", loc("Perth", 1000, 50, 5), null, null);
+    expect(labourSentence(noHours, avg, "Perth", false, fmt)).toBeNull();
+    const all = labourSentence(avg, avg, "All cities", true, fmt);
+    expect(all?.headline).toBe("Across all cities:");
+    expect(all?.detail).toBe("2.5 hours of rep time per booking.");
+  });
 });

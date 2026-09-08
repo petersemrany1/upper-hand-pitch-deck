@@ -23,15 +23,11 @@ type SortKey = "verdict" | "spend" | "leads" | "costPerLead" | "booked" | "bookR
  */
 export function AdsTab({
   rows,
-  avgCostPerShow,
   loading,
-  scopeLabel,
   onDrill,
 }: {
   rows: AdStats[];
-  avgCostPerShow: number | null;
   loading: boolean;
-  scopeLabel: string;
   onDrill: (ad: AdPerformanceRow) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("verdict");
@@ -93,19 +89,19 @@ export function AdsTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ ...CARD, padding: "14px 18px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-        <Pill tone="green">{counts.winning} winning</Pill>
-        <Pill tone="amber">{counts.ok} average</Pill>
-        <Pill tone="red">{counts.poor + counts.notBooking} poor</Pill>
-        <Pill tone="grey">{counts.early} too early</Pill>
-        <div style={{ flex: 1 }} />
-        <div style={{ fontSize: 12, color: MUTED }}>
-          {scopeLabel} · average cost per showed {moneyOrDash(avgCostPerShow)}
-        </div>
-      </div>
-
       <div style={{ ...CARD, padding: 0 }}>
-        <SectionTitle right="Click an ad to see its leads">Ads, best first</SectionTitle>
+        <SectionTitle
+          right={
+            <span style={{ display: "inline-flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <Pill tone="green">{counts.winning} winning</Pill>
+              <Pill tone="amber">{counts.ok} average</Pill>
+              <Pill tone="red">{counts.poor + counts.notBooking} poor</Pill>
+              <Pill tone="grey">{counts.early} too early</Pill>
+            </span>
+          }
+        >
+          Ads, best first
+        </SectionTitle>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
