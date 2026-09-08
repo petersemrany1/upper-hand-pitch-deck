@@ -924,7 +924,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             next[idx] = { ...next[idx], ...nextLead };
             return next;
           }
-          return [nextLead, ...prev].slice(0, SALES_CALL_LEAD_LIMIT);
+          // Never trim the list here: dropping leads mid-session throws away
+          // the one the rep is on and sends the portal skipping through the
+          // queue. The list is bounded by what load() returns.
+          return [nextLead, ...prev];
         });
       }).subscribe();
     return () => { void supabase.removeChannel(ch); };
@@ -1171,6 +1174,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // is re-served at most once per session so a rep who keeps skipping a lead
   // can't be trapped in a loop, and the session can still end.
   const requeuedOnceRef = useRef<Set<string>>(new Set());
+  // Queued leads that weren't in the loaded list and have been fetched by id
+  // (once each) before the portal is allowed to skip past them.
+  const missingLeadTriedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     if (sessionActive) requeuedOnceRef.current = new Set();
   }, [sessionActive]);
@@ -1396,12 +1402,21 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           armAutoDial();
         });
       } else if (!leadLoaded && leads.length > 0) {
-        // Leads have loaded but this queued id isn't in the result set
-        // (deleted, filtered out, or older than the fetch limit). Skip past
-        // it instead of leaving the page permanently blank.
-        queueMicrotask(() => {
-          setSessionIndex((i) => i + 1);
-        });
+        // Leads have loaded but this queued id isn't in the list (older than
+        // the fetch limit, or a status the list doesn't load). Fetch it by id
+        // once; only skip if it genuinely doesn't exist any more.
+        if (!missingLeadTriedRef.current.has(nextId)) {
+          missingLeadTriedRef.current.add(nextId);
+          void supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .eq("id", nextId)
+            .maybeSingle()
+            .then(({ data }) => {
+              if (data) setLeads((prev) => (prev.some((l) => l.id === nextId) ? prev : [...prev, data as Lead]));
+              else setSessionIndex((i) => i + 1);
+            });
+        }
       }
       // If leads.length === 0 we're still loading — wait for the next render.
       return holding;
