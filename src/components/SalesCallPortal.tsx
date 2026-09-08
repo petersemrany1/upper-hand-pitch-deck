@@ -1668,6 +1668,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onCallStarted={() => {}}
           autoDialEnabled={sessionActive && !manualMode && !sessionPaused}
           autoDialArmToken={autoDialArmToken}
+          onGoToStep={(next) => setStep(next)}
           pendingOutcomeLeadId={pendingOutcomeLeadId}
           onPendingOutcomeArmed={(leadId) => setPendingOutcomeLeadId(leadId)}
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
@@ -6137,6 +6138,7 @@ function RightPanel({
   onOutcomeRequiredChange, onOutcomePendingChange, onAfterOutcomeApplied, onCallStarted, practiceMode = false,
   pendingOutcomeLeadId, onPendingOutcomeArmed,
   autoDialEnabled = false, autoDialArmToken = 0,
+  onGoToStep,
 }: {
   active: Lead;
   repId: string | null;
@@ -6156,6 +6158,8 @@ function RightPanel({
   onPendingOutcomeArmed?: (leadId: string) => void;
   autoDialEnabled?: boolean;
   autoDialArmToken?: number;
+  /** Jump the script to a step (used to go straight to Deposit & Book). */
+  onGoToStep?: (step: StepKey) => void;
 }) {
   // repId is threaded into placeCall so call_records.rep_id is set on insert.
   // In practiceMode, skip Twilio device registration entirely — the practice
@@ -6639,7 +6643,7 @@ function RightPanel({
     if (redialCountdown === null) return;
     if (redialCountdown <= 0) {
       setRedialCountdown(null);
-      if (deviceStatus === "ready") {
+      if (deviceStatus === "ready" || deviceStatus === "error") {
         setAutoDialNote(`Second try dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
         void callNowRef.current();
       } else {
@@ -6780,7 +6784,7 @@ function RightPanel({
     if (autoDialCountdown === null) return;
     if (autoDialCountdown <= 0) {
       setAutoDialCountdown(null);
-      if (deviceStatus === "ready") {
+      if (deviceStatus === "ready" || deviceStatus === "error") {
         setAutoDialNote(`Auto-dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
         void callNowRef.current();
       } else {
@@ -6794,7 +6798,7 @@ function RightPanel({
   }, [autoDialCountdown, deviceStatus]);
   useEffect(() => {
     if (!autoDialWaiting) return;
-    if (deviceStatus === "ready") {
+    if (deviceStatus === "ready" || deviceStatus === "error") {
       setAutoDialWaiting(false);
       setAutoDialNote(`Auto-dialled at ${new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}`);
       void callNowRef.current();
@@ -8115,6 +8119,15 @@ function RightPanel({
       {outcomeRequired && (
         <ForcedOutcomeModal
           active={active}
+          onTakePayment={() => {
+            // They booked on the call: close the box and go take the
+            // deposit. The booking itself settles the outcome.
+            setOutcomeRequired(false);
+            onOutcomeRequiredChange?.(false);
+            setOutcomeView("menu");
+            cancelAutoDial();
+            onGoToStep?.("booking");
+          }}
           onCallBack={() => {
             // Call dropped out: ring them straight back. The outcome is still
             // owed once that call ends.
@@ -8155,11 +8168,12 @@ function RightPanel({
 function ForcedOutcomeModal({
   active, callDuration, view, setView,
   callbackDate, setCallbackDate, callbackTime, setCallbackTime,
-  busy, setBusy, onLocalLeadUpdate, onClosed, onCallBack,
+  busy, setBusy, onLocalLeadUpdate, onClosed, onCallBack, onTakePayment,
 }: {
   active: Lead;
   callDuration: number;
   onCallBack?: () => void;
+  onTakePayment?: () => void;
   view: "menu" | "callback" | "drop";
   setView: (v: "menu" | "callback" | "drop") => void;
   callbackDate: string;
@@ -8273,6 +8287,15 @@ function ForcedOutcomeModal({
 
         {view === "menu" && !leadHasBookedSale(active) && (
           <>
+            {onTakePayment && (
+              <button
+                style={{ ...optionStyle, background: "#0f6b3e", color: "#fff", borderColor: "#0f6b3e", fontWeight: 700, marginBottom: 8 }}
+                disabled={busy}
+                onClick={onTakePayment}
+              >
+                Booked — take the deposit now
+              </button>
+            )}
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("no_answer")}>
               <span style={dotStyle("#eab308")} /> No Answer
             </button>
@@ -8288,9 +8311,6 @@ function ForcedOutcomeModal({
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} disabled={busy} onClick={() => apply("not_interested")}>
               <span style={dotStyle("#ef4444")} /> Not Interested
             </button>
-            <div style={{ marginTop: 4, padding: "10px 12px", borderRadius: 10, background: "#f9f9f9", border: "1px dashed #d4d4d2", fontSize: 12, color: "#666", lineHeight: 1.4 }}>
-              <span style={{ fontWeight: 600, color: "#111" }}>Booked a consult?</span> Close this and complete Step 10 to lock in the date, take the deposit and create the appointment. Marking it here would skip the booking and the clinic wouldn't see it.
-            </div>
             <button style={optionStyle} onMouseEnter={onHover} onMouseLeave={onLeave} onClick={() => setView("drop")}>
               <span style={dotStyle("#000000")} /> Dropped
             </button>
