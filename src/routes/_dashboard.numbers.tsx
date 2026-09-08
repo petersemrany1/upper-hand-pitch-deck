@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock, Download } from "lucide-react";
+import { AlertTriangle, Check, X, Ban, Plus, Pencil, Trash2, RefreshCw, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { APP_TIMEZONE } from "@/lib/timezone";
@@ -15,7 +15,6 @@ import {
   listClinicPacks,
   upsertClinicPack,
   deleteClinicPack,
-  backfillMetaSpend,
   runNumbersDataAudit,
   type ClinicPackRow,
   type ClinicOption,
@@ -100,13 +99,15 @@ function NumbersPage() {
 
   const [spendCoverage, setSpendCoverage] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
   const [spendDuplicates, setSpendDuplicates] = useState(0);
-  const runBackfill = useServerFn(backfillMetaSpend);
   const runAudit = useServerFn(runNumbersDataAudit);
+  // Diagnostic for whoever is checking the data, not part of the page:
+  // only shown when the address ends in ?audit=1.
+  const [showAuditTools, setShowAuditTools] = useState(false);
+  useEffect(() => {
+    try { setShowAuditTools(new URLSearchParams(window.location.search).get("audit") === "1"); } catch { /* noop */ }
+  }, []);
   const [audit, setAudit] = useState<Awaited<ReturnType<typeof runNumbersDataAudit>> | null>(null);
   const [auditing, setAuditing] = useState(false);
-  const [backfillSince, setBackfillSince] = useState("2026-04-20");
-  const [backfilling, setBackfilling] = useState(false);
-  const [backfillProgress, setBackfillProgress] = useState("");
 
   const [syncState, setSyncState] = useState<{
     last_synced_at: string | null;
@@ -275,56 +276,6 @@ function NumbersPage() {
     setRangeKey("custom");
   };
 
-  const backfill = async () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(backfillSince)) {
-      toast.error("Pick a start date for the backfill");
-      return;
-    }
-    setBackfilling(true);
-    // One request per month so no single call runs long enough to time out.
-    const today = todaySydney();
-    const months: [string, string][] = [];
-    let cursor = backfillSince;
-    while (cursor <= today) {
-      const end = new Date(`${cursor}T00:00:00Z`);
-      end.setUTCMonth(end.getUTCMonth() + 1);
-      end.setUTCDate(0); // last day of cursor's month
-      const until = end.toISOString().slice(0, 10) < today ? end.toISOString().slice(0, 10) : today;
-      months.push([cursor, until]);
-      const next = new Date(`${until}T00:00:00Z`);
-      next.setUTCDate(next.getUTCDate() + 1);
-      cursor = next.toISOString().slice(0, 10);
-    }
-    let total = 0;
-    let adLevel = 0;
-    let account = 0;
-    let accountKnown = false;
-    const byCampaign = new Map<string, number>();
-    try {
-      for (const [since, until] of months) {
-        setBackfillProgress(`${since} → ${until}`);
-        const r = await runBackfill({ data: { since, until } });
-        total += r.rows;
-        adLevel += r.adLevelSpend;
-        if (r.accountSpend !== null) { account += r.accountSpend; accountKnown = true; }
-        for (const c of r.campaigns) byCampaign.set(c.name, (byCampaign.get(c.name) ?? 0) + c.spend);
-      }
-      const top = Array.from(byCampaign.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6)
-        .map(([n, v]) => `${n}: ${money(v)}`).join(" · ");
-      toast.success(
-        `Pulled ${total} rows since ${backfillSince}. Ad-level spend ${money(adLevel)}` +
-        (accountKnown ? ` · Meta account total ${money(account)}` : "") +
-        (top ? `\nBy campaign: ${top}` : ""),
-        { duration: 20000 },
-      );
-      await load();
-    } catch (e) {
-      toast.error(`${(e as Error).message || "Backfill failed"} (${total} rows written so far)`);
-    } finally {
-      setBackfilling(false);
-      setBackfillProgress("");
-    }
-  };
 
   return (
     <div style={{ background: "#f7f7f5", minHeight: "100%", fontFamily: FONT, padding: 24 }}>
@@ -466,6 +417,7 @@ function NumbersPage() {
             {spendPanel ? "Hide spend entries" : "Edit spend by hand"}
           </button>
 
+          {showAuditTools && (
           <button
             onClick={async () => {
               setAuditing(true);
@@ -479,17 +431,7 @@ function NumbersPage() {
           >
             {auditing ? "Auditing…" : audit ? "Re-run data audit" : "Audit the data"}
           </button>
-          <div style={{ ...CARD, padding: "4px 6px 4px 10px", fontSize: 12, display: "flex", alignItems: "center", gap: 6 }} title="Pull daily ad spend from Meta from this date to today. Re-pulling a day corrects it, never duplicates it.">
-            <span style={{ color: MUTED }}>Backfill Meta spend from</span>
-            <input type="date" value={backfillSince} onChange={(e) => setBackfillSince(e.target.value)} style={{ border: "none", fontSize: 12, background: "transparent" }} />
-            <button
-              onClick={() => void backfill()}
-              disabled={backfilling}
-              style={{ fontSize: 12, padding: "5px 10px", borderRadius: 8, border: "none", background: INK, color: "#fff", cursor: backfilling ? "wait" : "pointer", display: "flex", alignItems: "center", gap: 5, opacity: backfilling ? 0.6 : 1 }}
-            >
-              <Download className="h-3 w-3" /> {backfilling ? `Pulling ${backfillProgress}…` : "Pull"}
-            </button>
-          </div>
+          )}
         </div>
 
         {audit && (
@@ -504,13 +446,13 @@ function NumbersPage() {
               <div key={sec.title} style={{ borderTop: "0.5px solid #f0f0ee", padding: "8px 18px 10px" }}>
                 <div style={{ fontSize: 11, letterSpacing: 0.6, textTransform: "uppercase", color: "#8a8a86", fontWeight: 600, margin: "4px 0 6px" }}>{sec.title}</div>
                 {sec.items.map((it) => (
-                  <div key={it.label} style={{ display: "grid", gridTemplateColumns: "10px 1fr auto", columnGap: 10, alignItems: "start", padding: "5px 0" }}>
+                  <div key={it.label} style={{ display: "grid", gridTemplateColumns: "10px minmax(0, 1fr) minmax(0, 45%)", columnGap: 10, alignItems: "start", padding: "5px 0" }}>
                     <span style={{ marginTop: 5, width: 8, height: 8, borderRadius: 999, background: it.severity === "bad" ? "#b03030" : it.severity === "warn" ? "#c98a2e" : it.severity === "ok" ? "#2f6f4f" : "#c2c2be" }} />
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: INK }}>{it.label}</div>
                       {it.detail && <div style={{ fontSize: 11.5, color: MUTED, marginTop: 1, lineHeight: 1.4 }}>{it.detail}</div>}
                     </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: INK, textAlign: "right", fontVariantNumeric: "tabular-nums", maxWidth: 360 }}>{it.value}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: INK, textAlign: "right", fontVariantNumeric: "tabular-nums", overflowWrap: "anywhere" }}>{it.value}</div>
                   </div>
                 ))}
               </div>
@@ -526,7 +468,7 @@ function NumbersPage() {
                 <button onClick={useSpendWindow} style={{ background: "transparent", border: "none", padding: 0, color: AMBER, fontWeight: 700, cursor: "pointer", textDecoration: "underline", fontSize: "inherit" }}>
                   Show since {fmtDate(spendCoverage.from)} only
                 </button>
-                {" "}or backfill older spend from Meta above.
+
               </Note>
             )}
             {spendDuplicates > 0 && (
