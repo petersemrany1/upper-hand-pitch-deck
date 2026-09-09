@@ -88,6 +88,7 @@ let pendingIncoming: Call | null = null;
 let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
+let tokenIssuedAt = 0;
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
