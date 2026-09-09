@@ -88,6 +88,7 @@ let pendingIncoming: Call | null = null;
 let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
+let tokenIssuedAt = 0;
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
@@ -188,17 +189,38 @@ async function fetchToken(): Promise<string> {
   return data.token as string;
 }
 
+// A background tab throttles timers, and a single failed refresh used to kill
+// the refresh chain outright — the rep then hit "Call Now" with an expired
+// token and got AccessTokenExpired (20104) / "Failed to start call". We now
+// track the token's age, retry failures, react to Twilio's own
+// `tokenWillExpire` event, and refresh on demand before dialling.
+const TOKEN_STALE_MS = 45 * 60 * 1000;
+
+async function refreshToken(): Promise<boolean> {
+  try {
+    const next = await fetchToken();
+    tokenIssuedAt = Date.now();
+    device?.updateToken(next);
+    scheduleTokenRefresh();
+    return true;
+  } catch (err) {
+    console.error("Voice SDK: token refresh failed", err);
+    // Retry soon instead of abandoning the refresh chain forever.
+    if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(() => { void refreshToken(); }, 30_000);
+    return false;
+  }
+}
+
 function scheduleTokenRefresh() {
   if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-  refreshTimer = window.setTimeout(async () => {
-    try {
-      const next = await fetchToken();
-      device?.updateToken(next);
-      scheduleTokenRefresh();
-    } catch (err) {
-      console.error("Voice SDK: token refresh failed", err);
-    }
-  }, TOKEN_REFRESH_MS);
+  refreshTimer = window.setTimeout(() => { void refreshToken(); }, TOKEN_REFRESH_MS);
+}
+
+async function ensureFreshToken(): Promise<void> {
+  if (!device) return;
+  if (Date.now() - tokenIssuedAt < TOKEN_STALE_MS) return;
+  await refreshToken();
 }
 
 async function ensureDevice(): Promise<void> {
@@ -207,6 +229,7 @@ async function ensureDevice(): Promise<void> {
     try {
       setSnapshot({ status: "loading", dialerStatus: "connecting" });
       const token = await fetchToken();
+      tokenIssuedAt = Date.now();
 
       // Audio tuning notes:
       // - Opus first: built-in packet-loss concealment + adaptive jitter.
@@ -268,9 +291,25 @@ async function ensureDevice(): Promise<void> {
         setSnapshot({ dialerStatus: "connecting" });
       });
 
+      // Twilio warns ~30s before the token dies. Refresh immediately so a
+      // long-open dialler tab never dials with a dead token.
+      (d as unknown as { on: (e: string, cb: () => void) => void }).on("tokenWillExpire", () => {
+        console.log("Voice SDK: token will expire — refreshing");
+        void refreshToken();
+      });
+
       d.on("error", (e: { message?: string; code?: number }) => {
         console.log("DEVICE ERROR", e);
         console.error("Voice SDK error:", e);
+        // Token problems are recoverable: mint a new one and re-register
+        // instead of leaving the dialler stuck in an error state.
+        if (e?.code === 20101 || e?.code === 20104) {
+          void (async () => {
+            const ok = await refreshToken();
+            if (!ok) return;
+            try { await device?.register(); } catch (err) { console.error("re-register failed", err); }
+          })();
+        }
         setSnapshot({
           error: e?.message || `Device error (${e?.code ?? "unknown"})`,
           activeCallStartedAt: activeCall ? currentCallStartedAt : null,
@@ -407,6 +446,22 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   }
   if (currentStatus === "error") {
     setSnapshot({ error: null, status: "ready", dialerStatus: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
+  }
+  // A token older than 45 minutes is about to expire (Twilio TTL is 60) —
+  // renew before dialling rather than failing the call.
+  await ensureFreshToken();
+  // The device registers asynchronously, so the very first dial after loading
+  // the page used to be rejected with "Dialler still connecting". Give
+  // registration a short window to complete instead.
+  const isDialable = () => {
+    const s: string = currentStatus;
+    return s === "ready" || s === "in-call";
+  };
+  if (!isDialable()) {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline && !isDialable()) {
+      await new Promise((r) => setTimeout(r, 200));
+    }
   }
   if (currentStatus !== "ready" && currentStatus !== "in-call") {
     setSnapshot({ error: "Dialler still connecting. Wait until DEVICE READY before calling." });
