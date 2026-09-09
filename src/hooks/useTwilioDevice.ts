@@ -229,6 +229,7 @@ async function ensureDevice(): Promise<void> {
     try {
       setSnapshot({ status: "loading", dialerStatus: "connecting" });
       const token = await fetchToken();
+      tokenIssuedAt = Date.now();
 
       // Audio tuning notes:
       // - Opus first: built-in packet-loss concealment + adaptive jitter.
