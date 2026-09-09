@@ -903,6 +903,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       // Returning / post-consult people are never shown as leads.
       fetched = fetched.filter((l) => !isReturningLead(l.lead_class));
+      // Test dummies and blacklisted people never enter a real calling queue.
+      if (testLeadIds.length === 0) {
+        fetched = fetched.filter((l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && l.status !== "blacklisted");
+      }
+
       setLeads((prev) => {
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
