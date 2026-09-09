@@ -1816,6 +1816,30 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_blacklist: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          reason?: string | null
+        }
+        Relationships: []
+      }
       meta_leads: {
         Row: {
           ad_name: string | null
