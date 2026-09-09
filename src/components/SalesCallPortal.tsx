@@ -76,6 +76,14 @@ function leadHasBookedSale(lead: Lead) {
 }
 
 const SALES_CALL_LEAD_LIMIT = 200;
+
+// Practice/test dummies live in meta_leads so the test portal can dial them.
+// They must never appear in a real rep's calling queue.
+const HIDDEN_TEST_LEAD_IDS = new Set([
+  "5e70f557-73ce-4bb7-a11a-6b718dbd092f", // Peter Test
+  "b2828129-1c28-4502-927a-11f43a0a8473", // Test Tested
+]);
+
 const SALES_CALL_LEAD_SELECT = `
   id, first_name, last_name, email, phone, funding_preference,
   ad_name, ad_set_name, campaign_name, status, call_notes, created_at,
