@@ -76,6 +76,14 @@ function leadHasBookedSale(lead: Lead) {
 }
 
 const SALES_CALL_LEAD_LIMIT = 200;
+
+// Practice/test dummies live in meta_leads so the test portal can dial them.
+// They must never appear in a real rep's calling queue.
+const HIDDEN_TEST_LEAD_IDS = new Set([
+  "5e70f557-73ce-4bb7-a11a-6b718dbd092f", // Peter Test
+  "b2828129-1c28-4502-927a-11f43a0a8473", // Test Tested
+]);
+
 const SALES_CALL_LEAD_SELECT = `
   id, first_name, last_name, email, phone, funding_preference,
   ad_name, ad_set_name, campaign_name, status, call_notes, created_at,
@@ -895,6 +903,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       // Returning / post-consult people are never shown as leads.
       fetched = fetched.filter((l) => !isReturningLead(l.lead_class));
+      // Test dummies and blacklisted people never enter a real calling queue.
+      if (testLeadIds.length === 0) {
+        fetched = fetched.filter((l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && l.status !== "blacklisted");
+      }
+
       setLeads((prev) => {
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
@@ -917,6 +930,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         }
         const nextLead = payload.new as Lead | null;
         if (!nextLead?.id) return;
+        if (testLeadIds.length === 0 && (HIDDEN_TEST_LEAD_IDS.has(nextLead.id) || nextLead.status === "blacklisted")) {
+          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          return;
+        }
+
         setLeads((prev) => {
           const idx = prev.findIndex((l) => l.id === nextLead.id);
           if (idx >= 0) {
