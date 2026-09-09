@@ -160,75 +160,111 @@ Deno.serve(async (req: Request) => {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  // Every database call gets a hard 10s deadline so a blocked query fails fast
+  // instead of leaving Make.com hanging.
+  const DB_TIMEOUT_MS = 10_000;
+  const dbSignal = () => AbortSignal.timeout(DB_TIMEOUT_MS);
+
   // Only dedup Meta leads by Meta's lead_id. Phone/email matching can hide
   // legitimate fresh submissions from people who enquired before.
   if (row.lead_id) {
-    const { data: existing } = await supabase
-      .from("meta_leads")
-      .select("id")
-      .eq("lead_id", row.lead_id)
-      .maybeSingle();
+    try {
+      const { data: existing } = await supabase
+        .from("meta_leads")
+        .select("id")
+        .eq("lead_id", row.lead_id)
+        .abortSignal(dbSignal())
+        .maybeSingle();
 
-    if (existing?.id) {
-      console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
-      return jsonResponse({ success: true, duplicate: true, id: existing.id }, 200);
+      if (existing?.id) {
+        console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
+        return jsonResponse({ success: true, duplicate: true, id: existing.id }, 200);
+      }
+    } catch (e) {
+      console.error("meta-leads duplicate check timed out:", e);
+      return jsonResponse({ error: "Duplicate check timed out" }, 504);
     }
   }
 
   // Leads arrive unassigned: whoever is dialling takes the next one.
   // A rep is stamped on the lead when they book it.
 
-  const { data, error } = await supabase
-    .from("meta_leads")
-    .insert([row])
-    .select("id")
-    .single();
+  let data: { id: string };
+  try {
+    const { data: inserted, error } = await supabase
+      .from("meta_leads")
+      .insert([row])
+      .select("id")
+      .abortSignal(dbSignal())
+      .single();
 
-  if (error) {
-    // Unique violation on lead_id → treat as duplicate, not an error.
-    if ((error as { code?: string }).code === "23505") {
-      console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
-      return jsonResponse({ success: true, duplicate: true }, 200);
+    if (error) {
+      // Unique violation on lead_id → treat as duplicate, not an error.
+      if ((error as { code?: string }).code === "23505") {
+        console.log("meta-leads duplicate lead_id skipped:", row.lead_id);
+        return jsonResponse({ success: true, duplicate: true }, 200);
+      }
+      console.error("meta-leads insert error:", error);
+      return jsonResponse({ error: error.message }, 500);
     }
-    console.error("meta-leads insert error:", error);
-    return jsonResponse({ error: error.message }, 500);
+    data = inserted as { id: string };
+  } catch (e) {
+    console.error("meta-leads insert timed out:", e);
+    return jsonResponse({ error: "Insert timed out" }, 504);
   }
 
-  // Link to previous lead if we've spoken to this person before.
-  // Match rules: last 9 digits of phone OR exact email (case-insensitive),
-  // excluding the row we just inserted. Newest older match wins.
-  try {
-    const phoneDigits = (row.phone ?? "").replace(/\D/g, "");
-    const tail9 = phoneDigits.length >= 9 ? phoneDigits.slice(-9) : null;
-    const emailLower = row.email ? row.email.toLowerCase() : null;
-    if (tail9 || emailLower) {
+  // Everything below is bookkeeping and must not delay Make.com's response.
+  // The BEFORE INSERT trigger already sets previous_lead_id / lead_class; this
+  // only carries the owning rep across from the earlier enquiry.
+  const linkPreviousLead = async (newId: string) => {
+    try {
+      const phoneDigits = (row.phone ?? "").replace(/\D/g, "");
+      const tail9 = phoneDigits.length >= 9 ? phoneDigits.slice(-9) : null;
+      const emailLower = row.email ? row.email.toLowerCase() : null;
+      if (!tail9 && !emailLower) return;
+
       const orParts: string[] = [];
       if (tail9) orParts.push(`phone.ilike.%${tail9}`);
       if (emailLower) orParts.push(`email.ilike.${emailLower}`);
+
       const { data: prior } = await supabase
         .from("meta_leads")
         .select("id, phone, email, rep_id, created_at")
-        .neq("id", data.id)
+        .neq("id", newId)
         .or(orParts.join(","))
         .order("created_at", { ascending: false })
-        .limit(25);
-      const match = (prior ?? []).find((r) => {
+        .limit(25)
+        .abortSignal(dbSignal());
+
+      const match = (prior ?? []).find((r: { phone?: string | null; email?: string | null }) => {
         const rDigits = (r.phone ?? "").replace(/\D/g, "");
         const phoneMatch = tail9 && rDigits.length >= 9 && rDigits.slice(-9) === tail9;
         const emailMatch = emailLower && r.email && r.email.toLowerCase() === emailLower;
         return phoneMatch || emailMatch;
       });
+
       if (match?.id) {
         // Returning enquiry: keep it with whoever already owns the patient.
         const patch: Record<string, unknown> = { previous_lead_id: match.id };
         if (match.rep_id) patch.rep_id = match.rep_id;
-        await supabase.from("meta_leads").update(patch).eq("id", data.id);
+        await supabase
+          .from("meta_leads")
+          .update(patch)
+          .eq("id", newId)
+          .abortSignal(dbSignal());
       }
+    } catch (e) {
+      console.error("meta-leads previous_lead_id link failed:", e);
     }
-  } catch (e) {
-    console.error("meta-leads previous_lead_id link failed:", e);
-  }
+  };
 
+  const runtime = (globalThis as { EdgeRuntime?: { waitUntil: (p: Promise<unknown>) => void } })
+    .EdgeRuntime;
+  if (runtime?.waitUntil) {
+    runtime.waitUntil(linkPreviousLead(data.id));
+  } else {
+    void linkPreviousLead(data.id);
+  }
 
   return jsonResponse({ success: true, id: data.id }, 201);
 });
