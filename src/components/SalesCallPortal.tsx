@@ -930,6 +930,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         }
         const nextLead = payload.new as Lead | null;
         if (!nextLead?.id) return;
+        if (testLeadIds.length === 0 && (HIDDEN_TEST_LEAD_IDS.has(nextLead.id) || nextLead.status === "blacklisted")) {
+          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          return;
+        }
+
         setLeads((prev) => {
           const idx = prev.findIndex((l) => l.id === nextLead.id);
           if (idx >= 0) {
