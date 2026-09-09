@@ -50,7 +50,7 @@ export function GlobalCallLayer() {
   if (!enabled) return null;
   return (
     <Suspense fallback={null}>
-      <IncomingCallDialog />
+      {showInbound ? <IncomingCallDialog /> : null}
       <FloatingCallWidget />
     </Suspense>
   );
