@@ -4128,7 +4128,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
     // Resolve clinic/doctor names with fallback to current form selection so
     // stale placeholder strings in bookedData don't block the send.
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
     const resolvedClinicName =
       bookedData?.clinicName && !bookedData.clinicName.startsWith("[CLINIC NAME")
