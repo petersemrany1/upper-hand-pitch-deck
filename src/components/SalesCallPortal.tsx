@@ -3560,12 +3560,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
 
-  // Load doctors for the selected clinic
+  // Load doctors for the selected clinic. Fall back to the lead's saved clinic
+  // so a previously booked lead can still resolve its doctor/clinic names after
+  // the rep navigates away and the draft form is cleared.
   useEffect(() => {
-    if (!form.clinicId) { setDoctors([]); return; }
+    const clinicId = form.clinicId || lead.clinic_id;
+    if (!clinicId) { setDoctors([]); return; }
     void supabase.from("partner_doctors")
       .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
-      .eq("clinic_id", form.clinicId)
+      .eq("clinic_id", clinicId)
       .eq("is_active", true)
       .order("created_at")
       .then(({ data }) => {
@@ -3577,7 +3580,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.clinicId]);
+  }, [form.clinicId, lead.clinic_id]);
   const set = (k: keyof typeof form, v: string) => {
     if (k === "clinicId") {
       setClinicExplicitlySelected(Boolean(v));
@@ -3607,10 +3610,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       // Wait until clinics + doctors have loaded so we don't bake placeholder
       // strings ("[CLINIC NAME — fill in before sending]") into bookedData.
       if (clinics.length === 0) return;
-      const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      // The draft form is intentionally cleared of clinic/doctor on restore, but
+      // the lead itself stores the booked clinic. Use it as the source of truth.
+      const effectiveClinicId = form.clinicId || lead.clinic_id;
+      const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
       const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       // If a clinic is selected but its doctors haven't loaded yet, wait.
-      if (form.clinicId && doctors.length === 0) return;
+      if (effectiveClinicId && doctors.length === 0) return;
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
@@ -3707,11 +3713,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const handleSendHandover = async () => {
     if (!bookedData) return;
     setSendingHandover(true);
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const r = await sendClinicHandoverEmail({
       data: {
         leadId: lead.id,
-        clinicId: form.clinicId || lead.clinic_id || null,
+        clinicId: effectiveClinicId || null,
         firstName: lead.first_name ?? "",
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
@@ -4082,7 +4089,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     );
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
-    const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
+    // The draft form may be cleared after a booking; resolve the clinic from the
+    // lead's saved clinic_id so the handover email goes to the right place.
+    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const sc = clinics.find((c) => c.id === effectiveClinicId) as (Clinic & { email?: string | null }) | undefined;
     // Sandbox override: test leads always route to Peter's inbox (mirrors server-side override in resend.functions.ts).
     const SANDBOX_LEAD_IDS = new Set([
       "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
@@ -4122,7 +4132,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
     // Resolve clinic/doctor names with fallback to current form selection so
     // stale placeholder strings in bookedData don't block the send.
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
     const resolvedClinicName =
       bookedData?.clinicName && !bookedData.clinicName.startsWith("[CLINIC NAME")
