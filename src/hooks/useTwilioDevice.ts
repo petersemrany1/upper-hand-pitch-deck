@@ -188,17 +188,38 @@ async function fetchToken(): Promise<string> {
   return data.token as string;
 }
 
+// A background tab throttles timers, and a single failed refresh used to kill
+// the refresh chain outright — the rep then hit "Call Now" with an expired
+// token and got AccessTokenExpired (20104) / "Failed to start call". We now
+// track the token's age, retry failures, react to Twilio's own
+// `tokenWillExpire` event, and refresh on demand before dialling.
+const TOKEN_STALE_MS = 45 * 60 * 1000;
+
+async function refreshToken(): Promise<boolean> {
+  try {
+    const next = await fetchToken();
+    tokenIssuedAt = Date.now();
+    device?.updateToken(next);
+    scheduleTokenRefresh();
+    return true;
+  } catch (err) {
+    console.error("Voice SDK: token refresh failed", err);
+    // Retry soon instead of abandoning the refresh chain forever.
+    if (refreshTimer !== null) window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(() => { void refreshToken(); }, 30_000);
+    return false;
+  }
+}
+
 function scheduleTokenRefresh() {
   if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-  refreshTimer = window.setTimeout(async () => {
-    try {
-      const next = await fetchToken();
-      device?.updateToken(next);
-      scheduleTokenRefresh();
-    } catch (err) {
-      console.error("Voice SDK: token refresh failed", err);
-    }
-  }, TOKEN_REFRESH_MS);
+  refreshTimer = window.setTimeout(() => { void refreshToken(); }, TOKEN_REFRESH_MS);
+}
+
+async function ensureFreshToken(): Promise<void> {
+  if (!device) return;
+  if (Date.now() - tokenIssuedAt < TOKEN_STALE_MS) return;
+  await refreshToken();
 }
 
 async function ensureDevice(): Promise<void> {
