@@ -290,9 +290,25 @@ async function ensureDevice(): Promise<void> {
         setSnapshot({ dialerStatus: "connecting" });
       });
 
+      // Twilio warns ~30s before the token dies. Refresh immediately so a
+      // long-open dialler tab never dials with a dead token.
+      (d as unknown as { on: (e: string, cb: () => void) => void }).on("tokenWillExpire", () => {
+        console.log("Voice SDK: token will expire — refreshing");
+        void refreshToken();
+      });
+
       d.on("error", (e: { message?: string; code?: number }) => {
         console.log("DEVICE ERROR", e);
         console.error("Voice SDK error:", e);
+        // Token problems are recoverable: mint a new one and re-register
+        // instead of leaving the dialler stuck in an error state.
+        if (e?.code === 20101 || e?.code === 20104) {
+          void (async () => {
+            const ok = await refreshToken();
+            if (!ok) return;
+            try { await device?.register(); } catch (err) { console.error("re-register failed", err); }
+          })();
+        }
         setSnapshot({
           error: e?.message || `Device error (${e?.code ?? "unknown"})`,
           activeCallStartedAt: activeCall ? currentCallStartedAt : null,
