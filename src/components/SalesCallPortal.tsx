@@ -3713,11 +3713,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const handleSendHandover = async () => {
     if (!bookedData) return;
     setSendingHandover(true);
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const r = await sendClinicHandoverEmail({
       data: {
         leadId: lead.id,
-        clinicId: form.clinicId || lead.clinic_id || null,
+        clinicId: effectiveClinicId || null,
         firstName: lead.first_name ?? "",
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
