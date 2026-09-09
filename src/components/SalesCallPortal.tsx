@@ -3610,10 +3610,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       // Wait until clinics + doctors have loaded so we don't bake placeholder
       // strings ("[CLINIC NAME — fill in before sending]") into bookedData.
       if (clinics.length === 0) return;
-      const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+      // The draft form is intentionally cleared of clinic/doctor on restore, but
+      // the lead itself stores the booked clinic. Use it as the source of truth.
+      const effectiveClinicId = form.clinicId || lead.clinic_id;
+      const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
       const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
       // If a clinic is selected but its doctors haven't loaded yet, wait.
-      if (form.clinicId && doctors.length === 0) return;
+      if (effectiveClinicId && doctors.length === 0) return;
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
