@@ -453,9 +453,13 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   // The device registers asynchronously, so the very first dial after loading
   // the page used to be rejected with "Dialler still connecting". Give
   // registration a short window to complete instead.
-  if (currentStatus !== "ready" && currentStatus !== "in-call") {
+  const isDialable = () => {
+    const s: string = currentStatus;
+    return s === "ready" || s === "in-call";
+  };
+  if (!isDialable()) {
     const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline && currentStatus !== "ready" && currentStatus !== "in-call") {
+    while (Date.now() < deadline && !isDialable()) {
       await new Promise((r) => setTimeout(r, 200));
     }
   }
