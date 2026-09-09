@@ -4088,7 +4088,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     );
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
-    const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
+    // The draft form may be cleared after a booking; resolve the clinic from the
+    // lead's saved clinic_id so the handover email goes to the right place.
+    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const sc = clinics.find((c) => c.id === effectiveClinicId) as (Clinic & { email?: string | null }) | undefined;
     // Sandbox override: test leads always route to Peter's inbox (mirrors server-side override in resend.functions.ts).
     const SANDBOX_LEAD_IDS = new Set([
       "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
