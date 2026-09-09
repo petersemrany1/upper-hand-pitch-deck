@@ -447,6 +447,18 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   if (currentStatus === "error") {
     setSnapshot({ error: null, status: "ready", dialerStatus: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
   }
+  // A token older than 45 minutes is about to expire (Twilio TTL is 60) —
+  // renew before dialling rather than failing the call.
+  await ensureFreshToken();
+  // The device registers asynchronously, so the very first dial after loading
+  // the page used to be rejected with "Dialler still connecting". Give
+  // registration a short window to complete instead.
+  if (currentStatus !== "ready" && currentStatus !== "in-call") {
+    const deadline = Date.now() + 10_000;
+    while (Date.now() < deadline && currentStatus !== "ready" && currentStatus !== "in-call") {
+      await new Promise((r) => setTimeout(r, 200));
+    }
+  }
   if (currentStatus !== "ready" && currentStatus !== "in-call") {
     setSnapshot({ error: "Dialler still connecting. Wait until DEVICE READY before calling." });
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
