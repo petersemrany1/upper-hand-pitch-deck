@@ -3560,12 +3560,15 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
 
-  // Load doctors for the selected clinic
+  // Load doctors for the selected clinic. Fall back to the lead's saved clinic
+  // so a previously booked lead can still resolve its doctor/clinic names after
+  // the rep navigates away and the draft form is cleared.
   useEffect(() => {
-    if (!form.clinicId) { setDoctors([]); return; }
+    const clinicId = form.clinicId || lead.clinic_id;
+    if (!clinicId) { setDoctors([]); return; }
     void supabase.from("partner_doctors")
       .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
-      .eq("clinic_id", form.clinicId)
+      .eq("clinic_id", clinicId)
       .eq("is_active", true)
       .order("created_at")
       .then(({ data }) => {
@@ -3577,7 +3580,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.clinicId]);
+  }, [form.clinicId, lead.clinic_id]);
   const set = (k: keyof typeof form, v: string) => {
     if (k === "clinicId") {
       setClinicExplicitlySelected(Boolean(v));
