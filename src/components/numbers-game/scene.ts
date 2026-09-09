@@ -43,6 +43,35 @@ function toonRamp() {
 const mat = (color: number, extra: Partial<THREE.MeshToonMaterialParameters> = {}) =>
   new THREE.MeshToonMaterial({ color, gradientMap: toonRamp(), ...extra });
 
+/** A flat sign with text painted on it, for names and district signposts. */
+function textPlane(text: string, o: { w: number; h: number; font?: number; color?: string; bg?: string; bold?: boolean; radius?: number }) {
+  const scale = 24;
+  const c = document.createElement("canvas"); c.width = Math.round(o.w * scale); c.height = Math.round(o.h * scale);
+  const g = c.getContext("2d")!;
+  if (o.bg) { g.fillStyle = o.bg; roundRect(g, 0, 0, c.width, c.height, (o.radius ?? 0.6) * scale); g.fill(); }
+  g.fillStyle = o.color ?? "#1b2430"; g.textAlign = "center"; g.textBaseline = "middle";
+  const px = (o.font ?? o.h * 0.55) * scale;
+  g.font = `${o.bold === false ? "600" : "800"} ${px}px -apple-system, Inter, Helvetica, Arial, sans-serif`;
+  const lines = text.split("\n");
+  lines.forEach((ln, i) => g.fillText(ln, c.width / 2, c.height / 2 + (i - (lines.length - 1) / 2) * px * 1.15));
+  const tex = new THREE.CanvasTexture(c); tex.anisotropy = 4;
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(o.w, o.h), new THREE.MeshBasicMaterial({ map: tex, transparent: true, side: THREE.DoubleSide }));
+  return m;
+}
+function roundRect(g: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+}
+/** Big freestanding signpost naming a district, facing the camera. */
+function signpost(text: string, sub: string, x: number, z: number, color: string) {
+  const g = new THREE.Group(); g.position.set(x, 0, z);
+  const post = new THREE.Mesh(new THREE.BoxGeometry(0.8, 14, 0.8), mat(COL.legs)); post.position.y = 7; post.castShadow = true; g.add(post);
+  const title = textPlane(text, { w: 18, h: 5, font: 3.4, color: "#ffffff", bg: color, radius: 0.9 });
+  title.position.set(0, 16.5, 0); title.rotation.y = Math.PI / 4; g.add(title);
+  const small = textPlane(sub, { w: 18, h: 2.2, font: 1.15, color: "#1b2430", bg: "#ffffff", radius: 0.6, bold: false });
+  small.position.set(0, 12.7, 0); small.rotation.y = Math.PI / 4; g.add(small);
+  return g;
+}
+
 type Bead = { mesh: THREE.Mesh; curve: THREE.Curve<THREE.Vector3>; t: number; speed: number };
 type Drive = { group: THREE.Group; curve: THREE.CatmullRomCurve3; t: number; home: THREE.Vector3; homeRot: number };
 type Anim = { water: THREE.Mesh; target: number; maxH: number; base: number };
@@ -135,6 +164,7 @@ export class TownScene {
       g.add(this.torus(r + 0.1, 0.18, COL.legs, 0, legH + 1.2, 0)); g.add(this.torus(r + 0.1, 0.18, COL.legs, 0, legH + 5.6, 0));
       const roof = new THREE.Mesh(new THREE.ConeGeometry(r + 0.7, 2.4, 28), mat(COL.roofRed)); roof.position.set(0, legH + 0.6 + tankH + 1.2, 0); roof.castShadow = true; g.add(roof);
       const pipe = this.cyl(0.45, legH + 1, COL.pipe, 0, 0, r + 0.6); g.add(pipe);
+      const adTag = textPlane("AD", { w: 4.6, h: 2.6, font: 1.9, color: "#ffffff", bg: "#1b2430" }); adTag.position.set(r * 0.72, legH + 3.8, r * 0.72); adTag.rotation.y = Math.PI / 4; g.add(adTag);
       g.add(this.disc(1.6, TONE_COL[tw.tone], 0, r + 0.6, 0.06));
       if (tw.smoke) for (let k = 0; k < 4; k++) {
         const s = new THREE.Mesh(new THREE.SphereGeometry(0.8 + k * 0.35, 12, 10), mat(0xd7dde3, { transparent: true, opacity: 0.6 - k * 0.1 }));
@@ -142,7 +172,7 @@ export class TownScene {
         s.position.copy(base); this.scene.add(s); this.smoke.push({ mesh: s, base, phase: k * 0.9 });
       }
       this.tag(g, { kind: "tower", id: tw.id }); T.add(g);
-      this.labelAnchors.push({ key: `tower:${tw.id}`, pos: new THREE.Vector3(x, col === 0 ? legH + tankH + 3.2 : legH * 0.42, z + (col === 0 ? 0 : 4)), title: tw.name, sub: tw.note, tone: tw.tone });
+      this.labelAnchors.push({ key: `tower:${tw.id}`, pos: new THREE.Vector3(x, col === 0 ? legH + tankH + 3.2 : legH * 0.42, z + (col === 0 ? 0 : 4)), title: `AD · ${tw.name}`, sub: tw.note, tone: tw.tone });
       // feeder pipe to the trunk line
       this.pipe([[x, 1.1, z + r + 0.6], [x, 1.1, z + r + 4], [-38, 1.1, z + r + 4], [-38, 1.1, -6]], 0.55, false);
     });
@@ -161,6 +191,7 @@ export class TownScene {
     depot.add(this.box(depotW, 7.5, 16, COL.wall, 0, 0, 0));
     depot.add(this.box(depotW + 1, 1, 17, COL.roofOrange, 0, 7.5, 0));
     depot.add(this.box(depotW * 0.6, 2.2, 0.5, COL.roofOrange, 0, 8.5, 8.2));
+    const depotSign = textPlane("ADVISORS · DEPOT", { w: depotW * 0.58, h: 2, font: 1.35, color: "#1b2430" }); depotSign.position.set(0, 9.6, 8.5); depot.add(depotSign);
     for (let i = 0; i < nb; i++) {
       const bx = -depotW / 2 + 6 + i * 10 + 2;
       depot.add(this.box(6, 5.2, 0.4, 0x2a3442, bx, 0, 8.05)); // bay door
@@ -175,7 +206,7 @@ export class TownScene {
       const bx = dx0 - depotW / 2 + 8 + i * 10;
       const bz = -1;
       const vanCol = b.tone === "red" ? COL.red : b.tone === "green" ? COL.green : b.tone === "amber" ? COL.amber : COL.grey;
-      const van = this.van(vanCol, b.inSession);
+      const van = this.van(vanCol, b.inSession, b.name);
       van.position.set(bx, 0, bz + 1.5); van.rotation.y = Math.PI;
       this.tag(van, { kind: "bay", id: b.repId }); T.add(van);
       this.vans.set(b.repId, { group: van, home: van.position.clone(), rot: van.rotation.y });
@@ -186,7 +217,7 @@ export class TownScene {
       // fuel post = hours today against 8
       T.add(this.box(0.5, 4, 0.5, COL.legs, bx + 4.2, 0, bz + 1));
       T.add(this.box(0.8, Math.max(0.05, 4 * Math.min(1, b.hoursToday / 8)), 0.8, b.hoursToday > 0 ? COL.green : COL.grey, bx + 4.2, 0, bz + 1));
-      this.labelAnchors.push({ key: `bay:${b.repId}`, pos: new THREE.Vector3(bx, 5.4, bz + 1.5), title: b.name, sub: b.note, tone: b.tone });
+      this.labelAnchors.push({ key: `bay:${b.repId}`, pos: new THREE.Vector3(bx, 5.4, bz + 1.5), title: `ADVISOR · ${b.name}`, sub: b.note, tone: b.tone });
     });
 
     // ===== Pipe depot -> clinics, with clogs on it
@@ -197,7 +228,8 @@ export class TownScene {
       const p = mainOut.getPoint(0.3 + i * 0.25);
       const lump = new THREE.Mesh(new THREE.SphereGeometry(1.9, 18, 14), mat(COL.clog)); lump.scale.set(1.5, 1, 1); lump.position.copy(p); lump.position.y = 1.2; lump.castShadow = true;
       this.tag(lump, { kind: "clog", id: c.id }); T.add(lump); this.clogMeshes.push(lump);
-      this.labelAnchors.push({ key: `clog:${c.id}`, pos: new THREE.Vector3(p.x, 4.2, p.z), title: `Clog · ${c.count}`, sub: c.label, tone: c.tone });
+      const stuck = textPlane(`STUCK · ${c.count}`, { w: 5.5, h: 1.6, font: 0.9, color: "#ffffff", bg: "#c9362a" }); stuck.position.set(p.x, 3.2, p.z); stuck.rotation.y = Math.PI / 4; T.add(stuck);
+      this.labelAnchors.push({ key: `clog:${c.id}`, pos: new THREE.Vector3(p.x, 5.4, p.z), title: `STUCK · ${c.count} ${c.label.toLowerCase()}`, sub: c.detail, tone: c.tone });
     });
     for (let i = 0; i < Math.min(6, town.todayBooked + 1); i++) this.addBead(mainOut, i / 6, 0.05);
 
@@ -217,10 +249,12 @@ export class TownScene {
       g.add(this.cyl(2.1, tankH, COL.glass, 7.2, 0, 1, { transparent: true, opacity: 0.35 }));
       g.add(this.cyl(2.3, 0.5, COL.legs, 7.2, tankH, 1));
       g.add(this.disc(1.5, TONE_COL[t.tone], 7.2, 4.6, 0.06));
+      const count = textPlane(`${t.delivered} / ${t.packSize}`, { w: 5.6, h: 2.4, font: 1.5, color: "#ffffff", bg: "#1b2430" }); count.position.set(7.2, tankH + 2, 1); count.rotation.y = Math.PI / 4; g.add(count);
+      const cross = new THREE.Group(); cross.add(this.box(1.6, 0.5, 0.3, COL.red, 0, 0, 0)); cross.add(this.box(0.5, 1.6, 0.3, COL.red, 0, -0.55, 0)); cross.position.set(0, 6.1, 4.2); g.add(cross);
       this.pipe([[hx - 6, 1.1, hz], [hx - 4.6, 1.1, hz]], 0.45, false);
       this.tag(g, { kind: "tank", id: t.clinicId }); T.add(g);
       this.tankPos.set(t.clinicId, new THREE.Vector3(hx, 0, hz + 9));
-      this.labelAnchors.push({ key: `tank:${t.clinicId}`, pos: new THREE.Vector3(hx, 9.6, hz), title: t.name, sub: t.note, tone: t.tone });
+      this.labelAnchors.push({ key: `tank:${t.clinicId}`, pos: new THREE.Vector3(hx, 9.6, hz), title: `CLINIC · ${t.name}`, sub: t.note, tone: t.tone });
       if (i > 0) this.pipe([[clinicX, 1.1, -12], [clinicX, 1.1, hz], [hx - 6, 1.1, hz]], 0.55, false);
     });
 
@@ -234,6 +268,7 @@ export class TownScene {
     const meter = new THREE.Group(); meter.position.set(mx, 0, mz);
     meter.add(this.box(14, 4.5, 8, COL.wall, 0, 0, 0)); meter.add(this.box(14.6, 0.8, 8.6, COL.roofBlue, 0, 4.5, 0));
     meter.add(this.cyl(1.4, 0.5, COL.legs, 0, 5.3, 0)); meter.add(this.cyl(0.5, 2.2, COL.legs, 0, 5.3, 0));
+    const moneySign = textPlane("MONEY · METER HOUSE", { w: 13, h: 2, font: 1.15, color: "#ffffff", bg: "#1b2430" }); moneySign.position.set(0, 2.6, 4.2); meter.add(moneySign);
     this.tag(meter, { kind: "meter", id: "meter" }); T.add(meter);
     this.labelAnchors.push({ key: "meter", pos: new THREE.Vector3(mx, 8.5, mz), title: "Meter house", sub: `$${Math.round(town.totalCost).toLocaleString()} out · $${Math.round(town.totalRevenue).toLocaleString()} in`, tone: town.profit >= 0 ? "green" : "grey" });
     town.puddles.forEach((p, i) => {
@@ -243,12 +278,18 @@ export class TownScene {
       const m = this.disc(rad, p.tone === "green" ? COL.green : COL.puddle, px, pz, 0.04, { transparent: true, opacity: p.tone === "grey" ? 0.25 : 0.75 });
       this.tag(m, { kind: "puddle", id: p.city }); T.add(m); this.puddles.push({ mesh: m, phase: i, scale: rad });
       if (p.tone === "red") { const drip = this.cyl(0.35, 1.6, COL.pipe, px, 0, pz - rad - 0.8); T.add(drip); }
-      this.labelAnchors.push({ key: `puddle:${p.city}`, pos: new THREE.Vector3(px, 1.2, pz + rad + 1.5), title: `${p.city} ${p.profit >= 0 ? "+" : "−"}$${Math.round(Math.abs(p.profit)).toLocaleString()}`, sub: p.note, tone: p.tone });
+      const cityTag = textPlane(p.city.toUpperCase(), { w: 10, h: 2, font: 1.1, color: "#1b2430" }); cityTag.rotation.x = -Math.PI / 2; cityTag.rotation.z = -Math.PI / 4; cityTag.position.set(px, 0.08, pz + rad + 2.2); T.add(cityTag);
+      this.labelAnchors.push({ key: `puddle:${p.city}`, pos: new THREE.Vector3(px, 1.2, pz + rad + 1.5), title: `${p.city.toUpperCase()} · ${p.profit >= 0 ? "made" : "lost"} $${Math.round(Math.abs(p.profit)).toLocaleString()}`, sub: p.note, tone: p.tone });
     });
 
     // ===== Trees for life
     const spots: [number, number][] = [[-76, 20], [-50, 30], [-30, -32], [-8, -30], [20, -30], [dx0 + depotW / 2 + 4, 28], [clinicX + 40, -30], [clinicX + 44, 20], [mx - 12, 44], [mx + 60, 44], [-74, -40], [clinicX - 6, 30]];
     for (const [x, z] of spots) this.tree(x, z);
+    // District signposts: no legend needed.
+    T.add(signpost("ADS", "water towers · the water is leads", -84, -10, "#1b2430"));
+    T.add(signpost("ADVISORS", "the depot · vans are who's calling", dx0 + depotW / 2 + 10, -26, "#d97706"));
+    T.add(signpost("CLINICS", "tanks fill as we deliver their pack", clinicX + 30, -34, "#1d6fd8"));
+    T.add(signpost("MONEY", "puddles are cities losing money", mx - 16, mz + 4, "#1a7a45"));
     this.fitCamera();
   }
 
@@ -258,20 +299,30 @@ export class TownScene {
   private fitCamera() {
     const bounds = new THREE.Box3().setFromObject(this.townGroup);
     if (bounds.isEmpty()) return;
-    this.center = bounds.getCenter(new THREE.Vector3()); this.center.y = 0; this.center.add(new THREE.Vector3(-13, 0, -13));
+    this.center = bounds.getCenter(new THREE.Vector3()); this.center.y = 0; 
     this.camera.position.copy(this.center).add(new THREE.Vector3(52, 60, 52));
     this.camera.lookAt(this.center);
     this.camera.updateMatrixWorld();
     const inv = this.camera.matrixWorldInverse;
     const w = this.container.clientWidth || 1440, h = this.container.clientHeight || 900;
+    // Leave the right-hand strip for the flags panel and the top for the HUD.
+    const PANEL = w > 900 ? 330 : 0, HUD = 60;
     const aspect = w / h;
+    const usable = Math.max(1, (w - PANEL) / (h - HUD));
     let need = 1;
     const corners = [bounds.min, bounds.max];
     for (const cx of [0, 1]) for (const cy of [0, 1]) for (const cz of [0, 1]) {
       const v = new THREE.Vector3(corners[cx].x, corners[cy].y, corners[cz].z).applyMatrix4(inv);
-      need = Math.max(need, Math.abs(v.x) / aspect, Math.abs(v.y));
+      need = Math.max(need, Math.abs(v.x) / usable, Math.abs(v.y));
     }
-    this.baseFs = need * 1.06;
+    this.baseFs = need * 1.06 * (h / (h - HUD));
+    // Nudge the town left and down so it sits beside the panel, under the HUD.
+    const pxToWorld = (2 * this.baseFs * aspect) / w;
+    const right = new THREE.Vector3(1, 0, -1).normalize();
+    const down = new THREE.Vector3(-1, 0, -1).normalize();
+    this.center.add(right.multiplyScalar((PANEL / 2) * pxToWorld)).add(down.multiplyScalar((HUD / 2) * pxToWorld * 1.4));
+    this.camera.position.copy(this.center).add(new THREE.Vector3(52, 60, 52));
+    this.camera.lookAt(this.center);
     this.resize();
   }
 
@@ -351,8 +402,12 @@ export class TownScene {
   private addBead(curve: THREE.Curve<THREE.Vector3>, t: number, speed: number) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.55, 12, 10), mat(COL.waterDeep)); this.scene.add(m); this.beads.push({ mesh: m, curve, t, speed });
   }
-  private van(color: number, lightsOn: boolean) {
+  private van(color: number, lightsOn: boolean, name = "") {
     const g = new THREE.Group();
+    if (name) {
+      for (const side of [1, -1]) { const t = textPlane(name.toUpperCase(), { w: 4.6, h: 1.3, font: 0.85, color: "#ffffff", bg: "rgba(0,0,0,0.35)" }); t.position.set(side * 1.62, 2.1, -0.4); t.rotation.y = side * Math.PI / 2; g.add(t); }
+      const roof = textPlane("ADVISOR", { w: 3, h: 1, font: 0.55, color: "#1b2430", bg: "#ffffff" }); roof.position.set(0, 3.5, 1.2); roof.rotation.x = -Math.PI / 2; g.add(roof);
+    }
     const body = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.6, 6.2), mat(color)); body.position.y = 1.9; body.castShadow = true; g.add(body);
     const cab = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.9, 2.2), mat(color)); cab.position.set(0, 1.55, 3.9); cab.castShadow = true; g.add(cab);
     const wind = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.9, 0.3), mat(0x9fd8ff)); wind.position.set(0, 1.9, 5.0); g.add(wind);
