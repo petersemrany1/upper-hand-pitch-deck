@@ -53,7 +53,11 @@ export function MiniMessenger() {
   const [error, setError] = useState<string | null>(null);
   const [showNewThread, setShowNewThread] = useState(false);
   const [newPhone, setNewPhone] = useState("");
+  const [newName, setNewName] = useState<string | null>(null);
+  const [leadHits, setLeadHits] = useState<Array<{ id: string; name: string; phone: string }>>([]);
+  const [searchingLeads, setSearchingLeads] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const sendSmsFn = useServerFn(sendSms);
@@ -143,6 +147,52 @@ export function MiniMessenger() {
     });
   }, [threads, filter]);
 
+  // Also search everyone in the lead list, even people we've never texted.
+  useEffect(() => {
+    const q = filter.trim();
+    if (q.length < 2) { setLeadHits([]); setSearchingLeads(false); return; }
+    let cancelled = false;
+    setSearchingLeads(true);
+    const timer = setTimeout(async () => {
+      const token = q.split(/\s+/)[0];
+      const digits = q.replace(/\D/g, "");
+      const like = `%${token}%`;
+      const filters = [`first_name.ilike.${like}`, `last_name.ilike.${like}`];
+      if (digits.length >= 3) filters.push(`phone.ilike.%${digits}%`);
+      const { data } = await supabase
+        .from("meta_leads")
+        .select("id, first_name, last_name, phone, created_at")
+        .not("phone", "is", null)
+        .or(filters.join(","))
+        .order("created_at", { ascending: false })
+        .limit(60);
+      if (cancelled) return;
+      const lower = q.toLowerCase();
+      const threadTails = new Set(
+        threads.map((t) => t.phone.replace(/\D/g, "").slice(-9)).filter((d) => d.length >= 6),
+      );
+      const seen = new Set<string>();
+      const hits: Array<{ id: string; name: string; phone: string }> = [];
+      for (const l of (data ?? []) as Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null }>) {
+        const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
+        const phone = l.phone ?? "";
+        const pd = phone.replace(/\D/g, "");
+        const tail = pd.slice(-9);
+        if (!name || !pd) continue;
+        const matches = name.toLowerCase().includes(lower) || (digits.length >= 3 && pd.includes(digits));
+        if (!matches) continue;
+        if (threadTails.has(tail) || seen.has(tail)) continue;
+        seen.add(tail);
+        hits.push({ id: l.id, name, phone });
+        if (hits.length >= 15) break;
+      }
+      setLeadHits(hits);
+      setSearchingLeads(false);
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [filter, threads]);
+
+
   const active = threads.find((t) => t.id === threadId) ?? null;
   const activePhone = active?.phone || newPhone;
 
@@ -215,7 +265,7 @@ export function MiniMessenger() {
           {showConversation ? (
             <button
               type="button"
-              onClick={() => { setMessengerThread(null); setShowNewThread(false); setNewPhone(""); }}
+              onClick={() => { setMessengerThread(null); setShowNewThread(false); setNewPhone(""); setNewName(null); }}
               className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-white/10"
               title="Back"
             >
@@ -229,7 +279,7 @@ export function MiniMessenger() {
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-semibold truncate">
               {showConversation
-                ? (active?.display_name || active?.clinic?.clinic_name || (showNewThread ? "New message" : "Conversation"))
+                ? (active?.display_name || active?.clinic?.clinic_name || (showNewThread ? (newName || "New message") : "Conversation"))
                 : "Messenger"}
             </div>
             {showConversation && active && (
@@ -309,9 +359,9 @@ export function MiniMessenger() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0 && (
+              {filtered.length === 0 && leadHits.length === 0 && (
                 <div className="p-6 text-center text-[11px]" style={{ color: "#6b7280" }}>
-                  No conversations yet.
+                  {filter.trim().length >= 2 ? (searchingLeads ? "Searching…" : "No one found.") : "No conversations yet."}
                 </div>
               )}
               {filtered.map((t) => {
@@ -350,7 +400,36 @@ export function MiniMessenger() {
                   </button>
                 );
               })}
+              {leadHits.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "#fafafa", color: "#6b7280", borderBottom: "1px solid #f0f0f0" }}>
+                    Not messaged yet
+                  </div>
+                  {leadHits.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => { setMessengerThread(null); setNewPhone(l.phone); setNewName(l.name); setShowNewThread(true); }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-[#fafafa] transition-colors"
+                      style={{ borderBottom: "1px solid #f5f5f5" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-9 w-9 rounded-full flex-shrink-0 inline-flex items-center justify-center text-[11px] font-semibold"
+                          style={{ background: "#f4f4f5", color: "#6b7280" }}
+                        >
+                          {l.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-semibold truncate" style={{ color: "#111" }}>{l.name}</div>
+                          <div className="text-[11px] truncate" style={{ color: "#6b7280" }}>{l.phone}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
+
           </>
         )}
 
