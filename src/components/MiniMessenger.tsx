@@ -265,7 +265,7 @@ export function MiniMessenger() {
           {showConversation ? (
             <button
               type="button"
-              onClick={() => { setMessengerThread(null); setShowNewThread(false); setNewPhone(""); }}
+              onClick={() => { setMessengerThread(null); setShowNewThread(false); setNewPhone(""); setNewName(null); }}
               className="h-7 w-7 inline-flex items-center justify-center rounded-full hover:bg-white/10"
               title="Back"
             >
