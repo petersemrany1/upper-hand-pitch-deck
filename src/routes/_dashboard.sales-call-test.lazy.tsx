@@ -71,6 +71,25 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
       >
         {busy === "reset" ? "Resetting…" : "Reset"}
       </button>
+      <span style={{ opacity: 0.7, marginLeft: 8 }}>Signed on as:</span>
+      {(["admin", "rep"] as Role[]).map((r) => (
+        <button
+          key={r}
+          onClick={() => onViewAsChange(r)}
+          style={{
+            background: viewAs === r ? "#22c55e" : "transparent",
+            color: "white",
+            border: "1px solid #4b5563",
+            padding: "6px 12px",
+            borderRadius: 8,
+            fontWeight: 600,
+            cursor: "pointer",
+            textTransform: "capitalize",
+          }}
+        >
+          {r}
+        </button>
+      ))}
       {msg && <span style={{ marginLeft: 6 }}>{msg}</span>}
     </div>
   );
@@ -78,6 +97,15 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
 
 function SalesCallTestRoute() {
   const { role, ready } = useAuth();
+  const [viewAs, setViewAs] = useState<Role>("admin");
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem(VIEW_AS_KEY) : null;
+    if (saved === "admin" || saved === "rep") setViewAs(saved);
+  }, []);
+  function changeViewAs(r: Role) {
+    setViewAs(r);
+    try { window.localStorage.setItem(VIEW_AS_KEY, r); } catch { /* noop */ }
+  }
   if (!ready) return null;
   // Admins and reps: the sandbox only ever touches the two test leads, and
   // a rep login is the only way to test the dialler as a rep without
