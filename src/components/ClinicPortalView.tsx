@@ -986,6 +986,18 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
   const setOutcome = async (outcome: "noshow" | "proceeded") => {
+    // "proceeded" means the patient turned up, so the booking fee must be
+    // refunded — that only happens through processConsultOutcome. A no-show
+    // keeps the fee, so it stays a plain update.
+    if (outcome === "proceeded") {
+      const { processConsultOutcome } = await import("@/utils/consult-outcome.functions");
+      const result = await processConsultOutcome({ data: { appointmentId: appt.id, summary: "", proceeded: true } });
+      if (!result.success) { toast.error(result.error || "Could not save outcome"); return; }
+      toast.success("refunded" in result && result.refunded ? "Outcome saved — booking fee refunded" : "Outcome saved");
+      onChange();
+      onClose();
+      return;
+    }
     const { error } = await supabase.from("clinic_appointments").update({ outcome }).eq("id", appt.id);
     if (error) { toast.error(error.message); return; }
     toast.success("Outcome saved");
