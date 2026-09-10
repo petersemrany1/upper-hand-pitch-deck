@@ -3,7 +3,7 @@ import { ConversationProvider } from "@elevenlabs/react";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, ViewAsRoleProvider, type Role } from "@/hooks/useAuth";
 import { resetPeterTestLead } from "@/utils/test-sandbox.functions";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
