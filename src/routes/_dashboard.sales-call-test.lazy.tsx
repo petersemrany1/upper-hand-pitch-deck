@@ -92,6 +92,38 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
       >
         {busy === "reset" ? "Resetting…" : "Reset"}
       </button>
+      <select
+        value={payLeadId}
+        onChange={(e) => setPayLeadId(e.target.value)}
+        style={{
+          background: "#111827",
+          color: "white",
+          border: "1px solid #4b5563",
+          padding: "6px 8px",
+          borderRadius: 8,
+          fontSize: 13,
+        }}
+      >
+        {TEST_LEAD_IDS.map((id) => (
+          <option key={id} value={id}>{TEST_LEAD_NAMES[id]}</option>
+        ))}
+      </select>
+      <button
+        onClick={onMarkPaid}
+        disabled={busy !== null}
+        style={{
+          background: "#22c55e",
+          color: "white",
+          border: "none",
+          padding: "6px 12px",
+          borderRadius: 8,
+          fontWeight: 600,
+          cursor: busy ? "wait" : "pointer",
+          opacity: busy === "paid" ? 0.6 : 1,
+        }}
+      >
+        {busy === "paid" ? "Marking…" : "Mark as paid"}
+      </button>
       <span style={{ opacity: 0.7, marginLeft: 8 }}>Signed on as:</span>
       {(["admin", "rep"] as Role[]).map((r) => (
         <button
