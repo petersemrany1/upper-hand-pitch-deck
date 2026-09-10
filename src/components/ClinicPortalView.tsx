@@ -614,7 +614,12 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                         <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>
+                          {a.patient_name}
+                          {a.is_free_trial && (
+                            <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>(free)</span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
