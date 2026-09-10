@@ -50,6 +50,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
+  const [awaitingOutcome, setAwaitingOutcome] = useState(0);
   const [bookedSlots, setBookedSlots] = useState(0);
 
   const [loading, setLoading] = useState(true);
