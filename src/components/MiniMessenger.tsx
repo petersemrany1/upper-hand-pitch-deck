@@ -53,7 +53,11 @@ export function MiniMessenger() {
   const [error, setError] = useState<string | null>(null);
   const [showNewThread, setShowNewThread] = useState(false);
   const [newPhone, setNewPhone] = useState("");
+  const [newName, setNewName] = useState<string | null>(null);
+  const [leadHits, setLeadHits] = useState<Array<{ id: string; name: string; phone: string }>>([]);
+  const [searchingLeads, setSearchingLeads] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const sendSmsFn = useServerFn(sendSms);
