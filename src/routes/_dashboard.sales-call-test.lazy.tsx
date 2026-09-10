@@ -136,15 +136,20 @@ function SalesCallTestRoute() {
           alignItems: "center",
         }}
       >
-        <span>🧪 TEST SANDBOX — Peter Test only. Mirrors live Sales Call portal.</span>
+        <span>
+          🧪 TEST SANDBOX — Peter Test only. Mirrors live Sales Call portal. Signed on as{" "}
+          {viewAs === "rep" ? "a rep" : "admin"}.
+        </span>
         <Link to="/sales-call" style={{ color: "#92400e", textDecoration: "underline" }}>
           Exit to live
         </Link>
       </div>
-      <ConversationProvider>
-        <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
-      </ConversationProvider>
-      <TestControlBar />
+      <ViewAsRoleProvider role={viewAs}>
+        <ConversationProvider>
+          <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
+        </ConversationProvider>
+      </ViewAsRoleProvider>
+      <TestControlBar viewAs={viewAs} onViewAsChange={changeViewAs} />
     </div>
   );
 }
