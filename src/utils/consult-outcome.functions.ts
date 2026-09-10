@@ -188,6 +188,95 @@ async function findPaidDepositPaymentIntent(stripeKey: string, leadId: string | 
 
 type SupabaseAdmin = Awaited<ReturnType<typeof getSupabaseAdmin>>;
 
+/**
+ * Shared refund settlement for any path that records an attended outcome
+ * (clinic portal "showed", Numbers page one-tap chip, disqualification).
+ *
+ * Safe to re-run: the Square refund uses the deterministic idempotency key
+ * `refund-<appointmentId>`, so a repeat call returns the original refund
+ * instead of sending a second one. That makes this both the refund and the
+ * repair path when a previous attempt refunded the money but died before
+ * writing the result back.
+ */
+export async function settleAppointmentRefund(
+  appointmentId: string,
+  reason: string,
+  source: string,
+): Promise<
+  | { status: "already"; }
+  | { status: "manual"; reason: string }
+  | { status: "failed"; error: string }
+  | { status: "refunded"; refundId: string; pending: boolean }
+> {
+  const supabaseAdmin = await getSupabaseAdmin();
+  const { data: appt } = await supabaseAdmin
+    .from("clinic_appointments")
+    .select(
+      "id, lead_id, stripe_payment_intent_id, square_payment_id, payment_processor, stripe_refund_id, square_refund_id, refund_status, deposit_amount",
+    )
+    .eq("id", appointmentId)
+    .maybeSingle();
+  if (!appt) return { status: "failed", error: "Appointment not found" };
+  if (appt.stripe_refund_id || appt.square_refund_id) return { status: "already" };
+
+  const payment = await resolveDepositForAppointment(supabaseAdmin, appt);
+  if (!payment) {
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update({ refund_status: "manual_required" })
+      .eq("id", appointmentId);
+    return { status: "manual", reason: "No card payment on file for this booking." };
+  }
+
+  // Mark the attempt BEFORE talking to the processor. If this request dies
+  // mid-flight the row shows refund_pending instead of looking untouched.
+  await supabaseAdmin
+    .from("clinic_appointments")
+    .update({ refund_status: "refund_pending" })
+    .eq("id", appointmentId)
+    .is("square_refund_id", null)
+    .is("stripe_refund_id", null);
+
+  const { refundDeposit } = await import("./deposit-refund.server");
+  const { sendRefundFailureAlert } = await import("./ops-alert.server");
+  const outcome = await refundDeposit(payment.paymentId, appointmentId, payment.processor, {
+    amountCents: payment.depositAmount != null ? Math.round(payment.depositAmount * 100) : null,
+    reason,
+  });
+
+  if (outcome.status === "manual" || outcome.status === "failed") {
+    const message = outcome.status === "manual" ? outcome.reason : outcome.error;
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update({ refund_status: outcome.status === "manual" ? "manual_required" : "failed" })
+      .eq("id", appointmentId);
+    await logError(source, message, { appointmentId, paymentId: payment.paymentId });
+    await sendRefundFailureAlert({
+      leadId: appt.lead_id,
+      appointmentId,
+      processor: payment.processor,
+      paymentId: payment.paymentId,
+      error: message,
+    });
+    return outcome.status === "manual"
+      ? { status: "manual", reason: message }
+      : { status: "failed", error: message };
+  }
+
+  const isSquare = payment.processor === "square";
+  const pending = outcome.status === "pending";
+  await supabaseAdmin
+    .from("clinic_appointments")
+    .update({
+      refund_status: pending ? "refund_pending" : "refunded",
+      ...(isSquare ? { square_refund_id: outcome.refundId } : { stripe_refund_id: outcome.refundId }),
+      ...(pending ? {} : { refund_processed_at: new Date().toISOString() }),
+    })
+    .eq("id", appointmentId);
+
+  return { status: "refunded", refundId: outcome.refundId, pending };
+}
+
 type DepositPayment = {
   processor: "stripe" | "square";
   paymentId: string;
