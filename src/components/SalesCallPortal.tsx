@@ -3646,8 +3646,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   // Restore booked state if this lead already has a saved booking (rep navigated away and came back)
   useEffect(() => {
     if (lead.booking_date && lead.booking_time && !booked) {
-      // Wait until clinics + doctors have loaded so we don't bake placeholder
-      // strings ("[CLINIC NAME — fill in before sending]") into bookedData.
+      // Wait until the saved clinic and doctor can be resolved. Never create
+      // booked display data from guessed or placeholder values.
       if (clinics.length === 0) return;
       // The draft form is intentionally cleared of clinic/doctor on restore, but
       // the lead itself stores the booked clinic. Use it as the source of truth.
@@ -3675,7 +3675,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.booking_date, lead.booking_time, clinics, doctors, savedAppointment, form.clinicId, form.doctorId, booked]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
-  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
+  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? null;
 
   // Manual notes flow removed — handover intel now comes strictly from the
   // AI-analysed call recordings (see handoverGate + auto-condense effect).
@@ -3834,8 +3834,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         const date = bookedData?.date ?? lead.booking_date ?? null;
         const time = bookedData?.time ?? lead.booking_time ?? null;
         if (date && time) {
-          const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-          const doctorName = bookedData?.doctorName ?? sd?.name ?? null;
+          const sd = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
+          const doctorName = bookedData?.doctorName ?? savedAppointment?.doctor_name ?? sd?.name ?? null;
           console.log("[appointment_reminders] doctor_name to insert:", doctorName);
           const payload = {
             lead_id: lead.id,
