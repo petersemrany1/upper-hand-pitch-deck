@@ -359,9 +359,9 @@ export function MiniMessenger() {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto">
-              {filtered.length === 0 && (
+              {filtered.length === 0 && leadHits.length === 0 && (
                 <div className="p-6 text-center text-[11px]" style={{ color: "#6b7280" }}>
-                  No conversations yet.
+                  {filter.trim().length >= 2 ? (searchingLeads ? "Searching…" : "No one found.") : "No conversations yet."}
                 </div>
               )}
               {filtered.map((t) => {
