@@ -50,7 +50,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
-  const [awaitingOutcome, setAwaitingOutcome] = useState(0);
+  
   const [bookedSlots, setBookedSlots] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -78,25 +78,24 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
     let showed = 0;
     let up = 0;
-    let waiting = 0;
     let booked = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
       const d = (a as { disqualified_at: string | null }).disqualified_at;
       const date = (a as { appointment_date: string }).appointment_date;
       if (d || o === "disqualified" || o === "noshow") continue;
+      // Past appointments with no outcome recorded are treated as if they
+      // never happened — they don't hold a slot.
+      if (!o && date < todayStr) continue;
       booked += 1;
       if (o === "show" || o === "proceeded") {
         showed += 1;
-      } else if (!o && date >= todayStr) {
-        up += 1;
       } else if (!o) {
-        waiting += 1;
+        up += 1;
       }
     }
     setShowedUp(showed);
     setUpcoming(up);
-    setAwaitingOutcome(waiting);
     setBookedSlots(booked);
     setLoading(false);
   }, [clinicId]);
