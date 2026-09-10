@@ -1,16 +1,18 @@
 import { createLazyFileRoute, Link } from "@tanstack/react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth, ViewAsRoleProvider, type Role } from "@/hooks/useAuth";
 import { resetPeterTestLead } from "@/utils/test-sandbox.functions";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
 const TEST_LEAD_IDS = [PETER_TEST_LEAD_ID, TEST_TESTED_LEAD_ID];
 
-function TestControlBar() {
+const VIEW_AS_KEY = "sandbox-view-as-role";
+
+function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChange: (r: Role) => void }) {
   const reset = useServerFn(resetPeterTestLead);
   const [busy, setBusy] = useState<null | "reset">(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,6 +71,25 @@ function TestControlBar() {
       >
         {busy === "reset" ? "Resetting…" : "Reset"}
       </button>
+      <span style={{ opacity: 0.7, marginLeft: 8 }}>Signed on as:</span>
+      {(["admin", "rep"] as Role[]).map((r) => (
+        <button
+          key={r}
+          onClick={() => onViewAsChange(r)}
+          style={{
+            background: viewAs === r ? "#22c55e" : "transparent",
+            color: "white",
+            border: "1px solid #4b5563",
+            padding: "6px 12px",
+            borderRadius: 8,
+            fontWeight: 600,
+            cursor: "pointer",
+            textTransform: "capitalize",
+          }}
+        >
+          {r}
+        </button>
+      ))}
       {msg && <span style={{ marginLeft: 6 }}>{msg}</span>}
     </div>
   );
@@ -76,6 +97,15 @@ function TestControlBar() {
 
 function SalesCallTestRoute() {
   const { role, ready } = useAuth();
+  const [viewAs, setViewAs] = useState<Role>("admin");
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? window.localStorage.getItem(VIEW_AS_KEY) : null;
+    if (saved === "admin" || saved === "rep") setViewAs(saved);
+  }, []);
+  function changeViewAs(r: Role) {
+    setViewAs(r);
+    try { window.localStorage.setItem(VIEW_AS_KEY, r); } catch { /* noop */ }
+  }
   if (!ready) return null;
   // Admins and reps: the sandbox only ever touches the two test leads, and
   // a rep login is the only way to test the dialler as a rep without
@@ -106,15 +136,20 @@ function SalesCallTestRoute() {
           alignItems: "center",
         }}
       >
-        <span>🧪 TEST SANDBOX — Peter Test only. Mirrors live Sales Call portal.</span>
+        <span>
+          🧪 TEST SANDBOX — Peter Test only. Mirrors live Sales Call portal. Signed on as{" "}
+          {viewAs === "rep" ? "a rep" : "admin"}.
+        </span>
         <Link to="/sales-call" style={{ color: "#92400e", textDecoration: "underline" }}>
           Exit to live
         </Link>
       </div>
-      <ConversationProvider>
-        <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
-      </ConversationProvider>
-      <TestControlBar />
+      <ViewAsRoleProvider role={viewAs}>
+        <ConversationProvider>
+          <SalesCallPortal testLeadId={TEST_LEAD_IDS} />
+        </ConversationProvider>
+      </ViewAsRoleProvider>
+      <TestControlBar viewAs={viewAs} onViewAsChange={changeViewAs} />
     </div>
   );
 }
