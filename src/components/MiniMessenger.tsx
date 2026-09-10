@@ -400,7 +400,36 @@ export function MiniMessenger() {
                   </button>
                 );
               })}
+              {leadHits.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide" style={{ background: "#fafafa", color: "#6b7280", borderBottom: "1px solid #f0f0f0" }}>
+                    Not messaged yet
+                  </div>
+                  {leadHits.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => { setMessengerThread(null); setNewPhone(l.phone); setNewName(l.name); setShowNewThread(true); }}
+                      className="w-full text-left px-3 py-2.5 hover:bg-[#fafafa] transition-colors"
+                      style={{ borderBottom: "1px solid #f5f5f5" }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="h-9 w-9 rounded-full flex-shrink-0 inline-flex items-center justify-center text-[11px] font-semibold"
+                          style={{ background: "#f4f4f5", color: "#6b7280" }}
+                        >
+                          {l.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-semibold truncate" style={{ color: "#111" }}>{l.name}</div>
+                          <div className="text-[11px] truncate" style={{ color: "#6b7280" }}>{l.phone}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
+
           </>
         )}
 
