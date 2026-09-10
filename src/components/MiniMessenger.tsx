@@ -147,6 +147,52 @@ export function MiniMessenger() {
     });
   }, [threads, filter]);
 
+  // Also search everyone in the lead list, even people we've never texted.
+  useEffect(() => {
+    const q = filter.trim();
+    if (q.length < 2) { setLeadHits([]); setSearchingLeads(false); return; }
+    let cancelled = false;
+    setSearchingLeads(true);
+    const timer = setTimeout(async () => {
+      const token = q.split(/\s+/)[0];
+      const digits = q.replace(/\D/g, "");
+      const like = `%${token}%`;
+      const filters = [`first_name.ilike.${like}`, `last_name.ilike.${like}`];
+      if (digits.length >= 3) filters.push(`phone.ilike.%${digits}%`);
+      const { data } = await supabase
+        .from("meta_leads")
+        .select("id, first_name, last_name, phone, created_at")
+        .not("phone", "is", null)
+        .or(filters.join(","))
+        .order("created_at", { ascending: false })
+        .limit(60);
+      if (cancelled) return;
+      const lower = q.toLowerCase();
+      const threadTails = new Set(
+        threads.map((t) => t.phone.replace(/\D/g, "").slice(-9)).filter((d) => d.length >= 6),
+      );
+      const seen = new Set<string>();
+      const hits: Array<{ id: string; name: string; phone: string }> = [];
+      for (const l of (data ?? []) as Array<{ id: string; first_name: string | null; last_name: string | null; phone: string | null }>) {
+        const name = [l.first_name, l.last_name].filter(Boolean).join(" ").trim();
+        const phone = l.phone ?? "";
+        const pd = phone.replace(/\D/g, "");
+        const tail = pd.slice(-9);
+        if (!name || !pd) continue;
+        const matches = name.toLowerCase().includes(lower) || (digits.length >= 3 && pd.includes(digits));
+        if (!matches) continue;
+        if (threadTails.has(tail) || seen.has(tail)) continue;
+        seen.add(tail);
+        hits.push({ id: l.id, name, phone });
+        if (hits.length >= 15) break;
+      }
+      setLeadHits(hits);
+      setSearchingLeads(false);
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [filter, threads]);
+
+
   const active = threads.find((t) => t.id === threadId) ?? null;
   const activePhone = active?.phone || newPhone;
 
