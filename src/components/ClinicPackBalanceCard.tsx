@@ -50,7 +50,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
-  const [awaitingOutcome, setAwaitingOutcome] = useState(0);
+  
   const [bookedSlots, setBookedSlots] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -78,25 +78,24 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
     let showed = 0;
     let up = 0;
-    let waiting = 0;
     let booked = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
       const d = (a as { disqualified_at: string | null }).disqualified_at;
       const date = (a as { appointment_date: string }).appointment_date;
       if (d || o === "disqualified" || o === "noshow") continue;
+      // Past appointments with no outcome recorded are treated as if they
+      // never happened — they don't hold a slot.
+      if (!o && date < todayStr) continue;
       booked += 1;
       if (o === "show" || o === "proceeded") {
         showed += 1;
-      } else if (!o && date >= todayStr) {
-        up += 1;
       } else if (!o) {
-        waiting += 1;
+        up += 1;
       }
     }
     setShowedUp(showed);
     setUpcoming(up);
-    setAwaitingOutcome(waiting);
     setBookedSlots(booked);
     setLoading(false);
   }, [clinicId]);
@@ -232,21 +231,10 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap" }}>
             <LegendItem color={GREEN} label={`${showedUp} delivered`} />
             <LegendItem color={AMBER} label={`${upcoming} upcoming booked`} />
-            {awaitingOutcome > 0 && (
-              <LegendItem color={RED} label={`${awaitingOutcome} waiting on outcome`} />
-            )}
             <LegendItem color={GREY_TRACK} label={`${totalRemaining} open`} />
           </div>
 
-          {awaitingOutcome > 0 && (
-            <div style={{
-              marginTop: SPACE_12, padding: "10px 14px",
-              background: "#fdf0f0", border: "1px solid #f0b8b8",
-              borderRadius: 8, fontSize: 12.5, color: RED,
-            }}>
-              {awaitingOutcome} past appointment{awaitingOutcome !== 1 ? "s" : ""} still {awaitingOutcome !== 1 ? "have" : "has"} no outcome, so {awaitingOutcome !== 1 ? "they are" : "it is"} holding {awaitingOutcome !== 1 ? "slots" : "a slot"}. Mark them showed or no-show in the Past tab to free up or use the slot.
-            </div>
-          )}
+          
 
 
           {exhausted && (
