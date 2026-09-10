@@ -1,7 +1,7 @@
 import { createLazyFileRoute, Link } from "@tanstack/react-router";
 import { ConversationProvider } from "@elevenlabs/react";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { useAuth, ViewAsRoleProvider, type Role } from "@/hooks/useAuth";
 import { resetPeterTestLead } from "@/utils/test-sandbox.functions";
