@@ -733,9 +733,9 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMi
                       borderRadius: 4, border: "none", textAlign: "left", overflow: "hidden",
                       textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer",
                     }}
-                    title={`${a.patient_name} · ${fmtTime(a.appointment_time)}`}
+                    title={`${a.patient_name}${a.is_free_trial ? " (free)" : ""} · ${fmtTime(a.appointment_time)}`}
                   >
-                    {fmtTime(a.appointment_time)} {a.patient_name}
+                    {fmtTime(a.appointment_time)} {a.patient_name}{a.is_free_trial ? " (free)" : ""}
                   </button>
                 );
               })}
