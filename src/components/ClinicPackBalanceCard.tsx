@@ -78,6 +78,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
     let showed = 0;
     let up = 0;
+    let waiting = 0;
     let booked = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
@@ -89,10 +90,13 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         showed += 1;
       } else if (!o && date >= todayStr) {
         up += 1;
+      } else if (!o) {
+        waiting += 1;
       }
     }
     setShowedUp(showed);
     setUpcoming(up);
+    setAwaitingOutcome(waiting);
     setBookedSlots(booked);
     setLoading(false);
   }, [clinicId]);
