@@ -6586,13 +6586,20 @@ function RightPanel({
 
   useEffect(() => {
     void (async () => {
-      const { data: clinics } = await supabase
-        .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-        .eq("is_active", true)
-        .order("clinic_name");
-      const list = (clinics ?? []) as Clinic[];
+      const [{ data: clinics }, remaining] = await Promise.all([
+        supabase
+          .from("partner_clinics")
+          .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+          .eq("is_active", true)
+          .order("clinic_name"),
+        fetchClinicRemainingSlots(),
+      ]);
+      // Only offer clinics that still have consult slots left in their pack.
+      const list = ((clinics ?? []) as Clinic[]).filter(
+        (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+      );
       setPanelClinics(list);
+
       // Reuse only the clinic explicitly selected during this lead's current
       // sales-call session. Never seed from active.clinic_id because that may
       // belong to an older booking.
