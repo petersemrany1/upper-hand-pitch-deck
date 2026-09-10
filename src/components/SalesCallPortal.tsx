@@ -3286,9 +3286,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
     autoConfirmTriggeredRef.current = true;
 
-    const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+    const sd = doctors.find((d) => d.id === form.doctorId);
     const selectedClinic =
-      clinics.find((c) => c.id === (form.clinicId || lead.clinic_id || "")) ?? null;
+      clinics.find((c) => c.id === (form.clinicId || savedAppointment?.clinic_id || lead.clinic_id || "")) ?? null;
+    if (!selectedClinic || !sd) {
+      autoConfirmTriggeredRef.current = false;
+      toast.error("Select the clinic and doctor before sending the confirmation text");
+      return;
+    }
     const dateStr = (() => {
       try {
         const d = new Date(`${bookingDate}T${bookingTime}`);
@@ -3311,7 +3316,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setPatientSmsCountdown(10);
     setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
     toast.message("💳 Deposit paid — sending patient confirmation in 10s (tap Cancel to stop)");
-  }, [lead.id, lead.phone, lead.first_name, lead.booking_date, lead.booking_time, lead.clinic_id, form.date, form.time, form.clinicId, form.doctorId, clinics, doctors]);
+  }, [lead.id, lead.phone, lead.first_name, lead.booking_date, lead.booking_time, lead.clinic_id, savedAppointment?.clinic_id, form.date, form.time, form.clinicId, form.doctorId, clinics, doctors]);
 
   // Trigger the countdown modal as soon as deposit is paid AND we have a
   // booking date/time. Works whether the deposit arrives while the rep is on
@@ -4179,7 +4184,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     // stale placeholder strings in bookedData don't block the send.
     const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
     const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
-    const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+    const selectedDoctor = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
     const resolvedClinicName =
       bookedData?.clinicName && !bookedData.clinicName.startsWith("[CLINIC NAME")
         ? bookedData.clinicName
