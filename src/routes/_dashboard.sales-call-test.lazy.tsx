@@ -10,7 +10,9 @@ const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
 const TEST_LEAD_IDS = [PETER_TEST_LEAD_ID, TEST_TESTED_LEAD_ID];
 
-function TestControlBar() {
+const VIEW_AS_KEY = "sandbox-view-as-role";
+
+function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChange: (r: Role) => void }) {
   const reset = useServerFn(resetPeterTestLead);
   const [busy, setBusy] = useState<null | "reset">(null);
   const [msg, setMsg] = useState<string | null>(null);
