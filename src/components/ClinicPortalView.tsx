@@ -14,6 +14,8 @@ import {
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
 import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
+import { sydneyTodayISO } from "@/lib/timezone";
+import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/clinic-free-trial";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -53,6 +55,9 @@ export type ClinicAppointment = {
   chase_requested_at?: string | null;
   chase_note?: string | null;
   chase_result_at?: string | null;
+  booked_at?: string | null;
+  /** Derived: booked during the clinic's free trial, so it costs them nothing. */
+  is_free_trial?: boolean;
 };
 
 export const CHASE_LABELS: Record<ChaseStatus, string> = {
@@ -260,12 +265,17 @@ export function ClinicPortalView({
           supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
           supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
           supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
+          supabase.from("clinic_packs").select("pack_type, date_paid, purchased_at").eq("clinic_id", clinicId),
         ]);
         if (cancelled) return;
-        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
+        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }, { data: pk }] = results;
         const firstErr = aErr || thErr || bsErr || ovErr || pcErr;
         if (firstErr) throw new Error(firstErr.message);
-        setAppts((a ?? []) as ClinicAppointment[]);
+        const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
+        setAppts(((a ?? []) as ClinicAppointment[]).map((ap) => ({
+          ...ap,
+          is_free_trial: isFreeTrialBooking(ap.booked_at, trialCutoff),
+        })));
         setTradingHours((th ?? []) as TradingHours[]);
         setBlockedSlots((bs ?? []) as BlockedSlot[]);
         setOverrides((ov ?? []) as AvailabilityOverride[]);
@@ -604,7 +614,12 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                         <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>
+                          {a.patient_name}
+                          {a.is_free_trial && (
+                            <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>(free)</span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -718,9 +733,9 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMi
                       borderRadius: 4, border: "none", textAlign: "left", overflow: "hidden",
                       textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer",
                     }}
-                    title={`${a.patient_name} · ${fmtTime(a.appointment_time)}`}
+                    title={`${a.patient_name}${a.is_free_trial ? " (free)" : ""} · ${fmtTime(a.appointment_time)}`}
                   >
-                    {fmtTime(a.appointment_time)} {a.patient_name}
+                    {fmtTime(a.appointment_time)} {a.patient_name}{a.is_free_trial ? " (free)" : ""}
                   </button>
                 );
               })}
@@ -1082,7 +1097,12 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
   return (
     <ModalShell onClose={onClose}>
-      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>
+        {appt.patient_name}
+        {appt.is_free_trial && (
+          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, color: "#1a7a4a" }}>(free)</span>
+        )}
+      </div>
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 8 }}>
         {new Date(appt.appointment_date).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(appt.appointment_time)}
       </div>
