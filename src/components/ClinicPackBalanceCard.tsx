@@ -3,6 +3,7 @@ import { Plus, Trash2, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
+import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
 
 const NAVY = "#1a3a6b";
 const GREEN = "#1a7a4a";
@@ -69,12 +70,14 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         .order("purchased_at", { ascending: true }),
       supabase
         .from("clinic_appointments")
-        .select("appointment_date, outcome, disqualified_at")
+        .select("appointment_date, outcome, disqualified_at, booked_at")
         .eq("clinic_id", clinicId)
         .not("patient_name", "ilike", "%test%"),
     ]);
-    setPacks((packRows ?? []) as Pack[]);
+    const allPacks = (packRows ?? []) as Pack[];
+    setPacks(allPacks);
     const appts = apptRows ?? [];
+    const cutoff = freeTrialCutoff(allPacks, todayStr);
 
     let showed = 0;
     let up = 0;
@@ -83,7 +86,10 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       const o = (a as { outcome: string | null }).outcome;
       const d = (a as { disqualified_at: string | null }).disqualified_at;
       const date = (a as { appointment_date: string }).appointment_date;
+      const bookedAt = (a as { booked_at: string | null }).booked_at;
       if (d || o === "disqualified" || o === "noshow") continue;
+      // Free-trial bookings cost nothing and don't touch the paid pack.
+      if (isFreeTrialBooking(bookedAt, cutoff)) continue;
       // Past appointments with no outcome recorded are treated as if they
       // never happened — they don't hold a slot.
       if (!o && date < todayStr) continue;
@@ -102,9 +108,12 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
   useEffect(() => { void load(); }, [load]);
 
-  // FIFO allocation: fill oldest packs first
+  // FIFO allocation: fill oldest packs first. Free-trial packs are excluded —
+  // the trial is finished and its consults are shown as free, not as credits.
   const { activePack, deliveredInActive, sizeOfActive, totalRemaining, totalCapacity } = useMemo(() => {
-    const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
+    const sorted = packs
+      .filter((p) => p.pack_type !== "free_trial")
+      .sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
     let remaining = showedUp;
     let active: Pack | null = null;
     let deliveredIn = 0;
