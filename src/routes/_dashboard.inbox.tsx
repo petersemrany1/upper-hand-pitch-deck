@@ -131,10 +131,13 @@ function InboxPage() {
     const norm = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "");
     const needsLookup = rows.filter((t) => !t.clinic?.clinic_name);
     if (needsLookup.length > 0) {
-      const leadMap = (await getLeadNameIndex()).byDigits;
+      const index = await getLeadNameIndex();
       for (const t of rows) {
         if (t.clinic?.clinic_name) continue;
-        const name = leadMap.get(norm(t.phone));
+        const digits = norm(t.phone);
+        // Match on full digits first, then last 9 — leads may be stored as
+        // 04... while threads carry +614..., so exact digits often miss.
+        const name = index.byDigits.get(digits) ?? index.byTail.get(digits.slice(-9));
         if (name) t.display_name = name;
       }
     }
