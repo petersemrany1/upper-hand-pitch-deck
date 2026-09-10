@@ -125,13 +125,15 @@ function InboxPage() {
     }
     const rows = (data as unknown as Thread[]) ?? [];
 
-    // For threads without a display_name or clinic match, look up the lead by phone
+    // Resolve the lead's full name by phone for every thread. Some threads
+    // were saved with only a first name in display_name — the lead record is
+    // the source of truth, so prefer it whenever it matches.
     const norm = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "");
-    const needsLookup = rows.filter((t) => !t.display_name && !t.clinic?.clinic_name);
+    const needsLookup = rows.filter((t) => !t.clinic?.clinic_name);
     if (needsLookup.length > 0) {
       const leadMap = (await getLeadNameIndex()).byDigits;
       for (const t of rows) {
-        if (t.display_name || t.clinic?.clinic_name) continue;
+        if (t.clinic?.clinic_name) continue;
         const name = leadMap.get(norm(t.phone));
         if (name) t.display_name = name;
       }
