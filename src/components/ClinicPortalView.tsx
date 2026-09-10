@@ -1097,7 +1097,12 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
   return (
     <ModalShell onClose={onClose}>
-      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>
+        {appt.patient_name}
+        {appt.is_free_trial && (
+          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, color: "#1a7a4a" }}>(free)</span>
+        )}
+      </div>
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 8 }}>
         {new Date(appt.appointment_date).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(appt.appointment_time)}
       </div>
