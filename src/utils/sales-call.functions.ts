@@ -370,15 +370,33 @@ export const saveBooking = createServerFn({ method: "POST" })
           return { success: false as const, error: `Could not update clinic appointment: ${apptErr.message}` };
         }
       } else {
-        // Upsert on lead_id — DB unique index prevents race-condition duplicates.
+        // Plain insert: the lead uniqueness index is PARTIAL
+        // (WHERE lead_id IS NOT NULL), which ON CONFLICT cannot target — an
+        // upsert here fails with "no unique or exclusion constraint matching
+        // the ON CONFLICT specification". On a race, fall back to an update.
         const { error: apptErr } = await supabaseAdmin
           .from("clinic_appointments")
-          .upsert({ ...payload, intel_notes: null, booked_at: nowIso }, { onConflict: "lead_id" });
+          .insert({ ...payload, intel_notes: null, booked_at: nowIso });
         if (apptErr) {
-          await logError("saveBooking.appointmentInsert", apptErr.message, { leadId: data.leadId });
-          return { success: false as const, error: `Could not create clinic appointment: ${apptErr.message}` };
+          const isDuplicate =
+            (apptErr as { code?: string }).code === "23505" ||
+            /duplicate key/i.test(apptErr.message);
+          if (isDuplicate) {
+            const { error: raceErr } = await supabaseAdmin
+              .from("clinic_appointments")
+              .update({ ...payload, booked_at: nowIso })
+              .eq("lead_id", data.leadId);
+            if (raceErr) {
+              await logError("saveBooking.appointmentInsert", raceErr.message, { leadId: data.leadId });
+              return { success: false as const, error: `Could not create clinic appointment: ${raceErr.message}` };
+            }
+          } else {
+            await logError("saveBooking.appointmentInsert", apptErr.message, { leadId: data.leadId });
+            return { success: false as const, error: `Could not create clinic appointment: ${apptErr.message}` };
+          }
         }
       }
+
 
       // Verify the row actually exists before we try to promote status —
       // otherwise enforce_booking_before_status_lock will reject us.
