@@ -279,7 +279,7 @@ export function MiniMessenger() {
           <div className="flex-1 min-w-0">
             <div className="text-[13px] font-semibold truncate">
               {showConversation
-                ? (active?.display_name || active?.clinic?.clinic_name || (showNewThread ? "New message" : "Conversation"))
+                ? (active?.display_name || active?.clinic?.clinic_name || (showNewThread ? (newName || "New message") : "Conversation"))
                 : "Messenger"}
             </div>
             {showConversation && active && (
