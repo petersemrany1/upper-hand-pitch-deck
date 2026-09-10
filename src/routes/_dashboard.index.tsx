@@ -231,6 +231,22 @@ type SmsRow = {
 
 type ClinicInfo = { id: string; clinic_name: string | null; city: string | null };
 
+type PackRow = {
+  clinic_id: string;
+  pack_size: number;
+  pack_type: string;
+  date_paid: string | null;
+  purchased_at: string;
+};
+
+type ApptRow = {
+  clinic_id: string | null;
+  outcome: string | null;
+  disqualified_at: string | null;
+  appointment_date: string;
+  booked_at: string | null;
+};
+
 function DashboardHome() {
   const { ready: authReady, session, role } = useAuth();
   const isAdmin = role === "admin";
