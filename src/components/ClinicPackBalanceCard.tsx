@@ -149,7 +149,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const upcomingPct = totalCapacity > 0 ? Math.min(100 - deliveredPct, (upcoming / totalCapacity) * 100) : 0;
   const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - Math.min(upcoming, sizeOfActive - deliveredInActive));
 
-  const noPacks = packs.length === 0;
+  const noPacks = totalCapacity === 0;
   const exhausted = !noPacks && totalRemaining === 0;
   const packFull = !noPacks && remainingInActive === 0;
 
@@ -304,13 +304,15 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
   packs: Pack[]; showedUp: number; onChange: () => void; onEdit: (p: Pack) => void;
 }) {
-  // Allocate delivered per pack (FIFO)
+  // Allocate delivered per pack (FIFO). Free-trial packs sit outside the
+  // balance, so they don't take any of the delivered count.
   const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
   let remaining = showedUp;
   const rows = sorted.map((p) => {
+    if (p.pack_type === "free_trial") return { p, delivered: null as number | null };
     const delivered = Math.min(p.pack_size, remaining);
     remaining -= delivered;
-    return { p, delivered };
+    return { p, delivered: delivered as number | null };
   });
 
   const del = async (id: string) => {
@@ -333,7 +335,9 @@ function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
             padding: "10px 14px", background: GREY_BG, borderRadius: 8, fontSize: 13,
           }}>
             <div>
-              <strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered
+              {delivered == null
+                ? <strong style={{ color: NAVY }}>{p.pack_size} free consults</strong>
+                : <><strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered</>}
               {p.pack_name && <span style={{ color: GREY_TEXT_DARK, marginLeft: 10 }}>{p.pack_name}</span>}
               <span style={{ color: GREY_TEXT, marginLeft: 10 }}>
                 purchased {new Date(p.purchased_at).toLocaleDateString()}
