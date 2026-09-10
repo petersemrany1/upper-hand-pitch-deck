@@ -71,12 +71,14 @@ export function MiniMessenger() {
     if (error) return;
     const rows = (data as unknown as Thread[]) ?? [];
     const norm = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "");
-    const needsLookup = rows.filter((t) => !t.display_name && !t.clinic?.clinic_name);
-    if (needsLookup.length > 0) {
-      const leadMap = (await getLeadNameIndex()).byDigits;
+    if (rows.length > 0) {
+      const leadNames = await getLeadNameIndex();
       for (const t of rows) {
-        if (t.display_name || t.clinic?.clinic_name) continue;
-        const name = leadMap.get(norm(t.phone));
+        const digits = norm(t.phone);
+        // The thread often stores only a first name, and Australian numbers
+        // can be stored as either 04... or +614.... Always prefer the lead's
+        // full name and match both the complete number and its last 9 digits.
+        const name = leadNames.byDigits.get(digits) ?? leadNames.byTail.get(digits.slice(-9));
         if (name) t.display_name = name;
       }
     }

@@ -32,7 +32,8 @@ async function fetchNames(): Promise<NameCache> {
   const { data } = await supabase
     .from("meta_leads")
     .select("first_name, last_name, phone")
-    .not("phone", "is", null);
+    .not("phone", "is", null)
+    .order("created_at", { ascending: false });
   const byTail = new Map<string, string>();
   const byDigits = new Map<string, string>();
   for (const l of (data || []) as Array<{ first_name: string | null; last_name: string | null; phone: string | null }>) {
