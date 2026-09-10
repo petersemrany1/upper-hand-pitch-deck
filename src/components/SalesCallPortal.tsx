@@ -3578,11 +3578,23 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
 
   useEffect(() => {
-    void supabase.from("partner_clinics")
-      .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-      .eq("is_active", true)
-      .then(({ data }) => setClinics((data ?? []) as Clinic[]));
-  }, []);
+    void (async () => {
+      const [{ data }, remaining] = await Promise.all([
+        supabase.from("partner_clinics")
+          .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+          .eq("is_active", true),
+        fetchClinicRemainingSlots(),
+      ]);
+      // Clinics with no consult slots left to fill can't be booked into.
+      // The lead's already-booked clinic stays available so existing bookings
+      // can still be edited.
+      const list = ((data ?? []) as Clinic[]).filter(
+        (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+      );
+      setClinics(list);
+    })();
+  }, [lead.clinic_id]);
+
 
   useEffect(() => {
     let cancelled = false;
