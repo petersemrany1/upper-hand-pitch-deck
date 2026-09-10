@@ -3917,11 +3917,20 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               // intel must stay exactly as sent in the handover email.
               await supabase.from("clinic_appointments").update(clinicPayloadBase).eq("id", existingClinicAppt[0].id);
             } else {
-              // Upsert on lead_id — DB unique index prevents race-condition duplicates.
-              await supabase
+              // Plain insert: the lead uniqueness index is partial
+              // (WHERE lead_id IS NOT NULL) so ON CONFLICT cannot target it.
+              const { error: insertErr } = await supabase
                 .from("clinic_appointments")
-                .upsert({ ...clinicPayloadBase, intel_notes: null }, { onConflict: "lead_id" });
+                .insert({ ...clinicPayloadBase, intel_notes: null });
+              if (insertErr) {
+                // Race: a row appeared between the check and the insert.
+                await supabase
+                  .from("clinic_appointments")
+                  .update(clinicPayloadBase)
+                  .eq("lead_id", lead.id);
+              }
             }
+
           }
         }
       } catch (e) {
