@@ -1,3 +1,5 @@
+import { sydneyTodayISO } from "@/lib/timezone";
+
 /**
  * Free-trial classification for clinic bookings.
  *
@@ -34,5 +36,7 @@ export function freeTrialCutoff(packs: FreeTrialPack[], todayISO: string): strin
 /** True when this booking was made during the free trial window. */
 export function isFreeTrialBooking(bookedAt: string | null | undefined, cutoff: string | null): boolean {
   if (!cutoff || !bookedAt) return false;
-  return bookedAt.slice(0, 10) <= cutoff;
+  const d = new Date(bookedAt);
+  if (Number.isNaN(d.getTime())) return false;
+  return sydneyTodayISO(d) <= cutoff;
 }
