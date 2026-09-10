@@ -13,7 +13,9 @@ import { supabase } from "@/integrations/supabase/client";
 // These helpers collapse all of that into one cached fetch shared by every
 // caller, with in-flight de-duplication so concurrent callers reuse one query.
 
-const TTL_MS = 120_000;
+// 10 minutes: names barely change, and this read scans every lead, so a short
+// TTL had every mounted panel re-scanning the table a few times a minute.
+const TTL_MS = 600_000;
 
 function digitsOnly(s: string | null | undefined): string {
   return (s || "").replace(/[^0-9]/g, "");
