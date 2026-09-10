@@ -412,16 +412,33 @@ function DashboardHome() {
     setLeadClinicMap(lcm);
 
     if (isAdmin) {
-      const packsRows = (packsRes.data ?? []) as Array<{ clinic_id: string; pack_size: number }>;
-      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>;
+      const packsRows = (packsRes.data ?? []) as PackRow[];
+      const apptsRows = (apptsRes.data ?? []) as ApptRow[];
+      const todayStr = sydneyTodayISO();
+      // Free-trial packs and the bookings they covered sit outside the paid
+      // balance, exactly as the clinic portal shows it.
+      const packsByClinic = new Map<string, PackRow[]>();
+      for (const p of packsRows) {
+        const list = packsByClinic.get(p.clinic_id) ?? [];
+        list.push(p);
+        packsByClinic.set(p.clinic_id, list);
+      }
+      const cutoffByClinic = new Map<string, string | null>();
+      for (const [clinicId, list] of packsByClinic) {
+        cutoffByClinic.set(clinicId, freeTrialCutoff(list, todayStr));
+      }
       const bookedByClinic = new Map<string, number>();
       for (const a of apptsRows) {
         if (!a.clinic_id) continue;
         if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
+        if (isFreeTrialBooking(a.booked_at, cutoffByClinic.get(a.clinic_id) ?? null)) continue;
+        // Past appointments with no outcome recorded don't hold a slot.
+        if (!a.outcome && a.appointment_date < todayStr) continue;
         bookedByClinic.set(a.clinic_id, (bookedByClinic.get(a.clinic_id) ?? 0) + 1);
       }
       const capacityByClinic = new Map<string, number>();
       for (const p of packsRows) {
+        if (p.pack_type === "free_trial") continue;
         capacityByClinic.set(p.clinic_id, (capacityByClinic.get(p.clinic_id) ?? 0) + p.pack_size);
       }
       const breakdown: Array<{ clinicId: string; clinicName: string; remaining: number; total: number }> = [];
