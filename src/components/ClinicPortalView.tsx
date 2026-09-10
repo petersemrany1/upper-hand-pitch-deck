@@ -14,6 +14,8 @@ import {
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
 import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
+import { sydneyTodayISO } from "@/lib/timezone";
+import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/clinic-free-trial";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
