@@ -21,6 +21,8 @@ import {
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
+import { fetchClinicRemainingSlots } from "@/lib/clinic-capacity";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
@@ -3578,11 +3580,23 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
 
   useEffect(() => {
-    void supabase.from("partner_clinics")
-      .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-      .eq("is_active", true)
-      .then(({ data }) => setClinics((data ?? []) as Clinic[]));
-  }, []);
+    void (async () => {
+      const [{ data }, remaining] = await Promise.all([
+        supabase.from("partner_clinics")
+          .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+          .eq("is_active", true),
+        fetchClinicRemainingSlots(),
+      ]);
+      // Clinics with no consult slots left to fill can't be booked into.
+      // The lead's already-booked clinic stays available so existing bookings
+      // can still be edited.
+      const list = ((data ?? []) as Clinic[]).filter(
+        (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+      );
+      setClinics(list);
+    })();
+  }, [lead.clinic_id]);
+
 
   useEffect(() => {
     let cancelled = false;
@@ -6572,13 +6586,20 @@ function RightPanel({
 
   useEffect(() => {
     void (async () => {
-      const { data: clinics } = await supabase
-        .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-        .eq("is_active", true)
-        .order("clinic_name");
-      const list = (clinics ?? []) as Clinic[];
+      const [{ data: clinics }, remaining] = await Promise.all([
+        supabase
+          .from("partner_clinics")
+          .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+          .eq("is_active", true)
+          .order("clinic_name"),
+        fetchClinicRemainingSlots(),
+      ]);
+      // Only offer clinics that still have consult slots left in their pack.
+      const list = ((clinics ?? []) as Clinic[]).filter(
+        (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+      );
       setPanelClinics(list);
+
       // Reuse only the clinic explicitly selected during this lead's current
       // sales-call session. Never seed from active.clinic_id because that may
       // belong to an older booking.
