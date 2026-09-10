@@ -53,6 +53,9 @@ export type ClinicAppointment = {
   chase_requested_at?: string | null;
   chase_note?: string | null;
   chase_result_at?: string | null;
+  booked_at?: string | null;
+  /** Derived: booked during the clinic's free trial, so it costs them nothing. */
+  is_free_trial?: boolean;
 };
 
 export const CHASE_LABELS: Record<ChaseStatus, string> = {
@@ -260,12 +263,17 @@ export function ClinicPortalView({
           supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
           supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
           supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
+          supabase.from("clinic_packs").select("pack_type, date_paid, purchased_at").eq("clinic_id", clinicId),
         ]);
         if (cancelled) return;
-        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
+        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }, { data: pk }] = results;
         const firstErr = aErr || thErr || bsErr || ovErr || pcErr;
         if (firstErr) throw new Error(firstErr.message);
-        setAppts((a ?? []) as ClinicAppointment[]);
+        const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
+        setAppts(((a ?? []) as ClinicAppointment[]).map((ap) => ({
+          ...ap,
+          is_free_trial: isFreeTrialBooking(ap.booked_at, trialCutoff),
+        })));
         setTradingHours((th ?? []) as TradingHours[]);
         setBlockedSlots((bs ?? []) as BlockedSlot[]);
         setOverrides((ov ?? []) as AvailabilityOverride[]);
