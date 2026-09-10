@@ -275,8 +275,9 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
 
 export const saveBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
+  .inputValidator((data: { leadId: string; clinicId: string | null; doctorId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
+    doctorId: data.doctorId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
     repId: data.repId ?? null,
     // When true (Book button click), the server also promotes meta_leads.status
@@ -285,7 +286,19 @@ export const saveBooking = createServerFn({ method: "POST" })
     promoteStatus: data.promoteStatus === true,
   }))
   .handler(async ({ data }) => {
-    if (!data.leadId || !data.date) return { success: false as const, error: "leadId and date required" };
+    if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
+      return { success: false as const, error: "Lead, clinic, doctor, date and time are required" };
+    }
+    const { data: doctor, error: doctorErr } = await supabaseAdmin
+      .from("partner_doctors")
+      .select("id, clinic_id, name")
+      .eq("id", data.doctorId)
+      .eq("clinic_id", data.clinicId)
+      .eq("is_active", true)
+      .maybeSingle();
+    if (doctorErr || !doctor) {
+      return { success: false as const, error: "The selected doctor is not available at this clinic. Please select the clinic and doctor again." };
+    }
     // Step 1: write booking fields on meta_leads (NOT status).
     // Also reassign rep_id to the rep actually booking — credits the booking
     // to whoever closed it, not whoever first touched the lead.
@@ -319,6 +332,8 @@ export const saveBooking = createServerFn({ method: "POST" })
       const nowIso = new Date().toISOString();
       const payload: any = {
         clinic_id: data.clinicId,
+        doctor_id: doctor.id,
+        doctor_name: doctor.name,
         lead_id: data.leadId,
         patient_name: patientName,
         patient_phone: leadRow?.phone ?? null,
@@ -421,7 +436,16 @@ export const saveBooking = createServerFn({ method: "POST" })
     } catch (e) {
       console.error("[saveBooking] reminder refresh failed", e);
     }
-    return { success: true as const };
+    return {
+      success: true as const,
+      booking: {
+        clinicId: data.clinicId,
+        doctorId: doctor.id,
+        doctorName: doctor.name,
+        date: data.date,
+        time: data.time,
+      },
+    };
   });
 
 

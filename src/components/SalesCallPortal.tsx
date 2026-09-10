@@ -2154,7 +2154,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} repId={repId} />;
+    return <BookingStep key={lead.id} lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} repId={repId} />;
   }
 
   return null;
@@ -3124,6 +3124,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
+  const [savedAppointment, setSavedAppointment] = useState<{ clinic_id: string; doctor_id: string | null; doctor_name: string | null } | null>(null);
   const [sendingHandover, setSendingHandover] = useState(false);
   const [sendingDeposit, setSendingDeposit] = useState(false);
   const [handoverSent, setHandoverSent] = useState(false);
@@ -3578,11 +3579,26 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       .then(({ data }) => setClinics((data ?? []) as Clinic[]));
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void supabase
+      .from("clinic_appointments")
+      .select("clinic_id, doctor_id, doctor_name")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setSavedAppointment(data ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [lead.id]);
+
   // Load doctors for the selected clinic. Fall back to the lead's saved clinic
   // so a previously booked lead can still resolve its doctor/clinic names after
   // the rep navigates away and the draft form is cleared.
   useEffect(() => {
-    const clinicId = form.clinicId || lead.clinic_id;
+    const clinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
     if (!clinicId) { setDoctors([]); return; }
     void supabase.from("partner_doctors")
       .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
@@ -3598,7 +3614,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.clinicId, lead.clinic_id]);
+  }, [form.clinicId, savedAppointment?.clinic_id, lead.clinic_id]);
   const set = (k: keyof typeof form, v: string) => {
     if (k === "clinicId") {
       setClinicExplicitlySelected(Boolean(v));
@@ -3630,16 +3646,16 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       if (clinics.length === 0) return;
       // The draft form is intentionally cleared of clinic/doctor on restore, but
       // the lead itself stores the booked clinic. Use it as the source of truth.
-      const effectiveClinicId = form.clinicId || lead.clinic_id;
+      const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
       const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
-      const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-      // If a clinic is selected but its doctors haven't loaded yet, wait.
-      if (effectiveClinicId && doctors.length === 0) return;
+      const savedDoctorName = savedAppointment?.doctor_name?.trim() || "";
+      const selectedDoctor = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
+      if (!effectiveClinicId || !selectedClinic || (!savedDoctorName && !selectedDoctor)) return;
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
-        clinicName: selectedClinic?.clinic_name ?? "[CLINIC NAME — fill in before sending]",
-        doctorName: selectedDoctor?.name ?? "[DOCTOR NAME — fill in before sending]",
+        clinicName: selectedClinic.clinic_name,
+        doctorName: savedDoctorName || selectedDoctor?.name || "",
       });
       setBooked(true);
     }
@@ -3652,7 +3668,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       setDepositPaid(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lead.booking_date, lead.booking_time, clinics, doctors]);
+  }, [lead.booking_date, lead.booking_time, clinics, doctors, savedAppointment, form.clinicId, form.doctorId, booked]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
   const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
 
@@ -3661,6 +3677,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
 
   const book = async () => {
+    if (!form.clinicId || !clinicExplicitlySelected) { toast.error("Select a clinic before booking"); return; }
+    if (!form.doctorId) { toast.error("Select a doctor before booking"); return; }
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     if (form.clinicId) {
       // Validate against new trading hours + blocked slots system
@@ -3683,12 +3701,16 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
-      const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-      const clinicName = selectedClinic?.clinic_name ?? "[CLINIC NAME — fill in before sending]";
-      const doctorName = sd?.name ?? "[DOCTOR NAME — fill in before sending]";
+      if (!selectedClinic) {
+        toast.error("The booked clinic could not be reloaded. Please retry.");
+        return;
+      }
+      const clinicName = selectedClinic.clinic_name;
+      const doctorName = r.booking.doctorName;
+      setSavedAppointment({ clinic_id: r.booking.clinicId, doctor_id: r.booking.doctorId, doctor_name: doctorName });
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
       // Status is promoted atomically inside saveBooking (promoteStatus: true)
@@ -3731,7 +3753,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const handleSendHandover = async () => {
     if (!bookedData) return;
     setSendingHandover(true);
-    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
+    if (!effectiveClinicId || bookedData.clinicName.startsWith("[") || bookedData.doctorName.startsWith("[")) {
+      setSendingHandover(false);
+      toast.error("Clinic or doctor info is missing — save the booking again before sending.");
+      return;
+    }
     const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const r = await sendClinicHandoverEmail({
       data: {
@@ -4109,7 +4136,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setPreviewEmail(freshLead?.email || lead.email || "");
     // The draft form may be cleared after a booking; resolve the clinic from the
     // lead's saved clinic_id so the handover email goes to the right place.
-    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
     const sc = clinics.find((c) => c.id === effectiveClinicId) as (Clinic & { email?: string | null }) | undefined;
     // Sandbox override: test leads always route to Peter's inbox (mirrors server-side override in resend.functions.ts).
     const SANDBOX_LEAD_IDS = new Set([
@@ -4150,7 +4177,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
     // Resolve clinic/doctor names with fallback to current form selection so
     // stale placeholder strings in bookedData don't block the send.
-    const effectiveClinicId = form.clinicId || lead.clinic_id;
+    const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
     const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
     const resolvedClinicName =
@@ -4171,7 +4198,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       const r = await sendClinicHandoverEmail({
         data: {
           leadId: lead.id,
-          clinicId: form.clinicId || lead.clinic_id || null,
+          clinicId: form.clinicId || savedAppointment?.clinic_id || lead.clinic_id || null,
           firstName: lead.first_name ?? "",
           lastName: lead.last_name ?? "",
           email: previewEmail || null,
@@ -4882,14 +4909,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
         <button
           onClick={() => void book()}
-          disabled={!paymentReceivedAt}
-          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : undefined}
+          disabled={!paymentReceivedAt || !form.clinicId || !clinicExplicitlySelected || !form.doctorId || !form.date || !form.time}
+          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined)}
           className="w-full rounded-[6px]"
           style={{
-            background: paymentReceivedAt ? COLORS.green : "#e5e7eb",
-            color: paymentReceivedAt ? "#ffffff" : "#9ca3af",
+            background: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? COLORS.green : "#e5e7eb",
+            color: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "#ffffff" : "#9ca3af",
             fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
-            cursor: paymentReceivedAt ? "pointer" : "not-allowed",
+            cursor: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "pointer" : "not-allowed",
           }}
         >
           {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
