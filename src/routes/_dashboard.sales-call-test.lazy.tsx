@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
 import { useAuth, ViewAsRoleProvider, type Role } from "@/hooks/useAuth";
-import { resetPeterTestLead } from "@/utils/test-sandbox.functions";
+import { resetPeterTestLead, simulateDepositPaid } from "@/utils/test-sandbox.functions";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
@@ -12,10 +12,17 @@ const TEST_LEAD_IDS = [PETER_TEST_LEAD_ID, TEST_TESTED_LEAD_ID];
 
 const VIEW_AS_KEY = "sandbox-view-as-role";
 
+const TEST_LEAD_NAMES: Record<string, string> = {
+  [PETER_TEST_LEAD_ID]: "Peter Test",
+  [TEST_TESTED_LEAD_ID]: "Test Tested",
+};
+
 function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChange: (r: Role) => void }) {
   const reset = useServerFn(resetPeterTestLead);
-  const [busy, setBusy] = useState<null | "reset">(null);
+  const markPaid = useServerFn(simulateDepositPaid);
+  const [busy, setBusy] = useState<null | "reset" | "paid">(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [payLeadId, setPayLeadId] = useState(PETER_TEST_LEAD_ID);
 
   async function onReset() {
     if (busy) return;
@@ -25,6 +32,20 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
     try {
       await Promise.all(TEST_LEAD_IDS.map((id) => reset({ data: { leadId: id } })));
       setMsg("🧹 Test leads reset. Reloading…");
+      setTimeout(() => window.location.reload(), 400);
+    } catch (e) {
+      setMsg(`❌ ${(e as Error).message}`);
+      setBusy(null);
+    }
+  }
+
+  async function onMarkPaid() {
+    if (busy) return;
+    setBusy("paid");
+    setMsg(null);
+    try {
+      await markPaid({ data: { leadId: payLeadId } });
+      setMsg(`💰 ${TEST_LEAD_NAMES[payLeadId]} marked as paid. Reloading…`);
       setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       setMsg(`❌ ${(e as Error).message}`);
@@ -70,6 +91,38 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
         }}
       >
         {busy === "reset" ? "Resetting…" : "Reset"}
+      </button>
+      <select
+        value={payLeadId}
+        onChange={(e) => setPayLeadId(e.target.value)}
+        style={{
+          background: "#111827",
+          color: "white",
+          border: "1px solid #4b5563",
+          padding: "6px 8px",
+          borderRadius: 8,
+          fontSize: 13,
+        }}
+      >
+        {TEST_LEAD_IDS.map((id) => (
+          <option key={id} value={id}>{TEST_LEAD_NAMES[id]}</option>
+        ))}
+      </select>
+      <button
+        onClick={onMarkPaid}
+        disabled={busy !== null}
+        style={{
+          background: "#22c55e",
+          color: "white",
+          border: "none",
+          padding: "6px 12px",
+          borderRadius: 8,
+          fontWeight: 600,
+          cursor: busy ? "wait" : "pointer",
+          opacity: busy === "paid" ? 0.6 : 1,
+        }}
+      >
+        {busy === "paid" ? "Marking…" : "Mark as paid"}
       </button>
       <span style={{ opacity: 0.7, marginLeft: 8 }}>Signed on as:</span>
       {(["admin", "rep"] as Role[]).map((r) => (
