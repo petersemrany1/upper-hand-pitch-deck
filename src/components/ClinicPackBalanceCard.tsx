@@ -232,8 +232,22 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap" }}>
             <LegendItem color={GREEN} label={`${showedUp} delivered`} />
             <LegendItem color={AMBER} label={`${upcoming} upcoming booked`} />
+            {awaitingOutcome > 0 && (
+              <LegendItem color={RED} label={`${awaitingOutcome} waiting on outcome`} />
+            )}
             <LegendItem color={GREY_TRACK} label={`${totalRemaining} open`} />
           </div>
+
+          {awaitingOutcome > 0 && (
+            <div style={{
+              marginTop: SPACE_12, padding: "10px 14px",
+              background: "#fdf0f0", border: "1px solid #f0b8b8",
+              borderRadius: 8, fontSize: 12.5, color: RED,
+            }}>
+              {awaitingOutcome} past appointment{awaitingOutcome !== 1 ? "s" : ""} still {awaitingOutcome !== 1 ? "have" : "has"} no outcome, so {awaitingOutcome !== 1 ? "they are" : "it is"} holding {awaitingOutcome !== 1 ? "slots" : "a slot"}. Mark them showed or no-show in the Past tab to free up or use the slot.
+            </div>
+          )}
+
 
           {exhausted && (
             <div style={{
