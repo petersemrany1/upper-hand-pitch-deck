@@ -10,7 +10,7 @@ import {
   type CallHistory,
   type QueueLead,
 } from "./queue";
-import { normaliseStatus } from "./status";
+import { normaliseStatus, requiresManualDial } from "./status";
 
 // All times local. Tests pin "now" so the AM/PM logic is deterministic.
 const at = (day: string, hm: string) => new Date(`${day}T${hm}:00`);
