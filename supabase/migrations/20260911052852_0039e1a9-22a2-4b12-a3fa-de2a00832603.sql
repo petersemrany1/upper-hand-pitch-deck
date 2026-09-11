@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.fill_appointment_doctor() FROM PUBLIC, anon, authenticated;
