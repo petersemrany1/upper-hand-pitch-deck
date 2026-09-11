@@ -1679,6 +1679,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           borderTop: `0.5px solid ${COLORS.line}`,
         }}
       >
+        {/* Ring-back banner: someone called us back and is next up. Visible
+            until the rep gets to them, so it can't be missed like a toast. */}
+        {missedCallQueue.length > 0 && (() => {
+          const nextId = missedCallQueue[0];
+          const l = leads.find((x) => x.id === nextId);
+          const name = l ? [l.first_name, l.last_name].filter(Boolean).join(" ").trim() : "";
+          return (
+            <div
+              className="px-3 py-2 text-[12px] font-semibold"
+              style={{ background: "#fff7ed", color: "#9a3412", borderBottom: `0.5px solid ${COLORS.line}` }}
+            >
+              📞 Called back — next: {name || "unknown caller"}
+              {missedCallQueue.length > 1 ? ` (+${missedCallQueue.length - 1} more)` : ""}
+            </div>
+          );
+        })()}
         <RightPanel
           practiceMode={practiceMode}
           active={active}
