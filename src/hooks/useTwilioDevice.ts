@@ -223,6 +223,52 @@ async function ensureFreshToken(): Promise<void> {
   await refreshToken();
 }
 
+// Background tabs throttle setTimeout, so the 50-minute refresh can fire late
+// and the rep dials with a dead key. A cheap watchdog re-checks the token's
+// real age every minute and whenever the tab becomes visible again.
+let watchdogTimer: number | null = null;
+
+function startTokenWatchdog() {
+  if (typeof window === "undefined" || watchdogTimer !== null) return;
+  watchdogTimer = window.setInterval(() => {
+    if (!device) return;
+    if (Date.now() - tokenIssuedAt >= TOKEN_STALE_MS) void refreshToken();
+  }, 60_000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    void ensureFreshToken();
+  });
+}
+
+// Twilio codes that mean "transient" rather than "broken": rate limiting and
+// signalling/transport hiccups. These are worth retrying or re-registering for.
+const RATE_LIMIT_CODES = new Set([31206, 20429]);
+const CONNECTION_ERROR_CODES = new Set([31000, 31005, 31009, 53000, 53405]);
+
+function friendlyVoiceError(code: number | undefined, fallback: string): string {
+  if (code !== undefined && RATE_LIMIT_CODES.has(code)) {
+    return "The phone system is busy — trying again in a moment.";
+  }
+  if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) {
+    return "Call didn't connect — try again.";
+  }
+  if (code === 20101 || code === 20104) {
+    return "Reconnecting the phone — try again in a moment.";
+  }
+  return fallback;
+}
+
+async function reregisterDevice(): Promise<void> {
+  if (!device) return;
+  try {
+    await ensureFreshToken();
+    await device.register();
+    console.log("Voice SDK: re-registered after connection error");
+  } catch (err) {
+    console.error("Voice SDK: re-register failed", err);
+  }
+}
+
 async function ensureDevice(): Promise<void> {
   if (device || initPromise) return initPromise ?? Promise.resolve();
   initPromise = (async () => {
