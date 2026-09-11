@@ -94,11 +94,9 @@ export const simulateDepositPaid = createServerFn({ method: "POST" })
   });
 
 /**
- * Reset Peter Test back to a clean intake-stage lead.
- * Scope (per user spec): payment + status only.
- *  - clears deposit_* and stripe_* fields on meta_leads
- *  - sets status back to 'intake'
- * Notes, call records, appointments, sent links etc. are left alone.
+ * Reset a sandbox lead back to a genuinely clean intake-stage lead.
+ * Call history and notes stay available for testing, but all booking,
+ * payment, reminder and handover state is removed.
  */
 export const resetPeterTestLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -107,17 +105,33 @@ export const resetPeterTestLead = createServerFn({ method: "POST" })
     const { supabase } = context;
     await assertAdminAndPeter(supabase, data.leadId);
 
-    const { error } = await supabase
+    const { error: leadResetError } = await supabase
       .from("meta_leads")
       .update({
         status: "intake",
+        booking_date: null,
+        booking_time: null,
+        clinic_id: null,
         deposit_paid_at: null,
         deposit_amount: null,
         stripe_payment_intent_id: null,
         stripe_checkout_session_id: null,
+        handover_sent_at: null,
       })
       .eq("id", data.leadId);
-    if (error) throw error;
+    if (leadResetError) throw leadResetError;
+
+    const { error: appointmentError } = await supabase
+      .from("clinic_appointments")
+      .delete()
+      .eq("lead_id", data.leadId);
+    if (appointmentError) throw appointmentError;
+
+    const { error: reminderError } = await supabase
+      .from("appointment_reminders")
+      .delete()
+      .eq("lead_id", data.leadId);
+    if (reminderError) throw reminderError;
 
     return { ok: true, reset: true };
   });

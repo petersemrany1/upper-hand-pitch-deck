@@ -26,7 +26,7 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
 
   async function onReset() {
     if (busy) return;
-    if (!confirm("Reset both test leads (Peter Test + Test Tested) back to clean intake stage? Clears payment + status only.")) return;
+    if (!confirm("Reset both test leads (Peter Test + Test Tested) to a clean start? This clears their test bookings and payments.")) return;
     setBusy("reset");
     setMsg(null);
     try {
