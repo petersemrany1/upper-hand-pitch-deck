@@ -3278,6 +3278,8 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved, repId }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void; repId?: string | null }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [clinicsLoading, setClinicsLoading] = useState(true);
+  const [clinicsError, setClinicsError] = useState(false);
+  const [clinicsRetryTick, setClinicsRetryTick] = useState(0);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
@@ -3766,22 +3768,32 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   useEffect(() => {
     void (async () => {
       setClinicsLoading(true);
-      const [{ data }, remaining] = await Promise.all([
-        supabase.from("partner_clinics")
-          .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-          .eq("is_active", true),
-        fetchClinicRemainingSlots(),
-      ]);
-      // Clinics with no consult slots left to fill can't be booked into.
-      // The lead's already-booked clinic stays available so existing bookings
-      // can still be edited.
-      const list = ((data ?? []) as Clinic[]).filter(
-        (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
-      );
-      setClinics(list);
-      setClinicsLoading(false);
+      setClinicsError(false);
+      try {
+        const [{ data, error }, remaining] = await Promise.all([
+          supabase.from("partner_clinics")
+            .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+            .eq("is_active", true),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (error) throw error;
+        // Clinics with no consult slots left to fill can't be booked into.
+        // The lead's already-booked clinic stays available so existing bookings
+        // can still be edited.
+        const list = ((data ?? []) as Clinic[]).filter(
+          (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+        );
+        setClinics(list);
+      } catch (err) {
+        // Capacity check or clinic list failed — never present this as "no
+        // clinics available". Show an error + Retry and keep any previous list.
+        console.error("clinic list load failed", err);
+        setClinicsError(true);
+      } finally {
+        setClinicsLoading(false);
+      }
     })();
-  }, [lead.clinic_id]);
+  }, [lead.clinic_id, clinicsRetryTick]);
 
 
   useEffect(() => {
@@ -5005,9 +5017,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             <Label>Clinic</Label>
             <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)} disabled={clinicsLoading}
               className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
-              <option value="">{clinicsLoading ? "Loading clinics…" : "Select clinic…"}</option>
+              <option value="">{clinicsLoading ? "Loading clinics…" : clinicsError && clinics.length === 0 ? "Couldn't load clinics" : "Select clinic…"}</option>
               {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
             </select>
+            {clinicsError && !clinicsLoading && (
+              <div className="mt-1 text-[12px]" style={{ color: "#b91c1c" }}>
+                Couldn't check clinic availability.{" "}
+                <button type="button" onClick={() => setClinicsRetryTick((t) => t + 1)}
+                  className="underline font-medium" style={{ color: "#b91c1c" }}>
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <Label>Gender</Label>
@@ -6651,6 +6672,8 @@ function RightPanel({
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
   const [panelClinicsLoading, setPanelClinicsLoading] = useState(true);
+  const [panelClinicsError, setPanelClinicsError] = useState(false);
+  const [panelClinicsRetryTick, setPanelClinicsRetryTick] = useState(0);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
@@ -6783,32 +6806,41 @@ function RightPanel({
   useEffect(() => {
     void (async () => {
       setPanelClinicsLoading(true);
-      const [{ data: clinics }, remaining] = await Promise.all([
-        supabase
-          .from("partner_clinics")
-          .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-          .eq("is_active", true)
-          .order("clinic_name"),
-        fetchClinicRemainingSlots(),
-      ]);
-      // Only offer clinics that still have consult slots left in their pack.
-      const list = ((clinics ?? []) as Clinic[]).filter(
-        (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
-      );
-      setPanelClinics(list);
-      setPanelClinicsLoading(false);
+      setPanelClinicsError(false);
+      try {
+        const [{ data: clinics, error }, remaining] = await Promise.all([
+          supabase
+            .from("partner_clinics")
+            .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+            .eq("is_active", true)
+            .order("clinic_name"),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (error) throw error;
+        // Only offer clinics that still have consult slots left in their pack.
+        const list = ((clinics ?? []) as Clinic[]).filter(
+          (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+        );
+        setPanelClinics(list);
 
-      // Reuse only the clinic explicitly selected during this lead's current
-      // sales-call session. Never seed from active.clinic_id because that may
-      // belong to an older booking.
-      const selectedId = typeof window !== "undefined"
-        ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
-        : null;
-      const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
-      setPanelClinic(selected);
-      await loadDoctorForClinic(selected?.id ?? null);
+        // Reuse only the clinic explicitly selected during this lead's current
+        // sales-call session. Never seed from active.clinic_id because that may
+        // belong to an older booking.
+        const selectedId = typeof window !== "undefined"
+          ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
+          : null;
+        const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
+        setPanelClinic(selected);
+        await loadDoctorForClinic(selected?.id ?? null);
+      } catch (err) {
+        // Never treat a failed capacity check as "every clinic is full".
+        console.error("panel clinic list load failed", err);
+        setPanelClinicsError(true);
+      } finally {
+        setPanelClinicsLoading(false);
+      }
     })();
-  }, [active.id, active.clinic_id, loadDoctorForClinic]);
+  }, [active.id, active.clinic_id, loadDoctorForClinic, panelClinicsRetryTick]);
 
   useEffect(() => {
     const syncSelectedClinic = (event: Event) => {
@@ -7601,10 +7633,11 @@ function RightPanel({
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
-        {panelClinics.length > 0 && (
+        {(panelClinics.length > 0 || panelClinicsLoading || panelClinicsError) && (
           <select
             value={panelClinic?.id ?? ""}
             onChange={(e) => handleSelectPanelClinic(e.target.value)}
+            disabled={panelClinicsLoading}
             style={{
               marginTop: 6,
               width: "100%",
@@ -7617,13 +7650,25 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
-            <option value="">{panelClinicsLoading ? "Loading clinics…" : "Select clinic…"}</option>
+            <option value="">{panelClinicsLoading ? "Loading clinics…" : panelClinicsError && panelClinics.length === 0 ? "Couldn't load clinics" : "Select clinic…"}</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
               </option>
             ))}
           </select>
+        )}
+        {panelClinicsError && !panelClinicsLoading && (
+          <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+            Couldn't check clinic availability.{" "}
+            <button
+              type="button"
+              onClick={() => setPanelClinicsRetryTick((t) => t + 1)}
+              style={{ textDecoration: "underline", fontWeight: 500, color: "#b91c1c" }}
+            >
+              Retry
+            </button>
+          </div>
         )}
         {panelClinic ? (
 
