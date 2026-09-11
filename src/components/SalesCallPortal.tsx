@@ -727,12 +727,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       setSessionBookings(bookedLeadIds.size);
     };
 
+    // Coalesce bursts of row changes into one refresh — a single dial fires
+    // several call_records and meta_leads events.
+    let statsDebounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleStats = () => {
+      if (statsDebounce) clearTimeout(statsDebounce);
+      statsDebounce = setTimeout(() => { statsDebounce = null; void loadSessionStats(); }, 2000);
+    };
+
     void loadSessionStats();
     const ch = supabase.channel("session-stats")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionStats())
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void loadSessionStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, scheduleStats)
+      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, scheduleStats)
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      if (statsDebounce) clearTimeout(statsDebounce);
+      void supabase.removeChannel(ch);
+    };
   }, [sessionActive, sessionStartedAt, repId, leads, sessionQueue]);
 
   useEffect(() => {
