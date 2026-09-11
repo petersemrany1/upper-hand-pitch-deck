@@ -317,6 +317,16 @@ function AdminTestButton() {
 export function SalesCallPortal({ practiceMode = false, testLeadId }: { practiceMode?: boolean; testLeadId?: string | string[] } = {}) {
   const testLeadIds = Array.isArray(testLeadId) ? testLeadId : testLeadId ? [testLeadId] : [];
   const firstTestLeadId = testLeadIds[0];
+  // Sandbox sessions are hard-limited to the test leads. Any other lead
+  // (including one arriving live over realtime) is ignored outright so a real
+  // customer can never appear in the sandbox queue.
+  const sandboxAllowedIdsRef = useRef<Set<string> | null>(null);
+  sandboxAllowedIdsRef.current = testLeadIds.length > 0 ? new Set(testLeadIds) : null;
+  const isSandboxBlocked = (leadId: string | null | undefined) => {
+    const allowed = sandboxAllowedIdsRef.current;
+    return Boolean(allowed && (!leadId || !allowed.has(leadId)));
+  };
+
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
@@ -957,6 +967,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       // Test dummies and blacklisted people never enter a real calling queue.
       if (testLeadIds.length === 0) {
         fetched = fetched.filter((l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && l.status !== "blacklisted");
+      } else {
+        // Sandbox: only the test leads, no matter what came back.
+        fetched = fetched.filter((l) => !isSandboxBlocked(l.id));
       }
 
       setLeads((prev) => {
@@ -965,6 +978,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
         return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
       });
+
       setLeadsLoaded(true);
     };
 
@@ -981,10 +995,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         }
         const nextLead = payload.new as Lead | null;
         if (!nextLead?.id) return;
+        // Sandbox: ignore every real lead, including live new enquiries.
+        if (isSandboxBlocked(nextLead.id)) {
+          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          return;
+        }
         if (testLeadIds.length === 0 && (HIDDEN_TEST_LEAD_IDS.has(nextLead.id) || nextLead.status === "blacklisted")) {
           setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
           return;
         }
+
 
         setLeads((prev) => {
           const idx = prev.findIndex((l) => l.id === nextLead.id);
