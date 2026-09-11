@@ -2302,6 +2302,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       clinic_id: clinicId,
       patient_name: name.trim(),
       patient_phone: phone.trim() || null,
+      patient_email: email.trim() || null,
       appointment_date: date,
       appointment_time: time,
       intel_notes: notes.trim() || null,
