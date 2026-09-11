@@ -796,7 +796,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       since.setDate(since.getDate() - 2); // covers yesterday + today
       const { data } = await supabase
         .from("call_records")
-        .select("lead_id, called_at, outcome, status")
+        .select("lead_id, called_at, outcome, status, direction")
         .in("lead_id", leadIds)
         .gte("called_at", since.toISOString())
         .order("called_at", { ascending: true });
@@ -810,12 +810,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const d = new Date(row.called_at);
         const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-        if (dayStart.getTime() === today.getTime()) {
+        // Attempts = dials WE made. A lead ringing in is not an attempt.
+        const isDial = (row.direction as string | null ?? "outbound") !== "inbound";
+        if (isDial && dayStart.getTime() === today.getTime()) {
           counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
         }
         byDay[row.lead_id] = byDay[row.lead_id] ?? {};
         const slot = byDay[row.lead_id][dayKey] ?? { count: 0, lastOutcome: null };
-        slot.count += 1;
+        if (isDial) slot.count += 1;
         slot.lastOutcome = (row.outcome as string | null) ?? (row.status as string | null) ?? slot.lastOutcome;
         byDay[row.lead_id][dayKey] = slot;
       }
@@ -826,7 +828,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       // so the first row per lead wins). Drives the "Day N" pipeline counter.
       const { data: firstRows } = await supabase
         .from("call_records")
-        .select("lead_id, called_at")
+        .select("lead_id, called_at, direction")
         .in("lead_id", leadIds)
         .order("called_at", { ascending: true })
         .limit(10000);
