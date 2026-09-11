@@ -1800,6 +1800,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               });
               const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
+              setRingBackIds((prev) => prev.filter((id) => id !== nextMissedId));
               if (nextMissedId) {
               // Keep the session queue in sync if we're in one.
               if (sessionActive) {
@@ -1883,6 +1884,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               });
               const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
+              setRingBackIds((prev) => prev.filter((id) => id !== nextMissedId));
               if (nextMissedId) {
                 if (sessionActive) {
                   const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
