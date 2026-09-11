@@ -1107,15 +1107,18 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
   const markRefundedManually = async () => {
     if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
-    const { error } = await supabase
-      .from("clinic_appointments")
-      .update({ refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() })
-      .eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Marked as refunded");
-    onChange();
-    onClose();
+    try {
+      const { markDepositRefundedManually } = await import("@/utils/clinic-outcome.functions");
+      const res = await markDepositRefundedManually({ data: { appointmentId: appt.id } });
+      if (!res.success) { toast.error(res.error); return; }
+      toast.success("Marked as refunded");
+      onChange();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
   };
+
 
   return (
     <ModalShell onClose={onClose}>
