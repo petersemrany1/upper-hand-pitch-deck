@@ -7633,10 +7633,11 @@ function RightPanel({
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
-        {panelClinics.length > 0 && (
+        {(panelClinics.length > 0 || panelClinicsLoading || panelClinicsError) && (
           <select
             value={panelClinic?.id ?? ""}
             onChange={(e) => handleSelectPanelClinic(e.target.value)}
+            disabled={panelClinicsLoading}
             style={{
               marginTop: 6,
               width: "100%",
@@ -7649,13 +7650,25 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
-            <option value="">{panelClinicsLoading ? "Loading clinics…" : "Select clinic…"}</option>
+            <option value="">{panelClinicsLoading ? "Loading clinics…" : panelClinicsError && panelClinics.length === 0 ? "Couldn't load clinics" : "Select clinic…"}</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
               </option>
             ))}
           </select>
+        )}
+        {panelClinicsError && !panelClinicsLoading && (
+          <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+            Couldn't check clinic availability.{" "}
+            <button
+              type="button"
+              onClick={() => setPanelClinicsRetryTick((t) => t + 1)}
+              style={{ textDecoration: "underline", fontWeight: 500, color: "#b91c1c" }}
+            >
+              Retry
+            </button>
+          </div>
         )}
         {panelClinic ? (
 
