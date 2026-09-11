@@ -317,6 +317,16 @@ function AdminTestButton() {
 export function SalesCallPortal({ practiceMode = false, testLeadId }: { practiceMode?: boolean; testLeadId?: string | string[] } = {}) {
   const testLeadIds = Array.isArray(testLeadId) ? testLeadId : testLeadId ? [testLeadId] : [];
   const firstTestLeadId = testLeadIds[0];
+  // Sandbox sessions are hard-limited to the test leads. Any other lead
+  // (including one arriving live over realtime) is ignored outright so a real
+  // customer can never appear in the sandbox queue.
+  const sandboxAllowedIdsRef = useRef<Set<string> | null>(null);
+  sandboxAllowedIdsRef.current = testLeadIds.length > 0 ? new Set(testLeadIds) : null;
+  const isSandboxBlocked = (leadId: string | null | undefined) => {
+    const allowed = sandboxAllowedIdsRef.current;
+    return Boolean(allowed && (!leadId || !allowed.has(leadId)));
+  };
+
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
