@@ -472,6 +472,7 @@ async function ensureDevice(): Promise<void> {
 
       await d.register();
       scheduleTokenRefresh();
+      startTokenWatchdog();
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
       console.error("Voice SDK init failed:", err);
@@ -536,7 +537,29 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // dialled from.
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     await preferHeadsetMicrophone(device);
-    const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
+    // Twilio occasionally throttles ("too many requests") or drops the
+    // signalling connection. Both are transient — wait briefly and try again
+    // rather than showing the rep a failed call.
+    const connectWithRetry = async (): Promise<Call> => {
+      const delays = [800, 1600, 3200];
+      let lastErr: unknown = null;
+      for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+        try {
+          return await device!.connect({ params, ...lowLatencyMediaOptions() });
+        } catch (err) {
+          lastErr = err;
+          const code = (err as { code?: number } | null)?.code;
+          const transient =
+            code !== undefined && (RATE_LIMIT_CODES.has(code) || CONNECTION_ERROR_CODES.has(code));
+          if (!transient || attempt === delays.length) break;
+          console.warn(`Voice SDK: transient dial error ${code} — retrying`, err);
+          if (CONNECTION_ERROR_CODES.has(code)) await reregisterDevice();
+          await new Promise((r) => setTimeout(r, delays[attempt]));
+        }
+      }
+      throw lastErr instanceof Error ? lastErr : new Error("Failed to start call");
+    };
+    const outgoing = await connectWithRetry();
     activeCall = outgoing;
 
     // Insert the call_records row as soon as Twilio assigns a CallSid.
@@ -732,7 +755,8 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       stopRingback();
       teardownStatus();
       activeCall = null;
-      setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "error" });
+      if (e?.code !== undefined && CONNECTION_ERROR_CODES.has(e.code)) void reregisterDevice();
+      setSnapshot({ error: friendlyVoiceError(e?.code, e?.message || `Call error (${e?.code ?? "unknown"})`), activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "error" });
     });
   } catch (err) {
     stopRingback();
