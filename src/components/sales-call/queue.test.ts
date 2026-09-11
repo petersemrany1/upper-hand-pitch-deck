@@ -208,4 +208,23 @@ describe("buildHistory", () => {
     });
     expect(h.b).toBeUndefined();
   });
+
+  test("inbound calls are not dial attempts (ring-back must stay callable)", () => {
+    const rows = [
+      { lead_id: "a", called_at: iso(TODAY, "09:00"), direction: "outbound" },
+      { lead_id: "a", called_at: iso(TODAY, "09:02"), direction: "inbound" },
+    ];
+    const h = buildHistory(rows, AFTERNOON);
+    expect(h.a?.attempts).toBe(1);
+    expect(h.a?.todayAttempts).toBe(1);
+    expect(h.a?.lastAttemptAt).toBe(iso(TODAY, "09:00"));
+    expect(h.a?.todayLastAttemptAt).toBe(iso(TODAY, "09:00"));
+  });
+
+  test("an inbound-only lead still gets a first-contact timestamp", () => {
+    const h = buildHistory([{ lead_id: "a", called_at: iso(TODAY, "09:02"), direction: "inbound" }], AFTERNOON);
+    expect(h.a?.attempts).toBe(0);
+    expect(h.a?.firstCallAt).toBe(iso(TODAY, "09:02"));
+    expect(h.a?.lastAttemptAt).toBeNull();
+  });
 });

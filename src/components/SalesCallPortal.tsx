@@ -259,6 +259,9 @@ function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null
 
 /** A callback or ring-back dialled by anyone this recently isn't served again. */
 const RECENT_DIAL_MS = 10 * 60 * 1000;
+/** Ring-backs survive a page refresh for this long. */
+const RING_BACK_STORE_KEY = "salesCall.ringBackQueue";
+const RING_BACK_TTL_MS = 2 * 60 * 60 * 1000;
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
@@ -370,9 +373,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
-  const [missedCallQueue, setMissedCallQueue] = useState<string[]>([]);
+  // Persisted for RING_BACK_TTL_MS so a page refresh doesn't lose ring-backs.
+  const [missedCallQueue, setMissedCallQueue] = useState<string[]>(() => {
+    if (typeof window === "undefined" || practiceMode) return [];
+    try {
+      const raw = window.localStorage.getItem(RING_BACK_STORE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { at?: number; ids?: string[] };
+      if (!parsed?.at || !Array.isArray(parsed.ids)) return [];
+      if (Date.now() - parsed.at > RING_BACK_TTL_MS) return [];
+      return parsed.ids.filter((id) => typeof id === "string");
+    } catch { return []; }
+  });
   const missedCallQueueRef = useRef<string[]>([]);
   useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
+  useEffect(() => {
+    if (typeof window === "undefined" || practiceMode) return;
+    try {
+      if (missedCallQueue.length === 0) window.localStorage.removeItem(RING_BACK_STORE_KEY);
+      else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue }));
+    } catch { /* storage unavailable — in-memory only */ }
+  }, [missedCallQueue, practiceMode]);
+  
   const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -796,7 +818,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       since.setDate(since.getDate() - 2); // covers yesterday + today
       const { data } = await supabase
         .from("call_records")
-        .select("lead_id, called_at, outcome, status")
+        .select("lead_id, called_at, outcome, status, direction")
         .in("lead_id", leadIds)
         .gte("called_at", since.toISOString())
         .order("called_at", { ascending: true });
@@ -810,12 +832,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const d = new Date(row.called_at);
         const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-        if (dayStart.getTime() === today.getTime()) {
+        // Attempts = dials WE made. A lead ringing in is not an attempt.
+        const isDial = (row.direction as string | null ?? "outbound") !== "inbound";
+        if (isDial && dayStart.getTime() === today.getTime()) {
           counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
         }
         byDay[row.lead_id] = byDay[row.lead_id] ?? {};
         const slot = byDay[row.lead_id][dayKey] ?? { count: 0, lastOutcome: null };
-        slot.count += 1;
+        if (isDial) slot.count += 1;
         slot.lastOutcome = (row.outcome as string | null) ?? (row.status as string | null) ?? slot.lastOutcome;
         byDay[row.lead_id][dayKey] = slot;
       }
@@ -826,7 +850,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       // so the first row per lead wins). Drives the "Day N" pipeline counter.
       const { data: firstRows } = await supabase
         .from("call_records")
-        .select("lead_id, called_at")
+        .select("lead_id, called_at, direction")
         .in("lead_id", leadIds)
         .order("called_at", { ascending: true })
         .limit(10000);
@@ -959,21 +983,43 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // lead" jumps straight to them.
   useEffect(() => {
     const seen = new Set<string>();
-    const handle = (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null } | null) => {
+    const handle = async (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null; lead_id?: string | null } | null) => {
       if (!row || row.direction !== "inbound" || !row.id) return;
       const s = (row.status || "").toLowerCase();
-      const answered = (row.duration && row.duration > 0) || s === "in-progress" || s === "completed";
+      // Only skip when the rep genuinely spoke to them (real talk time) or the
+      // call is live right now. A "completed" row with no talk time is a
+      // voicemail/hang-up — that person still needs ringing back.
+      const answered = (row.duration && row.duration > 0) || s === "in-progress";
       if (answered) return;
       if (seen.has(row.id)) return;
       seen.add(row.id);
       const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
-      if (tail.length < 6) return;
-      const lead = leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail);
+      let lead = tail.length >= 6
+        ? leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail)
+        : undefined;
+      // Not on the loaded list (older enquiry, other group): the inbound call
+      // record already knows which lead it is, so pull that one lead in.
+      if (!lead && row.lead_id) {
+        const known = leadsRef.current.find((l) => l.id === row.lead_id);
+        if (known) lead = known;
+        else {
+          const { data } = await supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .eq("id", row.lead_id)
+            .maybeSingle();
+          if (!data) return;
+          lead = data as Lead;
+          const fetched = lead;
+          setLeads((prev) => (prev.some((l) => l.id === fetched.id) ? prev : [fetched, ...prev]));
+        }
+      }
       if (!lead) return;
+      const ringBack = lead;
 
       // Exclusion: don't jump back to leads we've closed out.
-      const rawStatus = (lead.status ?? "").toLowerCase();
-      const normStatus = normaliseStatus(lead.status, lead);
+      const rawStatus = (ringBack.status ?? "").toLowerCase();
+      const normStatus = normaliseStatus(ringBack.status, ringBack);
       const excluded =
         normStatus === "booked_deposit_paid" ||
         normStatus === "not_interested" ||
@@ -982,11 +1028,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         rawStatus === "no_show";
       if (excluded) return;
       // Don't queue the lead the rep is currently on.
-      if (lead.id === activeIdRef.current) return;
+      if (ringBack.id === activeIdRef.current) return;
 
       // Always add to the missed-call queue so "Next Lead" jumps here next,
       // even outside of session mode. Dedupe + keep FIFO order.
-      setMissedCallQueue((prev) => (prev.includes(lead.id) ? prev : [...prev, lead.id]));
+      setMissedCallQueue((prev) => (prev.includes(ringBack.id) ? prev : [...prev, ringBack.id]));
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
@@ -995,16 +1041,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           sessionQueueRef.current,
           activeIdRef.current,
           sessionIndexRef.current,
-          lead.id,
+          ringBack.id,
         );
         setSessionQueue(placement.queue);
       }
-      const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
+      const name = [ringBack.first_name, ringBack.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
       toast.success(`📞 ${name} called back — queued next`);
     };
     const ch = supabase.channel("sales-call-missed-callbacks")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
@@ -1160,15 +1206,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // that is no longer due (called today by someone — reps share one pool —
   // or since booked / retired). Callbacks and ring-backs arrive through the
   // missed-call queue and never pass through here.
-  // Callbacks and ring-backs surface on every rep's screen at once. If
-  // anyone dialled that person in the last few minutes, another rep must
-  // not ring them again.
-  const dialledRecently = useCallback((id: string): boolean => {
-    const last = callHistory[id]?.lastAttemptAt;
-    if (!last) return false;
-    const t = new Date(last).getTime();
-    return Number.isFinite(t) && Date.now() - t < RECENT_DIAL_MS;
-  }, [callHistory]);
+  // NOTE: a ring-back is never suppressed by "someone dialled them recently".
+  // The normal ring-back is a reply to our own no-answer dial seconds earlier,
+  // so that guard would cancel exactly the lead we want to serve next. The
+  // shared-pool protection for ordinary queue order still comes from
+  // buildQueue(), which now ignores inbound calls as dial attempts.
   const advanceIndexFrom = useCallback((from: number): number => {
     const q = sessionQueueRef.current;
     let i = Math.max(0, from);
@@ -1633,6 +1675,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           borderTop: `0.5px solid ${COLORS.line}`,
         }}
       >
+        {/* Ring-back banner: someone called us back and is next up. Visible
+            until the rep gets to them, so it can't be missed like a toast. */}
+        {missedCallQueue.length > 0 && (() => {
+          const nextId = missedCallQueue[0];
+          const l = leads.find((x) => x.id === nextId);
+          const name = l ? [l.first_name, l.last_name].filter(Boolean).join(" ").trim() : "";
+          return (
+            <div
+              className="px-3 py-2 text-[12px] font-semibold"
+              style={{ background: "#fff7ed", color: "#9a3412", borderBottom: `0.5px solid ${COLORS.line}` }}
+            >
+              📞 Called back — next: {name || "unknown caller"}
+              {missedCallQueue.length > 1 ? ` (+${missedCallQueue.length - 1} more)` : ""}
+            </div>
+          );
+        })()}
         <RightPanel
           practiceMode={practiceMode}
           active={active}
@@ -1644,8 +1702,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onChangeLead={() => {
             // Missed-call priority: if anyone rang us back, jump to them
             // FIRST — regardless of whether a formal session is running.
-            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
-            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
+            // NOTE: the 10-minute double-dial guard is deliberately NOT applied
+            // here. The normal case is "we rang, no answer, they ring straight
+            // back" — the guard would cancel exactly the lead we want next.
+            const mcq = missedCallQueue;
             if (mcq.length > 0) {
               const [nextMissedId, ...restMissed] = mcq;
               setMissedCallQueue(restMissed);
@@ -1718,8 +1778,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
             // Missed-call priority also applies right after logging an outcome.
-            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
-            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
+            // Same as above: no recent-dial filter — a ring-back always wins.
+            const mcq = missedCallQueue;
             if (mcq.length > 0) {
               if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
               const [nextMissedId, ...restMissed] = mcq;
