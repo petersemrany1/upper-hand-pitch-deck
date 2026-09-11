@@ -66,7 +66,7 @@ async function pickCallerId(sb: ReturnType<typeof createClient>, destination: st
         .select("number")
         .eq("status", "active")
         .order("number", { ascending: true }),
-      DB_TIMEOUT_MS,
+      CALLER_ID_TIMEOUT_MS,
       "pickCallerId query",
     );
     const rows = result?.data as { number: string }[] | null | undefined;
