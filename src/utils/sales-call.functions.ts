@@ -501,9 +501,8 @@ export const clearBooking = createServerFn({ method: "POST" })
  * must never be written onto a call record.
  */
 const CALL_OUTCOME_STATUSES = new Set([
-  "no_answer", "callback_scheduled", "had_convo_chase_up", "not_interested",
-  "dropped", "booked_deposit_paid", "deposit_pending", "finance_not_eligible",
-  "wrong_number", "voicemail",
+  "no_answer", "callback_scheduled", "had_convo_chase_up", "had_convo_no_sale",
+  "not_interested", "dropped", "booked_deposit_paid",
 ]);
 
 async function stampLatestCallOutcome(leadId: string, status: string): Promise<void> {
