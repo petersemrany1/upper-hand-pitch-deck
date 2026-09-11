@@ -998,33 +998,55 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const [rescheduleMode, setRescheduleMode] = useState(false);
+  const [busy, setBusy] = useState(false);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
-  const setOutcome = async (outcome: "noshow" | "proceeded") => {
-    // "proceeded" means the patient turned up, so the booking fee must be
-    // refunded — that only happens through processConsultOutcome. A no-show
-    // keeps the fee, so it stays a plain update.
-    if (outcome === "proceeded") {
-      const { processConsultOutcome } = await import("@/utils/consult-outcome.functions");
-      const result = await processConsultOutcome({ data: { appointmentId: appt.id, summary: "", proceeded: true } });
-      if (!result.success) { toast.error(result.error || "Could not save outcome"); return; }
-      toast.success("refunded" in result && result.refunded ? "Outcome saved — booking fee refunded" : "Outcome saved");
+  // Attendance from the portal always goes through the guarded server
+  // functions so a clinic tap can never overwrite an outcome your team has
+  // already recorded, and every change is logged against the appointment.
+  const openSummary = async (mode: "show" | "proceeded") => {
+    setBusy(true);
+    try {
+      const { checkOutcomeFree } = await import("@/utils/clinic-outcome.functions");
+      const check = await checkOutcomeFree({ data: { appointmentId: appt.id } });
+      if (!check.success) { toast.error(check.error || "Could not open this consult"); onChange(); return; }
+      setSummaryMode(mode);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open this consult");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markNoShow = async () => {
+    setBusy(true);
+    try {
+      const { recordClinicNoShow } = await import("@/utils/clinic-outcome.functions");
+      const result = await recordClinicNoShow({ data: { appointmentId: appt.id } });
+      if (!result.success) { toast.error(result.error || "Could not save outcome"); onChange(); return; }
+      toast.success("Outcome saved");
       onChange();
       onClose();
-      return;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save outcome");
+    } finally {
+      setBusy(false);
     }
-    const { error } = await supabase.from("clinic_appointments").update({ outcome }).eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Outcome saved");
-    onChange();
-    onClose();
   };
 
   const resetOutcome = async () => {
-    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null, disqualified_reason: null, disqualified_at: null, disqualified_by: null }).eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Outcome reset");
-    onChange();
+    setBusy(true);
+    try {
+      const { resetClinicOutcome } = await import("@/utils/clinic-outcome.functions");
+      const result = await resetClinicOutcome({ data: { appointmentId: appt.id } });
+      if (!result.success) { toast.error(result.error || "Could not reset outcome"); onChange(); return; }
+      toast.success("Outcome reset");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reset outcome");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const disqualify = async () => {
@@ -1209,9 +1231,9 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
-          <button onClick={() => setSummaryMode("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
-          <button onClick={() => setOutcome("noshow")} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
+          <button disabled={busy} onClick={() => void openSummary("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
+          <button disabled={busy} onClick={() => void openSummary("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
+          <button disabled={busy} onClick={() => void markNoShow()} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
           <button onClick={() => setRescheduleMode(true)} style={outcomeBtn("#2d5fa0", "#edf2f9")}>📅 Reschedule</button>
         </div>
       )}
@@ -1219,7 +1241,7 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
           {appt.outcome && !appt.stripe_refund_id && !appt.square_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
-            <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
+            <button disabled={busy} onClick={() => void resetOutcome()} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && appt.outcome !== "disqualified" && (
             <button onClick={disqualify} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#fef2f2", color: "#991b1b", borderColor: "#fecaca" }}>
