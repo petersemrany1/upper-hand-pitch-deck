@@ -356,8 +356,14 @@ async function ensureDevice(): Promise<void> {
             try { await device?.register(); } catch (err) { console.error("re-register failed", err); }
           })();
         }
+        // Transport / signalling drops leave the Device unregistered. Re-register
+        // straight away so the NEXT call starts from a clean connection instead
+        // of failing too.
+        if (e?.code !== undefined && CONNECTION_ERROR_CODES.has(e.code)) {
+          void reregisterDevice();
+        }
         setSnapshot({
-          error: e?.message || `Device error (${e?.code ?? "unknown"})`,
+          error: friendlyVoiceError(e?.code, e?.message || `Device error (${e?.code ?? "unknown"})`),
           activeCallStartedAt: activeCall ? currentCallStartedAt : null,
           activeCallInstanceId: activeCall ? currentCallInstanceId : null,
           status: "error",
