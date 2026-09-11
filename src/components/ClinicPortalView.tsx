@@ -998,33 +998,55 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const [rescheduleMode, setRescheduleMode] = useState(false);
+  const [busy, setBusy] = useState(false);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
-  const setOutcome = async (outcome: "noshow" | "proceeded") => {
-    // "proceeded" means the patient turned up, so the booking fee must be
-    // refunded — that only happens through processConsultOutcome. A no-show
-    // keeps the fee, so it stays a plain update.
-    if (outcome === "proceeded") {
-      const { processConsultOutcome } = await import("@/utils/consult-outcome.functions");
-      const result = await processConsultOutcome({ data: { appointmentId: appt.id, summary: "", proceeded: true } });
-      if (!result.success) { toast.error(result.error || "Could not save outcome"); return; }
-      toast.success("refunded" in result && result.refunded ? "Outcome saved — booking fee refunded" : "Outcome saved");
+  // Attendance from the portal always goes through the guarded server
+  // functions so a clinic tap can never overwrite an outcome your team has
+  // already recorded, and every change is logged against the appointment.
+  const openSummary = async (mode: "show" | "proceeded") => {
+    setBusy(true);
+    try {
+      const { checkOutcomeFree } = await import("@/utils/clinic-outcome.functions");
+      const check = await checkOutcomeFree({ data: { appointmentId: appt.id } });
+      if (!check.success) { toast.error(check.error || "Could not open this consult"); onChange(); return; }
+      setSummaryMode(mode);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open this consult");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markNoShow = async () => {
+    setBusy(true);
+    try {
+      const { recordClinicNoShow } = await import("@/utils/clinic-outcome.functions");
+      const result = await recordClinicNoShow({ data: { appointmentId: appt.id } });
+      if (!result.success) { toast.error(result.error || "Could not save outcome"); onChange(); return; }
+      toast.success("Outcome saved");
       onChange();
       onClose();
-      return;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save outcome");
+    } finally {
+      setBusy(false);
     }
-    const { error } = await supabase.from("clinic_appointments").update({ outcome }).eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Outcome saved");
-    onChange();
-    onClose();
   };
 
   const resetOutcome = async () => {
-    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null, disqualified_reason: null, disqualified_at: null, disqualified_by: null }).eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Outcome reset");
-    onChange();
+    setBusy(true);
+    try {
+      const { resetClinicOutcome } = await import("@/utils/clinic-outcome.functions");
+      const result = await resetClinicOutcome({ data: { appointmentId: appt.id } });
+      if (!result.success) { toast.error(result.error || "Could not reset outcome"); onChange(); return; }
+      toast.success("Outcome reset");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reset outcome");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const disqualify = async () => {
