@@ -31,6 +31,12 @@ type Reminder = {
 
 type Lead = { id: string; rep_id: string | null; last_name: string | null; first_name: string | null };
 
+/** "Dr. Shobhna Singh" / "Dr Jai" / "Jai" → "Dr Jai" (never "Dr Dr Jai"). */
+function withDrPrefix(name: string | null | undefined): string | null {
+  const clean = (name ?? "").replace(/^\s*dr\.?\s+/i, "").trim();
+  return clean ? `Dr ${clean}` : null;
+}
+
 const COLOR = {
   bg: "#f7f7f5",
   card: "#ffffff",
