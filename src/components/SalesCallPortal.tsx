@@ -1015,10 +1015,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         }
       }
       if (!lead) return;
+      const ringBack = lead;
 
       // Exclusion: don't jump back to leads we've closed out.
-      const rawStatus = (lead.status ?? "").toLowerCase();
-      const normStatus = normaliseStatus(lead.status, lead);
+      const rawStatus = (ringBack.status ?? "").toLowerCase();
+      const normStatus = normaliseStatus(ringBack.status, ringBack);
       const excluded =
         normStatus === "booked_deposit_paid" ||
         normStatus === "not_interested" ||
@@ -1027,11 +1028,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         rawStatus === "no_show";
       if (excluded) return;
       // Don't queue the lead the rep is currently on.
-      if (lead.id === activeIdRef.current) return;
+      if (ringBack.id === activeIdRef.current) return;
 
       // Always add to the missed-call queue so "Next Lead" jumps here next,
       // even outside of session mode. Dedupe + keep FIFO order.
-      setMissedCallQueue((prev) => (prev.includes(lead.id) ? prev : [...prev, lead.id]));
+      setMissedCallQueue((prev) => (prev.includes(ringBack.id) ? prev : [...prev, ringBack.id]));
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
@@ -1040,16 +1041,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           sessionQueueRef.current,
           activeIdRef.current,
           sessionIndexRef.current,
-          lead.id,
+          ringBack.id,
         );
         setSessionQueue(placement.queue);
       }
-      const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
+      const name = [ringBack.first_name, ringBack.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
       toast.success(`📞 ${name} called back — queued next`);
     };
     const ch = supabase.channel("sales-call-missed-callbacks")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
   }, []);
