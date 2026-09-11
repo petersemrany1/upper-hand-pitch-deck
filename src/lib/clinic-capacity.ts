@@ -15,11 +15,21 @@ let inflight: Promise<Record<string, number>> | null = null;
 const CACHE_MS = 30_000;
 
 /** Cached wrapper: reps move between leads constantly, so recomputing the whole
- * pack balance on every lead made the clinic picker look empty while it loaded. */
+ * pack balance on every lead made the clinic picker look empty while it loaded.
+ * Failures are NEVER cached and are retried once after a short pause — a brief
+ * network hiccup must not be mistaken for "every clinic is full". */
 export function fetchClinicRemainingSlots(): Promise<Record<string, number>> {
   if (cache && Date.now() - cache.at < CACHE_MS) return Promise.resolve(cache.value);
   if (inflight) return inflight;
   inflight = computeClinicRemainingSlots()
+    .catch((err) => {
+      console.warn("clinic capacity check failed, retrying once", err);
+      return new Promise<Record<string, number>>((resolve, reject) => {
+        setTimeout(() => {
+          computeClinicRemainingSlots().then(resolve, reject);
+        }, 800);
+      });
+    })
     .then((value) => {
       cache = { at: Date.now(), value };
       return value;
@@ -37,7 +47,7 @@ export function invalidateClinicRemainingSlots() {
 
 async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
   const todayStr = sydneyTodayISO();
-  const [{ data: packs }, { data: appts }] = await Promise.all([
+  const [packsResult, apptsResult] = await Promise.all([
     supabase.from("clinic_packs").select("clinic_id, pack_size, pack_type, date_paid, purchased_at"),
     supabase
       .from("clinic_appointments")
@@ -45,9 +55,16 @@ async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
       .not("patient_name", "ilike", "%test%"),
   ]);
 
+  // A failed read must throw — returning empty data here makes every clinic
+  // look full and silently wipes the clinic pickers in the sales portal.
+  if (packsResult.error) throw packsResult.error;
+  if (apptsResult.error) throw apptsResult.error;
+  const packs = packsResult.data ?? [];
+  const appts = apptsResult.data ?? [];
+
   const packsByClinic: Record<string, FreeTrialPack[]> = {};
   const remaining: Record<string, number> = {};
-  for (const p of packs ?? []) {
+  for (const p of packs) {
     (packsByClinic[p.clinic_id] ??= []).push(p as FreeTrialPack);
     if (p.pack_type === "free_trial") {
       remaining[p.clinic_id] ??= 0;
@@ -59,7 +76,7 @@ async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
   for (const [clinicId, list] of Object.entries(packsByClinic)) {
     cutoffs[clinicId] = freeTrialCutoff(list, todayStr);
   }
-  for (const a of appts ?? []) {
+  for (const a of appts) {
     if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
     if (!a.clinic_id) continue;
     if (isFreeTrialBooking(a.booked_at, cutoffs[a.clinic_id] ?? null)) continue;
