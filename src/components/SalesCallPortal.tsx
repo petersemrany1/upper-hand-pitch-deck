@@ -828,7 +828,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistory, now, isLeadLocationPaused));
+      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadLocationPaused));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
@@ -854,7 +854,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     void check();
     const interval = setInterval(() => void check(), 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [callHistory, isLeadLocationPaused]);
+    // Deliberately not keyed on callHistory: it's read through a ref so a
+    // rebuilt history doesn't trigger another callback query.
+  }, [isLeadLocationPaused]);
 
   useEffect(() => {
     const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
