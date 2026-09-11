@@ -3278,6 +3278,8 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved, repId }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void; repId?: string | null }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [clinicsLoading, setClinicsLoading] = useState(true);
+  const [clinicsError, setClinicsError] = useState(false);
+  const [clinicsRetryTick, setClinicsRetryTick] = useState(0);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
@@ -6651,6 +6653,8 @@ function RightPanel({
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
   const [panelClinicsLoading, setPanelClinicsLoading] = useState(true);
+  const [panelClinicsError, setPanelClinicsError] = useState(false);
+  const [panelClinicsRetryTick, setPanelClinicsRetryTick] = useState(0);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
