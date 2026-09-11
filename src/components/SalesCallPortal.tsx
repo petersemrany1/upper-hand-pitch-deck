@@ -394,7 +394,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue }));
     } catch { /* storage unavailable — in-memory only */ }
   }, [missedCallQueue, practiceMode]);
-  const isRingBack = useCallback((id: string) => missedCallQueue.includes(id), [missedCallQueue]);
+  
   const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
