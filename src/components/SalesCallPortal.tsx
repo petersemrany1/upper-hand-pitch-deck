@@ -1002,15 +1002,32 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // who's now ringing back), bump them to be the NEXT lead so pressing "Next
   // lead" jumps straight to them.
   useEffect(() => {
+    // Practice/sandbox sessions never get jumped by real inbound calls.
+    if (practiceMode || testLeadId) return;
     const seen = new Set<string>();
+    // Twilio writes the inbound row as "ringing" first, then updates it. We
+    // must wait for a settled state: acting on "ringing" would queue someone
+    // the rep is about to pick up and talk to.
+    const TERMINAL = new Set(["completed", "no-answer", "noanswer", "busy", "failed", "canceled", "cancelled"]);
     const handle = async (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null; lead_id?: string | null } | null) => {
       if (!row || row.direction !== "inbound" || !row.id) return;
       const s = (row.status || "").toLowerCase();
-      // Only skip when the rep genuinely spoke to them (real talk time) or the
-      // call is live right now. A "completed" row with no talk time is a
-      // voicemail/hang-up — that person still needs ringing back.
+      // Talk time, or live right now = the rep is speaking to them. Not a
+      // ring-back to serve later — and if we queued them from an earlier
+      // update, take them back out.
       const answered = (row.duration && row.duration > 0) || s === "in-progress";
-      if (answered) return;
+      if (answered) {
+        const answeredLeadId = row.lead_id
+          || leadsRef.current.find((l) => {
+            const t = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
+            return t.length >= 6 && (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === t;
+          })?.id;
+        if (answeredLeadId) setMissedCallQueue((prev) => prev.filter((id) => id !== answeredLeadId));
+        seen.add(row.id);
+        return;
+      }
+      // Still in flight (ringing/queued/initiated) — wait for the final state.
+      if (!TERMINAL.has(s)) return;
       if (seen.has(row.id)) return;
       seen.add(row.id);
       const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
@@ -1023,6 +1040,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const known = leadsRef.current.find((l) => l.id === row.lead_id);
         if (known) lead = known;
         else {
+          if (HIDDEN_TEST_LEAD_IDS.has(row.lead_id)) return;
           const { data } = await supabase
             .from("meta_leads")
             .select(SALES_CALL_LEAD_SELECT)
@@ -1031,11 +1049,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           if (!data) return;
           lead = data as Lead;
           const fetched = lead;
+          if (!isRingBackEligible(fetched)) return;
           setLeads((prev) => (prev.some((l) => l.id === fetched.id) ? prev : [fetched, ...prev]));
         }
       }
       if (!lead) return;
       const ringBack = lead;
+      if (HIDDEN_TEST_LEAD_IDS.has(ringBack.id)) return;
 
       // Exclusion: don't jump back to leads we've closed out.
       if (!isRingBackEligible(ringBack)) return;
@@ -1044,7 +1064,12 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
       // Always add to the missed-call queue so "Next Lead" jumps here next,
       // even outside of session mode. Dedupe + keep FIFO order.
-      setMissedCallQueue((prev) => (prev.includes(ringBack.id) ? prev : [...prev, ringBack.id]));
+      let added = false;
+      setMissedCallQueue((prev) => {
+        if (prev.includes(ringBack.id)) return prev;
+        added = true;
+        return [...prev, ringBack.id];
+      });
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
@@ -1057,15 +1082,44 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         );
         setSessionQueue(placement.queue);
       }
-      const name = [ringBack.first_name, ringBack.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
-      toast.success(`📞 ${name} called back — queued next`);
+      if (added) {
+        const name = [ringBack.first_name, ringBack.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
+        toast.success(`📞 ${name} called back — queued next`);
+      }
     };
     const ch = supabase.channel("sales-call-missed-callbacks")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
-  }, []);
+  }, [practiceMode, testLeadId]);
+
+  // Ring-backs restored from localStorage after a refresh may point at leads
+  // that aren't in the loaded list. Pull them in so the banner and "Next"
+  // can actually serve them (and drop any that no longer qualify).
+  const ringBackHydratedRef = useRef(false);
+  useEffect(() => {
+    if (practiceMode || testLeadId) return;
+    if (ringBackHydratedRef.current) return;
+    if (leads.length === 0) return;
+    const missing = missedCallQueueRef.current.filter((id) => !leads.some((l) => l.id === id));
+    ringBackHydratedRef.current = true;
+    if (missing.length === 0) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("meta_leads")
+        .select(SALES_CALL_LEAD_SELECT)
+        .in("id", missing);
+      const rows = ((data ?? []) as unknown as Lead[]).filter(
+        (l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && isRingBackEligible(l),
+      );
+      const keep = new Set(rows.map((l) => l.id));
+      setMissedCallQueue((prev) => prev.filter((id) => keep.has(id) || !missing.includes(id)));
+      if (rows.length > 0) {
+        setLeads((prev) => [...rows.filter((r) => !prev.some((p) => p.id === r.id)), ...prev]);
+      }
+    })();
+  }, [leads, practiceMode, testLeadId]);
 
 
 
