@@ -422,6 +422,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         await logError("saveBooking.statusPromote", statusErr.message, { leadId: data.leadId });
         return { success: false as const, error: `Booked, but status update failed: ${statusErr.message}` };
       }
+      await stampLatestCallOutcome(data.leadId, "booked_deposit_paid");
     }
 
     // Refresh any existing appointment_reminders row for this lead so a
