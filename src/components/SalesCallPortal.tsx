@@ -1756,6 +1756,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           // Show the first still-eligible ring-back; closed-out leads never
           // appear here even if they were queued before being dropped.
           const eligibleIds = missedCallQueue.filter((id) => {
+            // Only actual ring-backs get this banner — a scheduled callback
+            // coming due shares the same queue but nobody rang us.
+            if (!ringBackIds.includes(id)) return false;
             const x = leads.find((l2) => l2.id === id);
             return x ? isRingBackEligible(x) : false;
           });
