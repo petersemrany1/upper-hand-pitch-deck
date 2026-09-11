@@ -11,7 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildHistory, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
-import { isReturningLead, normaliseStatus, type StatusKey } from "./sales-call/status";
+import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
@@ -7213,6 +7213,9 @@ function RightPanel({
     if (!active.phone) { setAutoDialNote("Auto-dial skipped — no phone number"); return; }
     if (active.lead_class === "booked_active") { setAutoDialNote("Auto-dial skipped — this person already has a booking"); return; }
     if (inCall) { setAutoDialNote("Auto-dial skipped — a call is already in progress"); return; }
+    // Someone we've already spoken to (chase-up) or a booked callback: no
+    // countdown. The rep reads the journey and notes, then presses Call.
+    if (requiresManualDial(active)) { setAutoDialNote("Read the notes, then press Call when you're ready"); return; }
     setAutoDialNote(null);
     setAutoDialCountdown(AUTO_DIAL_SECONDS);
     // eslint-disable-next-line react-hooks/exhaustive-deps

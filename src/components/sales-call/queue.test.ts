@@ -10,7 +10,7 @@ import {
   type CallHistory,
   type QueueLead,
 } from "./queue";
-import { normaliseStatus } from "./status";
+import { normaliseStatus, requiresManualDial } from "./status";
 
 // All times local. Tests pin "now" so the AM/PM logic is deterministic.
 const at = (day: string, hm: string) => new Date(`${day}T${hm}:00`);
@@ -227,4 +227,14 @@ describe("buildHistory", () => {
     expect(h.a?.firstCallAt).toBe(iso(TODAY, "09:02"));
     expect(h.a?.lastAttemptAt).toBeNull();
   });
+});
+
+// --- manual-dial leads (no auto-dial countdown) ----------------------------
+test("chase-ups and scheduled callbacks are dialled manually", () => {
+  expect(requiresManualDial({ status: "had_convo_chase_up" })).toBe(true);
+  expect(requiresManualDial({ status: "Callback Scheduled" })).toBe(true);
+  expect(requiresManualDial({ status: null, callback_scheduled_at: "2026-09-11T10:00:00Z" })).toBe(true);
+  expect(requiresManualDial({ status: "new" })).toBe(false);
+  expect(requiresManualDial({ status: "no_answer" })).toBe(false);
+  expect(requiresManualDial({ status: null })).toBe(false);
 });
