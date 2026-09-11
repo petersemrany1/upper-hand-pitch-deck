@@ -189,3 +189,44 @@ export const resetClinicOutcome = createServerFn({ method: "POST" })
     );
     return { success: true as const };
   });
+
+/**
+ * Records a deposit as refunded by hand (bank transfer etc). Admin only:
+ * clinics must not be able to declare money returned. Enforced twice — here,
+ * and by the trg_guard_refund_fields database trigger.
+ */
+export const markDepositRefundedManually = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { appointmentId: string }) => data)
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase as unknown as SupabaseLike;
+    let isAdmin = false;
+    try {
+      const { data: ok } = await supabase.rpc("is_admin_user");
+      isAdmin = ok === true;
+    } catch { isAdmin = false; }
+    if (!isAdmin) {
+      return { success: false as const, error: "Only Admin can record a refund. Please contact Admin." };
+    }
+
+    const res = await loadAppt(supabase, data.appointmentId);
+    if ("error" in res) return { success: false as const, error: res.error };
+    const appt = res.appt;
+    if (appt.stripe_refund_id || appt.square_refund_id) {
+      return { success: false as const, error: "This deposit was already refunded through the card processor." };
+    }
+
+    const { error } = await supabase
+      .from("clinic_appointments")
+      .update({ refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() })
+      .eq("id", appt.id);
+    if (error) return { success: false as const, error: (error as { message: string }).message };
+
+    await logNote(
+      supabase,
+      appt,
+      "Deposit marked refunded manually (outside the card processor) by Admin.",
+      emailFrom(context.claims as Record<string, unknown>),
+    );
+    return { success: true as const };
+  });

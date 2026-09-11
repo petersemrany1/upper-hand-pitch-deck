@@ -3190,6 +3190,7 @@ export type Database = {
           shows: number
         }[]
       }
+      tmp_guard_probe: { Args: never; Returns: string }
     }
     Enums: {
       [_ in never]: never
