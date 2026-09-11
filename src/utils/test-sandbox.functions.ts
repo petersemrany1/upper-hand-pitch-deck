@@ -4,7 +4,6 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { sydneyTodayISO } from "@/lib/timezone";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
