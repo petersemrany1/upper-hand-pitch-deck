@@ -422,6 +422,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         await logError("saveBooking.statusPromote", statusErr.message, { leadId: data.leadId });
         return { success: false as const, error: `Booked, but status update failed: ${statusErr.message}` };
       }
+      await stampLatestCallOutcome(data.leadId, "booked_deposit_paid");
     }
 
     // Refresh any existing appointment_reminders row for this lead so a
@@ -484,6 +485,39 @@ export const clearBooking = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
+/**
+ * Stamp the outcome the rep just chose onto that lead's most recent call
+ * record. Live calls are created by the Twilio SDK / voice-outbound, neither
+ * of which knows the outcome — it's only known when the rep logs it. Without
+ * this, call_records.outcome stays NULL for every call.
+ *
+ * Best-effort and never blocks the status write. Only fills rows that are
+ * still NULL (never overwrites), and only looks back 6 hours so an old call
+ * can't be mislabelled by a much later status change.
+ */
+async function stampLatestCallOutcome(leadId: string, status: string): Promise<void> {
+  try {
+    const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+    const { data: recent } = await supabaseAdmin
+      .from("call_records")
+      .select("id, status")
+      .eq("lead_id", leadId)
+      .is("outcome", null)
+      .gte("called_at", since)
+      .order("called_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!recent?.id) return;
+    // Don't stamp a call that's still in flight.
+    const live = ["initiated", "queued", "ringing", "in-progress"];
+    if (recent.status && live.includes(recent.status)) return;
+    await supabaseAdmin.from("call_records")
+      .update({ outcome: status, updated_at: new Date().toISOString() })
+      .eq("id", recent.id)
+      .is("outcome", null);
+  } catch { /* non-fatal */ }
+}
+
 export const updateLeadStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; status: string }) => ({
@@ -494,6 +528,7 @@ export const updateLeadStatus = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("meta_leads")
       .update({ status: data.status, updated_at: new Date().toISOString() }).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
+    await stampLatestCallOutcome(data.leadId, data.status);
     return { success: true as const };
   });
 
