@@ -1018,18 +1018,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const ringBack = lead;
 
       // Exclusion: don't jump back to leads we've closed out.
-      const rawStatus = (ringBack.status ?? "").toLowerCase();
-      const normStatus = normaliseStatus(ringBack.status, ringBack);
-      const excluded =
-        normStatus === "booked_deposit_paid" ||
-        normStatus === "booked_no_deposit" ||
-        normStatus === "not_interested" ||
-        rawStatus === "dropped" ||
-        rawStatus === "cancelled" ||
-        rawStatus === "no_show" ||
-        rawStatus === "blacklisted" ||
-        (ringBack.lead_class ?? "").toLowerCase() === "post_consult";
-      if (excluded) return;
+      if (!isRingBackEligible(ringBack)) return;
       // Don't queue the lead the rep is currently on.
       if (ringBack.id === activeIdRef.current) return;
 
