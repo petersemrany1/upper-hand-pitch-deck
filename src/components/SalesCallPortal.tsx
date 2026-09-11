@@ -262,6 +262,26 @@ const RECENT_DIAL_MS = 10 * 60 * 1000;
 /** Ring-backs survive a page refresh for this long. */
 const RING_BACK_STORE_KEY = "salesCall.ringBackQueue";
 const RING_BACK_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Can a lead jump the queue because they rang us back? Closed-out leads never
+ * do: booked (deposit or not), not interested, dropped, cancelled, no-show,
+ * blacklisted, or post-consult re-enquiries.
+ */
+function isRingBackEligible(lead: Lead): boolean {
+  const rawStatus = (lead.status ?? "").toLowerCase();
+  const normStatus = normaliseStatus(lead.status, lead);
+  return !(
+    normStatus === "booked_deposit_paid" ||
+    normStatus === "booked_no_deposit" ||
+    normStatus === "not_interested" ||
+    rawStatus === "dropped" ||
+    rawStatus === "cancelled" ||
+    rawStatus === "no_show" ||
+    rawStatus === "blacklisted" ||
+    (lead.lead_class ?? "").toLowerCase() === "post_consult"
+  );
+}
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
