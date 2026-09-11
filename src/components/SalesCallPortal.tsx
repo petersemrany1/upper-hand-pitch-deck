@@ -11,7 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildHistory, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
-import { isReturningLead, normaliseStatus, type StatusKey } from "./sales-call/status";
+import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
