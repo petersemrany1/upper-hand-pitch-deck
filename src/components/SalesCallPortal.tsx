@@ -8442,7 +8442,9 @@ function RightPanel({
                   const fullDetail = looksLikeVoicemail ? "" : (rawSummary || transcript);
                   const accent = looksLikeVoicemail ? "#d1d5db" : inbound ? "#22c55e" : "#3b82f6";
                   const icon = looksLikeVoicemail ? "📭" : inbound ? "📞" : "📱";
-                  const label = looksLikeVoicemail ? "Voicemail / no answer" : (c.outcome || (inbound ? "Inbound call" : "Outbound call"));
+                  const label = looksLikeVoicemail
+                    ? "Voicemail / no answer"
+                    : (callOutcomeLabel(c.outcome) || (inbound ? "Inbound call" : "Outbound call"));
                   const durStr = dur > 0 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : "";
                   const bg = looksLikeVoicemail ? "#f9fafb" : "#fafafa";
                   const labelColor = looksLikeVoicemail ? "#9ca3af" : "#111";
