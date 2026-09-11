@@ -259,6 +259,9 @@ function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null
 
 /** A callback or ring-back dialled by anyone this recently isn't served again. */
 const RECENT_DIAL_MS = 10 * 60 * 1000;
+/** Ring-backs survive a page refresh for this long. */
+const RING_BACK_STORE_KEY = "salesCall.ringBackQueue";
+const RING_BACK_TTL_MS = 2 * 60 * 60 * 1000;
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
