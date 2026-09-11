@@ -275,6 +275,7 @@ function isRingBackEligible(lead: Lead): boolean {
     normStatus === "booked_deposit_paid" ||
     normStatus === "booked_no_deposit" ||
     normStatus === "not_interested" ||
+    normStatus === "had_convo_no_sale" ||
     rawStatus === "dropped" ||
     rawStatus === "cancelled" ||
     rawStatus === "no_show" ||
