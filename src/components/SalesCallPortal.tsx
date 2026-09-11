@@ -1719,8 +1719,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             // back" — the guard would cancel exactly the lead we want next.
             const mcq = missedCallQueue;
             if (mcq.length > 0) {
-              const [nextMissedId, ...restMissed] = mcq;
+              // Skip stale entries: a lead queued earlier may since have been
+              // booked, dropped, blacklisted etc. They never get jumped to.
+              const eligibleIds = mcq.filter((id) => {
+                const l = leads.find((x) => x.id === id);
+                return l ? isRingBackEligible(l) : false;
+              });
+              const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
+              if (nextMissedId) {
               // Keep the session queue in sync if we're in one.
               if (sessionActive) {
                 const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
