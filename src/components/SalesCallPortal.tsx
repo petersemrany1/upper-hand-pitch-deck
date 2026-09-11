@@ -967,6 +967,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       // Test dummies and blacklisted people never enter a real calling queue.
       if (testLeadIds.length === 0) {
         fetched = fetched.filter((l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && l.status !== "blacklisted");
+      } else {
+        // Sandbox: only the test leads, no matter what came back.
+        fetched = fetched.filter((l) => !isSandboxBlocked(l.id));
       }
 
       setLeads((prev) => {
@@ -975,6 +978,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
         return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
       });
+
       setLeadsLoaded(true);
     };
 
