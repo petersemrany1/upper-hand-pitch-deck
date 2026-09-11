@@ -27,7 +27,7 @@ export function fetchClinicRemainingSlots(): Promise<Record<string, number>> {
       return new Promise<Record<string, number>>((resolve, reject) => {
         setTimeout(() => {
           computeClinicRemainingSlots().then(resolve, reject);
-        }, 800);
+        }, 400);
       });
     })
     .then((value) => {
@@ -47,7 +47,7 @@ export function invalidateClinicRemainingSlots() {
 
 /** Slow reads must fail fast: a rep waiting 30s on a hung request sees an
  * empty clinic picker for far too long. 8s then error + Retry. */
-const QUERY_TIMEOUT_MS = 8_000;
+const QUERY_TIMEOUT_MS = 6_000;
 
 async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
   const todayStr = sydneyTodayISO();
