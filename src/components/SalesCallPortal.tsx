@@ -6648,6 +6648,7 @@ function RightPanel({
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
+  const [panelClinicsLoading, setPanelClinicsLoading] = useState(true);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
@@ -6779,6 +6780,7 @@ function RightPanel({
 
   useEffect(() => {
     void (async () => {
+      setPanelClinicsLoading(true);
       const [{ data: clinics }, remaining] = await Promise.all([
         supabase
           .from("partner_clinics")
@@ -6792,6 +6794,7 @@ function RightPanel({
         (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
       );
       setPanelClinics(list);
+      setPanelClinicsLoading(false);
 
       // Reuse only the clinic explicitly selected during this lead's current
       // sales-call session. Never seed from active.clinic_id because that may
@@ -7612,7 +7615,7 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
-            <option value="">Select clinic…</option>
+            <option value="">{panelClinicsLoading ? "Loading clinics…" : "Select clinic…"}</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
