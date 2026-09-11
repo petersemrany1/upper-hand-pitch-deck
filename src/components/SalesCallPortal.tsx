@@ -262,6 +262,26 @@ const RECENT_DIAL_MS = 10 * 60 * 1000;
 /** Ring-backs survive a page refresh for this long. */
 const RING_BACK_STORE_KEY = "salesCall.ringBackQueue";
 const RING_BACK_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Can a lead jump the queue because they rang us back? Closed-out leads never
+ * do: booked (deposit or not), not interested, dropped, cancelled, no-show,
+ * blacklisted, or post-consult re-enquiries.
+ */
+function isRingBackEligible(lead: Lead): boolean {
+  const rawStatus = (lead.status ?? "").toLowerCase();
+  const normStatus = normaliseStatus(lead.status, lead);
+  return !(
+    normStatus === "booked_deposit_paid" ||
+    normStatus === "booked_no_deposit" ||
+    normStatus === "not_interested" ||
+    rawStatus === "dropped" ||
+    rawStatus === "cancelled" ||
+    rawStatus === "no_show" ||
+    rawStatus === "blacklisted" ||
+    (lead.lead_class ?? "").toLowerCase() === "post_consult"
+  );
+}
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
@@ -1018,15 +1038,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       const ringBack = lead;
 
       // Exclusion: don't jump back to leads we've closed out.
-      const rawStatus = (ringBack.status ?? "").toLowerCase();
-      const normStatus = normaliseStatus(ringBack.status, ringBack);
-      const excluded =
-        normStatus === "booked_deposit_paid" ||
-        normStatus === "not_interested" ||
-        rawStatus === "dropped" ||
-        rawStatus === "cancelled" ||
-        rawStatus === "no_show";
-      if (excluded) return;
+      if (!isRingBackEligible(ringBack)) return;
       // Don't queue the lead the rep is currently on.
       if (ringBack.id === activeIdRef.current) return;
 
@@ -1678,7 +1690,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         {/* Ring-back banner: someone called us back and is next up. Visible
             until the rep gets to them, so it can't be missed like a toast. */}
         {missedCallQueue.length > 0 && (() => {
-          const nextId = missedCallQueue[0];
+          // Show the first still-eligible ring-back; closed-out leads never
+          // appear here even if they were queued before being dropped.
+          const eligibleIds = missedCallQueue.filter((id) => {
+            const x = leads.find((l2) => l2.id === id);
+            return x ? isRingBackEligible(x) : false;
+          });
+          if (eligibleIds.length === 0) return null;
+          const nextId = eligibleIds[0];
           const l = leads.find((x) => x.id === nextId);
           const name = l ? [l.first_name, l.last_name].filter(Boolean).join(" ").trim() : "";
           return (
@@ -1687,7 +1706,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               style={{ background: "#fff7ed", color: "#9a3412", borderBottom: `0.5px solid ${COLORS.line}` }}
             >
               📞 Called back — next: {name || "unknown caller"}
-              {missedCallQueue.length > 1 ? ` (+${missedCallQueue.length - 1} more)` : ""}
+              {eligibleIds.length > 1 ? ` (+${eligibleIds.length - 1} more)` : ""}
             </div>
           );
         })()}
@@ -1707,8 +1726,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             // back" — the guard would cancel exactly the lead we want next.
             const mcq = missedCallQueue;
             if (mcq.length > 0) {
-              const [nextMissedId, ...restMissed] = mcq;
+              // Skip stale entries: a lead queued earlier may since have been
+              // booked, dropped, blacklisted etc. They never get jumped to.
+              const eligibleIds = mcq.filter((id) => {
+                const l = leads.find((x) => x.id === id);
+                return l ? isRingBackEligible(l) : false;
+              });
+              const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
+              if (nextMissedId) {
               // Keep the session queue in sync if we're in one.
               if (sessionActive) {
                 const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
@@ -1721,6 +1747,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setAmpPrefill(""); setAudioPrefill("");
               armAutoDial();
               return;
+              }
             }
             if (sessionActive) {
               const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
@@ -1782,19 +1809,27 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             const mcq = missedCallQueue;
             if (mcq.length > 0) {
               if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
-              const [nextMissedId, ...restMissed] = mcq;
+              // Skip stale entries: a lead queued earlier may since have been
+              // booked, dropped, blacklisted etc. They never get jumped to.
+              const eligibleIds = mcq.filter((id) => {
+                const l = leads.find((x) => x.id === id);
+                return l ? isRingBackEligible(l) : false;
+              });
+              const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
-              if (sessionActive) {
-                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
-                setSessionQueue(placement.queue);
-                setSessionIndex(placement.index);
+              if (nextMissedId) {
+                if (sessionActive) {
+                  const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                  setSessionQueue(placement.queue);
+                  setSessionIndex(placement.index);
+                }
+                setActiveId(nextMissedId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+                armAutoDial();
+                return;
               }
-              setActiveId(nextMissedId);
-              setStep("mindset");
-              setCompleted(new Set());
-              setAmpPrefill(""); setAudioPrefill("");
-              armAutoDial();
-              return;
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
