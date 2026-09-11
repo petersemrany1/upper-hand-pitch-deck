@@ -5289,6 +5289,39 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
  * STATUS_OPTIONS purely so historic leads still render with the right label. */
 const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit");
 
+/* A call record's outcome/status now carries the outcome the rep logged
+ * (no_answer, had_convo_no_sale, not_interested, …) as well as the raw Twilio
+ * status. Match exactly — substring matching would read "not_interested" and
+ * "had_convo_no_sale" as no-answers and wrongly bump those leads. */
+const NO_ANSWER_OUTCOMES = new Set([
+  "no_answer", "no-answer", "noanswer", "voicemail", "missed", "busy",
+  "failed", "canceled", "cancelled",
+]);
+function isNoAnswerOutcome(v: string | null | undefined): boolean {
+  return NO_ANSWER_OUTCOMES.has((v ?? "").trim().toLowerCase());
+}
+
+/* Friendly label for a stored call outcome, used in the lead journey. */
+const CALL_OUTCOME_LABELS: Record<string, string> = {
+  no_answer: "No answer",
+  "no-answer": "No answer",
+  connected: "Spoke with lead",
+  callback_scheduled: "Callback scheduled",
+  had_convo_chase_up: "Had convo — chase up",
+  had_convo_no_sale: "Had convo — no sale",
+  not_interested: "Not interested",
+  dropped: "Dropped",
+  booked_deposit_paid: "Booked — deposit paid",
+  intake: "Intake",
+  completed: "Call completed",
+};
+function callOutcomeLabel(v: string | null | undefined): string | null {
+  const key = (v ?? "").trim().toLowerCase();
+  if (!key) return null;
+  return CALL_OUTCOME_LABELS[key] ?? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+
 // Map any legacy / loose status string we might find in the DB onto the new key set.
 function statusMeta(s: string | null | undefined, l?: Lead) {
   const key = normaliseStatus(s, l);
