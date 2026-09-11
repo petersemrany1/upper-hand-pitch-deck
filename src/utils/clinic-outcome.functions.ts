@@ -14,8 +14,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-type Ctx = { supabase: ReturnType<typeof identity>; userId: string; claims: Record<string, unknown> };
-declare function identity(): never;
 
 type ApptRow = {
   id: string;
