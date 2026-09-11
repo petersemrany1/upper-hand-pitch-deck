@@ -983,16 +983,37 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // lead" jumps straight to them.
   useEffect(() => {
     const seen = new Set<string>();
-    const handle = (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null } | null) => {
+    const handle = async (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null; lead_id?: string | null } | null) => {
       if (!row || row.direction !== "inbound" || !row.id) return;
       const s = (row.status || "").toLowerCase();
-      const answered = (row.duration && row.duration > 0) || s === "in-progress" || s === "completed";
+      // Only skip when the rep genuinely spoke to them (real talk time) or the
+      // call is live right now. A "completed" row with no talk time is a
+      // voicemail/hang-up — that person still needs ringing back.
+      const answered = (row.duration && row.duration > 0) || s === "in-progress";
       if (answered) return;
       if (seen.has(row.id)) return;
       seen.add(row.id);
       const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
-      if (tail.length < 6) return;
-      const lead = leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail);
+      let lead = tail.length >= 6
+        ? leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail)
+        : undefined;
+      // Not on the loaded list (older enquiry, other group): the inbound call
+      // record already knows which lead it is, so pull that one lead in.
+      if (!lead && row.lead_id) {
+        const known = leadsRef.current.find((l) => l.id === row.lead_id);
+        if (known) lead = known;
+        else {
+          const { data } = await supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .eq("id", row.lead_id)
+            .maybeSingle();
+          if (!data) return;
+          lead = data as Lead;
+          const fetched = lead;
+          setLeads((prev) => (prev.some((l) => l.id === fetched.id) ? prev : [fetched, ...prev]));
+        }
+      }
       if (!lead) return;
 
       // Exclusion: don't jump back to leads we've closed out.
