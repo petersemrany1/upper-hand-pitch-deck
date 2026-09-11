@@ -6813,6 +6813,16 @@ function RightPanel({
           (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
         );
         setPanelClinics(list);
+
+        // Reuse only the clinic explicitly selected during this lead's current
+        // sales-call session. Never seed from active.clinic_id because that may
+        // belong to an older booking.
+        const selectedId = typeof window !== "undefined"
+          ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
+          : null;
+        const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
+        setPanelClinic(selected);
+        await loadDoctorForClinic(selected?.id ?? null);
       } catch (err) {
         // Never treat a failed capacity check as "every clinic is full".
         console.error("panel clinic list load failed", err);
@@ -6820,18 +6830,8 @@ function RightPanel({
       } finally {
         setPanelClinicsLoading(false);
       }
-
-      // Reuse only the clinic explicitly selected during this lead's current
-      // sales-call session. Never seed from active.clinic_id because that may
-      // belong to an older booking.
-      const selectedId = typeof window !== "undefined"
-        ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
-        : null;
-      const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
-      setPanelClinic(selected);
-      await loadDoctorForClinic(selected?.id ?? null);
     })();
-  }, [active.id, active.clinic_id, loadDoctorForClinic]);
+  }, [active.id, active.clinic_id, loadDoctorForClinic, panelClinicsRetryTick]);
 
   useEffect(() => {
     const syncSelectedClinic = (event: Event) => {
