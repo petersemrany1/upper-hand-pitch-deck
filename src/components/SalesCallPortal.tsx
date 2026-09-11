@@ -1766,8 +1766,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
             // Missed-call priority also applies right after logging an outcome.
-            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
-            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
+            // Same as above: no recent-dial filter — a ring-back always wins.
+            const mcq = missedCallQueue;
             if (mcq.length > 0) {
               if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
               const [nextMissedId, ...restMissed] = mcq;
