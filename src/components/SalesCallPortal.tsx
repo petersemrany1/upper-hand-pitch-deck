@@ -4122,11 +4122,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const handleUndoDepositPaid = async () => {
     if (confirmingDeposit) return;
     setConfirmingDeposit(true);
-    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_no_deposit" } });
+    // A booking only exists once the deposit is paid, so undoing the deposit
+    // returns the lead to a live-conversation state rather than a booked one.
+    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "had_convo_chase_up" } });
     setConfirmingDeposit(false);
     if (r.success) {
       setDepositPaid(false);
-      (lead as { status: string | null }).status = "booked_no_deposit";
+      (lead as { status: string | null }).status = "had_convo_chase_up";
       toast.success("Deposit confirmation undone");
 
       // Pull the appointment back off the Booked Appointments dashboard —
