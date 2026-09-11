@@ -1690,8 +1690,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onChangeLead={() => {
             // Missed-call priority: if anyone rang us back, jump to them
             // FIRST — regardless of whether a formal session is running.
-            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
-            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
+            // NOTE: the 10-minute double-dial guard is deliberately NOT applied
+            // here. The normal case is "we rang, no answer, they ring straight
+            // back" — the guard would cancel exactly the lead we want next.
+            const mcq = missedCallQueue;
             if (mcq.length > 0) {
               const [nextMissedId, ...restMissed] = mcq;
               setMissedCallQueue(restMissed);
