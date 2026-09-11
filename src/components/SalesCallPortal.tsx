@@ -5236,6 +5236,11 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
   { key: "dropped",              label: "Dropped",              emoji: "⚫", color: "#374151", bg: "#e5e7eb" },
 ];
 
+/* Statuses a rep is allowed to pick on a call. "Booked — No Deposit" is NOT
+ * one of them: a booking only exists once the $75 deposit is taken. It stays in
+ * STATUS_OPTIONS purely so historic leads still render with the right label. */
+const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit");
+
 // Map any legacy / loose status string we might find in the DB onto the new key set.
 function statusMeta(s: string | null | undefined, l?: Lead) {
   const key = normaliseStatus(s, l);
@@ -6221,7 +6226,7 @@ function LeadChooser({
                 padding: 4,
               }}
             >
-              {STATUS_OPTIONS.map((opt) => (
+              {SELECTABLE_STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
                   type="button"
@@ -7369,7 +7374,10 @@ function RightPanel({
                   }}
                   title="Change status"
                 >
-                  {STATUS_OPTIONS.map((o) => (
+                  {(meta.key === "booked_no_deposit"
+                    ? [meta, ...SELECTABLE_STATUS_OPTIONS]
+                    : SELECTABLE_STATUS_OPTIONS
+                  ).map((o) => (
                     <option key={o.key} value={o.key}>{o.emoji} {o.label}</option>
                   ))}
                 </select>
