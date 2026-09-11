@@ -15,7 +15,11 @@ const FALLBACK_CALLER_ID = "+61483938205";
 // heard mid-dial. Every DB touch here is now time-boxed, and the bookkeeping
 // write no longer blocks the TwiML response.
 const DB_TIMEOUT_MS = 2500;
-const CALLER_ID_TTL_MS = 5 * 60_000;
+// The caller-ID lookup is on the dial path: if it times out we fall back to the
+// default number and still dial, so a slightly larger budget is safe. The
+// longer cache means the query runs a couple of times an hour, not per call.
+const CALLER_ID_TIMEOUT_MS = 4000;
+const CALLER_ID_TTL_MS = 30 * 60_000;
 
 let cachedCallerIds: { numbers: string[]; at: number } | null = null;
 
