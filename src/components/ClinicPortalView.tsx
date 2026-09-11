@@ -2283,6 +2283,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
 function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
@@ -2301,6 +2302,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       clinic_id: clinicId,
       patient_name: name.trim(),
       patient_phone: phone.trim() || null,
+      patient_email: email.trim() || null,
       appointment_date: date,
       appointment_time: time,
       intel_notes: notes.trim() || null,
@@ -2318,6 +2320,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 14 }}>Add appointment</div>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Patient name" style={inp} />
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" style={inp} />
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inp} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <input type="date" value={date} min="2024-01-01" max="2100-01-01" onChange={(e) => setDate(e.target.value)} style={inp} />
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inp} />
