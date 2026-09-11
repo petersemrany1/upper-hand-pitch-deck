@@ -394,26 +394,31 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
   // Persisted for RING_BACK_TTL_MS so a page refresh doesn't lose ring-backs.
-  const [missedCallQueue, setMissedCallQueue] = useState<string[]>(() => {
-    if (typeof window === "undefined" || practiceMode) return [];
+  const readRingBackStore = (): { ids: string[]; ringBack: string[] } => {
+    if (typeof window === "undefined" || practiceMode) return { ids: [], ringBack: [] };
     try {
       const raw = window.localStorage.getItem(RING_BACK_STORE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw) as { at?: number; ids?: string[] };
-      if (!parsed?.at || !Array.isArray(parsed.ids)) return [];
-      if (Date.now() - parsed.at > RING_BACK_TTL_MS) return [];
-      return parsed.ids.filter((id) => typeof id === "string");
-    } catch { return []; }
-  });
+      if (!raw) return { ids: [], ringBack: [] };
+      const parsed = JSON.parse(raw) as { at?: number; ids?: string[]; ringBack?: string[] };
+      if (!parsed?.at || !Array.isArray(parsed.ids)) return { ids: [], ringBack: [] };
+      if (Date.now() - parsed.at > RING_BACK_TTL_MS) return { ids: [], ringBack: [] };
+      const str = (a: unknown[]) => a.filter((id): id is string => typeof id === "string");
+      return { ids: str(parsed.ids), ringBack: str(Array.isArray(parsed.ringBack) ? parsed.ringBack : []) };
+    } catch { return { ids: [], ringBack: [] }; }
+  };
+  const [missedCallQueue, setMissedCallQueue] = useState<string[]>(() => readRingBackStore().ids);
+  // Subset of the queue that got there by actually ringing us back (as opposed
+  // to a scheduled callback coming due) — only these show the "called back" banner.
+  const [ringBackIds, setRingBackIds] = useState<string[]>(() => readRingBackStore().ringBack);
   const missedCallQueueRef = useRef<string[]>([]);
   useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
   useEffect(() => {
     if (typeof window === "undefined" || practiceMode) return;
     try {
       if (missedCallQueue.length === 0) window.localStorage.removeItem(RING_BACK_STORE_KEY);
-      else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue }));
+      else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue, ringBack: ringBackIds }));
     } catch { /* storage unavailable — in-memory only */ }
-  }, [missedCallQueue, practiceMode]);
+  }, [missedCallQueue, ringBackIds, practiceMode]);
   
   const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
