@@ -1206,15 +1206,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // that is no longer due (called today by someone — reps share one pool —
   // or since booked / retired). Callbacks and ring-backs arrive through the
   // missed-call queue and never pass through here.
-  // Callbacks and ring-backs surface on every rep's screen at once. If
-  // anyone dialled that person in the last few minutes, another rep must
-  // not ring them again.
-  const dialledRecently = useCallback((id: string): boolean => {
-    const last = callHistory[id]?.lastAttemptAt;
-    if (!last) return false;
-    const t = new Date(last).getTime();
-    return Number.isFinite(t) && Date.now() - t < RECENT_DIAL_MS;
-  }, [callHistory]);
+  // NOTE: a ring-back is never suppressed by "someone dialled them recently".
+  // The normal ring-back is a reply to our own no-answer dial seconds earlier,
+  // so that guard would cancel exactly the lead we want to serve next. The
+  // shared-pool protection for ordinary queue order still comes from
+  // buildQueue(), which now ignores inbound calls as dial attempts.
   const advanceIndexFrom = useCallback((from: number): number => {
     const q = sessionQueueRef.current;
     let i = Math.max(0, from);
