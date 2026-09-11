@@ -5437,8 +5437,7 @@ function LeadChooser({
   const noAnswerYesterday = (l: Lead) => {
     const slot = attemptsByDay[l.id]?.[yesterdayKey];
     if (!slot) return false;
-    const outcome = (slot.lastOutcome ?? "").toLowerCase();
-    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+    return isNoAnswerOutcome(slot.lastOutcome);
   };
   const isNew = (l: Lead) => normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
   const failedThreeToday = (l: Lead) => {
@@ -5446,15 +5445,13 @@ function LeadChooser({
     const slot = attemptsByDay[l.id]?.[todayKey];
     if (!slot) return false;
     if (slot.count < 3) return false;
-    const outcome = (slot.lastOutcome ?? "").toLowerCase();
     // only auto-bump if the recent calls were no-answers (not connected/booked)
-    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+    return isNoAnswerOutcome(slot.lastOutcome);
   };
   const exhaustedYesterday = (l: Lead) => {
     const slot = attemptsByDay[l.id]?.[yesterdayKey];
     if (!slot || slot.count < 3) return false;
-    const outcome = (slot.lastOutcome ?? "").toLowerCase();
-    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+    return isNoAnswerOutcome(slot.lastOutcome);
   };
 
   // A lead is "active today" if there's been any call attempt today, or if
