@@ -760,7 +760,8 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     });
   } catch (err) {
     stopRingback();
-    const msg = extractErrorMessage(err, "Failed to start call");
+    const rawMsg = extractErrorMessage(err, "Failed to start call");
+    const msg = friendlyVoiceError((err as { code?: number } | null)?.code, rawMsg);
     setSnapshot({ error: msg, activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "error" });
     throw err instanceof Error ? err : new Error(msg);
   }
