@@ -1706,7 +1706,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               style={{ background: "#fff7ed", color: "#9a3412", borderBottom: `0.5px solid ${COLORS.line}` }}
             >
               📞 Called back — next: {name || "unknown caller"}
-              {missedCallQueue.length > 1 ? ` (+${missedCallQueue.length - 1} more)` : ""}
+              {eligibleIds.length > 1 ? ` (+${eligibleIds.length - 1} more)` : ""}
             </div>
           );
         })()}
