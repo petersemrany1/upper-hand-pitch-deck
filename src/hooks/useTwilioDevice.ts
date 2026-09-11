@@ -549,15 +549,21 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
         } catch (err) {
           lastErr = err;
           const code = (err as { code?: number } | null)?.code;
-          const transient =
-            code !== undefined && (RATE_LIMIT_CODES.has(code) || CONNECTION_ERROR_CODES.has(code));
-          if (!transient || attempt === delays.length) break;
-          console.warn(`Voice SDK: transient dial error ${code} — retrying`, err);
-          if (CONNECTION_ERROR_CODES.has(code)) await reregisterDevice();
+          // Only rate limiting is safe to auto-retry: Twilio rejected the
+          // request outright, so no call leg exists and a retry can't
+          // double-dial the patient. Connection/transport errors get a
+          // background re-register instead — the device is clean for the next
+          // attempt, but we don't risk placing a second call.
+          if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) {
+            void reregisterDevice();
+            break;
+          }
+          if (code === undefined || !RATE_LIMIT_CODES.has(code) || attempt === delays.length) break;
+          console.warn(`Voice SDK: rate limited (${code}) — retrying dial`, err);
           await new Promise((r) => setTimeout(r, delays[attempt]));
         }
       }
-      throw lastErr instanceof Error ? lastErr : new Error("Failed to start call");
+      throw lastErr ?? new Error("Failed to start call");
     };
     const outgoing = await connectWithRetry();
     activeCall = outgoing;
