@@ -1027,7 +1027,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             const t = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
             return t.length >= 6 && (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === t;
           })?.id;
-        if (answeredLeadId) setMissedCallQueue((prev) => prev.filter((id) => id !== answeredLeadId));
+        if (answeredLeadId) {
+          setMissedCallQueue((prev) => prev.filter((id) => id !== answeredLeadId));
+          setRingBackIds((prev) => prev.filter((id) => id !== answeredLeadId));
+        }
         seen.add(row.id);
         return;
       }
@@ -1075,6 +1078,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         added = true;
         return [...prev, ringBack.id];
       });
+      setRingBackIds((prev) => (prev.includes(ringBack.id) ? prev : [...prev, ringBack.id]));
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
