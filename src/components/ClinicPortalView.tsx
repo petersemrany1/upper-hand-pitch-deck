@@ -1196,9 +1196,16 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           <div style={{ fontSize: 11, color: "#8a5a00", marginBottom: 10 }}>
             No card payment could be matched to this booking, so the ${depositAmount} has to be returned by bank transfer.
           </div>
-          <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>
-            Mark refunded manually
-          </button>
+          {isAdmin ? (
+            <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>
+              Mark refunded manually
+            </button>
+          ) : (
+            <div style={{ fontSize: 11, color: "#8a5a00", fontWeight: 600 }}>
+              Admin will process this refund — nothing for you to do here.
+            </div>
+          )}
+
         </div>
       )}
 
