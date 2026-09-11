@@ -6226,7 +6226,7 @@ function LeadChooser({
                 padding: 4,
               }}
             >
-              {STATUS_OPTIONS.map((opt) => (
+              {SELECTABLE_STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
                   type="button"
