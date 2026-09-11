@@ -10,7 +10,32 @@ import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/c
  * bookings never consume a paid credit.
  * A clinic with no paid packs has nothing bought, so it has 0 remaining.
  */
-export async function fetchClinicRemainingSlots(): Promise<Record<string, number>> {
+let cache: { at: number; value: Record<string, number> } | null = null;
+let inflight: Promise<Record<string, number>> | null = null;
+const CACHE_MS = 30_000;
+
+/** Cached wrapper: reps move between leads constantly, so recomputing the whole
+ * pack balance on every lead made the clinic picker look empty while it loaded. */
+export function fetchClinicRemainingSlots(): Promise<Record<string, number>> {
+  if (cache && Date.now() - cache.at < CACHE_MS) return Promise.resolve(cache.value);
+  if (inflight) return inflight;
+  inflight = computeClinicRemainingSlots()
+    .then((value) => {
+      cache = { at: Date.now(), value };
+      return value;
+    })
+    .finally(() => {
+      inflight = null;
+    });
+  return inflight;
+}
+
+/** Drop the cached balances after a booking is saved or a pack changes. */
+export function invalidateClinicRemainingSlots() {
+  cache = null;
+}
+
+async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
   const todayStr = sydneyTodayISO();
   const [{ data: packs }, { data: appts }] = await Promise.all([
     supabase.from("clinic_packs").select("clinic_id, pack_size, pack_type, date_paid, purchased_at"),
