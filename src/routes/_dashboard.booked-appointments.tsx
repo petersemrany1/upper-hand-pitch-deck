@@ -883,7 +883,7 @@ function EditHandoverModal({
           <>
             <div style={{ fontSize: 12, color: COLOR.grey, marginBottom: 14, lineHeight: 1.6 }}>
               <div><b>Patient:</b> {[leadInfo?.first_name, leadInfo?.last_name].filter(Boolean).join(" ") || "—"}</div>
-              <div><b>Appointment:</b> {reminder.booking_date} {reminder.booking_time} {reminder.doctor_name ? `— Dr ${reminder.doctor_name}` : ""}</div>
+              <div><b>Appointment:</b> {reminder.booking_date} {reminder.booking_time} {withDrPrefix(reminder.doctor_name) ? `— ${withDrPrefix(reminder.doctor_name)}` : ""}</div>
               <div><b>Clinic:</b> {clinicName || "—"}</div>
             </div>
 
