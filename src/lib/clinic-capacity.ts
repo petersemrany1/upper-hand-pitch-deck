@@ -45,14 +45,22 @@ export function invalidateClinicRemainingSlots() {
   cache = null;
 }
 
+/** Slow reads must fail fast: a rep waiting 30s on a hung request sees an
+ * empty clinic picker for far too long. 8s then error + Retry. */
+const QUERY_TIMEOUT_MS = 8_000;
+
 async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
   const todayStr = sydneyTodayISO();
   const [packsResult, apptsResult] = await Promise.all([
-    supabase.from("clinic_packs").select("clinic_id, pack_size, pack_type, date_paid, purchased_at"),
+    supabase
+      .from("clinic_packs")
+      .select("clinic_id, pack_size, pack_type, date_paid, purchased_at")
+      .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS)),
     supabase
       .from("clinic_appointments")
       .select("clinic_id, outcome, disqualified_at, appointment_date, booked_at")
-      .not("patient_name", "ilike", "%test%"),
+      .not("patient_name", "ilike", "%test%")
+      .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS)),
   ]);
 
   // A failed read must throw — returning empty data here makes every clinic
