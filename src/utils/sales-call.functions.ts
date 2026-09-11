@@ -495,8 +495,19 @@ export const clearBooking = createServerFn({ method: "POST" })
  * still NULL (never overwrites), and only looks back 6 hours so an old call
  * can't be mislabelled by a much later status change.
  */
+/**
+ * Statuses a rep can only pick as the result of a live call. Admin-side status
+ * changes made elsewhere (cancelled, no_show from the appointments page, etc.)
+ * must never be written onto a call record.
+ */
+const CALL_OUTCOME_STATUSES = new Set([
+  "no_answer", "callback_scheduled", "had_convo_chase_up", "had_convo_no_sale",
+  "not_interested", "dropped", "booked_deposit_paid",
+]);
+
 async function stampLatestCallOutcome(leadId: string, status: string): Promise<void> {
   try {
+    if (!CALL_OUTCOME_STATUSES.has(status)) return;
     const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const { data: recent } = await supabaseAdmin
       .from("call_records")
