@@ -170,6 +170,9 @@ export const resetClinicOutcome = createServerFn({ method: "POST" })
       .from("clinic_appointments")
       .update({
         outcome: null,
+        // No refund was issued (guarded above), so any stale refund state from
+        // a failed attempt must clear too or the card keeps showing it.
+        refund_status: null,
         consult_summary: null,
         disqualified_reason: null,
         disqualified_at: null,
