@@ -1802,19 +1802,27 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             const mcq = missedCallQueue;
             if (mcq.length > 0) {
               if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
-              const [nextMissedId, ...restMissed] = mcq;
+              // Skip stale entries: a lead queued earlier may since have been
+              // booked, dropped, blacklisted etc. They never get jumped to.
+              const eligibleIds = mcq.filter((id) => {
+                const l = leads.find((x) => x.id === id);
+                return l ? isRingBackEligible(l) : false;
+              });
+              const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
-              if (sessionActive) {
-                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
-                setSessionQueue(placement.queue);
-                setSessionIndex(placement.index);
+              if (nextMissedId) {
+                if (sessionActive) {
+                  const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                  setSessionQueue(placement.queue);
+                  setSessionIndex(placement.index);
+                }
+                setActiveId(nextMissedId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+                armAutoDial();
+                return;
               }
-              setActiveId(nextMissedId);
-              setStep("mindset");
-              setCompleted(new Set());
-              setAmpPrefill(""); setAudioPrefill("");
-              armAutoDial();
-              return;
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
