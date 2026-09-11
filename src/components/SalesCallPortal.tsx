@@ -7374,7 +7374,10 @@ function RightPanel({
                   }}
                   title="Change status"
                 >
-                  {STATUS_OPTIONS.map((o) => (
+                  {(meta.key === "booked_no_deposit"
+                    ? [meta, ...SELECTABLE_STATUS_OPTIONS]
+                    : SELECTABLE_STATUS_OPTIONS
+                  ).map((o) => (
                     <option key={o.key} value={o.key}>{o.emoji} {o.label}</option>
                   ))}
                 </select>
