@@ -228,3 +228,13 @@ describe("buildHistory", () => {
     expect(h.a?.lastAttemptAt).toBeNull();
   });
 });
+
+// --- manual-dial leads (no auto-dial countdown) ----------------------------
+test("chase-ups and scheduled callbacks are dialled manually", () => {
+  expect(requiresManualDial({ status: "had_convo_chase_up" })).toBe(true);
+  expect(requiresManualDial({ status: "Callback Scheduled" })).toBe(true);
+  expect(requiresManualDial({ status: null, callback_scheduled_at: "2026-09-11T10:00:00Z" })).toBe(true);
+  expect(requiresManualDial({ status: "new" })).toBe(false);
+  expect(requiresManualDial({ status: "no_answer" })).toBe(false);
+  expect(requiresManualDial({ status: null })).toBe(false);
+});
