@@ -467,6 +467,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   // Per-lead call history the queue rules run on (attempts, first/last, today).
   const [callHistory, setCallHistory] = useState<HistoryMap>({});
+  // Read inside timers/effects that must NOT re-run (and refetch) every time
+  // the history object is rebuilt.
+  const callHistoryRef = useRef<HistoryMap>({});
+  useEffect(() => { callHistoryRef.current = callHistory; }, [callHistory]);
   // Ticks once a minute so time-based rules (noon, callback windows) re-run.
   const [clockTick, setClockTick] = useState(0);
   useEffect(() => {
