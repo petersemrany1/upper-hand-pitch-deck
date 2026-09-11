@@ -370,9 +370,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
-  const [missedCallQueue, setMissedCallQueue] = useState<string[]>([]);
+  // Persisted for RING_BACK_TTL_MS so a page refresh doesn't lose ring-backs.
+  const [missedCallQueue, setMissedCallQueue] = useState<string[]>(() => {
+    if (typeof window === "undefined" || practiceMode) return [];
+    try {
+      const raw = window.localStorage.getItem(RING_BACK_STORE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw) as { at?: number; ids?: string[] };
+      if (!parsed?.at || !Array.isArray(parsed.ids)) return [];
+      if (Date.now() - parsed.at > RING_BACK_TTL_MS) return [];
+      return parsed.ids.filter((id) => typeof id === "string");
+    } catch { return []; }
+  });
   const missedCallQueueRef = useRef<string[]>([]);
   useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
+  useEffect(() => {
+    if (typeof window === "undefined" || practiceMode) return;
+    try {
+      if (missedCallQueue.length === 0) window.localStorage.removeItem(RING_BACK_STORE_KEY);
+      else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue }));
+    } catch { /* storage unavailable — in-memory only */ }
+  }, [missedCallQueue, practiceMode]);
+  const isRingBack = useCallback((id: string) => missedCallQueue.includes(id), [missedCallQueue]);
   const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
