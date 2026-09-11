@@ -5017,9 +5017,18 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             <Label>Clinic</Label>
             <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)} disabled={clinicsLoading}
               className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
-              <option value="">{clinicsLoading ? "Loading clinics…" : "Select clinic…"}</option>
+              <option value="">{clinicsLoading ? "Loading clinics…" : clinicsError && clinics.length === 0 ? "Couldn't load clinics" : "Select clinic…"}</option>
               {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
             </select>
+            {clinicsError && !clinicsLoading && (
+              <div className="mt-1 text-[12px]" style={{ color: "#b91c1c" }}>
+                Couldn't check clinic availability.{" "}
+                <button type="button" onClick={() => setClinicsRetryTick((t) => t + 1)}
+                  className="underline font-medium" style={{ color: "#b91c1c" }}>
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <Label>Gender</Label>
