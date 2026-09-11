@@ -3277,6 +3277,7 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved, repId }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void; repId?: string | null }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [clinicsLoading, setClinicsLoading] = useState(true);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
@@ -3764,6 +3765,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   useEffect(() => {
     void (async () => {
+      setClinicsLoading(true);
       const [{ data }, remaining] = await Promise.all([
         supabase.from("partner_clinics")
           .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
@@ -3777,6 +3779,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
       );
       setClinics(list);
+      setClinicsLoading(false);
     })();
   }, [lead.clinic_id]);
 
@@ -4998,9 +5001,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         <div className="grid grid-cols-2 gap-2.5">
           <div>
             <Label>Clinic</Label>
-            <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)}
+            <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)} disabled={clinicsLoading}
               className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
-              <option value="">Select clinic…</option>
+              <option value="">{clinicsLoading ? "Loading clinics…" : "Select clinic…"}</option>
               {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
             </select>
           </div>
