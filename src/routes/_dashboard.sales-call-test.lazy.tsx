@@ -44,8 +44,12 @@ function TestControlBar({ viewAs, onViewAsChange }: { viewAs: Role; onViewAsChan
     setBusy("paid");
     setMsg(null);
     try {
-      await markPaid({ data: { leadId: payLeadId } });
-      setMsg(`💰 ${TEST_LEAD_NAMES[payLeadId]} marked as paid. Reloading…`);
+      const res = await markPaid({ data: { leadId: payLeadId } });
+      setMsg(
+        res?.needsBooking
+          ? `💰 $75 received for ${TEST_LEAD_NAMES[payLeadId]} — now fill in the clinic, doctor, date & time. Reloading…`
+          : `💰 ${TEST_LEAD_NAMES[payLeadId]} marked as paid. Reloading…`,
+      );
       setTimeout(() => window.location.reload(), 400);
     } catch (e) {
       setMsg(`❌ ${(e as Error).message}`);
