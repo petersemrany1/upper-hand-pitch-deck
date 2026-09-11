@@ -1740,6 +1740,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setAmpPrefill(""); setAudioPrefill("");
               armAutoDial();
               return;
+              }
             }
             if (sessionActive) {
               const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
