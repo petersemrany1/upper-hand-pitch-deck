@@ -544,7 +544,7 @@ function Card({
             {fullName}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
-            {r.doctor_name ? `Dr ${r.doctor_name}` : "—"}
+            {withDrPrefix(r.doctor_name) ?? "—"}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
             {r.patient_phone || "—"}
