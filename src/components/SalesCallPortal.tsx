@@ -1690,7 +1690,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         {/* Ring-back banner: someone called us back and is next up. Visible
             until the rep gets to them, so it can't be missed like a toast. */}
         {missedCallQueue.length > 0 && (() => {
-          const nextId = missedCallQueue[0];
+          // Show the first still-eligible ring-back; closed-out leads never
+          // appear here even if they were queued before being dropped.
+          const eligibleIds = missedCallQueue.filter((id) => {
+            const x = leads.find((l2) => l2.id === id);
+            return x ? isRingBackEligible(x) : false;
+          });
+          if (eligibleIds.length === 0) return null;
+          const nextId = eligibleIds[0];
           const l = leads.find((x) => x.id === nextId);
           const name = l ? [l.first_name, l.last_name].filter(Boolean).join(" ").trim() : "";
           return (
