@@ -845,6 +845,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
     if (leadIds.length === 0) return;
 
+    let cancelled = false;
+    // The all-time history is thousands of rows for hundreds of leads. It only
+    // matters for "first ever call" / lifetime attempt counts, which barely
+    // move, so cache it and refresh at most every 5 minutes instead of
+    // refetching it on every single call_records change (that was hammering
+    // the database and making the whole portal crawl).
+    let allTimeRows: { lead_id: string | null; called_at: string | null; direction?: string | null }[] | null = null;
+    let allTimeAt = 0;
+    const ALL_TIME_TTL_MS = 5 * 60 * 1000;
+
     const load = async () => {
       // Last 3 days of call attempts so we can show "no answer yesterday",
       // count today's attempts (auto-bump after 3), etc.
@@ -857,6 +867,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         .in("lead_id", leadIds)
         .gte("called_at", since.toISOString())
         .order("called_at", { ascending: true });
+      if (cancelled) return;
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const counts: Record<string, number> = {};
@@ -883,22 +894,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
       // First-ever call timestamp per lead (across all history, ascending order
       // so the first row per lead wins). Drives the "Day N" pipeline counter.
-      const { data: firstRows } = await supabase
-        .from("call_records")
-        .select("lead_id, called_at, direction")
-        .in("lead_id", leadIds)
-        .order("called_at", { ascending: true })
-        .limit(10000);
+      if (!allTimeRows || Date.now() - allTimeAt > ALL_TIME_TTL_MS) {
+        const { data: firstRows } = await supabase
+          .from("call_records")
+          .select("lead_id, called_at, direction")
+          .in("lead_id", leadIds)
+          .order("called_at", { ascending: true })
+          .limit(10000);
+        if (cancelled) return;
+        allTimeRows = firstRows ?? [];
+        allTimeAt = Date.now();
+      }
+      const rows = allTimeRows ?? [];
       const firsts: Record<string, string> = {};
-      for (const row of firstRows ?? []) {
+      for (const row of rows) {
         if (!row.lead_id || !row.called_at) continue;
         if (!firsts[row.lead_id]) firsts[row.lead_id] = row.called_at as string;
       }
       setFirstCallByLead(firsts);
-      // All-time figures from the full history; today's figures from the
+      // All-time figures from the cached full history; today's figures from the
       // 3-day query above, which is small enough never to be truncated.
       const nowTs = new Date();
-      const history = buildHistory(firstRows ?? [], nowTs);
+      const history = buildHistory(rows, nowTs);
       const recent = buildHistory(data ?? [], nowTs);
       for (const [leadId, h] of Object.entries(recent)) {
         if (!h) continue;
@@ -907,11 +924,24 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       setCallHistory(history);
     };
+
+    // Coalesce bursts of realtime events (a single dial writes several rows:
+    // insert, status updates, outcome stamp) into one reload.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleLoad = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => { debounce = null; void load(); }, 2000);
+    };
+
     void load();
     const ch = supabase.channel("attempt-counts")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, scheduleLoad)
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      if (debounce) clearTimeout(debounce);
+      void supabase.removeChannel(ch);
+    };
   }, [loadedLeadIdsKey]);
 
   // Resolve rep from auth email
