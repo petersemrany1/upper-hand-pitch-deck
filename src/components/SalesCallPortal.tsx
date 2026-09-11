@@ -3768,22 +3768,32 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   useEffect(() => {
     void (async () => {
       setClinicsLoading(true);
-      const [{ data }, remaining] = await Promise.all([
-        supabase.from("partner_clinics")
-          .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-          .eq("is_active", true),
-        fetchClinicRemainingSlots(),
-      ]);
-      // Clinics with no consult slots left to fill can't be booked into.
-      // The lead's already-booked clinic stays available so existing bookings
-      // can still be edited.
-      const list = ((data ?? []) as Clinic[]).filter(
-        (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
-      );
-      setClinics(list);
-      setClinicsLoading(false);
+      setClinicsError(false);
+      try {
+        const [{ data, error }, remaining] = await Promise.all([
+          supabase.from("partner_clinics")
+            .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+            .eq("is_active", true),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (error) throw error;
+        // Clinics with no consult slots left to fill can't be booked into.
+        // The lead's already-booked clinic stays available so existing bookings
+        // can still be edited.
+        const list = ((data ?? []) as Clinic[]).filter(
+          (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+        );
+        setClinics(list);
+      } catch (err) {
+        // Capacity check or clinic list failed — never present this as "no
+        // clinics available". Show an error + Retry and keep any previous list.
+        console.error("clinic list load failed", err);
+        setClinicsError(true);
+      } finally {
+        setClinicsLoading(false);
+      }
     })();
-  }, [lead.clinic_id]);
+  }, [lead.clinic_id, clinicsRetryTick]);
 
 
   useEffect(() => {
@@ -6787,20 +6797,29 @@ function RightPanel({
   useEffect(() => {
     void (async () => {
       setPanelClinicsLoading(true);
-      const [{ data: clinics }, remaining] = await Promise.all([
-        supabase
-          .from("partner_clinics")
-          .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-          .eq("is_active", true)
-          .order("clinic_name"),
-        fetchClinicRemainingSlots(),
-      ]);
-      // Only offer clinics that still have consult slots left in their pack.
-      const list = ((clinics ?? []) as Clinic[]).filter(
-        (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
-      );
-      setPanelClinics(list);
-      setPanelClinicsLoading(false);
+      setPanelClinicsError(false);
+      try {
+        const [{ data: clinics, error }, remaining] = await Promise.all([
+          supabase
+            .from("partner_clinics")
+            .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+            .eq("is_active", true)
+            .order("clinic_name"),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (error) throw error;
+        // Only offer clinics that still have consult slots left in their pack.
+        const list = ((clinics ?? []) as Clinic[]).filter(
+          (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+        );
+        setPanelClinics(list);
+      } catch (err) {
+        // Never treat a failed capacity check as "every clinic is full".
+        console.error("panel clinic list load failed", err);
+        setPanelClinicsError(true);
+      } finally {
+        setPanelClinicsLoading(false);
+      }
 
       // Reuse only the clinic explicitly selected during this lead's current
       // sales-call session. Never seed from active.clinic_id because that may
