@@ -38,10 +38,9 @@ const CSS = `
 .ng-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
 .ng-spacer{flex:1}
 .ng-time{font-size:12px;color:#3d4b5a;background:rgba(255,255,255,.7);padding:5px 10px;border-radius:999px}
-.ng-lbl{position:absolute;transform:translate(-50%,-100%);background:rgba(255,255,255,.96);border:1.5px solid #dfe3e8;border-radius:9px;padding:4px 9px;font-size:11px;line-height:1.3;box-shadow:0 2px 6px rgba(0,0,0,.08);pointer-events:none;max-width:200px;text-align:center}
+.ng-lbl{position:absolute;z-index:2;transform:translate(-50%,-100%);background:rgba(255,255,255,.96);border:1.5px solid #dfe3e8;border-radius:9px;padding:4px 9px;font-size:11px;line-height:1.3;box-shadow:0 2px 6px rgba(0,0,0,.08);pointer-events:none;max-width:200px;text-align:center}
 .ng-lbl b{display:block;font-size:12px;white-space:nowrap}
-.ng-lbl.small{padding:3px 7px}
-.ng-lbl.small b{font-size:11px}
+.ng-tag{position:absolute;transform:translate(-50%,-100%);background:rgba(255,255,255,.9);border:1.5px solid #dfe3e8;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;white-space:nowrap;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.08)}
 .ng-flags{position:absolute;right:16px;bottom:16px;width:300px;max-height:60%;overflow:auto;background:rgba(255,255,255,.95);border:1px solid #dfe3e8;border-radius:12px;padding:10px 12px;box-shadow:0 4px 16px rgba(0,0,0,.1)}
 .ng-flags h3{margin:0 0 6px;font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:#8a96a3}
 .ng-flag{font-size:12.5px;padding:7px 4px;border-top:1px solid #eef0f3;display:flex;gap:8px;align-items:flex-start;cursor:pointer;border-radius:6px}
@@ -188,11 +187,15 @@ function NumbersGamePage() {
 
       {labels.filter((l) => !l.hidden).map((l) => {
         const c = TONE_CSS[l.tone];
-        const quiet = l.tone === "grey";
+        if (!l.active) {
+          return (
+            <div key={l.key} className="ng-tag" style={{ left: l.x, top: l.y, borderColor: l.tone === "grey" ? "#dfe3e8" : c.line, color: l.tone === "grey" ? "#5b6874" : c.fg }}>{l.short}</div>
+          );
+        }
         return (
-          <div key={l.key} className={`ng-lbl${quiet ? " small" : ""}`} style={{ left: l.x, top: l.y, borderColor: quiet ? "#dfe3e8" : c.line, color: quiet ? "#5b6874" : "#1b2430" }}>
-            <b style={{ color: quiet ? "#5b6874" : c.fg }}>{l.title}</b>
-            {!quiet && l.sub}
+          <div key={l.key} className="ng-lbl" style={{ left: l.x, top: l.y, borderColor: c.line }}>
+            <b style={{ color: c.fg }}>{l.title}</b>
+            {l.sub}
           </div>
         );
       })}
@@ -231,7 +234,6 @@ function NumbersGamePage() {
         </div>
       )}
 
-      <div className="ng-legend">Tower = an ad, water = leads · Pipe = leads flowing · Van = an advisor · Crates = leads in the queue · Tank = a clinic's pack · Brown lump = stuck · Puddle = money leaking · Click anything for its numbers</div>
 
       {picked && town && <Drawer town={town} target={picked} onClose={() => onPick(null)} />}
 
