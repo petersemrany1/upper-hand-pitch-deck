@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.meta_lead_blacklist_check() FROM PUBLIC, anon, authenticated;

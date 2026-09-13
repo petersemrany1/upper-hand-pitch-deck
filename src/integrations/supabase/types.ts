@@ -429,6 +429,8 @@ export type Database = {
           disqualified_at: string | null
           disqualified_by: string | null
           disqualified_reason: string | null
+          doctor_id: string | null
+          doctor_name: string | null
           id: string
           intel_notes: string | null
           lead_id: string | null
@@ -462,6 +464,8 @@ export type Database = {
           disqualified_at?: string | null
           disqualified_by?: string | null
           disqualified_reason?: string | null
+          doctor_id?: string | null
+          doctor_name?: string | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
@@ -495,6 +499,8 @@ export type Database = {
           disqualified_at?: string | null
           disqualified_by?: string | null
           disqualified_reason?: string | null
+          doctor_id?: string | null
+          doctor_name?: string | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
@@ -524,6 +530,13 @@ export type Database = {
             columns: ["clinic_id"]
             isOneToOne: false
             referencedRelation: "partner_clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinic_appointments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "partner_doctors"
             referencedColumns: ["id"]
           },
           {
@@ -1813,6 +1826,30 @@ export type Database = {
           key?: string
           updated_at?: string
           value?: string
+        }
+        Relationships: []
+      }
+      lead_blacklist: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          phone: string | null
+          reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          phone?: string | null
+          reason?: string | null
         }
         Relationships: []
       }

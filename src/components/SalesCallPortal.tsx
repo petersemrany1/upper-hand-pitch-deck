@@ -11,7 +11,7 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { CALLBACK_WINDOW_MS, buildHistory, buildQueue, dueCallbackIds, type HistoryMap } from "./sales-call/queue";
-import { isReturningLead, normaliseStatus, type StatusKey } from "./sales-call/status";
+import { isReturningLead, normaliseStatus, requiresManualDial, type StatusKey } from "./sales-call/status";
 import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
@@ -21,6 +21,8 @@ import {
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
+import { fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
+
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { ChargeCardOverPhoneModal } from "@/components/ChargeCardOverPhoneModal";
@@ -76,6 +78,14 @@ function leadHasBookedSale(lead: Lead) {
 }
 
 const SALES_CALL_LEAD_LIMIT = 200;
+
+// Practice/test dummies live in meta_leads so the test portal can dial them.
+// They must never appear in a real rep's calling queue.
+const HIDDEN_TEST_LEAD_IDS = new Set([
+  "5e70f557-73ce-4bb7-a11a-6b718dbd092f", // Peter Test
+  "b2828129-1c28-4502-927a-11f43a0a8473", // Test Tested
+]);
+
 const SALES_CALL_LEAD_SELECT = `
   id, first_name, last_name, email, phone, funding_preference,
   ad_name, ad_set_name, campaign_name, status, call_notes, created_at,
@@ -249,6 +259,30 @@ function nextSessionIndexFromActive(queue: string[], activeLeadId: string | null
 
 /** A callback or ring-back dialled by anyone this recently isn't served again. */
 const RECENT_DIAL_MS = 10 * 60 * 1000;
+/** Ring-backs survive a page refresh for this long. */
+const RING_BACK_STORE_KEY = "salesCall.ringBackQueue";
+const RING_BACK_TTL_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Can a lead jump the queue because they rang us back? Closed-out leads never
+ * do: booked (deposit or not), not interested, dropped, cancelled, no-show,
+ * blacklisted, or post-consult re-enquiries.
+ */
+function isRingBackEligible(lead: Lead): boolean {
+  const rawStatus = (lead.status ?? "").toLowerCase();
+  const normStatus = normaliseStatus(lead.status, lead);
+  return !(
+    normStatus === "booked_deposit_paid" ||
+    normStatus === "booked_no_deposit" ||
+    normStatus === "not_interested" ||
+    normStatus === "had_convo_no_sale" ||
+    rawStatus === "dropped" ||
+    rawStatus === "cancelled" ||
+    rawStatus === "no_show" ||
+    rawStatus === "blacklisted" ||
+    (lead.lead_class ?? "").toLowerCase() === "post_consult"
+  );
+}
 export const PRACTICE_LEAD_ID = "practice-dave-ai";
 // Admin-only Test mode: when set, the portal renders identically to the real
 // sales call but is scoped to this single lead so admins can sandbox the flow.
@@ -284,6 +318,16 @@ function AdminTestButton() {
 export function SalesCallPortal({ practiceMode = false, testLeadId }: { practiceMode?: boolean; testLeadId?: string | string[] } = {}) {
   const testLeadIds = Array.isArray(testLeadId) ? testLeadId : testLeadId ? [testLeadId] : [];
   const firstTestLeadId = testLeadIds[0];
+  // Sandbox sessions are hard-limited to the test leads. Any other lead
+  // (including one arriving live over realtime) is ignored outright so a real
+  // customer can never appear in the sandbox queue.
+  const sandboxAllowedIdsRef = useRef<Set<string> | null>(null);
+  sandboxAllowedIdsRef.current = testLeadIds.length > 0 ? new Set(testLeadIds) : null;
+  const isSandboxBlocked = (leadId: string | null | undefined) => {
+    const allowed = sandboxAllowedIdsRef.current;
+    return Boolean(allowed && (!leadId || !allowed.has(leadId)));
+  };
+
   const { user } = useAuth();
   const search = useSearch({ strict: false }) as { leadId?: string; phone?: string };
   const navigate = useNavigate();
@@ -360,9 +404,33 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // Queue of lead ids that missed-called us and should be jumped-to on the
   // next "Next Lead" click (both in and out of session mode). Excludes
   // booked_deposit_paid / dropped / not_interested leads.
-  const [missedCallQueue, setMissedCallQueue] = useState<string[]>([]);
+  // Persisted for RING_BACK_TTL_MS so a page refresh doesn't lose ring-backs.
+  const readRingBackStore = (): { ids: string[]; ringBack: string[] } => {
+    if (typeof window === "undefined" || practiceMode) return { ids: [], ringBack: [] };
+    try {
+      const raw = window.localStorage.getItem(RING_BACK_STORE_KEY);
+      if (!raw) return { ids: [], ringBack: [] };
+      const parsed = JSON.parse(raw) as { at?: number; ids?: string[]; ringBack?: string[] };
+      if (!parsed?.at || !Array.isArray(parsed.ids)) return { ids: [], ringBack: [] };
+      if (Date.now() - parsed.at > RING_BACK_TTL_MS) return { ids: [], ringBack: [] };
+      const str = (a: unknown[]) => a.filter((id): id is string => typeof id === "string");
+      return { ids: str(parsed.ids), ringBack: str(Array.isArray(parsed.ringBack) ? parsed.ringBack : []) };
+    } catch { return { ids: [], ringBack: [] }; }
+  };
+  const [missedCallQueue, setMissedCallQueue] = useState<string[]>(() => readRingBackStore().ids);
+  // Subset of the queue that got there by actually ringing us back (as opposed
+  // to a scheduled callback coming due) — only these show the "called back" banner.
+  const [ringBackIds, setRingBackIds] = useState<string[]>(() => readRingBackStore().ringBack);
   const missedCallQueueRef = useRef<string[]>([]);
   useEffect(() => { missedCallQueueRef.current = missedCallQueue; }, [missedCallQueue]);
+  useEffect(() => {
+    if (typeof window === "undefined" || practiceMode) return;
+    try {
+      if (missedCallQueue.length === 0) window.localStorage.removeItem(RING_BACK_STORE_KEY);
+      else window.localStorage.setItem(RING_BACK_STORE_KEY, JSON.stringify({ at: Date.now(), ids: missedCallQueue, ringBack: ringBackIds }));
+    } catch { /* storage unavailable — in-memory only */ }
+  }, [missedCallQueue, ringBackIds, practiceMode]);
+  
   const activeIdRef = useRef<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -400,6 +468,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [firstCallByLead, setFirstCallByLead] = useState<Record<string, string>>({});
   // Per-lead call history the queue rules run on (attempts, first/last, today).
   const [callHistory, setCallHistory] = useState<HistoryMap>({});
+  // Read inside timers/effects that must NOT re-run (and refetch) every time
+  // the history object is rebuilt.
+  const callHistoryRef = useRef<HistoryMap>({});
+  useEffect(() => { callHistoryRef.current = callHistory; }, [callHistory]);
   // Ticks once a minute so time-based rules (noon, callback windows) re-run.
   const [clockTick, setClockTick] = useState(0);
   useEffect(() => {
@@ -660,12 +732,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       setSessionBookings(bookedLeadIds.size);
     };
 
+    // Coalesce bursts of row changes into one refresh — a single dial fires
+    // several call_records and meta_leads events.
+    let statsDebounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleStats = () => {
+      if (statsDebounce) clearTimeout(statsDebounce);
+      statsDebounce = setTimeout(() => { statsDebounce = null; void loadSessionStats(); }, 2000);
+    };
+
     void loadSessionStats();
     const ch = supabase.channel("session-stats")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void loadSessionStats())
-      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, () => void loadSessionStats())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, scheduleStats)
+      .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, scheduleStats)
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      if (statsDebounce) clearTimeout(statsDebounce);
+      void supabase.removeChannel(ch);
+    };
   }, [sessionActive, sessionStartedAt, repId, leads, sessionQueue]);
 
   useEffect(() => {
@@ -746,7 +829,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistory, now, isLeadLocationPaused));
+      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadLocationPaused));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
@@ -772,11 +855,23 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     void check();
     const interval = setInterval(() => void check(), 30000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, [callHistory, isLeadLocationPaused]);
+    // Deliberately not keyed on callHistory: it's read through a ref so a
+    // rebuilt history doesn't trigger another callback query.
+  }, [isLeadLocationPaused]);
 
   useEffect(() => {
     const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
     if (leadIds.length === 0) return;
+
+    let cancelled = false;
+    // The all-time history is thousands of rows for hundreds of leads. It only
+    // matters for "first ever call" / lifetime attempt counts, which barely
+    // move, so cache it and refresh at most every 5 minutes instead of
+    // refetching it on every single call_records change (that was hammering
+    // the database and making the whole portal crawl).
+    let allTimeRows: { lead_id: string | null; called_at: string | null; direction?: string | null }[] | null = null;
+    let allTimeAt = 0;
+    const ALL_TIME_TTL_MS = 5 * 60 * 1000;
 
     const load = async () => {
       // Last 3 days of call attempts so we can show "no answer yesterday",
@@ -786,10 +881,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       since.setDate(since.getDate() - 2); // covers yesterday + today
       const { data } = await supabase
         .from("call_records")
-        .select("lead_id, called_at, outcome, status")
+        .select("lead_id, called_at, outcome, status, direction")
         .in("lead_id", leadIds)
         .gte("called_at", since.toISOString())
         .order("called_at", { ascending: true });
+      if (cancelled) return;
 
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const counts: Record<string, number> = {};
@@ -800,12 +896,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         const d = new Date(row.called_at);
         const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
         const dayStart = new Date(d); dayStart.setHours(0, 0, 0, 0);
-        if (dayStart.getTime() === today.getTime()) {
+        // Attempts = dials WE made. A lead ringing in is not an attempt.
+        const isDial = (row.direction as string | null ?? "outbound") !== "inbound";
+        if (isDial && dayStart.getTime() === today.getTime()) {
           counts[row.lead_id] = (counts[row.lead_id] ?? 0) + 1;
         }
         byDay[row.lead_id] = byDay[row.lead_id] ?? {};
         const slot = byDay[row.lead_id][dayKey] ?? { count: 0, lastOutcome: null };
-        slot.count += 1;
+        if (isDial) slot.count += 1;
         slot.lastOutcome = (row.outcome as string | null) ?? (row.status as string | null) ?? slot.lastOutcome;
         byDay[row.lead_id][dayKey] = slot;
       }
@@ -814,22 +912,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
 
       // First-ever call timestamp per lead (across all history, ascending order
       // so the first row per lead wins). Drives the "Day N" pipeline counter.
-      const { data: firstRows } = await supabase
-        .from("call_records")
-        .select("lead_id, called_at")
-        .in("lead_id", leadIds)
-        .order("called_at", { ascending: true })
-        .limit(10000);
+      if (!allTimeRows || Date.now() - allTimeAt > ALL_TIME_TTL_MS) {
+        const { data: firstRows } = await supabase
+          .from("call_records")
+          .select("lead_id, called_at, direction")
+          .in("lead_id", leadIds)
+          .order("called_at", { ascending: true })
+          .limit(10000);
+        if (cancelled) return;
+        allTimeRows = firstRows ?? [];
+        allTimeAt = Date.now();
+      }
+      const rows = allTimeRows ?? [];
       const firsts: Record<string, string> = {};
-      for (const row of firstRows ?? []) {
+      for (const row of rows) {
         if (!row.lead_id || !row.called_at) continue;
         if (!firsts[row.lead_id]) firsts[row.lead_id] = row.called_at as string;
       }
       setFirstCallByLead(firsts);
-      // All-time figures from the full history; today's figures from the
+      // All-time figures from the cached full history; today's figures from the
       // 3-day query above, which is small enough never to be truncated.
       const nowTs = new Date();
-      const history = buildHistory(firstRows ?? [], nowTs);
+      const history = buildHistory(rows, nowTs);
       const recent = buildHistory(data ?? [], nowTs);
       for (const [leadId, h] of Object.entries(recent)) {
         if (!h) continue;
@@ -838,11 +942,24 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       setCallHistory(history);
     };
+
+    // Coalesce bursts of realtime events (a single dial writes several rows:
+    // insert, status updates, outcome stamp) into one reload.
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+    const scheduleLoad = () => {
+      if (debounce) clearTimeout(debounce);
+      debounce = setTimeout(() => { debounce = null; void load(); }, 2000);
+    };
+
     void load();
     const ch = supabase.channel("attempt-counts")
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, () => void load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "call_records" }, scheduleLoad)
       .subscribe();
-    return () => { void supabase.removeChannel(ch); };
+    return () => {
+      cancelled = true;
+      if (debounce) clearTimeout(debounce);
+      void supabase.removeChannel(ch);
+    };
   }, [loadedLeadIdsKey]);
 
   // Resolve rep from auth email
@@ -895,12 +1012,21 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       }
       // Returning / post-consult people are never shown as leads.
       fetched = fetched.filter((l) => !isReturningLead(l.lead_class));
+      // Test dummies and blacklisted people never enter a real calling queue.
+      if (testLeadIds.length === 0) {
+        fetched = fetched.filter((l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && l.status !== "blacklisted");
+      } else {
+        // Sandbox: only the test leads, no matter what came back.
+        fetched = fetched.filter((l) => !isSandboxBlocked(l.id));
+      }
+
       setLeads((prev) => {
         // Preserve the synthetic practice lead (Dave AI) so the supabase
         // refresh doesn't wipe it out and blank the practice-call page.
         const practice = prev.find((l) => l.id === PRACTICE_LEAD_ID);
         return practice ? [practice, ...fetched.filter((l) => l.id !== PRACTICE_LEAD_ID)] : fetched;
       });
+
       setLeadsLoaded(true);
     };
 
@@ -917,6 +1043,17 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         }
         const nextLead = payload.new as Lead | null;
         if (!nextLead?.id) return;
+        // Sandbox: ignore every real lead, including live new enquiries.
+        if (isSandboxBlocked(nextLead.id)) {
+          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          return;
+        }
+        if (testLeadIds.length === 0 && (HIDDEN_TEST_LEAD_IDS.has(nextLead.id) || nextLead.status === "blacklisted")) {
+          setLeads((prev) => prev.filter((l) => l.id !== nextLead.id));
+          return;
+        }
+
+
         setLeads((prev) => {
           const idx = prev.findIndex((l) => l.id === nextLead.id);
           if (idx >= 0) {
@@ -938,35 +1075,78 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // who's now ringing back), bump them to be the NEXT lead so pressing "Next
   // lead" jumps straight to them.
   useEffect(() => {
+    // Practice/sandbox sessions never get jumped by real inbound calls.
+    if (practiceMode || testLeadId) return;
     const seen = new Set<string>();
-    const handle = (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null } | null) => {
+    // Twilio writes the inbound row as "ringing" first, then updates it. We
+    // must wait for a settled state: acting on "ringing" would queue someone
+    // the rep is about to pick up and talk to.
+    const TERMINAL = new Set(["completed", "no-answer", "noanswer", "busy", "failed", "canceled", "cancelled"]);
+    const handle = async (row: { id?: string; direction?: string; status?: string | null; duration?: number | null; phone?: string | null; lead_id?: string | null } | null) => {
       if (!row || row.direction !== "inbound" || !row.id) return;
       const s = (row.status || "").toLowerCase();
-      const answered = (row.duration && row.duration > 0) || s === "in-progress" || s === "completed";
-      if (answered) return;
+      // Talk time, or live right now = the rep is speaking to them. Not a
+      // ring-back to serve later — and if we queued them from an earlier
+      // update, take them back out.
+      const answered = (row.duration && row.duration > 0) || s === "in-progress";
+      if (answered) {
+        const answeredLeadId = row.lead_id
+          || leadsRef.current.find((l) => {
+            const t = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
+            return t.length >= 6 && (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === t;
+          })?.id;
+        if (answeredLeadId) {
+          setMissedCallQueue((prev) => prev.filter((id) => id !== answeredLeadId));
+          setRingBackIds((prev) => prev.filter((id) => id !== answeredLeadId));
+        }
+        seen.add(row.id);
+        return;
+      }
+      // Still in flight (ringing/queued/initiated) — wait for the final state.
+      if (!TERMINAL.has(s)) return;
       if (seen.has(row.id)) return;
       seen.add(row.id);
       const tail = (row.phone || "").replace(/[^0-9]/g, "").slice(-9);
-      if (tail.length < 6) return;
-      const lead = leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail);
+      let lead = tail.length >= 6
+        ? leadsRef.current.find((l) => (l.phone || "").replace(/[^0-9]/g, "").slice(-9) === tail)
+        : undefined;
+      // Not on the loaded list (older enquiry, other group): the inbound call
+      // record already knows which lead it is, so pull that one lead in.
+      if (!lead && row.lead_id) {
+        const known = leadsRef.current.find((l) => l.id === row.lead_id);
+        if (known) lead = known;
+        else {
+          if (HIDDEN_TEST_LEAD_IDS.has(row.lead_id)) return;
+          const { data } = await supabase
+            .from("meta_leads")
+            .select(SALES_CALL_LEAD_SELECT)
+            .eq("id", row.lead_id)
+            .maybeSingle();
+          if (!data) return;
+          lead = data as Lead;
+          const fetched = lead;
+          if (!isRingBackEligible(fetched)) return;
+          setLeads((prev) => (prev.some((l) => l.id === fetched.id) ? prev : [fetched, ...prev]));
+        }
+      }
       if (!lead) return;
+      const ringBack = lead;
+      if (HIDDEN_TEST_LEAD_IDS.has(ringBack.id)) return;
 
       // Exclusion: don't jump back to leads we've closed out.
-      const rawStatus = (lead.status ?? "").toLowerCase();
-      const normStatus = normaliseStatus(lead.status, lead);
-      const excluded =
-        normStatus === "booked_deposit_paid" ||
-        normStatus === "not_interested" ||
-        rawStatus === "dropped" ||
-        rawStatus === "cancelled" ||
-        rawStatus === "no_show";
-      if (excluded) return;
+      if (!isRingBackEligible(ringBack)) return;
       // Don't queue the lead the rep is currently on.
-      if (lead.id === activeIdRef.current) return;
+      if (ringBack.id === activeIdRef.current) return;
 
       // Always add to the missed-call queue so "Next Lead" jumps here next,
       // even outside of session mode. Dedupe + keep FIFO order.
-      setMissedCallQueue((prev) => (prev.includes(lead.id) ? prev : [...prev, lead.id]));
+      let added = false;
+      setMissedCallQueue((prev) => {
+        if (prev.includes(ringBack.id)) return prev;
+        added = true;
+        return [...prev, ringBack.id];
+      });
+      setRingBackIds((prev) => (prev.includes(ringBack.id) ? prev : [...prev, ringBack.id]));
 
       // In session mode, also splice into the session queue so the session
       // counter/progress stays consistent.
@@ -975,19 +1155,48 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           sessionQueueRef.current,
           activeIdRef.current,
           sessionIndexRef.current,
-          lead.id,
+          ringBack.id,
         );
         setSessionQueue(placement.queue);
       }
-      const name = [lead.first_name, lead.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
-      toast.success(`📞 ${name} called back — queued next`);
+      if (added) {
+        const name = [ringBack.first_name, ringBack.last_name].filter(Boolean).join(" ").trim() || row.phone || "Lead";
+        toast.success(`📞 ${name} called back — queued next`);
+      }
     };
     const ch = supabase.channel("sales-call-missed-callbacks")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "call_records" }, (p) => void handle(p.new as Parameters<typeof handle>[0]))
       .subscribe();
     return () => { void supabase.removeChannel(ch); };
-  }, []);
+  }, [practiceMode, testLeadId]);
+
+  // Ring-backs restored from localStorage after a refresh may point at leads
+  // that aren't in the loaded list. Pull them in so the banner and "Next"
+  // can actually serve them (and drop any that no longer qualify).
+  const ringBackHydratedRef = useRef(false);
+  useEffect(() => {
+    if (practiceMode || testLeadId) return;
+    if (ringBackHydratedRef.current) return;
+    if (leads.length === 0) return;
+    const missing = missedCallQueueRef.current.filter((id) => !leads.some((l) => l.id === id));
+    ringBackHydratedRef.current = true;
+    if (missing.length === 0) return;
+    void (async () => {
+      const { data } = await supabase
+        .from("meta_leads")
+        .select(SALES_CALL_LEAD_SELECT)
+        .in("id", missing);
+      const rows = ((data ?? []) as unknown as Lead[]).filter(
+        (l) => !HIDDEN_TEST_LEAD_IDS.has(l.id) && isRingBackEligible(l),
+      );
+      const keep = new Set(rows.map((l) => l.id));
+      setMissedCallQueue((prev) => prev.filter((id) => keep.has(id) || !missing.includes(id)));
+      if (rows.length > 0) {
+        setLeads((prev) => [...rows.filter((r) => !prev.some((p) => p.id === r.id)), ...prev]);
+      }
+    })();
+  }, [leads, practiceMode, testLeadId]);
 
 
 
@@ -1140,15 +1349,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // that is no longer due (called today by someone — reps share one pool —
   // or since booked / retired). Callbacks and ring-backs arrive through the
   // missed-call queue and never pass through here.
-  // Callbacks and ring-backs surface on every rep's screen at once. If
-  // anyone dialled that person in the last few minutes, another rep must
-  // not ring them again.
-  const dialledRecently = useCallback((id: string): boolean => {
-    const last = callHistory[id]?.lastAttemptAt;
-    if (!last) return false;
-    const t = new Date(last).getTime();
-    return Number.isFinite(t) && Date.now() - t < RECENT_DIAL_MS;
-  }, [callHistory]);
+  // NOTE: a ring-back is never suppressed by "someone dialled them recently".
+  // The normal ring-back is a reply to our own no-answer dial seconds earlier,
+  // so that guard would cancel exactly the lead we want to serve next. The
+  // shared-pool protection for ordinary queue order still comes from
+  // buildQueue(), which now ignores inbound calls as dial attempts.
   const advanceIndexFrom = useCallback((from: number): number => {
     const q = sessionQueueRef.current;
     let i = Math.max(0, from);
@@ -1613,6 +1818,32 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           borderTop: `0.5px solid ${COLORS.line}`,
         }}
       >
+        {/* Ring-back banner: someone called us back and is next up. Visible
+            until the rep gets to them, so it can't be missed like a toast. */}
+        {missedCallQueue.length > 0 && (() => {
+          // Show the first still-eligible ring-back; closed-out leads never
+          // appear here even if they were queued before being dropped.
+          const eligibleIds = missedCallQueue.filter((id) => {
+            // Only actual ring-backs get this banner — a scheduled callback
+            // coming due shares the same queue but nobody rang us.
+            if (!ringBackIds.includes(id)) return false;
+            const x = leads.find((l2) => l2.id === id);
+            return x ? isRingBackEligible(x) : false;
+          });
+          if (eligibleIds.length === 0) return null;
+          const nextId = eligibleIds[0];
+          const l = leads.find((x) => x.id === nextId);
+          const name = l ? [l.first_name, l.last_name].filter(Boolean).join(" ").trim() : "";
+          return (
+            <div
+              className="px-3 py-2 text-[12px] font-semibold"
+              style={{ background: "#fff7ed", color: "#9a3412", borderBottom: `0.5px solid ${COLORS.line}` }}
+            >
+              📞 Called back — next: {name || "unknown caller"}
+              {eligibleIds.length > 1 ? ` (+${eligibleIds.length - 1} more)` : ""}
+            </div>
+          );
+        })()}
         <RightPanel
           practiceMode={practiceMode}
           active={active}
@@ -1624,11 +1855,21 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onChangeLead={() => {
             // Missed-call priority: if anyone rang us back, jump to them
             // FIRST — regardless of whether a formal session is running.
-            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
-            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
+            // NOTE: the 10-minute double-dial guard is deliberately NOT applied
+            // here. The normal case is "we rang, no answer, they ring straight
+            // back" — the guard would cancel exactly the lead we want next.
+            const mcq = missedCallQueue;
             if (mcq.length > 0) {
-              const [nextMissedId, ...restMissed] = mcq;
+              // Skip stale entries: a lead queued earlier may since have been
+              // booked, dropped, blacklisted etc. They never get jumped to.
+              const eligibleIds = mcq.filter((id) => {
+                const l = leads.find((x) => x.id === id);
+                return l ? isRingBackEligible(l) : false;
+              });
+              const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
+              setRingBackIds((prev) => prev.filter((id) => id !== nextMissedId));
+              if (nextMissedId) {
               // Keep the session queue in sync if we're in one.
               if (sessionActive) {
                 const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
@@ -1641,6 +1882,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               setAmpPrefill(""); setAudioPrefill("");
               armAutoDial();
               return;
+              }
             }
             if (sessionActive) {
               const nextIndex = advanceIndexFrom(nextSessionIndexFromActive(sessionQueue, activeId, sessionIndex));
@@ -1698,23 +1940,32 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           onAfterOutcomeApplied={(wasBooked?: boolean) => {
             setPendingOutcomeLeadId(null);
             // Missed-call priority also applies right after logging an outcome.
-            const mcq = missedCallQueue.filter((id) => !dialledRecently(id));
-            if (mcq.length !== missedCallQueue.length) setMissedCallQueue(mcq);
+            // Same as above: no recent-dial filter — a ring-back always wins.
+            const mcq = missedCallQueue;
             if (mcq.length > 0) {
               if (wasBooked && sessionActive) setSessionBookings((b) => b + 1);
-              const [nextMissedId, ...restMissed] = mcq;
+              // Skip stale entries: a lead queued earlier may since have been
+              // booked, dropped, blacklisted etc. They never get jumped to.
+              const eligibleIds = mcq.filter((id) => {
+                const l = leads.find((x) => x.id === id);
+                return l ? isRingBackEligible(l) : false;
+              });
+              const [nextMissedId, ...restMissed] = eligibleIds;
               setMissedCallQueue(restMissed);
-              if (sessionActive) {
-                const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
-                setSessionQueue(placement.queue);
-                setSessionIndex(placement.index);
+              setRingBackIds((prev) => prev.filter((id) => id !== nextMissedId));
+              if (nextMissedId) {
+                if (sessionActive) {
+                  const placement = placeLeadAfterCurrent(sessionQueue, activeId, sessionIndex, nextMissedId);
+                  setSessionQueue(placement.queue);
+                  setSessionIndex(placement.index);
+                }
+                setActiveId(nextMissedId);
+                setStep("mindset");
+                setCompleted(new Set());
+                setAmpPrefill(""); setAudioPrefill("");
+                armAutoDial();
+                return;
               }
-              setActiveId(nextMissedId);
-              setStep("mindset");
-              setCompleted(new Set());
-              setAmpPrefill(""); setAudioPrefill("");
-              armAutoDial();
-              return;
             }
             if (sessionActive) {
               if (wasBooked) setSessionBookings((b) => b + 1);
@@ -2136,7 +2387,7 @@ function StepContent({
   }
 
   if (step === "booking") {
-    return <BookingStep lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} repId={repId} />;
+    return <BookingStep key={lead.id} lead={lead} discoveryNotes={discoveryNotes} onBooked={() => onMarkComplete("booking")} onDepositPaid={onDepositPaid} onBookedSaved={onBookedSaved} repId={repId} />;
   }
 
   return null;
@@ -3074,6 +3325,9 @@ function FormRow({ label, children }: { label: string; children: React.ReactNode
 
 function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSaved, repId }: { lead: Lead; discoveryNotes: string; onBooked: () => void; onDepositPaid?: () => void; onBookedSaved?: (leadId: string, patch: Partial<Lead>) => void; repId?: string | null }) {
   const [clinics, setClinics] = useState<Clinic[]>([]);
+  const [clinicsLoading, setClinicsLoading] = useState(true);
+  const [clinicsError, setClinicsError] = useState(false);
+  const [clinicsRetryTick, setClinicsRetryTick] = useState(0);
   const [doctors, setDoctors] = useState<PartnerDoctor[]>([]);
   const FORM_KEY = `booking_form_${lead.id}`;
   const defaultForm = {
@@ -3106,6 +3360,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
+  const [savedAppointment, setSavedAppointment] = useState<{ clinic_id: string; doctor_id: string | null; doctor_name: string | null } | null>(null);
   const [sendingHandover, setSendingHandover] = useState(false);
   const [sendingDeposit, setSendingDeposit] = useState(false);
   const [handoverSent, setHandoverSent] = useState(false);
@@ -3267,9 +3522,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
     autoConfirmTriggeredRef.current = true;
 
-    const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+    const sd = doctors.find((d) => d.id === form.doctorId);
     const selectedClinic =
-      clinics.find((c) => c.id === (form.clinicId || lead.clinic_id || "")) ?? null;
+      clinics.find((c) => c.id === (form.clinicId || savedAppointment?.clinic_id || lead.clinic_id || "")) ?? null;
+    if (!selectedClinic || !sd) {
+      autoConfirmTriggeredRef.current = false;
+      toast.error("Select the clinic and doctor before sending the confirmation text");
+      return;
+    }
     const dateStr = (() => {
       try {
         const d = new Date(`${bookingDate}T${bookingTime}`);
@@ -3292,7 +3552,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setPatientSmsCountdown(10);
     setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
     toast.message("💳 Deposit paid — sending patient confirmation in 10s (tap Cancel to stop)");
-  }, [lead.id, lead.phone, lead.first_name, lead.booking_date, lead.booking_time, lead.clinic_id, form.date, form.time, form.clinicId, form.doctorId, clinics, doctors]);
+  }, [lead.id, lead.phone, lead.first_name, lead.booking_date, lead.booking_time, lead.clinic_id, savedAppointment?.clinic_id, form.date, form.time, form.clinicId, form.doctorId, clinics, doctors]);
 
   // Trigger the countdown modal as soon as deposit is paid AND we have a
   // booking date/time. Works whether the deposit arrives while the rep is on
@@ -3554,18 +3814,60 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
 
   useEffect(() => {
-    void supabase.from("partner_clinics")
-      .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-      .eq("is_active", true)
-      .then(({ data }) => setClinics((data ?? []) as Clinic[]));
-  }, []);
+    void (async () => {
+      setClinicsLoading(true);
+      setClinicsError(false);
+      try {
+        const [{ data, error }, remaining] = await Promise.all([
+          supabase.from("partner_clinics")
+            .select("id, clinic_name, address, city, state, phone, email, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+            .eq("is_active", true),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (error) throw error;
+        // Clinics with no consult slots left to fill can't be booked into.
+        // The lead's already-booked clinic stays available so existing bookings
+        // can still be edited.
+        const list = ((data ?? []) as Clinic[]).filter(
+          (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+        );
+        setClinics(list);
+      } catch (err) {
+        // Capacity check or clinic list failed — never present this as "no
+        // clinics available". Show an error + Retry and keep any previous list.
+        console.error("clinic list load failed", err);
+        setClinicsError(true);
+      } finally {
+        setClinicsLoading(false);
+      }
+    })();
+  }, [lead.clinic_id, clinicsRetryTick]);
 
-  // Load doctors for the selected clinic
+
   useEffect(() => {
-    if (!form.clinicId) { setDoctors([]); return; }
+    let cancelled = false;
+    void supabase
+      .from("clinic_appointments")
+      .select("clinic_id, doctor_id, doctor_name")
+      .eq("lead_id", lead.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setSavedAppointment(data ?? null);
+      });
+    return () => { cancelled = true; };
+  }, [lead.id]);
+
+  // Load doctors for the selected clinic. Fall back to the lead's saved clinic
+  // so a previously booked lead can still resolve its doctor/clinic names after
+  // the rep navigates away and the draft form is cleared.
+  useEffect(() => {
+    const clinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
+    if (!clinicId) { setDoctors([]); return; }
     void supabase.from("partner_doctors")
       .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
-      .eq("clinic_id", form.clinicId)
+      .eq("clinic_id", clinicId)
       .eq("is_active", true)
       .order("created_at")
       .then(({ data }) => {
@@ -3577,7 +3879,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         }
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.clinicId]);
+  }, [form.clinicId, savedAppointment?.clinic_id, lead.clinic_id]);
   const set = (k: keyof typeof form, v: string) => {
     if (k === "clinicId") {
       setClinicExplicitlySelected(Boolean(v));
@@ -3604,38 +3906,44 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   // Restore booked state if this lead already has a saved booking (rep navigated away and came back)
   useEffect(() => {
     if (lead.booking_date && lead.booking_time && !booked) {
-      // Wait until clinics + doctors have loaded so we don't bake placeholder
-      // strings ("[CLINIC NAME — fill in before sending]") into bookedData.
+      // Wait until the saved clinic and doctor can be resolved. Never create
+      // booked display data from guessed or placeholder values.
       if (clinics.length === 0) return;
-      const selectedClinic = clinics.find((c) => c.id === form.clinicId);
-      const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-      // If a clinic is selected but its doctors haven't loaded yet, wait.
-      if (form.clinicId && doctors.length === 0) return;
+      // The draft form is intentionally cleared of clinic/doctor on restore, but
+      // the lead itself stores the booked clinic. Use it as the source of truth.
+      const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
+      const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
+      const savedDoctorName = savedAppointment?.doctor_name?.trim() || "";
+      const selectedDoctor = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
+      if (!effectiveClinicId || !selectedClinic || (!savedDoctorName && !selectedDoctor)) return;
       setBookedData({
         date: lead.booking_date,
         time: lead.booking_time,
-        clinicName: selectedClinic?.clinic_name ?? "[CLINIC NAME — fill in before sending]",
-        doctorName: selectedDoctor?.name ?? "[DOCTOR NAME — fill in before sending]",
+        clinicName: selectedClinic.clinic_name,
+        doctorName: savedDoctorName || selectedDoctor?.name || "",
       });
       setBooked(true);
     }
     if (
       Boolean((lead as { deposit_paid_at?: string | null }).deposit_paid_at) ||
       Boolean((lead as { stripe_payment_intent_id?: string | null }).stripe_payment_intent_id) ||
+      Boolean((lead as { square_payment_id?: string | null }).square_payment_id) ||
       Boolean(lead.status && lead.status.toLowerCase().includes("deposit_paid"))
     ) {
       setDepositPaid(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lead.booking_date, lead.booking_time, clinics, doctors]);
+  }, [lead.booking_date, lead.booking_time, clinics, doctors, savedAppointment, form.clinicId, form.doctorId, booked]);
   const clinic = clinics.find((c) => c.id === form.clinicId);
-  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0] ?? null;
+  const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? null;
 
   // Manual notes flow removed — handover intel now comes strictly from the
   // AI-analysed call recordings (see handoverGate + auto-condense effect).
 
 
   const book = async () => {
+    if (!form.clinicId || !clinicExplicitlySelected) { toast.error("Select a clinic before booking"); return; }
+    if (!form.doctorId) { toast.error("Select a doctor before booking"); return; }
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     if (form.clinicId) {
       // Validate against new trading hours + blocked slots system
@@ -3658,14 +3966,20 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId || null, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
-      const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-      const clinicName = selectedClinic?.clinic_name ?? "[CLINIC NAME — fill in before sending]";
-      const doctorName = sd?.name ?? "[DOCTOR NAME — fill in before sending]";
+      if (!selectedClinic) {
+        toast.error("The booked clinic could not be reloaded. Please retry.");
+        return;
+      }
+      const clinicName = selectedClinic.clinic_name;
+      const doctorName = r.booking.doctorName;
+      setSavedAppointment({ clinic_id: r.booking.clinicId, doctor_id: r.booking.doctorId, doctor_name: doctorName });
       setBookedData({ date: form.date, time: form.time, clinicName, doctorName });
       setBooked(true);
+      // A saved booking consumes a pack slot — drop the cached balances.
+      invalidateClinicRemainingSlots();
       // Status is promoted atomically inside saveBooking (promoteStatus: true)
       // — no separate updateLeadStatus round-trip. The DB trigger
       // enforce_booking_before_status_lock can never race us because
@@ -3706,11 +4020,17 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const handleSendHandover = async () => {
     if (!bookedData) return;
     setSendingHandover(true);
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
+    const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
+    if (!effectiveClinicId || bookedData.clinicName.startsWith("[") || bookedData.doctorName.startsWith("[")) {
+      setSendingHandover(false);
+      toast.error("Clinic or doctor info is missing — save the booking again before sending.");
+      return;
+    }
+    const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
     const r = await sendClinicHandoverEmail({
       data: {
         leadId: lead.id,
-        clinicId: form.clinicId || lead.clinic_id || null,
+        clinicId: effectiveClinicId || null,
         firstName: lead.first_name ?? "",
         lastName: lead.last_name ?? "",
         email: lead.email ?? null,
@@ -3776,8 +4096,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         const date = bookedData?.date ?? lead.booking_date ?? null;
         const time = bookedData?.time ?? lead.booking_time ?? null;
         if (date && time) {
-          const sd = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
-          const doctorName = bookedData?.doctorName ?? sd?.name ?? null;
+          const sd = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
+          const doctorName = bookedData?.doctorName ?? savedAppointment?.doctor_name ?? sd?.name ?? null;
           console.log("[appointment_reminders] doctor_name to insert:", doctorName);
           const payload = {
             lead_id: lead.id,
@@ -3821,12 +4141,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
             // automatically and the rep has to log a manual refund.
             const { data: leadDepositRow } = await supabase
               .from("meta_leads")
-              .select("stripe_payment_intent_id, deposit_amount")
+              .select("stripe_payment_intent_id, square_payment_id, deposit_amount")
               .eq("id", lead.id)
               .maybeSingle();
             const { data: existingClinicAppt } = await supabase
               .from("clinic_appointments")
-              .select("id, intel_notes, stripe_payment_intent_id, deposit_amount")
+              .select("id, intel_notes, stripe_payment_intent_id, square_payment_id, deposit_amount")
               .eq("lead_id", lead.id)
               .limit(1);
             const clinicPayloadBase: any = {
@@ -3837,21 +4157,42 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               appointment_date: date,
               appointment_time: time,
             };
-            if (leadDepositRow?.stripe_payment_intent_id) clinicPayloadBase.stripe_payment_intent_id = leadDepositRow.stripe_payment_intent_id;
+            // Carry the payment across as it was taken (Square or Stripe) so
+            // the clinic's refund goes back the same way.
+            if (leadDepositRow?.square_payment_id) {
+              clinicPayloadBase.square_payment_id = leadDepositRow.square_payment_id;
+              clinicPayloadBase.payment_processor = "square";
+            } else if (leadDepositRow?.stripe_payment_intent_id) {
+              clinicPayloadBase.stripe_payment_intent_id = leadDepositRow.stripe_payment_intent_id;
+              clinicPayloadBase.payment_processor = "stripe";
+            }
             if (leadDepositRow?.deposit_amount != null) clinicPayloadBase.deposit_amount = leadDepositRow.deposit_amount;
             if (existingClinicAppt && existingClinicAppt.length > 0) {
               // Don't overwrite deposit fields already set on the appointment.
-              if (existingClinicAppt[0].stripe_payment_intent_id) delete clinicPayloadBase.stripe_payment_intent_id;
+              if (existingClinicAppt[0].stripe_payment_intent_id || existingClinicAppt[0].square_payment_id) {
+                delete clinicPayloadBase.stripe_payment_intent_id;
+                delete clinicPayloadBase.square_payment_id;
+                delete clinicPayloadBase.payment_processor;
+              }
               if (existingClinicAppt[0].deposit_amount != null) delete clinicPayloadBase.deposit_amount;
               // Do not overwrite the handover email snapshot. The clinic portal
               // intel must stay exactly as sent in the handover email.
               await supabase.from("clinic_appointments").update(clinicPayloadBase).eq("id", existingClinicAppt[0].id);
             } else {
-              // Upsert on lead_id — DB unique index prevents race-condition duplicates.
-              await supabase
+              // Plain insert: the lead uniqueness index is partial
+              // (WHERE lead_id IS NOT NULL) so ON CONFLICT cannot target it.
+              const { error: insertErr } = await supabase
                 .from("clinic_appointments")
-                .upsert({ ...clinicPayloadBase, intel_notes: null }, { onConflict: "lead_id" });
+                .insert({ ...clinicPayloadBase, intel_notes: null });
+              if (insertErr) {
+                // Race: a row appeared between the check and the insert.
+                await supabase
+                  .from("clinic_appointments")
+                  .update(clinicPayloadBase)
+                  .eq("lead_id", lead.id);
+              }
             }
+
           }
         }
       } catch (e) {
@@ -3866,11 +4207,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const handleUndoDepositPaid = async () => {
     if (confirmingDeposit) return;
     setConfirmingDeposit(true);
-    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "booked_no_deposit" } });
+    // A booking only exists once the deposit is paid, so undoing the deposit
+    // returns the lead to a live-conversation state rather than a booked one.
+    const r = await updateLeadStatus({ data: { leadId: lead.id, status: "had_convo_chase_up" } });
     setConfirmingDeposit(false);
     if (r.success) {
       setDepositPaid(false);
-      (lead as { status: string | null }).status = "booked_no_deposit";
+      (lead as { status: string | null }).status = "had_convo_chase_up";
       toast.success("Deposit confirmation undone");
 
       // Pull the appointment back off the Booked Appointments dashboard —
@@ -4029,12 +4372,12 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     const [{ data: freshLead }, { data: freshAppointment }, { data: freshCalls }] = await Promise.all([
       supabase
         .from("meta_leads")
-        .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id")
+        .select("call_notes, funding_preference, finance_eligible, phone, email, status, deposit_paid_at, stripe_payment_intent_id, square_payment_id")
         .eq("id", lead.id)
         .single(),
       supabase
         .from("clinic_appointments")
-        .select("stripe_payment_intent_id")
+        .select("stripe_payment_intent_id, square_payment_id")
         .eq("lead_id", lead.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -4059,7 +4402,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     setPreviewDeposit(
       Boolean(freshLead?.deposit_paid_at) ||
       Boolean(freshLead?.stripe_payment_intent_id) ||
+      Boolean(freshLead?.square_payment_id) ||
       Boolean(freshAppointment?.stripe_payment_intent_id) ||
+      Boolean(freshAppointment?.square_payment_id) ||
       Boolean(paymentReceivedAt) ||
       depositPaid ||
       depositSent ||
@@ -4067,7 +4412,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     );
     setPreviewPhone(freshLead?.phone || lead.phone || "");
     setPreviewEmail(freshLead?.email || lead.email || "");
-    const sc = clinics.find((c) => c.id === form.clinicId) as (Clinic & { email?: string | null }) | undefined;
+    // The draft form may be cleared after a booking; resolve the clinic from the
+    // lead's saved clinic_id so the handover email goes to the right place.
+    const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
+    const sc = clinics.find((c) => c.id === effectiveClinicId) as (Clinic & { email?: string | null }) | undefined;
     // Sandbox override: test leads always route to Peter's inbox (mirrors server-side override in resend.functions.ts).
     const SANDBOX_LEAD_IDS = new Set([
       "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
@@ -4107,8 +4455,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     }
     // Resolve clinic/doctor names with fallback to current form selection so
     // stale placeholder strings in bookedData don't block the send.
-    const selectedClinic = clinics.find((c) => c.id === form.clinicId);
-    const selectedDoctor = doctors.find((d) => d.id === form.doctorId) ?? doctors[0];
+    const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
+    const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
+    const selectedDoctor = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
     const resolvedClinicName =
       bookedData?.clinicName && !bookedData.clinicName.startsWith("[CLINIC NAME")
         ? bookedData.clinicName
@@ -4127,7 +4476,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       const r = await sendClinicHandoverEmail({
         data: {
           leadId: lead.id,
-          clinicId: form.clinicId || lead.clinic_id || null,
+          clinicId: form.clinicId || savedAppointment?.clinic_id || lead.clinic_id || null,
           firstName: lead.first_name ?? "",
           lastName: lead.last_name ?? "",
           email: previewEmail || null,
@@ -4714,11 +5063,20 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         <div className="grid grid-cols-2 gap-2.5">
           <div>
             <Label>Clinic</Label>
-            <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)}
+            <select value={form.clinicId} onChange={(e) => set("clinicId", e.target.value)} disabled={clinicsLoading}
               className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1" style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}>
-              <option value="">Select clinic…</option>
+              <option value="">{clinicsLoading ? "Loading clinics…" : clinicsError && clinics.length === 0 ? "Couldn't load clinics" : "Select clinic…"}</option>
               {clinics.map((c) => <option key={c.id} value={c.id}>{c.clinic_name}</option>)}
             </select>
+            {clinicsError && !clinicsLoading && (
+              <div className="mt-1 text-[12px]" style={{ color: "#b91c1c" }}>
+                Couldn't check clinic availability.{" "}
+                <button type="button" onClick={() => setClinicsRetryTick((t) => t + 1)}
+                  className="underline font-medium" style={{ color: "#b91c1c" }}>
+                  Retry
+                </button>
+              </div>
+            )}
           </div>
           <div>
             <Label>Gender</Label>
@@ -4838,14 +5196,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
         <button
           onClick={() => void book()}
-          disabled={!paymentReceivedAt}
-          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : undefined}
+          disabled={!paymentReceivedAt || !form.clinicId || !clinicExplicitlySelected || !form.doctorId || !form.date || !form.time}
+          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined)}
           className="w-full rounded-[6px]"
           style={{
-            background: paymentReceivedAt ? COLORS.green : "#e5e7eb",
-            color: paymentReceivedAt ? "#ffffff" : "#9ca3af",
+            background: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? COLORS.green : "#e5e7eb",
+            color: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "#ffffff" : "#9ca3af",
             fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
-            cursor: paymentReceivedAt ? "pointer" : "not-allowed",
+            cursor: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "pointer" : "not-allowed",
           }}
         >
           {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
@@ -4973,6 +5331,44 @@ const STATUS_OPTIONS: { key: StatusKey; label: string; emoji: string; color: str
   { key: "booked_deposit_paid",  label: "Booked — Deposit Paid",emoji: "🟢", color: "#15803d", bg: "#dcfce7" },
   { key: "dropped",              label: "Dropped",              emoji: "⚫", color: "#374151", bg: "#e5e7eb" },
 ];
+
+/* Statuses a rep is allowed to pick on a call. "Booked — No Deposit" is NOT
+ * one of them: a booking only exists once the $75 deposit is taken. It stays in
+ * STATUS_OPTIONS purely so historic leads still render with the right label. */
+const SELECTABLE_STATUS_OPTIONS = STATUS_OPTIONS.filter((o) => o.key !== "booked_no_deposit");
+
+/* A call record's outcome/status now carries the outcome the rep logged
+ * (no_answer, had_convo_no_sale, not_interested, …) as well as the raw Twilio
+ * status. Match exactly — substring matching would read "not_interested" and
+ * "had_convo_no_sale" as no-answers and wrongly bump those leads. */
+const NO_ANSWER_OUTCOMES = new Set([
+  "no_answer", "no-answer", "noanswer", "voicemail", "missed", "busy",
+  "failed", "canceled", "cancelled",
+]);
+function isNoAnswerOutcome(v: string | null | undefined): boolean {
+  return NO_ANSWER_OUTCOMES.has((v ?? "").trim().toLowerCase());
+}
+
+/* Friendly label for a stored call outcome, used in the lead journey. */
+const CALL_OUTCOME_LABELS: Record<string, string> = {
+  no_answer: "No answer",
+  "no-answer": "No answer",
+  connected: "Spoke with lead",
+  callback_scheduled: "Callback scheduled",
+  had_convo_chase_up: "Had convo — chase up",
+  had_convo_no_sale: "Had convo — no sale",
+  not_interested: "Not interested",
+  dropped: "Dropped",
+  booked_deposit_paid: "Booked — deposit paid",
+  intake: "Intake",
+  completed: "Call completed",
+};
+function callOutcomeLabel(v: string | null | undefined): string | null {
+  const key = (v ?? "").trim().toLowerCase();
+  if (!key) return null;
+  return CALL_OUTCOME_LABELS[key] ?? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
 
 // Map any legacy / loose status string we might find in the DB onto the new key set.
 function statusMeta(s: string | null | undefined, l?: Lead) {
@@ -5122,8 +5518,7 @@ function LeadChooser({
   const noAnswerYesterday = (l: Lead) => {
     const slot = attemptsByDay[l.id]?.[yesterdayKey];
     if (!slot) return false;
-    const outcome = (slot.lastOutcome ?? "").toLowerCase();
-    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+    return isNoAnswerOutcome(slot.lastOutcome);
   };
   const isNew = (l: Lead) => normaliseStatus(l.status, l) === "new" && (attemptsByDay[l.id]?.[todayKey]?.count ?? 0) === 0;
   const failedThreeToday = (l: Lead) => {
@@ -5131,15 +5526,13 @@ function LeadChooser({
     const slot = attemptsByDay[l.id]?.[todayKey];
     if (!slot) return false;
     if (slot.count < 3) return false;
-    const outcome = (slot.lastOutcome ?? "").toLowerCase();
     // only auto-bump if the recent calls were no-answers (not connected/booked)
-    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+    return isNoAnswerOutcome(slot.lastOutcome);
   };
   const exhaustedYesterday = (l: Lead) => {
     const slot = attemptsByDay[l.id]?.[yesterdayKey];
     if (!slot || slot.count < 3) return false;
-    const outcome = (slot.lastOutcome ?? "").toLowerCase();
-    return outcome.includes("no") || outcome.includes("voicemail") || outcome.includes("missed") || outcome === "no-answer";
+    return isNoAnswerOutcome(slot.lastOutcome);
   };
 
   // A lead is "active today" if there's been any call attempt today, or if
@@ -5959,7 +6352,7 @@ function LeadChooser({
                 padding: 4,
               }}
             >
-              {STATUS_OPTIONS.map((opt) => (
+              {SELECTABLE_STATUS_OPTIONS.map((opt) => (
                 <button
                   key={opt.key}
                   type="button"
@@ -6356,6 +6749,9 @@ function RightPanel({
   const [openObjection, setOpenObjection] = useState<string | null>(null);
   const [keypadOpen, setKeypadOpen] = useState(false);
   const [panelClinics, setPanelClinics] = useState<Clinic[]>([]);
+  const [panelClinicsLoading, setPanelClinicsLoading] = useState(true);
+  const [panelClinicsError, setPanelClinicsError] = useState(false);
+  const [panelClinicsRetryTick, setPanelClinicsRetryTick] = useState(0);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
 
@@ -6487,24 +6883,42 @@ function RightPanel({
 
   useEffect(() => {
     void (async () => {
-      const { data: clinics } = await supabase
-        .from("partner_clinics")
-        .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
-        .eq("is_active", true)
-        .order("clinic_name");
-      const list = (clinics ?? []) as Clinic[];
-      setPanelClinics(list);
-      // Reuse only the clinic explicitly selected during this lead's current
-      // sales-call session. Never seed from active.clinic_id because that may
-      // belong to an older booking.
-      const selectedId = typeof window !== "undefined"
-        ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
-        : null;
-      const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
-      setPanelClinic(selected);
-      await loadDoctorForClinic(selected?.id ?? null);
+      setPanelClinicsLoading(true);
+      setPanelClinicsError(false);
+      try {
+        const [{ data: clinics, error }, remaining] = await Promise.all([
+          supabase
+            .from("partner_clinics")
+            .select("id, clinic_name, address, city, state, phone, consult_price_original, consult_price_deposit, parking_info, nearby_landmarks")
+            .eq("is_active", true)
+            .order("clinic_name"),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (error) throw error;
+        // Only offer clinics that still have consult slots left in their pack.
+        const list = ((clinics ?? []) as Clinic[]).filter(
+          (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+        );
+        setPanelClinics(list);
+
+        // Reuse only the clinic explicitly selected during this lead's current
+        // sales-call session. Never seed from active.clinic_id because that may
+        // belong to an older booking.
+        const selectedId = typeof window !== "undefined"
+          ? window.sessionStorage.getItem(`salescall.selectedClinic.${active.id}`)
+          : null;
+        const selected = list.find((clinic) => clinic.id === selectedId) ?? null;
+        setPanelClinic(selected);
+        await loadDoctorForClinic(selected?.id ?? null);
+      } catch (err) {
+        // Never treat a failed capacity check as "every clinic is full".
+        console.error("panel clinic list load failed", err);
+        setPanelClinicsError(true);
+      } finally {
+        setPanelClinicsLoading(false);
+      }
     })();
-  }, [active.id, active.clinic_id, loadDoctorForClinic]);
+  }, [active.id, active.clinic_id, loadDoctorForClinic, panelClinicsRetryTick]);
 
   useEffect(() => {
     const syncSelectedClinic = (event: Event) => {
@@ -6800,6 +7214,9 @@ function RightPanel({
     if (!active.phone) { setAutoDialNote("Auto-dial skipped — no phone number"); return; }
     if (active.lead_class === "booked_active") { setAutoDialNote("Auto-dial skipped — this person already has a booking"); return; }
     if (inCall) { setAutoDialNote("Auto-dial skipped — a call is already in progress"); return; }
+    // Someone we've already spoken to (chase-up) or a booked callback: no
+    // countdown. The rep reads the journey and notes, then presses Call.
+    if (requiresManualDial(active)) { setAutoDialNote("Read the notes, then press Call when you're ready"); return; }
     setAutoDialNote(null);
     setAutoDialCountdown(AUTO_DIAL_SECONDS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7100,7 +7517,10 @@ function RightPanel({
                   }}
                   title="Change status"
                 >
-                  {STATUS_OPTIONS.map((o) => (
+                  {(meta.key === "booked_no_deposit"
+                    ? [meta, ...SELECTABLE_STATUS_OPTIONS]
+                    : SELECTABLE_STATUS_OPTIONS
+                  ).map((o) => (
                     <option key={o.key} value={o.key}>{o.emoji} {o.label}</option>
                   ))}
                 </select>
@@ -7294,10 +7714,11 @@ function RightPanel({
         <div style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
           Clinic
         </div>
-        {panelClinics.length > 0 && (
+        {(panelClinics.length > 0 || panelClinicsLoading || panelClinicsError) && (
           <select
             value={panelClinic?.id ?? ""}
             onChange={(e) => handleSelectPanelClinic(e.target.value)}
+            disabled={panelClinicsLoading}
             style={{
               marginTop: 6,
               width: "100%",
@@ -7310,13 +7731,25 @@ function RightPanel({
               cursor: "pointer",
             }}
           >
-            <option value="">Select clinic…</option>
+            <option value="">{panelClinicsLoading ? "Loading clinics…" : panelClinicsError && panelClinics.length === 0 ? "Couldn't load clinics" : "Select clinic…"}</option>
             {panelClinics.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.clinic_name}{c.city ? ` — ${c.city}` : ""}
               </option>
             ))}
           </select>
+        )}
+        {panelClinicsError && !panelClinicsLoading && (
+          <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>
+            Couldn't check clinic availability.{" "}
+            <button
+              type="button"
+              onClick={() => setPanelClinicsRetryTick((t) => t + 1)}
+              style={{ textDecoration: "underline", fontWeight: 500, color: "#b91c1c" }}
+            >
+              Retry
+            </button>
+          </div>
         )}
         {panelClinic ? (
 
@@ -8060,7 +8493,9 @@ function RightPanel({
                   const fullDetail = looksLikeVoicemail ? "" : (rawSummary || transcript);
                   const accent = looksLikeVoicemail ? "#d1d5db" : inbound ? "#22c55e" : "#3b82f6";
                   const icon = looksLikeVoicemail ? "📭" : inbound ? "📞" : "📱";
-                  const label = looksLikeVoicemail ? "Voicemail / no answer" : (c.outcome || (inbound ? "Inbound call" : "Outbound call"));
+                  const label = looksLikeVoicemail
+                    ? "Voicemail / no answer"
+                    : (callOutcomeLabel(c.outcome) || (inbound ? "Inbound call" : "Outbound call"));
                   const durStr = dur > 0 ? `${Math.floor(dur / 60)}m ${dur % 60}s` : "";
                   const bg = looksLikeVoicemail ? "#f9fafb" : "#fafafa";
                   const labelColor = looksLikeVoicemail ? "#9ca3af" : "#111";

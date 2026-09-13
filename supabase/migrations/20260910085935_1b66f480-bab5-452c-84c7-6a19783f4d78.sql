@@ -1,0 +1,2 @@
+GRANT SELECT ON public.clinic_packs TO authenticated;
+CREATE POLICY "Sales reps read clinic packs" ON public.clinic_packs FOR SELECT TO authenticated USING (has_sales_role(ARRAY['admin'::text, 'rep'::text]));

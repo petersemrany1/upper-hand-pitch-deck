@@ -13,7 +13,9 @@ import { supabase } from "@/integrations/supabase/client";
 // These helpers collapse all of that into one cached fetch shared by every
 // caller, with in-flight de-duplication so concurrent callers reuse one query.
 
-const TTL_MS = 120_000;
+// 10 minutes: names barely change, and this read scans every lead, so a short
+// TTL had every mounted panel re-scanning the table a few times a minute.
+const TTL_MS = 600_000;
 
 function digitsOnly(s: string | null | undefined): string {
   return (s || "").replace(/[^0-9]/g, "");
@@ -32,7 +34,8 @@ async function fetchNames(): Promise<NameCache> {
   const { data } = await supabase
     .from("meta_leads")
     .select("first_name, last_name, phone")
-    .not("phone", "is", null);
+    .not("phone", "is", null)
+    .order("created_at", { ascending: false });
   const byTail = new Map<string, string>();
   const byDigits = new Map<string, string>();
   for (const l of (data || []) as Array<{ first_name: string | null; last_name: string | null; phone: string | null }>) {

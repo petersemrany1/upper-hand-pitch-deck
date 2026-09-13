@@ -812,6 +812,24 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const apiKey = process.env.ANTHROPIC_API_KEY;
     const supabase = getAdminClient();
 
+    const invalidBookingLabel = (value: string | null | undefined) =>
+      !value?.trim() || value.trim().startsWith("[");
+    if (!data.clinicId || invalidBookingLabel(data.clinicName) || invalidBookingLabel(data.doctorName)) {
+      return { success: false, error: "Clinic and doctor details are missing. Reopen the booking and select both before sending." };
+    }
+
+    const { data: savedAppointment, error: appointmentError } = await supabase
+      .from("clinic_appointments")
+      .select("clinic_id, doctor_name")
+      .eq("lead_id", data.leadId)
+      .eq("clinic_id", data.clinicId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (appointmentError || !savedAppointment || invalidBookingLabel(savedAppointment.doctor_name)) {
+      return { success: false, error: "The saved appointment is missing its clinic or doctor. Please save the booking again before sending." };
+    }
+
     // Server-side guard: refuse to send if this lead is still mid-call, still
     // uploading a recording, or still generating a transcript. Even if the UI
     // is bypassed, the clinic must never receive a handover missing the

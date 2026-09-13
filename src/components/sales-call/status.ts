@@ -49,3 +49,17 @@ export const HIDDEN_LEAD_CLASSES: ReadonlySet<string> = new Set(["post_consult"]
 export function isReturningLead(leadClass: string | null | undefined): boolean {
   return HIDDEN_LEAD_CLASSES.has((leadClass ?? "").toLowerCase());
 }
+
+/**
+ * Leads the rep should dial by hand, not on the 3-2-1 auto-dial: anyone
+ * we've already spoken to (chase-up) or a scheduled callback. The rep needs
+ * a moment to read the journey/notes first. (Peter's rule, 2026-09-11.)
+ */
+const MANUAL_DIAL_STATUSES: ReadonlySet<StatusKey> = new Set<StatusKey>([
+  "callback_scheduled",
+  "had_convo_chase_up",
+]);
+
+export function requiresManualDial(l: StatusLead): boolean {
+  return MANUAL_DIAL_STATUSES.has(normaliseStatus(l.status, l));
+}

@@ -141,8 +141,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Sandbox-only role override. Wrapping a subtree in <ViewAsRoleProvider role="rep">
+// makes useAuth() report that role/userType, so an admin can see exactly what a
+// rep sees in the test sandbox. The real Supabase session is untouched.
+const ViewAsRoleContext = createContext<Role | null>(null);
+
+export function ViewAsRoleProvider({ role, children }: { role: Role | null; children: ReactNode }) {
+  return <ViewAsRoleContext.Provider value={role}>{children}</ViewAsRoleContext.Provider>;
+}
+
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
+  const viewAs = useContext(ViewAsRoleContext);
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>");
+  if (viewAs && viewAs !== ctx.role) {
+    return {
+      ...ctx,
+      role: viewAs,
+      userType: viewAs,
+      allowedTabs: resolveAllowedTabs(viewAs as RoleKey, null),
+    };
+  }
   return ctx;
 }

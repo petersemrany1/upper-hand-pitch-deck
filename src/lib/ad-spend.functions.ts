@@ -394,7 +394,22 @@ export const setAppointmentOutcomeFromNumbers = createServerFn({ method: "POST" 
       .update(patch)
       .eq("id", data.appointmentId);
     if (error) throw new Error(error.message);
-    return { ok: true };
+
+    // An attended or disqualified consult means the $75 booking fee goes back
+    // to the patient. This used to write the outcome only, which silently
+    // skipped the refund whenever it was recorded from this page.
+    if (data.outcome === "show" || data.outcome === "disqualified") {
+      const { settleAppointmentRefund } = await import("@/utils/consult-outcome.functions");
+      const refund = await settleAppointmentRefund(
+        data.appointmentId,
+        data.outcome === "disqualified"
+          ? "Disqualified at consultation — booking fee refund"
+          : "Attended consultation — booking fee refund",
+        "setAppointmentOutcomeFromNumbers",
+      );
+      return { ok: true, refund };
+    }
+    return { ok: true, refund: null };
   });
 
 const SpendUpsertSchema = z.object({

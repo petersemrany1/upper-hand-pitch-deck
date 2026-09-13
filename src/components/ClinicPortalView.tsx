@@ -14,6 +14,8 @@ import {
   type TradingHours, type BlockedSlot, type Slot, type AvailabilityOverride,
 } from "@/lib/slot-generation";
 import { ClinicPackBalanceCard } from "@/components/ClinicPackBalanceCard";
+import { sydneyTodayISO } from "@/lib/timezone";
+import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/clinic-free-trial";
 
 export type ChaseStatus = "requested" | "rebooked" | "not_proceeding" | "no_answer" | "voicemail";
 
@@ -53,6 +55,9 @@ export type ClinicAppointment = {
   chase_requested_at?: string | null;
   chase_note?: string | null;
   chase_result_at?: string | null;
+  booked_at?: string | null;
+  /** Derived: booked during the clinic's free trial, so it costs them nothing. */
+  is_free_trial?: boolean;
 };
 
 export const CHASE_LABELS: Record<ChaseStatus, string> = {
@@ -260,12 +265,17 @@ export function ClinicPortalView({
           supabase.from("clinic_blocked_slots").select("id, slot_date, slot_start, slot_end, is_recurring, recur_day_of_week, recur_pattern, recur_days_of_week, recur_day_of_month, recur_nth_week, recur_until").eq("clinic_id", clinicId),
           supabase.from("clinic_availability").select("id, override_date, override_type, start_time, end_time").eq("clinic_id", clinicId),
           supabase.from("partner_clinics").select("consult_price_deposit, state, min_appointment_gap_mins").eq("id", clinicId).maybeSingle(),
+          supabase.from("clinic_packs").select("pack_type, date_paid, purchased_at").eq("clinic_id", clinicId),
         ]);
         if (cancelled) return;
-        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }] = results;
+        const [{ data: a, error: aErr }, { data: th, error: thErr }, { data: bs, error: bsErr }, { data: ov, error: ovErr }, { data: pc, error: pcErr }, { data: pk }] = results;
         const firstErr = aErr || thErr || bsErr || ovErr || pcErr;
         if (firstErr) throw new Error(firstErr.message);
-        setAppts((a ?? []) as ClinicAppointment[]);
+        const trialCutoff = freeTrialCutoff((pk ?? []) as FreeTrialPack[], sydneyTodayISO());
+        setAppts(((a ?? []) as ClinicAppointment[]).map((ap) => ({
+          ...ap,
+          is_free_trial: isFreeTrialBooking(ap.booked_at, trialCutoff),
+        })));
         setTradingHours((th ?? []) as TradingHours[]);
         setBlockedSlots((bs ?? []) as BlockedSlot[]);
         setOverrides((ov ?? []) as AvailabilityOverride[]);
@@ -604,7 +614,12 @@ function ListView({ appts, onSelect, isAdmin }: { appts: ClinicAppointment[]; on
                         <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase" }}>{MONTHS[d.getMonth()].slice(0,3)}</div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{a.patient_name}</div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>
+                          {a.patient_name}
+                          {a.is_free_trial && (
+                            <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>(free)</span>
+                          )}
+                        </div>
                         <div style={{ fontSize: 12, color: "#6b7785" }}>{fmtTime(a.appointment_time)} · {a.patient_phone || "no phone"}</div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -718,9 +733,9 @@ function CalendarView({ appts, tradingHours, blockedSlots, clinicState, minGapMi
                       borderRadius: 4, border: "none", textAlign: "left", overflow: "hidden",
                       textOverflow: "ellipsis", whiteSpace: "nowrap", cursor: "pointer",
                     }}
-                    title={`${a.patient_name} · ${fmtTime(a.appointment_time)}`}
+                    title={`${a.patient_name}${a.is_free_trial ? " (free)" : ""} · ${fmtTime(a.appointment_time)}`}
                   >
-                    {fmtTime(a.appointment_time)} {a.patient_name}
+                    {fmtTime(a.appointment_time)} {a.patient_name}{a.is_free_trial ? " (free)" : ""}
                   </button>
                 );
               })}
@@ -983,21 +998,55 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 }) {
   const [summaryMode, setSummaryMode] = useState<null | "show" | "proceeded">(null);
   const [rescheduleMode, setRescheduleMode] = useState(false);
+  const [busy, setBusy] = useState(false);
   const c = OUTCOME_COLORS[appt.outcome ?? "upcoming"];
 
-  const setOutcome = async (outcome: "noshow" | "proceeded") => {
-    const { error } = await supabase.from("clinic_appointments").update({ outcome }).eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Outcome saved");
-    onChange();
-    onClose();
+  // Attendance from the portal always goes through the guarded server
+  // functions so a clinic tap can never overwrite an outcome your team has
+  // already recorded, and every change is logged against the appointment.
+  const openSummary = async (mode: "show" | "proceeded") => {
+    setBusy(true);
+    try {
+      const { checkOutcomeFree } = await import("@/utils/clinic-outcome.functions");
+      const check = await checkOutcomeFree({ data: { appointmentId: appt.id } });
+      if (!check.success) { toast.error(check.error || "Could not open this consult"); onChange(); return; }
+      setSummaryMode(mode);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open this consult");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const markNoShow = async () => {
+    setBusy(true);
+    try {
+      const { recordClinicNoShow } = await import("@/utils/clinic-outcome.functions");
+      const result = await recordClinicNoShow({ data: { appointmentId: appt.id } });
+      if (!result.success) { toast.error(result.error || "Could not save outcome"); onChange(); return; }
+      toast.success("Outcome saved");
+      onChange();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save outcome");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const resetOutcome = async () => {
-    const { error } = await supabase.from("clinic_appointments").update({ outcome: null, consult_summary: null, disqualified_reason: null, disqualified_at: null, disqualified_by: null }).eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Outcome reset");
-    onChange();
+    setBusy(true);
+    try {
+      const { resetClinicOutcome } = await import("@/utils/clinic-outcome.functions");
+      const result = await resetClinicOutcome({ data: { appointmentId: appt.id } });
+      if (!result.success) { toast.error(result.error || "Could not reset outcome"); onChange(); return; }
+      toast.success("Outcome reset");
+      onChange();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not reset outcome");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const disqualify = async () => {
@@ -1022,8 +1071,9 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
         return;
       }
       if ("alreadyRefunded" in r && r.alreadyRefunded) toast.success("Marked disqualified (already refunded)");
+      else if ("pending" in r && r.pending) toast.success("Disqualified — refund sent to Square, settles in a few days");
       else if ("refunded" in r && r.refunded) toast.success("Disqualified and refunded");
-      else if ("manual" in r && r.manual) toast.success("Marked disqualified — no Stripe payment, refund manually");
+      else if ("manual" in r && r.manual) toast.success("Marked disqualified — no card payment on file, refund manually");
       else toast.success("Marked disqualified");
       onChange();
       onClose();
@@ -1051,24 +1101,33 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
   const needsManualRefund =
     (appt.outcome === "show" || appt.outcome === "proceeded") &&
     !appt.stripe_payment_intent_id &&
+    !appt.square_payment_id &&
     !appt.refund_status &&
     isPastOrToday;
 
   const markRefundedManually = async () => {
     if (!confirm(`Mark $${depositAmount} deposit as refunded to ${appt.patient_name}?`)) return;
-    const { error } = await supabase
-      .from("clinic_appointments")
-      .update({ refund_status: "refunded_manual", refund_processed_at: new Date().toISOString() })
-      .eq("id", appt.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Marked as refunded");
-    onChange();
-    onClose();
+    try {
+      const { markDepositRefundedManually } = await import("@/utils/clinic-outcome.functions");
+      const res = await markDepositRefundedManually({ data: { appointmentId: appt.id } });
+      if (!res.success) { toast.error(res.error); return; }
+      toast.success("Marked as refunded");
+      onChange();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e));
+    }
   };
+
 
   return (
     <ModalShell onClose={onClose}>
-      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>{appt.patient_name}</div>
+      <div style={{ fontSize: 20, fontWeight: 600, color: "#111", marginBottom: 4 }}>
+        {appt.patient_name}
+        {appt.is_free_trial && (
+          <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 600, color: "#1a7a4a" }}>(free)</span>
+        )}
+      </div>
       <div style={{ fontSize: 12, color: "#6b7785", marginBottom: 8 }}>
         {new Date(appt.appointment_date).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · {fmtTime(appt.appointment_time)}
       </div>
@@ -1137,9 +1196,16 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
           <div style={{ fontSize: 11, color: "#8a5a00", marginBottom: 10 }}>
             No card payment could be matched to this booking, so the ${depositAmount} has to be returned by bank transfer.
           </div>
-          <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>
-            Mark refunded manually
-          </button>
+          {isAdmin ? (
+            <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>
+              Mark refunded manually
+            </button>
+          ) : (
+            <div style={{ fontSize: 11, color: "#8a5a00", fontWeight: 600 }}>
+              Admin will process this refund — nothing for you to do here.
+            </div>
+          )}
+
         </div>
       )}
 
@@ -1159,14 +1225,14 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
             <span>✓</span> ${depositAmount} deposit refunded (manual)
           </div>
           <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Marked refunded on {refundDate}</div>
-          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Patient was refunded outside Stripe (e.g. bank transfer)</div>
+          <div style={{ fontSize: 11, color: "#6b7785", marginTop: 8 }}>Patient was refunded outside the card processor (e.g. bank transfer)</div>
         </div>
       )}
 
       {needsManualRefund && isAdmin && (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Refund pending — paid outside Stripe</div>
-          <div style={{ fontSize: 11, color: "#92400e", marginBottom: 10 }}>No Stripe payment on file. Once you've refunded ${depositAmount} to {appt.patient_name} directly, mark it here.</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Refund pending — no card payment on file</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginBottom: 10 }}>No Square or Stripe payment on file. Once you've refunded ${depositAmount} to {appt.patient_name} directly, mark it here.</div>
           <button onClick={markRefundedManually} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#92400e", color: "#fff", borderColor: "#92400e" }}>
             Mark deposit refunded
           </button>
@@ -1175,17 +1241,17 @@ function AppointmentDetailModal({ appt, isAdmin, onClose, onChange, clinicDefaul
 
       {!appt.outcome && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={() => setSummaryMode("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
-          <button onClick={() => setSummaryMode("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
-          <button onClick={() => setOutcome("noshow")} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
+          <button disabled={busy} onClick={() => void openSummary("show")} style={outcomeBtn("#1a7a4a", "#e8f5ef")}>✅ They showed up</button>
+          <button disabled={busy} onClick={() => void openSummary("proceeded")} style={outcomeBtn("#6b3fa0", "#f3eefa")}>⭐ They booked the procedure!</button>
+          <button disabled={busy} onClick={() => void markNoShow()} style={outcomeBtn("#b83232", "#fdf0f0")}>❌ No show</button>
           <button onClick={() => setRescheduleMode(true)} style={outcomeBtn("#2d5fa0", "#edf2f9")}>📅 Reschedule</button>
         </div>
       )}
 
       {(appt.outcome || isAdmin) && (
         <div style={{ marginTop: 18, paddingTop: 14, borderTop: "1px solid #e2e6ec", display: "flex", flexDirection: "column", gap: 8 }}>
-          {appt.outcome && !appt.stripe_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
-            <button onClick={resetOutcome} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
+          {appt.outcome && !appt.stripe_refund_id && !appt.square_refund_id && (appt.outcome !== "disqualified" || isAdmin) && (
+            <button disabled={busy} onClick={() => void resetOutcome()} style={{ ...navBtn, fontSize: 12, padding: "6px 10px" }}>Reset outcome</button>
           )}
           {isAdmin && appt.outcome !== "disqualified" && (
             <button onClick={disqualify} style={{ ...navBtn, fontSize: 12, padding: "6px 10px", background: "#fef2f2", color: "#991b1b", borderColor: "#fecaca" }}>
@@ -2071,21 +2137,28 @@ function LegendDot({ color, bg, label }: { color: string; bg: string; label: str
 
 /* ============== MODALS ============== */
 
+type PaidVia = { processor: "square" | "stripe"; paymentId: string } | null;
+
 function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false, clinicDefaultDeposit }: { appt: ClinicAppointment; onClose: () => void; onSaved: () => void; defaultProceeded?: boolean; clinicDefaultDeposit: number }) {
   const [notes, setNotes] = useState(appt.consult_summary ?? "");
   const [proceeded, setProceeded] = useState(defaultProceeded);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Lazy-resolved Stripe info for legacy appointments where the payment intent
-  // wasn't saved on the row at booking time. Starts with whatever's on the row;
-  // gets filled in on mount via Stripe lookup.
-  const [resolvedPiId, setResolvedPiId] = useState<string | null>(appt.stripe_payment_intent_id);
+  // How the deposit was paid (Square or Stripe). Starts with whatever's on
+  // the row; for older bookings with nothing saved it is resolved on mount.
+  const initialPaidVia: PaidVia = appt.square_payment_id
+    ? { processor: "square", paymentId: appt.square_payment_id }
+    : appt.stripe_payment_intent_id
+      ? { processor: "stripe", paymentId: appt.stripe_payment_intent_id }
+      : null;
+  const alreadyRefunded = !!(appt.stripe_refund_id || appt.square_refund_id);
+  const [paidVia, setPaidVia] = useState<PaidVia>(initialPaidVia);
   const [resolvedDeposit, setResolvedDeposit] = useState<number | null>(appt.deposit_amount);
-  const [resolving, setResolving] = useState(!appt.stripe_payment_intent_id && !appt.stripe_refund_id);
+  const [resolving, setResolving] = useState(!initialPaidVia && !alreadyRefunded);
 
   useEffect(() => {
-    if (appt.stripe_payment_intent_id || appt.stripe_refund_id) return;
+    if (initialPaidVia || alreadyRefunded) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -2093,18 +2166,19 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         const r = await resolveAppointmentDeposit({ data: { appointmentId: appt.id } });
         if (cancelled) return;
         if (r.success) {
-          setResolvedPiId(r.paymentIntentId ?? null);
+          setPaidVia(r.processor && r.paymentId ? { processor: r.processor, paymentId: r.paymentId } : null);
           if (r.depositAmount != null) setResolvedDeposit(r.depositAmount);
         }
-      } catch { /* keep falling back to "no payment intent" copy */ }
+      } catch { /* keep falling back to "no card payment" copy */ }
       finally { if (!cancelled) setResolving(false); }
     })();
     return () => { cancelled = true; };
-  }, [appt.id, appt.stripe_payment_intent_id, appt.stripe_refund_id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appt.id]);
 
   const depositAmount = resolvedDeposit ?? clinicDefaultDeposit;
-  const alreadyRefunded = !!appt.stripe_refund_id;
-  const noPaymentIntent = !resolvedPiId;
+  const noPaymentIntent = !paidVia;
+  const processorName = paidVia?.processor === "square" ? "Square" : "Stripe";
 
   const submitLabel = alreadyRefunded
     ? "Save & close"
@@ -2136,7 +2210,9 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         }
         return;
       }
-      toast.success(result.refunded ? `Refunded $${depositAmount}` : "Saved");
+      if (!result.refunded) toast.success("Saved");
+      else if ("refundProcessedAt" in result && !result.refundProcessedAt) toast.success(`$${depositAmount} refund sent to ${processorName} — it settles in a few days`);
+      else toast.success(`Refunded $${depositAmount} via ${processorName}`);
       setSaving(false);
       onSaved();
     } catch (e) {
@@ -2167,7 +2243,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
       {alreadyRefunded ? (
         <div style={{ background: "#e8f5ef", border: "1px solid #9ed4b5", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1a7a4a" }}>Deposit already refunded</div>
-          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>Stripe ref {appt.stripe_refund_id}</div>
+          <div style={{ fontSize: 11, color: "#1a7a4a", marginTop: 4 }}>{appt.square_refund_id ? `Square ref ${appt.square_refund_id}` : `Stripe ref ${appt.stripe_refund_id}`}</div>
         </div>
       ) : resolving ? (
         <div style={{ background: "#f0f2f5", border: "1px solid #e2e6ec", borderRadius: 8, padding: 12, marginBottom: 14 }}>
@@ -2175,14 +2251,14 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
         </div>
       ) : noPaymentIntent ? (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>Patient didn't pay via Stripe</div>
-          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through our payment system (likely paid by direct deposit or another method). No refund will be processed from here — the Admin team will be in contact with the patient to arrange the refund directly.</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e", marginBottom: 4 }}>No card payment on file</div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>This deposit wasn't taken through Square or Stripe (likely paid by bank transfer or another method). No refund will be processed from here — the Admin team will be in contact with the patient to arrange the refund directly.</div>
         </div>
       ) : (
         <div style={{ background: "#fef3c7", border: "1px solid #d97706", borderRadius: 8, padding: 12, marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 600, color: "#92400e" }}>Deposit refund</div>
           <div style={{ fontSize: 18, fontWeight: 700, color: "#92400e", marginTop: 2 }}>${depositAmount}</div>
-          <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>Will be refunded to the patient's card on submit</div>
+          <div style={{ fontSize: 11, color: "#92400e", marginTop: 4 }}>Will be refunded to the patient's card via {processorName} on submit</div>
         </div>
       )}
 
@@ -2207,6 +2283,7 @@ function ConsultSummaryModal({ appt, onClose, onSaved, defaultProceeded = false,
 function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [notes, setNotes] = useState("");
@@ -2225,6 +2302,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       clinic_id: clinicId,
       patient_name: name.trim(),
       patient_phone: phone.trim() || null,
+      patient_email: email.trim() || null,
       appointment_date: date,
       appointment_time: time,
       intel_notes: notes.trim() || null,
@@ -2242,6 +2320,7 @@ function AddAppointmentModal({ clinicId, onClose, onSaved }: { clinicId: string;
       <div style={{ fontSize: 18, fontWeight: 600, color: "#111", marginBottom: 14 }}>Add appointment</div>
       <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Patient name" style={inp} />
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" style={inp} />
+      <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" style={inp} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <input type="date" value={date} min="2024-01-01" max="2100-01-01" onChange={(e) => setDate(e.target.value)} style={inp} />
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={inp} />

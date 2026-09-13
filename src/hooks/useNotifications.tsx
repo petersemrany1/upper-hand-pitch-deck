@@ -354,7 +354,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         callTimer = window.setTimeout(() => void fetchMissed(), 2500);
       })
       .subscribe();
-    const id = window.setInterval(refresh, 60_000);
+    // Realtime already pushes thread/call changes; this is only a safety net,
+    // so poll rarely instead of hammering the database every minute.
+    const id = window.setInterval(refresh, 300_000);
     return () => {
       window.clearTimeout(threadTimer);
       window.clearTimeout(callTimer);

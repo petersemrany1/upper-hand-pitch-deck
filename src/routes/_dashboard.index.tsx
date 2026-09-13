@@ -6,7 +6,8 @@ import { ChevronDown, AlertTriangle, Info } from "lucide-react";
 import { useTwilioDevice } from "@/hooks/useTwilioDevice";
 import { useAuth } from "@/hooks/useAuth";
 import { PickupRateCard } from "@/components/PickupRateCard";
-import { APP_TIMEZONE } from "@/lib/timezone";
+import { APP_TIMEZONE, sydneyTodayISO } from "@/lib/timezone";
+import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
 import { sendPackRenewalEmail } from "@/lib/pack-renewal.functions";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -231,6 +232,22 @@ type SmsRow = {
 
 type ClinicInfo = { id: string; clinic_name: string | null; city: string | null };
 
+type PackRow = {
+  clinic_id: string;
+  pack_size: number;
+  pack_type: string;
+  date_paid: string | null;
+  purchased_at: string;
+};
+
+type ApptRow = {
+  clinic_id: string | null;
+  outcome: string | null;
+  disqualified_at: string | null;
+  appointment_date: string;
+  booked_at: string | null;
+};
+
 function DashboardHome() {
   const { ready: authReady, session, role } = useAuth();
   const isAdmin = role === "admin";
@@ -336,14 +353,14 @@ function DashboardHome() {
     if (scopeId) targetQ.eq("rep_id", scopeId);
 
     const packsAllQ = isAdmin
-      ? supabase.from("clinic_packs").select("clinic_id, pack_size")
-      : Promise.resolve({ data: [] as Array<{ clinic_id: string; pack_size: number }>, error: null });
+      ? supabase.from("clinic_packs").select("clinic_id, pack_size, pack_type, date_paid, purchased_at")
+      : Promise.resolve({ data: [] as PackRow[], error: null });
     const apptsAllQ = isAdmin
       ? supabase
           .from("clinic_appointments")
-          .select("clinic_id, outcome, disqualified_at")
+          .select("clinic_id, outcome, disqualified_at, appointment_date, booked_at")
           .not("patient_name", "ilike", "%test%")
-      : Promise.resolve({ data: [] as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>, error: null });
+      : Promise.resolve({ data: [] as ApptRow[], error: null });
 
     const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =
       await Promise.all([
@@ -396,16 +413,33 @@ function DashboardHome() {
     setLeadClinicMap(lcm);
 
     if (isAdmin) {
-      const packsRows = (packsRes.data ?? []) as Array<{ clinic_id: string; pack_size: number }>;
-      const apptsRows = (apptsRes.data ?? []) as Array<{ clinic_id: string | null; outcome: string | null; disqualified_at: string | null }>;
+      const packsRows = (packsRes.data ?? []) as PackRow[];
+      const apptsRows = (apptsRes.data ?? []) as ApptRow[];
+      const todayStr = sydneyTodayISO();
+      // Free-trial packs and the bookings they covered sit outside the paid
+      // balance, exactly as the clinic portal shows it.
+      const packsByClinic = new Map<string, PackRow[]>();
+      for (const p of packsRows) {
+        const list = packsByClinic.get(p.clinic_id) ?? [];
+        list.push(p);
+        packsByClinic.set(p.clinic_id, list);
+      }
+      const cutoffByClinic = new Map<string, string | null>();
+      for (const [clinicId, list] of packsByClinic) {
+        cutoffByClinic.set(clinicId, freeTrialCutoff(list, todayStr));
+      }
       const bookedByClinic = new Map<string, number>();
       for (const a of apptsRows) {
         if (!a.clinic_id) continue;
         if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
+        if (isFreeTrialBooking(a.booked_at, cutoffByClinic.get(a.clinic_id) ?? null)) continue;
+        // Past appointments with no outcome recorded don't hold a slot.
+        if (!a.outcome && a.appointment_date < todayStr) continue;
         bookedByClinic.set(a.clinic_id, (bookedByClinic.get(a.clinic_id) ?? 0) + 1);
       }
       const capacityByClinic = new Map<string, number>();
       for (const p of packsRows) {
+        if (p.pack_type === "free_trial") continue;
         capacityByClinic.set(p.clinic_id, (capacityByClinic.get(p.clinic_id) ?? 0) + p.pack_size);
       }
       const breakdown: Array<{ clinicId: string; clinicName: string; remaining: number; total: number }> = [];

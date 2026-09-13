@@ -396,3 +396,55 @@ export function oneIn(rate: number | null): string {
   const x = 1 / rate;
   return `1 in ${x < 10 ? x.toFixed(1) : Math.round(x)}`;
 }
+
+export type LabourSentence = { headline: string; detail: string; tone: Tone };
+
+/**
+ * The one sentence under the marketing vs labour bar: is this city hard or
+ * easy to convert, and which side of the split is costing more than average.
+ * Rep hours per booking is the judge; cost per lead decides where the money
+ * is going.
+ */
+export function labourSentence(
+  c: CityStats,
+  avg: CityStats,
+  name: string,
+  isAll: boolean,
+  fmt: { oneDp: (n: number | null) => string },
+): LabourSentence | null {
+  if (!c.hoursOk) return null;
+
+  if (isAll) {
+    if (c.hoursPerBooking === null) return null;
+    return {
+      headline: "Across all cities:",
+      detail: `${fmt.oneDp(c.hoursPerBooking)} hours of rep time per booking.`,
+      tone: "grey",
+    };
+  }
+
+  if (c.booked === 0) {
+    if (c.leads >= MIN_LEADS) {
+      return { headline: `${name} isn't converting.`, detail: `${c.leads} leads and not one booking yet.`, tone: "red" };
+    }
+    return { headline: "Too early to judge conversion.", detail: "No bookings yet.", tone: "grey" };
+  }
+
+  const rel = (v: number | null, a: number | null) => (v !== null && a !== null && a > 0 ? v / a : null);
+  const hpb = rel(c.hoursPerBooking, avg.hoursPerBooking);
+  const cpl = rel(c.costPerLead, avg.costPerLead);
+  const labourBad = hpb !== null && hpb >= LABOUR_OVER_AVG;
+  const labourGood = hpb !== null && hpb <= 1 / LABOUR_OVER_AVG;
+  const adsBad = cpl !== null && cpl >= MARKETING_OVER_AVG;
+
+  const hours = `${fmt.oneDp(c.hoursPerBooking)} hours of rep time per booking, average is ${fmt.oneDp(avg.hoursPerBooking)}.`;
+  const where =
+    labourBad && adsBad ? "Both the ads and the calling cost more than average."
+    : labourBad ? "The cost is in the calling."
+    : adsBad ? "The cost is in the ads."
+    : "Both sides are at or under average.";
+
+  if (labourBad) return { headline: `${name} is hard to convert.`, detail: `${hours} ${where}`, tone: "red" };
+  if (labourGood) return { headline: `${name} is easy to convert.`, detail: `${hours} ${where}`, tone: "green" };
+  return { headline: `${name} converts about average.`, detail: `${hours} ${where}`, tone: "grey" };
+}

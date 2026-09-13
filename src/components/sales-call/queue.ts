@@ -205,7 +205,7 @@ function otherHalfOfDay(h: CallHistory, afternoonNow: boolean): boolean {
  * `now` decides what "today" means (local time).
  */
 export function buildHistory(
-  allCalls: { lead_id: string | null; called_at: string | null }[],
+  allCalls: { lead_id: string | null; called_at: string | null; direction?: string | null }[],
   now: Date,
 ): HistoryMap {
   const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
@@ -215,13 +215,18 @@ export function buildHistory(
     const t = ms(row.called_at);
     if (!Number.isFinite(t)) continue;
     const h = out[row.lead_id] ?? { ...EMPTY };
-    h.attempts += 1;
+    // An INBOUND call is the lead ringing US. It belongs on the timeline (so
+    // "Day N" and first-contact still work) but it is NOT one of our dial
+    // attempts: counting it made the 10-minute double-dial guard cancel the
+    // very ring-back we want to serve next.
+    const isDial = (row.direction ?? "outbound") !== "inbound";
+    if (isDial) h.attempts += 1;
     if (!h.firstCallAt || t < ms(h.firstCallAt)) h.firstCallAt = row.called_at;
-    if (!h.lastAttemptAt || t > ms(h.lastAttemptAt)) h.lastAttemptAt = row.called_at;
+    if (isDial && (!h.lastAttemptAt || t > ms(h.lastAttemptAt))) h.lastAttemptAt = row.called_at;
     if (t >= dayStart.getTime()) {
-      h.todayAttempts += 1;
+      if (isDial) h.todayAttempts += 1;
       if (!h.todayFirstAttemptAt || t < ms(h.todayFirstAttemptAt)) h.todayFirstAttemptAt = row.called_at;
-      if (!h.todayLastAttemptAt || t > ms(h.todayLastAttemptAt)) h.todayLastAttemptAt = row.called_at;
+      if (isDial && (!h.todayLastAttemptAt || t > ms(h.todayLastAttemptAt))) h.todayLastAttemptAt = row.called_at;
     }
     out[row.lead_id] = h;
   }

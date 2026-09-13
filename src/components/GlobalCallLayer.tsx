@@ -17,8 +17,13 @@ const FloatingCallWidget = lazy(() =>
 // Boots the Twilio Device singleton once the user is signed in so inbound
 // calls land regardless of which page Peter is currently looking at.
 export function GlobalCallLayer() {
-  const { session, ready, role } = useAuth();
-  const enabled = ready && !!session && role === "admin";
+  const { session, ready, role, userType } = useAuth();
+  // Reps and callers dial out too, so the softphone must boot for them as
+  // well — otherwise their first "Call Now" races device registration and
+  // fails. Inbound call banners stay admin-only.
+  const canDial = role === "admin" || role === "rep" || role === "caller";
+  const enabled = ready && !!session && userType !== "clinic" && canDial;
+  const showInbound = ready && !!session && role === "admin";
   useTwilioDevice(enabled);
 
   // Browsers block AudioContext playback until a user gesture. Prime both
@@ -45,7 +50,7 @@ export function GlobalCallLayer() {
   if (!enabled) return null;
   return (
     <Suspense fallback={null}>
-      <IncomingCallDialog />
+      {showInbound ? <IncomingCallDialog /> : null}
       <FloatingCallWidget />
     </Suspense>
   );

@@ -1,0 +1,11 @@
+{
+  "name": "htg-network-map-scene",
+  "private": true,
+  "description": "3D network map, compiled to a static script by ../scripts/build-scene.sh",
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "0.170.0"
+  }
+}

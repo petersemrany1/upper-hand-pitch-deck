@@ -97,8 +97,8 @@ export function MissedCallsList() {
       )
       .subscribe();
 
-    // Also poll every 30s as a safety net.
-    const id = window.setInterval(() => void fetchRows(), 30_000);
+    // Realtime covers new calls; poll occasionally as a safety net only.
+    const id = window.setInterval(() => void fetchRows(), 180_000);
 
     return () => {
       window.clearTimeout(debounceRef.current);
