@@ -32,7 +32,6 @@ import { Route as DashboardLetterCampaignRouteImport } from './routes/_dashboard
 import { Route as DashboardLogsRouteImport } from './routes/_dashboard.logs'
 import { Route as DashboardMyRecordingsRouteImport } from './routes/_dashboard.my-recordings'
 import { Route as DashboardNumbersRouteImport } from './routes/_dashboard.numbers'
-import { Route as DashboardNumbersGameRouteImport } from './routes/_dashboard.numbers-game'
 import { Route as DashboardPartnerClinicsRouteImport } from './routes/_dashboard.partner-clinics'
 import { Route as DashboardPitchDeckRouteImport } from './routes/_dashboard.pitch-deck'
 import { Route as DashboardRepHoursRouteImport } from './routes/_dashboard.rep-hours'
@@ -194,11 +193,6 @@ const DashboardMyRecordingsRoute = DashboardMyRecordingsRouteImport.update({
 const DashboardNumbersRoute = DashboardNumbersRouteImport.update({
   id: '/numbers',
   path: '/numbers',
-  getParentRoute: () => DashboardRoute,
-} as any)
-const DashboardNumbersGameRoute = DashboardNumbersGameRouteImport.update({
-  id: '/numbers-game',
-  path: '/numbers-game',
   getParentRoute: () => DashboardRoute,
 } as any)
 const DashboardPartnerClinicsRoute = DashboardPartnerClinicsRouteImport.update({
@@ -454,7 +448,6 @@ export interface FileRoutesByFullPath {
   '/logs': typeof DashboardLogsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
   '/numbers': typeof DashboardNumbersRoute
-  '/numbers-game': typeof DashboardNumbersGameRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/rep-hours': typeof DashboardRepHoursRoute
@@ -518,7 +511,6 @@ export interface FileRoutesByTo {
   '/logs': typeof DashboardLogsRoute
   '/my-recordings': typeof DashboardMyRecordingsRoute
   '/numbers': typeof DashboardNumbersRoute
-  '/numbers-game': typeof DashboardNumbersGameRoute
   '/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/pitch-deck': typeof DashboardPitchDeckRoute
   '/rep-hours': typeof DashboardRepHoursRoute
@@ -584,7 +576,6 @@ export interface FileRoutesById {
   '/_dashboard/logs': typeof DashboardLogsRoute
   '/_dashboard/my-recordings': typeof DashboardMyRecordingsRoute
   '/_dashboard/numbers': typeof DashboardNumbersRoute
-  '/_dashboard/numbers-game': typeof DashboardNumbersGameRoute
   '/_dashboard/partner-clinics': typeof DashboardPartnerClinicsRoute
   '/_dashboard/pitch-deck': typeof DashboardPitchDeckRoute
   '/_dashboard/rep-hours': typeof DashboardRepHoursRoute
@@ -652,7 +643,6 @@ export interface FileRouteTypes {
     | '/logs'
     | '/my-recordings'
     | '/numbers'
-    | '/numbers-game'
     | '/partner-clinics'
     | '/pitch-deck'
     | '/rep-hours'
@@ -716,7 +706,6 @@ export interface FileRouteTypes {
     | '/logs'
     | '/my-recordings'
     | '/numbers'
-    | '/numbers-game'
     | '/partner-clinics'
     | '/pitch-deck'
     | '/rep-hours'
@@ -781,7 +770,6 @@ export interface FileRouteTypes {
     | '/_dashboard/logs'
     | '/_dashboard/my-recordings'
     | '/_dashboard/numbers'
-    | '/_dashboard/numbers-game'
     | '/_dashboard/partner-clinics'
     | '/_dashboard/pitch-deck'
     | '/_dashboard/rep-hours'
@@ -1016,13 +1004,6 @@ declare module '@tanstack/react-router' {
       path: '/numbers'
       fullPath: '/numbers'
       preLoaderRoute: typeof DashboardNumbersRouteImport
-      parentRoute: typeof DashboardRoute
-    }
-    '/_dashboard/numbers-game': {
-      id: '/_dashboard/numbers-game'
-      path: '/numbers-game'
-      fullPath: '/numbers-game'
-      preLoaderRoute: typeof DashboardNumbersGameRouteImport
       parentRoute: typeof DashboardRoute
     }
     '/_dashboard/partner-clinics': {
@@ -1360,7 +1341,6 @@ interface DashboardRouteChildren {
   DashboardLogsRoute: typeof DashboardLogsRoute
   DashboardMyRecordingsRoute: typeof DashboardMyRecordingsRoute
   DashboardNumbersRoute: typeof DashboardNumbersRoute
-  DashboardNumbersGameRoute: typeof DashboardNumbersGameRoute
   DashboardPartnerClinicsRoute: typeof DashboardPartnerClinicsRoute
   DashboardPitchDeckRoute: typeof DashboardPitchDeckRoute
   DashboardRepHoursRoute: typeof DashboardRepHoursRoute
@@ -1388,7 +1368,6 @@ const DashboardRouteChildren: DashboardRouteChildren = {
   DashboardLogsRoute: DashboardLogsRoute,
   DashboardMyRecordingsRoute: DashboardMyRecordingsRoute,
   DashboardNumbersRoute: DashboardNumbersRoute,
-  DashboardNumbersGameRoute: DashboardNumbersGameRoute,
   DashboardPartnerClinicsRoute: DashboardPartnerClinicsRoute,
   DashboardPitchDeckRoute: DashboardPitchDeckRoute,
   DashboardRepHoursRoute: DashboardRepHoursRoute,

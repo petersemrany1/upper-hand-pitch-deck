@@ -10,7 +10,6 @@ export type TabKey =
   | "leads"
   | "analytics"
   | "numbers"
-  | "numbers_game"
   | "phone"
   | "pitch_deck"
   | "clinics"
@@ -29,7 +28,6 @@ export const ALL_TAB_KEYS: TabKey[] = [
   "leads",
   "analytics",
   "numbers",
-  "numbers_game",
   "phone",
   "pitch_deck",
   "clinics",
@@ -49,7 +47,6 @@ export const TAB_LABELS: Record<TabKey, string> = {
   leads: "Leads",
   analytics: "Analytics",
   numbers: "Numbers",
-  numbers_game: "Numbers Game",
   phone: "Phone",
   pitch_deck: "Pitch Deck",
   clinics: "Clinics",
@@ -61,7 +58,7 @@ export const TAB_LABELS: Record<TabKey, string> = {
 
 export const TAB_GROUPS: { title: string; tabs: TabKey[] }[] = [
   { title: "General", tabs: ["dashboard", "training", "partner_clinics"] },
-  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "numbers_game", "phone", "chase_queue", "recordings"] },
+  { title: "Sales", tabs: ["sales_portal", "leaderboard", "appointments", "leads", "analytics", "numbers", "phone", "chase_queue", "recordings"] },
   { title: "Clinic Acquisition", tabs: ["pitch_deck", "clinics", "sent_links", "sales_test_leads"] },
 ];
 
@@ -75,7 +72,6 @@ export const TAB_TO_URL: Record<TabKey, string> = {
   leads: "/leads",
   analytics: "/analytics",
   numbers: "/numbers",
-  numbers_game: "/numbers-game",
   phone: "/inbox",
   pitch_deck: "/pitch-deck",
   clinics: "/clinics",
