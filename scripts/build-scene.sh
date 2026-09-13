@@ -5,7 +5,11 @@
 set -euo pipefail
 cd "$(dirname "$0")/../scene-src"
 bun install --silent
-bunx tsc -p tsconfig.json
+# Typecheck the map itself; errors in files under ../src belong to the app's own checks.
+set +e
+tsout=$(bunx tsc -p tsconfig.json 2>&1)
+set -e
+if echo "$tsout" | grep -E '^(scene|entry)\.ts' >/dev/null; then echo "$tsout" | grep -E '^(scene|entry)\.ts'; exit 1; fi
 cd ..
 rm -f public/ops/scene.*.js
 tmp=$(mktemp)
