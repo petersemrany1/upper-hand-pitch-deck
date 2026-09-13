@@ -80,6 +80,12 @@ const steelMat = (color = P.steel) => std(color, { roughness: 0.38, metalness: 0
 const emissive = (color: number, intensity = 1.6) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: 0.4, metalness: 0 });
 const sprite = (map: THREE.Texture, color: number, opacity: number, additive = false) => new THREE.Sprite(new THREE.SpriteMaterial({ map, color, transparent: true, opacity, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending }));
 
+/** Short name for a plate: no brand prefix, capped so ten of them can share a plant. */
+function plateName(name: string): string {
+  const n = name.replace(/^hair transplant\s*/i, "").replace(/\s+[-–—]\s+/g, " · ").trim() || name;
+  return n.length > 26 ? n.slice(0, 25).trimEnd() + "…" : n;
+}
+
 type Fill = { water: THREE.Mesh; target: number; maxH: number; base: number };
 type Flow = { ring: THREE.Mesh; curve: THREE.Curve<THREE.Vector3>; t: number; speed: number };
 type Leak = { at: THREE.Vector3; dir: THREE.Vector3; drops: { s: THREE.Sprite; v: THREE.Vector3; life: number }[]; next: number; puddle: THREE.Mesh };
@@ -171,15 +177,17 @@ export class TownScene implements TownSceneApi {
     const perf = (fire: boolean, star: boolean) => (fire ? "Weak" : star ? "Strong" : "Steady");
 
     // ================= 1. ACQUISITION PLANT
-    const aq = { x: -118, z: -44, w: 74, d: 88 };
+    const adCols = town.towers.length > 6 ? 3 : 2;
+    const adRows = Math.max(1, Math.ceil(town.towers.length / adCols));
+    const aq = { x: -118 - (adCols - 2) * 26, z: -44, w: 22 + adCols * 26, d: Math.max(88, 18 + adRows * 28) };
     this.plinth(aq.x, aq.z, aq.w, aq.d, "ACQUISITION PLANT");
     const headerX = aq.x + aq.w - 6;
     const headerZ0 = aq.z + 8, headerZ1 = aq.z + aq.d - 8;
     this.pipe([[headerX, 2, headerZ0], [headerX, 2, headerZ1]], 1.3);
     const totalLeads = Math.max(1, town.towers.reduce((s, t) => s + t.leads, 0));
     town.towers.forEach((tw, i) => {
-      const col = i % 2, row = Math.floor(i / 2);
-      const x = aq.x + 16 + col * 26, z = aq.z + 18 + row * 30;
+      const col = i % adCols, row = Math.floor(i / adCols);
+      const x = aq.x + 14 + col * 26, z = aq.z + 16 + row * 28;
       const g = new THREE.Group(); g.position.set(x, 0.6, z);
       // water tower on a steel frame
       const legH = 9, r = 4.6, tankH = 6;
@@ -215,12 +223,12 @@ export class TownScene implements TownSceneApi {
       if (tw.fire) { this.addLeak(new THREE.Vector3(x + 12.5, 2, z + 5.5), new THREE.Vector3(0, -1, 0.6)); this.addBeacon(new THREE.Vector3(x + 5.5, 2.9, z + 3.6), P.red); }
       if (tw.star) this.addHalo(new THREE.Vector3(x, 0.62, z), r + 2.6);
       this.tag(g, { kind: "tower", id: tw.id }); W.add(g);
-      this.labelAnchors.push({ key: `tower:${tw.id}`, pos: new THREE.Vector3(x, legH + tankH + 4.6, z), short: tw.name, title: tw.name, tone: tw.tone, kind: "tower",
+      this.labelAnchors.push({ key: `tower:${tw.id}`, pos: new THREE.Vector3(x, legH + tankH + 4.6 + (row % 2) * 3, z), short: plateName(tw.name), title: tw.name, tone: tw.tone, kind: "tower",
         kpis: [["Leads", String(tw.leads)], ["CPL", $(tw.costPerLead)], ["Bookings", String(tw.booked)], ["Cost / showed", $(tw.costPerShow)], ["Trend", tw.costTrend === null ? "n/a" : `${tw.costTrend >= 1 ? "+" : "−"}${Math.round(Math.abs(tw.costTrend - 1) * 100)}% CPL`], ["Performance", perf(tw.fire, tw.star)]] });
     });
 
     // ================= trunk main to the depot, through the pump station (automations)
-    const dp = { x: -28, z: -44, w: 22 + Math.max(1, town.bays.length) * 20, d: 88 };
+    const dp = { x: aq.x + aq.w + 16, z: -44, w: 22 + Math.max(1, town.bays.length) * 20, d: Math.max(88, aq.d) };
     const trunkZ = aq.z + aq.d / 2;
     const pumpPos = new THREE.Vector3(aq.x + aq.w + 10, 0.6, trunkZ);
     const trunkA = this.pipe([[headerX, 2, trunkZ], [pumpPos.x - 6, 2, trunkZ]], 1.3);
