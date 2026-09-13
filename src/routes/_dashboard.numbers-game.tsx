@@ -54,6 +54,7 @@ const CSS = `
 .ops-seg button{border:0;background:transparent;color:#8e9aa7;font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:4px;cursor:pointer}
 .ops-seg button[aria-pressed="true"]{background:#2b476d;color:#fff}
 .ops-spacer{flex:1}
+.ops-chip{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;padding:4px 10px;border:1px solid rgba(255,255,255,.14);border-radius:999px}
 .ops-clock{font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:#8e9aa7;display:flex;align-items:center;gap:10px}
 .ops-clock i{width:7px;height:7px;border-radius:50%;background:#3fc3a6;box-shadow:0 0 10px #3fc3a6}
 .ops-clock i.off{background:#6f7c8a;box-shadow:none}
@@ -126,6 +127,7 @@ function NumbersGamePage() {
   const [fortnights, setFortnights] = useState<{ recent: AdPerformanceRow[]; prior: AdPerformanceRow[] } | null>(null);
   const [live, setLive] = useState<NumbersGameLive | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState<string | null>(null);
   const [labels, setLabels] = useState<LabelSpec[]>([]);
   const [picked, setPicked] = useState<PickTarget | null>(null);
   const [hour, setHour] = useState(sydneyHour());
@@ -165,12 +167,13 @@ function NumbersGamePage() {
     if (!ready || !isAdmin) return;
     let alive = true;
     const load = async () => {
-      try { const l = await fetchLive({}); if (!alive) return; setLive(l); setHour(sydneyHour()); }
-      catch (e) { if (alive) setError(e instanceof Error ? e.message : String(e)); }
+      try { const l = await fetchLive({}); if (!alive) return; setLive(l); setHour(sydneyHour()); setStale(null); }
+      catch (e) { if (!alive) return; const msg = e instanceof Error ? e.message : String(e); if (live) setStale(msg); else setError(msg); }
     };
     void load();
     const id = window.setInterval(() => void load(), 60_000);
     return () => { alive = false; window.clearInterval(id); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, isAdmin, fetchLive]);
 
   const town: Town | null = useMemo(() => {
@@ -194,7 +197,8 @@ function NumbersGamePage() {
       setSceneReady((n) => n + 1);
     }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
     return () => { cancelled = true; scene?.dispose(); sceneRef.current = null; };
-  }, [onPick]);
+    // ready/isAdmin: the canvas only exists once the auth gate has passed.
+  }, [onPick, ready, isAdmin]);
 
   useEffect(() => {
     if (!town || !sceneRef.current || !live) return;
@@ -242,6 +246,7 @@ function NumbersGamePage() {
           </>
         )}
         <div className="ops-spacer" />
+        {stale && <div className="ops-chip" style={{ color: TONE.amber }}>LIVE FEED PAUSED · {stale}</div>}
         <div className="ops-clock"><i className={town?.depotOpen ? "" : "off"} />{clock} SYD · {town?.depotOpen ? "DEPOT OPEN" : "DEPOT CLOSED"}</div>
       </div>
 
@@ -262,7 +267,7 @@ function NumbersGamePage() {
 
       {picked && town && <Detail town={town} target={picked} onClose={() => onPick(null)} />}
       {!town && !error && <div className="ops-loading" style={{ color: "#2b3540", background: "rgba(185,198,210,.6)" }}>PRESSURISING NETWORK</div>}
-      {error && <div className="ops-loading">NETWORK OFFLINE · {error}</div>}
+      {error && !town && <div className="ops-loading">NETWORK OFFLINE · {error}</div>}
     </div>
   );
 }
