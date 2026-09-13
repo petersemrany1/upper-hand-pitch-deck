@@ -125,19 +125,14 @@ function InboxPage() {
     }
     const rows = (data as unknown as Thread[]) ?? [];
 
-    // Resolve the lead's full name by phone for every thread. Some threads
-    // were saved with only a first name in display_name — the lead record is
-    // the source of truth, so prefer it whenever it matches.
+    // For threads without a display_name or clinic match, look up the lead by phone
     const norm = (p: string | null | undefined) => (p ?? "").replace(/\D/g, "");
-    const needsLookup = rows.filter((t) => !t.clinic?.clinic_name);
+    const needsLookup = rows.filter((t) => !t.display_name && !t.clinic?.clinic_name);
     if (needsLookup.length > 0) {
-      const index = await getLeadNameIndex();
+      const leadMap = (await getLeadNameIndex()).byDigits;
       for (const t of rows) {
-        if (t.clinic?.clinic_name) continue;
-        const digits = norm(t.phone);
-        // Match on full digits first, then last 9 — leads may be stored as
-        // 04... while threads carry +614..., so exact digits often miss.
-        const name = index.byDigits.get(digits) ?? index.byTail.get(digits.slice(-9));
+        if (t.display_name || t.clinic?.clinic_name) continue;
+        const name = leadMap.get(norm(t.phone));
         if (name) t.display_name = name;
       }
     }

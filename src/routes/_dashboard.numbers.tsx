@@ -640,7 +640,9 @@ function NumbersPage() {
                   />
                   <AdsTab
                     rows={adStats.rows}
+                    avgCostPerShow={adStats.avgCostPerShow}
                     loading={loading}
+                    scopeLabel={scopeLabel}
                     onDrill={(ad) => void openDrill(ad)}
                   />
                   <CompareTable rows={diagnosed} all={all} selected={locFilter} onSelect={setLocFilter} />

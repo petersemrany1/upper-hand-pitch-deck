@@ -275,9 +275,8 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
 
 export const saveBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { leadId: string; clinicId: string | null; doctorId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
+  .inputValidator((data: { leadId: string; clinicId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
-    doctorId: data.doctorId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
     repId: data.repId ?? null,
     // When true (Book button click), the server also promotes meta_leads.status
@@ -286,19 +285,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     promoteStatus: data.promoteStatus === true,
   }))
   .handler(async ({ data }) => {
-    if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
-      return { success: false as const, error: "Lead, clinic, doctor, date and time are required" };
-    }
-    const { data: doctor, error: doctorErr } = await supabaseAdmin
-      .from("partner_doctors")
-      .select("id, clinic_id, name")
-      .eq("id", data.doctorId)
-      .eq("clinic_id", data.clinicId)
-      .eq("is_active", true)
-      .maybeSingle();
-    if (doctorErr || !doctor) {
-      return { success: false as const, error: "The selected doctor is not available at this clinic. Please select the clinic and doctor again." };
-    }
+    if (!data.leadId || !data.date) return { success: false as const, error: "leadId and date required" };
     // Step 1: write booking fields on meta_leads (NOT status).
     // Also reassign rep_id to the rep actually booking — credits the booking
     // to whoever closed it, not whoever first touched the lead.
@@ -320,20 +307,18 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (data.clinicId) {
       const { data: leadRow } = await supabaseAdmin
         .from("meta_leads")
-        .select("first_name, last_name, phone, email, deposit_amount, stripe_payment_intent_id, square_payment_id")
+        .select("first_name, last_name, phone, email, deposit_amount, stripe_payment_intent_id")
         .eq("id", data.leadId)
         .maybeSingle();
       const patientName = `${leadRow?.first_name ?? ""} ${leadRow?.last_name ?? ""}`.trim() || "Patient";
       const { data: existing } = await supabaseAdmin
         .from("clinic_appointments")
-        .select("id, deposit_amount, stripe_payment_intent_id, square_payment_id")
+        .select("id, deposit_amount, stripe_payment_intent_id")
         .eq("lead_id", data.leadId)
         .limit(1);
       const nowIso = new Date().toISOString();
       const payload: any = {
         clinic_id: data.clinicId,
-        doctor_id: doctor.id,
-        doctor_name: doctor.name,
         lead_id: data.leadId,
         patient_name: patientName,
         patient_phone: leadRow?.phone ?? null,
@@ -341,24 +326,13 @@ export const saveBooking = createServerFn({ method: "POST" })
         appointment_date: data.date,
         appointment_time: data.time,
       };
-      // Carry over deposit info from meta_leads if the payment (Square or
-      // Stripe) landed before the booking row was created, so the clinic's
-      // refund goes back through the same processor.
-      if (leadRow?.square_payment_id) {
-        payload.square_payment_id = leadRow.square_payment_id;
-        payload.payment_processor = "square";
-      } else if (leadRow?.stripe_payment_intent_id) {
-        payload.stripe_payment_intent_id = leadRow.stripe_payment_intent_id;
-        payload.payment_processor = "stripe";
-      }
+      // Carry over deposit info from meta_leads if Stripe webhook already
+      // marked it paid before the booking row was created (race condition).
+      if (leadRow?.stripe_payment_intent_id) payload.stripe_payment_intent_id = leadRow.stripe_payment_intent_id;
       if (leadRow?.deposit_amount != null) payload.deposit_amount = leadRow.deposit_amount;
       if (existing && existing.length > 0) {
         // Don't overwrite deposit fields already set on the appointment.
-        if (existing[0].stripe_payment_intent_id || existing[0].square_payment_id) {
-          delete payload.stripe_payment_intent_id;
-          delete payload.square_payment_id;
-          delete payload.payment_processor;
-        }
+        if (existing[0].stripe_payment_intent_id) delete payload.stripe_payment_intent_id;
         if (existing[0].deposit_amount != null) delete payload.deposit_amount;
         payload.booked_at = nowIso;
         const { error: apptErr } = await supabaseAdmin
@@ -370,33 +344,15 @@ export const saveBooking = createServerFn({ method: "POST" })
           return { success: false as const, error: `Could not update clinic appointment: ${apptErr.message}` };
         }
       } else {
-        // Plain insert: the lead uniqueness index is PARTIAL
-        // (WHERE lead_id IS NOT NULL), which ON CONFLICT cannot target — an
-        // upsert here fails with "no unique or exclusion constraint matching
-        // the ON CONFLICT specification". On a race, fall back to an update.
+        // Upsert on lead_id — DB unique index prevents race-condition duplicates.
         const { error: apptErr } = await supabaseAdmin
           .from("clinic_appointments")
-          .insert({ ...payload, intel_notes: null, booked_at: nowIso });
+          .upsert({ ...payload, intel_notes: null, booked_at: nowIso }, { onConflict: "lead_id" });
         if (apptErr) {
-          const isDuplicate =
-            (apptErr as { code?: string }).code === "23505" ||
-            /duplicate key/i.test(apptErr.message);
-          if (isDuplicate) {
-            const { error: raceErr } = await supabaseAdmin
-              .from("clinic_appointments")
-              .update({ ...payload, booked_at: nowIso })
-              .eq("lead_id", data.leadId);
-            if (raceErr) {
-              await logError("saveBooking.appointmentInsert", raceErr.message, { leadId: data.leadId });
-              return { success: false as const, error: `Could not create clinic appointment: ${raceErr.message}` };
-            }
-          } else {
-            await logError("saveBooking.appointmentInsert", apptErr.message, { leadId: data.leadId });
-            return { success: false as const, error: `Could not create clinic appointment: ${apptErr.message}` };
-          }
+          await logError("saveBooking.appointmentInsert", apptErr.message, { leadId: data.leadId });
+          return { success: false as const, error: `Could not create clinic appointment: ${apptErr.message}` };
         }
       }
-
 
       // Verify the row actually exists before we try to promote status —
       // otherwise enforce_booking_before_status_lock will reject us.
@@ -422,7 +378,6 @@ export const saveBooking = createServerFn({ method: "POST" })
         await logError("saveBooking.statusPromote", statusErr.message, { leadId: data.leadId });
         return { success: false as const, error: `Booked, but status update failed: ${statusErr.message}` };
       }
-      await stampLatestCallOutcome(data.leadId, "booked_deposit_paid");
     }
 
     // Refresh any existing appointment_reminders row for this lead so a
@@ -455,16 +410,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     } catch (e) {
       console.error("[saveBooking] reminder refresh failed", e);
     }
-    return {
-      success: true as const,
-      booking: {
-        clinicId: data.clinicId,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        date: data.date,
-        time: data.time,
-      },
-    };
+    return { success: true as const };
   });
 
 
@@ -485,50 +431,6 @@ export const clearBooking = createServerFn({ method: "POST" })
     return { success: true as const };
   });
 
-/**
- * Stamp the outcome the rep just chose onto that lead's most recent call
- * record. Live calls are created by the Twilio SDK / voice-outbound, neither
- * of which knows the outcome — it's only known when the rep logs it. Without
- * this, call_records.outcome stays NULL for every call.
- *
- * Best-effort and never blocks the status write. Only fills rows that are
- * still NULL (never overwrites), and only looks back 6 hours so an old call
- * can't be mislabelled by a much later status change.
- */
-/**
- * Statuses a rep can only pick as the result of a live call. Admin-side status
- * changes made elsewhere (cancelled, no_show from the appointments page, etc.)
- * must never be written onto a call record.
- */
-const CALL_OUTCOME_STATUSES = new Set([
-  "no_answer", "callback_scheduled", "had_convo_chase_up", "had_convo_no_sale",
-  "not_interested", "dropped", "booked_deposit_paid",
-]);
-
-async function stampLatestCallOutcome(leadId: string, status: string): Promise<void> {
-  try {
-    if (!CALL_OUTCOME_STATUSES.has(status)) return;
-    const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-    const { data: recent } = await supabaseAdmin
-      .from("call_records")
-      .select("id, status")
-      .eq("lead_id", leadId)
-      .is("outcome", null)
-      .gte("called_at", since)
-      .order("called_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!recent?.id) return;
-    // Don't stamp a call that's still in flight.
-    const live = ["initiated", "queued", "ringing", "in-progress"];
-    if (recent.status && live.includes(recent.status)) return;
-    await supabaseAdmin.from("call_records")
-      .update({ outcome: status, updated_at: new Date().toISOString() })
-      .eq("id", recent.id)
-      .is("outcome", null);
-  } catch { /* non-fatal */ }
-}
-
 export const updateLeadStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string; status: string }) => ({
@@ -539,7 +441,6 @@ export const updateLeadStatus = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("meta_leads")
       .update({ status: data.status, updated_at: new Date().toISOString() }).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
-    await stampLatestCallOutcome(data.leadId, data.status);
     return { success: true as const };
   });
 

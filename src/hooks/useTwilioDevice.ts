@@ -88,7 +88,6 @@ let pendingIncoming: Call | null = null;
 let waitingCall: Call | null = null;
 let initPromise: Promise<void> | null = null;
 let refreshTimer: number | null = null;
-let tokenIssuedAt = 0;
 
 let currentStatus: Status = "idle";
 let currentDialerStatus: DialerStatus = "connecting";
@@ -189,84 +188,17 @@ async function fetchToken(): Promise<string> {
   return data.token as string;
 }
 
-// A background tab throttles timers, and a single failed refresh used to kill
-// the refresh chain outright — the rep then hit "Call Now" with an expired
-// token and got AccessTokenExpired (20104) / "Failed to start call". We now
-// track the token's age, retry failures, react to Twilio's own
-// `tokenWillExpire` event, and refresh on demand before dialling.
-const TOKEN_STALE_MS = 45 * 60 * 1000;
-
-async function refreshToken(): Promise<boolean> {
-  try {
-    const next = await fetchToken();
-    tokenIssuedAt = Date.now();
-    device?.updateToken(next);
-    scheduleTokenRefresh();
-    return true;
-  } catch (err) {
-    console.error("Voice SDK: token refresh failed", err);
-    // Retry soon instead of abandoning the refresh chain forever.
-    if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-    refreshTimer = window.setTimeout(() => { void refreshToken(); }, 30_000);
-    return false;
-  }
-}
-
 function scheduleTokenRefresh() {
   if (refreshTimer !== null) window.clearTimeout(refreshTimer);
-  refreshTimer = window.setTimeout(() => { void refreshToken(); }, TOKEN_REFRESH_MS);
-}
-
-async function ensureFreshToken(): Promise<void> {
-  if (!device) return;
-  if (Date.now() - tokenIssuedAt < TOKEN_STALE_MS) return;
-  await refreshToken();
-}
-
-// Background tabs throttle setTimeout, so the 50-minute refresh can fire late
-// and the rep dials with a dead key. A cheap watchdog re-checks the token's
-// real age every minute and whenever the tab becomes visible again.
-let watchdogTimer: number | null = null;
-
-function startTokenWatchdog() {
-  if (typeof window === "undefined" || watchdogTimer !== null) return;
-  watchdogTimer = window.setInterval(() => {
-    if (!device) return;
-    if (Date.now() - tokenIssuedAt >= TOKEN_STALE_MS) void refreshToken();
-  }, 60_000);
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") return;
-    void ensureFreshToken();
-  });
-}
-
-// Twilio codes that mean "transient" rather than "broken": rate limiting and
-// signalling/transport hiccups. These are worth retrying or re-registering for.
-const RATE_LIMIT_CODES = new Set([31206, 20429]);
-const CONNECTION_ERROR_CODES = new Set([31000, 31005, 31009, 53000, 53405]);
-
-function friendlyVoiceError(code: number | undefined, fallback: string): string {
-  if (code !== undefined && RATE_LIMIT_CODES.has(code)) {
-    return "The phone system is busy — trying again in a moment.";
-  }
-  if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) {
-    return "Call didn't connect — try again.";
-  }
-  if (code === 20101 || code === 20104) {
-    return "Reconnecting the phone — try again in a moment.";
-  }
-  return fallback;
-}
-
-async function reregisterDevice(): Promise<void> {
-  if (!device) return;
-  try {
-    await ensureFreshToken();
-    await device.register();
-    console.log("Voice SDK: re-registered after connection error");
-  } catch (err) {
-    console.error("Voice SDK: re-register failed", err);
-  }
+  refreshTimer = window.setTimeout(async () => {
+    try {
+      const next = await fetchToken();
+      device?.updateToken(next);
+      scheduleTokenRefresh();
+    } catch (err) {
+      console.error("Voice SDK: token refresh failed", err);
+    }
+  }, TOKEN_REFRESH_MS);
 }
 
 async function ensureDevice(): Promise<void> {
@@ -275,7 +207,6 @@ async function ensureDevice(): Promise<void> {
     try {
       setSnapshot({ status: "loading", dialerStatus: "connecting" });
       const token = await fetchToken();
-      tokenIssuedAt = Date.now();
 
       // Audio tuning notes:
       // - Opus first: built-in packet-loss concealment + adaptive jitter.
@@ -337,33 +268,11 @@ async function ensureDevice(): Promise<void> {
         setSnapshot({ dialerStatus: "connecting" });
       });
 
-      // Twilio warns ~30s before the token dies. Refresh immediately so a
-      // long-open dialler tab never dials with a dead token.
-      (d as unknown as { on: (e: string, cb: () => void) => void }).on("tokenWillExpire", () => {
-        console.log("Voice SDK: token will expire — refreshing");
-        void refreshToken();
-      });
-
       d.on("error", (e: { message?: string; code?: number }) => {
         console.log("DEVICE ERROR", e);
         console.error("Voice SDK error:", e);
-        // Token problems are recoverable: mint a new one and re-register
-        // instead of leaving the dialler stuck in an error state.
-        if (e?.code === 20101 || e?.code === 20104) {
-          void (async () => {
-            const ok = await refreshToken();
-            if (!ok) return;
-            try { await device?.register(); } catch (err) { console.error("re-register failed", err); }
-          })();
-        }
-        // Transport / signalling drops leave the Device unregistered. Re-register
-        // straight away so the NEXT call starts from a clean connection instead
-        // of failing too.
-        if (e?.code !== undefined && CONNECTION_ERROR_CODES.has(e.code)) {
-          void reregisterDevice();
-        }
         setSnapshot({
-          error: friendlyVoiceError(e?.code, e?.message || `Device error (${e?.code ?? "unknown"})`),
+          error: e?.message || `Device error (${e?.code ?? "unknown"})`,
           activeCallStartedAt: activeCall ? currentCallStartedAt : null,
           activeCallInstanceId: activeCall ? currentCallInstanceId : null,
           status: "error",
@@ -472,7 +381,6 @@ async function ensureDevice(): Promise<void> {
 
       await d.register();
       scheduleTokenRefresh();
-      startTokenWatchdog();
     } catch (err) {
       const msg = extractErrorMessage(err, "Failed to initialise dialler");
       console.error("Voice SDK init failed:", err);
@@ -500,22 +408,6 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
   if (currentStatus === "error") {
     setSnapshot({ error: null, status: "ready", dialerStatus: "ready", activeCallStartedAt: null, activeCallInstanceId: null });
   }
-  // A token older than 45 minutes is about to expire (Twilio TTL is 60) —
-  // renew before dialling rather than failing the call.
-  await ensureFreshToken();
-  // The device registers asynchronously, so the very first dial after loading
-  // the page used to be rejected with "Dialler still connecting". Give
-  // registration a short window to complete instead.
-  const isDialable = () => {
-    const s: string = currentStatus;
-    return s === "ready" || s === "in-call";
-  };
-  if (!isDialable()) {
-    const deadline = Date.now() + 10_000;
-    while (Date.now() < deadline && !isDialable()) {
-      await new Promise((r) => setTimeout(r, 200));
-    }
-  }
   if (currentStatus !== "ready" && currentStatus !== "in-call") {
     setSnapshot({ error: "Dialler still connecting. Wait until DEVICE READY before calling." });
     throw new Error(`Dialler not ready (status: ${currentStatus}). Wait until DEVICE READY before calling.`);
@@ -537,35 +429,7 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
     // dialled from.
     const params: Record<string, string> = { phone, ...(extraParams || {}) };
     await preferHeadsetMicrophone(device);
-    // Twilio occasionally throttles ("too many requests") or drops the
-    // signalling connection. Both are transient — wait briefly and try again
-    // rather than showing the rep a failed call.
-    const connectWithRetry = async (): Promise<Call> => {
-      const delays = [800, 1600, 3200];
-      let lastErr: unknown = null;
-      for (let attempt = 0; attempt <= delays.length; attempt += 1) {
-        try {
-          return await device!.connect({ params, ...lowLatencyMediaOptions() });
-        } catch (err) {
-          lastErr = err;
-          const code = (err as { code?: number } | null)?.code;
-          // Only rate limiting is safe to auto-retry: Twilio rejected the
-          // request outright, so no call leg exists and a retry can't
-          // double-dial the patient. Connection/transport errors get a
-          // background re-register instead — the device is clean for the next
-          // attempt, but we don't risk placing a second call.
-          if (code !== undefined && CONNECTION_ERROR_CODES.has(code)) {
-            void reregisterDevice();
-            break;
-          }
-          if (code === undefined || !RATE_LIMIT_CODES.has(code) || attempt === delays.length) break;
-          console.warn(`Voice SDK: rate limited (${code}) — retrying dial`, err);
-          await new Promise((r) => setTimeout(r, delays[attempt]));
-        }
-      }
-      throw lastErr ?? new Error("Failed to start call");
-    };
-    const outgoing = await connectWithRetry();
+    const outgoing = await device.connect({ params, ...lowLatencyMediaOptions() });
     activeCall = outgoing;
 
     // Insert the call_records row as soon as Twilio assigns a CallSid.
@@ -761,13 +625,11 @@ async function placeCall(phone: string, extraParams?: Record<string, string>): P
       stopRingback();
       teardownStatus();
       activeCall = null;
-      if (e?.code !== undefined && CONNECTION_ERROR_CODES.has(e.code)) void reregisterDevice();
-      setSnapshot({ error: friendlyVoiceError(e?.code, e?.message || `Call error (${e?.code ?? "unknown"})`), activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "error" });
+      setSnapshot({ error: e?.message || `Call error (${e?.code ?? "unknown"})`, activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "error" });
     });
   } catch (err) {
     stopRingback();
-    const rawMsg = extractErrorMessage(err, "Failed to start call");
-    const msg = friendlyVoiceError((err as { code?: number } | null)?.code, rawMsg);
+    const msg = extractErrorMessage(err, "Failed to start call");
     setSnapshot({ error: msg, activeCallSid: null, activeLeadId: null, activePhone: null, activeCallStartedAt: null, activeCallInstanceId: null, status: "error" });
     throw err instanceof Error ? err : new Error(msg);
   }

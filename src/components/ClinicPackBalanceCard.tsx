@@ -3,7 +3,6 @@ import { Plus, Trash2, Pencil, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
-import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
 
 const NAVY = "#1a3a6b";
 const GREEN = "#1a7a4a";
@@ -51,7 +50,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
-  
   const [bookedSlots, setBookedSlots] = useState(0);
 
   const [loading, setLoading] = useState(true);
@@ -70,14 +68,12 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         .order("purchased_at", { ascending: true }),
       supabase
         .from("clinic_appointments")
-        .select("appointment_date, outcome, disqualified_at, booked_at")
+        .select("appointment_date, outcome, disqualified_at")
         .eq("clinic_id", clinicId)
         .not("patient_name", "ilike", "%test%"),
     ]);
-    const allPacks = (packRows ?? []) as Pack[];
-    setPacks(allPacks);
+    setPacks((packRows ?? []) as Pack[]);
     const appts = apptRows ?? [];
-    const cutoff = freeTrialCutoff(allPacks, todayStr);
 
     let showed = 0;
     let up = 0;
@@ -86,17 +82,11 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       const o = (a as { outcome: string | null }).outcome;
       const d = (a as { disqualified_at: string | null }).disqualified_at;
       const date = (a as { appointment_date: string }).appointment_date;
-      const bookedAt = (a as { booked_at: string | null }).booked_at;
       if (d || o === "disqualified" || o === "noshow") continue;
-      // Free-trial bookings cost nothing and don't touch the paid pack.
-      if (isFreeTrialBooking(bookedAt, cutoff)) continue;
-      // Past appointments with no outcome recorded are treated as if they
-      // never happened — they don't hold a slot.
-      if (!o && date < todayStr) continue;
       booked += 1;
       if (o === "show" || o === "proceeded") {
         showed += 1;
-      } else if (!o) {
+      } else if (!o && date >= todayStr) {
         up += 1;
       }
     }
@@ -108,12 +98,9 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
   useEffect(() => { void load(); }, [load]);
 
-  // FIFO allocation: fill oldest packs first. Free-trial packs are excluded —
-  // the trial is finished and its consults are shown as free, not as credits.
+  // FIFO allocation: fill oldest packs first
   const { activePack, deliveredInActive, sizeOfActive, totalRemaining, totalCapacity } = useMemo(() => {
-    const sorted = packs
-      .filter((p) => p.pack_type !== "free_trial")
-      .sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
+    const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
     let remaining = showedUp;
     let active: Pack | null = null;
     let deliveredIn = 0;
@@ -149,7 +136,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const upcomingPct = totalCapacity > 0 ? Math.min(100 - deliveredPct, (upcoming / totalCapacity) * 100) : 0;
   const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - Math.min(upcoming, sizeOfActive - deliveredInActive));
 
-  const noPacks = totalCapacity === 0;
+  const noPacks = packs.length === 0;
   const exhausted = !noPacks && totalRemaining === 0;
   const packFull = !noPacks && remainingInActive === 0;
 
@@ -243,9 +230,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
             <LegendItem color={GREY_TRACK} label={`${totalRemaining} open`} />
           </div>
 
-          
-
-
           {exhausted && (
             <div style={{
               marginTop: SPACE_16, padding: "12px 14px",
@@ -304,15 +288,13 @@ function LegendItem({ color, label }: { color: string; label: string }) {
 function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
   packs: Pack[]; showedUp: number; onChange: () => void; onEdit: (p: Pack) => void;
 }) {
-  // Allocate delivered per pack (FIFO). Free-trial packs sit outside the
-  // balance, so they don't take any of the delivered count.
+  // Allocate delivered per pack (FIFO)
   const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
   let remaining = showedUp;
   const rows = sorted.map((p) => {
-    if (p.pack_type === "free_trial") return { p, delivered: null as number | null };
     const delivered = Math.min(p.pack_size, remaining);
     remaining -= delivered;
-    return { p, delivered: delivered as number | null };
+    return { p, delivered };
   });
 
   const del = async (id: string) => {
@@ -335,9 +317,7 @@ function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
             padding: "10px 14px", background: GREY_BG, borderRadius: 8, fontSize: 13,
           }}>
             <div>
-              {delivered == null
-                ? <strong style={{ color: NAVY }}>{p.pack_size} free consults</strong>
-                : <><strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered</>}
+              <strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered
               {p.pack_name && <span style={{ color: GREY_TEXT_DARK, marginLeft: 10 }}>{p.pack_name}</span>}
               <span style={{ color: GREY_TEXT, marginLeft: 10 }}>
                 purchased {new Date(p.purchased_at).toLocaleDateString()}

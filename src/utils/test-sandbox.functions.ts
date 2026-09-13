@@ -4,6 +4,7 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { sydneyTodayISO } from "@/lib/timezone";
 
 const PETER_TEST_LEAD_ID = "5e70f557-73ce-4bb7-a11a-6b718dbd092f";
 const TEST_TESTED_LEAD_ID = "b2828129-1c28-4502-927a-11f43a0a8473";
@@ -52,9 +53,16 @@ export const simulateDepositPaid = createServerFn({ method: "POST" })
       .eq("id", data.leadId);
     if (updErr) throw updErr;
 
-    // Behave like a real Stripe payment: record the money only. We never
-    // invent a booking here — the rep still has to pick clinic, doctor, date
-    // and time in the portal, exactly like a live call.
+    const { data: lead, error: leadErr } = await supabase
+      .from("meta_leads")
+      .select("id, first_name, last_name, phone, clinic_id, booking_date, booking_time")
+      .eq("id", data.leadId)
+      .single();
+    if (leadErr) throw leadErr;
+    if (!lead?.clinic_id) throw new Error("Sandbox lead has no clinic selected.");
+
+    // The status trigger requires a clinic appointment first. In sandbox,
+    // create a minimal test booking if the handover flow has not created one yet.
     const { data: existingAppt, error: apptLookupErr } = await supabase
       .from("clinic_appointments")
       .select("id")
@@ -62,9 +70,29 @@ export const simulateDepositPaid = createServerFn({ method: "POST" })
       .maybeSingle();
     if (apptLookupErr) throw apptLookupErr;
 
-    if (existingAppt) {
-      // A booking already exists (rep booked first, then payment landed):
-      // attach the payment and promote the status, like the webhook does.
+    let appt = existingAppt;
+    if (!appt) {
+      const patientName = `${lead.first_name ?? "Peter"} ${lead.last_name ?? "Test"}`.trim();
+      const { data: insertedAppt, error: insertApptErr } = await supabase
+        .from("clinic_appointments")
+        .insert({
+          lead_id: data.leadId,
+          clinic_id: lead.clinic_id,
+          patient_name: patientName || "Peter Test",
+          patient_phone: lead.phone ?? null,
+          appointment_date: lead.booking_date ?? sydneyTodayISO(),
+          appointment_time: lead.booking_time ?? "09:00",
+          intel_notes: "Sandbox deposit simulation appointment.",
+          deposit_amount: amount,
+          stripe_payment_intent_id: fakePiId,
+        })
+        .select("id")
+        .single();
+      if (insertApptErr) throw insertApptErr;
+      appt = insertedAppt;
+    }
+
+    if (appt) {
       await supabase
         .from("clinic_appointments")
         .update({
@@ -84,19 +112,15 @@ export const simulateDepositPaid = createServerFn({ method: "POST" })
       }
     }
 
-    return {
-      ok: true,
-      simulated: true,
-      sessionId: fakeSessionId,
-      statusFlipped: Boolean(existingAppt),
-      needsBooking: !existingAppt,
-    };
+    return { ok: true, simulated: true, sessionId: fakeSessionId, statusFlipped: Boolean(appt) };
   });
 
 /**
- * Reset a sandbox lead back to a genuinely clean intake-stage lead.
- * Call history and notes stay available for testing, but all booking,
- * payment, reminder and handover state is removed.
+ * Reset Peter Test back to a clean intake-stage lead.
+ * Scope (per user spec): payment + status only.
+ *  - clears deposit_* and stripe_* fields on meta_leads
+ *  - sets status back to 'intake'
+ * Notes, call records, appointments, sent links etc. are left alone.
  */
 export const resetPeterTestLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -105,33 +129,17 @@ export const resetPeterTestLead = createServerFn({ method: "POST" })
     const { supabase } = context;
     await assertAdminAndPeter(supabase, data.leadId);
 
-    const { error: leadResetError } = await supabase
+    const { error } = await supabase
       .from("meta_leads")
       .update({
         status: "intake",
-        booking_date: null,
-        booking_time: null,
-        clinic_id: null,
         deposit_paid_at: null,
         deposit_amount: null,
         stripe_payment_intent_id: null,
         stripe_checkout_session_id: null,
-        handover_sent_at: null,
       })
       .eq("id", data.leadId);
-    if (leadResetError) throw leadResetError;
-
-    const { error: appointmentError } = await supabase
-      .from("clinic_appointments")
-      .delete()
-      .eq("lead_id", data.leadId);
-    if (appointmentError) throw appointmentError;
-
-    const { error: reminderError } = await supabase
-      .from("appointment_reminders")
-      .delete()
-      .eq("lead_id", data.leadId);
-    if (reminderError) throw reminderError;
+    if (error) throw error;
 
     return { ok: true, reset: true };
   });
