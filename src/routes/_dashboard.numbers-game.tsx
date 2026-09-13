@@ -8,6 +8,7 @@ import { getNumbersGameLive, type NumbersGameLive } from "@/lib/numbers-game.fun
 import { shiftDays, todaySydney } from "@/components/numbers/format";
 import { buildTown, type Flag, type Tone, type Town } from "@/components/numbers-game/model";
 import type { TownScene, LabelSpec, PickKind, PickTarget } from "@/components/numbers-game/scene";
+import { SCENE_BUNDLE } from "@/components/numbers-game/scene-bundle";
 
 export const Route = createFileRoute("/_dashboard/numbers-game")({
   head: () => ({
@@ -95,6 +96,23 @@ const CSS = `
 `;
 
 type Report = { ads: AdPerformanceRow[]; locations: LocationSummaryRow[]; labourByLocation: LabourRow[]; revenueByLocation: RevenueRow[] };
+let bundlePromise: Promise<typeof TownScene> | null = null;
+function loadSceneBundle(): Promise<typeof TownScene> {
+  if (typeof window === "undefined") return Promise.reject(new Error("browser only"));
+  if (window.__HTG_SCENE__) return Promise.resolve(window.__HTG_SCENE__.TownScene);
+  if (!bundlePromise) {
+    bundlePromise = new Promise((resolve, reject) => {
+      const tag = document.createElement("script");
+      tag.src = SCENE_BUNDLE; tag.async = true;
+      tag.onload = () => (window.__HTG_SCENE__ ? resolve(window.__HTG_SCENE__.TownScene) : reject(new Error("map script loaded but exported nothing")));
+      tag.onerror = () => reject(new Error("could not load the map script"));
+      document.head.appendChild(tag);
+    });
+  }
+  return bundlePromise;
+}
+declare global { interface Window { __HTG_SCENE__?: { TownScene: typeof TownScene } } }
+
 function sydneyHour(): number { return Number(new Date().toLocaleString("en-AU", { hour: "numeric", hour12: false, timeZone: "Australia/Sydney" })); }
 const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).toLocaleString()}`;
 
@@ -163,13 +181,14 @@ function NumbersGamePage() {
 
   const onPick = useCallback((t: PickTarget | null) => { setPicked(t); sceneRef.current?.focus(t); }, []);
 
-  // The 3D world is browser-only: load it after mount so the server bundle never touches WebGL.
+  // The 3D world is a static script compiled outside the app build (see
+  // scripts/build-scene.sh), loaded here at runtime so WebGL never enters the bundle.
   const [sceneReady, setSceneReady] = useState(0);
   useEffect(() => {
     const el = canvasRef.current; if (!el) return;
     let scene: TownScene | null = null;
     let cancelled = false;
-    void import("@/components/numbers-game/scene").then(({ TownScene: Scene }) => {
+    loadSceneBundle().then((Scene) => {
       if (cancelled) return;
       scene = new Scene(el, { onPick, onLabels: setLabels });
       sceneRef.current = scene;
