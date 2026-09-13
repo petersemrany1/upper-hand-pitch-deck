@@ -22,3 +22,4 @@ export type TownSceneCtor = new (container: HTMLElement, opts?: SceneOpts) => To
 declare global {
   interface Window { __HTG_SCENE__?: { TownScene: TownSceneCtor } }
 }
+
