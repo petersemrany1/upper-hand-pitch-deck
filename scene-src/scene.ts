@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import type { Town, Tone } from "./model";
+import type { Town, Tone } from "../src/components/numbers-game/model";
+import type { LabelSpec, PickKind, PickTarget, SceneOpts, TownSceneApi } from "../src/components/numbers-game/scene-types";
 
 /**
  * The plumbing world. The business runs through a pipe network, drawn with
@@ -19,10 +20,8 @@ import type { Town, Tone } from "./model";
  * not just in the panel. Everything clickable carries userData = {kind, id}.
  */
 
-export type PickKind = "tower" | "bay" | "tank" | "puddle" | "depot" | "meter" | "pump";
-export type PickTarget = { kind: PickKind; id: string };
-export type LabelSpec = { key: string; x: number; y: number; short: string; title: string; kpis: [string, string][]; tone: Tone; hidden: boolean; active: boolean; kind: PickKind };
-type Opts = { onPick?: (t: PickTarget | null) => void; onLabels?: (labels: LabelSpec[]) => void };
+type Opts = SceneOpts;
+export type { LabelSpec, PickKind, PickTarget };
 
 const P = {
   sky: 0xb9c6d2, grass: 0x7d9468, grassDark: 0x6a8058, concrete: 0x9aa1a8, concreteDark: 0x7f868d, kerb: 0xb5bcc3, asphalt: 0x4b525a, gravel: 0x8c8f92,
@@ -93,7 +92,7 @@ type Van = { group: THREE.Group; home: THREE.Vector3; rot: number; busy: boolean
 type Trip = { van: Van; curve: THREE.CatmullRomCurve3; t: number; speed: number; phase: "out" | "drop" | "back"; clinicId: string; crate: THREE.Mesh | null; dropT: number; puffT: number };
 type Puff = { s: THREE.Sprite; life: number };
 
-export class TownScene {
+export class TownScene implements TownSceneApi {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
   private camera: THREE.OrthographicCamera;

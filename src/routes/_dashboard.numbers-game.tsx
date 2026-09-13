@@ -7,7 +7,7 @@ import type { AdPerformanceRow, LabourRow, LocationSummaryRow, RevenueRow } from
 import { getNumbersGameLive, type NumbersGameLive } from "@/lib/numbers-game.functions";
 import { shiftDays, todaySydney } from "@/components/numbers/format";
 import { buildTown, type Flag, type Tone, type Town } from "@/components/numbers-game/model";
-import type { TownScene, LabelSpec, PickKind, PickTarget } from "@/components/numbers-game/scene";
+import type { TownSceneApi, TownSceneCtor, LabelSpec, PickKind, PickTarget } from "@/components/numbers-game/scene-types";
 import { SCENE_BUNDLE } from "@/components/numbers-game/scene-bundle";
 
 export const Route = createFileRoute("/_dashboard/numbers-game")({
@@ -96,8 +96,8 @@ const CSS = `
 `;
 
 type Report = { ads: AdPerformanceRow[]; locations: LocationSummaryRow[]; labourByLocation: LabourRow[]; revenueByLocation: RevenueRow[] };
-let bundlePromise: Promise<typeof TownScene> | null = null;
-function loadSceneBundle(): Promise<typeof TownScene> {
+let bundlePromise: Promise<TownSceneCtor> | null = null;
+function loadSceneBundle(): Promise<TownSceneCtor> {
   if (typeof window === "undefined") return Promise.reject(new Error("browser only"));
   if (window.__HTG_SCENE__) return Promise.resolve(window.__HTG_SCENE__.TownScene);
   if (!bundlePromise) {
@@ -111,7 +111,6 @@ function loadSceneBundle(): Promise<typeof TownScene> {
   }
   return bundlePromise;
 }
-declare global { interface Window { __HTG_SCENE__?: { TownScene: typeof TownScene } } }
 
 function sydneyHour(): number { return Number(new Date().toLocaleString("en-AU", { hour: "numeric", hour12: false, timeZone: "Australia/Sydney" })); }
 const money = (n: number) => `${n < 0 ? "−" : ""}$${Math.round(Math.abs(n)).toLocaleString()}`;
@@ -131,7 +130,7 @@ function NumbersGamePage() {
   const [picked, setPicked] = useState<PickTarget | null>(null);
   const [hour, setHour] = useState(sydneyHour());
   const canvasRef = useRef<HTMLDivElement>(null);
-  const sceneRef = useRef<TownScene | null>(null);
+  const sceneRef = useRef<TownSceneApi | null>(null);
   const seenBookingsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
@@ -186,7 +185,7 @@ function NumbersGamePage() {
   const [sceneReady, setSceneReady] = useState(0);
   useEffect(() => {
     const el = canvasRef.current; if (!el) return;
-    let scene: TownScene | null = null;
+    let scene: TownSceneApi | null = null;
     let cancelled = false;
     loadSceneBundle().then((Scene) => {
       if (cancelled) return;
