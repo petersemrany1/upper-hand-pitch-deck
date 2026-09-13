@@ -7,7 +7,7 @@ import type { AdPerformanceRow, LabourRow, LocationSummaryRow, RevenueRow } from
 import { getNumbersGameLive, type NumbersGameLive } from "@/lib/numbers-game.functions";
 import { shiftDays, todaySydney } from "@/components/numbers/format";
 import { buildTown, type Flag, type Tone, type Town } from "@/components/numbers-game/model";
-import { TownScene, type LabelSpec, type PickKind, type PickTarget } from "@/components/numbers-game/scene";
+import type { TownScene, LabelSpec, PickKind, PickTarget } from "@/components/numbers-game/scene";
 
 export const Route = createFileRoute("/_dashboard/numbers-game")({
   head: () => ({
@@ -163,21 +163,30 @@ function NumbersGamePage() {
 
   const onPick = useCallback((t: PickTarget | null) => { setPicked(t); sceneRef.current?.focus(t); }, []);
 
+  // The 3D world is browser-only: load it after mount so the server bundle never touches WebGL.
+  const [sceneReady, setSceneReady] = useState(0);
   useEffect(() => {
     const el = canvasRef.current; if (!el) return;
-    const scene = new TownScene(el, { onPick, onLabels: setLabels });
-    sceneRef.current = scene;
-    return () => { scene.dispose(); sceneRef.current = null; };
+    let scene: TownScene | null = null;
+    let cancelled = false;
+    void import("@/components/numbers-game/scene").then(({ TownScene: Scene }) => {
+      if (cancelled) return;
+      scene = new Scene(el, { onPick, onLabels: setLabels });
+      sceneRef.current = scene;
+      setSceneReady((n) => n + 1);
+    }).catch((e) => setError(e instanceof Error ? e.message : String(e)));
+    return () => { cancelled = true; scene?.dispose(); sceneRef.current = null; };
   }, [onPick]);
 
   useEffect(() => {
     if (!town || !sceneRef.current || !live) return;
     sceneRef.current.setTown(town);
+    void sceneReady;
     const ids = new Set(live.bookingsToday.map((b) => b.leadId));
     const seen = seenBookingsRef.current;
     if (seen) live.bookingsToday.filter((b) => !seen.has(b.leadId)).forEach((b, i) => window.setTimeout(() => sceneRef.current?.deliverBooking(b.repId, b.clinicId), 800 + i * 9000));
     seenBookingsRef.current = ids;
-  }, [town, live]);
+  }, [town, live, sceneReady]);
 
   if (!ready) return null;
   if (!isAdmin) return <div style={{ padding: 24, fontSize: 14 }}>Admins only.</div>;
