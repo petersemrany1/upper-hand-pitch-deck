@@ -7159,7 +7159,8 @@ function RightPanel({
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
     // cold call someone who already has an upcoming appointment.
-    if (!practiceMode && active.lead_class === "booked_active") {
+    if (!practiceMode && (active.lead_class === "booked_active"
+      || (leadHasBookedSale(active) && !bookedThisSession.has(active.id)))) {
       toast.error("Already booked — open the existing patient record instead of calling this enquiry.");
       return;
     }
