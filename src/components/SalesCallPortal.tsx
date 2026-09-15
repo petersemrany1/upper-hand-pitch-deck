@@ -695,11 +695,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           .from("call_records")
           .select("id, rep_id, lead_id, phone, called_at")
           .gte("called_at", sessionStartedAt),
+        // Count bookings by WHEN THE MONEY LANDED, not when the row was last
+        // touched — otherwise any later re-save of an old booked lead (a note
+        // edit, a repair, a post-call save) inflates today's booking count.
         supabase
           .from("meta_leads")
-          .select("id, rep_id, status, updated_at")
+          .select("id, rep_id, status, deposit_paid_at")
           .eq("status", "booked_deposit_paid")
-          .gte("updated_at", sessionStartedAt),
+          .gte("deposit_paid_at", sessionStartedAt),
       ]);
       if (callsRes.error || bookingsRes.error) {
         console.error("session stat backfill failed", callsRes.error ?? bookingsRes.error);
