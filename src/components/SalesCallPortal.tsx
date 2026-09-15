@@ -642,8 +642,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
       startedAt: sessionStartedAt, plannedHours,
+      breakSeconds, breakStartedAt,
     }));
-  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours]);
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours, breakSeconds, breakStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
