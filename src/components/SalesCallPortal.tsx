@@ -77,6 +77,13 @@ function leadHasBookedSale(lead: Lead) {
   return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
 }
 
+/**
+ * Leads booked by the rep during this browser session. A lead the rep just
+ * booked is still legitimately dialable (confirm details, resend a link);
+ * an already-booked lead from a previous day is not.
+ */
+const bookedThisSession = new Set<string>();
+
 const SALES_CALL_LEAD_LIMIT = 200;
 
 // Practice/test dummies live in meta_leads so the test portal can dial them.
@@ -688,11 +695,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           .from("call_records")
           .select("id, rep_id, lead_id, phone, called_at")
           .gte("called_at", sessionStartedAt),
+        // Count bookings by WHEN THE MONEY LANDED, not when the row was last
+        // touched — otherwise any later re-save of an old booked lead (a note
+        // edit, a repair, a post-call save) inflates today's booking count.
         supabase
           .from("meta_leads")
-          .select("id, rep_id, status, updated_at")
+          .select("id, rep_id, status, deposit_paid_at")
           .eq("status", "booked_deposit_paid")
-          .gte("updated_at", sessionStartedAt),
+          .gte("deposit_paid_at", sessionStartedAt),
       ]);
       if (callsRes.error || bookingsRes.error) {
         console.error("session stat backfill failed", callsRes.error ?? bookingsRes.error);
@@ -3999,6 +4009,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       // the countdown modal because `booked` just flipped true.
 
 
+      bookedThisSession.add(lead.id);
       onBookedSaved?.(lead.id, bookingPatch);
       onBooked();
       toast.success("Appointment booked!");
@@ -7151,7 +7162,8 @@ function RightPanel({
     if (!active.phone) { toast.error("No phone number"); return; }
     // Backstop: even if this lead somehow surfaced in the queue, never let a rep
     // cold call someone who already has an upcoming appointment.
-    if (!practiceMode && active.lead_class === "booked_active") {
+    if (!practiceMode && (active.lead_class === "booked_active"
+      || (leadHasBookedSale(active) && !bookedThisSession.has(active.id)))) {
       toast.error("Already booked — open the existing patient record instead of calling this enquiry.");
       return;
     }
