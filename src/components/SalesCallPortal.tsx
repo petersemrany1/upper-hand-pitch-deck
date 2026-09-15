@@ -504,6 +504,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [sessionCalls, setSessionCalls] = useState<number>(sessionRestored?.calls ?? 0);
   const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
   const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
+  // Break accounting. The clock is derived from (now - started_at), so without
+  // subtracting break time the whole break jumped back onto the clock the
+  // moment the rep pressed Resume (3:50 → 4:19 after a 29-minute break).
+  const [breakSeconds, setBreakSeconds] = useState<number>(
+    Number(sessionRestored?.breakSeconds) > 0 ? Number(sessionRestored?.breakSeconds) : 0
+  );
+  const [breakStartedAt, setBreakStartedAt] = useState<string | null>(
+    typeof sessionRestored?.breakStartedAt === "string" ? sessionRestored.breakStartedAt : null
+  );
   const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
   // Hours the rep plans to call today. Goal is one booking an hour.
   const [plannedHours, setPlannedHours] = useState<number>(() => {
