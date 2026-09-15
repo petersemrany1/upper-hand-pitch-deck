@@ -1425,6 +1425,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     }
     setPendingOutcomeLeadId(null);
     setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null);
+    setBreakSeconds(0); setBreakStartedAt(null);
     if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     closeRepSession();
   }, [activeId]);
@@ -1465,6 +1466,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             <button
               onClick={() => {
                 const resuming = sessionPaused;
+                if (resuming) {
+                  // Bank the break so it stays off the session clock.
+                  const startedMs = breakStartedAt ? new Date(breakStartedAt).getTime() : NaN;
+                  if (Number.isFinite(startedMs)) {
+                    setBreakSeconds((s) => s + Math.max(0, Math.floor((Date.now() - startedMs) / 1000)));
+                  }
+                  setBreakStartedAt(null);
+                } else {
+                  setBreakStartedAt(new Date().toISOString());
+                }
                 setSessionPaused((p) => !p);
                 // Coming back from a break: pick up with the lead on screen.
                 if (resuming && activeId) armAutoDial();
