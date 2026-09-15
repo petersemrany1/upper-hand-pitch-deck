@@ -1546,6 +1546,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         setSessionSeconds(0);
         setSessionStartedAt(startedAt);
         setSessionPaused(false);
+        setBreakSeconds(0);
+        setBreakStartedAt(null);
         setSessionActive(true);
         if (q.length > 0) {
           if (gateActive()) {
