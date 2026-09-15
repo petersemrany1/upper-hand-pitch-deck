@@ -570,7 +570,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return;
         }
         setSessionStartedAt(row.started_at);
-        setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000)));
+        // Breaks taken earlier in this session stay off the clock.
+        const bankedBreak = Number(sessionRestored?.breakSeconds) > 0 ? Number(sessionRestored?.breakSeconds) : 0;
+        const openBreakStart = typeof sessionRestored?.breakStartedAt === "string" ? new Date(sessionRestored.breakStartedAt).getTime() : NaN;
+        const openBreak = Number.isFinite(openBreakStart) ? Math.max(0, Math.floor((Date.now() - openBreakStart) / 1000)) : 0;
+        setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000) - bankedBreak - openBreak));
         setSessionActive(true);
       })
       .catch(() => { /* not signed in / no rep — ignore */ });
