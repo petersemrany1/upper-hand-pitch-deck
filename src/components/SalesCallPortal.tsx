@@ -4006,6 +4006,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       // the countdown modal because `booked` just flipped true.
 
 
+      bookedThisSession.add(lead.id);
       onBookedSaved?.(lead.id, bookingPatch);
       onBooked();
       toast.success("Appointment booked!");
