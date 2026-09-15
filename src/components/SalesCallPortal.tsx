@@ -504,6 +504,15 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const [sessionCalls, setSessionCalls] = useState<number>(sessionRestored?.calls ?? 0);
   const [sessionBookings, setSessionBookings] = useState<number>(sessionRestored?.bookings ?? 0);
   const [sessionPaused, setSessionPaused] = useState<boolean>(sessionRestored?.paused ?? false);
+  // Break accounting. The clock is derived from (now - started_at), so without
+  // subtracting break time the whole break jumped back onto the clock the
+  // moment the rep pressed Resume (3:50 → 4:19 after a 29-minute break).
+  const [breakSeconds, setBreakSeconds] = useState<number>(
+    Number(sessionRestored?.breakSeconds) > 0 ? Number(sessionRestored?.breakSeconds) : 0
+  );
+  const [breakStartedAt, setBreakStartedAt] = useState<string | null>(
+    typeof sessionRestored?.breakStartedAt === "string" ? sessionRestored.breakStartedAt : null
+  );
   const [sessionSeconds, setSessionSeconds] = useState<number>(sessionRestored?.seconds ?? 0);
   // Hours the rep plans to call today. Goal is one booking an hour.
   const [plannedHours, setPlannedHours] = useState<number>(() => {
@@ -561,7 +570,11 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return;
         }
         setSessionStartedAt(row.started_at);
-        setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000)));
+        // Breaks taken earlier in this session stay off the clock.
+        const bankedBreak = Number(sessionRestored?.breakSeconds) > 0 ? Number(sessionRestored?.breakSeconds) : 0;
+        const openBreakStart = typeof sessionRestored?.breakStartedAt === "string" ? new Date(sessionRestored.breakStartedAt).getTime() : NaN;
+        const openBreak = Number.isFinite(openBreakStart) ? Math.max(0, Math.floor((Date.now() - openBreakStart) / 1000)) : 0;
+        setSessionSeconds(Math.max(0, Math.floor((Date.now() - new Date(row.started_at).getTime()) / 1000) - bankedBreak - openBreak));
         setSessionActive(true);
       })
       .catch(() => { /* not signed in / no rep — ignore */ });
@@ -633,8 +646,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       active: sessionActive, manualMode, queue: sessionQueue, index: sessionIndex,
       calls: sessionCalls, bookings: sessionBookings, paused: sessionPaused, seconds: sessionSeconds,
       startedAt: sessionStartedAt, plannedHours,
+      breakSeconds, breakStartedAt,
     }));
-  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours]);
+  }, [sessionActive, manualMode, sessionQueue, sessionIndex, sessionCalls, sessionBookings, sessionPaused, sessionSeconds, sessionStartedAt, plannedHours, breakSeconds, breakStartedAt]);
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionActiveRef = useRef(false);
   useEffect(() => { sessionActiveRef.current = sessionActive; }, [sessionActive]);
@@ -645,13 +659,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const leadsRef = useRef<Lead[]>([]);
   useEffect(() => { leadsRef.current = leads; }, [leads]);
   // Timer: while a session is active and not paused, recompute seconds from
-  // (now - started_at). Using a derived value (instead of s + 1) means
-  // refreshes don't drift and multiple tabs stay in sync.
+  // (now - started_at - time spent on breaks). Using a derived value (instead
+  // of s + 1) means refreshes don't drift and multiple tabs stay in sync, and
+  // subtracting break time means the clock never jumps forward on Resume.
   useEffect(() => {
     if (sessionActive && !sessionPaused && sessionStartedAt) {
       const recompute = () => {
-        const elapsed = Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 1000));
-        setSessionSeconds(elapsed);
+        const raw = Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 1000);
+        setSessionSeconds(Math.max(0, raw - breakSeconds));
       };
       recompute();
       sessionTimerRef.current = setInterval(recompute, 1000);
@@ -659,7 +674,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
-  }, [sessionActive, sessionPaused, sessionStartedAt]);
+  }, [sessionActive, sessionPaused, sessionStartedAt, breakSeconds]);
 
   // Fire-and-forget close of the rep's open session row. Called from every
   // path that exits sessionActive (manual End button, queue exhausted, etc.).
@@ -1414,6 +1429,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     }
     setPendingOutcomeLeadId(null);
     setSessionActive(false); setSessionPaused(false); setSessionStartedAt(null); setActiveId(null);
+    setBreakSeconds(0); setBreakStartedAt(null);
     if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     closeRepSession();
   }, [activeId]);
@@ -1454,6 +1470,16 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
             <button
               onClick={() => {
                 const resuming = sessionPaused;
+                if (resuming) {
+                  // Bank the break so it stays off the session clock.
+                  const startedMs = breakStartedAt ? new Date(breakStartedAt).getTime() : NaN;
+                  if (Number.isFinite(startedMs)) {
+                    setBreakSeconds((s) => s + Math.max(0, Math.floor((Date.now() - startedMs) / 1000)));
+                  }
+                  setBreakStartedAt(null);
+                } else {
+                  setBreakStartedAt(new Date().toISOString());
+                }
                 setSessionPaused((p) => !p);
                 // Coming back from a break: pick up with the lead on screen.
                 if (resuming && activeId) armAutoDial();
@@ -1520,6 +1546,8 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
         setSessionSeconds(0);
         setSessionStartedAt(startedAt);
         setSessionPaused(false);
+        setBreakSeconds(0);
+        setBreakStartedAt(null);
         setSessionActive(true);
         if (q.length > 0) {
           if (gateActive()) {
