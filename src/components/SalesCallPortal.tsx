@@ -84,6 +84,34 @@ function leadHasBookedSale(lead: Lead) {
  */
 const bookedThisSession = new Set<string>();
 
+/**
+ * Phones of patients whose consult was marked attended ("show"). Once
+ * someone has shown up, the sales portal must never dial them again — even
+ * if they re-enquire and land back in the queue as a fresh lead. Matched by
+ * phone, not lead id, so repeat enquiries under a new lead row are caught.
+ */
+const attendedPhones = new Set<string>();
+let attendedPhonesLoadedAt = 0;
+
+async function refreshAttendedPhones() {
+  // Cache for 5 minutes — attendance rarely changes mid-session.
+  if (Date.now() - attendedPhonesLoadedAt < 5 * 60 * 1000) return;
+  const { data, error } = await supabase
+    .from("clinic_appointments")
+    .select("patient_phone")
+    .eq("outcome", "show");
+  if (error) {
+    console.error("attended-phone load failed", error);
+    return; // keep whatever we already had; fail closed only for new arrivals
+  }
+  attendedPhones.clear();
+  for (const row of data ?? []) {
+    const digits = normalisePhoneDigits((row as { patient_phone?: string | null }).patient_phone);
+    if (digits) attendedPhones.add(digits);
+  }
+  attendedPhonesLoadedAt = Date.now();
+}
+
 const SALES_CALL_LEAD_LIMIT = 200;
 
 // Practice/test dummies live in meta_leads so the test portal can dial them.
@@ -1056,6 +1084,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     };
 
     void load();
+    void refreshAttendedPhones();
     const ch = supabase.channel("sales-call-leads")
       .on("postgres_changes", { event: "*", schema: "public", table: "meta_leads" }, (payload) => {
         if (isReturningLead((payload.new as { lead_class?: string | null } | null)?.lead_class)) return;
@@ -7193,6 +7222,12 @@ function RightPanel({
     if (!practiceMode && (active.lead_class === "booked_active"
       || (leadHasBookedSale(active) && !bookedThisSession.has(active.id)))) {
       toast.error("Already booked — open the existing patient record instead of calling this enquiry.");
+      return;
+    }
+    // Hard rule: anyone who has already shown up to a consult is never
+    // dialled from the sales portal again, however they resurfaced.
+    if (!practiceMode && attendedPhones.has(normalisePhoneDigits(active.phone))) {
+      toast.error("Already attended a consult — the sales portal can't call them again.");
       return;
     }
 
