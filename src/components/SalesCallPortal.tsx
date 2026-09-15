@@ -655,13 +655,14 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   const leadsRef = useRef<Lead[]>([]);
   useEffect(() => { leadsRef.current = leads; }, [leads]);
   // Timer: while a session is active and not paused, recompute seconds from
-  // (now - started_at). Using a derived value (instead of s + 1) means
-  // refreshes don't drift and multiple tabs stay in sync.
+  // (now - started_at - time spent on breaks). Using a derived value (instead
+  // of s + 1) means refreshes don't drift and multiple tabs stay in sync, and
+  // subtracting break time means the clock never jumps forward on Resume.
   useEffect(() => {
     if (sessionActive && !sessionPaused && sessionStartedAt) {
       const recompute = () => {
-        const elapsed = Math.max(0, Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 1000));
-        setSessionSeconds(elapsed);
+        const raw = Math.floor((Date.now() - new Date(sessionStartedAt).getTime()) / 1000);
+        setSessionSeconds(Math.max(0, raw - breakSeconds));
       };
       recompute();
       sessionTimerRef.current = setInterval(recompute, 1000);
@@ -669,7 +670,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       if (sessionTimerRef.current) clearInterval(sessionTimerRef.current);
     }
     return () => { if (sessionTimerRef.current) clearInterval(sessionTimerRef.current); };
-  }, [sessionActive, sessionPaused, sessionStartedAt]);
+  }, [sessionActive, sessionPaused, sessionStartedAt, breakSeconds]);
 
   // Fire-and-forget close of the rep's open session row. Called from every
   // path that exits sessionActive (manual End button, queue exhausted, etc.).
