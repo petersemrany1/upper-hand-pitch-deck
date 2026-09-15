@@ -77,6 +77,13 @@ function leadHasBookedSale(lead: Lead) {
   return lead.status === "booked_deposit_paid" || Boolean(lead.booking_date && lead.booking_time && (paid.deposit_paid_at || paid.stripe_payment_intent_id));
 }
 
+/**
+ * Leads booked by the rep during this browser session. A lead the rep just
+ * booked is still legitimately dialable (confirm details, resend a link);
+ * an already-booked lead from a previous day is not.
+ */
+const bookedThisSession = new Set<string>();
+
 const SALES_CALL_LEAD_LIMIT = 200;
 
 // Practice/test dummies live in meta_leads so the test portal can dial them.
