@@ -51,13 +51,15 @@ const EMPTY_LOC: Omit<LocationSummaryRow, "location"> = {
 function finish(base: Omit<CityStats,
   | "costPerLead" | "costPerBooked" | "adCostPerShow" | "bookRate" | "showRate" | "labourCost" | "hoursOk"
   | "totalCost" | "profit" | "costPct" | "marketingShare" | "labourPerShow" | "trueCostPerShow"
-  | "hoursPerBooking" | "leadsPerBooking">): CityStats {
+  | "hoursPerBooking" | "leadsPerBooking" | "labourPerLead" | "totalCostPerLead">): CityStats {
   const labourCost = base.hourlyCost + base.bonusCost;
   const hoursOk = base.hours > 0;
   const totalCost = base.spend + labourCost;
   return {
     ...base,
     costPerLead: perUnit(base.spend, base.leads),
+    labourPerLead: hoursOk ? perUnit(labourCost, base.leads) : null,
+    totalCostPerLead: hoursOk ? perUnit(totalCost, base.leads) : null,
     costPerBooked: perUnit(base.spend, base.booked),
     adCostPerShow: perUnit(base.spend, base.showed),
     bookRate: ratio(base.booked, base.leads),
