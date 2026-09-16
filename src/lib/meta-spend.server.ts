@@ -183,6 +183,19 @@ export async function syncMetaSpend(opts: { since?: string; until?: string } = {
       source: "meta",
     }));
 
+  // Hand-entered rows (source = 'manual') were only ever a stand-in for days
+  // Meta wouldn't give us. They key differently to synced ad rows, so once a
+  // real sync covers those days they must go or the day is counted twice.
+  if (upserts.length > 0) {
+    const { error: manualErr } = await supabaseAdmin
+      .from("ad_spend_daily")
+      .delete()
+      .eq("source", "manual")
+      .gte("date", since)
+      .lte("date", until);
+    if (manualErr) return fail(`Manual row cleanup failed: ${manualErr.message}`);
+  }
+
   // One read for the whole range, then batched writes: rows Meta already
   // gave us are updated in place, everything else is inserted in one go.
   const existing = await supabaseAdmin
