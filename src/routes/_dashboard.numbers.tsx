@@ -317,6 +317,7 @@ function NumbersPage() {
             {([
               ["month", "This month"],
               ["30d", "Last 30 days"],
+              ["60d", "Last 60 days"],
               ["90d", "Last 90 days"],
               ["all", "All time"],
               ["custom", "Custom"],
@@ -433,6 +434,9 @@ function NumbersPage() {
           </button>
           )}
         </div>
+
+        {/* The three headline costs, for the range and city chosen above. */}
+        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} />
 
         {audit && (
           <div style={{ ...CARD, padding: 0 }}>
