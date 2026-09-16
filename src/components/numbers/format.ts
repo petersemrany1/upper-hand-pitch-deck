@@ -46,7 +46,7 @@ export const th2r: CSSProperties = { ...th2, textAlign: "right" };
 export const td2: CSSProperties = { padding: "9px 8px", whiteSpace: "nowrap", fontSize: 13 };
 export const td2r: CSSProperties = { ...td2, textAlign: "right", fontVariantNumeric: "tabular-nums" };
 
-export type RangeKey = "month" | "30d" | "90d" | "all" | "custom";
+export type RangeKey = "month" | "30d" | "60d" | "90d" | "all" | "custom";
 
 export function todaySydney(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: APP_TIMEZONE });
@@ -62,6 +62,7 @@ export function resolveRange(key: RangeKey, cf: string, ct: string): { from: str
   const today = todaySydney();
   if (key === "month") return { from: `${today.slice(0, 7)}-01`, to: today };
   if (key === "30d") return { from: shiftDays(today, -29), to: today };
+  if (key === "60d") return { from: shiftDays(today, -59), to: today };
   if (key === "90d") return { from: shiftDays(today, -89), to: today };
   if (key === "custom") return { from: cf || null, to: ct || null };
   return { from: null, to: null };

@@ -32,6 +32,7 @@ import { CityRail } from "@/components/numbers/CityRail";
 import { CityDetail } from "@/components/numbers/CityDetail";
 import { CompareTable } from "@/components/numbers/CompareTable";
 import { AdsTab } from "@/components/numbers/AdsTab";
+import { CostPerLeadStrip } from "@/components/numbers/CostPerLeadStrip";
 import { Note } from "@/components/numbers/primitives";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
@@ -317,6 +318,7 @@ function NumbersPage() {
             {([
               ["month", "This month"],
               ["30d", "Last 30 days"],
+              ["60d", "Last 60 days"],
               ["90d", "Last 90 days"],
               ["all", "All time"],
               ["custom", "Custom"],
@@ -433,6 +435,9 @@ function NumbersPage() {
           </button>
           )}
         </div>
+
+        {/* The three headline costs, for the range and city chosen above. */}
+        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} />
 
         {audit && (
           <div style={{ ...CARD, padding: 0 }}>
