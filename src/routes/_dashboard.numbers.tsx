@@ -32,6 +32,7 @@ import { CityRail } from "@/components/numbers/CityRail";
 import { CityDetail } from "@/components/numbers/CityDetail";
 import { CompareTable } from "@/components/numbers/CompareTable";
 import { AdsTab } from "@/components/numbers/AdsTab";
+import { CostPerLeadStrip } from "@/components/numbers/CostPerLeadStrip";
 import { Note } from "@/components/numbers/primitives";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
