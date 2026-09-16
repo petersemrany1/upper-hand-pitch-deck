@@ -15,6 +15,10 @@ export type CityStats = {
   needsOutcome: number;
   disqualified: number;
   costPerLead: number | null;
+  /** Rep wages + booking bonuses ÷ leads. Null when we have no hours. */
+  labourPerLead: number | null;
+  /** Ad spend + labour ÷ leads. Null when we have no hours. */
+  totalCostPerLead: number | null;
   costPerBooked: number | null;
   adCostPerShow: number | null;
   bookRate: number | null;
