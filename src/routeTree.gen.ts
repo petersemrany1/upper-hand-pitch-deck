@@ -60,6 +60,7 @@ import { Route as DashboardTrainingSalesCallExampleRouteImport } from './routes/
 import { Route as ApiPublicClinicLeadsRouteImport } from './routes/api.public.clinic-leads'
 import { Route as ApiPublicMetaAdSpendRouteImport } from './routes/api.public.meta-ad-spend'
 import { Route as ApiPublicMetaLeadsRouteImport } from './routes/api.public.meta-leads'
+import { Route as ApiPublicMetaSpendPushRouteImport } from './routes/api.public.meta-spend-push'
 import { Route as ApiPublicSamLeadsRouteImport } from './routes/api.public.sam-leads'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './routes/_dashboard.training.sales-framework.index'
@@ -355,6 +356,11 @@ const ApiPublicMetaLeadsRoute = ApiPublicMetaLeadsRouteImport.update({
   path: '/api/public/meta-leads',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicMetaSpendPushRoute = ApiPublicMetaSpendPushRouteImport.update({
+  id: '/api/public/meta-spend-push',
+  path: '/api/public/meta-spend-push',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSamLeadsRoute = ApiPublicSamLeadsRouteImport.update({
   id: '/api/public/sam-leads',
   path: '/api/public/sam-leads',
@@ -481,6 +487,7 @@ export interface FileRoutesByFullPath {
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-ad-spend': typeof ApiPublicMetaAdSpendRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/meta-spend-push': typeof ApiPublicMetaSpendPushRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training/': typeof DashboardTrainingIndexRoute
@@ -545,6 +552,7 @@ export interface FileRoutesByTo {
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-ad-spend': typeof ApiPublicMetaAdSpendRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/meta-spend-push': typeof ApiPublicMetaSpendPushRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/training': typeof DashboardTrainingIndexRoute
@@ -612,6 +620,7 @@ export interface FileRoutesById {
   '/api/public/clinic-leads': typeof ApiPublicClinicLeadsRoute
   '/api/public/meta-ad-spend': typeof ApiPublicMetaAdSpendRoute
   '/api/public/meta-leads': typeof ApiPublicMetaLeadsRoute
+  '/api/public/meta-spend-push': typeof ApiPublicMetaSpendPushRoute
   '/api/public/sam-leads': typeof ApiPublicSamLeadsRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_dashboard/training/': typeof DashboardTrainingIndexRoute
@@ -679,6 +688,7 @@ export interface FileRouteTypes {
     | '/api/public/clinic-leads'
     | '/api/public/meta-ad-spend'
     | '/api/public/meta-leads'
+    | '/api/public/meta-spend-push'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
     | '/training/'
@@ -743,6 +753,7 @@ export interface FileRouteTypes {
     | '/api/public/clinic-leads'
     | '/api/public/meta-ad-spend'
     | '/api/public/meta-leads'
+    | '/api/public/meta-spend-push'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
     | '/training'
@@ -809,6 +820,7 @@ export interface FileRouteTypes {
     | '/api/public/clinic-leads'
     | '/api/public/meta-ad-spend'
     | '/api/public/meta-leads'
+    | '/api/public/meta-spend-push'
     | '/api/public/sam-leads'
     | '/lovable/email/suppression'
     | '/_dashboard/training/'
@@ -841,6 +853,7 @@ export interface RootRouteChildren {
   ApiPublicClinicLeadsRoute: typeof ApiPublicClinicLeadsRoute
   ApiPublicMetaAdSpendRoute: typeof ApiPublicMetaAdSpendRoute
   ApiPublicMetaLeadsRoute: typeof ApiPublicMetaLeadsRoute
+  ApiPublicMetaSpendPushRoute: typeof ApiPublicMetaSpendPushRoute
   ApiPublicSamLeadsRoute: typeof ApiPublicSamLeadsRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksEnqueuePracticeRecordingRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRoute
@@ -1214,6 +1227,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaLeadsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta-spend-push': {
+      id: '/api/public/meta-spend-push'
+      path: '/api/public/meta-spend-push'
+      fullPath: '/api/public/meta-spend-push'
+      preLoaderRoute: typeof ApiPublicMetaSpendPushRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/sam-leads': {
       id: '/api/public/sam-leads'
       path: '/api/public/sam-leads'
@@ -1422,6 +1442,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicClinicLeadsRoute: ApiPublicClinicLeadsRoute,
   ApiPublicMetaAdSpendRoute: ApiPublicMetaAdSpendRoute,
   ApiPublicMetaLeadsRoute: ApiPublicMetaLeadsRoute,
+  ApiPublicMetaSpendPushRoute: ApiPublicMetaSpendPushRoute,
   ApiPublicSamLeadsRoute: ApiPublicSamLeadsRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksEnqueuePracticeRecordingRoute:
