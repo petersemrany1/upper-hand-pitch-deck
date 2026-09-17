@@ -5222,6 +5222,84 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           onTime={(v) => set("time", v)}
         />
 
+        {/* Norwood stage — required before booking. 5+ also needs the advisor to
+            confirm realistic expectations were set with the patient. */}
+        <div className="rounded-lg border border-border bg-card p-3 space-y-3">
+          <div>
+            <div className="text-sm font-medium">Norwood level <span className="text-destructive">*</span></div>
+            <div className="text-xs text-muted-foreground">Required before you can book the appointment.</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => {
+                  setNorwood(n);
+                  const nextAnswer = n >= 5 ? expectationsAnswer : null;
+                  if (n < 5) setExpectationsAnswer(null);
+                  recordNorwood(n, nextAnswer);
+                }}
+                aria-pressed={norwood === n}
+                className={`h-10 w-10 rounded-md border text-sm font-semibold transition-colors ${
+                  norwood === n
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background hover:bg-accent"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+
+          {norwoodNeedsExpectations && (
+            <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+              <div className="text-sm font-medium">
+                Have you set the expectations with the patient?
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Thicker look rather than full coverage, may need more than one session.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setExpectationsAnswer("yes"); recordNorwood(norwood, "yes"); }}
+                  aria-pressed={expectationsAnswer === "yes"}
+                  className={`rounded-md border px-4 py-2 text-sm font-medium ${
+                    expectationsAnswer === "yes"
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background hover:bg-accent"
+                  }`}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setExpectationsAnswer("no"); recordNorwood(norwood, "no"); }}
+                  aria-pressed={expectationsAnswer === "no"}
+                  className={`rounded-md border px-4 py-2 text-sm font-medium ${
+                    expectationsAnswer === "no"
+                      ? "border-destructive bg-destructive text-destructive-foreground"
+                      : "border-border bg-background hover:bg-accent"
+                  }`}
+                >
+                  No
+                </button>
+              </div>
+              {expectationsAnswer === "no" && (
+                <div className="text-sm font-medium text-destructive">
+                  Set expectations with the patient before booking the appointment
+                </div>
+              )}
+              {expectationsAnswer === "yes" && (
+                <div className="text-xs text-muted-foreground">
+                  Recorded — expectations confirmed by {repName || "advisor"}.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Payment-link gate — must be paid before booking can be locked in */}
         {(() => {
           const missing: string[] = [];
