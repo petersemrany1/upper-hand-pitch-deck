@@ -450,7 +450,7 @@ function NumbersPage() {
         </div>
 
         {/* The three headline costs, for the range and city chosen above. */}
-        {staleness.stale && (
+        {(staleness.stale || true) && (
           <div
             role="alert"
             style={{
@@ -478,7 +478,7 @@ function NumbersPage() {
           </div>
         )}
 
-        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} />
+        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={true} />
 
         {audit && (
           <div style={{ ...CARD, padding: 0 }}>
