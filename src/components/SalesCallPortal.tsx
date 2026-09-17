@@ -3430,7 +3430,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   });
   const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
   // Hair loss stage (Norwood 1–7) — required before an appointment can be
-  // booked. Norwood 5+ also needs the advisor to confirm that realistic
+  // booked. Norwood 6 and 7 also need the advisor to confirm that realistic
   // expectations were set with the patient.
   const [norwood, setNorwood] = useState<number | null>(lead.norwood_level ?? null);
   const [expectationsAnswer, setExpectationsAnswer] = useState<"yes" | "no" | null>(
