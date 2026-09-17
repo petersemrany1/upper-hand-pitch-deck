@@ -274,7 +274,7 @@ function NumbersPage() {
   // Broken-feed alarm: if the spend feed has died, the marketing figures are
   // missing days and read low, so say so loudly instead of showing them plain.
   const staleness = evaluateSpendStaleness({
-    newestDate: "2026-08-01",
+    newestDate: spendCoverage.to,
     lastStatus: syncState?.last_status ?? null,
     lastMessage: syncState?.last_message ?? null,
   });
