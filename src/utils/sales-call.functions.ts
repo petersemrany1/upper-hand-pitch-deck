@@ -1338,7 +1338,7 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       return raw;
     };
 
-    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0 });
+    const blank = () => ({ calls: 0, attempted: 0, connected: 0, bookings: 0, short: 0, convos: 0, holds: 0, notReached: 0, workSeconds: 0, breakSeconds: 0, breakGaps: 0, idleSeconds: 0, idleGaps: 0 });
     const byRep = new Map<string, ReturnType<typeof blank>>();
     for (const r of dedupedReps) byRep.set(r.id, blank());
 
