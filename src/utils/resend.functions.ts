@@ -178,6 +178,36 @@ function hasUsablePatientCallIntel(call: {
   return false;
 }
 
+/**
+ * Gathers the advisor's verbatim expectation-setting quotes across all of a
+ * lead's analysed calls (newest first, max 3). Each quote was already verified
+ * against its own transcript by auto-analyse-call, so nothing here is invented.
+ */
+async function collectExpectationsQuotes(
+  supabase: { from: (t: string) => any },
+  leadId: string,
+): Promise<string[]> {
+  const { data: rows } = await supabase
+    .from("call_records")
+    .select("call_analysis, called_at")
+    .eq("lead_id", leadId)
+    .order("called_at", { ascending: false })
+    .limit(30);
+  const out: string[] = [];
+  for (const row of (rows ?? []) as { call_analysis: unknown }[]) {
+    const analysis = row.call_analysis as { expectations_quotes?: unknown } | null;
+    const list = Array.isArray(analysis?.expectations_quotes) ? analysis!.expectations_quotes : [];
+    for (const q of list) {
+      if (typeof q !== "string") continue;
+      const quote = q.trim();
+      if (!quote || out.some((existing) => existing.toLowerCase() === quote.toLowerCase())) continue;
+      out.push(quote);
+      if (out.length >= 3) return out;
+    }
+  }
+  return out;
+}
+
 async function resolveHandoverPatientIntel(
   supabase: ReturnType<typeof getAdminClient>,
   leadId: string,
@@ -933,8 +963,11 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // If the notes are a dot-point list (lines starting with "- "), render as <ul>
     // for nicer formatting; otherwise render as a pre-wrapped paragraph.
     const baseNotes: string = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
-    // Hair loss stage always leads the intel; Norwood 5+ also carries the
-    // advisor's confirmation that realistic expectations were set on the call.
+    // Hair loss stage always leads the intel. Norwood 6-7 additionally carries
+    // the expectation-setting evidence: the advisor's own verbatim words from
+    // the call recordings, falling back to the booking confirmation when the
+    // analysis found no such quotes. Below Norwood 6, expectations are never
+    // mentioned at all.
     const { data: norwoodRow } = await supabase
       .from("meta_leads")
       .select("norwood_level, expectations_set")
@@ -943,8 +976,15 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const norwoodLevel = norwoodRow?.norwood_level ?? null;
     const norwoodLines: string[] = [];
     if (norwoodLevel != null) norwoodLines.push(`- Norwood level: ${norwoodLevel}`);
-    if (norwoodLevel != null && norwoodLevel >= 5 && norwoodRow?.expectations_set === true) {
-      norwoodLines.push("- Expectations set: Yes - confirmed by advisor");
+    if (norwoodLevel != null && norwoodLevel >= 6) {
+      const quotes = await collectExpectationsQuotes(supabase, data.leadId);
+      if (quotes.length > 0) {
+        norwoodLines.push(
+          `- Expectations set - advisor's words on the call: ${quotes.map((q) => `"${q}"`).join(" / ")}`,
+        );
+      } else if (norwoodRow?.expectations_set === true) {
+        norwoodLines.push("- Expectations set: Yes - confirmed by advisor");
+      }
     }
     const rawNotes: string = [...norwoodLines, baseNotes.trim()].filter((l) => l.length > 0).join("\n");
     const isBulletList =

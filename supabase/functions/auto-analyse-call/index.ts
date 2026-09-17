@@ -51,6 +51,53 @@ function whitelistArray(arr: unknown, allowed: string[]): string[] {
   return out;
 }
 
+// A quote only counts as expectation-setting if it actually talks about the
+// limits of the result: thicker rather than full coverage, donor hair supply,
+// or needing more than one session. Guards against the model volunteering
+// general procedure explanations ("a good surgeon maps out your pattern").
+const EXPECTATIONS_TOPIC_RE =
+  /(thick|thinner|full head|full coverage|coverage|cover(?:ing)? (?:that|the|it)|density|dense|donor|from the back|back of (?:your|the) head|grow more hair|magically|more than one|second (?:session|procedure|surgery)|two (?:sessions|procedures|surgeries)|another (?:session|procedure|surgery)|graft(?:s)? (?:available|we have)|realistic|expectation)/i;
+
+/**
+ * Keeps only quotes that appear VERBATIM in the transcript AND are genuinely
+ * about expectation-setting, so an invented, paraphrased or off-topic "quote"
+ * can never reach a clinic handover. Verbatim matching ignores punctuation,
+ * casing and whitespace differences only.
+ */
+function verifyVerbatimQuotes(list: unknown[], transcript: string): string[] {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  const haystack = norm(transcript);
+  const out: string[] = [];
+  for (const raw of list) {
+    if (typeof raw !== "string") continue;
+    const quote = raw.trim().replace(/^["“”']+|["“”']+$/g, "").trim();
+    const words = quote.split(/\s+/);
+    if (words.length < 4 || words.length > 40) continue;
+    if (!EXPECTATIONS_TOPIC_RE.test(quote)) continue;
+    const needle = norm(quote);
+    if (!needle || !haystack.includes(needle)) continue;
+    if (out.some((q) => norm(q) === needle)) continue;
+    out.push(quote);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
+/** Pulls the first JSON object out of a model reply that may carry prose after it. */
+function firstJsonObject(text: string): string {
+  const start = text.indexOf("{");
+  if (start === -1) return text;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return text.slice(start);
+}
+
 function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
   const outcome = typeof s.call_outcome === "string" && ALLOWED_CALL_OUTCOMES.includes(s.call_outcome as string)
     ? s.call_outcome
@@ -455,11 +502,74 @@ IMPORTANT RULES:
 
       structured = cleanStructured(structured);
 
+      // Pass 3 — expectation-setting evidence. Pulls the ADVISOR's own verbatim
+      // words where they set realistic expectations (thicker look rather than
+      // full coverage, possibly more than one session, donor hair limits).
+      // Every returned quote is verified to appear verbatim in the transcript,
+      // so nothing invented or paraphrased can reach the clinic handover.
+      const EXPECTATIONS_PROMPT = `You are reading a transcript of a phone call between a hair transplant ADVISOR (the person from Hair Transplant Group who asks the questions and explains the procedure) and a PATIENT enquiring about a transplant.
+
+Find ONLY the moments where the ADVISOR set realistic expectations about the LIMITS of the result. Qualifying topics, and nothing else:
+1. The result will look thicker / denser rather than a full head of hair or full coverage.
+2. It may take more than one session or procedure.
+3. Donor hair is limited — hair can only be moved from the back, so it may not cover the whole area.
+
+DOES NOT QUALIFY (never return these): general explanations of how the procedure or the surgeon works; graft placement, angles or technique; healing and timelines; motivational lines like "trust the process"; pricing; anything the PATIENT said.
+
+Return ONLY valid JSON, no preamble and no commentary after it:
+{ "expectations_quotes": ["...", "..."] }
+
+HARD RULES:
+- Each quote must be COPIED CHARACTER-FOR-CHARACTER from the transcript. Never paraphrase, never tidy up grammar, never join two separate parts with "...".
+- Only the ADVISOR's words. Anything the PATIENT said must never be included, even if it is about expectations.
+- Short quotes: roughly 5 to 25 words each. Maximum 3 quotes, the clearest ones on topics 1-3 above.
+- If the advisor never set expectations on topics 1-3, return { "expectations_quotes": [] }. Do NOT stretch unrelated lines to fill it.`;
+
+      let expectationsQuotes: string[] = [];
+      try {
+        const expResp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 600,
+            system: EXPECTATIONS_PROMPT,
+            messages: [{ role: "user", content: claudeUserContent }],
+          }),
+        });
+        if (expResp.ok) {
+          const ej = await expResp.json();
+          let eraw: string = ej?.content?.[0]?.text || "";
+          eraw = eraw.trim();
+          if (eraw.startsWith("```")) {
+            eraw = eraw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+          }
+          try {
+            const parsed = JSON.parse(firstJsonObject(eraw));
+            const list = Array.isArray(parsed?.expectations_quotes) ? parsed.expectations_quotes : [];
+            expectationsQuotes = verifyVerbatimQuotes(list, transcript);
+          } catch {
+            await logErr(`Expectations pass non-JSON: ${eraw.slice(0, 200)}`);
+          }
+        } else {
+          const t = await expResp.text();
+          await logErr(`Expectations pass failed (${expResp.status}): ${t.slice(0, 200)}`);
+        }
+      } catch (e) {
+        await logErr(`Expectations pass exception: ${(e as Error).message}`);
+      }
+
       // Save transcript + summary + structured intel to call_records
       const analysis = {
         transcript,
         patient_summary: patientSummary,
         ...structured,
+        expectations_quotes: expectationsQuotes,
+        expectations_set: expectationsQuotes.length > 0,
         analysed_at: new Date().toISOString(),
       };
       await supabase

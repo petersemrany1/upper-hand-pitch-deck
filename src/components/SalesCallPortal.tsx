@@ -3430,13 +3430,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   });
   const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
   // Hair loss stage (Norwood 1–7) — required before an appointment can be
-  // booked. Norwood 5+ also needs the advisor to confirm that realistic
+  // booked. Norwood 6 and 7 also need the advisor to confirm that realistic
   // expectations were set with the patient.
   const [norwood, setNorwood] = useState<number | null>(lead.norwood_level ?? null);
   const [expectationsAnswer, setExpectationsAnswer] = useState<"yes" | "no" | null>(
     lead.expectations_set === true ? "yes" : null,
   );
-  const norwoodNeedsExpectations = norwood != null && norwood >= 5;
+  const norwoodNeedsExpectations = norwood != null && norwood >= 6;
   const expectationsConfirmed = !norwoodNeedsExpectations || expectationsAnswer === "yes";
   const norwoodGateReady = norwood != null && expectationsConfirmed;
   const recordNorwood = (level: number | null, answer: "yes" | "no" | null) => {
@@ -5236,8 +5236,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
                 type="button"
                 onClick={() => {
                   setNorwood(n);
-                  const nextAnswer = n >= 5 ? expectationsAnswer : null;
-                  if (n < 5) setExpectationsAnswer(null);
+                  const nextAnswer = n >= 6 ? expectationsAnswer : null;
+                  if (n < 6) setExpectationsAnswer(null);
                   recordNorwood(n, nextAnswer);
                 }}
                 aria-pressed={norwood === n}
