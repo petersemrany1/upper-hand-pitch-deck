@@ -19,12 +19,19 @@ const C = {
 // Backwards-compat alias used in a few inline styles below
 const BLUE = "#f4522d";
 
-type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
+type Range =
+  | "today" | "yesterday" | "week" | "lastweek" | "7d" | "30d" | "90d"
+  | "month" | "lastmonth" | "year" | "lastyear" | "all" | "custom";
 type Row = Awaited<ReturnType<typeof getLeaderboard>>["rows"][number];
+
+const todayYmd = () =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
 function LeaderboardPage() {
   const { user } = useAuth();
   const [range, setRange] = useState<Range>("today");
+  const [customFrom, setCustomFrom] = useState<string>(todayYmd());
+  const [customTo, setCustomTo] = useState<string>(todayYmd());
   const [rows, setRows] = useState<Row[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newRep, setNewRep] = useState({ firstName: "", lastName: "", email: "" });
