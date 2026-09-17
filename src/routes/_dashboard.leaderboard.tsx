@@ -19,12 +19,19 @@ const C = {
 // Backwards-compat alias used in a few inline styles below
 const BLUE = "#f4522d";
 
-type Range = "today" | "yesterday" | "week" | "lastweek" | "30d";
+type Range =
+  | "today" | "yesterday" | "week" | "lastweek" | "7d" | "30d" | "90d"
+  | "month" | "lastmonth" | "year" | "lastyear" | "all" | "custom";
 type Row = Awaited<ReturnType<typeof getLeaderboard>>["rows"][number];
+
+const todayYmd = () =>
+  new Intl.DateTimeFormat("sv-SE", { timeZone: "Australia/Sydney", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 
 function LeaderboardPage() {
   const { user } = useAuth();
   const [range, setRange] = useState<Range>("today");
+  const [customFrom, setCustomFrom] = useState<string>(todayYmd());
+  const [customTo, setCustomTo] = useState<string>(todayYmd());
   const [rows, setRows] = useState<Row[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [newRep, setNewRep] = useState({ firstName: "", lastName: "", email: "" });
@@ -38,10 +45,10 @@ function LeaderboardPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const load = async () => {
-    const r = await getLeaderboard({ data: { range } });
+    const r = await getLeaderboard({ data: { range, from: customFrom, to: customTo } });
     if (r.success) setRows(r.rows);
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range]);
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
 
   // Realtime refresh on bookings/calls
   useEffect(() => {
@@ -129,7 +136,10 @@ function LeaderboardPage() {
   const ranges: { key: Range; label: string }[] = [
     { key: "today", label: "Today" }, { key: "yesterday", label: "Yesterday" },
     { key: "week", label: "This Week" }, { key: "lastweek", label: "Last Week" },
-    { key: "30d", label: "30 Days" },
+    { key: "30d", label: "30 Days" }, { key: "90d", label: "90 Days" },
+    { key: "month", label: "This Month" }, { key: "lastmonth", label: "Last Month" },
+    { key: "year", label: "This Year" }, { key: "lastyear", label: "Last Year" },
+    { key: "all", label: "All Time" }, { key: "custom", label: "Custom" },
   ];
   
 
@@ -167,6 +177,30 @@ function LeaderboardPage() {
               }}>{r.label}</button>
           ))}
         </div>
+
+        {range === "custom" && (
+          <div className="mt-3 flex items-end gap-2 flex-wrap">
+            <label className="text-[10px] uppercase tracking-wider font-bold" style={{ color: C.muted }}>
+              From
+              <input type="date" value={customFrom} max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="block mt-1 px-2 py-1.5 rounded-md text-xs font-semibold"
+                style={{ background: C.card, color: C.text, border: `1px solid ${C.line}` }} />
+            </label>
+            <label className="text-[10px] uppercase tracking-wider font-bold" style={{ color: C.muted }}>
+              To
+              <input type="date" value={customTo} min={customFrom || undefined} max={todayYmd()}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="block mt-1 px-2 py-1.5 rounded-md text-xs font-semibold"
+                style={{ background: C.card, color: C.text, border: `1px solid ${C.line}` }} />
+            </label>
+            <span className="text-[10px] pb-2" style={{ color: C.muted, opacity: 0.7 }}>
+              Both dates included · Sydney time
+            </span>
+          </div>
+        )}
+
+
 
         <div className="mt-4 rounded-lg overflow-hidden" style={{ background: C.card, border: `1px solid ${C.line}` }}>
           <div className="overflow-x-auto">
