@@ -1124,12 +1124,47 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     // Subtract n days using noon-of-today as a DST-safe anchor, then snap to AU midnight.
     const auNoon = new Date(todayStart.getTime() + 12 * 3600 * 1000);
     const auDayBefore = (n: number) => dayStartAU(new Date(auNoon.getTime() - n * 24 * 3600 * 1000));
+    // Calendar-boundary helpers, all read in Australia/Sydney.
+    const auParts = (d: Date) => {
+      const ymd = new Intl.DateTimeFormat("sv-SE", {
+        timeZone: APP_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(d);
+      const [y, m, day] = ymd.split("-").map((n) => parseInt(n, 10));
+      return { y, m, day };
+    };
+    // Midnight (AU) of a Y-M-D, DST-safe: anchor at AU noon then snap.
+    const auMidnight = (y: number, m: number, day: number) =>
+      dayStartAU(new Date(`${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}T12:00:00+10:00`));
+    const { y: nowY, m: nowM } = auParts(now);
+    const monthStart = auMidnight(nowY, nowM, 1);
+    const lastMonthStart = nowM === 1 ? auMidnight(nowY - 1, 12, 1) : auMidnight(nowY, nowM - 1, 1);
+    const yearStart = auMidnight(nowY, 1, 1);
+
     switch (data.range) {
       case "yesterday":         { from = auDayBefore(1);  to = todayStart; break; }
       case "today_yesterday":   { from = auDayBefore(1);  to = new Date(now); break; }
       case "week":              { from = auDayBefore(7);  to = new Date(now); break; }
       case "lastweek":          { from = auDayBefore(14); to = auDayBefore(7); break; }
+      case "7d":                { from = auDayBefore(7);  to = new Date(now); break; }
       case "30d":               { from = auDayBefore(30); to = new Date(now); break; }
+      case "90d":               { from = auDayBefore(90); to = new Date(now); break; }
+      case "month":             { from = monthStart;      to = new Date(now); break; }
+      case "lastmonth":         { from = lastMonthStart;  to = monthStart; break; }
+      case "year":              { from = yearStart;       to = new Date(now); break; }
+      case "lastyear":          { from = auMidnight(nowY - 1, 1, 1); to = yearStart; break; }
+      case "all":               { from = new Date("2020-01-01T00:00:00+10:00"); to = new Date(now); break; }
+      case "custom": {
+        const ymd = /^\d{4}-\d{2}-\d{2}$/;
+        const f = data.from && ymd.test(data.from) ? data.from : null;
+        const t = data.to && ymd.test(data.to) ? data.to : null;
+        from = f ? dayStartAU(new Date(`${f}T12:00:00+10:00`)) : todayStart;
+        // Inclusive end date: run to midnight of the following day.
+        to = t
+          ? new Date(dayStartAU(new Date(`${t}T12:00:00+10:00`)).getTime() + 24 * 3600 * 1000)
+          : new Date(now);
+        if (to.getTime() < from.getTime()) { const swap = from; from = to; to = swap; }
+        break;
+      }
       default:                  { from = todayStart;      to = new Date(now); }
     }
 
