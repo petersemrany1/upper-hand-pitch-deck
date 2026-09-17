@@ -178,6 +178,36 @@ function hasUsablePatientCallIntel(call: {
   return false;
 }
 
+/**
+ * Gathers the advisor's verbatim expectation-setting quotes across all of a
+ * lead's analysed calls (newest first, max 3). Each quote was already verified
+ * against its own transcript by auto-analyse-call, so nothing here is invented.
+ */
+async function collectExpectationsQuotes(
+  supabase: { from: (t: string) => any },
+  leadId: string,
+): Promise<string[]> {
+  const { data: rows } = await supabase
+    .from("call_records")
+    .select("call_analysis, called_at")
+    .eq("lead_id", leadId)
+    .order("called_at", { ascending: false })
+    .limit(30);
+  const out: string[] = [];
+  for (const row of (rows ?? []) as { call_analysis: unknown }[]) {
+    const analysis = row.call_analysis as { expectations_quotes?: unknown } | null;
+    const list = Array.isArray(analysis?.expectations_quotes) ? analysis!.expectations_quotes : [];
+    for (const q of list) {
+      if (typeof q !== "string") continue;
+      const quote = q.trim();
+      if (!quote || out.some((existing) => existing.toLowerCase() === quote.toLowerCase())) continue;
+      out.push(quote);
+      if (out.length >= 3) return out;
+    }
+  }
+  return out;
+}
+
 async function resolveHandoverPatientIntel(
   supabase: ReturnType<typeof getAdminClient>,
   leadId: string,
