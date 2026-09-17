@@ -4082,6 +4082,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         booking_time: form.time,
         clinic_id: form.clinicId || null,
         status: "booked_deposit_paid",
+        norwood_level: norwood,
+        ...(expectationsAnswer === "yes" ? { expectations_set: true } : {}),
       };
 
 
