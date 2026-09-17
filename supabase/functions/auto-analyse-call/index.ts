@@ -549,7 +549,7 @@ HARD RULES:
             eraw = eraw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
           }
           try {
-            const parsed = JSON.parse(eraw);
+            const parsed = JSON.parse(firstJsonObject(eraw));
             const list = Array.isArray(parsed?.expectations_quotes) ? parsed.expectations_quotes : [];
             expectationsQuotes = verifyVerbatimQuotes(list, transcript);
           } catch {
