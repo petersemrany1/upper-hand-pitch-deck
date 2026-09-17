@@ -1092,9 +1092,15 @@ export const deleteRep = createServerFn({ method: "POST" })
 
 /* ───────────────────────── Leaderboard ───────────────────────── */
 
+export type LeaderboardRange =
+  | "today" | "yesterday" | "today_yesterday" | "week" | "lastweek"
+  | "7d" | "30d" | "90d" | "month" | "lastmonth" | "year" | "lastyear" | "all" | "custom";
+
 export const getLeaderboard = createServerFn({ method: "POST" })
-  .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => ({
+  .inputValidator((data: { range: LeaderboardRange; from?: string | null; to?: string | null }) => ({
     range: data.range ?? "today",
+    from: data.from ?? null,
+    to: data.to ?? null,
   }))
   .handler(async ({ data }) => {
     const now = new Date();
