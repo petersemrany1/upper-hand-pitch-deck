@@ -5293,7 +5293,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               )}
               {expectationsAnswer === "yes" && (
                 <div className="text-xs text-muted-foreground">
-                  Recorded — expectations confirmed by {repName || "advisor"}.
+                  Recorded — expectations confirmed by advisor.
                 </div>
               )}
             </div>
