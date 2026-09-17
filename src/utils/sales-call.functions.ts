@@ -1225,14 +1225,21 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     ]));
 
     // Chunk the lead lookup too: `.in()` on 1000+ ids also hits the row cap.
-    const leadRows: { id: string; rep_id: string | null; first_name: string | null; last_name: string | null }[] = [];
+    const leadRows: { id: string; rep_id: string | null; first_name: string | null; last_name: string | null; deposit_paid_at: string | null }[] = [];
     for (let i = 0; i < relevantLeadIds.length; i += 500) {
       const slice = relevantLeadIds.slice(i, i + 500);
       const { data: chunk } = await supabaseAdmin
         .from("meta_leads")
-        .select("id, rep_id, first_name, last_name")
+        .select("id, rep_id, first_name, last_name, deposit_paid_at")
         .in("id", slice);
       leadRows.push(...((chunk ?? []) as unknown as typeof leadRows));
+    }
+    // Deposit-paid timestamp per lead: any dial placed AFTER the deposit was
+    // taken is a follow-up service call, not a sales call — excluded from the
+    // leaderboard Calls count so reps aren't penalised/padded for follow-ups.
+    const leadDepositPaidAt = new Map<string, number>();
+    for (const l of leadRows ?? []) {
+      if (l.deposit_paid_at) leadDepositPaidAt.set(l.id as string, new Date(l.deposit_paid_at as string).getTime());
     }
 
     const repCreatedAt = new Map((reps ?? []).map((r) => [r.id as string, new Date(r.created_at as string).getTime()]));
@@ -1348,6 +1355,10 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     for (const c of calls ?? []) {
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
+      // Follow-up rule: dials placed after the lead's deposit was paid are
+      // service/follow-up calls, not sales calls — never count them.
+      const paidAt = c.lead_id ? leadDepositPaidAt.get(c.lead_id as string) : undefined;
+      if (paidAt !== undefined && new Date(c.called_at as string).getTime() > paidAt) continue;
       const repId = repIdForCall(c);
       if (!repId) continue;
       // Group key: lead_id when present, otherwise fall back to the call's own id
