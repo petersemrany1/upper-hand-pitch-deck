@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {
   sendLeadMms, listMmsImages, saveFinanceCheck,
   saveBooking, clearBooking, updateLeadStatus, ensureRepForEmail,
+  saveNorwoodExpectations,
   saveCallNotes, discoveryToAmpAudio, findLeadByPhone,
   getCurrentRepSession, startRepSession, endRepSession, sweepAbandonedCalls } from "@/utils/sales-call.functions";
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
@@ -50,6 +51,8 @@ type Lead = {
   previous_lead_id?: string | null;
   lead_class?: string | null;
   lead_class_reason?: string | null;
+  norwood_level?: number | null;
+  expectations_set?: boolean | null;
 
 };
 
@@ -128,7 +131,8 @@ const SALES_CALL_LEAD_SELECT = `
   booking_time, clinic_id, rep_id, raw_payload, pipeline_summary,
   pipeline_summary_updated_at,
   deposit_paid_at, deposit_amount, stripe_payment_intent_id, stripe_checkout_session_id,
-  handover_sent_at, previous_lead_id, lead_class, lead_class_reason
+  handover_sent_at, previous_lead_id, lead_class, lead_class_reason,
+  norwood_level, expectations_set
 `;
 
 type Clinic = {
@@ -3425,6 +3429,22 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     return defaultForm;
   });
   const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
+  // Hair loss stage (Norwood 1–7) — required before an appointment can be
+  // booked. Norwood 5+ also needs the advisor to confirm that realistic
+  // expectations were set with the patient.
+  const [norwood, setNorwood] = useState<number | null>(lead.norwood_level ?? null);
+  const [expectationsAnswer, setExpectationsAnswer] = useState<"yes" | "no" | null>(
+    lead.expectations_set === true ? "yes" : null,
+  );
+  const norwoodNeedsExpectations = norwood != null && norwood >= 5;
+  const expectationsConfirmed = !norwoodNeedsExpectations || expectationsAnswer === "yes";
+  const norwoodGateReady = norwood != null && expectationsConfirmed;
+  const recordNorwood = (level: number | null, answer: "yes" | "no" | null) => {
+    if (level == null) return;
+    void saveNorwoodExpectations({
+      data: { leadId: lead.id, norwoodLevel: level, expectationsSet: answer === "yes" ? true : answer === "no" ? false : null, repId: repId ?? null },
+    }).catch(() => { /* non-blocking — the booking call re-sends it */ });
+  };
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
   const [savedAppointment, setSavedAppointment] = useState<{ clinic_id: string; doctor_id: string | null; doctor_name: string | null } | null>(null);
@@ -3644,6 +3664,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!form.funding) missing.push("funding type");
     if (!form.date) missing.push("booking date");
     if (!form.time) missing.push("booking time");
+    if (norwood == null) missing.push("Norwood level");
     if (missing.length) {
       toast.error(`Fill in ${missing.join(", ")} before sending the payment link`);
       return;
@@ -4012,6 +4033,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!form.clinicId || !clinicExplicitlySelected) { toast.error("Select a clinic before booking"); return; }
     if (!form.doctorId) { toast.error("Select a doctor before booking"); return; }
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
+    if (norwood == null) { toast.error("Select the patient's Norwood level (1–7) before booking"); return; }
+    if (norwoodNeedsExpectations && expectationsAnswer !== "yes") {
+      toast.error("Set expectations with the patient before booking the appointment");
+      return;
+    }
     if (form.clinicId) {
       // Validate against new trading hours + blocked slots system
       const [{ data: th }, { data: bs }, { data: ex }, { data: ov }, { data: pc }] = await Promise.all([
@@ -4033,7 +4059,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true, norwoodLevel: norwood, expectationsSet: expectationsAnswer === "yes" } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       if (!selectedClinic) {
@@ -4056,6 +4082,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         booking_time: form.time,
         clinic_id: form.clinicId || null,
         status: "booked_deposit_paid",
+        norwood_level: norwood,
+        ...(expectationsAnswer === "yes" ? { expectations_set: true } : {}),
       };
 
 
@@ -5194,6 +5222,84 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           onTime={(v) => set("time", v)}
         />
 
+        {/* Norwood stage — required before booking. 5+ also needs the advisor to
+            confirm realistic expectations were set with the patient. */}
+        <div className="rounded-lg border border-border bg-card p-3 space-y-3">
+          <div>
+            <div className="text-sm font-medium">Norwood level <span className="text-destructive">*</span></div>
+            <div className="text-xs text-muted-foreground">Required before you can book the appointment.</div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => {
+                  setNorwood(n);
+                  const nextAnswer = n >= 5 ? expectationsAnswer : null;
+                  if (n < 5) setExpectationsAnswer(null);
+                  recordNorwood(n, nextAnswer);
+                }}
+                aria-pressed={norwood === n}
+                className={`h-10 w-10 rounded-md border text-sm font-semibold transition-colors ${
+                  norwood === n
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background hover:bg-accent"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+
+          {norwoodNeedsExpectations && (
+            <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
+              <div className="text-sm font-medium">
+                Have you set the expectations with the patient?
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Thicker look rather than full coverage, may need more than one session.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setExpectationsAnswer("yes"); recordNorwood(norwood, "yes"); }}
+                  aria-pressed={expectationsAnswer === "yes"}
+                  className={`rounded-md border px-4 py-2 text-sm font-medium ${
+                    expectationsAnswer === "yes"
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background hover:bg-accent"
+                  }`}
+                >
+                  Yes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setExpectationsAnswer("no"); recordNorwood(norwood, "no"); }}
+                  aria-pressed={expectationsAnswer === "no"}
+                  className={`rounded-md border px-4 py-2 text-sm font-medium ${
+                    expectationsAnswer === "no"
+                      ? "border-destructive bg-destructive text-destructive-foreground"
+                      : "border-border bg-background hover:bg-accent"
+                  }`}
+                >
+                  No
+                </button>
+              </div>
+              {expectationsAnswer === "no" && (
+                <div className="text-sm font-medium text-destructive">
+                  Set expectations with the patient before booking the appointment
+                </div>
+              )}
+              {expectationsAnswer === "yes" && (
+                <div className="text-xs text-muted-foreground">
+                  Recorded — expectations confirmed by advisor.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Payment-link gate — must be paid before booking can be locked in */}
         {(() => {
           const missing: string[] = [];
@@ -5203,6 +5309,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           if (!form.funding) missing.push("funding type");
           if (!form.date) missing.push("date");
           if (!form.time) missing.push("time");
+          if (norwood == null) missing.push("Norwood level");
           const formIncomplete = missing.length > 0;
           return !paymentReceivedAt ? (
             <button
@@ -5262,20 +5369,33 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           </button>
         )}
 
-        <button
-          onClick={() => void book()}
-          disabled={!paymentReceivedAt || !form.clinicId || !clinicExplicitlySelected || !form.doctorId || !form.date || !form.time}
-          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined)}
-          className="w-full rounded-[6px]"
-          style={{
-            background: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? COLORS.green : "#e5e7eb",
-            color: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "#ffffff" : "#9ca3af",
-            fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
-            cursor: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "pointer" : "not-allowed",
-          }}
-        >
-          {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
-        </button>
+        {(() => {
+          const bookReady = Boolean(paymentReceivedAt) && Boolean(form.clinicId) && clinicExplicitlySelected
+            && Boolean(form.doctorId) && Boolean(form.date) && Boolean(form.time) && norwoodGateReady;
+          const bookTitle = !paymentReceivedAt
+            ? "Send payment link and wait for Stripe to confirm"
+            : norwood == null
+              ? "Select the patient's Norwood level (1–7) before booking"
+              : !expectationsConfirmed
+                ? "Set expectations with the patient before booking the appointment"
+                : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined);
+          return (
+            <button
+              onClick={() => void book()}
+              disabled={!bookReady}
+              title={bookTitle}
+              className="w-full rounded-[6px]"
+              style={{
+                background: bookReady ? COLORS.green : "#e5e7eb",
+                color: bookReady ? "#ffffff" : "#9ca3af",
+                fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
+                cursor: bookReady ? "pointer" : "not-allowed",
+              }}
+            >
+              {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
+            </button>
+          );
+        })()}
       </Card>
 
       {/* MUST DO'S — before you hang up */}

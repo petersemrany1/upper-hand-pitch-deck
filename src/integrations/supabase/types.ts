@@ -431,9 +431,11 @@ export type Database = {
           disqualified_reason: string | null
           doctor_id: string | null
           doctor_name: string | null
+          expectations_set: boolean | null
           id: string
           intel_notes: string | null
           lead_id: string | null
+          norwood_level: number | null
           outcome: string | null
           patient_email: string | null
           patient_name: string
@@ -466,9 +468,11 @@ export type Database = {
           disqualified_reason?: string | null
           doctor_id?: string | null
           doctor_name?: string | null
+          expectations_set?: boolean | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
+          norwood_level?: number | null
           outcome?: string | null
           patient_email?: string | null
           patient_name: string
@@ -501,9 +505,11 @@ export type Database = {
           disqualified_reason?: string | null
           doctor_id?: string | null
           doctor_name?: string | null
+          expectations_set?: boolean | null
           id?: string
           intel_notes?: string | null
           lead_id?: string | null
+          norwood_level?: number | null
           outcome?: string | null
           patient_email?: string | null
           patient_name?: string
@@ -1870,6 +1876,9 @@ export type Database = {
           deposit_paid_at: string | null
           deposit_token: string | null
           email: string | null
+          expectations_set: boolean | null
+          expectations_set_at: string | null
+          expectations_set_by: string | null
           finance_eligible: boolean | null
           finance_form_answers: Json | null
           first_name: string | null
@@ -1880,6 +1889,7 @@ export type Database = {
           lead_class: string
           lead_class_reason: string | null
           lead_id: string | null
+          norwood_level: number | null
           payment_processor: string | null
           phone: string | null
           pipeline_summary: string | null
@@ -1911,6 +1921,9 @@ export type Database = {
           deposit_paid_at?: string | null
           deposit_token?: string | null
           email?: string | null
+          expectations_set?: boolean | null
+          expectations_set_at?: string | null
+          expectations_set_by?: string | null
           finance_eligible?: boolean | null
           finance_form_answers?: Json | null
           first_name?: string | null
@@ -1921,6 +1934,7 @@ export type Database = {
           lead_class?: string
           lead_class_reason?: string | null
           lead_id?: string | null
+          norwood_level?: number | null
           payment_processor?: string | null
           phone?: string | null
           pipeline_summary?: string | null
@@ -1952,6 +1966,9 @@ export type Database = {
           deposit_paid_at?: string | null
           deposit_token?: string | null
           email?: string | null
+          expectations_set?: boolean | null
+          expectations_set_at?: string | null
+          expectations_set_by?: string | null
           finance_eligible?: boolean | null
           finance_form_answers?: Json | null
           first_name?: string | null
@@ -1962,6 +1979,7 @@ export type Database = {
           lead_class?: string
           lead_class_reason?: string | null
           lead_id?: string | null
+          norwood_level?: number | null
           payment_processor?: string | null
           phone?: string | null
           pipeline_summary?: string | null

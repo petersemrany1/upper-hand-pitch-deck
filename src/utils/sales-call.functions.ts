@@ -275,11 +275,16 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
 
 export const saveBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { leadId: string; clinicId: string | null; doctorId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
+  .inputValidator((data: { leadId: string; clinicId: string | null; doctorId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean; norwoodLevel?: number | null; expectationsSet?: boolean | null }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     doctorId: data.doctorId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
     repId: data.repId ?? null,
+    // Hair loss stage (Norwood 1–7). Required before an appointment can be
+    // booked; Norwood 5+ additionally requires the advisor to confirm that
+    // realistic expectations were set with the patient.
+    norwoodLevel: data.norwoodLevel == null ? null : Number(data.norwoodLevel),
+    expectationsSet: data.expectationsSet === true ? true : data.expectationsSet === false ? false : null,
     // When true (Book button click), the server also promotes meta_leads.status
     // to "booked_deposit_paid" — atomically, only after clinic_appointments is
     // confirmed to exist so enforce_booking_before_status_lock can never block us.
@@ -288,6 +293,13 @@ export const saveBooking = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
       return { success: false as const, error: "Lead, clinic, doctor, date and time are required" };
+    }
+    const norwood = data.norwoodLevel;
+    if (norwood == null || !Number.isFinite(norwood) || norwood < 1 || norwood > 7) {
+      return { success: false as const, error: "Select the patient's Norwood level (1–7) before booking" };
+    }
+    if (norwood >= 5 && data.expectationsSet !== true) {
+      return { success: false as const, error: "Set expectations with the patient before booking the appointment" };
     }
     const { data: doctor, error: doctorErr } = await supabaseAdmin
       .from("partner_doctors")
@@ -305,11 +317,21 @@ export const saveBooking = createServerFn({ method: "POST" })
     const updatePayload: {
       booking_date: string; booking_time: string; clinic_id: string | null;
       updated_at: string; rep_id?: string;
+      norwood_level: number;
+      expectations_set?: boolean;
+      expectations_set_by?: string | null;
+      expectations_set_at?: string;
     } = {
       booking_date: data.date, booking_time: data.time, clinic_id: data.clinicId,
       updated_at: new Date().toISOString(),
+      norwood_level: norwood,
     };
     if (data.repId) updatePayload.rep_id = data.repId;
+    if (data.expectationsSet === true) {
+      updatePayload.expectations_set = true;
+      updatePayload.expectations_set_by = data.repId ?? null;
+      updatePayload.expectations_set_at = new Date().toISOString();
+    }
     const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
 
@@ -340,6 +362,8 @@ export const saveBooking = createServerFn({ method: "POST" })
         patient_email: leadRow?.email ?? null,
         appointment_date: data.date,
         appointment_time: data.time,
+        norwood_level: norwood,
+        expectations_set: data.expectationsSet === true ? true : null,
       };
       // Carry over deposit info from meta_leads if the payment (Square or
       // Stripe) landed before the booking row was created, so the clinic's
@@ -467,6 +491,57 @@ export const saveBooking = createServerFn({ method: "POST" })
     };
   });
 
+
+/**
+ * Records the patient's hair-loss stage (Norwood 1–7) on the lead, plus — for
+ * Norwood 5+ — the advisor's confirmation that realistic expectations were set
+ * (who confirmed it and when). Saved as soon as the advisor answers, so the
+ * answer survives even if the booking isn't completed on this call.
+ */
+export const saveNorwoodExpectations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { leadId: string; norwoodLevel: number; expectationsSet?: boolean | null; repId?: string | null }) => ({
+    leadId: String(data.leadId ?? ""),
+    norwoodLevel: Number(data.norwoodLevel),
+    expectationsSet: data.expectationsSet === true ? true : data.expectationsSet === false ? false : null,
+    repId: data.repId ?? null,
+  }))
+  .handler(async ({ data }) => {
+    if (!data.leadId) return { success: false as const, error: "leadId required" };
+    const n = data.norwoodLevel;
+    if (!Number.isFinite(n) || n < 1 || n > 7) {
+      return { success: false as const, error: "Norwood level must be between 1 and 7" };
+    }
+    const patch: {
+      norwood_level: number;
+      updated_at: string;
+      expectations_set?: boolean;
+      expectations_set_by?: string | null;
+      expectations_set_at?: string;
+    } = {
+      norwood_level: n,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.expectationsSet === true) {
+      patch.expectations_set = true;
+      patch.expectations_set_by = data.repId ?? null;
+      patch.expectations_set_at = new Date().toISOString();
+    } else if (data.expectationsSet === false) {
+      patch.expectations_set = false;
+    }
+    const { error } = await supabaseAdmin.from("meta_leads").update(patch).eq("id", data.leadId);
+    if (error) return { success: false as const, error: error.message };
+    // Keep an already-created appointment row in step (a re-book on the same lead).
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update({
+        norwood_level: n,
+        ...(data.expectationsSet === true ? { expectations_set: true } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("lead_id", data.leadId);
+    return { success: true as const };
+  });
 
 export const clearBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
