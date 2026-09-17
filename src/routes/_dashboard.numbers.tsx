@@ -273,15 +273,11 @@ function NumbersPage() {
 
   // Broken-feed alarm: if the spend feed has died, the marketing figures are
   // missing days and read low, so say so loudly instead of showing them plain.
-  const staleness = useMemo(
-    () =>
-      evaluateSpendStaleness({
-        newestDate: spendCoverage.to,
-        lastStatus: syncState?.last_status ?? null,
-        lastMessage: syncState?.last_message ?? null,
-      }),
-    [spendCoverage.to, syncState?.last_status, syncState?.last_message],
-  );
+  const staleness = evaluateSpendStaleness({
+    newestDate: spendCoverage.to,
+    lastStatus: syncState?.last_status ?? null,
+    lastMessage: syncState?.last_message ?? null,
+  });
 
   const useSpendWindow = () => {
     if (!spendCoverage.from) return;
