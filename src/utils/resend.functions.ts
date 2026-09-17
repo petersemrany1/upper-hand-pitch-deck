@@ -1490,7 +1490,9 @@ export const sendManualSms = createServerFn({ method: "POST" })
 
 export const analyseCallPatterns = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { range: "today" | "yesterday" | "today_yesterday" | "week" | "lastweek" | "30d" }) => data)
+  // The analysis itself always looks at today + yesterday; the range is only
+  // carried through for logging, so any leaderboard range label is accepted.
+  .inputValidator((data: { range: string }) => data)
   .handler(async ({ data }) => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
