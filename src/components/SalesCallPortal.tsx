@@ -5369,20 +5369,33 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           </button>
         )}
 
-        <button
-          onClick={() => void book()}
-          disabled={!paymentReceivedAt || !form.clinicId || !clinicExplicitlySelected || !form.doctorId || !form.date || !form.time}
-          title={!paymentReceivedAt ? "Send payment link and wait for Stripe to confirm" : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined)}
-          className="w-full rounded-[6px]"
-          style={{
-            background: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? COLORS.green : "#e5e7eb",
-            color: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "#ffffff" : "#9ca3af",
-            fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
-            cursor: paymentReceivedAt && form.clinicId && clinicExplicitlySelected && form.doctorId && form.date && form.time ? "pointer" : "not-allowed",
-          }}
-        >
-          {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
-        </button>
+        {(() => {
+          const bookReady = Boolean(paymentReceivedAt) && Boolean(form.clinicId) && clinicExplicitlySelected
+            && Boolean(form.doctorId) && Boolean(form.date) && Boolean(form.time) && norwoodGateReady;
+          const bookTitle = !paymentReceivedAt
+            ? "Send payment link and wait for Stripe to confirm"
+            : norwood == null
+              ? "Select the patient's Norwood level (1–7) before booking"
+              : !expectationsConfirmed
+                ? "Set expectations with the patient before booking the appointment"
+                : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined);
+          return (
+            <button
+              onClick={() => void book()}
+              disabled={!bookReady}
+              title={bookTitle}
+              className="w-full rounded-[6px]"
+              style={{
+                background: bookReady ? COLORS.green : "#e5e7eb",
+                color: bookReady ? "#ffffff" : "#9ca3af",
+                fontSize: 13, fontWeight: 500, padding: "9px 20px", marginTop: 4,
+                cursor: bookReady ? "pointer" : "not-allowed",
+              }}
+            >
+              {paymentReceivedAt ? "Book appointment" : "🔒 Book appointment (payment required)"}
+            </button>
+          );
+        })()}
       </Card>
 
       {/* MUST DO'S — before you hang up */}
