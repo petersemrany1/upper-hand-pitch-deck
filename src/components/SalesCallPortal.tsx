@@ -3664,6 +3664,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!form.funding) missing.push("funding type");
     if (!form.date) missing.push("booking date");
     if (!form.time) missing.push("booking time");
+    if (norwood == null) missing.push("Norwood level");
     if (missing.length) {
       toast.error(`Fill in ${missing.join(", ")} before sending the payment link`);
       return;
@@ -5223,6 +5224,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           if (!form.funding) missing.push("funding type");
           if (!form.date) missing.push("date");
           if (!form.time) missing.push("time");
+          if (norwood == null) missing.push("Norwood level");
           const formIncomplete = missing.length > 0;
           return !paymentReceivedAt ? (
             <button
