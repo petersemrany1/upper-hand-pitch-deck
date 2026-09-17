@@ -1355,6 +1355,10 @@ export const getLeaderboard = createServerFn({ method: "POST" })
     for (const c of calls ?? []) {
       if (c.lead_id && excludedLeadIds.has(c.lead_id)) continue; // skip Peter Test
       if (c.status === "ringing" || c.status === "initiated" || c.status === "queued" || c.status === "in-progress") continue;
+      // Follow-up rule: dials placed after the lead's deposit was paid are
+      // service/follow-up calls, not sales calls — never count them.
+      const paidAt = c.lead_id ? leadDepositPaidAt.get(c.lead_id as string) : undefined;
+      if (paidAt !== undefined && new Date(c.called_at as string).getTime() > paidAt) continue;
       const repId = repIdForCall(c);
       if (!repId) continue;
       // Group key: lead_id when present, otherwise fall back to the call's own id
