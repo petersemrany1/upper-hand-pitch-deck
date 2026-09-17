@@ -317,11 +317,21 @@ export const saveBooking = createServerFn({ method: "POST" })
     const updatePayload: {
       booking_date: string; booking_time: string; clinic_id: string | null;
       updated_at: string; rep_id?: string;
+      norwood_level: number;
+      expectations_set?: boolean;
+      expectations_set_by?: string | null;
+      expectations_set_at?: string;
     } = {
       booking_date: data.date, booking_time: data.time, clinic_id: data.clinicId,
       updated_at: new Date().toISOString(),
+      norwood_level: norwood,
     };
     if (data.repId) updatePayload.rep_id = data.repId;
+    if (data.expectationsSet === true) {
+      updatePayload.expectations_set = true;
+      updatePayload.expectations_set_by = data.repId ?? null;
+      updatePayload.expectations_set_at = new Date().toISOString();
+    }
     const { error } = await supabaseAdmin.from("meta_leads").update(updatePayload).eq("id", data.leadId);
     if (error) return { success: false as const, error: error.message };
 
