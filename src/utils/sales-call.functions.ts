@@ -1463,6 +1463,40 @@ export const getLeaderboard = createServerFn({ method: "POST" })
       byRep.set(repId, s);
     }
 
+    // Average IDLE time between calls, EXCLUDING gaps that contain a booking —
+    // the pause after a booked call is the rep building the clinic handover /
+    // taking the deposit, not idle dialling time. Same 30-min session boundary
+    // as the break calculation.
+    const bookingTimesByRep = new Map<string, number[]>();
+    for (const [leadId, bookedAt] of bookedLeadIds.entries()) {
+      if (excludedLeadIds.has(leadId) || !bookedAt) continue;
+      const repId = repIdForLead(leadId, bookedAt);
+      if (!repId) continue;
+      const list = bookingTimesByRep.get(repId) ?? [];
+      list.push(new Date(bookedAt).getTime());
+      bookingTimesByRep.set(repId, list);
+    }
+    for (const [repId, repCalls] of callsByRep.entries()) {
+      // repCalls already sorted by start.
+      const bookings = (bookingTimesByRep.get(repId) ?? []).sort((a, b) => a - b);
+      let idleSecs = 0;
+      let idleCount = 0;
+      for (let i = 1; i < repCalls.length; i++) {
+        const gapSecs = (repCalls[i].start - repCalls[i - 1].end) / 1000;
+        if (gapSecs <= 0 || gapSecs >= GAP_LIMIT_SECS) continue;
+        const gapStart = repCalls[i - 1].end;
+        const gapEnd = repCalls[i].start;
+        const isHandover = bookings.some((b) => b >= gapStart && b <= gapEnd);
+        if (isHandover) continue;
+        idleSecs += gapSecs;
+        idleCount += 1;
+      }
+      const s = byRep.get(repId) ?? blank();
+      s.idleSeconds = Math.round(idleSecs);
+      s.idleGaps = idleCount;
+      byRep.set(repId, s);
+    }
+
     const rows = dedupedReps.map((r) => {
       const s = byRep.get(r.id) ?? blank();
       const holdRate = s.connected > 0 ? Math.round((s.holds / s.connected) * 100) : 0;
