@@ -45,10 +45,10 @@ function LeaderboardPage() {
   const abortRef = useRef<AbortController | null>(null);
 
   const load = async () => {
-    const r = await getLeaderboard({ data: { range } });
+    const r = await getLeaderboard({ data: { range, from: customFrom, to: customTo } });
     if (r.success) setRows(r.rows);
   };
-  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range]);
+  useEffect(() => { void load(); /* eslint-disable-next-line */ }, [range, customFrom, customTo]);
 
   // Realtime refresh on bookings/calls
   useEffect(() => {
