@@ -1514,6 +1514,8 @@ export const getLeaderboard = createServerFn({ method: "POST" })
         workMinutes: Math.round(s.workSeconds / 60),
         breakMinutes: Math.round(s.breakSeconds / 60),
         breakGaps: s.breakGaps,
+        // Average idle gap between calls in seconds, booking/handover gaps excluded.
+        avgIdleSeconds: s.idleGaps > 0 ? Math.round(s.idleSeconds / s.idleGaps) : 0,
         bonus: s.bookings * 50,
       };
     }).sort((a, b) => b.bookings - a.bookings || b.calls - a.calls);
