@@ -51,10 +51,18 @@ function whitelistArray(arr: unknown, allowed: string[]): string[] {
   return out;
 }
 
+// A quote only counts as expectation-setting if it actually talks about the
+// limits of the result: thicker rather than full coverage, donor hair supply,
+// or needing more than one session. Guards against the model volunteering
+// general procedure explanations ("a good surgeon maps out your pattern").
+const EXPECTATIONS_TOPIC_RE =
+  /(thick|thinner|full head|full coverage|coverage|cover(?:ing)? (?:that|the|it)|density|dense|donor|from the back|back of (?:your|the) head|grow more hair|magically|more than one|second (?:session|procedure|surgery)|two (?:sessions|procedures|surgeries)|another (?:session|procedure|surgery)|graft(?:s)? (?:available|we have)|realistic|expectation)/i;
+
 /**
- * Keeps only quotes that appear VERBATIM in the transcript, so an invented or
- * paraphrased "quote" can never reach a clinic handover. Matching ignores
- * punctuation, casing and whitespace differences only.
+ * Keeps only quotes that appear VERBATIM in the transcript AND are genuinely
+ * about expectation-setting, so an invented, paraphrased or off-topic "quote"
+ * can never reach a clinic handover. Verbatim matching ignores punctuation,
+ * casing and whitespace differences only.
  */
 function verifyVerbatimQuotes(list: unknown[], transcript: string): string[] {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
@@ -65,6 +73,7 @@ function verifyVerbatimQuotes(list: unknown[], transcript: string): string[] {
     const quote = raw.trim().replace(/^["“”']+|["“”']+$/g, "").trim();
     const words = quote.split(/\s+/);
     if (words.length < 4 || words.length > 40) continue;
+    if (!EXPECTATIONS_TOPIC_RE.test(quote)) continue;
     const needle = norm(quote);
     if (!needle || !haystack.includes(needle)) continue;
     if (out.some((q) => norm(q) === needle)) continue;
@@ -72,6 +81,21 @@ function verifyVerbatimQuotes(list: unknown[], transcript: string): string[] {
     if (out.length >= 3) break;
   }
   return out;
+}
+
+/** Pulls the first JSON object out of a model reply that may carry prose after it. */
+function firstJsonObject(text: string): string {
+  const start = text.indexOf("{");
+  if (start === -1) return text;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return text.slice(start);
 }
 
 function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
