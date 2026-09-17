@@ -512,7 +512,13 @@ export const saveNorwoodExpectations = createServerFn({ method: "POST" })
     if (!Number.isFinite(n) || n < 1 || n > 7) {
       return { success: false as const, error: "Norwood level must be between 1 and 7" };
     }
-    const patch: Record<string, unknown> = {
+    const patch: {
+      norwood_level: number;
+      updated_at: string;
+      expectations_set?: boolean;
+      expectations_set_by?: string | null;
+      expectations_set_at?: string;
+    } = {
       norwood_level: n,
       updated_at: new Date().toISOString(),
     };
