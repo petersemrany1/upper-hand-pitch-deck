@@ -246,7 +246,6 @@ function LeaderboardPage() {
                       <Td><span style={{ color: convColor }}>{r.conversion}%</span></Td>
                       <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
                       <Td><span style={{ color: "#111" }}>{isPeter ? "—" : `${(r.workMinutes / 60).toFixed(1)}h`}</span></Td>
-                       <Td><span style={{ color: isPeter ? "#111" : breakColor }}>{isPeter ? "—" : (avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—")}</span></Td>
                        <Td><span style={{ color: isPeter ? "#111" : idleColor }}>{isPeter ? "—" : idleLabel}</span></Td>
                       <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
                     </tr>
