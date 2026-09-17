@@ -4059,7 +4059,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return;
       }
     }
-    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true } });
+    const r = await saveBooking({ data: { leadId: lead.id, clinicId: form.clinicId, doctorId: form.doctorId, date: form.date, time: form.time, repId: repId ?? null, promoteStatus: true, norwoodLevel: norwood, expectationsSet: expectationsAnswer === "yes" } });
     if (r.success) {
       const selectedClinic = clinics.find((c) => c.id === form.clinicId);
       if (!selectedClinic) {
