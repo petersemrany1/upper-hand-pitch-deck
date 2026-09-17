@@ -178,6 +178,30 @@ function LeaderboardPage() {
           ))}
         </div>
 
+        {range === "custom" && (
+          <div className="mt-3 flex items-end gap-2 flex-wrap">
+            <label className="text-[10px] uppercase tracking-wider font-bold" style={{ color: C.muted }}>
+              From
+              <input type="date" value={customFrom} max={customTo || undefined}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="block mt-1 px-2 py-1.5 rounded-md text-xs font-semibold"
+                style={{ background: C.card, color: C.text, border: `1px solid ${C.line}` }} />
+            </label>
+            <label className="text-[10px] uppercase tracking-wider font-bold" style={{ color: C.muted }}>
+              To
+              <input type="date" value={customTo} min={customFrom || undefined} max={todayYmd()}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="block mt-1 px-2 py-1.5 rounded-md text-xs font-semibold"
+                style={{ background: C.card, color: C.text, border: `1px solid ${C.line}` }} />
+            </label>
+            <span className="text-[10px] pb-2" style={{ color: C.muted, opacity: 0.7 }}>
+              Both dates included · Sydney time
+            </span>
+          </div>
+        )}
+
+
+
         <div className="mt-4 rounded-lg overflow-hidden" style={{ background: C.card, border: `1px solid ${C.line}` }}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
