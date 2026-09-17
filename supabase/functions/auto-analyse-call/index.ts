@@ -509,16 +509,21 @@ IMPORTANT RULES:
       // so nothing invented or paraphrased can reach the clinic handover.
       const EXPECTATIONS_PROMPT = `You are reading a transcript of a phone call between a hair transplant ADVISOR (the person from Hair Transplant Group who asks the questions and explains the procedure) and a PATIENT enquiring about a transplant.
 
-Find the moments where the ADVISOR set realistic expectations about the result. That means the advisor saying things like: the result will look thicker rather than a full head of hair / full coverage; it may take more than one session or procedure; there is a limit to the donor hair available so they can only redistribute existing hair; managing expectations about density.
+Find ONLY the moments where the ADVISOR set realistic expectations about the LIMITS of the result. Qualifying topics, and nothing else:
+1. The result will look thicker / denser rather than a full head of hair or full coverage.
+2. It may take more than one session or procedure.
+3. Donor hair is limited — hair can only be moved from the back, so it may not cover the whole area.
 
-Return ONLY valid JSON, no preamble:
+DOES NOT QUALIFY (never return these): general explanations of how the procedure or the surgeon works; graft placement, angles or technique; healing and timelines; motivational lines like "trust the process"; pricing; anything the PATIENT said.
+
+Return ONLY valid JSON, no preamble and no commentary after it:
 { "expectations_quotes": ["...", "..."] }
 
 HARD RULES:
 - Each quote must be COPIED CHARACTER-FOR-CHARACTER from the transcript. Never paraphrase, never tidy up grammar, never join two separate parts with "...".
 - Only the ADVISOR's words. Anything the PATIENT said must never be included, even if it is about expectations.
-- Short quotes: roughly 5 to 25 words each. Maximum 3 quotes, the clearest ones.
-- If the advisor never set expectations, return { "expectations_quotes": [] }. Do NOT stretch unrelated lines to fill it.`;
+- Short quotes: roughly 5 to 25 words each. Maximum 3 quotes, the clearest ones on topics 1-3 above.
+- If the advisor never set expectations on topics 1-3, return { "expectations_quotes": [] }. Do NOT stretch unrelated lines to fill it.`;
 
       let expectationsQuotes: string[] = [];
       try {
