@@ -34,6 +34,7 @@ import { CompareTable } from "@/components/numbers/CompareTable";
 import { AdsTab } from "@/components/numbers/AdsTab";
 import { CostPerLeadStrip } from "@/components/numbers/CostPerLeadStrip";
 import { Note } from "@/components/numbers/primitives";
+import { evaluateSpendStaleness } from "@/lib/spend-staleness";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
   head: () => ({
@@ -269,6 +270,18 @@ function NumbersPage() {
     spendCoverage.from !== null && (range.from === null || range.from < spendCoverage.from);
   const fmtDate = (iso: string) =>
     new Date(`${iso}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+
+  // Broken-feed alarm: if the spend feed has died, the marketing figures are
+  // missing days and read low, so say so loudly instead of showing them plain.
+  const staleness = useMemo(
+    () =>
+      evaluateSpendStaleness({
+        newestDate: spendCoverage.to,
+        lastStatus: syncState?.last_status ?? null,
+        lastMessage: syncState?.last_message ?? null,
+      }),
+    [spendCoverage.to, syncState?.last_status, syncState?.last_message],
+  );
 
   const useSpendWindow = () => {
     if (!spendCoverage.from) return;
