@@ -362,6 +362,8 @@ export const saveBooking = createServerFn({ method: "POST" })
         patient_email: leadRow?.email ?? null,
         appointment_date: data.date,
         appointment_time: data.time,
+        norwood_level: norwood,
+        expectations_set: data.expectationsSet === true ? true : null,
       };
       // Carry over deposit info from meta_leads if the payment (Square or
       // Stripe) landed before the booking row was created, so the clinic's
