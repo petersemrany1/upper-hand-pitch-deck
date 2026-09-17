@@ -455,11 +455,69 @@ IMPORTANT RULES:
 
       structured = cleanStructured(structured);
 
+      // Pass 3 — expectation-setting evidence. Pulls the ADVISOR's own verbatim
+      // words where they set realistic expectations (thicker look rather than
+      // full coverage, possibly more than one session, donor hair limits).
+      // Every returned quote is verified to appear verbatim in the transcript,
+      // so nothing invented or paraphrased can reach the clinic handover.
+      const EXPECTATIONS_PROMPT = `You are reading a transcript of a phone call between a hair transplant ADVISOR (the person from Hair Transplant Group who asks the questions and explains the procedure) and a PATIENT enquiring about a transplant.
+
+Find the moments where the ADVISOR set realistic expectations about the result. That means the advisor saying things like: the result will look thicker rather than a full head of hair / full coverage; it may take more than one session or procedure; there is a limit to the donor hair available so they can only redistribute existing hair; managing expectations about density.
+
+Return ONLY valid JSON, no preamble:
+{ "expectations_quotes": ["...", "..."] }
+
+HARD RULES:
+- Each quote must be COPIED CHARACTER-FOR-CHARACTER from the transcript. Never paraphrase, never tidy up grammar, never join two separate parts with "...".
+- Only the ADVISOR's words. Anything the PATIENT said must never be included, even if it is about expectations.
+- Short quotes: roughly 5 to 25 words each. Maximum 3 quotes, the clearest ones.
+- If the advisor never set expectations, return { "expectations_quotes": [] }. Do NOT stretch unrelated lines to fill it.`;
+
+      let expectationsQuotes: string[] = [];
+      try {
+        const expResp = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-haiku-4-5-20251001",
+            max_tokens: 600,
+            system: EXPECTATIONS_PROMPT,
+            messages: [{ role: "user", content: claudeUserContent }],
+          }),
+        });
+        if (expResp.ok) {
+          const ej = await expResp.json();
+          let eraw: string = ej?.content?.[0]?.text || "";
+          eraw = eraw.trim();
+          if (eraw.startsWith("```")) {
+            eraw = eraw.replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+          }
+          try {
+            const parsed = JSON.parse(eraw);
+            const list = Array.isArray(parsed?.expectations_quotes) ? parsed.expectations_quotes : [];
+            expectationsQuotes = verifyVerbatimQuotes(list, transcript);
+          } catch {
+            await logErr(`Expectations pass non-JSON: ${eraw.slice(0, 200)}`);
+          }
+        } else {
+          const t = await expResp.text();
+          await logErr(`Expectations pass failed (${expResp.status}): ${t.slice(0, 200)}`);
+        }
+      } catch (e) {
+        await logErr(`Expectations pass exception: ${(e as Error).message}`);
+      }
+
       // Save transcript + summary + structured intel to call_records
       const analysis = {
         transcript,
         patient_summary: patientSummary,
         ...structured,
+        expectations_quotes: expectationsQuotes,
+        expectations_set: expectationsQuotes.length > 0,
         analysed_at: new Date().toISOString(),
       };
       await supabase
