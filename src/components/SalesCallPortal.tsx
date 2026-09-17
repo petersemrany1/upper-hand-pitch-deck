@@ -4033,6 +4033,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     if (!form.clinicId || !clinicExplicitlySelected) { toast.error("Select a clinic before booking"); return; }
     if (!form.doctorId) { toast.error("Select a doctor before booking"); return; }
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
+    if (norwood == null) { toast.error("Select the patient's Norwood level (1–7) before booking"); return; }
+    if (norwoodNeedsExpectations && expectationsAnswer !== "yes") {
+      toast.error("Set expectations with the patient before booking the appointment");
+      return;
+    }
     if (form.clinicId) {
       // Validate against new trading hours + blocked slots system
       const [{ data: th }, { data: bs }, { data: ex }, { data: ov }, { data: pc }] = await Promise.all([
