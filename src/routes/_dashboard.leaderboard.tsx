@@ -252,7 +252,7 @@ function LeaderboardPage() {
                   );
                 })}
                 {rows.length === 0 && (
-                  <tr><td colSpan={13} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
+                  <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
                 )}
               </tbody>
             </table>
