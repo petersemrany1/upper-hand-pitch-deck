@@ -67,6 +67,7 @@ import { Route as DashboardTrainingSalesFrameworkIndexRouteImport } from './rout
 import { Route as ApiPublicHooksEnqueuePracticeRecordingRouteImport } from './routes/api.public.hooks.enqueue-practice-recording'
 import { Route as ApiPublicHooksProcessPracticeRecordingsRouteImport } from './routes/api.public.hooks.process-practice-recordings'
 import { Route as ApiPublicHooksReconcileCallDurationsRouteImport } from './routes/api.public.hooks.reconcile-call-durations'
+import { Route as ApiPublicHooksSpendStaleCheckRouteImport } from './routes/api.public.hooks.spend-stale-check'
 import { Route as ApiPublicHooksStripeDepositRouteImport } from './routes/api.public.hooks.stripe-deposit'
 import { Route as ApiPublicHooksTwilioMessageStatusRouteImport } from './routes/api.public.hooks.twilio-message-status'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api.public.payments.webhook'
@@ -395,6 +396,12 @@ const ApiPublicHooksReconcileCallDurationsRoute =
     path: '/api/public/hooks/reconcile-call-durations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksSpendStaleCheckRoute =
+  ApiPublicHooksSpendStaleCheckRouteImport.update({
+    id: '/api/public/hooks/spend-stale-check',
+    path: '/api/public/hooks/spend-stale-check',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksStripeDepositRoute =
   ApiPublicHooksStripeDepositRouteImport.update({
     id: '/api/public/hooks/stripe-deposit',
@@ -494,6 +501,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
+  '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -559,6 +567,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
+  '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -627,6 +636,7 @@ export interface FileRoutesById {
   '/api/public/hooks/enqueue-practice-recording': typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   '/api/public/hooks/process-practice-recordings': typeof ApiPublicHooksProcessPracticeRecordingsRoute
   '/api/public/hooks/reconcile-call-durations': typeof ApiPublicHooksReconcileCallDurationsRoute
+  '/api/public/hooks/spend-stale-check': typeof ApiPublicHooksSpendStaleCheckRoute
   '/api/public/hooks/stripe-deposit': typeof ApiPublicHooksStripeDepositRoute
   '/api/public/hooks/twilio-message-status': typeof ApiPublicHooksTwilioMessageStatusRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -695,6 +705,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/enqueue-practice-recording'
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
+    | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
     | '/api/public/payments/webhook'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/enqueue-practice-recording'
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
+    | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
     | '/api/public/payments/webhook'
@@ -827,6 +839,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/enqueue-practice-recording'
     | '/api/public/hooks/process-practice-recordings'
     | '/api/public/hooks/reconcile-call-durations'
+    | '/api/public/hooks/spend-stale-check'
     | '/api/public/hooks/stripe-deposit'
     | '/api/public/hooks/twilio-message-status'
     | '/api/public/payments/webhook'
@@ -859,6 +872,7 @@ export interface RootRouteChildren {
   ApiPublicHooksEnqueuePracticeRecordingRoute: typeof ApiPublicHooksEnqueuePracticeRecordingRoute
   ApiPublicHooksProcessPracticeRecordingsRoute: typeof ApiPublicHooksProcessPracticeRecordingsRoute
   ApiPublicHooksReconcileCallDurationsRoute: typeof ApiPublicHooksReconcileCallDurationsRoute
+  ApiPublicHooksSpendStaleCheckRoute: typeof ApiPublicHooksSpendStaleCheckRoute
   ApiPublicHooksStripeDepositRoute: typeof ApiPublicHooksStripeDepositRoute
   ApiPublicHooksTwilioMessageStatusRoute: typeof ApiPublicHooksTwilioMessageStatusRoute
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -1276,6 +1290,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksReconcileCallDurationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/spend-stale-check': {
+      id: '/api/public/hooks/spend-stale-check'
+      path: '/api/public/hooks/spend-stale-check'
+      fullPath: '/api/public/hooks/spend-stale-check'
+      preLoaderRoute: typeof ApiPublicHooksSpendStaleCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/stripe-deposit': {
       id: '/api/public/hooks/stripe-deposit'
       path: '/api/public/hooks/stripe-deposit'
@@ -1451,6 +1472,7 @@ const rootRouteChildren: RootRouteChildren = {
     ApiPublicHooksProcessPracticeRecordingsRoute,
   ApiPublicHooksReconcileCallDurationsRoute:
     ApiPublicHooksReconcileCallDurationsRoute,
+  ApiPublicHooksSpendStaleCheckRoute: ApiPublicHooksSpendStaleCheckRoute,
   ApiPublicHooksStripeDepositRoute: ApiPublicHooksStripeDepositRoute,
   ApiPublicHooksTwilioMessageStatusRoute:
     ApiPublicHooksTwilioMessageStatusRoute,

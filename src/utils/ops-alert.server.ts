@@ -84,3 +84,35 @@ export async function sendRefundFailureAlert(params: {
     </div>`;
   return sendOpsEmail("Booking fee refund failed", html);
 }
+
+/**
+ * Fires when the ad spend feed has gone quiet (or errored), so the Numbers
+ * page can never quietly show marketing figures that are missing days.
+ */
+export async function sendSpendFeedStaleAlert(params: {
+  newestDate: string | null;
+  reason: string;
+  checkedAtSydney: string;
+}): Promise<boolean> {
+  const esc = (s: string) => s.replace(/</g, "&lt;");
+  const since = params.newestDate
+    ? `The last day of ad spend we hold is <strong>${esc(params.newestDate)}</strong>.`
+    : "There is no ad spend recorded at all.";
+  const html = `
+    <div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#111;line-height:1.55">
+      <h2 style="font-size:18px;margin:0 0 12px">Ad spend feed has stopped updating</h2>
+      <p style="margin:0 0 10px">The daily ad spend feed from Make.com is not delivering, so the marketing
+      figures on the Numbers page are missing days and will read low.</p>
+      <p style="margin:0 0 10px">${since}</p>
+      <p style="margin:0 0 14px"><strong>What the check found:</strong> ${esc(params.reason)}</p>
+      <p style="margin:0 0 6px"><strong>Two likely fixes, in this order:</strong></p>
+      <ol style="margin:0 0 14px;padding-left:20px">
+        <li style="margin-bottom:6px">Open Make.com &rsaquo; Connections and reauthorize the Facebook connection.</li>
+        <li>Check the &lsquo;MASTER - Meta Ad Spend -&gt; HTG Portal&rsquo; scenario history at
+          <a href="https://eu2.make.com">eu2.make.com</a>.</li>
+      </ol>
+      <p style="margin:0;font-size:12px;color:#666">Checked ${esc(params.checkedAtSydney)} (Sydney). You will get
+      at most one of these a day.</p>
+    </div>`;
+  return sendOpsEmail("Ad spend feed has stopped updating", html);
+}

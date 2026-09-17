@@ -34,6 +34,7 @@ import { CompareTable } from "@/components/numbers/CompareTable";
 import { AdsTab } from "@/components/numbers/AdsTab";
 import { CostPerLeadStrip } from "@/components/numbers/CostPerLeadStrip";
 import { Note } from "@/components/numbers/primitives";
+import { evaluateSpendStaleness } from "@/lib/spend-staleness";
 
 export const Route = createFileRoute("/_dashboard/numbers")({
   head: () => ({
@@ -270,6 +271,14 @@ function NumbersPage() {
   const fmtDate = (iso: string) =>
     new Date(`${iso}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 
+  // Broken-feed alarm: if the spend feed has died, the marketing figures are
+  // missing days and read low, so say so loudly instead of showing them plain.
+  const staleness = evaluateSpendStaleness({
+    newestDate: spendCoverage.to,
+    lastStatus: syncState?.last_status ?? null,
+    lastMessage: syncState?.last_message ?? null,
+  });
+
   const useSpendWindow = () => {
     if (!spendCoverage.from) return;
     setCustomFrom(spendCoverage.from);
@@ -437,7 +446,35 @@ function NumbersPage() {
         </div>
 
         {/* The three headline costs, for the range and city chosen above. */}
-        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} />
+        {staleness.stale && (
+          <div
+            role="alert"
+            style={{
+              ...CARD,
+              background: "#fdecec",
+              border: "1px solid #b03030",
+              color: "#8d1f1f",
+              padding: 14,
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              fontSize: 13.5,
+              lineHeight: 1.5,
+            }}
+          >
+            <AlertTriangle className="h-4 w-4" style={{ flex: "0 0 auto", marginTop: 2 }} />
+            <div>
+              <strong>
+                {staleness.newestDate
+                  ? `Ad spend has not updated since ${fmtDate(staleness.newestDate)} — marketing figures below are missing days and will read low`
+                  : "No ad spend is recorded at all — marketing figures below cannot be worked out"}
+              </strong>
+              {staleness.reason && <div style={{ marginTop: 4 }}>{staleness.reason}</div>}
+            </div>
+          </div>
+        )}
+
+        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} />
 
         {audit && (
           <div style={{ ...CARD, padding: 0 }}>
