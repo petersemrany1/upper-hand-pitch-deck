@@ -275,11 +275,16 @@ export const saveFinanceCheck = createServerFn({ method: "POST" })
 
 export const saveBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { leadId: string; clinicId: string | null; doctorId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean }) => ({
+  .inputValidator((data: { leadId: string; clinicId: string | null; doctorId: string | null; date: string; time: string; repId?: string | null; promoteStatus?: boolean; norwoodLevel?: number | null; expectationsSet?: boolean | null }) => ({
     leadId: String(data.leadId ?? ""), clinicId: data.clinicId ?? null,
     doctorId: data.doctorId ?? null,
     date: String(data.date ?? ""), time: String(data.time ?? ""),
     repId: data.repId ?? null,
+    // Hair loss stage (Norwood 1–7). Required before an appointment can be
+    // booked; Norwood 5+ additionally requires the advisor to confirm that
+    // realistic expectations were set with the patient.
+    norwoodLevel: data.norwoodLevel == null ? null : Number(data.norwoodLevel),
+    expectationsSet: data.expectationsSet === true ? true : data.expectationsSet === false ? false : null,
     // When true (Book button click), the server also promotes meta_leads.status
     // to "booked_deposit_paid" — atomically, only after clinic_appointments is
     // confirmed to exist so enforce_booking_before_status_lock can never block us.
@@ -288,6 +293,13 @@ export const saveBooking = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
       return { success: false as const, error: "Lead, clinic, doctor, date and time are required" };
+    }
+    const norwood = data.norwoodLevel;
+    if (norwood == null || !Number.isFinite(norwood) || norwood < 1 || norwood > 7) {
+      return { success: false as const, error: "Select the patient's Norwood level (1–7) before booking" };
+    }
+    if (norwood >= 5 && data.expectationsSet !== true) {
+      return { success: false as const, error: "Set expectations with the patient before booking the appointment" };
     }
     const { data: doctor, error: doctorErr } = await supabaseAdmin
       .from("partner_doctors")
