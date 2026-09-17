@@ -492,6 +492,51 @@ export const saveBooking = createServerFn({ method: "POST" })
   });
 
 
+/**
+ * Records the patient's hair-loss stage (Norwood 1–7) on the lead, plus — for
+ * Norwood 5+ — the advisor's confirmation that realistic expectations were set
+ * (who confirmed it and when). Saved as soon as the advisor answers, so the
+ * answer survives even if the booking isn't completed on this call.
+ */
+export const saveNorwoodExpectations = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { leadId: string; norwoodLevel: number; expectationsSet?: boolean | null; repId?: string | null }) => ({
+    leadId: String(data.leadId ?? ""),
+    norwoodLevel: Number(data.norwoodLevel),
+    expectationsSet: data.expectationsSet === true ? true : data.expectationsSet === false ? false : null,
+    repId: data.repId ?? null,
+  }))
+  .handler(async ({ data }) => {
+    if (!data.leadId) return { success: false as const, error: "leadId required" };
+    const n = data.norwoodLevel;
+    if (!Number.isFinite(n) || n < 1 || n > 7) {
+      return { success: false as const, error: "Norwood level must be between 1 and 7" };
+    }
+    const patch: Record<string, unknown> = {
+      norwood_level: n,
+      updated_at: new Date().toISOString(),
+    };
+    if (data.expectationsSet === true) {
+      patch.expectations_set = true;
+      patch.expectations_set_by = data.repId ?? null;
+      patch.expectations_set_at = new Date().toISOString();
+    } else if (data.expectationsSet === false) {
+      patch.expectations_set = false;
+    }
+    const { error } = await supabaseAdmin.from("meta_leads").update(patch).eq("id", data.leadId);
+    if (error) return { success: false as const, error: error.message };
+    // Keep an already-created appointment row in step (a re-book on the same lead).
+    await supabaseAdmin
+      .from("clinic_appointments")
+      .update({
+        norwood_level: n,
+        ...(data.expectationsSet === true ? { expectations_set: true } : {}),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("lead_id", data.leadId);
+    return { success: true as const };
+  });
+
 export const clearBooking = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { leadId: string }) => ({ leadId: String(data.leadId ?? "") }))
