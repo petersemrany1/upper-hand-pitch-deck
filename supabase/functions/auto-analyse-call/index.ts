@@ -51,6 +51,29 @@ function whitelistArray(arr: unknown, allowed: string[]): string[] {
   return out;
 }
 
+/**
+ * Keeps only quotes that appear VERBATIM in the transcript, so an invented or
+ * paraphrased "quote" can never reach a clinic handover. Matching ignores
+ * punctuation, casing and whitespace differences only.
+ */
+function verifyVerbatimQuotes(list: unknown[], transcript: string): string[] {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  const haystack = norm(transcript);
+  const out: string[] = [];
+  for (const raw of list) {
+    if (typeof raw !== "string") continue;
+    const quote = raw.trim().replace(/^["“”']+|["“”']+$/g, "").trim();
+    const words = quote.split(/\s+/);
+    if (words.length < 4 || words.length > 40) continue;
+    const needle = norm(quote);
+    if (!needle || !haystack.includes(needle)) continue;
+    if (out.some((q) => norm(q) === needle)) continue;
+    out.push(quote);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
+
 function cleanStructured(s: Record<string, unknown>): Record<string, unknown> {
   const outcome = typeof s.call_outcome === "string" && ALLOWED_CALL_OUTCOMES.includes(s.call_outcome as string)
     ? s.call_outcome
