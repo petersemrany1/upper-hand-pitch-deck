@@ -226,8 +226,10 @@ function LeaderboardPage() {
                 {rows.map((r, i) => {
                   const holdColor = r.holdRate === 0 ? "#111" : r.holdRate >= 60 ? C.green : r.holdRate >= 40 ? C.amber : C.red;
                   const convColor = r.conversion === 0 ? "#111" : r.conversion >= 70 ? C.green : r.conversion >= 50 ? C.amber : C.red;
-                  const avgBreakMin = r.breakGaps > 0 ? r.breakMinutes / r.breakGaps : 0;
-                  const breakColor = avgBreakMin === 0 ? "#111" : avgBreakMin <= 1 ? C.green : avgBreakMin <= 3 ? C.amber : C.red;
+                   const avgBreakMin = r.breakGaps > 0 ? r.breakMinutes / r.breakGaps : 0;
+                   const breakColor = avgBreakMin === 0 ? "#111" : avgBreakMin <= 1 ? C.green : avgBreakMin <= 3 ? C.amber : C.red;
+                   const idleColor = r.avgIdleSeconds === 0 ? "#111" : r.avgIdleSeconds < 30 ? C.green : r.avgIdleSeconds <= 60 ? C.amber : C.red;
+                   const idleLabel = r.avgIdleSeconds <= 0 ? "—" : r.avgIdleSeconds < 60 ? `${r.avgIdleSeconds}s` : `${(r.avgIdleSeconds / 60).toFixed(1)}m`;
                   // Peter Semrany develops the app, so his Work/Break aren't real shift data — hide them.
                   const isPeter = (r.name ?? "").trim().toLowerCase() === "peter semrany";
                   return (
@@ -247,13 +249,14 @@ function LeaderboardPage() {
                       <Td><span style={{ color: convColor }}>{r.conversion}%</span></Td>
                       <Td><span className="font-bold" style={{ color: r.bookings > 0 ? C.green : "#111" }}>{r.bookings}</span></Td>
                       <Td><span style={{ color: "#111" }}>{isPeter ? "—" : `${(r.workMinutes / 60).toFixed(1)}h`}</span></Td>
-                      <Td><span style={{ color: isPeter ? "#111" : breakColor }}>{isPeter ? "—" : (avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—")}</span></Td>
+                       <Td><span style={{ color: isPeter ? "#111" : breakColor }}>{isPeter ? "—" : (avgBreakMin > 0 ? `${avgBreakMin.toFixed(1)}m` : "—")}</span></Td>
+                       <Td><span style={{ color: isPeter ? "#111" : idleColor }}>{isPeter ? "—" : idleLabel}</span></Td>
                       <Td><span style={{ color: r.bonus > 0 ? C.green : "#111" }}>${r.bonus}</span></Td>
                     </tr>
                   );
                 })}
                 {rows.length === 0 && (
-                  <tr><td colSpan={12} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
+                  <tr><td colSpan={13} className="text-center py-6 text-xs" style={{ color: C.muted }}>No data for this range yet.</td></tr>
                 )}
               </tbody>
             </table>
