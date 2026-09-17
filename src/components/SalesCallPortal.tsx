@@ -3429,6 +3429,22 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     return defaultForm;
   });
   const [clinicExplicitlySelected, setClinicExplicitlySelected] = useState(false);
+  // Hair loss stage (Norwood 1–7) — required before an appointment can be
+  // booked. Norwood 5+ also needs the advisor to confirm that realistic
+  // expectations were set with the patient.
+  const [norwood, setNorwood] = useState<number | null>(lead.norwood_level ?? null);
+  const [expectationsAnswer, setExpectationsAnswer] = useState<"yes" | "no" | null>(
+    lead.expectations_set === true ? "yes" : null,
+  );
+  const norwoodNeedsExpectations = norwood != null && norwood >= 5;
+  const expectationsConfirmed = !norwoodNeedsExpectations || expectationsAnswer === "yes";
+  const norwoodGateReady = norwood != null && expectationsConfirmed;
+  const recordNorwood = (level: number | null, answer: "yes" | "no" | null) => {
+    if (level == null) return;
+    void saveNorwoodExpectations({
+      data: { leadId: lead.id, norwoodLevel: level, expectationsSet: answer === "yes" ? true : answer === "no" ? false : null, repId: repId ?? null },
+    }).catch(() => { /* non-blocking — the booking call re-sends it */ });
+  };
   const [booked, setBooked] = useState(false);
   const [bookedData, setBookedData] = useState<{ date: string; time: string; clinicName: string; doctorName: string } | null>(null);
   const [savedAppointment, setSavedAppointment] = useState<{ clinic_id: string; doctor_id: string | null; doctor_name: string | null } | null>(null);
