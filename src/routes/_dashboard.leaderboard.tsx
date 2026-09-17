@@ -218,6 +218,7 @@ function LeaderboardPage() {
                   <Th info="Internal deposit-paid bookings confirmed in this period.">Booked</Th>
                   <Th info="Total shift time from first call to last call of the day.">Work</Th>
                   <Th info="Average time between calls during the shift. Green = under 1 min, amber = 1–3 min, red = 3+ min.">Break</Th>
+                  <Th info="Average pause between hanging up one call and dialling the next, excluding booking gaps (handover/deposit work). Green = under 30s, amber = 30–60s, red = 60s+.">Avg Idle</Th>
                   <Th info="Bookings × $50.">Bonus</Th>
                 </tr>
               </thead>
