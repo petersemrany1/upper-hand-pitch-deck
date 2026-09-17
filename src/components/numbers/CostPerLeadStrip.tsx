@@ -10,17 +10,20 @@ const CSS = `
 @media (max-width:820px){.cpl-strip{grid-template-columns:1fr}}
 `;
 
-function Tile({ label, value, sub, accent }: { label: string; value: string; sub: string; accent?: boolean }) {
+function Tile({ label, value, sub, accent, warn }: { label: string; value: string; sub: string; accent?: boolean; warn?: boolean }) {
   return (
-    <div style={{ ...CARD, padding: 18, background: accent ? "#111" : "#fff", border: accent ? "0.5px solid #111" : CARD.border }}>
-      <div style={{ ...LABEL, color: accent ? "rgba(255,255,255,0.65)" : FAINT }}>{label}</div>
+    <div style={{ ...CARD, padding: 18, background: accent ? "#111" : "#fff", border: warn ? "1px solid #b03030" : accent ? "0.5px solid #111" : CARD.border }}>
+      <div style={{ ...LABEL, color: accent ? "rgba(255,255,255,0.65)" : FAINT, display: "flex", alignItems: "center", gap: 6 }}>
+        {warn && <span title="Ad spend feed has stopped updating" style={{ color: accent ? "#ff9f9f" : "#b03030", fontWeight: 700 }}>⚠</span>}
+        {label}
+      </div>
       <div style={{ ...BIG, fontSize: 34, color: accent ? "#fff" : INK }}>{value}</div>
       <div style={{ fontSize: 12, color: accent ? "rgba(255,255,255,0.7)" : MUTED, marginTop: 6 }}>{sub}</div>
     </div>
   );
 }
 
-export function CostPerLeadStrip({ scope, city, loading }: { scope: CityStats; city: string; loading: boolean }) {
+export function CostPerLeadStrip({ scope, city, loading, spendStale = false }: { scope: CityStats; city: string; loading: boolean; spendStale?: boolean }) {
   const shows = scope.showed;
   const noShowsYet = shows === 0;
   const noHours = !scope.hoursOk;
@@ -36,6 +39,8 @@ export function CostPerLeadStrip({ scope, city, loading }: { scope: CityStats; c
     caveats.push(`${oneDp(scope.hoursFallback)} rep hours were estimated from call times rather than entered by hand.`);
   if (scope.upcoming > 0)
     caveats.push(`${n(scope.upcoming)} booked consults haven't happened yet — their cost is already counted, but they aren't shows yet, so these figures read high.`);
+  if (spendStale)
+    caveats.push("The ad spend feed has stopped updating, so the marketing figures are missing days and read low.");
   if (scope.needsOutcome > 0)
     caveats.push(`${n(scope.needsOutcome)} past consults have no outcome saved, so they don't count as shows yet.`);
 
@@ -51,6 +56,7 @@ export function CostPerLeadStrip({ scope, city, loading }: { scope: CityStats; c
 
       <div className="cpl-strip">
         <Tile
+          warn={spendStale}
           label="Marketing per show"
           value={moneyOrDash(scope.adCostPerShow)}
           sub={`${money(scope.spend)} of ad spend ÷ ${n(shows)} shows`}
@@ -66,6 +72,7 @@ export function CostPerLeadStrip({ scope, city, loading }: { scope: CityStats; c
         />
         <Tile
           accent
+          warn={spendStale}
           label="Marketing + labour per show"
           value={moneyOrDash(scope.trueCostPerShow)}
           sub={noHours ? "Needs rep hours to work out" : `${money(scope.totalCost)} all in ÷ ${n(shows)} shows`}

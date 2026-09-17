@@ -450,7 +450,35 @@ function NumbersPage() {
         </div>
 
         {/* The three headline costs, for the range and city chosen above. */}
-        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} />
+        {staleness.stale && (
+          <div
+            role="alert"
+            style={{
+              ...CARD,
+              background: "#fdecec",
+              border: "1px solid #b03030",
+              color: "#8d1f1f",
+              padding: 14,
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-start",
+              fontSize: 13.5,
+              lineHeight: 1.5,
+            }}
+          >
+            <AlertTriangle className="h-4 w-4" style={{ flex: "0 0 auto", marginTop: 2 }} />
+            <div>
+              <strong>
+                {staleness.newestDate
+                  ? `Ad spend has not updated since ${fmtDate(staleness.newestDate)} — marketing figures below are missing days and will read low`
+                  : "No ad spend is recorded at all — marketing figures below cannot be worked out"}
+              </strong>
+              {staleness.reason && <div style={{ marginTop: 4 }}>{staleness.reason}</div>}
+            </div>
+          </div>
+        )}
+
+        <CostPerLeadStrip scope={scope} city={locFilter || "All cities"} loading={loading} spendStale={staleness.stale} />
 
         {audit && (
           <div style={{ ...CARD, padding: 0 }}>
