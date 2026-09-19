@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { getNumbersReport } from "@/lib/ad-spend.functions";
 import type { AdPerformanceRow, LabourRow, LocationSummaryRow, RevenueRow } from "@/lib/ad-spend.functions";
@@ -37,12 +37,13 @@ function rangeDates(key: RangeKey): { from: string | null; to: string | null } {
 }
 
 const CSS = `
-.ops{position:relative;height:calc(100vh - 32px);min-height:600px;border-radius:14px;overflow:hidden;background:#b9c6d2;color:#dfe5ec;font-family:-apple-system,"Inter",Helvetica,Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
+.ops{position:relative;height:100%;min-height:520px;overflow:hidden;background:#b9c6d2;color:#dfe5ec;font-family:-apple-system,"Inter",Helvetica,Arial,sans-serif;--mono:ui-monospace,Menlo,Consolas,monospace}
 .ops *{box-sizing:border-box}
 .ops-canvas{position:absolute;inset:0}
+.ops-canvas canvas{display:block;width:100%;height:100%}
 .ops-vignette{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 50%,rgba(0,0,0,0) 60%,rgba(0,0,0,.28) 100%)}
-.ops-hud{position:absolute;left:0;top:0;right:0;height:44px;display:flex;align-items:center;gap:14px;padding:0 16px;background:rgba(12,16,21,.9);border-bottom:1px solid rgba(255,255,255,.08);pointer-events:none}
-.ops-hud>*{pointer-events:auto}
+.ops-hud{position:absolute;left:0;top:0;right:0;height:44px;display:flex;align-items:center;gap:14px;padding:0 60px 0 16px;overflow:hidden;white-space:nowrap;background:rgba(12,16,21,.9);border-bottom:1px solid rgba(255,255,255,.08);pointer-events:none}
+.ops-hud>*{pointer-events:auto;flex-shrink:0}
 .ops-brand{display:flex;flex-direction:column;line-height:1.05}
 .ops-brand b{font-size:12.5px;letter-spacing:2.2px;text-transform:uppercase;font-weight:700;color:#f2f5f8}
 .ops-brand span{font-family:var(--mono);font-size:9px;letter-spacing:1.6px;color:#7f8c9a;margin-top:2px}
@@ -53,14 +54,16 @@ const CSS = `
 .ops-seg{display:flex;gap:2px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:2px}
 .ops-seg button{border:0;background:transparent;color:#8e9aa7;font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:3px 8px;border-radius:4px;cursor:pointer}
 .ops-seg button[aria-pressed="true"]{background:#2b476d;color:#fff}
-.ops-spacer{flex:1}
+.ops-spacer{flex:1 1 0;min-width:0}
 .ops-chip{font-family:var(--mono);font-size:10px;letter-spacing:1.2px;padding:4px 10px;border:1px solid rgba(255,255,255,.14);border-radius:999px}
-.ops-clock{font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:#8e9aa7;display:flex;align-items:center;gap:10px}
+.ops-clock{font-family:var(--mono);font-size:10px;letter-spacing:1.4px;color:#8e9aa7;display:flex;align-items:center;gap:10px;flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .ops-clock i{width:7px;height:7px;border-radius:50%;background:#3fc3a6;box-shadow:0 0 10px #3fc3a6}
 .ops-clock i.off{background:#6f7c8a;box-shadow:none}
 .ops-plate{position:absolute;transform:translate(-50%,-100%);display:flex;align-items:center;gap:6px;background:rgba(14,18,24,.78);border:1px solid rgba(255,255,255,.1);border-radius:3px;padding:2px 7px 2px 6px;font-size:10.5px;font-weight:600;letter-spacing:.2px;color:#e6ebf0;white-space:nowrap;pointer-events:none;backdrop-filter:blur(3px)}
 .ops-plate i{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.ops-plate.c{padding:3px;border-radius:50%}
 .ops-card{position:absolute;z-index:3;transform:translate(-50%,-100%) translateY(-10px);width:220px;background:rgba(14,18,24,.94);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:12px 14px;box-shadow:0 18px 50px rgba(0,0,0,.55);pointer-events:none;backdrop-filter:blur(8px)}
+.ops-card.below{transform:translate(-50%,0) translateY(34px)}
 .ops-card:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:8px 0 0 8px;background:var(--accent)}
 .ops-card small{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:1.8px;color:#7f8c9a;text-transform:uppercase}
 .ops-card b{display:block;font-size:13.5px;font-weight:600;color:#f2f5f8;margin:3px 0 6px;letter-spacing:-.1px}
@@ -93,7 +96,7 @@ const CSS = `
 .ops-kv.wide{grid-column:1 / -1}
 .ops-close{position:absolute;right:10px;top:10px;border:1px solid rgba(255,255,255,.12);background:transparent;color:#93a0ad;border-radius:5px;width:26px;height:26px;cursor:pointer;font-size:14px}
 .ops-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:12px;letter-spacing:2px;color:#8e9aa7;background:rgba(17,21,27,.7)}
-@media (max-width:1000px){.ops-panel{position:static;width:auto;margin:8px;max-height:40vh}.ops-detail{width:auto;left:8px;right:8px}}
+@media (max-width:1000px){.ops-panel{left:8px;right:8px;top:auto;bottom:8px;width:auto;min-width:0;height:34%}.ops-detail{width:auto;left:8px;right:8px}}
 `;
 
 type Report = { ads: AdPerformanceRow[]; locations: LocationSummaryRow[]; labourByLocation: LabourRow[]; revenueByLocation: RevenueRow[] };
@@ -225,13 +228,13 @@ function NumbersGamePage() {
       <div className="ops-vignette" />
 
       {labels.filter((l) => !l.hidden).map((l) => l.active ? (
-        <div key={l.key} className="ops-card" style={{ left: l.x, top: l.y, ["--accent" as string]: TONE[l.tone] }}>
+        <div key={l.key} className={`ops-card${l.y < 260 ? " below" : ""}`} style={{ left: `clamp(122px, ${Math.round(l.x)}px, calc(100% - 122px))`, top: l.y, ["--accent" as string]: TONE[l.tone] }}>
           <small>{DISTRICT[l.kind]}</small>
           <b>{l.title}</b>
-          <div className="ops-kpis">{l.kpis.map(([k, v]) => <><span key={`${k}k`}>{k}</span><b key={`${k}v`}>{v}</b></>)}</div>
+          <div className="ops-kpis">{l.kpis.map(([k, v]) => <Fragment key={k}><span>{k}</span><b>{v}</b></Fragment>)}</div>
         </div>
       ) : (
-        <div key={l.key} className="ops-plate" style={{ left: l.x, top: l.y }}><i style={{ background: TONE[l.tone], boxShadow: l.tone === "grey" ? "none" : `0 0 8px ${TONE[l.tone]}` }} />{l.short}</div>
+        <div key={l.key} className={l.compact ? "ops-plate c" : "ops-plate"} style={{ left: l.x, top: l.y }}><i style={{ background: TONE[l.tone], boxShadow: l.tone === "grey" ? "none" : `0 0 8px ${TONE[l.tone]}` }} />{!l.compact && l.short}</div>
       ))}
 
       <div className="ops-hud">

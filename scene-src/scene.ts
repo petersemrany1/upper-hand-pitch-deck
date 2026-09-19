@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import type { Town, Tone } from "../src/components/numbers-game/model";
 import type { LabelSpec, PickKind, PickTarget, SceneOpts, TownSceneApi } from "../src/components/numbers-game/scene-types";
 
@@ -49,7 +50,7 @@ function noise(g: CanvasRenderingContext2D, s: number, base: string, amount: num
   g.putImageData(img, 0, 0);
 }
 const concreteTex = () => canvasTex("concrete", 256, (g, s) => { noise(g, s, "#e2e5e8", 26); g.strokeStyle = "rgba(0,0,0,0.18)"; g.lineWidth = 2; g.strokeRect(1, 1, s - 2, s - 2); }, 8);
-const grassTex = () => canvasTex("grass", 256, (g, s) => { noise(g, s, "#dfe6d8", 34); for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.08})`; g.fillRect(Math.random() * s, Math.random() * s, 2, 3); } }, 24);
+const grassTex = () => canvasTex("grass", 256, (g, s) => { noise(g, s, "#dfe6d8", 34); for (let i = 0; i < 400; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.08})`; g.fillRect(Math.random() * s, Math.random() * s, 2, 3); } }, 72);
 const asphaltTex = () => canvasTex("asphalt", 256, (g, s) => noise(g, s, "#d8dbde", 30), 10);
 const steelTex = () => canvasTex("steel", 128, (g, s) => { noise(g, s, "#e6e9ec", 14); for (let x = 0; x < s; x += 3) { g.fillStyle = `rgba(255,255,255,${Math.random() * 0.07})`; g.fillRect(x, 0, 1, s); } }, 2);
 const paintTex = () => canvasTex("paint", 128, (g, s) => { noise(g, s, "#e8eaec", 10); for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`; g.fillRect(Math.random() * s, Math.random() * s, 6, 2); } }, 3);
@@ -74,10 +75,21 @@ function textPanel(text: string, o: { w: number; h: number; font?: number; color
   return new THREE.Mesh(new THREE.PlaneGeometry(o.w, o.h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }));
 }
 
-const std = (color: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.12, ...o });
+// Materials are shared by look, never mutated after creation: that is what lets
+// bake() weld every static part that shares one into a single draw call.
+const matCache = new Map<string, THREE.MeshStandardMaterial>();
+const sharedMats = new Set<THREE.Material>();
+const sharedMat = (key: string, make: () => THREE.MeshStandardMaterial) => { let m = matCache.get(key); if (!m) { m = make(); matCache.set(key, m); sharedMats.add(m); } return m; };
+const std = (color: number, o: Partial<THREE.MeshStandardMaterialParameters> = {}) => { const { map, ...rest } = o; return sharedMat(`s|${color}|${map ? map.uuid : ""}|${JSON.stringify(rest)}`, () => new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0.12, ...o })); };
 const painted = (color: number) => std(color, { roughness: 0.45, metalness: 0.35, map: paintTex() });
 const steelMat = (color = P.steel) => std(color, { roughness: 0.38, metalness: 0.8, map: steelTex() });
-const emissive = (color: number, intensity = 1.6) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: 0.4, metalness: 0 });
+const emissive = (color: number, intensity = 1.6) => sharedMat(`e|${color}|${intensity}`, () => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: 0.4, metalness: 0 }));
+/** A pulsing lamp animates its own material, so it cannot share one. */
+const ownEmissive = (color: number, intensity: number) => new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: intensity, roughness: 0.4, metalness: 0 });
+const flowMat = new THREE.MeshBasicMaterial({ color: 0x6fd0ff, transparent: true, opacity: 0.9, toneMapped: false });
+const dropMat = new THREE.SpriteMaterial({ map: null, color: 0xffffff, transparent: true, opacity: 0.9, depthWrite: false });
+const proxyMat = new THREE.MeshBasicMaterial();
+const TONE_RANK: Record<Tone, number> = { red: 0, amber: 1, green: 2, grey: 3 };
 const sprite = (map: THREE.Texture, color: number, opacity: number, additive = false) => new THREE.Sprite(new THREE.SpriteMaterial({ map, color, transparent: true, opacity, depthWrite: false, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending }));
 
 /** Short name for a plate: no brand prefix, capped so ten of them can share a plant. */
@@ -87,7 +99,7 @@ function plateName(name: string): string {
 }
 
 type Fill = { water: THREE.Mesh; target: number; maxH: number; base: number };
-type Flow = { ring: THREE.Mesh; curve: THREE.Curve<THREE.Vector3>; t: number; speed: number };
+type Flow = { curve: THREE.Curve<THREE.Vector3>; t: number; speed: number; r: number; im: THREE.InstancedMesh | null; idx: number };
 type Leak = { at: THREE.Vector3; dir: THREE.Vector3; drops: { s: THREE.Sprite; v: THREE.Vector3; life: number }[]; next: number; puddle: THREE.Mesh };
 type Beacon = { dome: THREE.Mesh; glow: THREE.Sprite; phase: number; color: number };
 type Steam = { at: THREE.Vector3; puffs: { s: THREE.Sprite; life: number }[]; next: number };
@@ -136,6 +148,17 @@ export class TownScene implements TownSceneApi {
   private zoomTarget = 1;
   private baseFs = 60;
   private center = new THREE.Vector3();
+  private proxies = new THREE.Group();
+  private flowMeshes: THREE.InstancedMesh[] = [];
+  private fitPts: THREE.Vector3[] = [];
+  private focusTarget: PickTarget | null = null;
+  private townSig = "";
+  private labelsDirty = true;
+  private pointerDirty = true;
+  private shadowHold = 0;
+  private dummy = new THREE.Object3D();
+  private ro: ResizeObserver | null = null;
+  private slowT = 0; private slowN = 0; private settle = 0;
 
   constructor(container: HTMLElement, opts: Opts = {}) {
     this.container = container; this.opts = opts;
@@ -144,7 +167,12 @@ export class TownScene implements TownSceneApi {
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping; this.renderer.toneMappingExposure = 1.1;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    container.appendChild(this.renderer.domElement); this.renderer.domElement.style.display = "block";
+    // The drawing buffer is devicePixelRatio times the container; the canvas must be
+    // pinned to the container in CSS or a retina screen shows only a corner of the map.
+    container.appendChild(this.renderer.domElement); Object.assign(this.renderer.domElement.style, { display: "block", width: "100%", height: "100%" });
+    // Nothing that casts a shadow moves except a van on a delivery, so the
+    // shadow map is drawn on demand instead of sixty times a second.
+    this.renderer.shadowMap.autoUpdate = false;
 
     this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -400, 800);
     this.camera.position.copy(CAM_OFFSET); this.camera.lookAt(0, 0, 0);
@@ -159,18 +187,21 @@ export class TownScene implements TownSceneApi {
     this.sun.shadow.bias = -0.0004; this.sun.shadow.normalBias = 0.03; this.sun.shadow.radius = 3;
     this.scene.add(this.sun);
     const fill = new THREE.DirectionalLight(0xbfd6ff, 0.5); fill.position.set(-60, 40, -80); this.scene.add(fill);
-    this.scene.add(this.world, this.scenery, this.fx);
+    this.scene.add(this.world, this.scenery, this.fx, this.proxies);
     this.buildGround();
 
     this.renderer.domElement.addEventListener("pointermove", this.onMove);
     this.renderer.domElement.addEventListener("click", this.onClick);
-    window.addEventListener("resize", this.resize);
+    // The container changes size without the window doing so (sidebar, call banner).
+    if (typeof ResizeObserver !== "undefined") { this.ro = new ResizeObserver(this.refit); this.ro.observe(container); } else window.addEventListener("resize", this.refit);
     this.resize(); this.loop();
   }
 
   // ======================================================== public
   setTown(town: Town) {
-    this.clearTown();
+    // The live feed re-sends the town every minute; rebuild only when something changed.
+    const sig = JSON.stringify(town); if (sig === this.townSig) return;
+    this.clearTown(); this.townSig = sig;
     this.setNight(town.hour < 7 || town.hour >= 19);
     const W = this.world;
     const $ = (n: number | null) => (n === null ? "—" : `$${Math.round(n).toLocaleString()}`);
@@ -180,7 +211,7 @@ export class TownScene implements TownSceneApi {
     const adCols = town.towers.length > 6 ? 3 : 2;
     const adRows = Math.max(1, Math.ceil(town.towers.length / adCols));
     const aq = { x: -118 - (adCols - 2) * 26, z: -44, w: 22 + adCols * 26, d: Math.max(88, 18 + adRows * 28) };
-    this.plinth(aq.x, aq.z, aq.w, aq.d, "ACQUISITION PLANT");
+    this.plinth(aq.x, aq.z, aq.w, aq.d, "ACQUISITION PLANT", 25);
     const headerX = aq.x + aq.w - 6;
     const headerZ0 = aq.z + 8, headerZ1 = aq.z + aq.d - 8;
     this.pipe([[headerX, 2, headerZ0], [headerX, 2, headerZ1]], 1.3);
@@ -200,14 +231,14 @@ export class TownScene implements TownSceneApi {
       g.add(this.ring(r + 1, 0.1, P.gunmetal, 0, legH + 1.4, 0)); for (let k = 0; k < 14; k++) { const a = (k / 14) * Math.PI * 2; g.add(this.box(0.07, 1, 0.07, P.gunmetal, Math.cos(a) * (r + 1), legH + 0.5, Math.sin(a) * (r + 1))); }
       // sight-glass on the tank: lead level
       g.add(this.box(0.7, tankH - 0.8, 0.4, P.gunmetal, -r * 0.7, legH + 0.9, r * 0.7));
-      const level = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.01, 0.2), emissive(P.waterGlow, 1.6)); level.position.set(-r * 0.7, legH + 1.1, r * 0.7 + 0.2); g.add(level);
+      const level = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.01, 0.2), emissive(P.waterGlow, 1.6)); level.position.set(-r * 0.7, legH + 1.1, r * 0.7 + 0.2); level.userData.dyn = true; g.add(level);
       this.fills.push({ water: level, target: Math.max(0.05, tw.fill), maxH: tankH - 1.2, base: legH + 1.1 });
       // pump skid at the base with motor, gauge and outlet valve
       g.add(this.box(7, 0.5, 4, P.concreteDark, 5.5, 0, 5.5, { map: concreteTex() }));
       const pump = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 3.2, 24), painted(P.pipe)); pump.rotation.z = Math.PI / 2; pump.position.set(4.6, 1.6, 5.5); pump.castShadow = true; g.add(pump);
       const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.2, 24), painted(0x3a3f45)); motor.rotation.z = Math.PI / 2; motor.position.set(7.3, 1.6, 5.5); g.add(motor);
       const fan = new THREE.Mesh(new THREE.TorusGeometry(0.55, 0.12, 6, 18), steelMat()); fan.rotation.y = Math.PI / 2; fan.position.set(8.5, 1.6, 5.5); g.add(fan);
-      if (!tw.fire && tw.leads > 0) this.spins.push({ mesh: fan, speed: tw.star ? 14 : 6 });
+      if (!tw.fire && tw.leads > 0) { fan.userData.dyn = true; this.spins.push({ mesh: fan, speed: tw.star ? 14 : 6 }); }
       g.add(this.gauge(4.6, 3.4, 5.5, tw.fire ? "red" : tw.star ? "green" : "grey"));
       g.add(this.valve(8.6, 2, 3.2, !tw.fire && tw.leads === 0));
       g.add(this.cyl(0.55, legH - 1, P.pipe, 0, 0.5, r + 0.3)); // downpipe from tank
@@ -228,7 +259,7 @@ export class TownScene implements TownSceneApi {
     });
 
     // ================= trunk main to the depot, through the pump station (automations)
-    const dp = { x: aq.x + aq.w + 16, z: -44, w: 22 + Math.max(1, town.bays.length) * 20, d: Math.max(88, aq.d) };
+    const dp = { x: aq.x + aq.w + 16, z: -44, w: 22 + Math.max(1, town.bays.length) * 20, d: 88 }; // fixed depth: a long ad plant must not stretch the depot and push the road off the page
     const trunkZ = aq.z + aq.d / 2;
     const pumpPos = new THREE.Vector3(aq.x + aq.w + 10, 0.6, trunkZ);
     const trunkA = this.pipe([[headerX, 2, trunkZ], [pumpPos.x - 6, 2, trunkZ]], 1.3);
@@ -241,7 +272,7 @@ export class TownScene implements TownSceneApi {
     ps.add(this.ring(2.35, 0.2, P.flange, -3.2, 2.6, 0, true)); ps.add(this.ring(2.35, 0.2, P.flange, 3.2, 2.6, 0, true));
     const bigMotor = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 3, 24), painted(0x3a3f45)); bigMotor.rotation.x = Math.PI / 2; bigMotor.position.set(0, 2.6, 5); ps.add(bigMotor);
     const bigFan = new THREE.Mesh(new THREE.TorusGeometry(1, 0.18, 6, 18), steelMat()); bigFan.position.set(0, 2.6, 6.6); ps.add(bigFan);
-    if (!town.pump.fire) this.spins.push({ mesh: bigFan, speed: 8 });
+    if (!town.pump.fire) { bigFan.userData.dyn = true; this.spins.push({ mesh: bigFan, speed: 8 }); }
     ps.add(this.gauge(-3.8, 5.2, 3.2, town.pump.fire ? "red" : "green"));
     ps.add(this.box(0.4, 4, 0.4, P.gunmetal, 4.5, 0.6, -3.5)); ps.add(this.light(4.5, 5, -3.5, town.pump.fire ? P.red : P.green, true));
     this.tag(ps, { kind: "pump", id: "pump" }); W.add(ps);
@@ -249,7 +280,7 @@ export class TownScene implements TownSceneApi {
     this.labelAnchors.push({ key: "pump:pump", pos: new THREE.Vector3(pumpPos.x, 9, pumpPos.z), short: "Main pump", title: "Main pump · automations", tone: town.pump.fire ? "red" : "grey", kind: "pump", kpis: town.pump.issues.length ? town.pump.issues.map((i, k) => [`Issue ${k + 1}`, i] as [string, string]) : [["Leads webhook", "Flowing"], ["Reminder texts", "Sending"]] });
 
     // ================= 2. ADVISOR DEPOT
-    this.plinth(dp.x, dp.z, dp.w, dp.d, "ADVISOR DEPOT");
+    this.plinth(dp.x, dp.z, dp.w, dp.d, "ADVISOR DEPOT", 16);
     const nb = Math.max(1, town.bays.length);
     const whW = dp.w - 12, whD = 20, whCx = dp.x + dp.w / 2, whCz = dp.z + 12;
     const wh = new THREE.Group(); wh.position.set(whCx, 0.6, whCz);
@@ -273,13 +304,13 @@ export class TownScene implements TownSceneApi {
       const g = new THREE.Group(); g.position.set(sx, 0.6, sz);
       // processing station: skid, twin pumps, header, gauge, control cabinet
       g.add(this.box(12, 0.6, 9, P.concreteDark, 0, 0, 0, { map: concreteTex() }));
-      for (const px of [-2.6, 2.6]) { const pm = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 4.2, 24), painted(P.pipe)); pm.rotation.x = Math.PI / 2; pm.position.set(px, 1.9, 0); pm.castShadow = true; g.add(pm); const mt = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2, 20), painted(0x3a3f45)); mt.rotation.x = Math.PI / 2; mt.position.set(px, 1.9, 3.2); g.add(mt); const fan = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.1, 6, 16), steelMat()); fan.position.set(px, 1.9, 4.3); g.add(fan); if (b.inSession) this.spins.push({ mesh: fan, speed: b.star ? 16 : b.fire ? 3 : 8 }); }
+      for (const px of [-2.6, 2.6]) { const pm = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 4.2, 24), painted(P.pipe)); pm.rotation.x = Math.PI / 2; pm.position.set(px, 1.9, 0); pm.castShadow = true; g.add(pm); const mt = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2, 20), painted(0x3a3f45)); mt.rotation.x = Math.PI / 2; mt.position.set(px, 1.9, 3.2); g.add(mt); const fan = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.1, 6, 16), steelMat()); fan.position.set(px, 1.9, 4.3); g.add(fan); if (b.inSession) { fan.userData.dyn = true; this.spins.push({ mesh: fan, speed: b.star ? 16 : b.fire ? 3 : 8 }); } }
       g.add(this.box(1.2, 4.5, 2.2, 0x3a3f45, 5, 0.6, -2.4, { metalness: 0.5, roughness: 0.4 })); g.add(this.gauge(5, 3.6, -1.25, b.fire ? "red" : b.star ? "green" : b.inSession ? "grey" : "grey"));
       g.add(this.light(5, 5.6, -2.4, TONE_COL[b.tone], b.tone !== "grey" || b.inSession));
       // relief tank behind the station: fills when pressure backs up
       const rt = 1.6, rtH = 5;
       g.add(this.cyl(rt, rtH, P.steelDark, -5, 0.6, -2.5, {}, true)); g.add(this.box(0.6, rtH - 0.6, 0.35, P.gunmetal, -5 + rt * 0.7, 0.9, -2.5 + rt * 0.7));
-      const relief = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.01, 0.18), emissive(b.fire ? P.amber : P.waterGlow, 1.6)); relief.position.set(-5 + rt * 0.7, 0.9, -2.5 + rt * 0.7 + 0.18); g.add(relief);
+      const relief = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.01, 0.18), emissive(b.fire ? P.amber : P.waterGlow, 1.6)); relief.position.set(-5 + rt * 0.7, 0.9, -2.5 + rt * 0.7 + 0.18); relief.userData.dyn = true; g.add(relief);
       this.fills.push({ water: relief, target: b.fire ? 0.95 : b.inSession ? 0.3 : 0.1, maxH: rtH - 1, base: 0.9 });
       // pipes: from the header down into the station, out the back to the collector
       const inlet = this.pipe([[sx, 2, distZ], [sx, 2, sz - 4.6]], 0.8); this.valveOnPipe(sx, 2, distZ + 5, 0.8);
@@ -301,6 +332,7 @@ export class TownScene implements TownSceneApi {
         boom.add(this.box(0.5, 0.5, 4.6, P.amber, 0, 0, 2.3));
         const bucket = new THREE.Group(); bucket.position.set(0, 0, 4.6); bucket.add(this.box(0.5, 0.5, 2.6, P.amber, 0, -1.3, 0)); bucket.add(this.box(1.3, 0.9, 1.1, P.gunmetal, 0, -2.8, 0)); boom.add(bucket);
         W.add(this.box(2.2, 1.8, 2.4, P.amber, site.x - 4, 0.6, site.z - 5.5)); W.add(this.box(2.6, 0.7, 3.2, P.tyre, site.x - 4, 0.6, site.z - 5.5)); W.add(boom);
+        boom.userData.dyn = true; boom.traverse((o) => { o.castShadow = false; });
         this.digs.push({ site, boom, bucket, clods: [], next: Math.random() });
         van.position.copy(home); van.rotation.y = Math.PI / 2;
       } else { van.position.copy(home); van.rotation.y = Math.PI; }
@@ -312,7 +344,7 @@ export class TownScene implements TownSceneApi {
 
     // ================= 3. CLINIC DISTRICT
     const cl = { x: dp.x + dp.w + 16, z: -44, w: 96, d: 88 };
-    this.plinth(cl.x, cl.z, cl.w, cl.d, "CLINIC DISTRICT");
+    this.plinth(cl.x, cl.z, cl.w, cl.d, "CLINIC DISTRICT", 16);
     this.clinicRoadX = cl.x + cl.w + 12;
     const clHeaderX = cl.x + 6;
     const toClinics = this.pipe([[dp.x + dp.w - 4, 2, collZ], [clHeaderX, 2, collZ], [clHeaderX, 2, cl.z + 10], [clHeaderX, 2, cl.z + cl.d - 10]], 1.1);
@@ -337,9 +369,9 @@ export class TownScene implements TownSceneApi {
       for (const y of [0.33, 0.66]) g.add(this.ring(tr + 0.06, 0.12, P.steelDark, 14.5, 0.6 + tankH * y, 0));
       g.add(this.cyl(tr + 0.12, 0.5, P.steelDark, 14.5, 0.6 + tankH, 0));
       g.add(this.box(0.9, tankH - 0.6, 0.5, P.gunmetal, 14.5 - tr * 0.72, 0.9, tr * 0.72));
-      const level = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.01, 0.22), emissive(t.fill >= 1 ? P.amber : P.waterGlow, 1.8)); level.position.set(14.5 - tr * 0.72, 1.1, tr * 0.72 + 0.24); g.add(level);
+      const level = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.01, 0.22), emissive(t.fill >= 1 ? P.amber : P.waterGlow, 1.8)); level.position.set(14.5 - tr * 0.72, 1.1, tr * 0.72 + 0.24); level.userData.dyn = true; g.add(level);
       const fill: Fill = { water: level, target: Math.max(0.02, t.fill), maxH: tankH - 1.1, base: 1.1 }; this.fills.push(fill); this.tankFills.set(t.clinicId, fill);
-      const holder = new THREE.Group(); holder.position.set(14.5, 0.6 + tankH + 2.6, 0); holder.rotation.y = Math.PI / 4; g.add(holder);
+      const holder = new THREE.Group(); holder.position.set(14.5, 0.6 + tankH + 2.6, 0); holder.rotation.y = Math.PI / 4; holder.userData.dyn = true; g.add(holder);
       this.tankPanels.set(t.clinicId, holder); this.paintTankPanel(t.clinicId, t.delivered, t.packSize);
       g.add(this.valve(9.2, 2, -3.5, t.fill >= 1)); // inlet valve, shut when the pack is full
       g.add(this.light(14.5, 0.6 + tankH + 1.2, 0, t.fill >= 1 ? P.amber : TONE_COL[t.tone], t.fill >= 1 || t.tone !== "grey"));
@@ -354,7 +386,7 @@ export class TownScene implements TownSceneApi {
 
     // ================= 4. METER STATION (finance)
     const fi = { x: dp.x, z: dp.z + dp.d + 22, w: dp.w + 30, d: 42 };
-    this.plinth(fi.x, fi.z, fi.w, fi.d, "METER STATION");
+    this.plinth(fi.x, fi.z, fi.w, fi.d, "METER STATION", 13);
     const mx = fi.x + 22, mz = fi.z + fi.d / 2 + 2;
     const meter = new THREE.Group(); meter.position.set(mx, 0.6, mz);
     meter.add(this.box(22, 7, 14, P.wall, 0, 0, 0, { map: concreteTex(), roughness: 0.85 }));
@@ -389,7 +421,12 @@ export class TownScene implements TownSceneApi {
     for (const [x, z] of [[dp.x - 8, this.roadZ - 7], [dp.x + dp.w / 2, this.roadZ - 7], [this.clinicRoadX - 7, this.roadZ - 7], [this.clinicRoadX - 7, cl.z + 24], [this.clinicRoadX - 7, cl.z + 64]]) this.lightPole(x, z);
     for (const [x, z] of [[aq.x - 8, aq.z + 12], [aq.x - 8, aq.z + 60], [cl.x + cl.w + 20, cl.z + 4], [fi.x + fi.w + 8, fi.z + 8], [aq.x + 20, aq.z + aq.d + 10], [fi.x - 10, fi.z + 30]]) this.tree(x, z);
     this.shippingContainer(dp.x + dp.w - 20, dp.z + 4, P.navy); this.shippingContainer(dp.x + dp.w - 20, dp.z + 8, 0x8a5a3a); this.shippingContainer(cl.x + cl.w - 16, cl.z + 4, P.steelDark);
+    // the delivery road is part of the picture: vans drive it on every booking
+    this.fitPts.push(new THREE.Vector3(this.clinicRoadX + 5, 0, cl.z - 8), new THREE.Vector3(this.clinicRoadX + 5, 0, this.roadZ + 5), new THREE.Vector3(dp.x - 10, 0, this.roadZ + 5));
+    this.bake();
     this.fitCamera();
+    if (this.focusTarget) this.focus(this.focusTarget);
+    this.settle = 90;
   }
 
   deliverBooking(repId: string | null, clinicId: string | null) {
@@ -408,6 +445,7 @@ export class TownScene implements TownSceneApi {
     this.paintTankPanel(clinicId, delivered, packSize);
   }
   focus(target: PickTarget | null) {
+    this.focusTarget = target; this.labelsDirty = true; this.pointerDirty = true;
     const key = target ? (target.kind === "depot" || target.kind === "meter" ? target.kind : `${target.kind}:${target.id}`) : null;
     const a = key ? this.labelAnchors.find((l) => l.key === key) : null;
     const look = a ? new THREE.Vector3(a.pos.x, 0, a.pos.z) : this.center.clone();
@@ -416,7 +454,7 @@ export class TownScene implements TownSceneApi {
   }
   dispose() {
     this.disposed = true; cancelAnimationFrame(this.raf);
-    window.removeEventListener("resize", this.resize);
+    window.removeEventListener("resize", this.refit); this.ro?.disconnect();
     this.renderer.domElement.removeEventListener("pointermove", this.onMove);
     this.renderer.domElement.removeEventListener("click", this.onClick);
     this.clearTown(); this.renderer.dispose(); this.renderer.domElement.parentNode?.removeChild(this.renderer.domElement);
@@ -424,18 +462,71 @@ export class TownScene implements TownSceneApi {
 
   // ======================================================== parts
   private setNight(night: boolean) { this.sun.intensity = night ? 0.8 : 2.4; this.sun.color.set(night ? 0x9fb4e0 : 0xfff1dd); this.scene.background = new THREE.Color(night ? 0x2a3444 : P.sky); (this.scene.fog as THREE.Fog).color.set(night ? 0x2a3444 : P.sky); this.renderer.toneMappingExposure = night ? 0.9 : 1.1; }
-  private buildGround() { const g = new THREE.Mesh(new THREE.PlaneGeometry(1000, 1000), std(P.grass, { roughness: 1, map: grassTex() })); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; this.scene.add(g); }
-  private plinth(x: number, z: number, w: number, d: number, title: string) {
+  private buildGround() { const g = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), std(P.grass, { roughness: 1, map: grassTex() })); g.rotation.x = -Math.PI / 2; g.receiveShadow = true; this.scene.add(g); }
+  private plinth(x: number, z: number, w: number, d: number, title: string, tall: number) {
+    for (const px of [x, x + w]) for (const pz of [z, z + d]) this.fitPts.push(new THREE.Vector3(px, 0, pz), new THREE.Vector3(px, tall, pz));
     const base = this.box(w, 0.6, d, P.concrete, x + w / 2, 0, z + d / 2, { map: concreteTex(), roughness: 0.9 }); this.scenery.add(base);
     const kerb = new THREE.Mesh(new THREE.BoxGeometry(w + 1.4, 0.4, d + 1.4), std(P.kerb, { roughness: 0.85 })); kerb.position.set(x + w / 2, 0.2, z + d / 2); kerb.receiveShadow = true; this.scenery.add(kerb);
     const t = textPanel(title, { w: Math.min(w - 6, 56), h: 6.5, font: 3.6, color: "#eef2f6", bg: "#4f5964", mono: true }); t.rotation.x = -Math.PI / 2; t.rotation.z = Math.PI / 4; t.position.set(x + w / 2, 0.62, z + d - 9); this.scenery.add(t);
   }
   private clearTown() {
-    for (const f of this.flows) this.scene.remove(f.ring);
-    this.world.clear(); this.scenery.clear(); this.fx.clear();
+    // Free the GPU side of everything being thrown away; shared materials and cached textures stay.
+    for (const root of [this.world, this.scenery, this.fx, this.proxies]) root.traverse((o) => {
+      const m = o as THREE.Mesh; if (!m.isMesh) { const sm = (o as THREE.Sprite).material; if ((o as THREE.Sprite).isSprite && sm !== dropMat) sm.dispose(); return; }
+      m.geometry.dispose();
+      const mat = m.material as THREE.MeshBasicMaterial;
+      if (!sharedMats.has(mat) && mat !== flowMat && mat !== proxyMat) { if (mat.map && ![...texCache.values()].includes(mat.map)) mat.map.dispose(); mat.dispose(); }
+    });
+    this.world.clear(); this.scenery.clear(); this.fx.clear(); this.proxies.clear();
+    this.flowMeshes = []; this.fitPts = []; this.townSig = ""; this.labelsDirty = true; this.pointerDirty = true;
     this.pickables = []; this.flows = []; this.fills = []; this.tankFills.clear(); this.tankPanels.clear(); this.leaks = []; this.beacons = []; this.steams = []; this.spins = []; this.halos = []; this.digs = []; this.vans.clear(); this.trips = []; this.puffs = []; this.tankPos.clear(); this.labelAnchors = []; this.hovered = null;
   }
-  private tag(o: THREE.Object3D, t: PickTarget) { o.userData = t; this.pickables.push(o); }
+  /** Clicks and hover test one invisible box per structure instead of every bolt in it. */
+  private tag(o: THREE.Object3D, t: PickTarget) {
+    const b = new THREE.Box3().setFromObject(o); if (b.isEmpty()) return;
+    const size = b.getSize(new THREE.Vector3()), proxy = new THREE.Mesh(new THREE.BoxGeometry(size.x, size.y, size.z), proxyMat);
+    b.getCenter(proxy.position); proxy.visible = false; proxy.userData = t; this.proxies.add(proxy); this.pickables.push(proxy);
+  }
+  /**
+   * Welds every static part that shares a material into one mesh. The town is
+   * built from ~1,600 small parts; drawn one by one (twice, with shadows) that
+   * is the whole frame budget. Moving parts are marked userData.dyn and left alone.
+   */
+  private bake() {
+    for (const root of [this.world, this.scenery]) {
+      root.updateMatrixWorld(true);
+      const buckets = new Map<string, { mat: THREE.Material; cast: boolean; recv: boolean; geos: THREE.BufferGeometry[] }>();
+      const gone: THREE.Mesh[] = [];
+      const visit = (o: THREE.Object3D) => {
+        if (o.userData.dyn) return;
+        const m = o as THREE.Mesh;
+        if (m.isMesh && !Array.isArray(m.material) && sharedMats.has(m.material) && m.children.length === 0) {
+          const key = `${m.material.uuid}|${+m.castShadow}|${+m.receiveShadow}`;
+          let b = buckets.get(key); if (!b) { b = { mat: m.material, cast: m.castShadow, recv: m.receiveShadow, geos: [] }; buckets.set(key, b); }
+          b.geos.push(m.geometry.applyMatrix4(m.matrixWorld)); gone.push(m); return;
+        }
+        for (const c of o.children) visit(c);
+      };
+      visit(root);
+      for (const m of gone) m.removeFromParent();
+      for (const b of buckets.values()) {
+        const mixed = b.geos.some((g) => !g.index);
+        const parts = mixed ? b.geos.map((g) => (g.index ? g.toNonIndexed() : g)) : b.geos;
+        const merged = mergeGeometries(parts, false);
+        for (const g of new Set([...b.geos, ...parts])) g.dispose();
+        if (!merged) continue;
+        const mesh = new THREE.Mesh(merged, b.mat); mesh.castShadow = b.cast; mesh.receiveShadow = b.recv; root.add(mesh);
+      }
+    }
+    // flow rings: one instanced mesh per pipe size
+    const byR = new Map<number, Flow[]>();
+    for (const f of this.flows) { const l = byR.get(f.r) ?? []; l.push(f); byR.set(f.r, l); }
+    for (const [r, list] of byR) {
+      const im = new THREE.InstancedMesh(new THREE.TorusGeometry(r + 0.12, 0.16, 8, 28), flowMat, list.length); im.frustumCulled = false;
+      list.forEach((f, i) => { f.im = im; f.idx = i; }); this.fx.add(im); this.flowMeshes.push(im);
+    }
+    this.shadowHold = 2;
+  }
   private box(w: number, h: number, d: number, c: number, x: number, y: number, z: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), std(c, extra)); m.position.set(x, y + h / 2, z); m.castShadow = true; m.receiveShadow = true; return m; }
   private cyl(r: number, h: number, c: number, x: number, y: number, z: number, extra: Partial<THREE.MeshStandardMaterialParameters> = {}, steel = false) { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 40), steel ? steelMat(c) : std(c, extra)); m.position.set(x, y + h / 2, z); m.castShadow = true; m.receiveShadow = true; return m; }
   private ring(r: number, t: number, c: number, x: number, y: number, z: number, upright = false) { const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 10, 48), std(c, { roughness: 0.45, metalness: 0.7 })); if (!upright) m.rotation.x = Math.PI / 2; else m.rotation.y = Math.PI / 2; m.position.set(x, y, z); m.castShadow = true; return m; }
@@ -443,7 +534,7 @@ export class TownScene implements TownSceneApi {
   /** Painted steel pipe with flanges at every fitting and concrete supports along the run. */
   private pipe(points: [number, number, number][], r: number, supports = true) {
     const curve = new THREE.CatmullRomCurve3(points.map((p) => new THREE.Vector3(...p)), false, "catmullrom", 0);
-    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, points.length * 24), r, 18, false), painted(P.pipe)); m.castShadow = true; m.receiveShadow = true; this.world.add(m);
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(8, points.length * 24), r, 14, false), painted(P.pipe)); m.castShadow = true; m.receiveShadow = true; this.world.add(m);
     for (const p of points) { const f = new THREE.Mesh(new THREE.CylinderGeometry(r + 0.32, r + 0.32, 0.55, 20), std(P.flange, { metalness: 0.7, roughness: 0.4 })); f.position.set(p[0], p[1], p[2]); const nxt = points[Math.min(points.length - 1, points.indexOf(p) + 1)]; const dx = nxt[0] - p[0], dz = nxt[2] - p[2]; f.rotation.z = Math.abs(dx) >= Math.abs(dz) ? Math.PI / 2 : 0; f.rotation.x = Math.abs(dx) >= Math.abs(dz) ? 0 : Math.PI / 2; f.castShadow = true; this.world.add(f); }
     if (supports) { const len = curve.getLength(); const n = Math.max(1, Math.floor(len / 12)); for (let i = 1; i <= n; i++) { const p = curve.getPoint(i / (n + 1)); this.world.add(this.box(1.4, p.y - r, 1.4, P.concreteDark, p.x, 0.6, p.z, { map: concreteTex() })); } }
     return curve;
@@ -482,7 +573,7 @@ export class TownScene implements TownSceneApi {
     return g;
   }
   private makeVan(color: number, lightsOn: boolean, name: string) {
-    const g = new THREE.Group();
+    const g = new THREE.Group(); g.userData.dyn = true;
     g.add(this.box(3.4, 2.7, 6.4, color, 0, 0.55, -0.6, { roughness: 0.3, metalness: 0.35 }));
     g.add(this.box(3.4, 2.1, 2.4, color, 0, 0.55, 3.8, { roughness: 0.3, metalness: 0.35 }));
     g.add(this.box(3.2, 1, 0.2, 0x1f2a36, 0, 1.75, 5.05, { roughness: 0.05, metalness: 0.6 }));
@@ -511,7 +602,7 @@ export class TownScene implements TownSceneApi {
     holder.add(this.box(6.4, 3.4, 0.3, P.gunmetal, 0, -1.7, -0.2)); holder.add(this.box(0.3, 3, 0.3, P.gunmetal, 0, -4.7, -0.2));
   }
   private addFlow(curve: THREE.Curve<THREE.Vector3>, t: number, speed: number, r: number) {
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(r + 0.12, 0.16, 8, 28), new THREE.MeshBasicMaterial({ color: P.waterGlow, transparent: true, opacity: 0.9, toneMapped: false })); this.scene.add(ring); this.flows.push({ ring, curve, t, speed });
+    this.flows.push({ curve, t, speed, r, im: null, idx: 0 });
   }
   private addLeak(at: THREE.Vector3, dir: THREE.Vector3) {
     const puddle = this.disc(0.5, P.water, at.x + dir.x * 2, at.z + dir.z * 2, 0.64, { transparent: true, opacity: 0.55, roughness: 0.05, metalness: 0.5 }); this.fx.add(puddle);
@@ -519,7 +610,7 @@ export class TownScene implements TownSceneApi {
   }
   private addBeacon(pos: THREE.Vector3, color: number) {
     const g = new THREE.Group(); g.position.copy(pos);
-    g.add(this.cyl(0.4, 0.5, P.gunmetal, 0, 0, 0)); const dome = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10), emissive(color, 2.5)); dome.position.y = 0.7; g.add(dome);
+    g.add(this.cyl(0.4, 0.5, P.gunmetal, 0, 0, 0)); const dome = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 10), ownEmissive(color, 2.5)); dome.position.y = 0.7; g.add(dome);
     const glow = sprite(glowTex(), color, 0.8, true); glow.scale.set(5, 5, 1); glow.position.y = 0.7; g.add(glow);
     this.fx.add(g); this.beacons.push({ dome, glow, phase: Math.random() * 6, color });
   }
@@ -529,26 +620,33 @@ export class TownScene implements TownSceneApi {
   }
 
   // ======================================================== camera + input
+  /**
+   * Frames the districts (not a loose box around them) inside the part of the
+   * page the HUD and the priorities panel leave free, and centres them there.
+   */
   private fitCamera() {
-    const bounds = new THREE.Box3().setFromObject(this.world);
-    if (bounds.isEmpty()) return;
-    this.center = bounds.getCenter(new THREE.Vector3()); this.center.y = 0;
-    this.camera.position.copy(this.center).add(CAM_OFFSET); this.camera.lookAt(this.center); this.camera.updateMatrixWorld();
-    const inv = this.camera.matrixWorldInverse;
+    if (!this.fitPts.length) { this.resize(); return; }
+    this.camera.position.copy(CAM_OFFSET); this.camera.lookAt(0, 0, 0); this.camera.updateMatrixWorld();
+    const inv = this.camera.matrixWorldInverse, v = new THREE.Vector3();
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const p of this.fitPts) { v.copy(p).applyMatrix4(inv); minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); }
     const w = this.container.clientWidth || 1440, h = this.container.clientHeight || 900;
-    const PANEL = w > 1000 ? Math.round(w * 0.21) + 12 : 0, HUD = 74;
-    const aspect = w / h, usable = Math.max(1, (w - PANEL) / (h - HUD));
-    let need = 1; const c = [bounds.min, bounds.max];
-    for (const cx of [0, 1]) for (const cy of [0, 1]) for (const cz of [0, 1]) { const v = new THREE.Vector3(c[cx].x, c[cy].y, c[cz].z).applyMatrix4(inv); need = Math.max(need, Math.abs(v.x) / usable, Math.abs(v.y)); }
-    this.baseFs = need * 1.0 * (h / (h - HUD));
-    const pxToWorld = (2 * this.baseFs * aspect) / w;
-    const right = new THREE.Vector3(1, 0, -1).normalize(), down = new THREE.Vector3(-1, 0, -1).normalize();
-    this.center.add(right.multiplyScalar((PANEL / 2) * pxToWorld)).add(down.multiplyScalar((HUD / 2) * pxToWorld * 1.3));
-    this.camera.position.copy(this.center).add(CAM_OFFSET); this.camera.lookAt(this.center);
+    // Mirrors the page: priorities panel on the right, or docked along the bottom on a narrow screen.
+    const PANEL = w > 1000 ? Math.max(260, Math.round(w * 0.21)) + 24 : 0, BOTTOM = w > 1000 ? 0 : Math.round(h * 0.34) + 8, HUD = 44, PAD = w > 1000 ? 24 : 10, PAD_TOP = 34;
+    const uw = Math.max(200, w - PANEL - PAD * 2), uh = Math.max(160, h - HUD - PAD_TOP - PAD - BOTTOM);
+    this.baseFs = Math.max(((maxX - minX) * h) / (2 * uw), ((maxY - minY) * h) / (2 * uh));
+    const wpp = (2 * this.baseFs) / h; // world units per CSS pixel
+    const cx = (minX + maxX) / 2 + (PANEL / 2) * wpp, cy = (minY + maxY) / 2 + ((HUD + PAD_TOP - PAD - BOTTOM) / 2) * wpp;
+    const e = this.camera.matrixWorld.elements;
+    const look = new THREE.Vector3(e[0], e[1], e[2]).multiplyScalar(cx).add(new THREE.Vector3(e[4], e[5], e[6]).multiplyScalar(cy));
+    look.addScaledVector(CAM_OFFSET, -look.y / CAM_OFFSET.y); // slide along the view ray to the ground
+    this.center = look;
+    this.camera.position.copy(look).add(CAM_OFFSET); this.camera.lookAt(look);
     this.resize();
   }
-  private resize = () => { const w = this.container.clientWidth || 1, h = this.container.clientHeight || 1; this.renderer.setSize(w, h, false); const fs = this.baseFs * this.zoom, aspect = w / h; this.camera.left = -fs * aspect; this.camera.right = fs * aspect; this.camera.top = fs; this.camera.bottom = -fs; this.camera.updateProjectionMatrix(); };
-  private onMove = (e: PointerEvent) => { const r = this.renderer.domElement.getBoundingClientRect(); this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); };
+  private resize = () => { const w = this.container.clientWidth || 1, h = this.container.clientHeight || 1; this.renderer.setSize(w, h, false); const fs = this.baseFs * this.zoom, aspect = w / h; this.camera.left = -fs * aspect; this.camera.right = fs * aspect; this.camera.top = fs; this.camera.bottom = -fs; this.camera.updateProjectionMatrix(); this.labelsDirty = true; this.pointerDirty = true; };
+  private refit = () => { if (this.disposed) return; this.fitCamera(); if (this.focusTarget) this.focus(this.focusTarget); };
+  private onMove = (e: PointerEvent) => { const r = this.renderer.domElement.getBoundingClientRect(); this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); this.pointerDirty = true; };
   private onClick = () => { const hit = this.pickAt(); this.opts.onPick?.(hit ? (hit.userData as PickTarget) : null); };
   private pickAt(): THREE.Object3D | null {
     this.raycaster.setFromCamera(this.pointer, this.camera);
@@ -563,16 +661,19 @@ export class TownScene implements TownSceneApi {
   private loop = () => {
     if (this.disposed) return;
     this.raf = requestAnimationFrame(this.loop);
-    const dt = Math.min(0.05, this.clock.getDelta()), t = this.clock.elapsedTime;
-    if (Math.abs(this.zoom - this.zoomTarget) > 0.002) { this.zoom += (this.zoomTarget - this.zoom) * 0.08; this.resize(); }
-    for (const f of this.flows) { f.t = (f.t + f.speed * dt) % 1; const p = f.curve.getPoint(f.t), q = f.curve.getPoint(Math.min(1, f.t + 0.01)); f.ring.position.copy(p); f.ring.lookAt(q); }
+    const raw = this.clock.getDelta(), dt = Math.min(0.05, raw), t = this.clock.elapsedTime;
+    this.tuneResolution(raw);
+    if (Math.abs(this.zoom - this.zoomTarget) > 0.002) { this.zoom += (this.zoomTarget - this.zoom) * (1 - Math.exp(-dt * 5)); this.resize(); }
+    const d = this.dummy;
+    for (const f of this.flows) { if (!f.im) continue; f.t = (f.t + f.speed * dt) % 1; f.curve.getPoint(f.t, d.position); d.lookAt(f.curve.getPoint(Math.min(1, f.t + 0.01))); d.updateMatrix(); f.im.setMatrixAt(f.idx, d.matrix); }
+    for (const im of this.flowMeshes) im.instanceMatrix.needsUpdate = true;
     for (const f of this.fills) { const cur = f.water.scale.y * 0.01; const next = cur + (f.target * f.maxH - cur) * Math.min(1, dt * 1.6); f.water.scale.y = Math.max(0.01, next) / 0.01; f.water.position.y = f.base + next / 2; }
     for (const s of this.spins) s.mesh.rotation.z += dt * s.speed;
     for (const b of this.beacons) { const k = (Math.sin(t * 6 + b.phase) + 1) / 2; b.glow.material.opacity = 0.15 + 0.75 * k; b.glow.scale.setScalar(3.5 + 3 * k); (b.dome.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.6 + 2.4 * k; }
     for (const h of this.halos) { (h.ring.material as THREE.MeshBasicMaterial).opacity = 0.35 + 0.3 * Math.sin(t * 1.6 + h.phase); h.ring.rotation.z = t * 0.25; }
     for (const l of this.leaks) {
       l.next -= dt;
-      if (l.next <= 0) { l.next = 0.07; const s = sprite(dropTex(), 0xffffff, 0.9); s.scale.set(0.5, 0.5, 1); s.position.copy(l.at); this.fx.add(s); l.drops.push({ s, v: l.dir.clone().multiplyScalar(6).add(new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2, (Math.random() - 0.5) * 2)), life: 1 }); }
+      if (l.next <= 0) { l.next = 0.07; dropMat.map ??= dropTex(); const s = new THREE.Sprite(dropMat); s.scale.set(0.5, 0.5, 1); s.position.copy(l.at); this.fx.add(s); l.drops.push({ s, v: l.dir.clone().multiplyScalar(6).add(new THREE.Vector3((Math.random() - 0.5) * 2, Math.random() * 2, (Math.random() - 0.5) * 2)), life: 1 }); }
       for (const d of [...l.drops]) { d.life -= dt * 1.4; d.v.y -= 16 * dt; d.s.position.addScaledVector(d.v, dt); if (d.s.position.y < 0.7 || d.life <= 0) { this.fx.remove(d.s); l.drops = l.drops.filter((x) => x !== d); } }
       const k = Math.min(3.2, l.puddle.scale.x + dt * 0.25); l.puddle.scale.set(k, k, 1);
     }
@@ -590,16 +691,50 @@ export class TownScene implements TownSceneApi {
     for (const trip of [...this.trips]) this.stepTrip(trip, dt);
     for (const p of [...this.puffs]) { p.life -= dt * 0.9; p.s.position.y += dt * 1.2; p.s.scale.addScalar(dt * 1.2); p.s.material.opacity = 0.5 * Math.max(0, p.life); if (p.life <= 0) { this.fx.remove(p.s); this.puffs = this.puffs.filter((x) => x !== p); } }
 
-    const hit = this.pickAt();
-    if (hit !== this.hovered) { this.hovered = hit; this.renderer.domElement.style.cursor = hit ? "pointer" : "default"; }
-    this.renderer.render(this.scene, this.camera);
-    if (this.opts.onLabels) {
-      const w = this.container.clientWidth, h = this.container.clientHeight;
-      const hv = this.hovered?.userData as PickTarget | undefined;
-      const hoverKey = hv ? (hv.kind === "depot" || hv.kind === "meter" ? hv.kind : `${hv.kind}:${hv.id}`) : null;
-      this.opts.onLabels(this.labelAnchors.map((a) => { const v = a.pos.clone().project(this.camera); return { key: a.key, x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, short: a.short, title: a.title, kpis: a.kpis, tone: a.tone, hidden: v.z > 1, active: a.key === hoverKey, kind: a.kind }; }));
+    if (this.pointerDirty) {
+      this.pointerDirty = false;
+      const hit = this.pickAt();
+      if (hit !== this.hovered) { this.hovered = hit; this.renderer.domElement.style.cursor = hit ? "pointer" : "default"; this.labelsDirty = true; }
     }
+    if (this.trips.length) this.shadowHold = 2; // a van is on the road: keep its shadow with it
+    if (this.shadowHold > 0) { this.shadowHold--; this.renderer.shadowMap.needsUpdate = true; }
+    this.renderer.render(this.scene, this.camera);
+    if (this.labelsDirty) { this.labelsDirty = false; this.emitLabels(); }
   };
+  /** Plates only move when the camera does, so the page is told then, not every frame. */
+  private emitLabels() {
+    if (!this.opts.onLabels) return;
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    const hv = this.hovered?.userData as PickTarget | undefined;
+    const hoverKey = hv ? (hv.kind === "depot" || hv.kind === "meter" ? hv.kind : `${hv.kind}:${hv.id}`) : null;
+    const v = new THREE.Vector3();
+    const out: LabelSpec[] = this.labelAnchors.map((a) => { v.copy(a.pos).project(this.camera); return { key: a.key, x: ((v.x + 1) / 2) * w, y: ((1 - v.y) / 2) * h, short: a.short, title: a.title, kpis: a.kpis, tone: a.tone, hidden: v.z > 1, active: a.key === hoverKey, kind: a.kind, compact: false }; });
+    // Keep plates off each other: problems claim their spot first, the rest shift
+    // a row up or down, and whatever still collides shrinks to its status dot.
+    const taken: [number, number, number, number][] = [];
+    const free = (r: [number, number, number, number]) => taken.every((t) => r[0] > t[2] || r[2] < t[0] || r[1] > t[3] || r[3] < t[1]);
+    for (const l of [...out].sort((a, b) => TONE_RANK[a.tone] - TONE_RANK[b.tone])) {
+      if (l.hidden || l.active) continue;
+      const half = (l.short.length * 6.2 + 30) / 2;
+      const dy = [0, -22, 22, -44].find((k) => free([l.x - half, l.y + k - 21, l.x + half, l.y + k]));
+      if (dy === undefined) { l.compact = true; taken.push([l.x - 7, l.y - 14, l.x + 7, l.y]); }
+      else { l.y += dy; taken.push([l.x - half, l.y - 21, l.x + half, l.y]); }
+    }
+    this.opts.onLabels(out);
+  }
+  /**
+   * Retina resolution is the dearest thing on the page. If the machine cannot
+   * hold ~40 frames a second, step the resolution down until it can.
+   */
+  private tuneResolution(raw: number) {
+    if (this.settle > 0) { this.settle--; this.slowT = 0; this.slowN = 0; return; }
+    if (raw > 0.25) return; // tab was in the background
+    this.slowT += raw; this.slowN++;
+    if (this.slowN < 90) return;
+    const avg = this.slowT / this.slowN; this.slowT = 0; this.slowN = 0;
+    const pr = this.renderer.getPixelRatio();
+    if (avg > 1 / 40 && pr > 1) { this.renderer.setPixelRatio(Math.max(1, pr > 1.5 ? 1.5 : pr > 1.25 ? 1.25 : 1)); this.resize(); this.settle = 30; }
+  }
   private stepTrip(trip: Trip, dt: number) {
     const g = trip.van.group;
     if (trip.phase === "drop") {

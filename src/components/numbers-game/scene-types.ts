@@ -7,7 +7,7 @@ import type { Tone, Town } from "./model";
  */
 export type PickKind = "tower" | "bay" | "tank" | "puddle" | "depot" | "meter" | "pump";
 export type PickTarget = { kind: PickKind; id: string };
-export type LabelSpec = { key: string; x: number; y: number; short: string; title: string; kpis: [string, string][]; tone: Tone; hidden: boolean; active: boolean; kind: PickKind };
+export type LabelSpec = { key: string; x: number; y: number; short: string; title: string; kpis: [string, string][]; tone: Tone; hidden: boolean; active: boolean; kind: PickKind; /** crowded out: show the status dot only */ compact?: boolean };
 export type SceneOpts = { onPick?: (t: PickTarget | null) => void; onLabels?: (labels: LabelSpec[]) => void };
 
 export interface TownSceneApi {
