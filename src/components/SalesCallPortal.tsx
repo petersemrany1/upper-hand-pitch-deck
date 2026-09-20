@@ -1473,7 +1473,6 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
       return next.length === prev.length ? prev : next;
     });
   }, [isLeadClinicFull, leads, sessionActive]);
-  );
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
