@@ -3990,7 +3990,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         // The lead's already-booked clinic stays available so existing bookings
         // can still be edited.
         const list = ((data ?? []) as Clinic[]).filter(
-          (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+          // A full clinic is a hard stop. The only exception is a lead that is
+          // ALREADY booked there, so an existing appointment can still be
+          // edited — a lead merely pre-assigned to a full clinic cannot be
+          // booked past the pack limit.
+          (c) => (remaining[c.id] ?? 0) > 0 || (c.id === lead.clinic_id && !!lead.booking_date),
         );
         setClinics(list);
       } catch (err) {
@@ -7163,7 +7167,9 @@ function RightPanel({
         if (error) throw error;
         // Only offer clinics that still have consult slots left in their pack.
         const list = ((clinics ?? []) as Clinic[]).filter(
-          (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+          // Same rule as the booking form: only a lead already booked at a full
+          // clinic keeps it in the list (to edit that booking).
+          (c) => (remaining[c.id] ?? 0) > 0 || (c.id === active.clinic_id && !!active.booking_date),
         );
         setPanelClinics(list);
 
