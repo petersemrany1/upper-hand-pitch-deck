@@ -22,7 +22,7 @@ import {
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
-import { fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
+import { clinicLocationKeywords, fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
