@@ -5,9 +5,10 @@ import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/c
 /**
  * Remaining consult slots per clinic = total shows purchased across their PAID
  * packs minus every live booking (delivered + upcoming).
- * No-shows and disqualified bookings hand the slot back, past bookings with no
- * outcome recorded are treated as if they never happened, and free-trial
- * bookings never consume a paid credit.
+ * Once a patient is sent through, the slot is consumed — even if the clinic
+ * never marks an outcome. Only an explicit no-show or a disqualification hands
+ * the slot back (one more show to fill). Free-trial bookings never consume a
+ * paid credit.
  * A clinic with no paid packs has nothing bought, so it has 0 remaining.
  */
 let cache: { at: number; value: Record<string, number> } | null = null;
@@ -88,7 +89,6 @@ async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
     if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
     if (!a.clinic_id) continue;
     if (isFreeTrialBooking(a.booked_at, cutoffs[a.clinic_id] ?? null)) continue;
-    if (!a.outcome && a.appointment_date && a.appointment_date < todayStr) continue;
     remaining[a.clinic_id] = (remaining[a.clinic_id] ?? 0) - 1;
   }
   for (const key of Object.keys(remaining)) {
