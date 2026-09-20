@@ -90,11 +90,13 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       if (d || o === "disqualified" || o === "noshow") continue;
       // Free-trial bookings cost nothing and don't touch the paid pack.
       if (isFreeTrialBooking(bookedAt, cutoff)) continue;
-      // Past appointments with no outcome recorded are treated as if they
-      // never happened — they don't hold a slot.
-      if (!o && date < todayStr) continue;
       booked += 1;
       if (o === "show" || o === "proceeded") {
+        showed += 1;
+      } else if (!o && date < todayStr) {
+        // Sent through and the date has passed: it counts as a delivered show
+        // even if the clinic never marked an outcome. Only an explicit
+        // no-show hands the slot back.
         showed += 1;
       } else if (!o) {
         up += 1;
