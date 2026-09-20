@@ -1455,6 +1455,25 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
+
+  // Mid-session capacity: the moment a city's clinics fill up (e.g. the last
+  // Melbourne show is booked), pull that city's leads out of the live session
+  // queue so the rep never wastes a dial on someone she can't book. The lead
+  // currently on screen is left alone — the rep finishes that call. If a slot
+  // comes back (no-show marked, new pack), the leads reappear automatically.
+  useEffect(() => {
+    if (!sessionActive) return;
+    setSessionQueue((prev) => {
+      const byId = new Map(leads.map((l) => [l.id, l]));
+      const next = prev.filter((id) => {
+        if (id === activeIdRef.current) return true;
+        const l = byId.get(id);
+        return !l || !isLeadClinicFull(l);
+      });
+      return next.length === prev.length ? prev : next;
+    });
+  }, [isLeadClinicFull, leads, sessionActive]);
+  );
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
