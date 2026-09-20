@@ -5770,7 +5770,7 @@ function LeadChooser({
     return [...list].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [leads, q, isLeadLocationPaused]);
+  }, [leads, q, isLeadLocationPaused, isClinicFull]);
 
   // Bucketing helpers
   const callbackOn = (l: Lead, when: Date) => {
