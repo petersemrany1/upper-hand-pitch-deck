@@ -1752,6 +1752,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               <LeadChooser
                 leads={leads}
                 pausedLocations={pausedLocations}
+                isClinicFull={isLeadClinicFull}
                 priorityLocation={priorityLocation}
                 attemptCounts={attemptCounts}
                 attemptsByDay={attemptsByDay}
@@ -5756,6 +5757,8 @@ function LeadChooser({
       if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
       // Hide leads from admin-paused locations (Settings → Paused lead locations).
       if (isLeadLocationPaused(l)) return false;
+      // Hide leads whose city has no bookable shows left (clinic at capacity).
+      if (isClinicFull?.(l)) return false;
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
       return (
