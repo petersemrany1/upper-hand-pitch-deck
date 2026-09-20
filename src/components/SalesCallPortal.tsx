@@ -429,15 +429,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           fetchClinicRemainingSlots(),
         ]);
         if (cancelled) return;
-        const keyword = (c: { location: string | null; city: string | null }) =>
-          (c.location ?? c.city ?? "").trim().toLowerCase();
         const all: string[] = [];
         const available: string[] = [];
         for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
-          const k = keyword(c);
-          if (!k) continue;
-          all.push(k);
-          if ((remaining[c.id] ?? 0) > 0) available.push(k);
+          const keys = clinicLocationKeywords(c);
+          if (keys.length === 0) continue;
+          all.push(...keys);
+          if ((remaining[c.id] ?? 0) > 0) available.push(...keys);
         }
         setClinicCapacity({ all, available });
       } catch (err) {
