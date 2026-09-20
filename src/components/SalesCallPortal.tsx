@@ -413,6 +413,62 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
+  // Clinic capacity, live. When every active clinic serving a city runs out of
+  // paid shows, that city's leads drop out of the pipeline, the session queue
+  // and due callbacks until a slot comes back (no-show / disqualification /
+  // new pack). Recomputed on booking saves (via the "clinic-capacity-changed"
+  // event) and on any realtime appointment/pack change, so another rep's
+  // booking updates this screen too.
+  const [clinicCapacity, setClinicCapacity] = useState<{ all: string[]; available: string[] }>({ all: [], available: [] });
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [{ data }, remaining] = await Promise.all([
+          supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (cancelled) return;
+        const keyword = (c: { location: string | null; city: string | null }) =>
+          (c.location ?? c.city ?? "").trim().toLowerCase();
+        const all: string[] = [];
+        const available: string[] = [];
+        for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
+          const k = keyword(c);
+          if (!k) continue;
+          all.push(k);
+          if ((remaining[c.id] ?? 0) > 0) available.push(k);
+        }
+        setClinicCapacity({ all, available });
+      } catch (err) {
+        // A failed capacity read must never hide leads — keep the last known state.
+        console.warn("clinic capacity refresh failed", err);
+      }
+    };
+    void load();
+    const onChanged = () => void load();
+    window.addEventListener("clinic-capacity-changed", onChanged);
+    const ch = supabase.channel("clinic-capacity-queue")
+      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, onChanged)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_packs" }, onChanged)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("clinic-capacity-changed", onChanged);
+      void supabase.removeChannel(ch);
+    };
+  }, []);
+  const isLeadClinicFull = useCallback((l: Lead) => {
+    if (clinicCapacity.all.length === 0) return false;
+    const a = leadLocationText(l);
+    // Leads from cities with no clinic at all stay visible — the rep decides.
+    if (!clinicCapacity.all.some((k) => a.includes(k))) return false;
+    return !clinicCapacity.available.some((k) => a.includes(k));
+  }, [clinicCapacity]);
+  const isLeadUnavailable = useCallback(
+    (l: Lead) => isLeadLocationPaused(l) || isLeadClinicFull(l),
+    [isLeadLocationPaused, isLeadClinicFull],
+  );
   // Optional priority city (Settings → "Priority lead city"). Leads matching it
   // are sorted to the top of every column and to the front of the call session
   // queue. Nothing is hidden — lower-priority cities just sit underneath.
@@ -886,7 +942,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadLocationPaused));
+      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailable));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
@@ -1384,10 +1440,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // served separately at their time — see the callback watcher below.
   const buildSessionQueue = useCallback(
     (): string[] =>
-      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadLocationPaused, isPriority: isPriorityLead }).order,
+      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead }).order,
     // clockTick re-evaluates noon / callback windows once a minute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
+    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
 
   // Everything due to be served right now, per the queue rules. Brand-new
@@ -1395,10 +1451,28 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // after the lead the rep is on. Anything else that becomes due mid-session
   // (a young lead's afternoon turn) is appended when the queue runs dry.
   const dueQueue = useMemo(
-    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadLocationPaused, isPriority: isPriorityLead }),
+    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
+    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
+
+  // Mid-session capacity: the moment a city's clinics fill up (e.g. the last
+  // Melbourne show is booked), pull that city's leads out of the live session
+  // queue so the rep never wastes a dial on someone she can't book. The lead
+  // currently on screen is left alone — the rep finishes that call. If a slot
+  // comes back (no-show marked, new pack), the leads reappear automatically.
+  useEffect(() => {
+    if (!sessionActive) return;
+    setSessionQueue((prev) => {
+      const byId = new Map(leads.map((l) => [l.id, l]));
+      const next = prev.filter((id) => {
+        if (id === activeIdRef.current) return true;
+        const l = byId.get(id);
+        return !l || !isLeadClinicFull(l);
+      });
+      return next.length === prev.length ? prev : next;
+    });
+  }, [isLeadClinicFull, leads, sessionActive]);
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
   const dueSetRef = useRef(dueSet);
@@ -1678,6 +1752,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
               <LeadChooser
                 leads={leads}
                 pausedLocations={pausedLocations}
+                isClinicFull={isLeadClinicFull}
                 priorityLocation={priorityLocation}
                 attemptCounts={attemptCounts}
                 attemptsByDay={attemptsByDay}
@@ -5584,6 +5659,7 @@ const sameLocalDate = (a: Date, b: Date) =>
 function LeadChooser({
   leads,
   pausedLocations = [],
+  isClinicFull,
   priorityLocation = "",
   attemptCounts,
   attemptsByDay,
@@ -5593,6 +5669,8 @@ function LeadChooser({
 }: {
   leads: Lead[];
   pausedLocations?: string[];
+  /** City out of bookable shows — hide those leads until a slot comes back. */
+  isClinicFull?: (l: Lead) => boolean;
   priorityLocation?: string;
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
@@ -5679,6 +5757,8 @@ function LeadChooser({
       if (ns === "not_interested" || ns === "had_convo_no_sale") return false;
       // Hide leads from admin-paused locations (Settings → Paused lead locations).
       if (isLeadLocationPaused(l)) return false;
+      // Hide leads whose city has no bookable shows left (clinic at capacity).
+      if (isClinicFull?.(l)) return false;
       if (!q.trim()) return true;
       const needle = q.toLowerCase();
       return (
@@ -5690,7 +5770,7 @@ function LeadChooser({
     return [...list].sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
-  }, [leads, q, isLeadLocationPaused]);
+  }, [leads, q, isLeadLocationPaused, isClinicFull]);
 
   // Bucketing helpers
   const callbackOn = (l: Lead, when: Date) => {

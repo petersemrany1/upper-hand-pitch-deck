@@ -44,6 +44,9 @@ export function fetchClinicRemainingSlots(): Promise<Record<string, number>> {
 /** Drop the cached balances after a booking is saved or a pack changes. */
 export function invalidateClinicRemainingSlots() {
   cache = null;
+  // Let the sales-call queue re-check capacity immediately, so a clinic that
+  // just filled up pulls its city's leads out of the rep's session mid-call.
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("clinic-capacity-changed"));
 }
 
 /** Slow reads must fail fast: a rep waiting 30s on a hung request sees an
