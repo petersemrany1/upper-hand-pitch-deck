@@ -22,7 +22,7 @@ import {
 import { sendClinicHandoverEmail, sendDepositSmsToPatient, sendBookingConfirmationSms, sendManualSms, sendStandaloneDepositSms } from "@/utils/resend.functions";
 import { stopRingback } from "@/utils/ringback";
 import { generateSlots, holidayLabelFor, summarizeDay, ymdLocal, type TradingHours, type BlockedSlot, type ExistingAppt, type AvailabilityOverride } from "@/lib/slot-generation";
-import { fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
+import { clinicLocationKeywords, fetchClinicRemainingSlots, invalidateClinicRemainingSlots } from "@/lib/clinic-capacity";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -429,15 +429,13 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           fetchClinicRemainingSlots(),
         ]);
         if (cancelled) return;
-        const keyword = (c: { location: string | null; city: string | null }) =>
-          (c.location ?? c.city ?? "").trim().toLowerCase();
         const all: string[] = [];
         const available: string[] = [];
         for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
-          const k = keyword(c);
-          if (!k) continue;
-          all.push(k);
-          if ((remaining[c.id] ?? 0) > 0) available.push(k);
+          const keys = clinicLocationKeywords(c);
+          if (keys.length === 0) continue;
+          all.push(...keys);
+          if ((remaining[c.id] ?? 0) > 0) available.push(...keys);
         }
         setClinicCapacity({ all, available });
       } catch (err) {
@@ -3992,7 +3990,11 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         // The lead's already-booked clinic stays available so existing bookings
         // can still be edited.
         const list = ((data ?? []) as Clinic[]).filter(
-          (c) => (remaining[c.id] ?? 0) > 0 || c.id === lead.clinic_id,
+          // A full clinic is a hard stop. The only exception is a lead that is
+          // ALREADY booked there, so an existing appointment can still be
+          // edited — a lead merely pre-assigned to a full clinic cannot be
+          // booked past the pack limit.
+          (c) => (remaining[c.id] ?? 0) > 0 || (c.id === lead.clinic_id && !!lead.booking_date),
         );
         setClinics(list);
       } catch (err) {
@@ -7165,7 +7167,9 @@ function RightPanel({
         if (error) throw error;
         // Only offer clinics that still have consult slots left in their pack.
         const list = ((clinics ?? []) as Clinic[]).filter(
-          (c) => (remaining[c.id] ?? 0) > 0 || c.id === active.clinic_id,
+          // Same rule as the booking form: only a lead already booked at a full
+          // clinic keeps it in the list (to edit that booking).
+          (c) => (remaining[c.id] ?? 0) > 0 || (c.id === active.clinic_id && !!active.booking_date),
         );
         setPanelClinics(list);
 

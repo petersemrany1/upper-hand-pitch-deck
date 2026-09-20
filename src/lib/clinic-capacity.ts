@@ -3,6 +3,26 @@ import { sydneyTodayISO } from "@/lib/timezone";
 import { freeTrialCutoff, isFreeTrialBooking, type FreeTrialPack } from "@/lib/clinic-free-trial";
 
 /**
+ * Every lowercase city word a clinic can be recognised by in a lead's location
+ * text. Ad set names shorten multi-word cities ("Byron - Natural Video" for
+ * Byron Bay), so the first word of a multi-word city counts too — otherwise a
+ * full Byron clinic would never hide its leads.
+ */
+export function clinicLocationKeywords(c: { location?: string | null; city?: string | null }): string[] {
+  const keys = new Set<string>();
+  for (const raw of [c.location, c.city]) {
+    const v = (raw ?? "").trim().toLowerCase();
+    if (!v) continue;
+    keys.add(v);
+    const first = v.split(/\s+/)[0];
+    // Only distinctive first words — short ones ("port", "gold") would match
+    // unrelated locations.
+    if (first && first !== v && first.length >= 5) keys.add(first);
+  }
+  return [...keys];
+}
+
+/**
  * Remaining consult slots per clinic = total shows purchased across their PAID
  * packs minus every live booking (delivered + upcoming).
  * Once a patient is sent through, the slot is consumed — even if the clinic
