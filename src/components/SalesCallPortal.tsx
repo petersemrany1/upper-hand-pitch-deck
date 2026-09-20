@@ -5658,6 +5658,7 @@ const sameLocalDate = (a: Date, b: Date) =>
 function LeadChooser({
   leads,
   pausedLocations = [],
+  isClinicFull,
   priorityLocation = "",
   attemptCounts,
   attemptsByDay,
@@ -5667,6 +5668,8 @@ function LeadChooser({
 }: {
   leads: Lead[];
   pausedLocations?: string[];
+  /** City out of bookable shows — hide those leads until a slot comes back. */
+  isClinicFull?: (l: Lead) => boolean;
   priorityLocation?: string;
   attemptCounts: Record<string, number>;
   attemptsByDay: Record<string, Record<string, { count: number; lastOutcome: string | null }>>;
