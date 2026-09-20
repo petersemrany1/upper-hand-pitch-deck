@@ -942,7 +942,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadLocationPaused));
+      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailable));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
@@ -1440,10 +1440,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // served separately at their time — see the callback watcher below.
   const buildSessionQueue = useCallback(
     (): string[] =>
-      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadLocationPaused, isPriority: isPriorityLead }).order,
+      buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead }).order,
     // clockTick re-evaluates noon / callback windows once a minute.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
+    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
 
   // Everything due to be served right now, per the queue rules. Brand-new
@@ -1451,9 +1451,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // after the lead the rep is on. Anything else that becomes due mid-session
   // (a young lead's afternoon turn) is appended when the queue runs dry.
   const dueQueue = useMemo(
-    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadLocationPaused, isPriority: isPriorityLead }),
+    () => buildQueue({ leads, history: callHistory, now: new Date(), isPaused: isLeadUnavailable, isPriority: isPriorityLead }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [leads, callHistory, isLeadLocationPaused, isPriorityLead, clockTick],
+    [leads, callHistory, isLeadUnavailable, isPriorityLead, clockTick],
   );
   const dueLeadIds = dueQueue.order;
   const dueSet = useMemo(() => new Set(dueLeadIds), [dueLeadIds]);
