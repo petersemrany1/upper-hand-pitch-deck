@@ -433,8 +433,9 @@ function DashboardHome() {
         if (!a.clinic_id) continue;
         if (a.disqualified_at || a.outcome === "disqualified" || a.outcome === "noshow") continue;
         if (isFreeTrialBooking(a.booked_at, cutoffByClinic.get(a.clinic_id) ?? null)) continue;
-        // Past appointments with no outcome recorded don't hold a slot.
-        if (!a.outcome && a.appointment_date < todayStr) continue;
+        // Once a patient is sent through the slot is consumed, even if the
+        // clinic never marked an outcome. Only an explicit no-show or a
+        // disqualification (handled above) hands the slot back.
         bookedByClinic.set(a.clinic_id, (bookedByClinic.get(a.clinic_id) ?? 0) + 1);
       }
       const capacityByClinic = new Map<string, number>();
