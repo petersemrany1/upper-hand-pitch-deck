@@ -413,6 +413,62 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const a = leadLocationText(l);
     return pausedLocations.some((loc) => a.includes(loc));
   }, [pausedLocations]);
+  // Clinic capacity, live. When every active clinic serving a city runs out of
+  // paid shows, that city's leads drop out of the pipeline, the session queue
+  // and due callbacks until a slot comes back (no-show / disqualification /
+  // new pack). Recomputed on booking saves (via the "clinic-capacity-changed"
+  // event) and on any realtime appointment/pack change, so another rep's
+  // booking updates this screen too.
+  const [clinicCapacity, setClinicCapacity] = useState<{ all: string[]; available: string[] }>({ all: [], available: [] });
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [{ data }, remaining] = await Promise.all([
+          supabase.from("partner_clinics").select("id, location, city").eq("is_active", true),
+          fetchClinicRemainingSlots(),
+        ]);
+        if (cancelled) return;
+        const keyword = (c: { location: string | null; city: string | null }) =>
+          (c.location ?? c.city ?? "").trim().toLowerCase();
+        const all: string[] = [];
+        const available: string[] = [];
+        for (const c of (data ?? []) as { id: string; location: string | null; city: string | null }[]) {
+          const k = keyword(c);
+          if (!k) continue;
+          all.push(k);
+          if ((remaining[c.id] ?? 0) > 0) available.push(k);
+        }
+        setClinicCapacity({ all, available });
+      } catch (err) {
+        // A failed capacity read must never hide leads — keep the last known state.
+        console.warn("clinic capacity refresh failed", err);
+      }
+    };
+    void load();
+    const onChanged = () => void load();
+    window.addEventListener("clinic-capacity-changed", onChanged);
+    const ch = supabase.channel("clinic-capacity-queue")
+      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_appointments" }, onChanged)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clinic_packs" }, onChanged)
+      .subscribe();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("clinic-capacity-changed", onChanged);
+      void supabase.removeChannel(ch);
+    };
+  }, []);
+  const isLeadClinicFull = useCallback((l: Lead) => {
+    if (clinicCapacity.all.length === 0) return false;
+    const a = leadLocationText(l);
+    // Leads from cities with no clinic at all stay visible — the rep decides.
+    if (!clinicCapacity.all.some((k) => a.includes(k))) return false;
+    return !clinicCapacity.available.some((k) => a.includes(k));
+  }, [clinicCapacity]);
+  const isLeadUnavailable = useCallback(
+    (l: Lead) => isLeadLocationPaused(l) || isLeadClinicFull(l),
+    [isLeadLocationPaused, isLeadClinicFull],
+  );
   // Optional priority city (Settings → "Priority lead city"). Leads matching it
   // are sorted to the top of every column and to the front of the call session
   // queue. Nothing is hidden — lower-priority cities just sit underneath.
