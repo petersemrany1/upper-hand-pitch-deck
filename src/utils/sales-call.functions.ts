@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
+import { norwoodNeedsExpectations } from "@/lib/norwood";
 import { abandonedLeadIds } from "@/components/sales-call/abandoned";
 
 // Gate helper: ensures the calling user is an admin in sales_reps.
@@ -298,7 +299,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     if (norwood == null || !Number.isFinite(norwood) || norwood < 1 || norwood > 7) {
       return { success: false as const, error: "Select the patient's Norwood level (1–7) before booking" };
     }
-    if (norwood >= 5 && data.expectationsSet !== true) {
+    if (norwoodNeedsExpectations(norwood) && data.expectationsSet !== true) {
       return { success: false as const, error: "Set expectations with the patient before booking the appointment" };
     }
     const { data: doctor, error: doctorErr } = await supabaseAdmin

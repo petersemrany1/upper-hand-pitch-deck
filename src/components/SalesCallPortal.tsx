@@ -6,6 +6,7 @@ import {
   Check, AlertTriangle, Send, Search, X, ChevronDown, PhoneCall, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { norwoodNeedsExpectations as needsExpectations } from "@/lib/norwood";
 import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
@@ -3523,7 +3524,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   const [expectationsAnswer, setExpectationsAnswer] = useState<"yes" | "no" | null>(
     lead.expectations_set === true ? "yes" : null,
   );
-  const norwoodNeedsExpectations = norwood != null && norwood >= 6;
+  const norwoodNeedsExpectations = needsExpectations(norwood);
   const expectationsConfirmed = !norwoodNeedsExpectations || expectationsAnswer === "yes";
   const norwoodGateReady = norwood != null && expectationsConfirmed;
   const recordNorwood = (level: number | null, answer: "yes" | "no" | null) => {

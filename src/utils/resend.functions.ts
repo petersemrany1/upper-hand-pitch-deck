@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession } from "./stripe.functions";
+import { norwoodNeedsExpectations } from "@/lib/norwood";
 
 /**
  * Deposit links use the lead's private deposit_token (?t=) so the internal
@@ -985,7 +986,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const norwoodLevel = norwoodRow?.norwood_level ?? null;
     const norwoodLines: string[] = [];
     if (norwoodLevel != null) norwoodLines.push(`- Norwood level: ${norwoodLevel}`);
-    if (norwoodLevel != null && norwoodLevel >= 6) {
+    if (norwoodNeedsExpectations(norwoodLevel)) {
       const quotes = await collectExpectationsQuotes(supabase, data.leadId);
       if (quotes.length > 0) {
         norwoodLines.push(
