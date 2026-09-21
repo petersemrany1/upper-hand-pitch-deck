@@ -1425,7 +1425,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const end = new Date(start); end.setDate(end.getDate() + 1);
     const list = leads.filter((l) => {
       if (!l.callback_scheduled_at) return false;
-      if (isLeadLocationPaused(l)) return false;
+      if (isLeadUnavailable(l)) return false;
       const s = normaliseStatus(l.status, l);
       if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
