@@ -1436,7 +1436,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return list.sort((a, b) =>
       new Date(a.callback_scheduled_at!).getTime() - new Date(b.callback_scheduled_at!).getTime()
     );
-  }, [leads, isLeadLocationPaused]);
+  }, [leads, isLeadUnavailable]);
 
   // Build the ordered session queue. The rules live in ./sales-call/queue.ts
   // (pure, unit tested): new → no answer → the rest, once a day each and
