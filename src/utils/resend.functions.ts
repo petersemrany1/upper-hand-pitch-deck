@@ -3,6 +3,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeCheckoutSession } from "./stripe.functions";
+import { norwoodNeedsExpectations } from "@/lib/norwood";
 
 /**
  * Deposit links use the lead's private deposit_token (?t=) so the internal

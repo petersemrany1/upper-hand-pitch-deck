@@ -6,6 +6,7 @@ import {
   Check, AlertTriangle, Send, Search, X, ChevronDown, PhoneCall, RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { norwoodNeedsExpectations as needsExpectations } from "@/lib/norwood";
 import type { Json } from "@/integrations/supabase/types";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useAuth } from "@/hooks/useAuth";
