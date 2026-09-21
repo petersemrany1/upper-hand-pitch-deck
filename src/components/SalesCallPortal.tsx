@@ -1466,14 +1466,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // currently on screen is left alone — the rep finishes that call. If a slot
   // comes back (no-show marked, new pack), the leads reappear automatically.
   useEffect(() => {
+    const byId = new Map(leads.map((l) => [l.id, l]));
+    const keep = (id: string) => {
+      if (id === activeIdRef.current) return true;
+      const l = byId.get(id);
+      return !l || !isLeadClinicFull(l);
+    };
+    // Scheduled callbacks and ring-backs jump the queue through the missed-call
+    // list, so they must be pruned here too — otherwise a callback for a city
+    // that just filled up still gets served next.
+    setMissedCallQueue((prev) => {
+      const next = prev.filter(keep);
+      return next.length === prev.length ? prev : next;
+    });
     if (!sessionActive) return;
     setSessionQueue((prev) => {
-      const byId = new Map(leads.map((l) => [l.id, l]));
-      const next = prev.filter((id) => {
-        if (id === activeIdRef.current) return true;
-        const l = byId.get(id);
-        return !l || !isLeadClinicFull(l);
-      });
+      const next = prev.filter(keep);
       return next.length === prev.length ? prev : next;
     });
   }, [isLeadClinicFull, leads, sessionActive]);
