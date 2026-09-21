@@ -944,7 +944,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailable));
+      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailableRef.current));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
