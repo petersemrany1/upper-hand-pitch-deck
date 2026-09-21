@@ -985,7 +985,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const norwoodLevel = norwoodRow?.norwood_level ?? null;
     const norwoodLines: string[] = [];
     if (norwoodLevel != null) norwoodLines.push(`- Norwood level: ${norwoodLevel}`);
-    if (norwoodLevel != null && norwoodLevel >= 6) {
+    if (norwoodNeedsExpectations(norwoodLevel)) {
       const quotes = await collectExpectationsQuotes(supabase, data.leadId);
       if (quotes.length > 0) {
         norwoodLines.push(
