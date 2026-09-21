@@ -467,6 +467,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     (l: Lead) => isLeadLocationPaused(l) || isLeadClinicFull(l),
     [isLeadLocationPaused, isLeadClinicFull],
   );
+  // Read through a ref inside the polling callback watcher so it always uses
+  // the current capacity, not the one captured when the interval was set up.
+  const isLeadUnavailableRef = useRef(isLeadUnavailable);
+  useEffect(() => { isLeadUnavailableRef.current = isLeadUnavailable; }, [isLeadUnavailable]);
   // Optional priority city (Settings → "Priority lead city"). Leads matching it
   // are sorted to the top of every column and to the front of the call session
   // queue. Nothing is hidden — lower-priority cities just sit underneath.
