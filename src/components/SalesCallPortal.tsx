@@ -467,6 +467,10 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     (l: Lead) => isLeadLocationPaused(l) || isLeadClinicFull(l),
     [isLeadLocationPaused, isLeadClinicFull],
   );
+  // Read through a ref inside the polling callback watcher so it always uses
+  // the current capacity, not the one captured when the interval was set up.
+  const isLeadUnavailableRef = useRef(isLeadUnavailable);
+  useEffect(() => { isLeadUnavailableRef.current = isLeadUnavailable; }, [isLeadUnavailable]);
   // Optional priority city (Settings → "Priority lead city"). Leads matching it
   // are sorted to the top of every column and to the front of the call session
   // queue. Nothing is hidden — lower-priority cities just sit underneath.
@@ -940,7 +944,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
           return add.length ? [...add, ...prev] : prev;
         });
       }
-      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailable));
+      const live = new Set(dueCallbackIds(rows, callHistoryRef.current, now, isLeadUnavailableRef.current));
       const surfaced = callbackSurfacedRef.current;
       // Withdraw surfaced callbacks that are no longer live (hour passed, or dialled).
       const stale = Array.from(surfaced).filter((id) => !live.has(id));
@@ -968,7 +972,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return () => { cancelled = true; clearInterval(interval); };
     // Deliberately not keyed on callHistory: it's read through a ref so a
     // rebuilt history doesn't trigger another callback query.
-  }, [isLeadLocationPaused]);
+    // Re-run as soon as paused cities or clinic capacity change, so a callback
+    // for a city that just filled up is withdrawn instead of surfacing.
+  }, [isLeadLocationPaused, isLeadClinicFull]);
 
   useEffect(() => {
     const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
@@ -1419,7 +1425,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     const end = new Date(start); end.setDate(end.getDate() + 1);
     const list = leads.filter((l) => {
       if (!l.callback_scheduled_at) return false;
-      if (isLeadLocationPaused(l)) return false;
+      if (isLeadUnavailable(l)) return false;
       const s = normaliseStatus(l.status, l);
       if (s === "not_interested" || s === "booked_deposit_paid" || s === "had_convo_no_sale") return false;
       const raw = (l.status ?? "").toLowerCase();
@@ -1430,7 +1436,7 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return list.sort((a, b) =>
       new Date(a.callback_scheduled_at!).getTime() - new Date(b.callback_scheduled_at!).getTime()
     );
-  }, [leads, isLeadLocationPaused]);
+  }, [leads, isLeadUnavailable]);
 
   // Build the ordered session queue. The rules live in ./sales-call/queue.ts
   // (pure, unit tested): new → no answer → the rest, once a day each and
@@ -1460,14 +1466,22 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
   // currently on screen is left alone — the rep finishes that call. If a slot
   // comes back (no-show marked, new pack), the leads reappear automatically.
   useEffect(() => {
+    const byId = new Map(leads.map((l) => [l.id, l]));
+    const keep = (id: string) => {
+      if (id === activeIdRef.current) return true;
+      const l = byId.get(id);
+      return !l || !isLeadClinicFull(l);
+    };
+    // Scheduled callbacks and ring-backs jump the queue through the missed-call
+    // list, so they must be pruned here too — otherwise a callback for a city
+    // that just filled up still gets served next.
+    setMissedCallQueue((prev) => {
+      const next = prev.filter(keep);
+      return next.length === prev.length ? prev : next;
+    });
     if (!sessionActive) return;
     setSessionQueue((prev) => {
-      const byId = new Map(leads.map((l) => [l.id, l]));
-      const next = prev.filter((id) => {
-        if (id === activeIdRef.current) return true;
-        const l = byId.get(id);
-        return !l || !isLeadClinicFull(l);
-      });
+      const next = prev.filter(keep);
       return next.length === prev.length ? prev : next;
     });
   }, [isLeadClinicFull, leads, sessionActive]);
