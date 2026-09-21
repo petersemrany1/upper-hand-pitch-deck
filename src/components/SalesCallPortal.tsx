@@ -972,7 +972,9 @@ export function SalesCallPortal({ practiceMode = false, testLeadId }: { practice
     return () => { cancelled = true; clearInterval(interval); };
     // Deliberately not keyed on callHistory: it's read through a ref so a
     // rebuilt history doesn't trigger another callback query.
-  }, [isLeadLocationPaused]);
+    // Re-run as soon as paused cities or clinic capacity change, so a callback
+    // for a city that just filled up is withdrawn instead of surfacing.
+  }, [isLeadLocationPaused, isLeadClinicFull]);
 
   useEffect(() => {
     const leadIds = loadedLeadIdsKey.split(",").filter(Boolean);
