@@ -962,7 +962,16 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     // in the "Review before sending" step, so we must NOT truncate or rewrite it.
     // If the notes are a dot-point list (lines starting with "- "), render as <ul>
     // for nicer formatting; otherwise render as a pre-wrapped paragraph.
-    const baseNotes: string = await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? "");
+    // The snapshot may already carry Norwood/expectations lines from a previous
+    // send — strip them so the freshly computed lines below never duplicate.
+    const stripNorwoodLines = (notes: string) =>
+      notes
+        .split(/\r?\n/)
+        .filter((l) => !/^\s*[-•]?\s*(Norwood level:|Expectations set)/i.test(l))
+        .join("\n");
+    const baseNotes: string = stripNorwoodLines(
+      await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? ""),
+    );
     // Hair loss stage always leads the intel. Norwood 6-7 additionally carries
     // the expectation-setting evidence: the advisor's own verbatim words from
     // the call recordings, falling back to the booking confirmation when the
