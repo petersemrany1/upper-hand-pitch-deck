@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
 import { APP_TIMEZONE } from "@/lib/timezone";
+import { norwoodNeedsExpectations } from "@/lib/norwood";
 import { abandonedLeadIds } from "@/components/sales-call/abandoned";
 
 // Gate helper: ensures the calling user is an admin in sales_reps.
