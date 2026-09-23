@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { AdPerformanceRow } from "@/lib/ad-spend.functions";
-import type { AdStats, AdVerdictKey } from "./model";
+import { pipelineSentence, type AdStats, type AdVerdictKey, type Pipeline, type PipelineStage } from "./model";
 import { CARD, FAINT, INK, MUTED, type Tone, money, moneyOrDash, pctOrDash, td2, td2r, th2, th2r } from "./format";
 import { Footnote, Pill, SectionTitle } from "./primitives";
 
@@ -10,9 +10,29 @@ const TONE_FOR: Record<AdVerdictKey, Tone> = {
   ok: "amber",
   poor: "red",
   notBooking: "red",
+  uncalled: "amber",
   early: "grey",
   noName: "grey",
 };
+
+// One bar per ad: grey = still to call, amber = no answer yet, red = spoke but
+// no booking, green = booked. The numbers under it say the same in words.
+const STAGE_COLOUR: Record<PipelineStage, string> = { toCall: "#c2c2be", chasing: "#e0a33f", spoke: "#d9756a", booked: "#2f9e6a" };
+function PipelineBar({ p }: { p: Pipeline | null }) {
+  if (!p || p.total === 0) return <span style={{ color: FAINT }}>—</span>;
+  const stages: PipelineStage[] = ["toCall", "chasing", "spoke", "booked"];
+  return (
+    <div title={pipelineSentence(p)} style={{ minWidth: 150 }}>
+      <div style={{ display: "flex", height: 8, borderRadius: 4, overflow: "hidden", background: "#f0f0ee" }}>
+        {stages.map((s) => p[s] > 0 && <div key={s} style={{ width: `${(p[s] / p.total) * 100}%`, background: STAGE_COLOUR[s] }} />)}
+      </div>
+      <div style={{ fontSize: 11, color: MUTED, marginTop: 4, whiteSpace: "nowrap" }}>
+        {p.toCall > 0 && <span style={{ color: INK, fontWeight: 600 }}>{p.toCall} to call · </span>}
+        {p.chasing} no answer · {p.spoke} spoke · {p.booked} booked
+      </div>
+    </div>
+  );
+}
 
 type SortKey = "verdict" | "spend" | "leads" | "costPerLead" | "booked" | "bookRate" | "shows" | "adCostPerShow";
 
@@ -64,7 +84,7 @@ export function AdsTab({
   }, [rows, sortKey, sortAsc]);
 
   const counts = useMemo(() => {
-    const c: Record<AdVerdictKey, number> = { winning: 0, ok: 0, poor: 0, notBooking: 0, early: 0, noName: 0 };
+    const c: Record<AdVerdictKey, number> = { winning: 0, ok: 0, poor: 0, notBooking: 0, uncalled: 0, early: 0, noName: 0 };
     for (const r of rows) c[r.verdict.key] += 1;
     return c;
   }, [rows]);
@@ -96,6 +116,7 @@ export function AdsTab({
               <Pill tone="green">{counts.winning} winning</Pill>
               <Pill tone="amber">{counts.ok} average</Pill>
               <Pill tone="red">{counts.poor + counts.notBooking} poor</Pill>
+              {counts.uncalled > 0 && <Pill tone="amber">{counts.uncalled} not called yet</Pill>}
               <Pill tone="grey">{counts.early} too early</Pill>
             </span>
           }
@@ -110,6 +131,7 @@ export function AdsTab({
                 <th style={th2}>City</th>
                 {th("spend", "Spend")}
                 {th("leads", "Leads")}
+                <th style={th2}>Where the leads are</th>
                 {th("costPerLead", "Cost / lead")}
                 {th("booked", "Booked")}
                 {th("bookRate", "Leads → booked")}
@@ -141,6 +163,7 @@ export function AdsTab({
                     <td style={td2}>{r.location ?? "—"}</td>
                     <td style={td2r}>{r.unattributed ? "—" : r.spend ? money(r.spend) : "—"}</td>
                     <td style={td2r}>{r.leads}</td>
+                    <td style={td2}><PipelineBar p={r.pipeline} /></td>
                     <td style={td2r}>{moneyOrDash(r.costPerLead)}</td>
                     <td style={td2r}>{r.booked}</td>
                     <td style={td2r}>{pctOrDash(r.bookRate)}</td>
@@ -153,14 +176,14 @@ export function AdsTab({
                 );
               })}
               {!loading && sorted.length === 0 && (
-                <tr><td colSpan={10} style={{ ...td2, padding: 18, color: FAINT }}>No ads in this range yet.</td></tr>
+                <tr><td colSpan={11} style={{ ...td2, padding: 18, color: FAINT }}>No ads in this range yet.</td></tr>
               )}
             </tbody>
           </table>
         </div>
         <Footnote>
           A show is any booking not marked no-show. Winning = cost per show at least 20% under the average shown above. Poor = 20% over. Too early = fewer than 3 shows.
-          Not booking = 10+ leads and not one booking. Ads are matched to leads by ad name. Website enquiries have no ad and sit outside the city figures.
+          Not booking = 10+ leads, none booked, and the leads have been called. Not called yet = 10+ leads, none booked, most still to call. Ads are matched to leads by ad name. Website enquiries have no ad and sit outside the city figures.
         </Footnote>
       </div>
     </div>

@@ -187,15 +187,62 @@ export function buildAllCities(
   return { cities, all: sumCityStats("All cities", cities, unallocated), unallocated };
 }
 
+// ---- Where an ad's leads are in the calling pipeline.
+//
+// Peter's question (2026-09-23): an ad with 13 leads and no bookings is only
+// a bad ad if those leads were actually called. Four stages, read from the
+// lead status the rep sets on every call, with call records as the tiebreak
+// for leads still marked new.
+
+export type PipelineStage = "toCall" | "chasing" | "spoke" | "booked";
+export type Pipeline = { total: number; toCall: number; chasing: number; spoke: number; booked: number };
+export type PipelineLead = { status: string | null; calls: number; booked: boolean };
+
+const SPOKE_STATUSES = new Set(["had_convo_chase_up", "had_convo_no_sale", "not_interested", "dropped", "contacted", "intake", "booked_no_deposit", "cancelled"]);
+const CHASING_STATUSES = new Set(["no_answer", "callback_scheduled"]);
+
+export function stageOf(l: PipelineLead): PipelineStage {
+  const s = (l.status ?? "").trim().toLowerCase();
+  if (l.booked || s === "booked_deposit_paid") return "booked";
+  if (SPOKE_STATUSES.has(s)) return "spoke";
+  if (CHASING_STATUSES.has(s)) return "chasing";
+  return l.calls > 0 ? "chasing" : "toCall";
+}
+
+export const STAGE_LABEL: Record<PipelineStage, string> = {
+  toCall: "Still to call",
+  chasing: "No answer yet",
+  spoke: "Spoke, no booking",
+  booked: "Booked",
+};
+
+export function pipelineOf(leads: PipelineLead[]): Pipeline {
+  const p: Pipeline = { total: leads.length, toCall: 0, chasing: 0, spoke: 0, booked: 0 };
+  for (const l of leads) p[stageOf(l)] += 1;
+  return p;
+}
+
+/** "13 leads · 9 still to call · 4 no answer yet · 0 spoke, no booking · 0 booked" */
+export function pipelineSentence(p: Pipeline): string {
+  return `${p.total} lead${p.total === 1 ? "" : "s"} · ${p.toCall} still to call · ${p.chasing} no answer yet · ${p.spoke} spoke, no booking · ${p.booked} booked`;
+}
+
+/** Most of the leads have not been called: the ad cannot be judged yet. */
+export function mostlyUncalled(p: Pipeline | null | undefined): boolean {
+  return !!p && p.total > 0 && p.toCall / p.total >= 0.5;
+}
+
 // ---- Ads
 
-export type AdVerdictKey = "winning" | "ok" | "poor" | "notBooking" | "early" | "noName";
+export type AdVerdictKey = "winning" | "ok" | "poor" | "notBooking" | "uncalled" | "early" | "noName";
 
 export type AdVerdict = { key: AdVerdictKey; label: string; rank: number };
 
 export type AdStats = AdPerformanceRow & {
   /** Bookings not marked no-show. See expectedShows. */
   shows: number;
+  /** Where this ad's leads are in the calling pipeline; null when not loaded. */
+  pipeline: Pipeline | null;
   costPerLead: number | null;
   costPerBooked: number | null;
   adCostPerShow: number | null;
@@ -209,6 +256,7 @@ const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
   ok: { key: "ok", label: "Average", rank: 1 },
   poor: { key: "poor", label: "Poor", rank: 2 },
   notBooking: { key: "notBooking", label: "Not booking", rank: 3 },
+  uncalled: { key: "uncalled", label: "Not called yet", rank: 3 },
   early: { key: "early", label: "Too early", rank: 4 },
   noName: { key: "noName", label: "Website", rank: 5 },
 };
@@ -218,14 +266,15 @@ const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
  * across the ads on screen: 20% cheaper = winning, 20% dearer = poor. A show
  * here is any booking not marked no-show (see expectedShows). Fewer than 3
  * is too early to call — unless the ad has burned through 10+ leads without
- * a single booking.
+ * a single booking. And that is only "not booking" if the leads were called:
+ * when most are still to call, the verdict is "not called yet".
  */
-export function judgeAd(a: AdPerformanceRow, avgCostPerShow: number | null): AdVerdict {
+export function judgeAd(a: AdPerformanceRow, avgCostPerShow: number | null, pipeline: Pipeline | null = null): AdVerdict {
   if (a.unattributed) return VERDICTS.noName;
   const shows = expectedShows(a);
   const cps = perUnit(a.spend, shows);
   if (shows < 3) {
-    if (a.leads >= 10 && a.booked === 0) return VERDICTS.notBooking;
+    if (a.leads >= 10 && a.booked === 0) return mostlyUncalled(pipeline) ? VERDICTS.uncalled : VERDICTS.notBooking;
     return VERDICTS.early;
   }
   if (cps === null || avgCostPerShow === null) return VERDICTS.early;
@@ -234,7 +283,10 @@ export function judgeAd(a: AdPerformanceRow, avgCostPerShow: number | null): AdV
   return VERDICTS.poor;
 }
 
-export function buildAdStats(ads: AdPerformanceRow[]): { rows: AdStats[]; avgCostPerShow: number | null } {
+/** Key for an ad's pipeline: the ad name, or the shared website bucket. */
+export const pipelineKey = (adName: string, unattributed: boolean): string => (unattributed ? "__website" : adName.trim().toLowerCase());
+
+export function buildAdStats(ads: AdPerformanceRow[], pipelines: Record<string, Pipeline> = {}): { rows: AdStats[]; avgCostPerShow: number | null } {
   const attributed = ads.filter((a) => !a.unattributed);
   const spend = attributed.reduce((s, a) => s + a.spend, 0);
   const shows = attributed.reduce((s, a) => s + expectedShows(a), 0);
@@ -242,12 +294,13 @@ export function buildAdStats(ads: AdPerformanceRow[]): { rows: AdStats[]; avgCos
   const rows = ads.map((a) => ({
     ...a,
     shows: expectedShows(a),
+    pipeline: pipelines[pipelineKey(a.ad_name, a.unattributed)] ?? null,
     costPerLead: a.unattributed ? null : perUnit(a.spend, a.leads),
     costPerBooked: a.unattributed ? null : perUnit(a.spend, a.booked),
     adCostPerShow: a.unattributed ? null : perUnit(a.spend, expectedShows(a)),
     bookRate: ratio(a.booked, a.leads),
     showRate: ratio(a.showed, a.showed + a.noshow),
-    verdict: judgeAd(a, avgCostPerShow),
+    verdict: judgeAd(a, avgCostPerShow, pipelines[pipelineKey(a.ad_name, a.unattributed)] ?? null),
   }));
   return { rows, avgCostPerShow };
 }

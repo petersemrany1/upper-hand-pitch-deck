@@ -27,7 +27,7 @@ import {
   type RevenueRow,
 } from "@/lib/ad-spend.functions";
 import { AMBER, CARD, FONT, INK, MUTED, type RangeKey, money, oneDp, pctOrDash, resolveRange, td2, td2r, th2, th2r, todaySydney } from "@/components/numbers/format";
-import { buildAdStats, buildAllCities, diagnoseCity, sumCityStats } from "@/components/numbers/model";
+import { STAGE_LABEL, buildAdStats, buildAllCities, diagnoseCity, pipelineOf, pipelineSentence, stageOf, sumCityStats, type Pipeline } from "@/components/numbers/model";
 import { CityRail } from "@/components/numbers/CityRail";
 import { CityDetail } from "@/components/numbers/CityDetail";
 import { CompareTable } from "@/components/numbers/CompareTable";
@@ -74,6 +74,11 @@ const SHELL_CSS = `
 .numbers-rail-item[aria-current="true"]:hover{background:#111}
 `;
 
+type DrillRow = {
+  lead_id: string; created_at: string | null; first_name: string | null; last_name: string | null; status: string | null;
+  calls?: number; last_called_at?: string | null; is_booked: boolean; is_showed: boolean; is_noshow: boolean; is_upcoming: boolean; needs_outcome: boolean; is_disqualified: boolean;
+};
+
 function NumbersPage() {
   const { session, role, ready: authReady } = useAuth();
   const isAdmin = role === "admin";
@@ -93,6 +98,7 @@ function NumbersPage() {
   const [loading, setLoading] = useState(true);
 
   const [ads, setAds] = useState<AdPerformanceRow[]>([]);
+  const [pipelines, setPipelines] = useState<Record<string, Pipeline>>({});
   const [locations, setLocations] = useState<LocationSummaryRow[]>([]);
   const [labourByLocation, setLabourByLocation] = useState<LabourRow[]>([]);
   const [revenueByLocation, setRevenueByLocation] = useState<RevenueRow[]>([]);
@@ -158,6 +164,7 @@ function NumbersPage() {
         data: { from: range.from, to: range.to, location: locFilter || null, excludePeter: !countMyPay },
       });
       setAds(res.ads);
+      setPipelines(res.pipelines);
       setLocations(res.locations);
       setLabourByLocation(res.labourByLocation);
       setRevenueByLocation(res.revenueByLocation);
@@ -215,7 +222,7 @@ function NumbersPage() {
     return c ?? sumCityStats(locFilter, []);
   }, [locFilter, cities, all]);
 
-  const adStats = useMemo(() => buildAdStats(ads), [ads]);
+  const adStats = useMemo(() => buildAdStats(ads, pipelines), [ads, pipelines]);
 
   // One verdict per city, read against the account average.
   const diagnosed = useMemo(
@@ -936,50 +943,56 @@ function NumbersPage() {
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 50 }}
         >
           <div onClick={(e) => e.stopPropagation()} style={{ ...CARD, maxWidth: 900, width: "100%", maxHeight: "80vh", overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-              <div style={{ fontSize: 15, fontWeight: 600 }}>{drill.ad.ad_name}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <div style={{ fontSize: 15, fontWeight: 600 }}>{drill.ad.unattributed ? "Website & untracked leads" : drill.ad.ad_name}</div>
               <div style={{ flex: 1 }} />
               <button onClick={() => setDrill(null)} style={{ border: "none", background: "transparent", cursor: "pointer" }}>
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  {["Lead", "Enquired", "Location", "Appointment", "What happened"].map((h) => (
-                    <th key={h} style={{ textAlign: "left", fontSize: 11, color: "#6b6b6b", padding: "6px 8px", borderBottom: "0.5px solid #e8e8e6" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(drill.rows as Record<string, unknown>[]).map((r) => {
-                  const what = r.is_showed
-                    ? "Showed"
-                    : r.is_noshow
-                      ? "No-showed"
-                      : r.is_upcoming
-                        ? "Upcoming"
-                        : r.needs_outcome
-                          ? "Needs outcome"
-                          : r.is_disqualified
-                            ? "Disqualified"
-                            : r.is_booked
-                              ? "Booked"
-                              : "Not booked";
-                  return (
-                    <tr key={String(r.lead_id)} style={{ borderBottom: "0.5px solid #f0f0ee" }}>
-                      <td style={{ fontSize: 12, padding: "6px 8px" }}>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
-                      <td style={{ fontSize: 12, padding: "6px 8px", color: "#6b6b6b" }}>
-                        {r.created_at ? new Date(String(r.created_at)).toLocaleDateString("en-AU", { timeZone: APP_TIMEZONE }) : "—"}
-                      </td>
-                      <td style={{ fontSize: 12, padding: "6px 8px" }}>{(r.location as string) ?? "—"}</td>
-                      <td style={{ fontSize: 12, padding: "6px 8px" }}>{(r.appointment_date as string) ?? "—"}</td>
-                      <td style={{ fontSize: 12, padding: "6px 8px", fontWeight: 600 }}>{what}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {(() => {
+              // The one line Peter wants: are these leads being called, or just sitting there?
+              const rows = drill.rows as DrillRow[];
+              const staged = rows.map((r) => ({ r, stage: stageOf({ status: r.status, calls: Number(r.calls ?? 0), booked: !!r.is_booked }) }));
+              const p = pipelineOf(staged.map((s) => ({ status: s.r.status, calls: Number(s.r.calls ?? 0), booked: !!s.r.is_booked })));
+              const order = { toCall: 0, chasing: 1, spoke: 2, booked: 3 } as const;
+              staged.sort((a, b) => order[a.stage] - order[b.stage]);
+              const outcome = (r: DrillRow) => r.is_showed ? "showed" : r.is_noshow ? "no-show" : r.is_upcoming ? "consult coming up" : r.needs_outcome ? "needs outcome" : r.is_disqualified ? "disqualified" : "";
+              return (
+                <>
+                  <div style={{ fontSize: 13.5, color: p.toCall > 0 ? "#8a5a2b" : MUTED, marginBottom: 12, lineHeight: 1.5 }}>
+                    {pipelineSentence(p)}
+                    {p.toCall > 0 && <span style={{ fontWeight: 600 }}> — {p.toCall === p.total ? "nobody has been called yet." : `${p.toCall} still waiting for a first call.`}</span>}
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                    <thead>
+                      <tr>
+                        {["Lead", "Enquired", "Calls", "Last called", "Where it's at"].map((h) => (
+                          <th key={h} style={{ textAlign: "left", fontSize: 11, color: "#6b6b6b", padding: "6px 8px", borderBottom: "0.5px solid #e8e8e6" }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staged.map(({ r, stage }) => (
+                        <tr key={String(r.lead_id)} style={{ borderBottom: "0.5px solid #f0f0ee" }}>
+                          <td style={{ fontSize: 12, padding: "6px 8px", fontWeight: 600 }}>{`${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || "—"}</td>
+                          <td style={{ fontSize: 12, padding: "6px 8px", color: "#6b6b6b" }}>
+                            {r.created_at ? new Date(String(r.created_at)).toLocaleDateString("en-AU", { timeZone: APP_TIMEZONE }) : "—"}
+                          </td>
+                          <td style={{ fontSize: 12, padding: "6px 8px", color: Number(r.calls ?? 0) === 0 ? "#b03030" : "#111" }}>{Number(r.calls ?? 0)}</td>
+                          <td style={{ fontSize: 12, padding: "6px 8px", color: "#6b6b6b" }}>
+                            {r.last_called_at ? new Date(String(r.last_called_at)).toLocaleDateString("en-AU", { day: "numeric", month: "short", timeZone: APP_TIMEZONE }) : "never"}
+                          </td>
+                          <td style={{ fontSize: 12, padding: "6px 8px", fontWeight: 600, color: stage === "toCall" ? "#b03030" : stage === "booked" ? "#2f6f4f" : "#111" }}>
+                            {STAGE_LABEL[stage]}{stage === "booked" && outcome(r) ? <span style={{ fontWeight: 400, color: "#6b6b6b" }}> · {outcome(r)}</span> : null}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

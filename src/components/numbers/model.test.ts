@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AdPerformanceRow } from "@/lib/ad-spend.functions";
-import { buildAdStats, buildAllCities, buildCityStats, expectedShows, judgeAd, labourSentence, sumCityStats } from "./model";
+import { buildAdStats, buildAllCities, buildCityStats, expectedShows, judgeAd, labourSentence, mostlyUncalled, pipelineOf, pipelineSentence, stageOf, sumCityStats } from "./model";
 
 const ad = (o: Partial<AdPerformanceRow> & { ad_name: string }): AdPerformanceRow => ({
   location: null, spend: 0, impressions: 0, clicks: 0, leads: 0, booked: 0, showed: 0, noshow: 0, upcoming: 0,
@@ -111,6 +111,44 @@ describe("judgeAd", () => {
   });
   test("unattributed rows are never judged", () => {
     expect(judgeAd(ad({ ad_name: "f", unattributed: true, leads: 50, showed: 10 }), 100).label).toBe("Website");
+  });
+});
+
+describe("calling pipeline", () => {
+  test("a lead's stage comes from the status the rep set, with calls as the tiebreak for new leads", () => {
+    expect(stageOf({ status: "new", calls: 0, booked: false })).toBe("toCall");
+    expect(stageOf({ status: null, calls: 0, booked: false })).toBe("toCall");
+    expect(stageOf({ status: "new", calls: 2, booked: false })).toBe("chasing");
+    expect(stageOf({ status: "no_answer", calls: 3, booked: false })).toBe("chasing");
+    expect(stageOf({ status: "callback_scheduled", calls: 1, booked: false })).toBe("chasing");
+    expect(stageOf({ status: "had_convo_no_sale", calls: 1, booked: false })).toBe("spoke");
+    expect(stageOf({ status: "not_interested", calls: 1, booked: false })).toBe("spoke");
+    expect(stageOf({ status: "booked_deposit_paid", calls: 1, booked: false })).toBe("booked");
+    // an appointment in the diary wins over a stale status
+    expect(stageOf({ status: "no_answer", calls: 1, booked: true })).toBe("booked");
+  });
+
+  test("counts and the one-line sentence", () => {
+    const p = pipelineOf([
+      { status: "new", calls: 0, booked: false }, { status: "new", calls: 0, booked: false },
+      { status: "no_answer", calls: 2, booked: false }, { status: "not_interested", calls: 1, booked: false },
+      { status: "booked_deposit_paid", calls: 1, booked: true },
+    ]);
+    expect(p).toEqual({ total: 5, toCall: 2, chasing: 1, spoke: 1, booked: 1 });
+    expect(pipelineSentence(p)).toBe("5 leads · 2 still to call · 1 no answer yet · 1 spoke, no booking · 1 booked");
+    expect(mostlyUncalled(p)).toBe(false);
+    expect(mostlyUncalled({ total: 13, toCall: 9, chasing: 4, spoke: 0, booked: 0 })).toBe(true);
+    expect(mostlyUncalled(null)).toBe(false);
+  });
+
+  test("an ad with no bookings is 'not called yet' when most leads are still to call, 'not booking' once they were called", () => {
+    const a = ad({ ad_name: "natural angle", spend: 199, leads: 13, booked: 0 });
+    expect(judgeAd(a, 100, { total: 13, toCall: 9, chasing: 4, spoke: 0, booked: 0 }).label).toBe("Not called yet");
+    expect(judgeAd(a, 100, { total: 13, toCall: 2, chasing: 8, spoke: 3, booked: 0 }).label).toBe("Not booking");
+    expect(judgeAd(a, 100).label).toBe("Not booking");
+    const { rows } = buildAdStats([a], { "natural angle": { total: 13, toCall: 9, chasing: 4, spoke: 0, booked: 0 } });
+    expect(rows[0].verdict.label).toBe("Not called yet");
+    expect(rows[0].pipeline?.toCall).toBe(9);
   });
 });
 

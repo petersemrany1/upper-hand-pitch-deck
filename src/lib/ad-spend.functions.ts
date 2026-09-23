@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { pipelineKey, pipelineOf, type Pipeline } from "@/components/numbers/model";
 
 // Read-only ad-spend reporting + manual spend entry + clearing unresolved
 // appointment outcomes. This module NEVER writes to meta_leads.
@@ -125,6 +126,61 @@ export type MoneyMonthPoint = {
   bonus_cost: number;
 };
 
+/** Calls per lead (and the latest), from the call log. Test leads never have a rep, so they fall out with the rest. */
+async function callCountsByLead(
+  db: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  from: string | undefined,
+): Promise<Map<string, { calls: number; last: string | null }>> {
+  const out = new Map<string, { calls: number; last: string | null }>();
+  const page = 1000;
+  for (let i = 0; i < 20; i += 1) {
+    let q = db.from("call_records").select("lead_id, called_at").not("lead_id", "is", null).order("called_at", { ascending: true }).range(i * page, i * page + page - 1);
+    if (from) q = q.gte("called_at", `${from}T00:00:00+10:00`);
+    const { data, error } = (await q) as { data: { lead_id: string; called_at: string | null }[] | null; error: { message: string } | null };
+    if (error) throw new Error(`call_records: ${error.message}`);
+    for (const c of data ?? []) {
+      const cur = out.get(c.lead_id) ?? { calls: 0, last: null };
+      cur.calls += 1;
+      if (c.called_at && (!cur.last || c.called_at > cur.last)) cur.last = c.called_at;
+      out.set(c.lead_id, cur);
+    }
+    if (!data || data.length < page) break;
+  }
+  return out;
+}
+
+/** Where every lead in the range sits in the calling pipeline, per ad. Same cohort as ad_performance. */
+async function pipelinesByAd(
+  db: { from: (t: string) => any }, // eslint-disable-line @typescript-eslint/no-explicit-any
+  from: string | undefined,
+  to: string | undefined,
+  location: string | undefined,
+): Promise<Record<string, Pipeline>> {
+  const rows: { lead_id: string; ad_name: string | null; status: string | null; unattributed: boolean; is_booked: boolean }[] = [];
+  const page = 1000;
+  for (let i = 0; i < 10; i += 1) {
+    let q = db.from("ad_lead_outcomes").select("lead_id, ad_name, status, unattributed, is_booked, location").order("created_at", { ascending: true }).range(i * page, i * page + page - 1);
+    if (from) q = q.gte("created_at", `${from}T00:00:00+10:00`);
+    if (to) q = q.lte("created_at", `${to}T23:59:59+10:00`);
+    if (location) q = q.ilike("location", location);
+    const { data, error } = (await q) as { data: typeof rows | null; error: { message: string } | null };
+    if (error) throw new Error(`ad_lead_outcomes: ${error.message}`);
+    rows.push(...(data ?? []));
+    if (!data || data.length < page) break;
+  }
+  const calls = await callCountsByLead(db, from);
+  const byAd = new Map<string, { status: string | null; calls: number; booked: boolean }[]>();
+  for (const r of rows) {
+    const k = pipelineKey(r.ad_name ?? "", r.unattributed);
+    const list = byAd.get(k) ?? [];
+    list.push({ status: r.status, calls: calls.get(r.lead_id)?.calls ?? 0, booked: !!r.is_booked });
+    byAd.set(k, list);
+  }
+  const out: Record<string, Pipeline> = {};
+  for (const [k, list] of byAd) out[k] = pipelineOf(list);
+  return out;
+}
+
 export const getNumbersReport = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => RangeSchema.parse(input ?? {}))
@@ -167,6 +223,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       peterId ? rpc("money_monthly", { p_from: from, p_to: to, p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
       rpc("clinic_pack_economics", {}),
     ]);
+    const pipelines = await pipelinesByAd(db as unknown as { from: (t: string) => any }, from, to, location); // eslint-disable-line @typescript-eslint/no-explicit-any
 
 
     // Unresolved outcomes: past-dated appointments with no outcome recorded.
@@ -314,6 +371,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         ...r,
         spend: Number(r.spend ?? 0),
       })),
+      pipelines,
       locations: ((locs.data ?? []) as unknown as LocationSummaryRow[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),
@@ -367,7 +425,9 @@ export const listAdLeads = createServerFn({ method: "GET" })
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return rows ?? [];
+    // How many times each lead has been called, so the list can say who is still to call.
+    const calls = await callCountsByLead(db as unknown as { from: (t: string) => any }, data.from ?? undefined); // eslint-disable-line @typescript-eslint/no-explicit-any
+    return (rows ?? []).map((r) => { const c = r.lead_id ? calls.get(r.lead_id) : undefined; return { ...r, calls: c?.calls ?? 0, last_called_at: c?.last ?? null }; });
   });
 
 const OutcomeSchema = z.object({
