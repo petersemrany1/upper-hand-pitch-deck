@@ -37,7 +37,8 @@ export type PackAllocation<P extends PackLike> = {
   next: PackFill<P> | null;
   /** Bookings that don't fit in any pack. */
   overflowBooked: number;
-  totals: { bought: number; free: number; delivered: number; booked: number; open: number };
+  /** free = shows in the balance that were not paid for (goodwill, guarantee credits); trial = free-trial consults, which sit outside the balance. */
+  totals: { bought: number; free: number; trial: number; delivered: number; booked: number; open: number };
 };
 
 export const packOrder = (a: PackLike, b: PackLike): number =>
@@ -58,7 +59,8 @@ export function allocatePacks<P extends PackLike>(packs: P[], delivered: number,
   const current = currentIdx >= 0 ? fills[currentIdx] : fills.length ? fills[fills.length - 1] : null;
   if (current && current.state !== "complete") current.state = "current";
   const next = currentIdx >= 0 ? fills.slice(currentIdx + 1).find((f) => f.open > 0 || f.booked > 0) ?? null : null;
-  const free = packs.filter((p) => p.pack_type !== "paid").reduce((s, p) => s + Math.max(0, p.pack_size), 0);
+  const free = counted.filter((p) => p.pack_type !== "paid").reduce((s, p) => s + p.pack_size, 0);
+  const trial = packs.filter((p) => p.pack_type === "free_trial").reduce((s, p) => s + Math.max(0, p.pack_size), 0);
   return {
     fills,
     current,
@@ -67,6 +69,7 @@ export function allocatePacks<P extends PackLike>(packs: P[], delivered: number,
     totals: {
       bought: counted.reduce((s, p) => s + p.pack_size, 0),
       free,
+      trial,
       delivered: fills.reduce((s, f) => s + f.delivered, 0),
       booked: fills.reduce((s, f) => s + f.booked, 0),
       open: fills.reduce((s, f) => s + f.open, 0),

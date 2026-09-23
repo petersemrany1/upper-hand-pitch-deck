@@ -23,7 +23,7 @@ describe("allocatePacks", () => {
     expect(a.current?.booked).toBe(11);
     expect(a.current?.open).toBe(1);
     expect(a.next?.pack.id).toBe("g");
-    expect(a.totals).toEqual({ bought: 73, free: 3, delivered: 58, booked: 11, open: 4 });
+    expect(a.totals).toEqual({ bought: 73, free: 3, trial: 0, delivered: 58, booked: 11, open: 4 });
     expect(packStatus(a).key).toBe("open");
   });
 
@@ -51,7 +51,8 @@ describe("allocatePacks", () => {
     expect(a.current?.pack.id).toBe("late");
     expect(a.current?.delivered).toBe(2);
     expect(a.totals.bought).toBe(20);
-    expect(a.totals.free).toBe(5);
+    expect(a.totals.free).toBe(0);
+    expect(a.totals.trial).toBe(5);
   });
 
   test("no packs at all", () => {

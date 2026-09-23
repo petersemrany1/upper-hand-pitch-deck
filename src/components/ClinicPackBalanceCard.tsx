@@ -220,10 +220,11 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
           <div style={{ marginTop: SPACE_16, paddingTop: SPACE_12, borderTop: `1px solid ${GREY_TRACK}`, fontSize: 12.5, color: GREY_TEXT, display: "flex", gap: 6, flexWrap: "wrap" }}>
             <span style={{ fontWeight: 600, color: GREY_TEXT_DARK }}>All packs:</span>
-            <span>{alloc.totals.bought} shows bought{alloc.totals.free > 0 ? ` (${alloc.totals.free} free)` : ""}</span>
+            <span>{alloc.totals.bought} shows{alloc.totals.free > 0 ? ` (${alloc.totals.free} of them free)` : ""}</span>
             <span>·</span><span>{alloc.totals.delivered} delivered</span>
             <span>·</span><span>{alloc.totals.booked} booked</span>
             <span>·</span><span>{alloc.totals.open} open</span>
+            {alloc.totals.trial > 0 && <><span>·</span><span>plus a {alloc.totals.trial}-consult free trial</span></>}
           </div>
 
           {showHistory && (
