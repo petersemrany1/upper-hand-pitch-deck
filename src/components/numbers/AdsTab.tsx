@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { AdPerformanceRow } from "@/lib/ad-spend.functions";
-import { callingOrder, pipelineSentence, type AdStats, type AdVerdictKey, type Pipeline, type PipelineStage } from "./model";
+import { pipelineSentence, type AdStats, type AdVerdictKey, type Pipeline } from "./model";
 import { CARD, FAINT, INK, MUTED, type Tone, money, moneyOrDash, pctOrDash, td2, td2r, th2, th2r } from "./format";
 import { Footnote, Pill, SectionTitle } from "./primitives";
 
@@ -15,70 +15,22 @@ const TONE_FOR: Record<AdVerdictKey, Tone> = {
   noName: "grey",
 };
 
-// One bar per ad: grey = still to call, amber = no answer yet, red = spoke but
-// no booking, green = booked.
-const STAGES: PipelineStage[] = ["toCall", "chasing", "spoke", "booked"];
-const STAGE_COLOUR: Record<PipelineStage, string> = { toCall: "#c2c2be", chasing: "#e0a33f", spoke: "#d9756a", booked: "#2f9e6a" };
-const STAGE_WORD: Record<PipelineStage, string> = { toCall: "still to call", chasing: "no answer yet", spoke: "spoke, no booking", booked: "booked" };
-function Bar({ p, height }: { p: Pipeline; height: number }) {
+// "Called": how much of an ad's leads have had at least one call, as one
+// number. An ad with lots of leads and no bookings is only bad once this is
+// high; when it is low the leads are simply still in the queue.
+function CalledCell({ p }: { p: Pipeline | null }) {
+  if (!p || p.total === 0) return <td style={td2r}><span style={{ color: FAINT }}>—</span></td>;
+  const called = p.total - p.toCall;
+  const share = called / p.total;
+  const tone = share < 0.5 ? { color: "#b03030", background: "#fdeeee" } : share < 0.8 ? { color: "#8a5a2b", background: "#fdf5e8" } : { color: INK };
   return (
-    <div style={{ display: "flex", height, borderRadius: height / 2, overflow: "hidden", background: "#f0f0ee" }}>
-      {STAGES.map((s) => p[s] > 0 && <div key={s} title={`${p[s]} ${STAGE_WORD[s]}`} style={{ width: `${(p[s] / p.total) * 100}%`, background: STAGE_COLOUR[s] }} />)}
-    </div>
-  );
-}
-function PipelineBar({ p }: { p: Pipeline | null }) {
-  if (!p || p.total === 0) return <span style={{ color: FAINT }}>—</span>;
-  return <div title={pipelineSentence(p)} style={{ minWidth: 110 }}><Bar p={p} height={8} /></div>;
-}
-
-/**
- * The plain view Peter asked for (2026-09-23): are an ad's leads being
- * called, or just sitting there? One wide bar per ad and one sentence, the
- * ads with the most uncalled leads first. No other numbers.
- */
-function LeadsBeingCalled({ rows, onDrill }: { rows: AdStats[]; onDrill: (ad: AdPerformanceRow) => void }) {
-  const ordered = callingOrder(rows.filter((r) => r.pipeline));
-  if (ordered.length === 0) return null;
-  const waiting = ordered.reduce((s, r) => s + (r.pipeline?.toCall ?? 0), 0);
-  const total = ordered.reduce((s, r) => s + (r.pipeline?.total ?? 0), 0);
-  const words = (p: Pipeline) => {
-    if (p.toCall === p.total) return "nobody called yet";
-    if (p.toCall > 0) return `${p.toCall} still to call`;
-    if (p.booked === 0 && p.chasing > 0 && p.spoke === 0) return "all called, no answer yet";
-    if (p.booked === 0) return "all called, none booked";
-    return `all called · ${p.booked} booked`;
-  };
-  return (
-    <div style={{ ...CARD, padding: 0 }}>
-      <SectionTitle right={<span style={{ fontSize: 12.5, color: waiting > 0 ? "#8a5a2b" : MUTED, fontWeight: waiting > 0 ? 600 : 400 }}>{waiting > 0 ? `${waiting} of ${total} leads still waiting for a first call` : `every one of the ${total} leads has been called`}</span>}>
-        Are the leads being called?
-      </SectionTitle>
-      <div style={{ padding: "4px 18px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-        {ordered.map((r) => {
-          const p = r.pipeline as Pipeline;
-          const urgent = p.toCall > 0;
-          return (
-            <div key={`${r.ad_name}-${r.unattributed}`} onClick={() => onDrill(r)} style={{ display: "grid", gridTemplateColumns: "minmax(160px, 1fr) minmax(200px, 2fr) minmax(150px, 0.8fr)", gap: 14, alignItems: "center", cursor: "pointer", padding: "6px 0", borderTop: "0.5px solid #f0f0ee" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.ad_name}>
-                {r.unattributed ? "Website & untracked" : r.ad_name.replace(/^hair\s+transplant\s+/i, "")}
-                <span style={{ color: FAINT, fontWeight: 400 }}> · {p.total} lead{p.total === 1 ? "" : "s"}</span>
-              </div>
-              <Bar p={p} height={14} />
-              <div style={{ fontSize: 13, fontWeight: urgent ? 700 : 500, color: urgent ? "#b03030" : p.booked > 0 ? "#2f6f4f" : MUTED, whiteSpace: "nowrap" }}>{words(p)}</div>
-            </div>
-          );
-        })}
-        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", fontSize: 11.5, color: MUTED, paddingTop: 6 }}>
-          {STAGES.map((s) => <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><span style={{ width: 10, height: 10, borderRadius: 5, background: STAGE_COLOUR[s], display: "inline-block" }} />{STAGE_WORD[s]}</span>)}
-          <span>· click an ad to see the people</span>
-        </div>
-      </div>
-    </div>
+    <td style={{ ...td2r, ...tone, fontWeight: 600 }} title={`${called} of ${p.total} called · ${pipelineSentence(p)}`}>
+      {Math.round(share * 100)}%<span style={{ fontWeight: 400, color: share < 0.8 ? tone.color : FAINT }}> · {called} of {p.total}</span>
+    </td>
   );
 }
 
-type SortKey = "verdict" | "spend" | "leads" | "costPerLead" | "booked" | "bookRate" | "shows" | "adCostPerShow";
+type SortKey = "verdict" | "spend" | "leads" | "called" | "costPerLead" | "booked" | "bookRate" | "shows" | "adCostPerShow";
 
 /**
  * Tab 3 — "Which ads are working?"  One plain verdict per ad, best first.
@@ -102,6 +54,7 @@ export function AdsTab({
       switch (sortKey) {
         case "spend": return r.spend;
         case "leads": return r.leads;
+        case "called": return r.pipeline && r.pipeline.total ? (r.pipeline.total - r.pipeline.toCall) / r.pipeline.total : null;
         case "costPerLead": return r.costPerLead;
         case "booked": return r.booked;
         case "bookRate": return r.bookRate;
@@ -153,7 +106,6 @@ export function AdsTab({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <LeadsBeingCalled rows={rows} onDrill={onDrill} />
       <div style={{ ...CARD, padding: 0 }}>
         <SectionTitle
           right={
@@ -176,7 +128,7 @@ export function AdsTab({
                 <th style={th2}>City</th>
                 {th("spend", "Spend")}
                 {th("leads", "Leads")}
-                <th style={th2}>Called?</th>
+                {th("called", "Called")}
                 {th("costPerLead", "Cost / lead")}
                 {th("booked", "Booked")}
                 {th("bookRate", "Leads → booked")}
@@ -208,7 +160,7 @@ export function AdsTab({
                     <td style={td2}>{r.location ?? "—"}</td>
                     <td style={td2r}>{r.unattributed ? "—" : r.spend ? money(r.spend) : "—"}</td>
                     <td style={td2r}>{r.leads}</td>
-                    <td style={td2}><PipelineBar p={r.pipeline} /></td>
+                    <CalledCell p={r.pipeline} />
                     <td style={td2r}>{moneyOrDash(r.costPerLead)}</td>
                     <td style={td2r}>{r.booked}</td>
                     <td style={td2r}>{pctOrDash(r.bookRate)}</td>
