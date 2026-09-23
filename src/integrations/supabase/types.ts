@@ -3214,6 +3214,10 @@ export type Database = {
           shows: number
         }[]
       }
+      spend_location: {
+        Args: { p_campaign: string; p_location: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
