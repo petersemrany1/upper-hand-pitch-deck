@@ -59,7 +59,13 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     fetchAll(db, "partner_clinics", "id, clinic_name, city, location, price_per_booking", "clinic_name"),
     fetchAll(db, "clinic_packs", "id, clinic_id, pack_size, amount_paid_ex_gst, pack_type, free_shows_included, date_paid", "purchased_at"),
     fetchAll(db, "appointment_reminders", "id, lead_id, booking_date, status, patient_first_name", "id"),
-    fetchAll(db, "error_logs", "id, created_at, function_name, error_message, context", "created_at"),
+    // error_logs is large; only the recent refund/outcome rows, newest first, with a hard cap.
+    (db as unknown as { from: (t: string) => any }) // eslint-disable-line @typescript-eslint/no-explicit-any
+      .from("error_logs").select("id, created_at, function_name, error_message, context")
+      .gte("created_at", new Date(Date.now() - 45 * 86400000).toISOString())
+      .or("function_name.ilike.%consult%,function_name.ilike.%refund%,function_name.ilike.%outcome%")
+      .order("created_at", { ascending: false }).limit(300)
+      .then((r: { data: Record<string, unknown>[] | null; error: { message: string } | null }) => { if (r.error) throw new Error(`error_logs: ${r.error.message}`); return r.data ?? []; }) as Promise<Record<string, unknown>[]>,
     fetchAll(db, "clinic_appointments", "id, patient_name, appointment_date, clinic_id, outcome, refund_status, payment_processor, square_payment_id, stripe_payment_intent_id, square_refund_id, stripe_refund_id, deposit_amount, booked_at", "created_at"),
   ]);
 
