@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
+import { allocatePacks, packOrder, packStatus, type PackAllocation } from "@/lib/pack-allocation";
 
 const NAVY = "#1a3a6b";
 const GREEN = "#1a7a4a";
@@ -18,7 +19,6 @@ const GREY_TRACK = "#eef1f5";
 
 const RADIUS_CARD = 14;
 const RADIUS_BTN = 8;
-const RADIUS_BAR = 999;
 
 const SPACE_4 = 4;
 const SPACE_6 = 6;
@@ -51,8 +51,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [showedUp, setShowedUp] = useState(0);
   const [upcoming, setUpcoming] = useState(0);
-  
-  const [bookedSlots, setBookedSlots] = useState(0);
 
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -81,7 +79,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
     let showed = 0;
     let up = 0;
-    let booked = 0;
     for (const a of appts) {
       const o = (a as { outcome: string | null }).outcome;
       const d = (a as { disqualified_at: string | null }).disqualified_at;
@@ -90,7 +87,6 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       if (d || o === "disqualified" || o === "noshow") continue;
       // Free-trial bookings cost nothing and don't touch the paid pack.
       if (isFreeTrialBooking(bookedAt, cutoff)) continue;
-      booked += 1;
       if (o === "show" || o === "proceeded") {
         showed += 1;
       } else if (!o && date < todayStr) {
@@ -104,56 +100,27 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
     }
     setShowedUp(showed);
     setUpcoming(up);
-    setBookedSlots(booked);
     setLoading(false);
   }, [clinicId]);
 
   useEffect(() => { void load(); }, [load]);
 
-  // FIFO allocation: fill oldest packs first. Free-trial packs are excluded —
-  // the trial is finished and its consults are shown as free, not as credits.
-  const { activePack, deliveredInActive, sizeOfActive, totalRemaining, totalCapacity } = useMemo(() => {
-    const sorted = packs
-      .filter((p) => p.pack_type !== "free_trial")
-      .sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
-    let remaining = showedUp;
-    let active: Pack | null = null;
-    let deliveredIn = 0;
-    for (const p of sorted) {
-      if (remaining >= p.pack_size) {
-        remaining -= p.pack_size;
-        continue;
-      }
-      active = p;
-      deliveredIn = remaining;
-      remaining = 0;
-      break;
-    }
-    // If all packs are filled, mark the last one as active (fully consumed)
-    if (!active && sorted.length > 0) {
-      active = sorted[sorted.length - 1];
-      deliveredIn = active.pack_size;
-    }
-    const totalCap = sorted.reduce((s, p) => s + p.pack_size, 0);
-    const totalRem = Math.max(0, totalCap - bookedSlots);
-    return {
-      activePack: active,
-      deliveredInActive: deliveredIn,
-      sizeOfActive: active?.pack_size ?? 0,
-      totalRemaining: totalRem,
-      totalCapacity: totalCap,
-    };
-  }, [packs, showedUp, bookedSlots]);
-
-  // Progress bar is based on TOTAL capacity across all packs so it doesn't
-  // read as "100% full" while another pack still has open slots.
-  const deliveredPct = totalCapacity > 0 ? Math.min(100, (showedUp / totalCapacity) * 100) : 0;
-  const upcomingPct = totalCapacity > 0 ? Math.min(100 - deliveredPct, (upcoming / totalCapacity) * 100) : 0;
-  const remainingInActive = Math.max(0, sizeOfActive - deliveredInActive - Math.min(upcoming, sizeOfActive - deliveredInActive));
-
-  const noPacks = totalCapacity === 0;
-  const exhausted = !noPacks && totalRemaining === 0;
-  const packFull = !noPacks && remainingInActive === 0;
+  // Packs fill oldest first; the box shows the one the clinic is working
+  // through now. Everything else lives one line down and in History.
+  const alloc = useMemo(() => allocatePacks(packs, showedUp, upcoming), [packs, showedUp, upcoming]);
+  const status = packStatus(alloc);
+  const cur = alloc.current;
+  const noPacks = !cur;
+  const box = status.key === "complete"
+    ? { background: "#fdf0f0", border: "1px solid #f0b8b8", color: RED }
+    : status.key === "fullyBooked"
+      ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00" }
+      : null;
+  const nextLine = alloc.next
+    ? `Next: ${alloc.next.pack.pack_size}-show pack ready${alloc.next.booked > 0 ? ` (${alloc.next.booked} already booked into it)` : ""}.`
+    : status.key === "complete" || status.key === "fullyBooked"
+      ? isAdmin ? "Add a pack to keep receiving patients." : "Please contact your account manager to load the next pack."
+      : null;
 
   return (
     <div style={{
@@ -164,21 +131,27 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       margin: "16px 24px 0",
       boxShadow: "0 4px 16px rgba(26,58,107,0.07)",
     }}>
-      {/* Row: title info on left, admin buttons on right */}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: SPACE_16, gap: SPACE_12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: NAVY, marginBottom: SPACE_4 }}>
-            Pack Balance
+          <div style={{ fontSize: 11, fontWeight: 700, color: GREY_TEXT, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: SPACE_6 }}>
+            Current pack
           </div>
-          {!noPacks && (
-            <div style={{ fontSize: 13, color: GREY_TEXT }}>
-              <strong style={{ color: NAVY }}>{showedUp} / {totalCapacity}</strong> delivered
-            </div>
+          {cur ? (
+            <>
+              <div style={{ fontSize: 28, fontWeight: 700, color: NAVY, lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}>
+                {cur.delivered} <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>of {cur.pack.pack_size} delivered</span>
+              </div>
+              <div style={{ fontSize: 13, color: GREY_TEXT, marginTop: SPACE_6 }}>
+                Pack {cur.number} of {alloc.fills.length} · {cur.pack.pack_size} shows · {packTypeLabel(cur.pack.pack_type)} · started {packDate(cur.pack)}
+              </div>
+            </>
+          ) : (
+            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Pack balance</div>
           )}
         </div>
 
-        {isAdmin && (
-          <div style={{ display: "flex", gap: SPACE_8, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: SPACE_8, flexShrink: 0 }}>
+          {isAdmin && (
             <button
               onClick={() => setShowAdd(true)}
               style={{
@@ -190,21 +163,21 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
             >
               <Plus size={14} /> Add pack
             </button>
-            {packs.length > 0 && (
-              <button
-                onClick={() => setShowHistory((v) => !v)}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: SPACE_6,
-                  background: "#fff", color: NAVY, border: `1px solid ${NAVY}`,
-                  padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                  lineHeight: 1,
-                }}
-              >
-                History {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-            )}
-          </div>
-        )}
+          )}
+          {packs.length > 0 && (
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: SPACE_6,
+                background: "#fff", color: NAVY, border: `1px solid ${NAVY}`,
+                padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer",
+                lineHeight: 1,
+              }}
+            >
+              All packs {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -215,61 +188,46 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           border: "1px solid #f4d97a", fontSize: 13, color: "#7a5a00",
         }}>
           No pack has been loaded for this clinic yet. {isAdmin ? "Click 'Add pack' to load one." : "Please contact your account manager."}
+          {alloc.overflowBooked > 0 && ` ${alloc.overflowBooked} consult${alloc.overflowBooked === 1 ? " is" : "s are"} already booked.`}
         </div>
       ) : (
         <>
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "baseline", marginBottom: SPACE_12 }}>
-            <div style={{ fontSize: 12, color: GREY_TEXT }}>
-              {totalRemaining} slot{totalRemaining !== 1 ? "s" : ""} open
+          <Slots size={cur.pack.pack_size} delivered={cur.delivered} booked={cur.booked} />
+
+          <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap", alignItems: "center" }}>
+            <LegendItem color={GREEN} label={`${cur.delivered} delivered`} />
+            <LegendItem color={AMBER} label={`${cur.booked} booked`} />
+            <LegendItem color={GREY_TRACK} label={`${cur.open} open`} />
+            {alloc.overflowBooked > 0 && (
+              <span style={{ fontSize: 12, color: RED, fontWeight: 600 }}>
+                +{alloc.overflowBooked} booked beyond your packs
+              </span>
+            )}
+            {alloc.overflowBooked === 0 && alloc.next && alloc.next.booked > 0 && (
+              <span style={{ fontSize: 12, color: GREY_TEXT_DARK, fontWeight: 500 }}>
+                +{alloc.next.booked} booked into the next pack
+              </span>
+            )}
+          </div>
+
+          {box ? (
+            <div style={{ marginTop: SPACE_16, padding: "12px 14px", borderRadius: 8, fontSize: 13, ...box }}>
+              <strong>{status.line}</strong>{nextLine ? ` ${nextLine}` : ""}
             </div>
-          </div>
-
-          {/* Two-tone progress bar */}
-          <div style={{ height: 16, background: GREY_TRACK, borderRadius: RADIUS_BAR, overflow: "hidden", display: "flex" }}>
-            <div style={{
-              width: `${deliveredPct}%`, height: "100%",
-              background: GREEN,
-              transition: "width 0.4s ease",
-            }} />
-            <div style={{
-              width: `${upcomingPct}%`, height: "100%",
-              background: AMBER,
-              transition: "width 0.4s ease",
-            }} />
-          </div>
-
-          {/* Legend — totals across all packs */}
-          <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap" }}>
-            <LegendItem color={GREEN} label={`${showedUp} delivered`} />
-            <LegendItem color={AMBER} label={`${upcoming} upcoming booked`} />
-            <LegendItem color={GREY_TRACK} label={`${totalRemaining} open`} />
-          </div>
-
-          
-
-
-          {exhausted && (
-            <div style={{
-              marginTop: SPACE_16, padding: "12px 14px",
-              background: "#fdf0f0", border: "1px solid #f0b8b8",
-              borderRadius: 8, fontSize: 13, color: RED,
-            }}>
-              This pack is complete. {isAdmin ? "Load a new pack to keep sending patients." : "Please contact your account manager to reload."}
-            </div>
+          ) : (
+            nextLine && <div style={{ marginTop: SPACE_12, fontSize: 13, color: GREY_TEXT_DARK }}>{nextLine}</div>
           )}
 
-          {packFull && !exhausted && totalRemaining === 0 && (
-            <div style={{
-              marginTop: SPACE_16, padding: "12px 14px",
-              background: "#fef9e7", border: "1px solid #f4d97a",
-              borderRadius: 8, fontSize: 13, color: "#7a5a00",
-            }}>
-              This pack is fully booked. {isAdmin ? "Add another pack so new bookings don't stack up." : "Please contact your account manager to add capacity."}
-            </div>
-          )}
+          <div style={{ marginTop: SPACE_16, paddingTop: SPACE_12, borderTop: `1px solid ${GREY_TRACK}`, fontSize: 12.5, color: GREY_TEXT, display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 600, color: GREY_TEXT_DARK }}>All packs:</span>
+            <span>{alloc.totals.bought} shows bought{alloc.totals.free > 0 ? ` (${alloc.totals.free} free)` : ""}</span>
+            <span>·</span><span>{alloc.totals.delivered} delivered</span>
+            <span>·</span><span>{alloc.totals.booked} booked</span>
+            <span>·</span><span>{alloc.totals.open} open</span>
+          </div>
 
-          {showHistory && isAdmin && (
-            <PackHistoryList packs={packs} showedUp={showedUp} onChange={load} onEdit={(p) => setEditingPack(p)} />
+          {showHistory && (
+            <PackHistoryList packs={packs} alloc={alloc} isAdmin={isAdmin} onChange={load} onEdit={(p) => setEditingPack(p)} />
           )}
         </>
       )}
@@ -294,6 +252,45 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   );
 }
 
+const packTypeLabel = (t: string) => (t === "paid" ? "Paid" : t === "free_trial" ? "Free trial" : t === "guarantee_credit" ? "Guarantee credit" : t === "goodwill" ? "Goodwill" : t.replace(/_/g, " "));
+const packDate = (p: { date_paid: string | null; purchased_at: string }) =>
+  new Date(`${p.date_paid ?? p.purchased_at.slice(0, 10)}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+
+/**
+ * One segment per show in the pack: green delivered, amber booked, grey open,
+ * with a small gap after every tenth so "27 of 40" can be counted by eye.
+ * Past 40 shows a smooth bar with ticks reads better than hairline segments.
+ */
+function Slots({ size, delivered, booked }: { size: number; delivered: number; booked: number }) {
+  if (size > 40) {
+    const d = Math.min(100, (delivered / size) * 100), b = Math.min(100 - d, (booked / size) * 100);
+    return (
+      <div style={{ position: "relative", height: 18, background: GREY_TRACK, borderRadius: 6, overflow: "hidden", display: "flex" }}>
+        <div style={{ width: `${d}%`, background: GREEN }} />
+        <div style={{ width: `${b}%`, background: AMBER }} />
+        {Array.from({ length: Math.floor((size - 1) / 10) }, (_, i) => (
+          <div key={i} style={{ position: "absolute", left: `${((i + 1) * 10 / size) * 100}%`, top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.7)" }} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: "flex", gap: 3 }} aria-label={`${delivered} of ${size} delivered, ${booked} booked`}>
+      {Array.from({ length: size }, (_, i) => (
+        <div
+          key={i}
+          style={{
+            flex: 1, height: 18, borderRadius: 4,
+            background: i < delivered ? GREEN : i < delivered + booked ? AMBER : GREY_TRACK,
+            marginLeft: i > 0 && i % 10 === 0 ? 8 : 0,
+            transition: "background 0.3s ease",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 function LegendItem({ color, label }: { color: string; label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: SPACE_6 }}>
@@ -303,19 +300,18 @@ function LegendItem({ color, label }: { color: string; label: string }) {
   );
 }
 
-function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
-  packs: Pack[]; showedUp: number; onChange: () => void; onEdit: (p: Pack) => void;
+const STATE_PILL: Record<string, { bg: string; fg: string; label: string }> = {
+  complete: { bg: "#e8f5ef", fg: GREEN, label: "Complete" },
+  current: { bg: "#fef3e2", fg: AMBER, label: "Current" },
+  queued: { bg: GREY_BG, fg: GREY_TEXT_DARK, label: "Queued" },
+  trial: { bg: "#eef2ff", fg: NAVY, label: "Free trial" },
+};
+
+function PackHistoryList({ packs, alloc, isAdmin, onChange, onEdit }: {
+  packs: Pack[]; alloc: PackAllocation<Pack>; isAdmin: boolean; onChange: () => void; onEdit: (p: Pack) => void;
 }) {
-  // Allocate delivered per pack (FIFO). Free-trial packs sit outside the
-  // balance, so they don't take any of the delivered count.
-  const sorted = [...packs].sort((a, b) => a.purchased_at.localeCompare(b.purchased_at));
-  let remaining = showedUp;
-  const rows = sorted.map((p) => {
-    if (p.pack_type === "free_trial") return { p, delivered: null as number | null };
-    const delivered = Math.min(p.pack_size, remaining);
-    remaining -= delivered;
-    return { p, delivered: delivered as number | null };
-  });
+  const fillById = new Map(alloc.fills.map((f) => [f.pack.id, f]));
+  const rows = [...packs].sort(packOrder);
 
   const del = async (id: string) => {
     if (!confirm("Delete this pack? This affects the balance calculation.")) return;
@@ -326,50 +322,47 @@ function PackHistoryList({ packs, showedUp, onChange, onEdit }: {
   };
 
   return (
-    <div style={{ marginTop: SPACE_24, borderTop: `1px solid ${GREY_TRACK}`, paddingTop: SPACE_16 }}>
+    <div style={{ marginTop: SPACE_16, borderTop: `1px solid ${GREY_TRACK}`, paddingTop: SPACE_16 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: GREY_TEXT, marginBottom: SPACE_12, textTransform: "uppercase", letterSpacing: 0.5 }}>
-        Pack history
+        All packs, oldest first
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: SPACE_8 }}>
-        {rows.map(({ p, delivered }) => (
-          <div key={p.id} style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "10px 14px", background: GREY_BG, borderRadius: 8, fontSize: 13,
-          }}>
-            <div>
-              {delivered == null
-                ? <strong style={{ color: NAVY }}>{p.pack_size} free consults</strong>
-                : <><strong style={{ color: NAVY }}>{delivered} / {p.pack_size}</strong> delivered</>}
-              {p.pack_name && <span style={{ color: GREY_TEXT_DARK, marginLeft: 10 }}>{p.pack_name}</span>}
-              <span style={{ color: GREY_TEXT, marginLeft: 10 }}>
-                purchased {new Date(p.purchased_at).toLocaleDateString()}
-              </span>
-              <span style={{ color: p.amount_paid_ex_gst == null ? AMBER : GREY_TEXT, marginLeft: 10 }}>
-                · {p.amount_paid_ex_gst == null ? "amount missing" : `$${p.amount_paid_ex_gst.toLocaleString()} ex GST`}
-              </span>
-              {p.pack_type !== "paid" && (
-                <span style={{ color: GREY_TEXT, marginLeft: 10 }}>· {p.pack_type.replace("_", " ")}</span>
+        {rows.map((p) => {
+          const f = fillById.get(p.id) ?? null;
+          const pill = STATE_PILL[f ? f.state : "trial"];
+          return (
+            <div key={p.id} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: SPACE_12,
+              padding: "10px 14px", background: GREY_BG, borderRadius: 8, fontSize: 13, flexWrap: "wrap",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: SPACE_12, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: pill.bg, color: pill.fg, letterSpacing: 0.3 }}>{pill.label}</span>
+                <strong style={{ color: NAVY }}>{f ? `Pack ${f.number}` : "Trial"} · {p.pack_size} shows · {packTypeLabel(p.pack_type)}</strong>
+                <span style={{ color: GREY_TEXT }}>{packDate(p)}</span>
+                {f
+                  ? <span style={{ color: GREY_TEXT_DARK }}>{f.delivered} delivered · {f.booked} booked · {f.open} open</span>
+                  : <span style={{ color: GREY_TEXT_DARK }}>consults given free, outside the balance</span>}
+                {p.pack_name && <span style={{ color: GREY_TEXT }}>· {p.pack_name}</span>}
+                {isAdmin && (
+                  <span style={{ color: p.amount_paid_ex_gst == null && p.pack_type === "paid" ? AMBER : GREY_TEXT }}>
+                    · {p.amount_paid_ex_gst == null ? (p.pack_type === "paid" ? "amount missing" : "no charge") : `$${p.amount_paid_ex_gst.toLocaleString()} ex GST`}
+                  </span>
+                )}
+                {isAdmin && p.notes && <span style={{ color: GREY_TEXT, fontStyle: "italic" }}>· {p.notes}</span>}
+              </div>
+              {isAdmin && (
+                <div style={{ display: "flex", gap: SPACE_4 }}>
+                  <button onClick={() => onEdit(p)} style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY_TEXT_DARK, padding: SPACE_4 }} title="Edit pack">
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => del(p.id)} style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }} title="Delete pack">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               )}
-              {p.notes && <span style={{ color: GREY_TEXT, marginLeft: 10, fontStyle: "italic" }}>· {p.notes}</span>}
             </div>
-            <div style={{ display: "flex", gap: SPACE_4 }}>
-              <button
-                onClick={() => onEdit(p)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: GREY_TEXT_DARK, padding: SPACE_4 }}
-                title="Edit pack"
-              >
-                <Pencil size={14} />
-              </button>
-              <button
-                onClick={() => del(p.id)}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: RED, padding: SPACE_4 }}
-                title="Delete pack"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
