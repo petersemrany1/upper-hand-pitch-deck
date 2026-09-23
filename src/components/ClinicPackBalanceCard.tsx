@@ -142,7 +142,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
                 {cur.delivered} <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>of {cur.pack.pack_size} delivered</span>
               </div>
               <div style={{ fontSize: 13, color: GREY_TEXT, marginTop: SPACE_6 }}>
-                Pack {cur.number} of {alloc.fills.length} · {cur.pack.pack_size} shows · {packTypeLabel(cur.pack.pack_type)} · started {packDate(cur.pack)}
+                Pack {cur.number} of {alloc.fills.length} · {cur.pack.pack_size} show{cur.pack.pack_size === 1 ? "" : "s"} · {packTypeLabel(cur.pack.pack_type)} · started {packDate(cur.pack)}
               </div>
             </>
           ) : (
@@ -338,7 +338,7 @@ function PackHistoryList({ packs, alloc, isAdmin, onChange, onEdit }: {
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: SPACE_12, flexWrap: "wrap" }}>
                 <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: pill.bg, color: pill.fg, letterSpacing: 0.3 }}>{pill.label}</span>
-                <strong style={{ color: NAVY }}>{f ? `Pack ${f.number}` : "Trial"} · {p.pack_size} shows · {packTypeLabel(p.pack_type)}</strong>
+                <strong style={{ color: NAVY }}>{f ? `Pack ${f.number}` : "Trial"} · {p.pack_size} show{p.pack_size === 1 ? "" : "s"} · {packTypeLabel(p.pack_type)}</strong>
                 <span style={{ color: GREY_TEXT }}>{packDate(p)}</span>
                 {f
                   ? <span style={{ color: GREY_TEXT_DARK }}>{f.delivered} delivered · {f.booked} booked · {f.open} open</span>
