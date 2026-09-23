@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Pencil, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown, ChevronUp, Info } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
@@ -111,10 +111,12 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const alloc = useMemo(() => allocatePacks(packs, showedUp, upcoming), [packs, showedUp, upcoming]);
   const bal = creditBalance(alloc);
   const noPacks = bal.key === "none";
-  const tone = bal.key === "over" || bal.key === "empty"
-    ? { background: "#fdf0f0", border: "1px solid #f0b8b8", color: RED, number: RED }
+  const [showHelp, setShowHelp] = useState(false);
+  const chip = CHIP[bal.key];
+  const alert = bal.key === "over" || bal.key === "empty"
+    ? { background: "#fdf0f0", border: "1px solid #f0b8b8", color: RED }
     : bal.key === "low"
-      ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00", number: AMBER }
+      ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00" }
       : null;
   const help = isAdmin ? "" : " Please contact your account manager.";
 
@@ -127,85 +129,100 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       margin: "16px 24px 0",
       boxShadow: "0 4px 16px rgba(26,58,107,0.07)",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: SPACE_12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: GREY_TEXT, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: SPACE_6 }}>
-            Credits
-          </div>
-          {loading ? (
-            <div style={{ height: 34, width: 180, background: GREY_BG, borderRadius: 6 }} />
-          ) : noPacks ? (
-            <div style={{ fontSize: 28, fontWeight: 700, color: NAVY, lineHeight: 1.1 }}>
-              0 <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>available</span>
-            </div>
-          ) : (
-            <>
-              <div style={{ fontSize: 34, fontWeight: 700, color: tone ? tone.number : NAVY, lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}>
-                {bal.available} <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>available</span>
-              </div>
-              <div style={{ fontSize: 13, color: GREY_TEXT_DARK, marginTop: SPACE_8, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                <span><strong style={{ color: NAVY }}>{bal.reserved}</strong> reserved for booked consults</span>
-                <span style={{ color: GREY_TEXT }}>·</span>
-                <span><strong style={{ color: NAVY }}>{bal.used}</strong> used</span>
-                <span style={{ color: GREY_TEXT }}>·</span>
-                <span><strong style={{ color: NAVY }}>{bal.bought}</strong> bought</span>
-              </div>
-            </>
+      {/* Header: label + status chip on the left, actions on the right, one line. */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: SPACE_12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE_12 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: GREY_TEXT, letterSpacing: 1.2, textTransform: "uppercase" }}>Credits</span>
+          {!loading && !noPacks && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, padding: "3px 9px", borderRadius: 999, background: chip.bg, color: chip.fg, letterSpacing: 0.2 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: chip.fg, display: "inline-block" }} />
+              {chip.label}
+            </span>
           )}
         </div>
-
-        <div style={{ display: "flex", gap: SPACE_8, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: SPACE_8, flexShrink: 0 }}>
+          {packs.length > 0 && (
+            <button
+              onClick={() => setShowHistory((v) => !v)}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: SPACE_6,
+                background: "transparent", color: NAVY, border: "none",
+                padding: "10px 10px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer", lineHeight: 1,
+              }}
+            >
+              All packs {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </button>
+          )}
           {isAdmin && (
             <button
               onClick={() => setShowAdd(true)}
               style={{
                 display: "inline-flex", alignItems: "center", gap: SPACE_6,
                 background: NAVY, color: "#fff", border: "none",
-                padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                lineHeight: 1,
+                padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer", lineHeight: 1,
               }}
             >
               <Plus size={14} /> Add pack
             </button>
           )}
-          {packs.length > 0 && (
-            <button
-              onClick={() => setShowHistory((v) => !v)}
-              style={{
-                display: "inline-flex", alignItems: "center", gap: SPACE_6,
-                background: "#fff", color: NAVY, border: `1px solid ${NAVY}`,
-                padding: "10px 16px", borderRadius: RADIUS_BTN, fontSize: 13, fontWeight: 600, cursor: "pointer",
-                lineHeight: 1,
-              }}
-            >
-              All packs {showHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
-          )}
         </div>
       </div>
 
-      {!loading && noPacks && (
+      {loading ? (
+        <div style={{ marginTop: SPACE_16, height: 96, background: GREY_BG, borderRadius: 8 }} />
+      ) : noPacks ? (
         <div style={{
-          marginTop: SPACE_16, padding: "12px 14px", background: "#fef9e7", borderRadius: 8,
+          marginTop: SPACE_16, padding: "14px 16px", background: "#fef9e7", borderRadius: 8,
           border: "1px solid #f4d97a", fontSize: 13, color: "#7a5a00",
         }}>
           No pack has been loaded for this clinic yet.{isAdmin ? " Click 'Add pack' to load one." : help}
           {alloc.overflowBooked > 0 && ` ${alloc.overflowBooked} consult${alloc.overflowBooked === 1 ? " is" : "s are"} already booked.`}
         </div>
-      )}
+      ) : (
+        <>
+          {/* Hero: the one number that answers "can I send more?" */}
+          <div style={{ marginTop: SPACE_12, display: "flex", alignItems: "flex-end", gap: SPACE_24, flexWrap: "wrap" }}>
+            <div style={{ minWidth: 200 }}>
+              <div style={{ fontSize: 48, fontWeight: 700, lineHeight: 1, letterSpacing: -1, color: alert ? alert.color : NAVY, fontVariantNumeric: "tabular-nums" }}>
+                {bal.available}
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 500, color: GREY_TEXT_DARK, marginTop: SPACE_6 }}>
+                credit{bal.available === 1 ? "" : "s"} available
+              </div>
+            </div>
 
-      {!loading && !noPacks && tone && (
-        <div style={{ marginTop: SPACE_16, padding: "12px 14px", borderRadius: 8, fontSize: 13, background: tone.background, border: tone.border, color: tone.color }}>
-          <strong>{bal.line}</strong>{help}
-        </div>
-      )}
+            {/* Three facts, each with its own label, so none has to be read. */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(120px, 160px))", gap: SPACE_8, flex: "0 1 auto" }}>
+              <Stat label="Reserved" value={bal.reserved} sub="booked consults" />
+              <Stat label="Used" value={bal.used} sub="delivered" />
+              <Stat label="Bought" value={bal.bought} sub="all time" />
+            </div>
+          </div>
 
-      {!loading && !noPacks && (
-        <div style={{ marginTop: SPACE_16, paddingTop: SPACE_12, borderTop: `1px solid ${GREY_TRACK}`, fontSize: 12.5, color: GREY_TEXT }}>
-          A delivered consult uses one credit. A booking reserves one until it happens. A no-show gives it back.
-          {alloc.totals.free > 0 && ` ${alloc.totals.free} of your credits were given free.`}
-          {alloc.totals.trial > 0 && ` Your ${alloc.totals.trial}-consult free trial sits outside this balance.`}
-        </div>
+          {alert && (
+            <div style={{ marginTop: SPACE_16, padding: "12px 14px", borderRadius: 8, fontSize: 13, ...alert }}>
+              <strong>{bal.line}</strong>{help}
+            </div>
+          )}
+
+          {/* The rules, one click away instead of always on. */}
+          <div style={{ marginTop: SPACE_16, paddingTop: SPACE_12, borderTop: `1px solid ${GREY_TRACK}` }}>
+            <button
+              onClick={() => setShowHelp((v) => !v)}
+              aria-expanded={showHelp}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: "pointer", fontSize: 12.5, color: GREY_TEXT, fontWeight: 500 }}
+            >
+              <Info size={13} /> How credits work
+            </button>
+            {showHelp && (
+              <div style={{ marginTop: SPACE_8, fontSize: 12.5, color: GREY_TEXT_DARK, lineHeight: 1.55, maxWidth: 720 }}>
+                A delivered consult uses one credit. A booking reserves one until the consult happens. A no-show gives the credit back. Buying a pack adds credits.
+                {alloc.totals.free > 0 && ` ${alloc.totals.free} of your credits were given free.`}
+                {alloc.totals.trial > 0 && ` Your ${alloc.totals.trial}-consult free trial sits outside this balance.`}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {!loading && showHistory && (
@@ -228,6 +245,24 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           onSaved={() => { setEditingPack(null); void load(); }}
         />
       )}
+    </div>
+  );
+}
+
+const CHIP: Record<ReturnType<typeof creditBalance>["key"], { bg: string; fg: string; label: string }> = {
+  ok: { bg: "#e8f5ef", fg: GREEN, label: "Healthy" },
+  low: { bg: "#fef3e2", fg: AMBER, label: "Low" },
+  empty: { bg: "#fdf0f0", fg: RED, label: "Empty" },
+  over: { bg: "#fdf0f0", fg: RED, label: "Over balance" },
+  none: { bg: GREY_BG, fg: GREY_TEXT_DARK, label: "No credits" },
+};
+
+function Stat({ label, value, sub }: { label: string; value: number; sub: string }) {
+  return (
+    <div style={{ padding: "10px 12px", background: GREY_BG, borderRadius: 8, border: `1px solid ${GREY_TRACK}` }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, color: GREY_TEXT, letterSpacing: 1, textTransform: "uppercase" }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 700, color: NAVY, marginTop: 2, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}>{value}</div>
+      <div style={{ fontSize: 11.5, color: GREY_TEXT, marginTop: 1 }}>{sub}</div>
     </div>
   );
 }
