@@ -14,12 +14,12 @@ const TONE_FOR: Record<AdVerdictKey, Tone> = {
   noName: "grey",
 };
 
-type SortKey = "verdict" | "spend" | "leads" | "costPerLead" | "booked" | "bookRate" | "showed" | "adCostPerShow";
+type SortKey = "verdict" | "spend" | "leads" | "costPerLead" | "booked" | "bookRate" | "shows" | "adCostPerShow";
 
 /**
  * Tab 3 — "Which ads are working?"  One plain verdict per ad, best first.
- * Judged on what a showed appointment costs against the average of the ads
- * on screen.
+ * Judged on what a show costs against the average of the ads on screen,
+ * where a show is any booking not marked no-show.
  */
 export function AdsTab({
   rows,
@@ -41,7 +41,7 @@ export function AdsTab({
         case "costPerLead": return r.costPerLead;
         case "booked": return r.booked;
         case "bookRate": return r.bookRate;
-        case "showed": return r.showed;
+        case "shows": return r.shows;
         case "adCostPerShow": return r.adCostPerShow;
         default: return null;
       }
@@ -113,8 +113,8 @@ export function AdsTab({
                 {th("costPerLead", "Cost / lead")}
                 {th("booked", "Booked")}
                 {th("bookRate", "Leads → booked")}
-                {th("showed", "Showed")}
-                {th("adCostPerShow", "Cost / showed")}
+                {th("shows", "Shows")}
+                {th("adCostPerShow", "Cost / show")}
                 <th style={{ ...th2, paddingRight: 18 }}>Verdict</th>
               </tr>
             </thead>
@@ -144,7 +144,7 @@ export function AdsTab({
                     <td style={td2r}>{moneyOrDash(r.costPerLead)}</td>
                     <td style={td2r}>{r.booked}</td>
                     <td style={td2r}>{pctOrDash(r.bookRate)}</td>
-                    <td style={td2r}>{r.showed}</td>
+                    <td style={td2r}>{r.shows}{r.noshow > 0 && <span style={{ color: FAINT, fontWeight: 400 }}> · {r.noshow} no-show</span>}</td>
                     <td style={{ ...td2r, fontWeight: 600 }}>{moneyOrDash(r.adCostPerShow)}</td>
                     <td style={{ ...td2, paddingRight: 18 }}>
                       <Pill tone={TONE_FOR[r.verdict.key]}>{r.verdict.label}</Pill>
@@ -159,7 +159,7 @@ export function AdsTab({
           </table>
         </div>
         <Footnote>
-          Winning = cost per showed at least 20% under the average shown above. Poor = 20% over. Too early = fewer than 3 showed appointments.
+          A show is any booking not marked no-show. Winning = cost per show at least 20% under the average shown above. Poor = 20% over. Too early = fewer than 3 shows.
           Not booking = 10+ leads and not one booking. Ads are matched to leads by ad name. Website enquiries have no ad and sit outside the city figures.
         </Footnote>
       </div>

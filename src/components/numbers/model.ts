@@ -3,17 +3,28 @@ import { perUnit, ratio, type Tone } from "./format";
 
 // One row of "how is this city doing" — the same shape whether it is a
 // single city or the whole account, so every tab can treat them alike.
+/**
+ * Peter's rule (2026-09-23): a booking counts as a show from the moment it is
+ * made. Only marking it a no-show takes it out. So shows = confirmed shows +
+ * consults still to come + past consults with no outcome saved yet.
+ */
+export const expectedShows = (r: { showed: number; upcoming: number; needs_outcome: number }): number =>
+  r.showed + r.upcoming + r.needs_outcome;
+
 export type CityStats = {
   key: string;
   // Funnel
   spend: number;
   leads: number;
   booked: number;
+  /** Confirmed shows only. */
   showed: number;
   noshow: number;
   upcoming: number;
   needsOutcome: number;
   disqualified: number;
+  /** Bookings not marked no-show: the divisor for every per-show cost. See expectedShows. */
+  shows: number;
   costPerLead: number | null;
   /** Rep wages + booking bonuses ÷ leads. Null when we have no hours. */
   labourPerLead: number | null;
@@ -51,17 +62,19 @@ const EMPTY_LOC: Omit<LocationSummaryRow, "location"> = {
 function finish(base: Omit<CityStats,
   | "costPerLead" | "costPerBooked" | "adCostPerShow" | "bookRate" | "showRate" | "labourCost" | "hoursOk"
   | "totalCost" | "profit" | "costPct" | "marketingShare" | "labourPerShow" | "trueCostPerShow"
-  | "hoursPerBooking" | "leadsPerBooking" | "labourPerLead" | "totalCostPerLead">): CityStats {
+  | "hoursPerBooking" | "leadsPerBooking" | "labourPerLead" | "totalCostPerLead" | "shows">): CityStats {
   const labourCost = base.hourlyCost + base.bonusCost;
   const hoursOk = base.hours > 0;
   const totalCost = base.spend + labourCost;
+  const shows = expectedShows({ showed: base.showed, upcoming: base.upcoming, needs_outcome: base.needsOutcome });
   return {
     ...base,
+    shows,
     costPerLead: perUnit(base.spend, base.leads),
     labourPerLead: hoursOk ? perUnit(labourCost, base.leads) : null,
     totalCostPerLead: hoursOk ? perUnit(totalCost, base.leads) : null,
     costPerBooked: perUnit(base.spend, base.booked),
-    adCostPerShow: perUnit(base.spend, base.showed),
+    adCostPerShow: perUnit(base.spend, shows),
     bookRate: ratio(base.booked, base.leads),
     showRate: ratio(base.showed, base.showed + base.noshow),
     labourCost,
@@ -70,8 +83,8 @@ function finish(base: Omit<CityStats,
     profit: base.revenue - totalCost,
     costPct: base.revenue > 0 && hoursOk ? totalCost / base.revenue : null,
     marketingShare: totalCost > 0 ? base.spend / totalCost : null,
-    labourPerShow: hoursOk ? perUnit(labourCost, base.showed) : null,
-    trueCostPerShow: hoursOk ? perUnit(totalCost, base.showed) : null,
+    labourPerShow: hoursOk ? perUnit(labourCost, shows) : null,
+    trueCostPerShow: hoursOk ? perUnit(totalCost, shows) : null,
     hoursPerBooking: hoursOk ? perUnit(base.hours, base.booked) : null,
     leadsPerBooking: perUnit(base.leads, base.booked),
   };
@@ -181,6 +194,8 @@ export type AdVerdictKey = "winning" | "ok" | "poor" | "notBooking" | "early" | 
 export type AdVerdict = { key: AdVerdictKey; label: string; rank: number };
 
 export type AdStats = AdPerformanceRow & {
+  /** Bookings not marked no-show. See expectedShows. */
+  shows: number;
   costPerLead: number | null;
   costPerBooked: number | null;
   adCostPerShow: number | null;
@@ -200,14 +215,16 @@ const VERDICTS: Record<AdVerdictKey, AdVerdict> = {
 
 /**
  * A plain-word verdict per ad. Judged on ad cost per show against the average
- * across the ads on screen: 20% cheaper = winning, 20% dearer = poor.
- * Fewer than 3 shows is too early to call — unless the ad has burned through
- * 10+ leads without a single booking.
+ * across the ads on screen: 20% cheaper = winning, 20% dearer = poor. A show
+ * here is any booking not marked no-show (see expectedShows). Fewer than 3
+ * is too early to call — unless the ad has burned through 10+ leads without
+ * a single booking.
  */
 export function judgeAd(a: AdPerformanceRow, avgCostPerShow: number | null): AdVerdict {
   if (a.unattributed) return VERDICTS.noName;
-  const cps = perUnit(a.spend, a.showed);
-  if (a.showed < 3) {
+  const shows = expectedShows(a);
+  const cps = perUnit(a.spend, shows);
+  if (shows < 3) {
     if (a.leads >= 10 && a.booked === 0) return VERDICTS.notBooking;
     return VERDICTS.early;
   }
@@ -220,13 +237,14 @@ export function judgeAd(a: AdPerformanceRow, avgCostPerShow: number | null): AdV
 export function buildAdStats(ads: AdPerformanceRow[]): { rows: AdStats[]; avgCostPerShow: number | null } {
   const attributed = ads.filter((a) => !a.unattributed);
   const spend = attributed.reduce((s, a) => s + a.spend, 0);
-  const showed = attributed.reduce((s, a) => s + a.showed, 0);
-  const avgCostPerShow = perUnit(spend, showed);
+  const shows = attributed.reduce((s, a) => s + expectedShows(a), 0);
+  const avgCostPerShow = perUnit(spend, shows);
   const rows = ads.map((a) => ({
     ...a,
+    shows: expectedShows(a),
     costPerLead: a.unattributed ? null : perUnit(a.spend, a.leads),
     costPerBooked: a.unattributed ? null : perUnit(a.spend, a.booked),
-    adCostPerShow: a.unattributed ? null : perUnit(a.spend, a.showed),
+    adCostPerShow: a.unattributed ? null : perUnit(a.spend, expectedShows(a)),
     bookRate: ratio(a.booked, a.leads),
     showRate: ratio(a.showed, a.showed + a.noshow),
     verdict: judgeAd(a, avgCostPerShow),

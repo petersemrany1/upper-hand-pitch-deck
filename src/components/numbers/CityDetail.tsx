@@ -106,8 +106,8 @@ export function CityDetail({
             hideDelta={isAll}
           />
           <Stage
-            label="Showed"
-            count={s.showed}
+            label="Shows"
+            count={s.shows}
             cost={s.trueCostPerShow ?? s.adCostPerShow}
             costLabel="per show"
             breakdown={[
@@ -117,7 +117,7 @@ export function CityDetail({
             ]}
             delta={bm(s.trueCostPerShow ?? s.adCostPerShow, avg.trueCostPerShow ?? avg.adCostPerShow, true)}
             hideDelta={isAll}
-            foot="ads + rep pay, per showed appointment"
+            foot={`${s.showed} confirmed · booked counts until marked no-show`}
             strong
           />
         </div>

@@ -300,7 +300,7 @@ function Detail({ town, target, onClose }: { town: Town; target: PickTarget; onC
     if (t) { title = t.name; sub = t.note; tone = t.tone; body = <>
       <KV k={`Spend · ${town.rangeLabel}`} v={$(t.spend)} /><KV k="Leads" v={String(t.leads)} />
       <KV k="Cost / lead" v={$(t.costPerLead)} /><KV k="Booked" v={`${t.booked} · ${pct(t.bookRate)}`} />
-      <KV k="Showed" v={String(t.showed)} /><KV k="Cost / showed" v={$(t.costPerShow)} />
+      <KV k="Showed" v={String(t.showed)} /><KV k="Cost / show" v={$(t.costPerShow)} />
       <KV k="Cost / lead vs prior fortnight" v={trend(t.costTrend)} /><KV k="Leads / day vs prior fortnight" v={trend(t.leadsTrend)} />
     </>; }
   } else if (target.kind === "bay") {

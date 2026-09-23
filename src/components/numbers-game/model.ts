@@ -1,6 +1,6 @@
 import type { AdPerformanceRow, LabourRow, LocationSummaryRow, RevenueRow } from "@/lib/ad-spend.functions";
 import type { NumbersGameLive } from "@/lib/numbers-game.functions";
-import { buildAllCities } from "@/components/numbers/model";
+import { buildAllCities, expectedShows } from "@/components/numbers/model";
 
 /**
  * Turns the business numbers into a plumbing town. Pure: no React, no
@@ -130,7 +130,7 @@ export const STAR_RATE = 1;               // a booking an hour: going great
 export const STAR_HOURS = 4;
 
 const perLead = (r: { spend: number; leads: number }) => (r.leads > 0 ? r.spend / r.leads : null);
-const perShow = (r: { spend: number; showed: number }) => (r.showed > 0 ? r.spend / r.showed : null);
+const perShow = (r: { spend: number; showed: number; upcoming: number; needs_outcome: number }) => { const s = expectedShows(r); return s > 0 ? r.spend / s : null; };
 const rate = (r: { leads: number; booked: number }) => (r.leads > 0 ? r.booked / r.leads : null);
 const $ = (n: number) => `$${Math.round(n).toLocaleString()}`;
 
@@ -221,8 +221,8 @@ export function buildTown(input: TownInput): Town {
     const labourBad = c.hoursPerBooking !== null && avg.hoursPerBooking !== null && c.hoursPerBooking >= avg.hoursPerBooking * 1.3;
     const reason = c.profit < 0 ? (adsBad && labourBad ? "both" : labourBad ? "labour" : adsBad ? "ads" : null) : null;
     const star = c.profit > 0;
-    const tone: Tone = star ? "green" : c.profit < 0 && c.showed > 0 ? "red" : "grey";
-    const note = star ? `+${$(c.profit)} profit` : c.showed === 0 ? `${$(c.totalCost)} spent, no showed appointments yet` : `lost ${$(-c.profit)} · ${reason === "both" ? "ads and calling both dear" : reason === "labour" ? "the calling is dear" : reason === "ads" ? "the ads are dear" : "costs above revenue"}`;
+    const tone: Tone = star ? "green" : c.profit < 0 && c.shows > 0 ? "red" : "grey";
+    const note = star ? `+${$(c.profit)} profit` : c.shows === 0 ? `${$(c.totalCost)} spent, no bookings yet` : `lost ${$(-c.profit)} · ${reason === "both" ? "ads and calling both dear" : reason === "labour" ? "the calling is dear" : reason === "ads" ? "the ads are dear" : "costs above revenue"}`;
     return { city: c.key, cost: c.totalCost, revenue: c.revenue, profit: c.profit, reason, star, tone, note };
   });
 

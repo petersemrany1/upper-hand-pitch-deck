@@ -255,7 +255,7 @@ export class TownScene implements TownSceneApi {
       if (tw.star) this.addHalo(new THREE.Vector3(x, 0.62, z), r + 2.6);
       this.tag(g, { kind: "tower", id: tw.id }); W.add(g);
       this.labelAnchors.push({ key: `tower:${tw.id}`, pos: new THREE.Vector3(x, legH + tankH + 4.6 + (row % 2) * 3, z), short: plateName(tw.name), title: tw.name, tone: tw.tone, kind: "tower",
-        kpis: [["Leads", String(tw.leads)], ["CPL", $(tw.costPerLead)], ["Bookings", String(tw.booked)], ["Cost / showed", $(tw.costPerShow)], ["Trend", tw.costTrend === null ? "n/a" : `${tw.costTrend >= 1 ? "+" : "−"}${Math.round(Math.abs(tw.costTrend - 1) * 100)}% CPL`], ["Performance", perf(tw.fire, tw.star)]] });
+        kpis: [["Leads", String(tw.leads)], ["CPL", $(tw.costPerLead)], ["Bookings", String(tw.booked)], ["Cost / show", $(tw.costPerShow)], ["Trend", tw.costTrend === null ? "n/a" : `${tw.costTrend >= 1 ? "+" : "−"}${Math.round(Math.abs(tw.costTrend - 1) * 100)}% CPL`], ["Performance", perf(tw.fire, tw.star)]] });
     });
 
     // ================= trunk main to the depot, through the pump station (automations)

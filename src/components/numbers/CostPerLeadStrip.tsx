@@ -1,9 +1,11 @@
 import type { CityStats } from "./model";
 import { BIG, CARD, FAINT, INK, LABEL, MUTED, money, moneyOrDash, oneDp } from "./format";
 
-// The three headline costs, in plain language: what a show (a patient who
-// actually turned up) costs in ad money, what it costs in rep time, and what it
-// costs all in. Everything else on the page is detail underneath these.
+// The three headline costs, in plain language: what a show costs in ad money,
+// what it costs in rep time, and what it costs all in. A show is any booking
+// not marked no-show (see expectedShows in model.ts), so a fresh booking
+// counts straight away and only drops out when someone marks it a no-show.
+// Everything else on the page is detail underneath these.
 
 const CSS = `
 .cpl-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
@@ -24,25 +26,27 @@ function Tile({ label, value, sub, accent, warn }: { label: string; value: strin
 }
 
 export function CostPerLeadStrip({ scope, city, loading, spendStale = false }: { scope: CityStats; city: string; loading: boolean; spendStale?: boolean }) {
-  const shows = scope.showed;
+  const shows = scope.shows;
   const noShowsYet = shows === 0;
   const noHours = !scope.hoursOk;
   const n = (x: number) => x.toLocaleString("en-AU");
 
   // Anything that makes these figures less than exact, said plainly.
   const caveats: string[] = [];
-  if (noShowsYet) caveats.push("Nobody has turned up in this range yet, so nothing can be worked out per show.");
+  if (noShowsYet) caveats.push("No bookings in this range yet, so nothing can be worked out per show.");
   if (noHours && !noShowsYet) caveats.push("No rep hours recorded for this range, so the labour figures are blank.");
   if (scope.hoursMissingRate > 0)
     caveats.push(`${oneDp(scope.hoursMissingRate)} rep hours have no pay rate saved, so they cost nothing here — the real labour figure is higher.`);
   if (scope.hoursFallback > 0)
     caveats.push(`${oneDp(scope.hoursFallback)} rep hours were estimated from call times rather than entered by hand.`);
   if (scope.upcoming > 0)
-    caveats.push(`${n(scope.upcoming)} booked consults haven't happened yet — their cost is already counted, but they aren't shows yet, so these figures read high.`);
+    caveats.push(`${n(scope.upcoming)} booked consults haven't happened yet. They count as shows until marked no-show, so these figures will rise if people don't turn up.`);
   if (spendStale)
     caveats.push("The ad spend feed has stopped updating, so the marketing figures are missing days and read low.");
   if (scope.needsOutcome > 0)
-    caveats.push(`${n(scope.needsOutcome)} past consults have no outcome saved, so they don't count as shows yet.`);
+    caveats.push(`${n(scope.needsOutcome)} past consults have no outcome saved. They count as shows until marked no-show.`);
+  if (scope.noshow > 0)
+    caveats.push(`${n(scope.noshow)} no-show${scope.noshow === 1 ? "" : "s"} taken out.`);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -50,7 +54,7 @@ export function CostPerLeadStrip({ scope, city, loading, spendStale = false }: {
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 15, fontWeight: 600, color: INK }}>What a show is costing you</div>
         <div style={{ fontSize: 12.5, color: MUTED }}>
-          {city} · {n(scope.leads)} leads → {n(scope.booked)} booked → {n(shows)} showed{loading ? " · updating…" : ""}
+          {city} · {n(scope.leads)} leads → {n(scope.booked)} booked → {n(shows)} shows ({n(scope.showed)} confirmed){loading ? " · updating…" : ""}
         </div>
       </div>
 

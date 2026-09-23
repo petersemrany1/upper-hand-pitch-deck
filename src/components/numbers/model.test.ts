@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AdPerformanceRow } from "@/lib/ad-spend.functions";
-import { buildAdStats, buildAllCities, buildCityStats, judgeAd, labourSentence, sumCityStats } from "./model";
+import { buildAdStats, buildAllCities, buildCityStats, expectedShows, judgeAd, labourSentence, sumCityStats } from "./model";
 
 const ad = (o: Partial<AdPerformanceRow> & { ad_name: string }): AdPerformanceRow => ({
   location: null, spend: 0, impressions: 0, clicks: 0, leads: 0, booked: 0, showed: 0, noshow: 0, upcoming: 0,
@@ -28,6 +28,32 @@ describe("buildCityStats", () => {
     expect(c.hoursPerBooking).toBeCloseTo(10 / 6);
     expect(c.leadsPerBooking).toBe(5);
     expect(c.profit).toBe(-300);
+  });
+
+  test("a booking counts as a show until it is marked no-show", () => {
+    // 6 booked: 2 turned up, 1 no-show, 2 still to come, 1 past with no outcome saved.
+    const c = buildCityStats(
+      "Melbourne",
+      { location: "Melbourne", spend: 1000, leads: 20, booked: 6, showed: 2, noshow: 1, upcoming: 2, needs_outcome: 1, disqualified: 0 },
+      { key: "Melbourne", hours: 10, hourly_cost: 400, bonus_cost: 100, hours_missing_rate: 0, hours_fallback: 0, bookings: 6, bonus_missing_rate: 0 },
+      null,
+    );
+    expect(expectedShows({ showed: 2, upcoming: 2, needs_outcome: 1 })).toBe(5);
+    expect(c.shows).toBe(5);
+    expect(c.showed).toBe(2);
+    expect(c.adCostPerShow).toBe(200);
+    expect(c.labourPerShow).toBe(100);
+    expect(c.trueCostPerShow).toBe(300);
+    // the show rate still reads only appointments with an outcome
+    expect(c.showRate).toBeCloseTo(2 / 3);
+    // marking one of the upcoming consults a no-show takes it out
+    const later = buildCityStats(
+      "Melbourne",
+      { location: "Melbourne", spend: 1000, leads: 20, booked: 6, showed: 2, noshow: 2, upcoming: 1, needs_outcome: 1, disqualified: 0 },
+      null, null,
+    );
+    expect(later.shows).toBe(4);
+    expect(later.adCostPerShow).toBe(250);
   });
 
   test("no hours means no labour-based figures", () => {
@@ -77,8 +103,10 @@ describe("judgeAd", () => {
     expect(judgeAd(ad({ ad_name: "b", spend: 500, showed: 5 }), 100).label).toBe("Average");
     expect(judgeAd(ad({ ad_name: "c", spend: 700, showed: 5 }), 100).label).toBe("Poor");
   });
-  test("too early under 3 showed, unless it has burned 10+ leads with no booking", () => {
+  test("too early under 3 shows, unless it has burned 10+ leads with no booking", () => {
     expect(judgeAd(ad({ ad_name: "d", spend: 100, leads: 4, showed: 1 }), 100).label).toBe("Too early");
+    // upcoming bookings count as shows, so this one can be judged
+    expect(judgeAd(ad({ ad_name: "d2", spend: 240, leads: 10, booked: 3, showed: 1, upcoming: 2 }), 100).label).toBe("Winning");
     expect(judgeAd(ad({ ad_name: "e", spend: 900, leads: 12, booked: 0, showed: 0 }), 100).label).toBe("Not booking");
   });
   test("unattributed rows are never judged", () => {

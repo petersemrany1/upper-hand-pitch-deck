@@ -46,11 +46,11 @@ export function CompareTable({
               <th style={th2r}>Cost / lead</th>
               <th style={th2r}>Book rate</th>
               <th style={th2r}>Show rate</th>
-              <th style={th2r}>Cost / showed</th>
+              <th style={th2r}>Cost / show</th>
               <th style={th2r}>Marketing</th>
               <th style={th2r}>Labour</th>
               <th style={th2r}>Hours / booking</th>
-              <th style={th2r}>True cost / showed</th>
+              <th style={th2r}>True cost / show</th>
               <th style={{ ...th2r, paddingRight: 18 }}>Profit</th>
             </tr>
           </thead>
@@ -103,7 +103,7 @@ export function CompareTable({
         </table>
       </div>
       <div style={{ padding: "10px 18px 14px", fontSize: 11.5, color: FAINT, lineHeight: 1.5 }}>
-        Marketing = ad spend. Labour = rep hours × rate + booking bonuses. Verdict: Marketing when leads cost 10%+ more than average; Labour when reps need 30%+ more hours or leads per booking; No-shows when the show rate is 20%+ under average; Too early under 10 leads.
+        A show is any booking not marked no-show. Marketing = ad spend. Labour = rep hours × rate + booking bonuses. Verdict: Marketing when leads cost 10%+ more than average; Labour when reps need 30%+ more hours or leads per booking; No-shows when the show rate is 20%+ under average; Too early under 10 leads.
       </div>
     </div>
   );

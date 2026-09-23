@@ -61,7 +61,7 @@ export function CityRail({
     <div style={{ ...CARD, padding: 8, display: "flex", flexDirection: "column", gap: 2 }}>
       <div style={{ ...LABEL, padding: "6px 12px 4px" }}>Cities</div>
       <div className="numbers-rail-list" style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        {row("", "All cities", `${all.leads} leads · ${all.showed} showed`, null, moneyOrDash(all.trueCostPerShow ?? all.adCostPerShow))}
+        {row("", "All cities", `${all.leads} leads · ${all.shows} shows`, null, moneyOrDash(all.trueCostPerShow ?? all.adCostPerShow))}
         <div className="numbers-rail-divider" style={{ height: 1, background: "#f0f0ee", margin: "4px 8px" }} />
         {items.map(({ city, diagnosis }) =>
           row(city.key, city.key, diagnosis?.short ?? "—", diagnosis, moneyOrDash(city.trueCostPerShow ?? city.adCostPerShow)),
@@ -69,7 +69,7 @@ export function CityRail({
       </div>
       {items.length === 0 && <div style={{ fontSize: 12, color: FAINT, padding: "8px 12px" }}>No cities in this range.</div>}
       <div className="numbers-rail-note" style={{ fontSize: 10.5, color: FAINT, padding: "8px 12px 4px", lineHeight: 1.4 }}>
-        Figure is true cost per showed appointment (ads + labour). Status reads each city against the account average.
+        Figure is true cost per show (ads + labour). A booking counts as a show until it is marked no-show. Status reads each city against the account average.
       </div>
     </div>
   );
