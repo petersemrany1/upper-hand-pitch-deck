@@ -49,15 +49,16 @@ const pct = (n: number, d: number) => (d ? `${((n / d) * 100).toFixed(1)}%` : "�
 const sydDate = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
 
 export async function runNumbersAudit(db: Db, meta: { accessToken?: string; accountId?: string }): Promise<AuditReport> {
-  const [leads, spend, appts, calls, reps, rates, clinics, packs] = await Promise.all([
-    fetchAll(db, "meta_leads", "id, created_at, first_name, last_name, phone, status, ad_name, campaign_name, lead_class, rep_id, booking_date, clinic_id", "created_at"),
+  const [leads, spend, appts, calls, reps, rates, clinics, packs, reminders] = await Promise.all([
+    fetchAll(db, "meta_leads", "id, created_at, first_name, last_name, phone, status, ad_name, campaign_name, lead_class, rep_id, booking_date, clinic_id, raw_payload", "created_at"),
     fetchAll(db, "ad_spend_daily", "id, date, ad_id, ad_name, campaign_name, location, spend_aud, source", "date"),
     fetchAll(db, "clinic_appointments", "id, lead_id, clinic_id, appointment_date, outcome, patient_name, created_at", "created_at"),
-    fetchAll(db, "call_records", "id, lead_id, rep_id, called_at, duration, status", "called_at"),
+    fetchAll(db, "call_records", "id, lead_id, rep_id, called_at, duration, status, direction", "called_at"),
     fetchAll(db, "sales_reps", "id, name, is_active, role", "name"),
     fetchAll(db, "rep_rates", "id, rep_id, hourly_rate, booking_bonus, effective_from, effective_to", "effective_from"),
     fetchAll(db, "partner_clinics", "id, clinic_name, city, location, price_per_booking", "clinic_name"),
     fetchAll(db, "clinic_packs", "id, clinic_id, pack_size, amount_paid_ex_gst, pack_type, free_shows_included, date_paid", "purchased_at"),
+    fetchAll(db, "appointment_reminders", "id, lead_id, booking_date, status, patient_first_name", "id"),
   ]);
 
   const sections: AuditSection[] = [];
@@ -238,6 +239,44 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
       { label: "Packs with no date paid", value: S(noDate), severity: noDate ? "warn" : "ok" },
       { label: "Clinics over-delivered (more shows than shows bought)", value: over.length ? over.map(([c]) => String(clinicById.get(c)?.clinic_name ?? c)).join(", ") : "none", severity: over.length ? "warn" : "ok", detail: "Extra shows earn nothing until a new pack is entered." },
       { label: "Clinics with no city", value: clinicsNoCity.length ? clinicsNoCity.map((c) => String(c.clinic_name)).join(", ") : "none", severity: clinicsNoCity.length ? "warn" : "ok", detail: "Their revenue falls back to the lead's city." },
+    ],
+  });
+
+  // ---------------- Open questions (2026-09-23) ----------------
+  // The facts behind the fixes Peter is deciding on: website leads' cities,
+  // inbound calls with no rep, cancelled bookings, disqualified bookings.
+  const payloadCity = (l: Record<string, unknown>): string | null => {
+    const rp = l.raw_payload && typeof l.raw_payload === "object" ? (l.raw_payload as Record<string, unknown>) : null;
+    const nested = rp && typeof rp.raw_payload === "object" && rp.raw_payload !== null ? (rp.raw_payload as Record<string, unknown>) : null;
+    const loc = (typeof rp?.location === "string" ? rp.location : "") || (typeof nested?.location === "string" ? nested.location : "");
+    return loc.trim() || null;
+  };
+  const webWithPayloadCity = unattributed.filter((l) => payloadCity(l));
+  const webCityCounts = new Map<string, number>();
+  for (const l of webWithPayloadCity) { const c = String(payloadCity(l)); webCityCounts.set(c, (webCityCounts.get(c) ?? 0) + 1); }
+  const apptByLead = new Map(apptReal.filter((a) => a.lead_id).map((a) => [String(a.lead_id), a]));
+  const webBookedNoPayloadCity = unattributed.filter((l) => !payloadCity(l) && apptByLead.has(String(l.id)));
+  const webNoCityAtAll = unattributed.filter((l) => !payloadCity(l) && !apptByLead.has(String(l.id)));
+  const inbound = callsReal.filter((c) => String(c.direction ?? "") === "inbound");
+  const inboundNoRep = inbound.filter((c) => !c.rep_id);
+  const inboundToRepLead = inboundNoRep.filter((c) => c.lead_id && leadById.get(String(c.lead_id))?.rep_id);
+  const inboundToPeter = inboundNoRep.length - inboundToRepLead.length;
+  const inboundHours = inboundNoRep.reduce((s, c) => s + Number(c.duration ?? 0), 0) / 3600;
+  const outboundNoRep = callsReal.filter((c) => String(c.direction ?? "") !== "inbound" && !c.rep_id);
+  const cancelledReminders = reminders.filter((r) => String(r.status ?? "") === "cancelled");
+  const cancelledLeads = real.filter((l) => String(l.status ?? "").toLowerCase() === "cancelled");
+  const disq = apptReal.filter((a) => String(a.outcome ?? "") === "disqualified");
+  const nameOf = (l: Record<string, unknown> | undefined) => (l ? `${String(l.first_name ?? "")} ${String(l.last_name ?? "")}`.trim() : "?");
+  sections.push({
+    title: "Open questions (23 Sep)",
+    items: [
+      { label: "Website leads with a city in the form they filled in", value: `${webWithPayloadCity.length} of ${unattributed.length}`, severity: "info", detail: Array.from(webCityCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([c, n]) => `${c} (${n})`).join(" · ") || undefined },
+      { label: "Website leads with no city on the form but booked into a clinic", value: S(webBookedNoPayloadCity.length), severity: "info", detail: "The clinic's city can stand in." },
+      { label: "Website leads with no city anywhere", value: S(webNoCityAtAll.length), severity: webNoCityAtAll.length ? "warn" : "ok", detail: webNoCityAtAll.slice(0, 6).map(nameOf).join(", ") || undefined },
+      { label: "Inbound calls with no rep", value: `${inboundNoRep.length} of ${inbound.length} inbound · ${inboundHours.toFixed(1)} h of talk time`, severity: "info", detail: `${inboundToRepLead.length} are for a lead assigned to a rep · ${inboundToPeter} have no rep's lead behind them (Peter's)` },
+      { label: "Outbound calls with no rep", value: S(outboundNoRep.length), severity: outboundNoRep.length ? "warn" : "ok", detail: outboundNoRep.slice(0, 3).map((c) => sydDate(String(c.called_at))).join(", ") || undefined },
+      { label: "Cancelled bookings", value: `${cancelledReminders.length} reminders cancelled · ${cancelledLeads.length} leads marked cancelled`, severity: "info", detail: cancelledReminders.slice(0, 10).map((r) => `${String(r.patient_first_name ?? nameOf(leadById.get(String(r.lead_id))))} (${String(r.booking_date ?? "?")})`).join(" · ") || undefined },
+      { label: "Disqualified bookings (bonus not counted today)", value: S(disq.length), severity: disq.length ? "warn" : "ok", detail: disq.map((a) => `${String(a.patient_name ?? "?")} (${String(a.appointment_date)})`).join(" · ") || undefined },
     ],
   });
 
