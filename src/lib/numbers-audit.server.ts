@@ -49,7 +49,7 @@ const pct = (n: number, d: number) => (d ? `${((n / d) * 100).toFixed(1)}%` : "�
 const sydDate = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Australia/Sydney" });
 
 export async function runNumbersAudit(db: Db, meta: { accessToken?: string; accountId?: string }): Promise<AuditReport> {
-  const [leads, spend, appts, calls, reps, rates, clinics, packs, reminders] = await Promise.all([
+  const [leads, spend, appts, calls, reps, rates, clinics, packs, reminders, errorLogs, apptPay] = await Promise.all([
     fetchAll(db, "meta_leads", "id, created_at, first_name, last_name, phone, status, ad_name, campaign_name, lead_class, rep_id, booking_date, clinic_id, raw_payload, lead_id", "created_at"),
     fetchAll(db, "ad_spend_daily", "id, date, ad_id, ad_name, campaign_name, location, spend_aud, source", "date"),
     fetchAll(db, "clinic_appointments", "id, lead_id, clinic_id, appointment_date, outcome, patient_name, created_at", "created_at"),
@@ -59,6 +59,8 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     fetchAll(db, "partner_clinics", "id, clinic_name, city, location, price_per_booking", "clinic_name"),
     fetchAll(db, "clinic_packs", "id, clinic_id, pack_size, amount_paid_ex_gst, pack_type, free_shows_included, date_paid", "purchased_at"),
     fetchAll(db, "appointment_reminders", "id, lead_id, booking_date, status, patient_first_name", "id"),
+    fetchAll(db, "error_logs", "id, created_at, function_name, error_message, context", "created_at"),
+    fetchAll(db, "clinic_appointments", "id, patient_name, appointment_date, clinic_id, outcome, refund_status, payment_processor, square_payment_id, stripe_payment_intent_id, square_refund_id, stripe_refund_id, deposit_amount, booked_at", "created_at"),
   ]);
 
   const sections: AuditSection[] = [];
@@ -324,6 +326,34 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
       { label: "Website leads with no Meta id", value: S(webNoMetaId.length), severity: "info", detail: `City on the form: ${webNoMetaId.filter((l) => payloadCity(l)).length} · booked into a clinic: ${webNoMetaId.filter((l) => !payloadCity(l) && apptByLead.has(String(l.id))).length}` },
       { label: "Fields these leads arrived with", value: Array.from(keyCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, n]) => `${k} ${n}`).join(" · "), severity: "info" },
       { label: "Source hints in the payload", value: Array.from(hint.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, n]) => `${k} (${n})`).join(" · ") || "none", severity: "info" },
+    ],
+  });
+
+  // ---------------- Refunds that did not go through ----------------
+  // Every appointment still marked failed / manual, with the last error the
+  // processor gave us, so a clinic's "refund failed" can be answered.
+  const payById = new Map(apptPay.map((a) => [String(a.id), a]));
+  const lastErr = new Map<string, { at: string; msg: string; fn: string }>();
+  for (const e of errorLogs) {
+    const ctx = (e.context && typeof e.context === "object" ? e.context : {}) as Record<string, unknown>;
+    const id = String(ctx.appointmentId ?? "");
+    if (!id) continue;
+    const cur = lastErr.get(id);
+    if (!cur || String(e.created_at) > cur.at) lastErr.set(id, { at: String(e.created_at), msg: String(e.error_message), fn: String(e.function_name) });
+  }
+  const stuck = apptPay.filter((a) => ["failed", "manual_required"].includes(String(a.refund_status ?? "")) && !a.square_refund_id && !a.stripe_refund_id);
+  const describe = (a: Record<string, unknown>) => {
+    const err = lastErr.get(String(a.id));
+    const proc = String(a.payment_processor ?? "none");
+    const pay = a.square_payment_id ? `square ${String(a.square_payment_id).slice(0, 8)}…` : a.stripe_payment_intent_id ? `stripe ${String(a.stripe_payment_intent_id).slice(0, 12)}…` : "no payment id";
+    return `${String(a.patient_name ?? "?")} (${clinicById.get(String(a.clinic_id))?.clinic_name ?? "?"}, ${String(a.appointment_date)}) · ${String(a.refund_status)} · processor ${proc} · ${pay} · $${String(a.deposit_amount ?? "?")} · ${err ? `${sydDate(err.at)}: ${err.msg.slice(0, 160)}` : "no error logged"}`;
+  };
+  const recentRefundErrors = errorLogs.filter((e) => /refund|consult|outcome/i.test(String(e.function_name)) && String(e.created_at) > new Date(Date.now() - 45 * 86400000).toISOString());
+  sections.push({
+    title: "Refunds not completed",
+    items: [
+      { label: "Appointments with a refund still failed or waiting on a manual refund", value: S(stuck.length), severity: stuck.length ? "bad" : "ok", detail: stuck.map(describe).join("  ||  ") || undefined },
+      { label: "Refund-related errors logged in the last 45 days", value: S(recentRefundErrors.length), severity: recentRefundErrors.length ? "warn" : "ok", detail: recentRefundErrors.slice(-12).map((e) => `${sydDate(String(e.created_at))} ${String(e.function_name)}: ${String(e.error_message).slice(0, 140)}`).join("  ||  ") || undefined },
     ],
   });
 
