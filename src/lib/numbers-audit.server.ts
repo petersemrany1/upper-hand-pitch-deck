@@ -50,7 +50,7 @@ const sydDate = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { tim
 
 export async function runNumbersAudit(db: Db, meta: { accessToken?: string; accountId?: string }): Promise<AuditReport> {
   const [leads, spend, appts, calls, reps, rates, clinics, packs, reminders] = await Promise.all([
-    fetchAll(db, "meta_leads", "id, created_at, first_name, last_name, phone, status, ad_name, campaign_name, lead_class, rep_id, booking_date, clinic_id, raw_payload", "created_at"),
+    fetchAll(db, "meta_leads", "id, created_at, first_name, last_name, phone, status, ad_name, campaign_name, lead_class, rep_id, booking_date, clinic_id, raw_payload, lead_id", "created_at"),
     fetchAll(db, "ad_spend_daily", "id, date, ad_id, ad_name, campaign_name, location, spend_aud, source", "date"),
     fetchAll(db, "clinic_appointments", "id, lead_id, clinic_id, appointment_date, outcome, patient_name, created_at", "created_at"),
     fetchAll(db, "call_records", "id, lead_id, rep_id, called_at, duration, status, direction", "called_at"),
@@ -277,6 +277,53 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
       { label: "Outbound calls with no rep", value: S(outboundNoRep.length), severity: outboundNoRep.length ? "warn" : "ok", detail: outboundNoRep.slice(0, 3).map((c) => sydDate(String(c.called_at))).join(", ") || undefined },
       { label: "Cancelled bookings", value: `${cancelledReminders.length} reminders cancelled · ${cancelledLeads.length} leads marked cancelled`, severity: "info", detail: cancelledReminders.slice(0, 10).map((r) => `${String(r.patient_first_name ?? nameOf(leadById.get(String(r.lead_id))))} (${String(r.booking_date ?? "?")})`).join(" · ") || undefined },
       { label: "Disqualified bookings (bonus not counted today)", value: S(disq.length), severity: disq.length ? "warn" : "ok", detail: disq.map((a) => `${String(a.patient_name ?? "?")} (${String(a.appointment_date)})`).join(" · ") || undefined },
+    ],
+  });
+
+  // ---------------- Website leads: where did they really come from? ----------------
+  // Peter's rule (23 Sep): give a website lead to a city only when we are sure.
+  // A lead that carries a Meta lead id is a Meta lead whose ad details were
+  // lost on import; Meta can still tell us the campaign. The rest we can only
+  // read from the form they filled in.
+  const webWithMetaId = unattributed.filter((l) => String(l.lead_id ?? "").trim());
+  const webNoMetaId = unattributed.filter((l) => !String(l.lead_id ?? "").trim());
+  const keyCounts = new Map<string, number>();
+  const hint = new Map<string, number>();
+  for (const l of unattributed) {
+    const rp = l.raw_payload && typeof l.raw_payload === "object" ? (l.raw_payload as Record<string, unknown>) : {};
+    for (const k of Object.keys(rp)) keyCounts.set(k, (keyCounts.get(k) ?? 0) + 1);
+    for (const k of ["source", "platform", "form_name", "utm_source", "utm_campaign", "page", "origin"]) {
+      const v = rp[k]; if (typeof v === "string" && v.trim()) hint.set(`${k}=${v.trim().slice(0, 40)}`, (hint.get(`${k}=${v.trim().slice(0, 40)}`) ?? 0) + 1);
+    }
+  }
+  const metaCampaigns = new Map<string, number>();
+  let metaLookup = "no Meta token on the server";
+  let metaSev: Sev = "info";
+  if (meta.accessToken && webWithMetaId.length) {
+    let failures = 0; let firstError = "";
+    const ids = webWithMetaId.map((l) => String(l.lead_id).trim()).slice(0, 80);
+    for (let i = 0; i < ids.length; i += 10) {
+      await Promise.all(ids.slice(i, i + 10).map(async (id) => {
+        try {
+          const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=campaign_name,ad_name,adset_name,form_id&access_token=${meta.accessToken}`);
+          const j = (await r.json()) as { campaign_name?: string; ad_name?: string; error?: { message?: string } };
+          if (j.error) { failures += 1; firstError ||= j.error.message ?? "error"; return; }
+          const k = `${j.campaign_name ?? "(no campaign)"} → ${cityOf(j.campaign_name) ?? "no city"}`;
+          metaCampaigns.set(k, (metaCampaigns.get(k) ?? 0) + 1);
+        } catch (e) { failures += 1; firstError ||= (e as Error).message; }
+      }));
+    }
+    metaLookup = `${ids.length - failures} of ${ids.length} looked up${failures ? ` · ${failures} failed: ${firstError}` : ""}`;
+    metaSev = failures ? "warn" : "ok";
+  }
+  sections.push({
+    title: "Website leads: where did they come from?",
+    items: [
+      { label: "Website leads that carry a Meta lead id", value: `${webWithMetaId.length} of ${unattributed.length}`, severity: "info", detail: "These came through Meta; the ad details were lost on import." },
+      { label: "Meta's answer for those (campaign → city)", value: metaLookup, severity: metaSev, detail: Array.from(metaCampaigns.entries()).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${k} (${n})`).join(" · ") || undefined },
+      { label: "Website leads with no Meta id", value: S(webNoMetaId.length), severity: "info", detail: `City on the form: ${webNoMetaId.filter((l) => payloadCity(l)).length} · booked into a clinic: ${webNoMetaId.filter((l) => !payloadCity(l) && apptByLead.has(String(l.id))).length}` },
+      { label: "Fields these leads arrived with", value: Array.from(keyCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 14).map(([k, n]) => `${k} ${n}`).join(" · "), severity: "info" },
+      { label: "Source hints in the payload", value: Array.from(hint.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, n]) => `${k} (${n})`).join(" · ") || "none", severity: "info" },
     ],
   });
 
