@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { AdPerformanceRow } from "@/lib/ad-spend.functions";
-import { buildAdStats, buildAllCities, buildCityStats, expectedShows, judgeAd, labourSentence, mostlyUncalled, pipelineOf, pipelineSentence, stageOf, sumCityStats } from "./model";
+import { buildAdStats, buildAllCities, buildCityStats, callingOrder, expectedShows, judgeAd, labourSentence, mostlyUncalled, pipelineOf, pipelineSentence, stageOf, sumCityStats } from "./model";
 
 const ad = (o: Partial<AdPerformanceRow> & { ad_name: string }): AdPerformanceRow => ({
   location: null, spend: 0, impressions: 0, clicks: 0, leads: 0, booked: 0, showed: 0, noshow: 0, upcoming: 0,
@@ -142,6 +142,16 @@ describe("calling pipeline", () => {
     expect(mostlyUncalled(p)).toBe(false);
     expect(mostlyUncalled({ total: 13, toCall: 9, chasing: 4, spoke: 0, booked: 0 })).toBe(true);
     expect(mostlyUncalled(null)).toBe(false);
+  });
+
+  test("the calling panel puts the ads with the most uncalled leads first and drops ads with no leads", () => {
+    const rows = [
+      { ad_name: "a", leads: 5, pipeline: { total: 5, toCall: 0, chasing: 5, spoke: 0, booked: 0 } },
+      { ad_name: "b", leads: 21, pipeline: { total: 21, toCall: 10, chasing: 10, spoke: 1, booked: 0 } },
+      { ad_name: "c", leads: 13, pipeline: { total: 13, toCall: 4, chasing: 8, spoke: 1, booked: 0 } },
+      { ad_name: "d", leads: 0, pipeline: null },
+    ];
+    expect(callingOrder(rows).map((r) => r.ad_name)).toEqual(["b", "c", "a"]);
   });
 
   test("an ad with no bookings is 'not called yet' when most leads are still to call, 'not booking' once they were called", () => {

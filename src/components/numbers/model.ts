@@ -232,6 +232,13 @@ export function pipelineSentence(p: Pipeline): string {
   return `${p.total} lead${p.total === 1 ? "" : "s"} · ${p.toCall} still to call · ${p.chasing} no answer yet · ${p.spoke} spoke, no booking · ${p.booked} booked`;
 }
 
+/** Ads for the "are the leads being called?" panel: the ones with the most leads still waiting come first. */
+export function callingOrder<T extends { leads: number; pipeline: Pipeline | null }>(rows: T[]): T[] {
+  return [...rows]
+    .filter((r) => r.leads > 0)
+    .sort((a, b) => (b.pipeline?.toCall ?? 0) - (a.pipeline?.toCall ?? 0) || b.leads - a.leads);
+}
+
 /** Most of the leads have not been called: the ad cannot be judged yet. */
 export function mostlyUncalled(p: Pipeline | null | undefined): boolean {
   return !!p && p.total > 0 && p.toCall / p.total >= 0.5;
