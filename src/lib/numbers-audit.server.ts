@@ -89,7 +89,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     title: "Leads",
     items: [
       { label: "Leads in the table", value: S(leads.length), severity: "info", detail: `${testLeads.length} test leads excluded from every figure` },
-      { label: "Website / untracked (no ad or campaign)", value: `${unattributed.length} (${pct(unattributed.length, real.length)})`, severity: unattributed.length ? "info" : "ok", detail: "Not counted in any city. Their rep time sits in the All-cities total." },
+      { label: "Website / untracked (no ad or campaign)", value: `${unattributed.length} (${pct(unattributed.length, real.length)})`, severity: unattributed.length ? "info" : "ok", detail: "Counted in a city when the form or the booked clinic names one; the rest sit in the Website row of the All-cities total." },
       { label: "Campaign names that don't name a city", value: S(unknownCity.length), severity: unknownCity.length ? "bad" : "ok", detail: unknownCity.slice(0, 6).map(([n, c]) => `${n} (${c})`).join(" · ") || undefined },
       { label: "Repeat enquiries (same phone twice or more)", value: `${repeatLeadRows} extra rows across ${repeatPhones.length} people`, severity: repeatLeadRows > real.length * 0.05 ? "warn" : "info", detail: "Each row counts as a lead, so cost per lead reads a little low." },
       { label: "Leads whose ad has no spend row at all", value: `${leadsNoSpendCount} leads across ${leadsNoSpendAd.length} ad names`, severity: leadsNoSpendCount > real.length * 0.1 ? "bad" : leadsNoSpendCount ? "warn" : "ok", detail: leadsNoSpendAd.sort((a, b) => b[1] - a[1]).slice(0, 5).map(([n, c]) => `${n} (${c})`).join(" · ") || undefined },
@@ -184,7 +184,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
       { label: "Leads with more than one appointment", value: S(multi), severity: multi ? "warn" : "ok", detail: "Funnel uses the earliest; bonuses count each." },
       { label: "Appointment dated before the lead enquired", value: S(beforeLead), severity: beforeLead ? "bad" : "ok", detail: "Data-entry errors." },
       { label: "Booked in the diary but lead status isn't booked", value: S(apptButNotBookedStatus.length), severity: apptButNotBookedStatus.length ? "bad" : "ok", detail: "The dialler can call these people again. " + apptButNotBookedStatus.slice(0, 4).map((a) => String(a.patient_name)).join(", ") },
-      { label: "Lead city ≠ clinic city", value: S(cityMismatch), severity: cityMismatch ? "warn" : "ok", detail: "Revenue credits the clinic's city; spend and leads credit the lead's city." },
+      { label: "Lead city ≠ clinic city", value: S(cityMismatch), severity: cityMismatch ? "warn" : "ok", detail: "Cost and revenue both credit the lead's city (the clinic's city only when the lead has none)." },
     ],
   });
 
@@ -212,7 +212,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     title: "Calls and labour",
     items: [
       { label: "Calls", value: `${callsReal.length} (${testCalls} to test leads, excluded once the labour migration is applied)`, severity: testCalls ? "warn" : "info" },
-      { label: "Calls with no rep on them", value: `${noRep} (${pct(noRep, callsReal.length)})`, severity: "info", detail: "Inbound calls: the lead's rep, else Peter. Outbound: Peter. (Once the 23 Sep migration is applied.)" },
+      { label: "Calls with no rep on them", value: `${noRep} (${pct(noRep, callsReal.length)})`, severity: "info", detail: "Inbound calls count as the lead's rep, else Peter; outbound calls with no rep as Peter." },
       { label: "Calls with no lead on them", value: `${noLead} (${pct(noLead, callsReal.length)})`, severity: noLead > callsReal.length * 0.1 ? "warn" : "info", detail: "Counted as hours, but can't be split to a city or ad." },
       { label: "Calls with no duration recorded", value: S(nullDur), severity: nullDur > callsReal.length * 0.1 ? "warn" : "info", detail: "Treated as zero seconds: no talk time, but the day still spans them." },
       { label: "Rep-days spanning more than 10 hours", value: S(longDays), severity: longDays ? "warn" : "ok", detail: "Look right on the Rep hours page if any." },
@@ -276,7 +276,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
       { label: "Inbound calls with no rep", value: `${inboundNoRep.length} of ${inbound.length} inbound · ${inboundHours.toFixed(1)} h of talk time`, severity: "info", detail: `${inboundToRepLead.length} are for a lead assigned to a rep · ${inboundToPeter} have no rep's lead behind them (Peter's)` },
       { label: "Outbound calls with no rep", value: S(outboundNoRep.length), severity: outboundNoRep.length ? "warn" : "ok", detail: outboundNoRep.slice(0, 3).map((c) => sydDate(String(c.called_at))).join(", ") || undefined },
       { label: "Cancelled bookings", value: `${cancelledReminders.length} reminders cancelled · ${cancelledLeads.length} leads marked cancelled`, severity: "info", detail: cancelledReminders.slice(0, 10).map((r) => `${String(r.patient_first_name ?? nameOf(leadById.get(String(r.lead_id))))} (${String(r.booking_date ?? "?")})`).join(" · ") || undefined },
-      { label: "Disqualified bookings (bonus not counted today)", value: S(disq.length), severity: disq.length ? "warn" : "ok", detail: disq.map((a) => `${String(a.patient_name ?? "?")} (${String(a.appointment_date)})`).join(" · ") || undefined },
+      { label: "Disqualified bookings (bonus counts, as Peter decided)", value: S(disq.length), severity: disq.length ? "warn" : "ok", detail: disq.map((a) => `${String(a.patient_name ?? "?")} (${String(a.appointment_date)})`).join(" · ") || undefined },
     ],
   });
 
