@@ -15,6 +15,7 @@ export function CityDetail({
   isAll,
   diagnosis,
   unallocated,
+  website,
   countMyPay,
 }: {
   scope: CityStats;
@@ -22,6 +23,7 @@ export function CityDetail({
   isAll: boolean;
   diagnosis: Diagnosis | null;
   unallocated: LabourRow | null;
+  website: LabourRow | null;
   countMyPay: boolean;
 }) {
   const s = scope;
@@ -30,7 +32,9 @@ export function CityDetail({
   const sentence = labourSentence(s, avg, s.key, isAll, { oneDp });
   const caveats: string[] = [];
   if (!countMyPay) caveats.push("Your own pay is excluded from labour.");
-  if (isAll && unallocated && unallocCost > 0) caveats.push(`Includes ${money(unallocCost)} of labour (${oneDp(unallocated.hours)} h) on website and untracked leads, which have no city.`);
+  const websiteCost = website ? website.hourly_cost + website.bonus_cost : 0;
+  if (isAll && website && websiteCost > 0) caveats.push(`Includes ${money(websiteCost)} of labour (${oneDp(website.hours)} h) on website leads that have no city.`);
+  if (isAll && unallocated && unallocCost > 0) caveats.push(`Includes ${money(unallocCost)} of labour (${oneDp(unallocated.hours)} h) on calls that could not be tied to any lead.`);
   if (s.hoursMissingRate > 0) caveats.push(`${oneDp(s.hoursMissingRate)} hours are from a rep with no rate set, so labour is understated.`);
   if (s.hoursFallback > 0) caveats.push(`${oneDp(s.hoursFallback)} hours were split by leads contacted rather than call time.`);
   if (s.bonusMissingRate > 0) caveats.push(`${s.bonusMissingRate} bookings have no bonus rate set.`);

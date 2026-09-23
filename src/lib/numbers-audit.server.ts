@@ -212,7 +212,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     title: "Calls and labour",
     items: [
       { label: "Calls", value: `${callsReal.length} (${testCalls} to test leads, excluded once the labour migration is applied)`, severity: testCalls ? "warn" : "info" },
-      { label: "Calls with no rep on them", value: `${noRep} (${pct(noRep, callsReal.length)})`, severity: noRep > callsReal.length * 0.05 ? "bad" : noRep ? "warn" : "ok", detail: "Not counted as anyone's hours." },
+      { label: "Calls with no rep on them", value: `${noRep} (${pct(noRep, callsReal.length)})`, severity: "info", detail: "Inbound calls: the lead's rep, else Peter. Outbound: Peter. (Once the 23 Sep migration is applied.)" },
       { label: "Calls with no lead on them", value: `${noLead} (${pct(noLead, callsReal.length)})`, severity: noLead > callsReal.length * 0.1 ? "warn" : "info", detail: "Counted as hours, but can't be split to a city or ad." },
       { label: "Calls with no duration recorded", value: S(nullDur), severity: nullDur > callsReal.length * 0.1 ? "warn" : "info", detail: "Treated as zero seconds: no talk time, but the day still spans them." },
       { label: "Rep-days spanning more than 10 hours", value: S(longDays), severity: longDays ? "warn" : "ok", detail: "Look right on the Rep hours page if any." },

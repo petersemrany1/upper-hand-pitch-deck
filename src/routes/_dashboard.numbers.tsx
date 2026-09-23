@@ -210,7 +210,7 @@ function NumbersPage() {
   // ---- Per-city figures. Locations, labour and revenue come back for every
   // city regardless of the filter, so switching city is instant client-side;
   // only the ad list is filtered server-side.
-  const { cities, all, unallocated } = useMemo(
+  const { cities, all, unallocated, website } = useMemo(
     () => buildAllCities(locations, labourByLocation, revenueByLocation),
     [locations, labourByLocation, revenueByLocation],
   );
@@ -685,6 +685,7 @@ function NumbersPage() {
                     isAll={!locFilter}
                     diagnosis={scopeDiagnosis}
                     unallocated={unallocated}
+                    website={website}
                     countMyPay={countMyPay}
                   />
                   <AdsTab

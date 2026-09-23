@@ -74,18 +74,21 @@ describe("buildCityStats", () => {
 
 describe("buildAllCities", () => {
   test("unions cities from spend, labour and revenue and keeps unallocated labour in the total only", () => {
-    const { cities, all, unallocated } = buildAllCities(
+    const { cities, all, unallocated, website } = buildAllCities(
       [{ location: "Melbourne", spend: 1000, leads: 10, booked: 2, showed: 1, noshow: 0, upcoming: 0, needs_outcome: 0, disqualified: 0 }],
       [
         { key: "melbourne", hours: 5, hourly_cost: 200, bonus_cost: 0, hours_missing_rate: 0, hours_fallback: 0, bookings: 2, bonus_missing_rate: 0 },
         { key: "(unallocated)", hours: 2, hourly_cost: 80, bonus_cost: 0, hours_missing_rate: 0, hours_fallback: 0, bookings: 0, bonus_missing_rate: 0 },
+        { key: "Website", hours: 1, hourly_cost: 35, bonus_cost: 50, hours_missing_rate: 0, hours_fallback: 0, bookings: 1, bonus_missing_rate: 0 },
       ],
       [{ key: "Sydney", shows: 1, revenue: 800 }],
     );
+    // the website bucket is not a city, but its labour is in the total
     expect(cities.map((c) => c.key)).toEqual(["Melbourne", "Sydney"]);
     expect(cities[0].labourCost).toBe(200);
     expect(unallocated?.hourly_cost).toBe(80);
-    expect(all.labourCost).toBe(280);
+    expect(website?.bonus_cost).toBe(50);
+    expect(all.labourCost).toBe(365);
     expect(all.revenue).toBe(800);
     expect(all.spend).toBe(1000);
   });

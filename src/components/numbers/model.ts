@@ -118,7 +118,8 @@ export function buildCityStats(
 }
 
 /** Adds rows together (plus any labour that couldn't be tied to a city). */
-export function sumCityStats(key: string, rows: CityStats[], extraLabour: LabourRow | null = null): CityStats {
+export function sumCityStats(key: string, rows: CityStats[], extra: LabourRow | null | (LabourRow | null)[] = null): CityStats {
+  const extras = (Array.isArray(extra) ? extra : [extra]).filter((x): x is LabourRow => !!x);
   const acc = rows.reduce(
     (a, r) => ({
       spend: a.spend + r.spend,
@@ -142,7 +143,7 @@ export function sumCityStats(key: string, rows: CityStats[], extraLabour: Labour
       hours: 0, hourlyCost: 0, bonusCost: 0, hoursMissingRate: 0, hoursFallback: 0, bonusMissingRate: 0, revenue: 0,
     },
   );
-  if (extraLabour) {
+  for (const extraLabour of extras) {
     acc.hours += extraLabour.hours;
     acc.hourlyCost += extraLabour.hourly_cost;
     acc.bonusCost += extraLabour.bonus_cost;
@@ -153,8 +154,11 @@ export function sumCityStats(key: string, rows: CityStats[], extraLabour: Labour
   return finish({ key, ...acc });
 }
 
+/** Rep-days with no call that could be tied to any lead. */
 export const UNALLOCATED = "(unallocated)";
-const isCity = (k: string | null | undefined): k is string => !!k && k.toLowerCase() !== UNALLOCATED;
+/** Calling time and bonuses on leads that have no city at all (see labour_by_key). */
+export const WEBSITE = "website";
+const isCity = (k: string | null | undefined): k is string => !!k && k.toLowerCase() !== UNALLOCATED && k.toLowerCase() !== WEBSITE;
 
 /** Every city we know about, from spend, leads, labour or revenue. */
 export function cityKeys(
@@ -176,7 +180,7 @@ export function buildAllCities(
   locations: LocationSummaryRow[],
   labour: LabourRow[],
   revenue: RevenueRow[],
-): { cities: CityStats[]; all: CityStats; unallocated: LabourRow | null } {
+): { cities: CityStats[]; all: CityStats; unallocated: LabourRow | null; website: LabourRow | null } {
   const byLoc = new Map(locations.map((l) => [l.location?.toLowerCase() ?? "", l]));
   const byLab = new Map(labour.map((l) => [l.key.toLowerCase(), l]));
   const byRev = new Map(revenue.map((r) => [r.key.toLowerCase(), r]));
@@ -184,7 +188,8 @@ export function buildAllCities(
     buildCityStats(k, byLoc.get(k.toLowerCase()) ?? null, byLab.get(k.toLowerCase()) ?? null, byRev.get(k.toLowerCase()) ?? null),
   );
   const unallocated = byLab.get(UNALLOCATED) ?? null;
-  return { cities, all: sumCityStats("All cities", cities, unallocated), unallocated };
+  const website = byLab.get(WEBSITE) ?? null;
+  return { cities, all: sumCityStats("All cities", cities, [unallocated, website]), unallocated, website };
 }
 
 // ---- Where an ad's leads are in the calling pipeline.
