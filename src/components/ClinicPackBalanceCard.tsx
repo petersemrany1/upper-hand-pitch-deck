@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { sydneyTodayISO } from "@/lib/timezone";
 import { freeTrialCutoff, isFreeTrialBooking } from "@/lib/clinic-free-trial";
-import { allocatePacks, packOrder, packStatus, type PackAllocation } from "@/lib/pack-allocation";
+import { allocatePacks, creditBalance, packOrder } from "@/lib/pack-allocation";
 
 const NAVY = "#1a3a6b";
 const GREEN = "#1a7a4a";
@@ -105,27 +105,18 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
 
   useEffect(() => { void load(); }, [load]);
 
-  // Packs fill oldest first; the box shows the one the clinic is working
-  // through now. Everything else lives one line down and in History.
+  // A balance, not a progress bar: a delivered show uses a credit, a booking
+  // reserves one, a no-show does neither, a pack adds them. Packs themselves
+  // only matter as the paper trail under "All packs".
   const alloc = useMemo(() => allocatePacks(packs, showedUp, upcoming), [packs, showedUp, upcoming]);
-  const status = packStatus(alloc);
-  const cur = alloc.current;
-  const noPacks = !cur;
-  // Amber only when the clinic is actually out of room; red when every pack is
-  // delivered and nothing is queued. A full pack with another one behind it
-  // is just information.
-  const box = status.key === "complete"
-    ? { background: "#fdf0f0", border: "1px solid #f0b8b8", color: RED }
-    : status.key === "fullyBooked"
-      ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00" }
-      : status.key === "nextReady"
-        ? { background: GREY_BG, border: `1px solid ${GREY_TRACK}`, color: GREY_TEXT_DARK }
-        : null;
-  const nextLine = status.next
-    ?? (status.key === "complete" || status.key === "fullyBooked"
-      ? isAdmin ? "Add a pack to keep receiving patients." : "Please contact your account manager to load the next pack."
-      : null);
-  const openElsewhere = cur ? alloc.totals.open - cur.open : 0;
+  const bal = creditBalance(alloc);
+  const noPacks = bal.key === "none";
+  const tone = bal.key === "over" || bal.key === "empty"
+    ? { background: "#fdf0f0", border: "1px solid #f0b8b8", color: RED, number: RED }
+    : bal.key === "low"
+      ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00", number: AMBER }
+      : null;
+  const help = isAdmin ? "" : " Please contact your account manager.";
 
   return (
     <div style={{
@@ -136,22 +127,30 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
       margin: "16px 24px 0",
       boxShadow: "0 4px 16px rgba(26,58,107,0.07)",
     }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: SPACE_16, gap: SPACE_12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: SPACE_12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: GREY_TEXT, letterSpacing: 1.2, textTransform: "uppercase", marginBottom: SPACE_6 }}>
-            Current pack
+            Credits
           </div>
-          {cur ? (
+          {loading ? (
+            <div style={{ height: 34, width: 180, background: GREY_BG, borderRadius: 6 }} />
+          ) : noPacks ? (
+            <div style={{ fontSize: 28, fontWeight: 700, color: NAVY, lineHeight: 1.1 }}>
+              0 <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>available</span>
+            </div>
+          ) : (
             <>
-              <div style={{ fontSize: 28, fontWeight: 700, color: NAVY, lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}>
-                {cur.delivered} <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>of {cur.pack.pack_size} delivered</span>
+              <div style={{ fontSize: 34, fontWeight: 700, color: tone ? tone.number : NAVY, lineHeight: 1.1, fontVariantNumeric: "tabular-nums" }}>
+                {bal.available} <span style={{ fontSize: 16, fontWeight: 500, color: GREY_TEXT_DARK }}>available</span>
               </div>
-              <div style={{ fontSize: 13, color: GREY_TEXT, marginTop: SPACE_6 }}>
-                Pack {cur.number} of {alloc.fills.length} · {cur.pack.pack_size} show{cur.pack.pack_size === 1 ? "" : "s"} · {packTypeLabel(cur.pack.pack_type)} · started {packDate(cur.pack)}
+              <div style={{ fontSize: 13, color: GREY_TEXT_DARK, marginTop: SPACE_8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                <span><strong style={{ color: NAVY }}>{bal.reserved}</strong> reserved for booked consults</span>
+                <span style={{ color: GREY_TEXT }}>·</span>
+                <span><strong style={{ color: NAVY }}>{bal.used}</strong> used</span>
+                <span style={{ color: GREY_TEXT }}>·</span>
+                <span><strong style={{ color: NAVY }}>{bal.bought}</strong> bought</span>
               </div>
             </>
-          ) : (
-            <div style={{ fontSize: 14, fontWeight: 700, color: NAVY }}>Pack balance</div>
           )}
         </div>
 
@@ -185,62 +184,32 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ height: 42, background: GREY_BG, borderRadius: 6 }} />
-      ) : noPacks ? (
+      {!loading && noPacks && (
         <div style={{
-          padding: "16px 14px", background: "#fef9e7", borderRadius: 8,
+          marginTop: SPACE_16, padding: "12px 14px", background: "#fef9e7", borderRadius: 8,
           border: "1px solid #f4d97a", fontSize: 13, color: "#7a5a00",
         }}>
-          No pack has been loaded for this clinic yet. {isAdmin ? "Click 'Add pack' to load one." : "Please contact your account manager."}
+          No pack has been loaded for this clinic yet.{isAdmin ? " Click 'Add pack' to load one." : help}
           {alloc.overflowBooked > 0 && ` ${alloc.overflowBooked} consult${alloc.overflowBooked === 1 ? " is" : "s are"} already booked.`}
         </div>
-      ) : (
-        <>
-          <Slots size={cur.pack.pack_size} delivered={cur.delivered} booked={cur.booked} />
+      )}
 
-          <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap", alignItems: "center" }}>
-            <LegendItem color={GREEN} label={`${cur.delivered} delivered`} />
-            <LegendItem color={AMBER} label={`${cur.booked} booked`} />
-            <LegendItem color={GREY_TRACK} label={`${cur.open} open${cur.open === 0 && openElsewhere > 0 ? " in this pack" : ""}`} />
-            {openElsewhere > 0 && (
-              <span style={{ fontSize: 12, color: GREY_TEXT_DARK, fontWeight: 500 }}>
-                {openElsewhere} open in your next pack{openElsewhere !== alloc.next?.open ? "s" : ""}
-              </span>
-            )}
-            {alloc.overflowBooked > 0 && (
-              <span style={{ fontSize: 12, color: RED, fontWeight: 600 }}>
-                +{alloc.overflowBooked} booked beyond your packs
-              </span>
-            )}
-            {alloc.overflowBooked === 0 && alloc.next && alloc.next.booked > 0 && (
-              <span style={{ fontSize: 12, color: GREY_TEXT_DARK, fontWeight: 500 }}>
-                +{alloc.next.booked} booked into the next pack
-              </span>
-            )}
-          </div>
+      {!loading && !noPacks && tone && (
+        <div style={{ marginTop: SPACE_16, padding: "12px 14px", borderRadius: 8, fontSize: 13, background: tone.background, border: tone.border, color: tone.color }}>
+          <strong>{bal.line}</strong>{help}
+        </div>
+      )}
 
-          {box ? (
-            <div style={{ marginTop: SPACE_16, padding: "12px 14px", borderRadius: 8, fontSize: 13, ...box }}>
-              <strong>{status.line}</strong>{nextLine ? ` ${nextLine}` : ""}
-            </div>
-          ) : (
-            nextLine && <div style={{ marginTop: SPACE_12, fontSize: 13, color: GREY_TEXT_DARK }}>{nextLine}</div>
-          )}
+      {!loading && !noPacks && (
+        <div style={{ marginTop: SPACE_16, paddingTop: SPACE_12, borderTop: `1px solid ${GREY_TRACK}`, fontSize: 12.5, color: GREY_TEXT }}>
+          A delivered consult uses one credit. A booking reserves one until it happens. A no-show gives it back.
+          {alloc.totals.free > 0 && ` ${alloc.totals.free} of your credits were given free.`}
+          {alloc.totals.trial > 0 && ` Your ${alloc.totals.trial}-consult free trial sits outside this balance.`}
+        </div>
+      )}
 
-          <div style={{ marginTop: SPACE_16, paddingTop: SPACE_12, borderTop: `1px solid ${GREY_TRACK}`, fontSize: 12.5, color: GREY_TEXT, display: "flex", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 600, color: GREY_TEXT_DARK }}>All packs:</span>
-            <span>{alloc.totals.bought} shows{alloc.totals.free > 0 ? ` (${alloc.totals.free} of them free)` : ""}</span>
-            <span>·</span><span>{alloc.totals.delivered} delivered</span>
-            <span>·</span><span>{alloc.totals.booked} booked</span>
-            <span>·</span><span>{alloc.totals.open} open</span>
-            {alloc.totals.trial > 0 && <><span>·</span><span>plus a {alloc.totals.trial}-consult free trial</span></>}
-          </div>
-
-          {showHistory && (
-            <PackHistoryList packs={packs} alloc={alloc} isAdmin={isAdmin} onChange={load} onEdit={(p) => setEditingPack(p)} />
-          )}
-        </>
+      {!loading && showHistory && (
+        <PackHistoryList packs={packs} isAdmin={isAdmin} onChange={load} onEdit={(p) => setEditingPack(p)} />
       )}
 
       {showAdd && isAdmin && (
@@ -267,62 +236,11 @@ const packTypeLabel = (t: string) => (t === "paid" ? "Paid" : t === "free_trial"
 const packDate = (p: { date_paid: string | null; purchased_at: string }) =>
   new Date(`${p.date_paid ?? p.purchased_at.slice(0, 10)}T00:00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 
-/**
- * One segment per show in the pack: green delivered, amber booked, grey open,
- * with a small gap after every tenth so "27 of 40" can be counted by eye.
- * Past 40 shows a smooth bar with ticks reads better than hairline segments.
- */
-function Slots({ size, delivered, booked }: { size: number; delivered: number; booked: number }) {
-  if (size > 40) {
-    const d = Math.min(100, (delivered / size) * 100), b = Math.min(100 - d, (booked / size) * 100);
-    return (
-      <div style={{ position: "relative", height: 18, background: GREY_TRACK, borderRadius: 6, overflow: "hidden", display: "flex" }}>
-        <div style={{ width: `${d}%`, background: GREEN }} />
-        <div style={{ width: `${b}%`, background: AMBER }} />
-        {Array.from({ length: Math.floor((size - 1) / 10) }, (_, i) => (
-          <div key={i} style={{ position: "absolute", left: `${((i + 1) * 10 / size) * 100}%`, top: 0, bottom: 0, width: 1, background: "rgba(255,255,255,0.7)" }} />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div style={{ display: "flex", gap: 3 }} aria-label={`${delivered} of ${size} delivered, ${booked} booked`}>
-      {Array.from({ length: size }, (_, i) => (
-        <div
-          key={i}
-          style={{
-            flex: 1, height: 18, borderRadius: 4,
-            background: i < delivered ? GREEN : i < delivered + booked ? AMBER : GREY_TRACK,
-            marginLeft: i > 0 && i % 10 === 0 ? 8 : 0,
-            transition: "background 0.3s ease",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function LegendItem({ color, label }: { color: string; label: string }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: SPACE_6 }}>
-      <span style={{ width: 12, height: 12, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-      <span style={{ fontSize: 12, color: GREY_TEXT, fontWeight: 500 }}>{label}</span>
-    </div>
-  );
-}
-
-const STATE_PILL: Record<string, { bg: string; fg: string; label: string }> = {
-  complete: { bg: "#e8f5ef", fg: GREEN, label: "Complete" },
-  current: { bg: "#fef3e2", fg: AMBER, label: "Current" },
-  queued: { bg: GREY_BG, fg: GREY_TEXT_DARK, label: "Queued" },
-  trial: { bg: "#eef2ff", fg: NAVY, label: "Free trial" },
-};
-
-function PackHistoryList({ packs, alloc, isAdmin, onChange, onEdit }: {
-  packs: Pack[]; alloc: PackAllocation<Pack>; isAdmin: boolean; onChange: () => void; onEdit: (p: Pack) => void;
+/** The paper trail: every pack bought, newest first. Credits are not tied to a pack once bought. */
+function PackHistoryList({ packs, isAdmin, onChange, onEdit }: {
+  packs: Pack[]; isAdmin: boolean; onChange: () => void; onEdit: (p: Pack) => void;
 }) {
-  const fillById = new Map(alloc.fills.map((f) => [f.pack.id, f]));
-  const rows = [...packs].sort(packOrder);
+  const rows = [...packs].sort(packOrder).reverse();
 
   const del = async (id: string) => {
     if (!confirm("Delete this pack? This affects the balance calculation.")) return;
@@ -335,24 +253,22 @@ function PackHistoryList({ packs, alloc, isAdmin, onChange, onEdit }: {
   return (
     <div style={{ marginTop: SPACE_16, borderTop: `1px solid ${GREY_TRACK}`, paddingTop: SPACE_16 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: GREY_TEXT, marginBottom: SPACE_12, textTransform: "uppercase", letterSpacing: 0.5 }}>
-        All packs, oldest first
+        All packs, newest first
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: SPACE_8 }}>
         {rows.map((p) => {
-          const f = fillById.get(p.id) ?? null;
-          const pill = STATE_PILL[f ? f.state : "trial"];
+          const trial = p.pack_type === "free_trial";
           return (
             <div key={p.id} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: SPACE_12,
               padding: "10px 14px", background: GREY_BG, borderRadius: 8, fontSize: 13, flexWrap: "wrap",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: SPACE_12, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: pill.bg, color: pill.fg, letterSpacing: 0.3 }}>{pill.label}</span>
-                <strong style={{ color: NAVY }}>{f ? `Pack ${f.number}` : "Trial"} · {p.pack_size} show{p.pack_size === 1 ? "" : "s"} · {packTypeLabel(p.pack_type)}</strong>
+                <strong style={{ color: NAVY }}>{trial ? `${p.pack_size} free-trial consult${p.pack_size === 1 ? "" : "s"}` : `${p.pack_size} credit${p.pack_size === 1 ? "" : "s"}`}</strong>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 8px", borderRadius: 999, background: p.pack_type === "paid" ? "#e8f5ef" : "#eef2ff", color: p.pack_type === "paid" ? GREEN : NAVY, letterSpacing: 0.3 }}>
+                  {packTypeLabel(p.pack_type)}
+                </span>
                 <span style={{ color: GREY_TEXT }}>{packDate(p)}</span>
-                {f
-                  ? <span style={{ color: GREY_TEXT_DARK }}>{f.delivered} delivered · {f.booked} booked · {f.open} open</span>
-                  : <span style={{ color: GREY_TEXT_DARK }}>consults given free, outside the balance</span>}
                 {p.pack_name && <span style={{ color: GREY_TEXT }}>· {p.pack_name}</span>}
                 {isAdmin && (
                   <span style={{ color: p.amount_paid_ex_gst == null && p.pack_type === "paid" ? AMBER : GREY_TEXT }}>

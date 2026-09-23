@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { allocatePacks, packStatus } from "./pack-allocation";
+import { allocatePacks, creditBalance, packStatus } from "./pack-allocation";
 
 const pack = (id: string, size: number, paid: string, type = "paid") => ({ id, pack_size: size, purchased_at: `${paid}T00:00:00Z`, date_paid: paid, created_at: `${paid}T00:00:00Z`, pack_type: type });
 
@@ -67,6 +67,22 @@ describe("allocatePacks", () => {
     expect(a.totals.bought).toBe(20);
     expect(a.totals.free).toBe(0);
     expect(a.totals.trial).toBe(5);
+  });
+
+  test("credit balance: available, reserved, used, and when to worry", () => {
+    const nitai = creditBalance(allocatePacks([pack("a", 63, "2026-07-01"), pack("b", 10, "2026-09-22")], 58, 11));
+    expect(nitai).toMatchObject({ available: 4, reserved: 11, used: 58, bought: 73, over: 0, key: "ok" });
+    const low = creditBalance(allocatePacks([pack("a", 10, "2026-09-01")], 4, 3));
+    expect(low).toMatchObject({ available: 3, key: "low" });
+    expect(low.line).toBe("3 credits left — add a pack soon.");
+    const boss = creditBalance(allocatePacks([pack("a", 10, "2026-09-10")], 4, 6));
+    expect(boss).toMatchObject({ available: 0, reserved: 6, key: "empty" });
+    const over = creditBalance(allocatePacks([pack("a", 10, "2026-09-10")], 4, 8));
+    expect(over).toMatchObject({ available: 0, reserved: 6, over: 2, key: "over" });
+    // a no-show hands the credit straight back: one fewer reserved, one more available
+    const afterNoShow = creditBalance(allocatePacks([pack("a", 10, "2026-09-10")], 4, 5));
+    expect(afterNoShow.available).toBe(1);
+    expect(creditBalance(allocatePacks([], 0, 0)).key).toBe("none");
   });
 
   test("no packs at all", () => {

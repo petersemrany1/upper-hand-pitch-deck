@@ -77,6 +77,27 @@ export function allocatePacks<P extends PackLike>(packs: P[], delivered: number,
   };
 }
 
+/** Amber at this many credits or fewer (Peter, 2026-09-23). */
+export const LOW_CREDITS = 3;
+
+/**
+ * The clinic's balance as one number and a status. A delivered show uses a
+ * credit, a booking reserves one, a no-show does neither, a pack adds them.
+ */
+export function creditBalance(a: PackAllocation<PackLike>): {
+  available: number; reserved: number; used: number; bought: number; over: number;
+  key: "none" | "ok" | "low" | "empty" | "over"; line: string;
+} {
+  const { bought, delivered, booked, open } = a.totals;
+  const over = a.overflowBooked;
+  const base = { available: open, reserved: booked, used: delivered, bought, over };
+  if (bought === 0) return { ...base, key: "none", line: "No credits yet." };
+  if (over > 0) return { ...base, key: "over", line: `${over} consult${over === 1 ? " is" : "s are"} booked beyond your balance — add a pack to cover ${over === 1 ? "it" : "them"}.` };
+  if (open === 0) return { ...base, key: "empty", line: "No credits left — add a pack before booking more consults." };
+  if (open <= LOW_CREDITS) return { ...base, key: "low", line: `${open} credit${open === 1 ? "" : "s"} left — add a pack soon.` };
+  return { ...base, key: "ok", line: "" };
+}
+
 /**
  * Plain words for where the clinic stands. The current pack being full is
  * only a warning when there is nothing behind it: with a pack queued the
