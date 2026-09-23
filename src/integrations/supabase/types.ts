@@ -3125,6 +3125,11 @@ export type Database = {
           key: string
         }[]
       }
+      lead_location: {
+        Args: { _campaign: string; _lead: string; _payload: Json }
+        Returns: string
+      }
+      market_city: { Args: { p_text: string }; Returns: string }
       meta_lead_classify: { Args: { _prior: string }; Returns: string }
       meta_lead_close_siblings: { Args: { _booked: string }; Returns: number }
       meta_lead_prior_id: {
@@ -3158,6 +3163,7 @@ export type Database = {
         Returns: number
       }
       normalize_phone: { Args: { p: string }; Returns: string }
+      peter_rep_id: { Args: never; Returns: string }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
