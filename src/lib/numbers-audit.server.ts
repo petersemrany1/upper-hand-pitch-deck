@@ -348,7 +348,13 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
     const cur = lastErr.get(id);
     if (!cur || String(e.created_at) > cur.at) lastErr.set(id, { at: String(e.created_at), msg: String(e.error_message), fn: String(e.function_name) });
   }
-  const stuck = apptPay.filter((a) => ["failed", "manual_required"].includes(String(a.refund_status ?? "")) && !a.square_refund_id && !a.stripe_refund_id);
+  // Square accepts a refund and settles it later; one still "pending" after three days did not settle.
+  const threeDaysAgo = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  const stuck = apptPay.filter((a) => {
+    const st = String(a.refund_status ?? "");
+    if (st === "failed" || st === "manual_required") return !a.square_refund_id && !a.stripe_refund_id;
+    return st === "refund_pending" && String(a.appointment_date) < threeDaysAgo;
+  });
   const describe = (a: Record<string, unknown>) => {
     const err = lastErr.get(String(a.id));
     const proc = String(a.payment_processor ?? "none");
@@ -359,7 +365,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
   sections.push({
     title: "Refunds not completed",
     items: [
-      { label: "Appointments with a refund still failed or waiting on a manual refund", value: S(stuck.length), severity: stuck.length ? "bad" : "ok", detail: stuck.map(describe).join("  ||  ") || undefined },
+      { label: "Appointments with a refund still failed, waiting on a manual refund, or pending for 3+ days", value: `${stuck.length} · by processor: ${["square", "stripe", "none"].map((p) => `${p} ${stuck.filter((a) => String(a.payment_processor ?? "none") === p).length}`).join(", ")}`, severity: stuck.length ? "bad" : "ok", detail: stuck.map(describe).join("  ||  ") || undefined },
       { label: "Refund-related errors logged in the last 45 days", value: S(recentRefundErrors.length), severity: recentRefundErrors.length ? "warn" : "ok", detail: recentRefundErrors.slice(-12).map((e) => `${sydDate(String(e.created_at))} ${String(e.function_name)}: ${String(e.error_message).slice(0, 140)}`).join("  ||  ") || undefined },
     ],
   });
