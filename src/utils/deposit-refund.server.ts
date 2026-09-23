@@ -16,6 +16,11 @@ export type RefundOutcome =
   | { status: "manual"; reason: string }
   | { status: "failed"; error: string };
 
+/** Stripe knows the payment but cannot pay it back today: no balance, or refunds disabled. */
+export function cannotRefundRightNow(code: string | undefined, message: string): boolean {
+  return code === "balance_insufficient" || /insufficient funds in your stripe balance|not currently able to refund/i.test(message);
+}
+
 function isMissingOnThisAccount(error: unknown): boolean {
   const e = error as { code?: string; raw?: { code?: string }; statusCode?: number };
   const code = e?.raw?.code ?? e?.code;
@@ -42,7 +47,12 @@ async function refundOnManaged(
     return { status: "refunded", refundId: refund.id, account: "managed" };
   } catch (error) {
     if (isMissingOnThisAccount(error)) return "not_this_account";
-    return { status: "failed", error: getStripeErrorMessage(error) };
+    const message = getStripeErrorMessage(error);
+    const code = (error as { code?: string; raw?: { code?: string } })?.raw?.code ?? (error as { code?: string })?.code;
+    if (cannotRefundRightNow(code, message)) {
+      return { status: "manual", reason: `Stripe can't pay this refund right now (${message}). Top up the Stripe balance and retry from Admin, or refund the patient by bank transfer.` };
+    }
+    return { status: "failed", error: message };
   }
 }
 
@@ -88,6 +98,15 @@ async function refundOnHtg(
         return {
           status: "manual",
           reason: `Old Stripe account can no longer refund (${message}). Refund the patient by bank transfer.`,
+        };
+      }
+      // Stripe has the payment but cannot pay it back right now: the balance
+      // is empty, or refunds are switched off on the account. Retrying from
+      // the clinic changes nothing, so this is a manual refund, not a failure.
+      if (cannotRefundRightNow(code, message)) {
+        return {
+          status: "manual",
+          reason: `Stripe can't pay this refund right now (${message}). Top up the Stripe balance and retry from Admin, or refund the patient by bank transfer.`,
         };
       }
       return { status: "failed", error: message };
