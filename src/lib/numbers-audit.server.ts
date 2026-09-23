@@ -65,7 +65,8 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
       .gte("created_at", new Date(Date.now() - 45 * 86400000).toISOString())
       .or("function_name.ilike.%consult%,function_name.ilike.%refund%,function_name.ilike.%outcome%")
       .order("created_at", { ascending: false }).limit(300)
-      .then((r: { data: Record<string, unknown>[] | null; error: { message: string } | null }) => { if (r.error) throw new Error(`error_logs: ${r.error.message}`); return r.data ?? []; }) as Promise<Record<string, unknown>[]>,
+      // Best effort: the table has no index, so this can time out. The rest of the audit must still run.
+      .then((r: { data: Record<string, unknown>[] | null; error: { message: string } | null }) => (r.error ? [{ id: "", created_at: "", function_name: "(error log unavailable)", error_message: r.error.message, context: {} }] : r.data ?? [])) as Promise<Record<string, unknown>[]>,
     fetchAll(db, "clinic_appointments", "id, patient_name, appointment_date, clinic_id, outcome, refund_status, payment_processor, square_payment_id, stripe_payment_intent_id, square_refund_id, stripe_refund_id, deposit_amount, booked_at", "created_at"),
   ]);
 
