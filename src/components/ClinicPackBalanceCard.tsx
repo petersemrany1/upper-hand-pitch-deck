@@ -111,16 +111,21 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
   const status = packStatus(alloc);
   const cur = alloc.current;
   const noPacks = !cur;
+  // Amber only when the clinic is actually out of room; red when every pack is
+  // delivered and nothing is queued. A full pack with another one behind it
+  // is just information.
   const box = status.key === "complete"
     ? { background: "#fdf0f0", border: "1px solid #f0b8b8", color: RED }
     : status.key === "fullyBooked"
       ? { background: "#fef9e7", border: "1px solid #f4d97a", color: "#7a5a00" }
-      : null;
-  const nextLine = alloc.next
-    ? `Next: ${alloc.next.pack.pack_size}-show pack ready${alloc.next.booked > 0 ? ` (${alloc.next.booked} already booked into it)` : ""}.`
-    : status.key === "complete" || status.key === "fullyBooked"
+      : status.key === "nextReady"
+        ? { background: GREY_BG, border: `1px solid ${GREY_TRACK}`, color: GREY_TEXT_DARK }
+        : null;
+  const nextLine = status.next
+    ?? (status.key === "complete" || status.key === "fullyBooked"
       ? isAdmin ? "Add a pack to keep receiving patients." : "Please contact your account manager to load the next pack."
-      : null;
+      : null);
+  const openElsewhere = cur ? alloc.totals.open - cur.open : 0;
 
   return (
     <div style={{
@@ -197,7 +202,12 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
           <div style={{ display: "flex", gap: 16, marginTop: SPACE_12, flexWrap: "wrap", alignItems: "center" }}>
             <LegendItem color={GREEN} label={`${cur.delivered} delivered`} />
             <LegendItem color={AMBER} label={`${cur.booked} booked`} />
-            <LegendItem color={GREY_TRACK} label={`${cur.open} open`} />
+            <LegendItem color={GREY_TRACK} label={`${cur.open} open${cur.open === 0 && openElsewhere > 0 ? " in this pack" : ""}`} />
+            {openElsewhere > 0 && (
+              <span style={{ fontSize: 12, color: GREY_TEXT_DARK, fontWeight: 500 }}>
+                {openElsewhere} open in your next pack{openElsewhere !== alloc.next?.open ? "s" : ""}
+              </span>
+            )}
             {alloc.overflowBooked > 0 && (
               <span style={{ fontSize: 12, color: RED, fontWeight: 600 }}>
                 +{alloc.overflowBooked} booked beyond your packs

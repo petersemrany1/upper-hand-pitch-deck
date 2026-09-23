@@ -77,11 +77,21 @@ export function allocatePacks<P extends PackLike>(packs: P[], delivered: number,
   };
 }
 
-/** Plain words for the state of the current pack. */
-export function packStatus(a: PackAllocation<PackLike>): { key: "none" | "open" | "fullyBooked" | "complete"; line: string } {
-  const c = a.current;
-  if (!c) return { key: "none", line: "No pack loaded yet." };
-  if (c.state === "complete") return { key: "complete", line: `This ${c.pack.pack_size}-show pack is complete.` };
-  if (c.open === 0) return { key: "fullyBooked", line: `Fully booked — the ${c.booked} upcoming consult${c.booked === 1 ? "" : "s"} will finish this pack.` };
-  return { key: "open", line: `${c.open} open slot${c.open === 1 ? "" : "s"} in this pack.` };
+/**
+ * Plain words for where the clinic stands. The current pack being full is
+ * only a warning when there is nothing behind it: with a pack queued the
+ * clinic still has room, and the line says so.
+ */
+export function packStatus(a: PackAllocation<PackLike>): { key: "none" | "open" | "fullyBooked" | "nextReady" | "complete"; line: string; next: string | null } {
+  const c = a.current, n = a.next;
+  const nextLine = n
+    ? `Next ${n.pack.pack_size}-show pack is ready: ${n.booked} booked into it, ${n.open} open.`
+    : null;
+  if (!c) return { key: "none", line: "No pack loaded yet.", next: null };
+  if (c.state === "complete") return { key: n ? "nextReady" : "complete", line: `This ${c.pack.pack_size}-show pack is complete.`, next: nextLine };
+  if (c.open === 0) {
+    const line = `This pack is fully booked — the ${c.booked} upcoming consult${c.booked === 1 ? "" : "s"} will finish it.`;
+    return { key: n && n.open > 0 ? "nextReady" : "fullyBooked", line, next: nextLine };
+  }
+  return { key: "open", line: `${c.open} open slot${c.open === 1 ? "" : "s"} in this pack.`, next: nextLine };
 }

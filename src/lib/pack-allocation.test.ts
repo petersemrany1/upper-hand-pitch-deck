@@ -25,6 +25,20 @@ describe("allocatePacks", () => {
     expect(a.next?.pack.id).toBe("g");
     expect(a.totals).toEqual({ bought: 73, free: 3, trial: 0, delivered: 58, booked: 11, open: 4 });
     expect(packStatus(a).key).toBe("open");
+    expect(packStatus(a).next).toBe("Next 3-show pack is ready: 0 booked into it, 3 open.");
+  });
+
+  test("a full current pack is not a warning while a queued pack still has room", () => {
+    const a = allocatePacks([pack("p7", 10, "2026-09-01"), pack("p8", 10, "2026-09-22")], 5, 11);
+    expect(a.current?.pack.id).toBe("p7");
+    expect(a.current?.open).toBe(0);
+    expect(a.next?.booked).toBe(6);
+    expect(a.next?.open).toBe(4);
+    const s = packStatus(a);
+    expect(s.key).toBe("nextReady");
+    expect(s.next).toBe("Next 10-show pack is ready: 6 booked into it, 4 open.");
+    // no room anywhere: now it is a warning
+    expect(packStatus(allocatePacks([pack("p7", 10, "2026-09-01"), pack("p8", 10, "2026-09-22")], 5, 15)).key).toBe("fullyBooked");
   });
 
   test("bookings spill into the next pack, and beyond the last one they are overflow", () => {
