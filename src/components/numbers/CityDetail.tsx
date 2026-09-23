@@ -23,7 +23,7 @@ export function CityDetail({
   isAll: boolean;
   diagnosis: Diagnosis | null;
   unallocated: LabourRow | null;
-  website: LabourRow | null;
+  website: CityStats | null;
   countMyPay: boolean;
 }) {
   const s = scope;
@@ -32,8 +32,10 @@ export function CityDetail({
   const sentence = labourSentence(s, avg, s.key, isAll, { oneDp });
   const caveats: string[] = [];
   if (!countMyPay) caveats.push("Your own pay is excluded from labour.");
-  const websiteCost = website ? website.hourly_cost + website.bonus_cost : 0;
-  if (isAll && website && websiteCost > 0) caveats.push(`Includes ${money(websiteCost)} of labour (${oneDp(website.hours)} h) on website leads that have no city.`);
+  if (isAll && website && (website.leads > 0 || website.spend > 0 || website.labourCost > 0)) {
+    const bits = [website.leads > 0 ? `${website.leads} lead${website.leads === 1 ? "" : "s"}` : "", website.spend > 0 ? `${money(website.spend)} of spend` : "", website.labourCost > 0 ? `${money(website.labourCost)} of labour (${oneDp(website.hours)} h)` : ""].filter(Boolean);
+    caveats.push(`Includes ${bits.join(", ")} with no city: website enquiries and campaigns that don't name a city. They count here and nowhere else.`);
+  }
   if (isAll && unallocated && unallocCost > 0) caveats.push(`Includes ${money(unallocCost)} of labour (${oneDp(unallocated.hours)} h) on calls that could not be tied to any lead.`);
   if (s.hoursMissingRate > 0) caveats.push(`${oneDp(s.hoursMissingRate)} hours are from a rep with no rate set, so labour is understated.`);
   if (s.hoursFallback > 0) caveats.push(`${oneDp(s.hoursFallback)} hours were split by leads contacted rather than call time.`);

@@ -1,7 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { pipelineKey, pipelineOf, type Pipeline } from "@/components/numbers/model";
+import { WEBSITE_LABEL, pipelineKey, pipelineOf, type Pipeline } from "@/components/numbers/model";
+
+// ---- Sydney day boundaries, correct through daylight saving. The SQL cuts
+// leads by (created_at AT TIME ZONE 'Australia/Sydney')::date; anything we
+// filter here must draw the same line, and a fixed "+10:00" is an hour out
+// from October to April.
+const SYD = "Australia/Sydney";
+function sydneyDayStart(day: string): string {
+  for (const off of ["+11:00", "+10:00"]) {
+    const iso = `${day}T00:00:00${off}`;
+    const parts = new Intl.DateTimeFormat("en-AU", { timeZone: SYD, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit" }).formatToParts(new Date(iso));
+    const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+    if (`${get("year")}-${get("month")}-${get("day")}` === day && get("hour") === "00") return iso;
+  }
+  return `${day}T00:00:00+10:00`;
+}
+function sydneyDayEnd(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1);
+  const next = d.toISOString().slice(0, 10);
+  return new Date(new Date(sydneyDayStart(next)).getTime() - 1000).toISOString();
+}
 
 // Read-only ad-spend reporting + manual spend entry + clearing unresolved
 // appointment outcomes. This module NEVER writes to meta_leads.
@@ -133,9 +153,9 @@ async function callCountsByLead(
 ): Promise<Map<string, { calls: number; last: string | null }>> {
   const out = new Map<string, { calls: number; last: string | null }>();
   const page = 1000;
-  for (let i = 0; i < 20; i += 1) {
-    let q = db.from("call_records").select("lead_id, called_at").not("lead_id", "is", null).order("called_at", { ascending: true }).range(i * page, i * page + page - 1);
-    if (from) q = q.gte("called_at", `${from}T00:00:00+10:00`);
+  for (let i = 0; i < 100; i += 1) {
+    let q = db.from("call_records").select("id, lead_id, called_at").not("lead_id", "is", null).order("called_at", { ascending: true }).order("id", { ascending: true }).range(i * page, i * page + page - 1);
+    if (from) q = q.gte("called_at", sydneyDayStart(from));
     const { data, error } = (await q) as { data: { lead_id: string; called_at: string | null }[] | null; error: { message: string } | null };
     if (error) throw new Error(`call_records: ${error.message}`);
     for (const c of data ?? []) {
@@ -158,10 +178,10 @@ async function pipelinesByAd(
 ): Promise<Record<string, Pipeline>> {
   const rows: { lead_id: string; ad_name: string | null; status: string | null; unattributed: boolean; is_booked: boolean }[] = [];
   const page = 1000;
-  for (let i = 0; i < 10; i += 1) {
-    let q = db.from("ad_lead_outcomes").select("lead_id, ad_name, status, unattributed, is_booked, location").order("created_at", { ascending: true }).range(i * page, i * page + page - 1);
-    if (from) q = q.gte("created_at", `${from}T00:00:00+10:00`);
-    if (to) q = q.lte("created_at", `${to}T23:59:59+10:00`);
+  for (let i = 0; i < 50; i += 1) {
+    let q = db.from("ad_lead_outcomes").select("lead_id, ad_name, status, unattributed, is_booked, location").order("created_at", { ascending: true }).order("lead_id", { ascending: true }).range(i * page, i * page + page - 1);
+    if (from) q = q.gte("created_at", sydneyDayStart(from));
+    if (to) q = q.lte("created_at", sydneyDayEnd(to));
     if (location) q = q.ilike("location", location);
     const { data, error } = (await q) as { data: typeof rows | null; error: { message: string } | null };
     if (error) throw new Error(`ad_lead_outcomes: ${error.message}`);
@@ -208,8 +228,11 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       peterId = peter?.id ?? null;
     }
 
-    const [perf, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP, packEcon] = await Promise.all([
+    const [perf, perfAll, locs, monthly, sync, labLoc, labAd, revLoc, revAd, moneyMonth, labLocP, labAdP, moneyMonthP, packEcon] = await Promise.all([
       db.rpc("ad_performance", { p_from: from, p_to: to, p_location: location }),
+      // Unfiltered: every lead and every spend row in the window, city or not.
+      // "All cities" is measured against this so nothing can fall out of it.
+      location ? db.rpc("ad_performance", { p_from: from, p_to: to, p_location: undefined }) : Promise.resolve(null),
       db.rpc("ad_location_summary", { p_from: from, p_to: to }),
       db.rpc("ad_cost_per_show_monthly", { p_from: from, p_to: to }),
       db.from("ad_spend_sync_state").select("*").eq("id", 1).maybeSingle(),
@@ -223,7 +246,11 @@ export const getNumbersReport = createServerFn({ method: "GET" })
       peterId ? rpc("money_monthly", { p_from: from, p_to: to, p_rep: peterId }) : Promise.resolve({ data: null, error: null }),
       rpc("clinic_pack_economics", {}),
     ]);
-    const pipelines = await pipelinesByAd(db as unknown as { from: (t: string) => any }, from, to, location); // eslint-disable-line @typescript-eslint/no-explicit-any
+    // Anything that is not the money figures must never take the page down.
+    const warnings: string[] = [];
+    let pipelines: Record<string, Pipeline> = {};
+    try { pipelines = await pipelinesByAd(db as unknown as { from: (t: string) => any }, from, to, location); } // eslint-disable-line @typescript-eslint/no-explicit-any
+    catch (e) { warnings.push(`The "Called" column could not be worked out: ${(e as Error).message}`); }
 
 
     // Unresolved outcomes: past-dated appointments with no outcome recorded.
@@ -262,12 +289,24 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     }
     const spendDuplicates = Array.from(seen.values()).filter((n) => n > 1).length;
 
-    const firstErr =
-      perf.error ?? locs.error ?? monthly.error ?? labLoc.error ?? labAd.error ??
-      revLoc.error ?? revAd.error ?? moneyMonth.error;
-    if (firstErr) throw new Error(`Report query failed: ${firstErr.message}`);
-
+    // Leads and spend are the page; without them there is nothing to show.
+    // Labour, revenue and the monthly chart degrade to a warning instead.
+    const fatal = perf.error ?? (perfAll && perfAll.error) ?? locs.error;
+    if (fatal) throw new Error(`Report query failed: ${fatal.message}`);
+    const soft = (label: string, r: { error: { message: string } | null } | null) => { if (r?.error) warnings.push(`${label} could not be loaded (${r.error.message}); those figures are blank.`); };
+    soft("Labour", labLoc); soft("Labour by ad", labAd); soft("Revenue", revLoc); soft("Revenue by ad", revAd); soft("Monthly figures", moneyMonth); soft("Monthly cost per show", monthly);
+    if (data.excludePeter && !peterId) warnings.push("Could not find Peter's rep record, so his pay is still counted in labour.");
+    if (peterId && (labLocP.error || labAdP.error || moneyMonthP.error)) warnings.push("Peter's own labour could not be separated out, so his pay is still counted in labour.");
+    const peterExcluded = peterId !== null && !labLocP.error && !labAdP.error;
     const num = (v: unknown) => Number(v ?? 0);
+    // Whatever the window holds that no city claims: leads with no city on them
+    // and spend on campaigns that name no city. It goes into one "Website" row
+    // so the All-cities total is the whole window, never just the cities.
+    const perfRows = ((perfAll ?? perf).data ?? []) as unknown as AdPerformanceRow[];
+    const locRows = ((locs.data ?? []) as unknown as LocationSummaryRow[]).filter((r) => r.location);
+    const FUNNEL = ["spend", "leads", "booked", "showed", "noshow", "upcoming", "needs_outcome", "disqualified"] as const;
+    const remainder = Object.fromEntries(FUNNEL.map((k) => [k, Math.max(0, perfRows.reduce((s, r) => s + num(r[k]), 0) - locRows.reduce((s, r) => s + num(r[k]), 0))])) as Record<(typeof FUNNEL)[number], number>;
+    const websiteRow: LocationSummaryRow | null = FUNNEL.some((k) => remainder[k] > 0) ? { location: WEBSITE_LABEL, ...remainder } : null;
     const mapLabour = (rows: unknown): LabourRow[] =>
       ((rows ?? []) as Record<string, unknown>[]).map((r) => ({
         key: String(r.key ?? ""),
@@ -338,7 +377,7 @@ export const getNumbersReport = createServerFn({ method: "GET" })
     );
 
     return {
-      peterExcluded: peterId !== null,
+      peterExcluded,
       spendCoverage: {
         from: (spendFirst.data?.date as string | undefined) ?? null,
         to: (spendLast.data?.date as string | undefined) ?? null,
@@ -372,10 +411,8 @@ export const getNumbersReport = createServerFn({ method: "GET" })
         spend: Number(r.spend ?? 0),
       })),
       pipelines,
-      locations: ((locs.data ?? []) as unknown as LocationSummaryRow[]).map((r) => ({
-        ...r,
-        spend: Number(r.spend ?? 0),
-      })),
+      locations: [...locRows.map((r) => ({ ...r, spend: Number(r.spend ?? 0) })), ...(websiteRow ? [websiteRow] : [])],
+      warnings,
       monthly: ((monthly.data ?? []) as unknown as MonthlyPoint[]).map((r) => ({
         ...r,
         spend: Number(r.spend ?? 0),
@@ -420,8 +457,8 @@ export const listAdLeads = createServerFn({ method: "GET" })
     if (data.unattributed) q = q.eq("unattributed", true);
     else q = q.eq("ad_name", data.adName).eq("unattributed", false);
 
-    if (data.from) q = q.gte("created_at", `${data.from}T00:00:00+10:00`);
-    if (data.to) q = q.lte("created_at", `${data.to}T23:59:59+10:00`);
+    if (data.from) q = q.gte("created_at", sydneyDayStart(data.from));
+    if (data.to) q = q.lte("created_at", sydneyDayEnd(data.to));
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -506,9 +543,8 @@ export const upsertManualSpend = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const db = await assertAdmin(context.claims as Record<string, unknown>);
     const campaign = data.campaign_name?.trim() || null;
-    const location = campaign
-      ? campaign.replace(/^hair\s+transplant\s+/i, "").trim() || null
-      : null;
+    const { locationFromCampaign } = await import("@/lib/meta-spend.server");
+    const location = locationFromCampaign(campaign);
     const row = {
       date: data.date,
       ad_name: data.ad_name.trim(),
@@ -527,21 +563,25 @@ export const upsertManualSpend = createServerFn({ method: "POST" })
       return { ok: true, id: data.id };
     }
 
-    const { data: inserted, error } = await db
+    // The table's unique index is on (date, COALESCE(ad_id, ad_name)), which
+    // an upsert cannot name, so find any hand-entered row for this day and ad
+    // ourselves and update it. Re-entering a day must never add a second row.
+    const { data: existing, error: findErr } = await db
       .from("ad_spend_daily")
-      .upsert([row], { onConflict: "date,ad_name", ignoreDuplicates: false })
-      .select("id");
-    if (error) {
-      // Fall back to a plain insert if the composite conflict target is not usable.
-      const { data: ins, error: e2 } = await db
-        .from("ad_spend_daily")
-        .insert([row])
-        .select("id")
-        .single();
-      if (e2) throw new Error(e2.message);
-      return { ok: true, id: ins.id };
+      .select("id")
+      .eq("date", row.date)
+      .eq("source", "manual")
+      .ilike("ad_name", row.ad_name)
+      .limit(1);
+    if (findErr) throw new Error(findErr.message);
+    if (existing && existing.length > 0) {
+      const { error } = await db.from("ad_spend_daily").update(row).eq("id", existing[0].id);
+      if (error) throw new Error(error.message);
+      return { ok: true, id: existing[0].id };
     }
-    return { ok: true, id: inserted?.[0]?.id ?? null };
+    const { data: ins, error: e2 } = await db.from("ad_spend_daily").insert([row]).select("id").single();
+    if (e2) throw new Error(e2.message);
+    return { ok: true, id: ins.id };
   });
 
 export const deleteSpendRow = createServerFn({ method: "POST" })

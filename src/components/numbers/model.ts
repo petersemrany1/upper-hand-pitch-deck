@@ -156,8 +156,9 @@ export function sumCityStats(key: string, rows: CityStats[], extra: LabourRow | 
 
 /** Rep-days with no call that could be tied to any lead. */
 export const UNALLOCATED = "(unallocated)";
-/** Calling time and bonuses on leads that have no city at all (see labour_by_key). */
+/** Everything the window holds that no city claims: leads with no city, spend on campaigns that name no city, and the calling time and bonuses on those leads (labour_by_key uses the same key). */
 export const WEBSITE = "website";
+export const WEBSITE_LABEL = "Website";
 const isCity = (k: string | null | undefined): k is string => !!k && k.toLowerCase() !== UNALLOCATED && k.toLowerCase() !== WEBSITE;
 
 /** Every city we know about, from spend, leads, labour or revenue. */
@@ -180,7 +181,7 @@ export function buildAllCities(
   locations: LocationSummaryRow[],
   labour: LabourRow[],
   revenue: RevenueRow[],
-): { cities: CityStats[]; all: CityStats; unallocated: LabourRow | null; website: LabourRow | null } {
+): { cities: CityStats[]; all: CityStats; unallocated: LabourRow | null; website: CityStats | null } {
   const byLoc = new Map(locations.map((l) => [l.location?.toLowerCase() ?? "", l]));
   const byLab = new Map(labour.map((l) => [l.key.toLowerCase(), l]));
   const byRev = new Map(revenue.map((r) => [r.key.toLowerCase(), r]));
@@ -188,8 +189,11 @@ export function buildAllCities(
     buildCityStats(k, byLoc.get(k.toLowerCase()) ?? null, byLab.get(k.toLowerCase()) ?? null, byRev.get(k.toLowerCase()) ?? null),
   );
   const unallocated = byLab.get(UNALLOCATED) ?? null;
-  const website = byLab.get(WEBSITE) ?? null;
-  return { cities, all: sumCityStats("All cities", cities, [unallocated, website]), unallocated, website };
+  // The Website bucket is not a city, but it is part of the whole: its leads,
+  // spend, shows, labour and revenue all belong in "All cities".
+  const webLoc = byLoc.get(WEBSITE) ?? null, webLab = byLab.get(WEBSITE) ?? null, webRev = byRev.get(WEBSITE) ?? null;
+  const website = webLoc || webLab || webRev ? buildCityStats(WEBSITE_LABEL, webLoc, webLab, webRev) : null;
+  return { cities, all: sumCityStats("All cities", website ? [...cities, website] : cities, unallocated), unallocated, website };
 }
 
 // ---- Where an ad's leads are in the calling pipeline.

@@ -223,7 +223,7 @@ export async function runNumbersAudit(db: Db, meta: { accessToken?: string; acco
 
   // ---------------- Clinics, packs, revenue ----------------
   const showsByClinic = new Map<string, number>();
-  for (const a of apptReal) if (String(a.outcome ?? "") === "show" && a.clinic_id) showsByClinic.set(String(a.clinic_id), (showsByClinic.get(String(a.clinic_id)) ?? 0) + 1);
+  for (const a of apptReal) if (["show", "proceeded"].includes(String(a.outcome ?? "")) && a.clinic_id) showsByClinic.set(String(a.clinic_id), (showsByClinic.get(String(a.clinic_id)) ?? 0) + 1);
   const packsByClinic = new Map<string, Record<string, unknown>[]>();
   for (const p of packs) { const k = String(p.clinic_id); packsByClinic.set(k, [...(packsByClinic.get(k) ?? []), p]); }
   const showsNoPacks = Array.from(showsByClinic.entries()).filter(([c]) => !packsByClinic.has(c));

@@ -87,10 +87,28 @@ describe("buildAllCities", () => {
     expect(cities.map((c) => c.key)).toEqual(["Melbourne", "Sydney"]);
     expect(cities[0].labourCost).toBe(200);
     expect(unallocated?.hourly_cost).toBe(80);
-    expect(website?.bonus_cost).toBe(50);
+    expect(website?.bonusCost).toBe(50);
     expect(all.labourCost).toBe(365);
     expect(all.revenue).toBe(800);
     expect(all.spend).toBe(1000);
+  });
+
+  test("a Website location row (leads and spend no city claims) counts in All cities, not as a city", () => {
+    const { cities, all, website } = buildAllCities(
+      [
+        { location: "Melbourne", spend: 1000, leads: 10, booked: 2, showed: 1, noshow: 0, upcoming: 1, needs_outcome: 0, disqualified: 0 },
+        { location: "Website", spend: 50, leads: 5, booked: 1, showed: 0, noshow: 0, upcoming: 1, needs_outcome: 0, disqualified: 0 },
+      ],
+      [{ key: "Website", hours: 2, hourly_cost: 70, bonus_cost: 50, hours_missing_rate: 0, hours_fallback: 0, bookings: 1, bonus_missing_rate: 0 }],
+      [],
+    );
+    expect(cities.map((c) => c.key)).toEqual(["Melbourne"]);
+    expect(website?.leads).toBe(5);
+    expect(all.leads).toBe(15);
+    expect(all.spend).toBe(1050);
+    expect(all.shows).toBe(3);
+    expect(all.labourCost).toBe(120);
+    expect(all.trueCostPerShow).toBe(390);
   });
 
   test("sumCityStats of nothing is an empty row", () => {

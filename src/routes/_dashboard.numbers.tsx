@@ -107,6 +107,8 @@ function NumbersPage() {
 
   const [spendCoverage, setSpendCoverage] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
   const [spendDuplicates, setSpendDuplicates] = useState(0);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [peterExcluded, setPeterExcluded] = useState(false);
   const runAudit = useServerFn(runNumbersDataAudit);
   // Diagnostic for whoever is checking the data, not part of the page:
   // only shown when the address ends in ?audit=1.
@@ -172,6 +174,8 @@ function NumbersPage() {
       setPackEconomics(res.packEconomics);
       setSpendCoverage(res.spendCoverage);
       setSpendDuplicates(res.spendDuplicates);
+      setWarnings(res.warnings ?? []);
+      setPeterExcluded(!!res.peterExcluded);
       setSyncState(res.syncState);
     } catch (e) {
       toast.error((e as Error).message || "Could not load the numbers");
@@ -509,6 +513,11 @@ function NumbersPage() {
           </div>
         )}
 
+        {warnings.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {warnings.map((w) => <Note key={w} tone="red">{w}</Note>)}
+          </div>
+        )}
         {(spendGap || spendDuplicates > 0) && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {spendGap && spendCoverage.from && (
@@ -686,7 +695,7 @@ function NumbersPage() {
                     diagnosis={scopeDiagnosis}
                     unallocated={unallocated}
                     website={website}
-                    countMyPay={countMyPay}
+                    countMyPay={!peterExcluded}
                   />
                   <AdsTab
                     rows={adStats.rows}

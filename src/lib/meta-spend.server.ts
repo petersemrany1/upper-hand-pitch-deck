@@ -14,8 +14,19 @@ export function shiftDays(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * The city a campaign belongs to, the same way the database reads it
+ * (ad_location_from_campaign): a known city named anywhere in the campaign,
+ * longest match first; else the name with the brand prefix stripped. Spend
+ * rows are keyed by this, so "Hair Transplant Perth - Spring" must land in
+ * Perth, not in a phantom city of its own.
+ */
+const KNOWN_CITIES = ["Byron Bay", "Gold Coast", "Sunshine Coast", "Central Coast", "Melbourne", "Sydney", "Perth", "Brisbane", "Adelaide", "Canberra", "Hobart", "Darwin", "Newcastle", "Cairns", "Geelong", "Wollongong", "Townsville"];
 export function locationFromCampaign(campaign: string | null): string | null {
   if (!campaign) return null;
+  const lower = campaign.toLowerCase();
+  const hit = KNOWN_CITIES.filter((c) => lower.includes(c.toLowerCase())).sort((a, b) => b.length - a.length)[0];
+  if (hit) return hit;
   const cleaned = campaign.replace(/^hair\s+transplant\s+/i, "").trim();
   return cleaned.length > 0 ? cleaned : null;
 }
