@@ -1,0 +1,1 @@
+ALTER TABLE public.partner_clinics ADD COLUMN IF NOT EXISTS handover_cc TEXT;

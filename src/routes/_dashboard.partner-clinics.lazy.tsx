@@ -34,6 +34,7 @@ type PartnerClinic = {
   is_active: boolean;
   consult_price_original: number | null;
   consult_price_deposit: number | null;
+  handover_cc: string | null;
   parking_info: string | null;
   nearby_landmarks: string | null;
 };
@@ -62,6 +63,7 @@ const emptyClinic: Omit<PartnerClinic, "id" | "is_active"> = {
   state: "",
   phone: "",
   email: "",
+  handover_cc: "",
   website: "",
   consult_price_original: 395,
   consult_price_deposit: 75,
@@ -601,6 +603,7 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
       state: form.state || null,
       phone: form.phone || null,
       email: emailTrimmed,
+      handover_cc: (form.handover_cc ?? "").trim() || null,
       website: form.website || null,
       consult_price_original: form.consult_price_original ?? null,
       consult_price_deposit: form.consult_price_deposit ?? null,
@@ -670,6 +673,9 @@ function ClinicPanel({ mode, initial, onClose, onSaved }: {
         <Field label="Phone"><TextInput value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} /></Field>
         <Field label="Email"><TextInput type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} /></Field>
       </div>
+      <Field label="Handover CC">
+        <TextInput type="email" value={form.handover_cc ?? ""} onChange={(e) => set("handover_cc", e.target.value)} placeholder="Extra emails to copy on handovers, comma separated" />
+      </Field>
       <Field label="Website">
         <TextInput value={form.website ?? ""} onChange={(e) => set("website", e.target.value)} placeholder="https://..." />
       </Field>

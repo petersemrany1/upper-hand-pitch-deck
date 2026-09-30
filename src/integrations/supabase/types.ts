@@ -2049,6 +2049,7 @@ export type Database = {
           consult_price_original: number | null
           created_at: string
           email: string | null
+          handover_cc: string | null
           id: string
           is_active: boolean
           location: string | null
@@ -2070,6 +2071,7 @@ export type Database = {
           consult_price_original?: number | null
           created_at?: string
           email?: string | null
+          handover_cc?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
@@ -2091,6 +2093,7 @@ export type Database = {
           consult_price_original?: number | null
           created_at?: string
           email?: string | null
+          handover_cc?: string | null
           id?: string
           is_active?: boolean
           location?: string | null
