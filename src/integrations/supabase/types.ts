@@ -1530,6 +1530,7 @@ export type Database = {
           created_at: string
           doctor_name: string | null
           email: string | null
+          handover_cc: string | null
           id: string
           is_parent: boolean
           letter_campaign_column: string | null
@@ -1578,6 +1579,7 @@ export type Database = {
           created_at?: string
           doctor_name?: string | null
           email?: string | null
+          handover_cc?: string | null
           id?: string
           is_parent?: boolean
           letter_campaign_column?: string | null
@@ -1626,6 +1628,7 @@ export type Database = {
           created_at?: string
           doctor_name?: string | null
           email?: string | null
+          handover_cc?: string | null
           id?: string
           is_parent?: boolean
           letter_campaign_column?: string | null
