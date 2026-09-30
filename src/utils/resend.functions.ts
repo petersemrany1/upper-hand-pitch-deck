@@ -322,7 +322,8 @@ async function sendViaResend(
   subject: string,
   html: string,
   attachments?: Array<{ filename: string; content: string }>,
-  bcc?: string | string[]
+  bcc?: string | string[],
+  cc?: string | string[]
 ) {
   try {
     const body: Record<string, unknown> = {
@@ -334,6 +335,9 @@ async function sendViaResend(
     };
     if (bcc) {
       body.bcc = Array.isArray(bcc) ? bcc : [bcc];
+    }
+    if (cc) {
+      body.cc = Array.isArray(cc) ? cc : [cc];
     }
     if (attachments && attachments.length > 0) {
       body.attachments = attachments;
@@ -1120,15 +1124,19 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
   </body>
 </html>`;
 
-    // Sandbox override: test leads always go to Peter’s inbox
-    const TEST_LEAD_IDS = new Set([
-      "5e70f557-73ce-4bb7-a11a-6b718dbd092f",
-      "b2828129-1c28-4502-927a-11f43a0a8473",
-    ]);
-    // TEMP: handover emails are routed ONLY to Peter (not the clinic) per request.
-    // Original clinic recipient logic preserved above via TEST_LEAD_IDS for future revert.
-    void TEST_LEAD_IDS;
-    const clinicEmailTo = "peter@gobold.com.au";
+    // Recipient: the clinic's own email (with optional CC list from the
+    // clinic record). Falls back to Peter only when the clinic has no email
+    // on file, so a handover is never silently dropped.
+    const { data: clinicRow } = await supabase
+      .from("clinics")
+      .select("email, handover_cc")
+      .eq("id", data.clinicId)
+      .maybeSingle();
+    const clinicEmailTo = clinicRow?.email?.trim() || "peter@gobold.com.au";
+    const clinicEmailCc = (clinicRow?.handover_cc || "")
+      .split(/[,;\s]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.includes("@"));
     // Save the EXACT same Patient Intel to the clinic portal before sending.
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
@@ -1174,7 +1182,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const result = await sendViaResend(
       clinicEmailTo,
       `New Booking: ${fullName} — ${bookingDisplay}`,
-      html
+      html,
+      undefined,
+      undefined,
+      clinicEmailCc.length > 0 ? clinicEmailCc : undefined
     );
 
     if (!result.success) {

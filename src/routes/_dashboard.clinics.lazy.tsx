@@ -39,6 +39,7 @@ type Clinic = {
   city: string | null;
   phone: string | null;
   email: string | null;
+  handover_cc: string | null;
   website: string | null;
   owner_name: string | null;
   owner_title: string | null;
@@ -305,6 +306,7 @@ function ClinicsPage() {
   const [editOwner, setEditOwner] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editEmail, setEditEmail] = useState("");
+  const [editHandoverCc, setEditHandoverCc] = useState("");
   const [editStatus, setEditStatus] = useState("");
   const [editFollowUp, setEditFollowUp] = useState("");
   const notesTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -743,6 +745,7 @@ function ClinicsPage() {
     setEditOwner(clinic.owner_name || "");
     setEditPhone(clinic.phone || "");
     setEditEmail(clinic.email || "");
+    setEditHandoverCc(clinic.handover_cc || "");
     setEditStatus(clinic.status);
     setEditFollowUp(clinic.next_follow_up || "");
     setNotesSaveState("idle");
@@ -1724,6 +1727,9 @@ function ClinicsPage() {
 
                   <FieldRow label="Email">
                     <Input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} onBlur={() => updateClinicField("email", editEmail)} className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
+                  </FieldRow>
+                  <FieldRow label="Handover CC">
+                    <Input value={editHandoverCc} onChange={(e) => setEditHandoverCc(e.target.value)} onBlur={() => updateClinicField("handover_cc", editHandoverCc)} placeholder="Extra emails, comma separated" className="border-0 text-xs h-8" style={{ background: "#f9f9f9", color: "#111111" }} />
                   </FieldRow>
                   <FieldRow label="Stage">
                     <select value={editStatus} onChange={(e) => { setEditStatus(e.target.value); updateClinicField("status", e.target.value); }} className="w-full rounded px-2 py-1 text-xs border-0" style={{ background: "#f9f9f9", color: "#111111" }}>
