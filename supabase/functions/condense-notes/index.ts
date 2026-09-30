@@ -31,6 +31,7 @@ Use these labelled bullets in this order (omit a bullet only if the calls have l
 4. NEVER invent facts. Use only what's in the call summaries.
 5. Third person. One sentence per bullet, max. Tight and specific. No filler ("keen to finalise a path forward", "ready for his consultation", "excited to proceed" — all banned).
 6. IGNORE voicemail/no-answer/hangup calls entirely.
+7. NEVER mention our marketing or how the patient found us: no ads of any kind ("saw our ad", "your Facebook ad", "the advert"), no campaign or ad-set names, no Facebook/Instagram/TikTok/Google, no landing pages, no lead forms, no "how they found us". If a call summary mentions any of it, drop it entirely — our marketing must never be known to the clinics.
 
 ## EXAMPLE (illustrative — use the ACTUAL facts from the input calls, not these)
 
