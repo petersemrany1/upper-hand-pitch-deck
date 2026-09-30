@@ -1125,13 +1125,28 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
 </html>`;
 
     // Recipient: the clinic's own email (with optional CC list from the
-    // clinic record). Falls back to Peter only when the clinic has no email
-    // on file, so a handover is never silently dropped.
-    const { data: clinicRow } = await supabase
-      .from("clinics")
-      .select("email, handover_cc")
-      .eq("id", data.clinicId)
-      .maybeSingle();
+    // clinic record). Bookings reference partner_clinics, so look there
+    // first; fall back to the legacy clinics table, then to Peter only when
+    // the clinic has no email on file, so a handover is never silently
+    // dropped.
+    let clinicRow: { email: string | null; handover_cc: string | null } | null = null;
+    {
+      const { data: partnerRow } = await supabase
+        .from("partner_clinics")
+        .select("email, handover_cc")
+        .eq("id", data.clinicId)
+        .maybeSingle();
+      if (partnerRow) {
+        clinicRow = partnerRow;
+      } else {
+        const { data: legacyRow } = await supabase
+          .from("clinics")
+          .select("email, handover_cc")
+          .eq("id", data.clinicId)
+          .maybeSingle();
+        clinicRow = legacyRow ?? null;
+      }
+    }
     const clinicEmailTo = clinicRow?.email?.trim() || "peter@gobold.com.au";
     const clinicEmailCc = ((clinicRow?.handover_cc as string | null) || "")
       .split(/[,;\s]+/)
