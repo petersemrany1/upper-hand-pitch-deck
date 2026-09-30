@@ -803,7 +803,7 @@ function ClinicsPage() {
     // so keep its email and CC in sync when edited here.
     if (field === "email" || field === "handover_cc") {
       await supabase.from("partner_clinics")
-        .update({ [field]: value === "" ? null : value })
+        .update({ [field]: value === "" ? null : value } as any)
         .eq("clinic_name", selectedClinic.clinic_name);
     }
     setClinics((prev) => prev.map((c) => c.id === selectedClinic.id ? { ...c, [field]: value === "" ? null : value } as any : c));
