@@ -39,7 +39,7 @@ type Clinic = {
   city: string | null;
   phone: string | null;
   email: string | null;
-  handover_cc: string | null;
+  handover_cc?: string | null;
   website: string | null;
   owner_name: string | null;
   owner_title: string | null;

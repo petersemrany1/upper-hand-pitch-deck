@@ -1133,10 +1133,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       .eq("id", data.clinicId)
       .maybeSingle();
     const clinicEmailTo = clinicRow?.email?.trim() || "peter@gobold.com.au";
-    const clinicEmailCc = (clinicRow?.handover_cc || "")
+    const clinicEmailCc = ((clinicRow?.handover_cc as string | null) || "")
       .split(/[,;\s]+/)
-      .map((e) => e.trim())
-      .filter((e) => e.includes("@"));
+      .map((e: string) => e.trim())
+      .filter((e: string) => e.includes("@"));
     // Save the EXACT same Patient Intel to the clinic portal before sending.
     // If this fails, do not send the email — we never want a clinic email whose
     // patient-card intel wasn't captured.
