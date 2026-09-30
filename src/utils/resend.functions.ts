@@ -162,6 +162,32 @@ function isBadPatientIntel(value: string | null | undefined) {
   ].some((pattern) => pattern.test(text));
 }
 
+// Clinics must never see anything about our marketing — ads, campaigns, social
+// platforms, or how the patient found us. The AI prompts forbid it for newly
+// generated intel; this strips it from notes saved before that rule (or
+// hand-edited), sentence by sentence, so a mixed bullet keeps its useful content.
+const MARKETING_RE =
+  /\b(?:our|your|the|this|that|an?)\s+(?:ad|ads|advert|advertisement)s?\b|\bfacebook\b|\binstagram\b|\btiktok\b|\bgoogle\s+(?:ad|ads|search)\b|\bads?\b\s*(?:manager|account|set|copy|creative)|\badvertis\w+\b|\bmarketing\b|\bcampaign\b|\blead gen(?:eration)?\b|\blead form\b|\blanding page\b|how (?:they|he|she) found us|found us (?:via|on|through)\b/i;
+
+function stripMarketingSentences(notes: string): string {
+  return notes
+    .split(/\r?\n/)
+    .map((line) => {
+      if (!MARKETING_RE.test(line)) return line;
+      const labelled = line.match(/^\s*[-•]?\s*([^:]{2,30}):\s*(.*)$/);
+      const label = labelled ? `${labelled[1]}: ` : "";
+      const body = labelled ? labelled[2] : line.replace(/^\s*[-•]\s*/, "");
+      const kept = body
+        .split(/(?<=[.!?;])\s+|,\s+/)
+        .filter((s) => s.trim().length > 0 && !MARKETING_RE.test(s));
+      const out = kept.join(" ").trim();
+      if (!out) return null;
+      return `${label}${out}`.trim();
+    })
+    .filter((l): l is string => l !== null)
+    .join("\n");
+}
+
 function hasUsablePatientCallIntel(call: {
   status: string | null;
   recording_url: string | null;
