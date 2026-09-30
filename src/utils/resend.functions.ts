@@ -996,8 +996,10 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
         .split(/\r?\n/)
         .filter((l) => !/^\s*[-•]?\s*(Norwood level:|Expectations set)/i.test(l))
         .join("\n");
-    const baseNotes: string = stripNorwoodLines(
-      await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? ""),
+    const baseNotes: string = stripMarketingSentences(
+      stripNorwoodLines(
+        await resolveHandoverPatientIntel(supabase, data.leadId, data.callNotes ?? ""),
+      ),
     );
     // Hair loss stage always leads the intel. Norwood 6-7 additionally carries
     // the expectation-setting evidence: the advisor's own verbatim words from
