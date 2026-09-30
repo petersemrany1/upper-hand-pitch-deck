@@ -798,8 +798,7 @@ function ClinicsPage() {
 
   const updateClinicField = async (field: keyof Clinic, value: string | boolean) => {
     if (!selectedClinic) return;
-    const updateData = { [field]: value === "" ? null : value } as any;
-    await supabase.from("clinics").update(updateData).eq("id", selectedClinic.id);
+    await supabase.from("clinics").update({ [field]: value === "" ? null : value } as any).eq("id", selectedClinic.id);
     // The handover email sends to the partner clinic (the one bookings use),
     // so keep its email and CC in sync when edited here.
     if (field === "email" || field === "handover_cc") {
