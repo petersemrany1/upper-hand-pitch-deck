@@ -145,7 +145,7 @@ const PATIENT_SYSTEM_PROMPT = `You are a patient intake analyst for an Australia
 
 This summary will be sent to the clinic BEFORE the patient arrives. The doctor needs to understand who they're meeting, why the patient wants it done, and everything that could help them close the deal.
 
-DO NOT include under any circumstances: how many calls it took, callback scheduling, our marketing process, payment links, deposit amounts or how they paid the deposit, Stripe links, bank transfer details, or anything about our internal sales process. This information is irrelevant to the clinic and must never appear in the output.
+DO NOT include under any circumstances: how many calls it took, callback scheduling, our marketing process — how they found us, the ads they saw, campaign or ad-set names, social media, landing pages or lead forms — payment links, deposit amounts or how they paid the deposit, Stripe links, bank transfer details, or anything about our internal sales process. This information is irrelevant to the clinic and must never appear in the output.
 
 DO include everything that helps the clinic close the deal:
 
