@@ -14,63 +14,70 @@
 .consult-followup > div { display: flex; align-items: center; gap: 38px; padding: clamp(24px, 3.6vh, 42px) 0; border-bottom: 1px solid #303030; }
 .consult-followup > div:first-child { border-top: 1px solid #303030; }
 .consult-followup h3 { font-size: clamp(28px, 3vw, 48px); line-height: 1.2; }
-.presentation-packages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid #315cae; }
-.presentation-packages article { text-align: center; padding: 22px 22px 12px; min-width: 0; }
-.presentation-packages article + article { border-left: 1px solid #333; }
+/* Three distinct options, with the common appointment price stated once. */
+.presentation-packages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+.presentation-packages article { padding: 24px 28px; text-align: center; min-width: 0; background: #10141d; border: 1px solid #2b3445; border-radius: 18px; }
 .presentation-packages h3 { font-size: clamp(23px, 2vw, 32px); }
-.package-count { font-size: clamp(64px, 6.5vw, 104px); font-weight: 800; color: #568cff; line-height: 1.1; margin-top: 8px; letter-spacing: -.04em; }
-.package-unit { color: #fff; font-size: clamp(20px, 1.7vw, 28px); line-height: 1.25; }
-.package-rate { color: #ddd; font-size: clamp(20px, 1.7vw, 28px); margin: 16px 0 20px; }
-.package-rate strong { color: #fff; }
-.package-total { border-top: 1px solid #333; padding-top: 18px; }
-.package-total p, .package-revenue p { color: #ccc; font-size: clamp(19px, 1.6vw, 26px); line-height: 1.3; }
-.package-total strong { display: block; color: #fff; font-size: clamp(32px, 3vw, 48px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.package-revenue { margin-top: 18px; }
-.package-revenue strong { display: block; color: #80a8ff; font-size: clamp(28px, 2.7vw, 44px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-.presentation-footnote { color: #bbb; font-size: clamp(18px, 1.3vw, 22px); line-height: 1.4; text-align: center; margin: 24px auto 0; max-width: 95ch; }
-.presentation-faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 56px; }
-.presentation-faq article { border-top: 1px solid #3d3d3d; padding-top: 20px; }
-.presentation-faq h3 { font-size: clamp(24px, 2.1vw, 34px); line-height: 1.2; margin-bottom: 10px; }
-.presentation-faq p { color: #ddd; font-size: clamp(22px, 1.8vw, 29px); line-height: 1.35; }
+.package-shared-rate { text-align: center; font-size: clamp(23px, 2vw, 32px); color: #ddd; margin: -12px 0 28px; }
+.package-shared-rate strong { color: #fff; font-size: clamp(30px, 2.8vw, 44px); }
+.package-shared-rate span { color: #a9b2c3; font-size: 20px; margin-left: 8px; }
+.package-count { font-size: clamp(64px, 6.5vw, 104px); font-weight: 800; color: #80a8ff; line-height: 1.05; margin-top: 12px; letter-spacing: -.04em; }
+.package-unit { color: #ddd; font-size: clamp(20px, 1.7vw, 28px); line-height: 1.25; margin-top: 6px; }
+.package-total { border-top: 1px solid #354055; padding-top: 20px; margin-top: 24px; }
+.package-total p, .package-revenue p { color: #b5bfd1; font-size: clamp(19px, 1.6vw, 26px); line-height: 1.3; }
+.package-total strong { display: block; color: #fff; font-size: clamp(34px, 3.3vw, 52px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.package-revenue { margin-top: 20px; }
+.package-revenue strong { display: block; color: #b6ccff; font-size: clamp(27px, 2.4vw, 38px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.presentation-footnote { color: #bbb; font-size: clamp(18px, 1.3vw, 22px); line-height: 1.4; text-align: center; margin: 22px auto 0; max-width: 95ch; }
+.presentation-answers { display: grid; grid-template-columns: minmax(280px, 35%) minmax(0, 1fr); gap: clamp(36px, 5vw, 80px); align-items: stretch; }
+.answer-topics { display: grid; gap: 8px; }
+.answer-topics button { display: flex; align-items: center; gap: 18px; text-align: left; min-height: 60px; padding: 14px 18px; border: 1px solid transparent; border-radius: 10px; color: #bbb; font-size: clamp(19px, 1.6vw, 26px); line-height: 1.25; }
+.answer-topics button > span { color: #7c8da9; font-size: 17px; font-variant-numeric: tabular-nums; }
+.answer-topics button[aria-pressed="true"] { background: #132343; border-color: #426cc2; color: #fff; }
+.answer-topics button[aria-pressed="true"] > span { color: #8fb2ff; }
+.answer-topics button:hover { color: #fff; background: #131b2a; }
+.answer-topics button:focus-visible { outline: 2px solid #8fb2ff; outline-offset: 3px; }
+.answer-detail { border-left: 1px solid #354055; padding: 24px 0 24px clamp(32px, 4vw, 64px); display: flex; flex-direction: column; justify-content: center; }
+.answer-position { color: #80a8ff; font-size: 20px; font-weight: 700; letter-spacing: .15em; margin-bottom: 24px; }
+.pitch-deck-root .answer-detail h3 { font-size: clamp(28px, 2.6vw, 42px); line-height: 1.2; color: #ccc; max-width: 27ch; }
+.answer-copy { color: #fff; font-size: clamp(30px, 3vw, 48px); line-height: 1.3; font-weight: 600; margin-top: 26px; max-width: 26ch; }
+.answer-detail ul { display: grid; gap: 18px; margin-top: 26px; list-style: none; }
+.answer-detail li { display: flex; align-items: baseline; gap: 16px; color: #fff; font-size: clamp(23px, 2.1vw, 34px); line-height: 1.3; }
+.answer-detail li > span { color: #80a8ff; }
 @media (max-height: 780px) and (min-width: 901px) {
   .presentation-heading { margin-bottom: 28px; }
-  .presentation-packages article { padding-top: 16px; }
-  .package-count { font-size: 72px; }
-  .package-rate { margin: 12px 0 14px; }
-  .package-total { padding-top: 12px; }
-  .package-revenue { margin-top: 12px; }
+  .presentation-packages-slide .presentation-heading h2 { font-size: clamp(38px, 3.8vw, 56px); }
+  .presentation-packages article { padding: 18px 24px; }
+  .package-count { font-size: 68px; }
+  .package-total { margin-top: 18px; padding-top: 16px; }
+  .package-revenue { margin-top: 14px; }
+  .package-shared-rate { margin-bottom: 20px; }
   .presentation-footnote { margin-top: 18px; }
-  .presentation-faq { gap: 22px 48px; }
+}
+@media (max-height: 680px) and (min-width: 901px) {
+  .pitch-deck-root .presentation-packages-slide { padding-top: 40px; padding-bottom: 32px; }
+  .presentation-packages-slide .presentation-heading { margin-bottom: 20px; }
+  .package-count { font-size: 56px; }
+  .presentation-packages article { padding-top: 14px; padding-bottom: 14px; }
+  .package-shared-rate { margin-bottom: 12px; }
+  .package-total { margin-top: 12px; padding-top: 12px; }
+  .package-revenue { margin-top: 10px; }
+  .presentation-footnote { margin-top: 12px; }
+  .answer-topics button { min-height: 54px; padding: 10px 14px; }
 }
 @media (max-width: 1100px) and (min-width: 901px) {
   .pitch-deck-root .presentation-slide { padding-left: 64px; padding-right: 64px; }
-  .presentation-packages article { padding-left: 12px; padding-right: 12px; }
-  .package-rate strong { display: block; }
+  .presentation-packages article { padding-left: 14px; padding-right: 14px; }
+  .presentation-packages { gap: 16px; }
+  .presentation-answers { gap: 24px; }
+  .answer-topics button { gap: 10px; padding-left: 10px; padding-right: 10px; }
+  .answer-detail { padding-left: 28px; }
 }
 @media (max-width: 900px) {
   .pitch-deck-root .presentation-slide { padding: 64px 56px 48px; align-items: flex-start; overflow-y: auto; }
-  .patient-qualities, .presentation-packages, .presentation-faq { grid-template-columns: 1fr; }
-  .presentation-packages article + article { border-left: 0; border-top: 1px solid #333; }
+  .patient-qualities, .presentation-packages, .presentation-answers { grid-template-columns: 1fr; }
   .patient-qualities p { max-width: none; }
   .consult-followup > div { gap: 20px; }
-}
-.package-rate strong { font-size: clamp(28px, 2.5vw, 38px); }
-.presentation-risk-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); text-align: center; margin: 36px 0; }
-.presentation-risk-numbers > div { padding: 0 20px; }
-.presentation-risk-numbers > div + div { border-left: 1px solid #333; }
-.presentation-risk-numbers p, .presentation-risk-numbers span { color: #ddd; font-size: clamp(22px, 1.8vw, 30px); }
-.presentation-risk-numbers strong { display: block; color: #80a8ff; font-size: clamp(42px, 4.4vw, 68px); font-weight: 800; margin: 12px 0; line-height: 1.1; }
-.presentation-safety { text-align: center; padding: 28px 20px; border-top: 2px solid #315cae; border-bottom: 1px solid #333; }
-.presentation-safety h3 { font-size: clamp(28px, 2.8vw, 44px); line-height: 1.2; }
-.presentation-safety p { font-size: clamp(23px, 2vw, 32px); color: #ddd; margin-top: 14px; }
-@media (max-width: 900px) {
-  .presentation-risk-numbers { grid-template-columns: 1fr; gap: 30px; }
-  .presentation-risk-numbers > div + div { border-left: 0; }
-}
-@media (max-height: 680px) and (min-width: 901px) {
-  .pitch-deck-root .presentation-packages-slide { padding-top: 44px; padding-bottom: 32px; }
-  .presentation-packages-slide .presentation-heading { margin-bottom: 16px; }
-  .presentation-packages-slide .package-count { font-size: 64px; }
-  .presentation-packages-slide .package-rate { margin: 8px 0 10px; }
-  .presentation-packages-slide .presentation-footnote { margin-top: 12px; }
+  .answer-detail { border-left: 0; border-top: 1px solid #354055; padding: 24px 0; }
+  .answer-topics { grid-template-columns: 1fr 1fr; }
 }
