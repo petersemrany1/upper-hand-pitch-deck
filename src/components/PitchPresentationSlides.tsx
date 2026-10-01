@@ -56,7 +56,7 @@ export function PackagesSlide({ caseValue, rate, convertRate, pricePerShow }: { 
 const FAQ_ITEMS = [
   { question: "What counts as a qualified show?", points: ["Attends your clinic", "Knows the procedure price", "Affordability checked", "Deposit paid"] },
   { question: "What if a patient doesn’t show?", answer: "You don’t pay." },
-  { question: "What if you can’t deliver?", answer: "We refund your investment in full." },
+  { question: "Who covers the ad spend?", answer: "We cover the entire ad spend." },
   { question: "Which clinics have you worked with?", answer: "Clinics across Australia. Their names stay confidential, just as yours will." },
   { question: "How do I track appointments?", answer: "Your clinic portal shows upcoming appointments and remaining credits." },
   { question: "Where is your team?", answer: "Sydney, Australia." },
