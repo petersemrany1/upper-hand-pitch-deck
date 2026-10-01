@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";
 import ROICalculator from "../components/ROICalculator";
+import { CONVERSION_OPTIONS } from "../lib/clinic-roi";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, Home, Megaphone, Phone, Wallet, CalendarCheck, ArrowRight, ShieldCheck } from "lucide-react";
@@ -46,19 +47,9 @@ const fadeIn = {
 };
 const stagger = { visible: { transition: { staggerChildren: 0.08 } } };
 
-const CONVERT_RATES: Record<string, number> = {
-  "1 in 1": 1,
-  "3 in 4": 0.75,
-  "1 in 2": 0.5,
-  "1 in 3": 0.333,
-  "1 in 4": 0.25,
-  "1 in 5": 0.2,
-  "1 in 6": 0.167,
-  "1 in 7": 0.143,
-  "1 in 8": 0.125,
-  "1 in 9": 0.111,
-  "1 in 10": 0.1,
-};
+const CONVERT_RATES: Record<string, number> = Object.fromEntries(
+  CONVERSION_OPTIONS.map(({ label, value }) => [label, value]),
+);
 
 function PitchDeck() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -70,6 +61,7 @@ function PitchDeck() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
   const [started, setStarted] = useState(false);
+  const [roiPackSize, setRoiPackSize] = useState(10);
 
   // Local setup-screen inputs (string-formatted for typing)
   const [setupCaseValue, setSetupCaseValue] = useState(String(initial.caseValue));
@@ -196,9 +188,9 @@ function PitchDeck() {
     </div>,
 
     /* ──────── SLIDE 2 — OUR PROCESS (visual journey) ──────── */
-    <div key="process" className="deck-slide flex flex-col min-h-screen w-full bg-black px-16 py-12">
+    <div key="process" className="deck-slide flex flex-col min-h-screen w-full bg-black px-6 md:px-16 py-12">
       <SlideHeader />
-      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-14 mt-4">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={stagger} className="text-center mb-8 mt-4">
         <motion.div variants={fadeIn}>
           <ChapterLabel>HOW IT WORKS</ChapterLabel>
           <H>The Patient Journey</H>
@@ -212,34 +204,34 @@ function PitchDeck() {
         variants={stagger}
         className="flex-1 flex items-center justify-center w-full"
       >
-        <div className="relative w-full max-w-6xl mx-auto">
+        <div className="relative w-full mx-auto">
           {/* Connecting line */}
-          <div className="absolute top-12 left-[10%] right-[10%] h-[2px] bg-gradient-to-r from-primary/20 via-primary to-primary/20 hidden md:block" />
+          <div className="absolute top-[clamp(3.5rem,5vw,5rem)] left-[12.5%] right-[12.5%] h-1 bg-gradient-to-r from-primary/20 via-primary to-primary/20 hidden md:block" />
 
-          <div className="hidden md:flex items-start justify-between gap-2 relative">
+          <div className="hidden md:grid grid-cols-4 gap-6 relative">
             {[
               { icon: Megaphone, label: "We Run The Ads", sub: "Proven creative. We cover the spend." },
               { icon: Phone, label: "We Call Every Lead", sub: "Selling them on YOUR clinic." },
               { icon: Wallet, label: "We Finance Check", sub: "Discuss how they'll fund it." },
               { icon: CalendarCheck, label: "Deposit & Booked", sub: "In your calendar, ready to attend." },
             ].map((step, i, arr) => (
-              <div key={step.label} className="flex items-start flex-1">
+              <div key={step.label} className="relative min-w-0">
                 <motion.div
                   variants={fadeIn}
-                  className="flex flex-col items-center text-center flex-1 px-2"
+                  className="flex flex-col items-center text-center"
                 >
-                  <div className="relative z-10 w-24 h-24 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] ring-8 ring-black">
-                    <step.icon className="w-10 h-10" strokeWidth={2} />
+                  <div className="relative z-10 size-[clamp(7rem,10vw,10rem)] rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-[0_8px_30px_rgba(0,0,0,0.5)] ring-8 ring-black">
+                    <step.icon className="size-[clamp(3rem,4.5vw,4.5rem)]" strokeWidth={2} />
                   </div>
-                  <div className="mt-5">
-                    <p className="text-xs font-bold tracking-widest text-primary uppercase mb-2">Step {i + 1}</p>
-                    <p className="text-base md:text-lg font-extrabold text-foreground leading-tight mb-2">{step.label}</p>
-                    <p className="text-xs text-[#AAA] leading-snug max-w-[180px] mx-auto">{step.sub}</p>
+                  <div className="mt-6 w-full">
+                    <p className="text-[clamp(1.125rem,1.7vw,1.75rem)] font-bold tracking-widest text-primary uppercase mb-3">Step {i + 1}</p>
+                    <p className="text-[clamp(1.375rem,2.3vw,2.5rem)] font-extrabold text-foreground leading-tight mb-4 min-h-[2.5em]">{step.label}</p>
+                    <p className="text-[clamp(1.125rem,1.65vw,1.75rem)] text-[#DDD] leading-snug mx-auto">{step.sub}</p>
                   </div>
                 </motion.div>
                 {i < arr.length - 1 && (
-                  <motion.div variants={fadeIn} className="flex items-center justify-center pt-9 -mx-2 z-10">
-                    <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
+                  <motion.div variants={fadeIn} className="absolute top-[clamp(3.5rem,5vw,5rem)] -right-3 translate-x-1/2 -translate-y-1/2 z-10 bg-black">
+                    <ArrowRight className="w-9 h-9 text-primary" strokeWidth={2.5} />
                   </motion.div>
                 )}
               </div>
@@ -255,13 +247,13 @@ function PitchDeck() {
               { icon: CalendarCheck, label: "Deposit & Booked", sub: "In your calendar, ready to attend." },
             ].map((step, i) => (
               <div key={step.label} className="flex items-center gap-4 bg-zinc-900/60 border border-white/10 rounded-xl p-4">
-                <div className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
-                  <step.icon className="w-6 h-6" />
+                <div className="w-16 h-16 rounded-full bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
+                  <step.icon className="w-8 h-8" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold tracking-widest text-primary uppercase">Step {i + 1}</p>
-                  <p className="text-base font-extrabold text-foreground">{step.label}</p>
-                  <p className="text-xs text-[#AAA]">{step.sub}</p>
+                  <p className="text-base font-bold tracking-widest text-primary uppercase">Step {i + 1}</p>
+                  <p className="text-xl font-extrabold text-foreground">{step.label}</p>
+                  <p className="text-base text-[#DDD]">{step.sub}</p>
                 </div>
               </div>
             ))}
@@ -426,7 +418,7 @@ function PitchDeck() {
         >
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
             <p className="text-2xl font-bold text-foreground">10 patients</p>
-            <p className="text-[#CCCCCC] mt-1">$8,000</p>
+            <p className="text-[#CCCCCC] mt-1">{fmt(10 * pricePerShow)}</p>
           </div>
           <div className="hidden md:flex items-center justify-center">
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
@@ -439,8 +431,8 @@ function PitchDeck() {
             <ArrowRight className="w-7 h-7 text-primary" strokeWidth={2.5} />
           </div>
           <div className="flex-1 rounded-xl bg-white/5 border border-white/10 px-8 py-7 text-center">
-            <p className="text-2xl font-bold text-primary">2× your money</p>
-            <p className="text-[#CCCCCC] mt-1">already in front</p>
+            <p className="text-2xl font-bold text-primary">{pricePerShow > 0 ? (caseValue / (10 * pricePerShow)).toFixed(1) : "0.0"}× your spend</p>
+            <p className="text-[#CCCCCC] mt-1">in procedure revenue</p>
           </div>
         </motion.div>
 
@@ -451,7 +443,7 @@ function PitchDeck() {
           <p className="text-sm font-semibold tracking-[0.2em] uppercase text-primary mb-3">The Safety Net</p>
           <p className="text-2xl font-bold text-foreground mb-3">Convert 0 of 10? We send 5 more — free.</p>
           <p className="text-[#CCCCCC] text-lg">
-            That's 15 deposit-paid, pre-sold patients for the same $8,000. You need just <span className="text-foreground font-bold">one</span> to land to be in front.
+            That's 15 deposit-paid, pre-sold patients for the same {fmt(10 * pricePerShow)}. Each procedure generates <span className="text-foreground font-bold">{fmt(caseValue)}</span> in revenue before treatment costs.
           </p>
         </motion.div>
 
@@ -467,20 +459,20 @@ function PitchDeck() {
 
 
     /* ──────── SLIDE 6 — YOUR NUMBERS (ROI) ──────── */
-    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} pricePerShow={pricePerShow} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} onPricePerShowChange={setPricePerShow} />,
+    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} pricePerShow={pricePerShow} packSize={roiPackSize} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} onPricePerShowChange={setPricePerShow} onPackSizeChange={setRoiPackSize} />,
 
     /* ──────── SLIDE 7 — FAQ ──────── */
     <div key="faq" className="deck-slide flex min-h-screen w-full bg-black">
       <SlideHeader />
       <div className="w-[70%] flex flex-col justify-center px-16 py-12">
         <div className="w-full max-w-4xl">
-          <div className="text-center mb-12">
+          <div className="text-center mb-6">
             <ChapterLabel>QUESTIONS</ChapterLabel>
             <H>Questions I Get Asked</H>
           </div>
           <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeIn} className="divide-y divide-border w-full">
             {faqItems.map((item, i) => (
-              <div key={i} className="py-5">
+              <div key={i} className="py-3">
                 <p className="text-lg md:text-xl font-bold text-foreground">{item.q}</p>
                 <p className="text-base text-[#CCCCCC] mt-2 leading-relaxed">{item.a}</p>
               </div>
@@ -542,6 +534,7 @@ function PitchDeck() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!started || (e.target instanceof HTMLElement && e.target.closest("input, select, textarea, [contenteditable=true], [role=dialog]"))) return;
       if (e.key === "ArrowDown" || e.key === "ArrowRight") {
         e.preventDefault();
         setActiveSlide((prev) => Math.min(prev + 1, TOTAL_SLIDES - 1));
@@ -552,7 +545,7 @@ function PitchDeck() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [TOTAL_SLIDES]);
+  }, [TOTAL_SLIDES, started]);
 
   if (!started) {
     const handleCaseChange = (val: string) => {
@@ -677,7 +670,12 @@ function PitchDeck() {
   return (
     <div className="relative group" style={{ width: "100vw", height: "100vh", overflow: "hidden" }}>
       <button
-        onClick={() => setStarted(false)}
+        onClick={() => {
+          setSetupCaseValue(String(caseValue));
+          setSetupPricePerShow(String(pricePerShow));
+          setSetupConvertRate(convertRate);
+          setStarted(false);
+        }}
         className="fixed bottom-4 left-4 z-50 p-2 rounded-lg bg-card/80 border border-border text-[#CCCCCC] hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
         aria-label="Edit presentation numbers"
       >

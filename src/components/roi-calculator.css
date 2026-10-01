@@ -1,0 +1,56 @@
+.pitch-deck-root .roi-slide { display: flex; align-items: center; padding: 48px 72px 40px; background: #000; }
+.roi-content { width: 100%; max-width: 1440px; margin: auto; }
+.roi-heading { margin-bottom: clamp(16px, 3vh, 32px); }
+.roi-heading > p { color: #5287ff; font-size: 18px; font-weight: 700; letter-spacing: .2em; margin-bottom: 12px; }
+.roi-heading h2 { font-family: var(--font-heading); font-size: clamp(30px, 3.5vw, 56px); line-height: 1.08; font-weight: 800; letter-spacing: -.025em; }
+.roi-calculator { display: grid; grid-template-columns: 1fr 1.1fr; border: 1px solid #303030; border-radius: 14px; background: #111; overflow: hidden; }
+.roi-inputs, .roi-results { padding: clamp(20px, 2.4vw, 36px); min-width: 0; }
+.roi-inputs { border-right: 1px solid #303030; }
+.roi-calculator h3 { color: #aaa; font-size: 15px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; margin-bottom: 14px; }
+.roi-field { margin-top: clamp(16px, 2.5vh, 26px); }
+.roi-field-label { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.roi-field label, .roi-packs legend { color: #ddd; font-size: clamp(15px, 1.3vw, 20px); line-height: 1.35; }
+.roi-field small { display: block; color: #aaa; font-size: 12px; }
+.pitch-deck-root .roi-calculator input[type="number"], .pitch-deck-root .roi-calculator select { font-size: clamp(17px, 1.5vw, 22px); font-variant-numeric: tabular-nums; padding: 8px; min-width: 0; }
+.roi-money-input { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.roi-money-input input { width: 112px; }
+.roi-field select { width: 122px; flex-shrink: 0; }
+.pitch-deck-root .roi-calculator input[type="range"] { appearance: auto; accent-color: #3976ff; width: 100%; height: 28px; padding: 0; margin-top: 8px; border: 0; border-radius: 0; background: transparent; cursor: pointer; }
+.roi-packs { margin-top: clamp(20px, 3vh, 32px); }
+.roi-packs legend span { font-size: 13px; color: #aaa; margin-left: 5px; }
+.roi-packs > div { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 12px; }
+.roi-packs button { padding: 10px 0; border: 1px solid #444; border-radius: 8px; font-size: 18px; font-weight: 700; }
+.roi-packs button[aria-pressed="true"] { background: #245be3; border-color: #5287ff; }
+.roi-packs button:hover { border-color: #5287ff; }
+.roi-calculator :is(input, select, button):focus-visible { outline: 2px solid #79a0ff; outline-offset: 3px; }
+.roi-result-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding: clamp(10px, 1.7vh, 18px) 0; border-bottom: 1px solid #333; }
+.roi-result-row > span { color: #ccc; font-size: clamp(15px, 1.3vw, 20px); }
+.roi-result-row > strong { font-size: clamp(21px, 2vw, 30px); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.roi-result-revenue > strong { color: #71e6a4; font-size: clamp(26px, 2.7vw, 40px); }
+.roi-multiple { display: flex; align-items: center; gap: 18px; margin-top: 20px; }
+.roi-multiple strong { font-size: clamp(48px, 5.4vw, 80px); line-height: 1; color: #71e6a4; font-weight: 800; font-variant-numeric: tabular-nums; }
+.roi-multiple span { font-size: clamp(15px, 1.3vw, 20px); color: #ddd; }
+.roi-note { color: #aaa; font-size: 12px; line-height: 1.4; margin-top: 14px; max-width: 56ch; }
+@media (max-height: 760px) and (min-width: 901px) {
+  .pitch-deck-root .roi-slide { padding-top: 42px; padding-bottom: 30px; }
+  .roi-heading { margin-bottom: 16px; }
+  .roi-heading > p { margin-bottom: 8px; }
+  .roi-inputs, .roi-results { padding: 20px 24px; }
+  .roi-field { margin-top: 14px; }
+  .roi-packs { margin-top: 18px; }
+  .roi-result-row { padding: 10px 0; }
+}
+@media (max-width: 900px) {
+  .pitch-deck-root .roi-slide { padding: 60px 56px 40px; overflow-y: auto; align-items: flex-start; }
+  .roi-calculator { grid-template-columns: 1fr; }
+  .roi-inputs { border-right: 0; border-bottom: 1px solid #333; }
+  .roi-heading h2 { font-size: 30px; }
+}
+@media (max-width: 480px) {
+  .pitch-deck-root .roi-slide { padding-right: 44px; padding-left: 44px; }
+  .roi-inputs, .roi-results { padding: 16px; }
+  .roi-field-label { flex-wrap: wrap; gap: 8px; }
+  .roi-result-row { flex-wrap: wrap; gap: 4px; }
+  .roi-multiple { flex-wrap: wrap; }
+}
+.pitch-deck-root .roi-heading h2 { color: #fff; }

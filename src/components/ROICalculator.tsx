@@ -1,118 +1,82 @@
-// PROTECTED — DO NOT MODIFY THIS FILE UNDER ANY CIRCUMSTANCES
-import { useMemo } from "react";
+import type { ReactNode } from "react";
 import SlideHeader from "./SlideHeader";
+import { CONVERSION_OPTIONS, calculateClinicReturn } from "../lib/clinic-roi";
+import "./roi-calculator.css";
 
-const ALL_CONVERT_RATES: Record<string, number> = {
-  "1 in 1": 1,
-  "3 in 4": 0.75,
-  "1 in 2": 0.5,
-  "1 in 3": 0.333,
-  "1 in 4": 0.25,
-  "1 in 5": 0.2,
-  "1 in 6": 0.167,
-  "1 in 7": 0.143,
-  "1 in 8": 0.125,
-  "1 in 9": 0.111,
-  "1 in 10": 0.1,
-};
-
-const RATE_ORDER = ["1 in 10","1 in 9","1 in 8","1 in 7","1 in 6","1 in 5","1 in 4","1 in 3","1 in 2","3 in 4","1 in 1"];
-
-function getConvertLabel(label: string): string {
-  return label + " Conversion";
-}
+const PACK_SIZES = [10, 20, 50, 100, 150];
+const currency = (value: number) => new Intl.NumberFormat("en-AU", {
+  style: "currency", currency: "AUD", maximumFractionDigits: 0,
+}).format(value);
 
 interface Props {
   caseValue: number;
   convertRate: string;
   pricePerShow: number;
+  packSize: number;
   onCaseValueChange: (value: number) => void;
   onConvertRateChange: (value: string) => void;
   onPricePerShowChange: (value: number) => void;
+  onPackSizeChange: (value: number) => void;
 }
 
-export default function ROICalculator({ caseValue, convertRate, pricePerShow, onCaseValueChange, onConvertRateChange, onPricePerShowChange }: Props) {
-  const shows = 20;
-  const fmt = (n: number) => "$" + (Math.round(n / 1000) * 1000).toLocaleString();
+function Row({ label, children, emphasis = false }: { label: string; children: ReactNode; emphasis?: boolean }) {
+  return <div className={`roi-result-row${emphasis ? " roi-result-revenue" : ""}`}>
+    <span>{label}</span><strong>{children}</strong>
+  </div>;
+}
 
-  // Always show three rates centered on the selected one — clamp at the edges so
-  // the selected rate visibly sits in the matching column.
-  const { columns, selectedColIdx } = useMemo(() => {
-    const idx = RATE_ORDER.indexOf(convertRate);
-    const safe = idx === -1 ? 6 : idx;
-    let start = safe - 1;
-    if (start < 0) start = 0;
-    if (start > RATE_ORDER.length - 3) start = RATE_ORDER.length - 3;
-    const labels = [RATE_ORDER[start], RATE_ORDER[start + 1], RATE_ORDER[start + 2]];
-    const cols = labels.map((label) => {
-      const r = ALL_CONVERT_RATES[label] ?? 0.25;
-      const procedures = shows * r;
-      const revenue = procedures * caseValue;
-      return { label, revenue };
-    });
-    return { columns: cols, selectedColIdx: labels.indexOf(convertRate) };
-  }, [caseValue, convertRate]);
-
-  // Inputs intentionally removed from the deck — values are driven from /settings.
-  void onCaseValueChange;
-  void onPricePerShowChange;
+export default function ROICalculator({ caseValue, convertRate, pricePerShow, packSize, onCaseValueChange, onConvertRateChange, onPricePerShowChange, onPackSizeChange }: Props) {
+  const rateIndex = Math.max(0, CONVERSION_OPTIONS.findIndex(option => option.label === convertRate));
+  const selectedRate = CONVERSION_OPTIONS[rateIndex];
+  const result = calculateClinicReturn(caseValue, selectedRate.value, pricePerShow, packSize);
 
   return (
-    <div className="deck-slide flex flex-col items-center justify-center min-h-screen w-full px-16 py-12">
+    <section className="deck-slide roi-slide" aria-labelledby="roi-heading">
       <SlideHeader />
-      <div className="w-full max-w-5xl text-center">
-        <p className="text-primary text-lg md:text-xl font-bold tracking-[0.25em] uppercase mb-5">
-          YOUR NUMBERS
-        </p>
-        <h2
-          className="text-4xl md:text-[4rem] font-extrabold text-foreground mb-10 leading-[1.08] tracking-tight"
-          style={{ fontFamily: "var(--font-heading)" }}
-        >
-          What This Looks Like For Your Clinic.
-        </h2>
-
-        {/* 3 conversion columns */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          {columns.map((col, i) => {
-            const isSelected = i === selectedColIdx;
-            const investment = shows * pricePerShow;
-            return (
-              <button
-                key={col.label}
-                type="button"
-                onClick={() => onConvertRateChange(col.label)}
-                className={`rounded-xl border p-10 text-center transition-all ${
-                  isSelected
-                    ? "bg-primary/15 border-primary ring-2 ring-primary"
-                    : "bg-card border-border hover:border-primary/40"
-                }`}
-              >
-                <p className="text-sm text-[#CCCCCC] mb-3 font-medium uppercase tracking-wide">
-                  {getConvertLabel(col.label)}
-                </p>
-                <p className={`font-extrabold leading-none ${isSelected ? "text-primary" : "text-foreground"}`} style={{ fontSize: 'clamp(1.75rem, 4.2vw, 3.5rem)', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                  {fmt(col.revenue)}
-                </p>
-                <p className="text-sm text-[#CCCCCC] mt-3">Monthly Revenue</p>
-                <div className="mt-5 pt-4 border-t border-border/60">
-                  <p className="text-[10px] text-[#888] uppercase tracking-wider mb-1">Your Investment</p>
-                  <p className="text-base font-bold text-foreground">${investment.toLocaleString()}</p>
-                  <p className="text-[11px] text-[#888] mt-0.5">+ GST</p>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Included list */}
-        <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-[#CCCCCC]">
-          {["20 Showed Appointments", "Ad Creative", "Lead Handling", "After Consult Follow-Up"].map((item) => (
-            <span key={item} className="flex items-center gap-1.5">
-              <span className="text-primary">✓</span> {item}
-            </span>
-          ))}
+      <div className="roi-content">
+        <header className="roi-heading">
+          <p>YOUR NUMBERS</p>
+          <h2 id="roi-heading">What This Looks Like For Your Clinic</h2>
+        </header>
+        <div className="roi-calculator">
+          <div className="roi-inputs">
+            <h3>Your clinic</h3>
+            <div className="roi-field">
+              <div className="roi-field-label">
+                <label htmlFor="roi-ticket">Average procedure value</label>
+                <div className="roi-money-input"><span>$</span><input id="roi-ticket" type="number" min={1000} max={999999} step={500} value={caseValue || ""} onChange={e => { onCaseValueChange(Math.min(999999, Math.max(0, Number(e.target.value)))); }} onBlur={() => onCaseValueChange(Math.max(1000, caseValue))} /></div>
+              </div>
+              <input aria-label="Average procedure value slider" type="range" min={1000} max={Math.max(50000, caseValue)} step={500} value={caseValue} onChange={e => onCaseValueChange(Number(e.target.value))} />
+            </div>
+            <div className="roi-field">
+              <div className="roi-field-label">
+                <label htmlFor="roi-conversion">Consults that become procedures</label>
+                <select id="roi-conversion" value={selectedRate.label} onChange={e => onConvertRateChange(e.target.value)}>
+                  {CONVERSION_OPTIONS.map(option => <option key={option.label}>{option.label}</option>)}
+                </select>
+              </div>
+              <input aria-label="Conversion rate slider" aria-valuetext={selectedRate.label} type="range" min={0} max={CONVERSION_OPTIONS.length - 1} step={1} value={rateIndex} onChange={e => onConvertRateChange(CONVERSION_OPTIONS[Number(e.target.value)].label)} />
+            </div>
+            <div className="roi-field roi-field-label">
+              <label htmlFor="roi-price">Cost per attended consult <small>ex GST</small></label>
+              <div className="roi-money-input"><span>$</span><input id="roi-price" type="number" min={100} max={99999} step={50} value={pricePerShow || ""} onChange={e => { onPricePerShowChange(Math.min(99999, Math.max(0, Number(e.target.value)))); }} onBlur={() => onPricePerShowChange(Math.max(100, pricePerShow))} /></div>
+            </div>
+            <fieldset className="roi-packs">
+              <legend>Pack size <span>attended consults</span></legend>
+              <div>{PACK_SIZES.map(size => <button key={size} type="button" aria-pressed={size === packSize} onClick={() => onPackSizeChange(size)}>{size}</button>)}</div>
+            </fieldset>
+          </div>
+          <div className="roi-results" aria-live="polite" aria-atomic="true">
+            <h3>Your estimate</h3>
+            <Row label="Cost of pack (ex GST)">{currency(result.cost)}</Row>
+            <Row label="Expected procedures">{new Intl.NumberFormat("en-AU", { maximumFractionDigits: 1 }).format(result.procedures)}</Row>
+            <Row label="Cost per procedure acquired">{currency(result.costPerProcedure)}</Row>
+            <Row label="Procedure revenue" emphasis>{currency(result.revenue)}</Row>
+            <div className="roi-multiple"><strong>{result.multiple.toFixed(1)}×</strong><span>revenue for every dollar<br />spent with us</span></div>
+            <p className="roi-note">Estimated revenue, before treatment costs and GST. Fractional procedures are averages, not guaranteed bookings.</p>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
