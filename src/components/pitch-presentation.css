@@ -1,0 +1,76 @@
+/* Presentation typography uses pixels so the portal's 14px root cannot shrink it. */
+.pitch-deck-root .presentation-slide { display: flex; align-items: center; background: #000; padding: 56px 76px 44px; }
+.presentation-content { width: 100%; max-width: 1560px; margin: auto; }
+.presentation-heading { text-align: center; margin-bottom: clamp(32px, 5vh, 64px); }
+.presentation-heading > p { color: #568cff; font-size: clamp(18px, 1.4vw, 24px); font-weight: 700; letter-spacing: .2em; margin-bottom: 14px; }
+.pitch-deck-root .presentation-heading h2 { color: #fff; font-family: var(--font-heading); font-weight: 800; font-size: clamp(38px, 4.2vw, 72px); letter-spacing: -.035em; line-height: 1.08; }
+.pitch-deck-root .presentation-slide h3 { color: #fff; font-weight: 700; letter-spacing: -.02em; }
+.presentation-number { color: #568cff; font-size: clamp(40px, 4.5vw, 72px); font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.patient-qualities { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(28px, 4vw, 64px); padding: 30px 0; }
+.patient-qualities > div { border-top: 2px solid #315cae; padding-top: 28px; }
+.patient-qualities h3 { font-size: clamp(28px, 2.8vw, 44px); line-height: 1.15; margin: 28px 0 18px; }
+.patient-qualities p { color: #ddd; font-size: clamp(23px, 2vw, 32px); line-height: 1.4; max-width: 22ch; }
+.consult-followup { max-width: 1200px; margin: 0 auto; }
+.consult-followup > div { display: flex; align-items: center; gap: 38px; padding: clamp(24px, 3.6vh, 42px) 0; border-bottom: 1px solid #303030; }
+.consult-followup > div:first-child { border-top: 1px solid #303030; }
+.consult-followup h3 { font-size: clamp(28px, 3vw, 48px); line-height: 1.2; }
+.presentation-packages { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 2px solid #315cae; }
+.presentation-packages article { text-align: center; padding: 22px 22px 12px; min-width: 0; }
+.presentation-packages article + article { border-left: 1px solid #333; }
+.presentation-packages h3 { font-size: clamp(23px, 2vw, 32px); }
+.package-count { font-size: clamp(64px, 6.5vw, 104px); font-weight: 800; color: #568cff; line-height: 1.1; margin-top: 8px; letter-spacing: -.04em; }
+.package-unit { color: #fff; font-size: clamp(20px, 1.7vw, 28px); line-height: 1.25; }
+.package-rate { color: #ddd; font-size: clamp(20px, 1.7vw, 28px); margin: 16px 0 20px; }
+.package-rate strong { color: #fff; }
+.package-total { border-top: 1px solid #333; padding-top: 18px; }
+.package-total p, .package-revenue p { color: #ccc; font-size: clamp(19px, 1.6vw, 26px); line-height: 1.3; }
+.package-total strong { display: block; color: #fff; font-size: clamp(32px, 3vw, 48px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.package-revenue { margin-top: 18px; }
+.package-revenue strong { display: block; color: #80a8ff; font-size: clamp(28px, 2.7vw, 44px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.presentation-footnote { color: #bbb; font-size: clamp(18px, 1.3vw, 22px); line-height: 1.4; text-align: center; margin: 24px auto 0; max-width: 95ch; }
+.presentation-faq { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 56px; }
+.presentation-faq article { border-top: 1px solid #3d3d3d; padding-top: 20px; }
+.presentation-faq h3 { font-size: clamp(24px, 2.1vw, 34px); line-height: 1.2; margin-bottom: 10px; }
+.presentation-faq p { color: #ddd; font-size: clamp(22px, 1.8vw, 29px); line-height: 1.35; }
+@media (max-height: 780px) and (min-width: 901px) {
+  .presentation-heading { margin-bottom: 28px; }
+  .presentation-packages article { padding-top: 16px; }
+  .package-count { font-size: 72px; }
+  .package-rate { margin: 12px 0 14px; }
+  .package-total { padding-top: 12px; }
+  .package-revenue { margin-top: 12px; }
+  .presentation-footnote { margin-top: 18px; }
+  .presentation-faq { gap: 22px 48px; }
+}
+@media (max-width: 1100px) and (min-width: 901px) {
+  .pitch-deck-root .presentation-slide { padding-left: 64px; padding-right: 64px; }
+  .presentation-packages article { padding-left: 12px; padding-right: 12px; }
+  .package-rate strong { display: block; }
+}
+@media (max-width: 900px) {
+  .pitch-deck-root .presentation-slide { padding: 64px 56px 48px; align-items: flex-start; overflow-y: auto; }
+  .patient-qualities, .presentation-packages, .presentation-faq { grid-template-columns: 1fr; }
+  .presentation-packages article + article { border-left: 0; border-top: 1px solid #333; }
+  .patient-qualities p { max-width: none; }
+  .consult-followup > div { gap: 20px; }
+}
+.package-rate strong { font-size: clamp(28px, 2.5vw, 38px); }
+.presentation-risk-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); text-align: center; margin: 36px 0; }
+.presentation-risk-numbers > div { padding: 0 20px; }
+.presentation-risk-numbers > div + div { border-left: 1px solid #333; }
+.presentation-risk-numbers p, .presentation-risk-numbers span { color: #ddd; font-size: clamp(22px, 1.8vw, 30px); }
+.presentation-risk-numbers strong { display: block; color: #80a8ff; font-size: clamp(42px, 4.4vw, 68px); font-weight: 800; margin: 12px 0; line-height: 1.1; }
+.presentation-safety { text-align: center; padding: 28px 20px; border-top: 2px solid #315cae; border-bottom: 1px solid #333; }
+.presentation-safety h3 { font-size: clamp(28px, 2.8vw, 44px); line-height: 1.2; }
+.presentation-safety p { font-size: clamp(23px, 2vw, 32px); color: #ddd; margin-top: 14px; }
+@media (max-width: 900px) {
+  .presentation-risk-numbers { grid-template-columns: 1fr; gap: 30px; }
+  .presentation-risk-numbers > div + div { border-left: 0; }
+}
+@media (max-height: 680px) and (min-width: 901px) {
+  .pitch-deck-root .presentation-packages-slide { padding-top: 44px; padding-bottom: 32px; }
+  .presentation-packages-slide .presentation-heading { margin-bottom: 16px; }
+  .presentation-packages-slide .package-count { font-size: 64px; }
+  .presentation-packages-slide .package-rate { margin: 8px 0 10px; }
+  .presentation-packages-slide .presentation-footnote { margin-top: 12px; }
+}
