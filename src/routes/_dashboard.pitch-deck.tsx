@@ -2,8 +2,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import SlideHeader from "../components/SlideHeader";
-import ROICalculator from "../components/ROICalculator";
-import { PatientSlide, PostConsultSlide, PackagesSlide, FaqSlide, RiskSlide } from "../components/PitchPresentationSlides";
+import { PatientSlide, PostConsultSlide, PackagesSlide, FaqSlide } from "../components/PitchPresentationSlides";
 import { CONVERSION_OPTIONS } from "../lib/clinic-roi";
 import GetStartedModal from "../components/GetStartedModal";
 import { createFileRoute } from "@tanstack/react-router";
@@ -59,13 +58,11 @@ function PitchDeck() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showGetStarted, setShowGetStarted] = useState(false);
   const [started, setStarted] = useState(false);
-  const [roiPackSize, setRoiPackSize] = useState(10);
 
   // Local setup-screen inputs (string-formatted for typing)
   const [setupCaseValue, setSetupCaseValue] = useState(String(initial.caseValue));
   const [setupPricePerShow, setSetupPricePerShow] = useState(String(initial.pricePerShow));
   const [setupConvertRate, setSetupConvertRate] = useState(initial.convertRate);
-  const [includeDerisk, setIncludeDerisk] = useState(initial.includeDerisk);
 
   const goToSlide = useCallback((index: number) => {
     setActiveSlide(index);
@@ -253,14 +250,9 @@ function PitchDeck() {
     <PostConsultSlide key="post-consult" />,
     <PackagesSlide key="packages" caseValue={caseValue} rate={rate} convertRate={convertRate} pricePerShow={pricePerShow} />,
 
-    includeDerisk ? <RiskSlide key="derisk" caseValue={caseValue} pricePerShow={pricePerShow} /> : null,
-
-    /* ──────── SLIDE 6 — YOUR NUMBERS (ROI) ──────── */
-    <ROICalculator key="roi" caseValue={caseValue} convertRate={convertRate} pricePerShow={pricePerShow} packSize={roiPackSize} onCaseValueChange={setCaseValue} onConvertRateChange={setConvertRate} onPricePerShowChange={setPricePerShow} onPackSizeChange={setRoiPackSize} />,
-
     <FaqSlide key="faq" />,
 
-    /* ──────── SLIDE 8 — CLOSE ──────── */
+    /* ──────── SLIDE 7 — CLOSE ──────── */
     <div key="close" className="deck-slide relative flex min-h-screen w-full bg-black overflow-hidden">
       <SlideHeader />
       <img
@@ -333,7 +325,7 @@ function PitchDeck() {
         caseValue: parseInt(setupCaseValue, 10) || DEFAULT_SETTINGS.caseValue,
         pricePerShow: parseInt(setupPricePerShow, 10) || DEFAULT_SETTINGS.pricePerShow,
         convertRate: setupConvertRate,
-        includeDerisk,
+        includeDerisk: false,
       };
       try { window.localStorage.setItem("pitch-deck-settings", JSON.stringify(payload)); } catch {}
       setCaseValue(payload.caseValue);
@@ -399,23 +391,7 @@ function PitchDeck() {
               </select>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Include "Risk Sits With Us" slide</p>
-                <p className="text-xs text-[#999] mt-0.5">Adds the de-risk / safety-net slide to the deck.</p>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={includeDerisk}
-                onClick={() => setIncludeDerisk((v) => !v)}
-                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${includeDerisk ? "bg-primary" : "bg-white/15"}`}
-              >
-                <span
-                  className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${includeDerisk ? "translate-x-5" : "translate-x-0.5"}`}
-                />
-              </button>
-            </div>
+
           </div>
 
 

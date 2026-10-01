@@ -58,27 +58,13 @@ export function FaqSlide() {
     <Heading eyebrow="YOUR QUESTIONS">Clear answers before we start</Heading>
     <div className="presentation-faq">
       {[
-        ["What if a patient doesn’t show?", "You don’t pay. We credit or refund immediately."],
+        ["What if a patient doesn’t show?", "You don’t pay."],
         ["What if you can’t deliver the leads?", "We refund your investment in full."],
         ["Which clinics have you worked with?", "Clinics across Australia. Their names are confidential, just as yours will be."],
-        ["Can I see the ads?", "Yes, once you’re onboard. You approve everything before it goes live."],
+        ["What counts as a qualified appointment?", "A patient who attends your clinic, knows the price, has passed an affordability check and has paid a deposit."],
         ["Where is your team?", "Sydney, Australia."],
-        ["Whose Meta account do you use?", "Ours. You give us page access. We carry the risk."],
+        ["How do I track my appointments?", "Your clinic portal keeps your upcoming appointments and remaining credits in one place."],
       ].map(([question, answer]) => <article key={question}><h3>{question}</h3><p>{answer}</p></article>)}
     </div>
-  </div></section>;
-}
-
-export function RiskSlide({ caseValue, pricePerShow }: { caseValue: number; pricePerShow: number }) {
-  const cost = 10 * pricePerShow;
-  return <section className="deck-slide presentation-slide"><SlideHeader /><div className="presentation-content">
-    <Heading eyebrow="THE RISK SITS WITH US">Your first pack, with a safety net</Heading>
-    <div className="presentation-risk-numbers">
-      <div><p>10 attended consults</p><strong>{currency(cost)}</strong><span>investment, ex GST</span></div>
-      <div><p>Convert one patient</p><strong>{currency(caseValue)}</strong><span>procedure revenue</span></div>
-      <div><p>Revenue / investment</p><strong>{cost > 0 ? (caseValue / cost).toFixed(1) : "0.0"}×</strong><span>before treatment costs</span></div>
-    </div>
-    <div className="presentation-safety"><h3>Convert 0 of 10? We send 5 more, free.</h3><p>15 deposit-paid patients for the same {currency(cost)}.</p></div>
-    <p className="presentation-footnote">One-time offer. Available on your first pack only.</p>
   </div></section>;
 }
