@@ -1,4 +1,3 @@
-import { useState } from "react";
 import SlideHeader from "./SlideHeader";
 import "./pitch-presentation.css";
 
@@ -55,30 +54,22 @@ export function PackagesSlide({ caseValue, rate, convertRate, pricePerShow }: { 
 }
 
 const FAQ_ITEMS = [
-  { label: "If a patient doesn’t show", question: "What if a patient doesn’t show?", answer: "You don’t pay." },
-  { label: "If we can’t deliver", question: "What if you can’t deliver the leads?", answer: "We refund your investment in full." },
-  { label: "Our clinic experience", question: "Which clinics have you worked with?", answer: "Clinics across Australia. Their names are confidential, just as yours will be." },
-  { label: "A qualified appointment", question: "What counts as a qualified appointment?", points: ["Attends your clinic", "Knows the procedure price", "Has passed an affordability check", "Has paid a deposit"] },
-  { label: "Where we’re based", question: "Where is your team?", answer: "Sydney, Australia." },
-  { label: "Tracking your appointments", question: "How do I track my appointments?", answer: "Your clinic portal keeps your upcoming appointments and remaining credits in one place." },
+  { question: "What counts as a qualified show?", points: ["Attends your clinic", "Knows the procedure price", "Affordability checked", "Deposit paid"] },
+  { question: "What if a patient doesn’t show?", answer: "You don’t pay." },
+  { question: "What if you can’t deliver?", answer: "We refund your investment in full." },
+  { question: "Which clinics have you worked with?", answer: "Clinics across Australia. Their names stay confidential, just as yours will." },
+  { question: "How do I track appointments?", answer: "Your clinic portal shows upcoming appointments and remaining credits." },
+  { question: "Where is your team?", answer: "Sydney, Australia." },
 ];
 
 export function FaqSlide() {
-  const [activeQuestion, setActiveQuestion] = useState(0);
-  const item = FAQ_ITEMS[activeQuestion];
   return <section className="deck-slide presentation-slide presentation-answers-slide"><SlideHeader /><div className="presentation-content">
     <Heading eyebrow="YOUR QUESTIONS">Clear answers before we start</Heading>
     <div className="presentation-answers">
-      <div className="answer-topics" role="group" aria-label="Choose a question">
-        {FAQ_ITEMS.map((question, index) => <button key={question.label} type="button" aria-pressed={index === activeQuestion} aria-controls="presentation-answer" onClick={() => setActiveQuestion(index)}>
-          <span>{String(index + 1).padStart(2, "0")}</span>{question.label}
-        </button>)}
-      </div>
-      <div className="answer-detail" id="presentation-answer" aria-live="polite" aria-atomic="true">
-        <p className="answer-position">{String(activeQuestion + 1).padStart(2, "0")} / 06</p>
+      {FAQ_ITEMS.map(item => <article key={item.question}>
         <h3>{item.question}</h3>
-        {item.points ? <ul>{item.points.map(point => <li key={point}><span aria-hidden="true">✓</span>{point}</li>)}</ul> : <p className="answer-copy">{item.answer}</p>}
-      </div>
+        {item.points ? <ul>{item.points.map(point => <li key={point}><span aria-hidden="true">✓</span>{point}</li>)}</ul> : <p>{item.answer}</p>}
+      </article>)}
     </div>
   </div></section>;
 }

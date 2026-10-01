@@ -29,21 +29,18 @@
 .package-revenue { margin-top: 20px; }
 .package-revenue strong { display: block; color: #b6ccff; font-size: clamp(27px, 2.4vw, 38px); line-height: 1.2; margin-top: 6px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .presentation-footnote { color: #bbb; font-size: clamp(18px, 1.3vw, 22px); line-height: 1.4; text-align: center; margin: 22px auto 0; max-width: 95ch; }
-.presentation-answers { display: grid; grid-template-columns: minmax(280px, 35%) minmax(0, 1fr); gap: clamp(36px, 5vw, 80px); align-items: stretch; }
-.answer-topics { display: grid; gap: 8px; }
-.answer-topics button { display: flex; align-items: center; gap: 18px; text-align: left; min-height: 60px; padding: 14px 18px; border: 1px solid transparent; border-radius: 10px; color: #bbb; font-size: clamp(19px, 1.6vw, 26px); line-height: 1.25; }
-.answer-topics button > span { color: #7c8da9; font-size: 17px; font-variant-numeric: tabular-nums; }
-.answer-topics button[aria-pressed="true"] { background: #132343; border-color: #426cc2; color: #fff; }
-.answer-topics button[aria-pressed="true"] > span { color: #8fb2ff; }
-.answer-topics button:hover { color: #fff; background: #131b2a; }
-.answer-topics button:focus-visible { outline: 2px solid #8fb2ff; outline-offset: 3px; }
-.answer-detail { border-left: 1px solid #354055; padding: 24px 0 24px clamp(32px, 4vw, 64px); display: flex; flex-direction: column; justify-content: center; }
-.answer-position { color: #80a8ff; font-size: 20px; font-weight: 700; letter-spacing: .15em; margin-bottom: 24px; }
-.pitch-deck-root .answer-detail h3 { font-size: clamp(28px, 2.6vw, 42px); line-height: 1.2; color: #ccc; max-width: 27ch; }
-.answer-copy { color: #fff; font-size: clamp(30px, 3vw, 48px); line-height: 1.3; font-weight: 600; margin-top: 26px; max-width: 26ch; }
-.answer-detail ul { display: grid; gap: 18px; margin-top: 26px; list-style: none; }
-.answer-detail li { display: flex; align-items: baseline; gap: 16px; color: #fff; font-size: clamp(23px, 2.1vw, 34px); line-height: 1.3; }
-.answer-detail li > span { color: #80a8ff; }
+.presentation-answers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.presentation-answers article { background: #10141d; border: 1px solid #2b3445; border-radius: 16px; padding: 24px; min-width: 0; }
+.pitch-deck-root .presentation-answers h3 { font-size: clamp(24px, 2vw, 32px); line-height: 1.2; color: #fff; margin-bottom: 18px; }
+.presentation-answers article > p, .presentation-answers li { font-size: clamp(21px, 1.7vw, 28px); line-height: 1.35; color: #cbd5e5; }
+.presentation-answers ul { list-style: none; display: grid; gap: 7px; }
+.presentation-answers li { display: flex; gap: 10px; align-items: baseline; }
+.presentation-answers li span { color: #80a8ff; }
+.presentation-answers-slide .presentation-heading { margin-bottom: 28px; }
+@media (max-height: 780px) and (min-width: 901px) {
+  .presentation-answers article { padding: 20px; }
+  .pitch-deck-root .presentation-answers h3 { margin-bottom: 14px; }
+}
 @media (max-height: 780px) and (min-width: 901px) {
   .presentation-heading { margin-bottom: 28px; }
   .presentation-packages-slide .presentation-heading h2 { font-size: clamp(38px, 3.8vw, 56px); }
@@ -63,21 +60,23 @@
   .package-total { margin-top: 12px; padding-top: 12px; }
   .package-revenue { margin-top: 10px; }
   .presentation-footnote { margin-top: 12px; }
-  .answer-topics button { min-height: 54px; padding: 10px 14px; }
+  .presentation-answers { gap: 16px; }
+  .presentation-answers article { padding: 16px 20px; }
+  .presentation-answers-slide .presentation-heading h2 { font-size: 42px; }
 }
 @media (max-width: 1100px) and (min-width: 901px) {
   .pitch-deck-root .presentation-slide { padding-left: 64px; padding-right: 64px; }
   .presentation-packages article { padding-left: 14px; padding-right: 14px; }
   .presentation-packages { gap: 16px; }
   .presentation-answers { gap: 24px; }
-  .answer-topics button { gap: 10px; padding-left: 10px; padding-right: 10px; }
-  .answer-detail { padding-left: 28px; }
+  .presentation-answers article { padding: 18px; }
+  .pitch-deck-root .presentation-answers h3 { font-size: 23px; }
+  .presentation-answers article > p, .presentation-answers li { font-size: 20px; }
 }
 @media (max-width: 900px) {
   .pitch-deck-root .presentation-slide { padding: 64px 56px 48px; align-items: flex-start; overflow-y: auto; }
   .patient-qualities, .presentation-packages, .presentation-answers { grid-template-columns: 1fr; }
   .patient-qualities p { max-width: none; }
   .consult-followup > div { gap: 20px; }
-  .answer-detail { border-left: 0; border-top: 1px solid #354055; padding: 24px 0; }
-  .answer-topics { grid-template-columns: 1fr 1fr; }
+
 }
