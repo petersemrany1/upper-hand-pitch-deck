@@ -2113,14 +2113,14 @@ export type Database = {
           advanced_cases: string | null
           aftercare_included: string | null
           clinic_id: string | null
+          conducts_consultations: boolean
           created_at: string
           credentials: string | null
           id: string
           is_active: boolean
-          conducts_consultations: boolean
-          performs_procedures: boolean
           name: string
           natural_results_approach: string | null
+          performs_procedures: boolean
           specialties: string | null
           talking_points: string | null
           title: string | null
@@ -2133,14 +2133,14 @@ export type Database = {
           advanced_cases?: string | null
           aftercare_included?: string | null
           clinic_id?: string | null
+          conducts_consultations?: boolean
           created_at?: string
           credentials?: string | null
           id?: string
           is_active?: boolean
-          conducts_consultations?: boolean
-          performs_procedures?: boolean
           name: string
           natural_results_approach?: string | null
+          performs_procedures?: boolean
           specialties?: string | null
           talking_points?: string | null
           title?: string | null
@@ -2153,14 +2153,14 @@ export type Database = {
           advanced_cases?: string | null
           aftercare_included?: string | null
           clinic_id?: string | null
+          conducts_consultations?: boolean
           created_at?: string
           credentials?: string | null
           id?: string
           is_active?: boolean
-          conducts_consultations?: boolean
-          performs_procedures?: boolean
           name?: string
           natural_results_approach?: string | null
+          performs_procedures?: boolean
           specialties?: string | null
           talking_points?: string | null
           title?: string | null
