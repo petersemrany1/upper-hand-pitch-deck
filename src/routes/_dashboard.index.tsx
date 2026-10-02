@@ -308,12 +308,12 @@ function DashboardHome() {
           .select("id, patient_name, meta_leads!inner(rep_id)", { count: "exact", head: true })
           .gte("booked_at", todayIso)
           .eq("meta_leads.rep_id", scopeId)
-          .not("patient_name", "ilike", "%test%")
+          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       : supabase
           .from("clinic_appointments")
           .select("id, patient_name", { count: "exact", head: true })
           .gte("booked_at", todayIso)
-          .not("patient_name", "ilike", "%test%");
+          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%");
 
     const bookingsMonthQ = scopeId
       ? supabase
@@ -321,12 +321,12 @@ function DashboardHome() {
           .select("id, clinic_id, patient_name, meta_leads!inner(rep_id)")
           .gte("booked_at", monthIso)
           .eq("meta_leads.rep_id", scopeId)
-          .not("patient_name", "ilike", "%test%")
+          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       : supabase
           .from("clinic_appointments")
           .select("id, clinic_id, patient_name")
           .gte("booked_at", monthIso)
-          .not("patient_name", "ilike", "%test%");
+          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%");
 
 
     const newLeadsQ = supabase
@@ -359,7 +359,7 @@ function DashboardHome() {
       ? supabase
           .from("clinic_appointments")
           .select("clinic_id, outcome, disqualified_at, appointment_date, booked_at")
-          .not("patient_name", "ilike", "%test%")
+          .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       : Promise.resolve({ data: [] as ApptRow[], error: null });
 
     const [bookingsTodayRes, bookingsMonthRes, newLeadsRes, newLeadsCountRes, clinicsRes, settingsRes, targetRes, repsRes, packsRes, apptsRes] =

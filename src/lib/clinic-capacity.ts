@@ -83,7 +83,7 @@ async function computeClinicRemainingSlots(): Promise<Record<string, number>> {
     supabase
       .from("clinic_appointments")
       .select("clinic_id, outcome, disqualified_at, appointment_date, booked_at")
-      .not("patient_name", "ilike", "%test%")
+      .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%")
       .abortSignal(AbortSignal.timeout(QUERY_TIMEOUT_MS)),
   ]);
 
