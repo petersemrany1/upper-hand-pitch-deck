@@ -1,4 +1,4 @@
-import { createLazyFileRoute, useRouter } from "@tanstack/react-router";
+import { createLazyFileRoute, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
