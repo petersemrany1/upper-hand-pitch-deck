@@ -112,9 +112,6 @@ export type Database = {
       }
       appointment_reminders: {
         Row: {
-          appointment_id: string | null
-          three_day_sms_claim: string | null
-          twentyfour_hour_sms_claim: string | null
           booked_at: string
           booking_date: string | null
           booking_time: string | null
@@ -133,9 +130,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          appointment_id?: string | null
-          three_day_sms_claim?: string | null
-          twentyfour_hour_sms_claim?: string | null
           booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
@@ -154,9 +148,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          appointment_id?: string | null
-          three_day_sms_claim?: string | null
-          twentyfour_hour_sms_claim?: string | null
           booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
