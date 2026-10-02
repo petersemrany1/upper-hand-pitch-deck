@@ -13,6 +13,7 @@ function SalesCallRoute() {
 }
 
 function SalesCallErrorComponent({ error, reset }: ErrorComponentProps) {
+  const err = error as Error | undefined;
   const router = useRouter();
   const logged = useRef(false);
   useEffect(() => {
