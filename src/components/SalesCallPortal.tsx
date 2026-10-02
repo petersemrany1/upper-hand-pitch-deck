@@ -4296,38 +4296,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         if (date && time) {
           const sd = doctors.find((d) => d.id === (form.doctorId || savedAppointment?.doctor_id || ""));
           const doctorName = bookedData?.doctorName ?? savedAppointment?.doctor_name ?? sd?.name ?? null;
-          console.log("[appointment_reminders] doctor_name to insert:", doctorName);
-          const payload = {
-            lead_id: lead.id,
-            booking_date: date,
-            booking_time: time,
-            doctor_name: doctorName,
-            patient_first_name: lead.first_name ?? null,
-            patient_last_name: lead.last_name ?? null,
-            patient_phone: lead.phone ?? null,
-            status: "confirmed",
-          };
-          const { data: existing } = await supabase
-            .from("appointment_reminders")
-            .select("id")
-            .eq("lead_id", lead.id)
-            .order("created_at", { ascending: false })
-            .limit(1);
-          if (existing && existing.length > 0) {
-            await supabase
-              .from("appointment_reminders")
-              .update({
-                ...payload,
-                three_day_sms_sent: false,
-                three_day_sms_sent_at: null,
-                twentyfour_hour_sms_sent: false,
-                twentyfour_hour_sms_sent_at: null,
-              })
-              .eq("id", existing[0].id);
-          } else {
-            await supabase.from("appointment_reminders").insert(payload);
-          }
-
+          // The linked appointment trigger creates/syncs its reminder. Do not
+          // create a separate lead-based row or clear existing sent flags here.
           // Mirror into clinic_appointments so the partner clinic portal sees it.
           const appointmentClinicId = form.clinicId || lead.clinic_id;
           if (appointmentClinicId) {
@@ -4349,6 +4319,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               .limit(1);
             const clinicPayloadBase: any = {
               clinic_id: appointmentClinicId,
+              doctor_id: sd?.id ?? savedAppointment?.doctor_id ?? null,
+              doctor_name: doctorName,
               lead_id: lead.id,
               patient_name: patientName,
               patient_phone: lead.phone ?? null,
@@ -4391,6 +4363,10 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               }
             }
 
+            const { data: currentAppointment } = await supabase.from("clinic_appointments")
+              .select("id").eq("lead_id", lead.id).maybeSingle();
+            if (currentAppointment) await supabase.from("appointment_reminders")
+              .update({ status: "confirmed" }).eq("appointment_id", currentAppointment.id);
           }
         }
       } catch (e) {

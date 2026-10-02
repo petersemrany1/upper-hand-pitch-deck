@@ -1,4 +1,4 @@
-import { bookingConfirmationSms } from "@/lib/booking-confirmation-sms";
+import { bookingConfirmationSms, PATIENT_SMS_FROM } from "@/lib/booking-confirmation-sms";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
@@ -1266,7 +1266,7 @@ export const sendDepositSmsToPatient = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = "+61468031075";
+    const TWILIO_FROM = PATIENT_SMS_FROM;
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1385,7 +1385,7 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = "+61468031075";
+    const TWILIO_FROM = PATIENT_SMS_FROM;
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };
@@ -1475,7 +1475,7 @@ export const sendManualSms = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = "+61468031075";
+    const TWILIO_FROM = PATIENT_SMS_FROM;
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio not configured" };
     }
@@ -1699,7 +1699,7 @@ export const sendStandaloneDepositSms = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const accountSid = process.env.TWILIO_ACCOUNT_SID;
     const authToken = process.env.TWILIO_AUTH_TOKEN;
-    const TWILIO_FROM = "+61468031075";
+    const TWILIO_FROM = PATIENT_SMS_FROM;
 
     if (!accountSid || !authToken) {
       return { success: false as const, error: "Twilio credentials not configured" };

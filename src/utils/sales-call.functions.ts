@@ -342,6 +342,7 @@ export const saveBooking = createServerFn({ method: "POST" })
     // enforce_booking_before_status_lock trigger will accept our status change.
     // Intel notes are NOT written here — they are snapshotted only when the
     // handover email is sent.
+    let savedAppointmentId: string | null = null;
     if (data.clinicId) {
       const { data: leadRow } = await supabaseAdmin
         .from("meta_leads")
@@ -436,6 +437,7 @@ export const saveBooking = createServerFn({ method: "POST" })
         await logError("saveBooking.appointmentMissing", "clinic_appointments row not found after upsert", { leadId: data.leadId });
         return { success: false as const, error: "Clinic appointment could not be reserved. Please retry." };
       }
+      savedAppointmentId = verifyAppt[0].id;
     }
 
     // Step 3: promote status IF this call came from the Book button and a
@@ -452,32 +454,15 @@ export const saveBooking = createServerFn({ method: "POST" })
       await stampLatestCallOutcome(data.leadId, "booked_deposit_paid");
     }
 
-    // Refresh any existing appointment_reminders row for this lead so a
-    // re-book after a "Reset booking" doesn't leave the reminder stuck on
-    // status='cancelled' (which would hide the patient from the
-    // Booked Appointments dashboard).
+    // The appointment trigger owns the schedule/provider and resets flags only
+    // on a real reschedule. Re-saving an unchanged booking must not resend SMS.
     try {
-      const { data: existingReminder } = await supabaseAdmin
-        .from("appointment_reminders")
-        .select("id")
-        .eq("lead_id", data.leadId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (existingReminder && existingReminder.length > 0) {
-        await supabaseAdmin
+      if (savedAppointmentId) {
+        const { error: reminderError } = await supabaseAdmin
           .from("appointment_reminders")
-          .update({
-            status: "confirmed",
-            booking_date: data.date,
-            booking_time: data.time,
-            three_day_sms_sent: false,
-            three_day_sms_sent_at: null,
-            twentyfour_hour_sms_sent: false,
-            twentyfour_hour_sms_sent_at: null,
-            booked_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", existingReminder[0].id);
+          .update({ status: "confirmed" })
+          .eq("appointment_id", savedAppointmentId);
+        if (reminderError) throw reminderError;
       }
     } catch (e) {
       console.error("[saveBooking] reminder refresh failed", e);
