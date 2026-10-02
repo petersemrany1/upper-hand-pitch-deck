@@ -70,7 +70,7 @@ export function ClinicPackBalanceCard({ clinicId, isAdmin }: Props) {
         .from("clinic_appointments")
         .select("appointment_date, outcome, disqualified_at, booked_at")
         .eq("clinic_id", clinicId)
-        .not("patient_name", "ilike", "%test%"),
+        .not("patient_name", "ilike", "%test%").not("patient_name", "ilike", "%demo%"),
     ]);
     const allPacks = (packRows ?? []) as Pack[];
     setPacks(allPacks);

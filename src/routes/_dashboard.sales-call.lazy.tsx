@@ -1,4 +1,4 @@
-import { createLazyFileRoute, useRouter } from "@tanstack/react-router";
+import { createLazyFileRoute, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { ConversationProvider } from "@elevenlabs/react";
 import { SalesCallPortal } from "@/components/SalesCallPortal";
@@ -12,7 +12,8 @@ function SalesCallRoute() {
   );
 }
 
-function SalesCallErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function SalesCallErrorComponent({ error, reset }: ErrorComponentProps) {
+  const err = error as Error | undefined;
   const router = useRouter();
   const logged = useRef(false);
   useEffect(() => {
@@ -21,22 +22,22 @@ function SalesCallErrorComponent({ error, reset }: { error: Error; reset: () => 
     try {
       void supabase.from("error_logs").insert({
         function_name: "sales-call-error-boundary",
-        error_message: `${error?.name ?? "Error"}: ${error?.message ?? "(no message)"}`,
+        error_message: `${err?.name ?? "Error"}: ${err?.message ?? "(no message)"}`,
         context: {
           source: "frontend",
-          stack: error?.stack ?? null,
+          stack: err?.stack ?? null,
           url: typeof window !== "undefined" ? window.location.href : null,
           loggedAt: new Date().toISOString(),
         },
       });
     } catch { /* noop */ }
-  }, [error]);
+  }, [err]);
 
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <h2 className="text-xl font-semibold text-foreground">Sales Call page crashed</h2>
       <pre className="mt-3 max-h-40 max-w-xl overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
-        {error?.message || "Unknown error"}
+        {err?.message || "Unknown error"}
       </pre>
       <button
         onClick={() => { router.invalidate(); reset(); }}

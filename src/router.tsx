@@ -1,4 +1,4 @@
-import { createRouter, useRouter } from "@tanstack/react-router";
+import { createRouter, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { routeTree } from "./routeTree.gen";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,13 +7,8 @@ if (typeof window !== "undefined" && window.location.pathname === "/_dashboard/s
   window.history.replaceState(null, "", `/sales-call${window.location.search}${window.location.hash}`);
 }
 
-function DefaultErrorComponent({
-  error,
-  reset,
-}: {
-  error: Error;
-  reset: () => void;
-}) {
+function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
+  const err = error as Error | undefined;
   const router = useRouter();
   const logged = useRef(false);
 
@@ -23,17 +18,17 @@ function DefaultErrorComponent({
     try {
       void supabase.from("error_logs").insert({
         function_name: "router-error-boundary",
-        error_message: `${error?.name ?? "Error"}: ${error?.message ?? "(no message)"}`,
+        error_message: `${err?.name ?? "Error"}: ${err?.message ?? "(no message)"}`,
         context: {
           source: "frontend",
           url: typeof window !== "undefined" ? window.location.href : null,
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-          stack: error?.stack ?? null,
+          stack: err?.stack ?? null,
           loggedAt: new Date().toISOString(),
         },
       });
     } catch { /* noop */ }
-  }, [error]);
+  }, [err]);
 
 
 
@@ -62,9 +57,9 @@ function DefaultErrorComponent({
         <p className="mt-2 text-sm text-muted-foreground">
           An unexpected error occurred. Please try again.
         </p>
-        {error.message && (
+        {err?.message && (
           <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
-            {error.message}
+            {err.message}
           </pre>
         )}
         <div className="mt-6 flex items-center justify-center gap-3">
