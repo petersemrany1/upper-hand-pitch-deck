@@ -18,17 +18,17 @@ function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
     try {
       void supabase.from("error_logs").insert({
         function_name: "router-error-boundary",
-        error_message: `${error?.name ?? "Error"}: ${error?.message ?? "(no message)"}`,
+        error_message: `${err?.name ?? "Error"}: ${err?.message ?? "(no message)"}`,
         context: {
           source: "frontend",
           url: typeof window !== "undefined" ? window.location.href : null,
           userAgent: typeof navigator !== "undefined" ? navigator.userAgent : null,
-          stack: error?.stack ?? null,
+          stack: err?.stack ?? null,
           loggedAt: new Date().toISOString(),
         },
       });
     } catch { /* noop */ }
-  }, [error]);
+  }, [err]);
 
 
 
@@ -59,7 +59,7 @@ function DefaultErrorComponent({ error, reset }: ErrorComponentProps) {
         </p>
         {error.message && (
           <pre className="mt-4 max-h-40 overflow-auto rounded-md bg-muted p-3 text-left font-mono text-xs text-destructive">
-            {error.message}
+            {err.message}
           </pre>
         )}
         <div className="mt-6 flex items-center justify-center gap-3">
