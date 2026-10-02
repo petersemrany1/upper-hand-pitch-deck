@@ -12,7 +12,7 @@ function SalesCallRoute() {
   );
 }
 
-function SalesCallErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function SalesCallErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   const logged = useRef(false);
   useEffect(() => {
