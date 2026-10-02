@@ -113,8 +113,6 @@ export type Database = {
       appointment_reminders: {
         Row: {
           appointment_id: string | null
-          three_day_sms_claim: string | null
-          twentyfour_hour_sms_claim: string | null
           booked_at: string
           booking_date: string | null
           booking_time: string | null
@@ -126,16 +124,16 @@ export type Database = {
           patient_last_name: string | null
           patient_phone: string | null
           status: string
+          three_day_sms_claim: string | null
           three_day_sms_sent: boolean
           three_day_sms_sent_at: string | null
+          twentyfour_hour_sms_claim: string | null
           twentyfour_hour_sms_sent: boolean
           twentyfour_hour_sms_sent_at: string | null
           updated_at: string
         }
         Insert: {
           appointment_id?: string | null
-          three_day_sms_claim?: string | null
-          twentyfour_hour_sms_claim?: string | null
           booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
@@ -147,16 +145,16 @@ export type Database = {
           patient_last_name?: string | null
           patient_phone?: string | null
           status?: string
+          three_day_sms_claim?: string | null
           three_day_sms_sent?: boolean
           three_day_sms_sent_at?: string | null
+          twentyfour_hour_sms_claim?: string | null
           twentyfour_hour_sms_sent?: boolean
           twentyfour_hour_sms_sent_at?: string | null
           updated_at?: string
         }
         Update: {
           appointment_id?: string | null
-          three_day_sms_claim?: string | null
-          twentyfour_hour_sms_claim?: string | null
           booked_at?: string
           booking_date?: string | null
           booking_time?: string | null
@@ -168,13 +166,44 @@ export type Database = {
           patient_last_name?: string | null
           patient_phone?: string | null
           status?: string
+          three_day_sms_claim?: string | null
           three_day_sms_sent?: boolean
           three_day_sms_sent_at?: string | null
+          twentyfour_hour_sms_claim?: string | null
           twentyfour_hour_sms_sent?: boolean
           twentyfour_hour_sms_sent_at?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "appointment_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "ad_lead_outcomes"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "booking_rep_attribution"
+            referencedColumns: ["appointment_id"]
+          },
+          {
+            foreignKeyName: "appointment_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appointment_reminders_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "clinic_show_slots"
+            referencedColumns: ["appointment_id"]
+          },
+        ]
       }
       call_records: {
         Row: {
@@ -3076,6 +3105,15 @@ export type Database = {
           unattributed: boolean
           upcoming: number
         }[]
+      }
+      claim_appointment_reminder: {
+        Args: {
+          p_claim: string
+          p_id: string
+          p_kind: string
+          p_updated_at: string
+        }
+        Returns: boolean
       }
       clinic_pack_economics: {
         Args: never
