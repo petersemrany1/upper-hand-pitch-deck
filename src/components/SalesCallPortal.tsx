@@ -1,3 +1,4 @@
+import { bookingConfirmationSms, clinicSmsAddress } from "@/lib/booking-confirmation-sms";
 import { consultationMemberLabel, consultationProviders, treatingSurgeons } from "@/lib/consultation-team";
 import { useSearch, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
@@ -3723,9 +3724,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return `${hour12}:${m} ${ampm}`;
       } catch { return bookingTime; }
     })();
-    const doctorNameClean = consultationMemberLabel(sd);
-    const reschedulePart = selectedClinic?.phone ? ` If you need to reschedule, call ${selectedClinic.clinic_name} on ${selectedClinic.phone}.` : "";
-    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.${reschedulePart}`;
+    const smsBody = bookingConfirmationSms({
+      firstName: lead.first_name ?? "there", date: dateStr, time: timeStr,
+      consultantName: sd.name, doctorName: savedAppointment?.doctor_name,
+      clinicName: selectedClinic.clinic_name,
+      clinicAddress: clinicSmsAddress(selectedClinic),
+      clinicPhone: selectedClinic.phone,
+    });
 
     setPatientSmsCountdown(10);
     setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
@@ -4949,8 +4954,13 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               return `${hour12}:${m} ${ampm}`;
             } catch { return bookedData?.time ?? ""; }
           })();
-          const doctorNameClean = consultationMemberLabel(selectedDoctor);
-          const message = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with ${doctorNameClean} at ${clinic?.clinic_name ?? ""}. Address: ${clinic?.address ?? ""}, ${clinic?.city ?? ""} ${clinic?.state ?? ""}.`;
+          const message = bookingConfirmationSms({
+            firstName: lead.first_name ?? "there", date: dateStr, time: timeStr,
+            consultantName: selectedDoctor?.name, doctorName: bookedData?.doctorName,
+            clinicName: clinic?.clinic_name ?? bookedData?.clinicName ?? "",
+            clinicAddress: clinicSmsAddress(clinic),
+            clinicPhone: clinic?.phone,
+          });
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center"

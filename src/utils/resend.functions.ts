@@ -1,3 +1,4 @@
+import { bookingConfirmationSms } from "@/lib/booking-confirmation-sms";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { logError } from "./error-logger.functions";
@@ -1373,6 +1374,8 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       phone: string;
       clinicName: string;
       doctorName: string | null;
+      consultantName?: string | null;
+      clinicPhone?: string | null;
       bookingDate: string;
       bookingTime: string;
       clinicAddress?: string | null;
@@ -1388,29 +1391,18 @@ export const sendBookingConfirmationSms = createServerFn({ method: "POST" })
       return { success: false as const, error: "Twilio credentials not configured" };
     }
 
-    const bookingDisplay = (() => {
-      try {
-        const d = new Date(`${data.bookingDate}T${data.bookingTime}`);
-        return d.toLocaleString("en-AU", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          hour: "numeric",
-          minute: "2-digit",
-        });
-      } catch {
-        return `${data.bookingDate} at ${data.bookingTime}`;
-      }
-    })();
-
-    const doctorDisplay = data.doctorName ?? "your specialist";
-    const address = (data.clinicAddress ?? "").trim();
-    const parking = (data.parkingInfo ?? "").trim();
-
-    const addressPart = address ? ` Address: ${address}.` : "";
-    const parkingPart = parking ? ` ${parking}.` : "";
-
-    const message = `Hi ${data.firstName}, your hair transplant consultation is confirmed for ${bookingDisplay} with ${doctorDisplay} at ${data.clinicName}.${addressPart}${parkingPart} See you soon! — Hair Transplant Group`;
+    const date = new Date(`${data.bookingDate}T12:00:00`).toLocaleDateString("en-AU", {
+      weekday: "long", day: "numeric", month: "long",
+    });
+    const [hour, minute] = data.bookingTime.split(":");
+    const h = Number(hour);
+    const time = `${h % 12 || 12}:${minute} ${h >= 12 ? "PM" : "AM"}`;
+    const message = bookingConfirmationSms({
+      firstName: data.firstName, date, time,
+      consultantName: data.consultantName, doctorName: data.doctorName,
+      clinicName: data.clinicName, clinicAddress: data.clinicAddress,
+      clinicPhone: data.clinicPhone,
+    });
 
     const raw = data.phone.replace(/[\s\-()]/g, "");
     const formatted = raw.startsWith("+")
