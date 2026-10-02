@@ -163,7 +163,7 @@ serve(async (req) => {
     const now = new Date();
     const firstName = (typeof body.first_name === "string" && body.first_name.trim()) || "Peter";
     const doctorName = typeof body.doctor_name === "string" ? body.doctor_name.trim() : "";
-    const doctorPhrase = doctorName ? `with Dr ${doctorName} ` : "";
+    const doctorPhrase = doctorName ? `with ${doctorName} ` : "";
     const threeDayDate = addDaysISO(now, 3);
     const oneDayDate = addDaysISO(now, 1);
     const timeStr = "2:00 PM";
@@ -223,7 +223,7 @@ serve(async (req) => {
     const timeStr = formatTime(row.booking_time);
     const fullName = [row.patient_first_name, row.patient_last_name].filter(Boolean).join(" ").trim() || firstName;
 
-    const doctorPhrase = doctorName ? `with Dr ${doctorName} ` : "";
+    const doctorPhrase = doctorName ? `with ${doctorName} ` : "";
 
     if (days === 3 && !row.three_day_sms_sent) {
       const msg = `Hi ${firstName}, this is a reminder that your hair restoration consultation ${doctorPhrase}is scheduled for ${dateLong} at ${timeStr}. We look forward to seeing you.`;

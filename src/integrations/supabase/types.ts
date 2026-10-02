@@ -2117,6 +2117,8 @@ export type Database = {
           credentials: string | null
           id: string
           is_active: boolean
+          conducts_consultations: boolean
+          performs_procedures: boolean
           name: string
           natural_results_approach: string | null
           specialties: string | null
@@ -2135,6 +2137,8 @@ export type Database = {
           credentials?: string | null
           id?: string
           is_active?: boolean
+          conducts_consultations?: boolean
+          performs_procedures?: boolean
           name: string
           natural_results_approach?: string | null
           specialties?: string | null
@@ -2153,6 +2157,8 @@ export type Database = {
           credentials?: string | null
           id?: string
           is_active?: boolean
+          conducts_consultations?: boolean
+          performs_procedures?: boolean
           name?: string
           natural_results_approach?: string | null
           specialties?: string | null

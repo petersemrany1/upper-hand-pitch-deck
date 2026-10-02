@@ -1,3 +1,4 @@
+import { consultationMemberLabel, consultationProviders, treatingSurgeons } from "@/lib/consultation-team";
 import { useSearch, useNavigate, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
 import {
@@ -146,6 +147,8 @@ type Clinic = {
 
 type PartnerDoctor = {
   id: string; clinic_id: string; name: string; title: string | null;
+  conducts_consultations: boolean; performs_procedures: boolean;
+  credentials: string | null; training_background: string | null;
   years_experience: number | null; specialties: string | null;
   what_makes_them_different: string | null;
   natural_results_approach: string | null;
@@ -2487,7 +2490,7 @@ function StepContent({
               color: COLORS.text,
               fontWeight: 500,
             }}>
-              "Excellent, I really want to book you in with Doctor <span style={{ color: COLORS.hint }}>[name]</span>, because based on what you told me about <span style={{ color: COLORS.hint }}>[link to their specific situation]</span> I think they would be perfect for you."
+              "Excellent, I really want to book you in with <span style={{ color: COLORS.hint }}>[name]</span>, because based on what you told me about <span style={{ color: COLORS.hint }}>[link to their specific situation]</span> I think they would be perfect for you."
             </div>
             <div style={{
               marginTop: 10,
@@ -3223,16 +3226,16 @@ function PriceStep({ lead, onNext }: { lead: Lead; onNext: () => void }) {
       if (picked) {
         const { data: docs } = await supabase
           .from("partner_doctors")
-          .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+          .select("id, clinic_id, name, title, conducts_consultations, performs_procedures, credentials, training_background, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
           .eq("clinic_id", picked.id)
           .eq("is_active", true)
           .order("created_at");
-        setDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+        setDoctor(consultationProviders((docs ?? []) as PartnerDoctor[])[0] ?? null);
       }
     })();
   }, [lead.clinic_id]);
 
-  const doctorName = doctor?.name ?? "your specialist";
+  const doctorName = consultationMemberLabel(doctor) || "your consultation team member";
   
   const clinicLine = clinic
     ? [clinic.clinic_name, [clinic.address, clinic.city, clinic.state].filter(Boolean).join(", ")].filter(Boolean).join(" — ")
@@ -3702,7 +3705,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
       clinics.find((c) => c.id === (form.clinicId || savedAppointment?.clinic_id || lead.clinic_id || "")) ?? null;
     if (!selectedClinic || !sd) {
       autoConfirmTriggeredRef.current = false;
-      toast.error("Select the clinic and doctor before sending the confirmation text");
+      toast.error("Select the clinic and consultation team member before sending the confirmation text");
       return;
     }
     const dateStr = (() => {
@@ -3720,9 +3723,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         return `${hour12}:${m} ${ampm}`;
       } catch { return bookingTime; }
     })();
-    const doctorNameClean = (sd?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
+    const doctorNameClean = consultationMemberLabel(sd);
     const reschedulePart = selectedClinic?.phone ? ` If you need to reschedule, call ${selectedClinic.clinic_name} on ${selectedClinic.phone}.` : "";
-    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.${reschedulePart}`;
+    const smsBody = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with ${doctorNameClean} at ${selectedClinic?.clinic_name ?? ""}. Address: ${selectedClinic?.address ?? ""}, ${selectedClinic?.city ?? ""} ${selectedClinic?.state ?? ""}.${reschedulePart}`;
 
     setPatientSmsCountdown(10);
     setPatientSmsDraft({ body: smsBody, phone: lead.phone, leadId: lead.id });
@@ -3748,7 +3751,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     const missing: string[] = [];
     if (!form.clinicId || !clinicExplicitlySelected) missing.push("clinic");
     if (!form.gender) missing.push("gender");
-    if (doctors.length > 0 && !form.doctorId) missing.push("doctor");
+    if (doctors.length > 0 && !form.doctorId) missing.push("consultation team member");
     if (!form.funding) missing.push("funding type");
     if (!form.date) missing.push("booking date");
     if (!form.time) missing.push("booking time");
@@ -3768,7 +3771,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         // Only ever the clinic the rep explicitly selected — never a stale
         // clinic stored on the lead.
         clinicId: form.clinicId,
-        doctorName: selectedDoctor?.name || undefined,
+        doctorName: consultationMemberLabel(selectedDoctor) || undefined,
       },
     });
     setSendingPaymentLink(false);
@@ -4045,19 +4048,21 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
   useEffect(() => {
     const clinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
     if (!clinicId) { setDoctors([]); return; }
+    let cancelled = false;
+    setDoctors([]);
     void supabase.from("partner_doctors")
-      .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+      .select("id, clinic_id, name, title, conducts_consultations, performs_procedures, credentials, training_background, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
       .eq("clinic_id", clinicId)
       .eq("is_active", true)
       .order("created_at")
       .then(({ data }) => {
-        const list = (data ?? []) as PartnerDoctor[];
+        if (cancelled) return;
+        const list = consultationProviders((data ?? []) as PartnerDoctor[]);
         setDoctors(list);
         // Only auto-select when there's exactly one doctor — otherwise force the rep to pick.
-        if (!form.doctorId && list.length === 1) {
-          setForm((f) => ({ ...f, doctorId: list[0].id }));
-        }
+        setForm((f) => ({ ...f, doctorId: list.some((d) => d.id === f.doctorId) ? f.doctorId : list.length === 1 ? list[0].id : "" }));
       });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.clinicId, savedAppointment?.clinic_id, lead.clinic_id]);
   const set = (k: keyof typeof form, v: string) => {
@@ -4100,7 +4105,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
         date: lead.booking_date,
         time: lead.booking_time,
         clinicName: selectedClinic.clinic_name,
-        doctorName: savedDoctorName || selectedDoctor?.name || "",
+        doctorName: savedDoctorName || consultationMemberLabel(selectedDoctor),
       });
       setBooked(true);
     }
@@ -4123,7 +4128,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
   const book = async () => {
     if (!form.clinicId || !clinicExplicitlySelected) { toast.error("Select a clinic before booking"); return; }
-    if (!form.doctorId) { toast.error("Select a doctor before booking"); return; }
+    if (!form.doctorId) { toast.error("Select a consultation team member before booking"); return; }
     if (!form.date || !form.time) { toast.error("Pick a date and time"); return; }
     if (norwood == null) { toast.error("Select the patient's Norwood level (1–7) before booking"); return; }
     if (norwoodNeedsExpectations && expectationsAnswer !== "yes") {
@@ -4211,7 +4216,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     const effectiveClinicId = form.clinicId || savedAppointment?.clinic_id || lead.clinic_id;
     if (!effectiveClinicId || bookedData.clinicName.startsWith("[") || bookedData.doctorName.startsWith("[")) {
       setSendingHandover(false);
-      toast.error("Clinic or doctor info is missing — save the booking again before sending.");
+      toast.error("Clinic or consultation team member info is missing — save the booking again before sending.");
       return;
     }
     const selectedClinic = clinics.find((c) => c.id === effectiveClinicId);
@@ -4653,9 +4658,9 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
     const resolvedDoctorName =
       bookedData?.doctorName && !bookedData.doctorName.startsWith("[DOCTOR NAME")
         ? bookedData.doctorName
-        : (selectedDoctor?.name ?? "");
+        : consultationMemberLabel(selectedDoctor);
     if (!resolvedClinicName || !resolvedDoctorName) {
-      toast.error("Clinic or doctor info missing — pick them in Step 10 and try again.");
+      toast.error("Clinic or consultation team member info missing — pick them in Step 10 and try again.");
       return;
     }
     setShowPreview(false);
@@ -4944,8 +4949,8 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               return `${hour12}:${m} ${ampm}`;
             } catch { return bookedData?.time ?? ""; }
           })();
-          const doctorNameClean = (selectedDoctor?.name ?? "").replace(/^\s*(Dr\.?|Doctor)\s+/i, "");
-          const message = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with Dr ${doctorNameClean} at ${clinic?.clinic_name ?? ""}. Address: ${clinic?.address ?? ""}, ${clinic?.city ?? ""} ${clinic?.state ?? ""}.`;
+          const doctorNameClean = consultationMemberLabel(selectedDoctor);
+          const message = `Hi ${lead.first_name ?? "there"}, your hair transplant consultation is confirmed for ${dateStr} at ${timeStr} with ${doctorNameClean} at ${clinic?.clinic_name ?? ""}. Address: ${clinic?.address ?? ""}, ${clinic?.city ?? ""} ${clinic?.state ?? ""}.`;
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center"
@@ -5277,13 +5282,14 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
 
         {doctors.length > 0 && (
           <div>
-            <Label>Doctor</Label>
+            <Label>Consultation with</Label>
             <select
               value={form.doctorId}
               onChange={(e) => set("doctorId", e.target.value)}
               className="w-full px-2.5 py-1.5 rounded-md text-[13px] mt-1"
               style={{ background: "#f9f9f9", border: `1px solid ${COLORS.line}`, color: COLORS.text }}
             >
+              <option value="">Select consultation provider</option>
               {doctors.map((d) => (
                 <option key={d.id} value={d.id}>{d.name}{d.title ? ` — ${d.title}` : ""}</option>
               ))}
@@ -5397,7 +5403,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
           const missing: string[] = [];
           if (!form.clinicId || !clinicExplicitlySelected) missing.push("clinic");
           if (!form.gender) missing.push("gender");
-          if (doctors.length > 0 && !form.doctorId) missing.push("doctor");
+          if (doctors.length > 0 && !form.doctorId) missing.push("consultation team member");
           if (!form.funding) missing.push("funding type");
           if (!form.date) missing.push("date");
           if (!form.time) missing.push("time");
@@ -5470,7 +5476,7 @@ function BookingStep({ lead, discoveryNotes, onBooked, onDepositPaid, onBookedSa
               ? "Select the patient's Norwood level (1–7) before booking"
               : !expectationsConfirmed
                 ? "Set expectations with the patient before booking the appointment"
-                : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, doctor, date and time" : undefined);
+                : (!form.clinicId || !form.doctorId || !form.date || !form.time ? "Complete clinic, consultation team member, date and time" : undefined);
           return (
             <button
               onClick={() => void book()}
@@ -7039,6 +7045,8 @@ function RightPanel({
   const [panelClinicsRetryTick, setPanelClinicsRetryTick] = useState(0);
   const [panelClinic, setPanelClinic] = useState<Clinic | null>(null);
   const [panelDoctor, setPanelDoctor] = useState<PartnerDoctor | null>(null);
+  const [panelSurgeons, setPanelSurgeons] = useState<PartnerDoctor[]>([]);
+  const panelTeamRequest = useRef(0);
 
   // Doctor selling-points (AI-summarised on demand, cached per doctor)
   const [showSellingPoints, setShowSellingPoints] = useState(false);
@@ -7140,15 +7148,20 @@ function RightPanel({
   }, [active.id]);
 
   const loadDoctorForClinic = useCallback(async (clinicId: string | null) => {
-    if (!clinicId) { setPanelDoctor(null); return; }
+    const request = ++panelTeamRequest.current;
+    setPanelDoctor(null);
+    setPanelSurgeons([]);
+    if (!clinicId) return;
     const { data: docs } = await supabase
       .from("partner_doctors")
-      .select("id, clinic_id, name, title, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
+      .select("id, clinic_id, name, title, conducts_consultations, performs_procedures, credentials, training_background, years_experience, specialties, what_makes_them_different, natural_results_approach, advanced_cases, talking_points, aftercare_included")
       .eq("clinic_id", clinicId)
       .eq("is_active", true)
-      .order("created_at")
-      .limit(1);
-    setPanelDoctor(((docs ?? [])[0] as PartnerDoctor) ?? null);
+      .order("created_at");
+    if (request !== panelTeamRequest.current) return;
+    const members = (docs ?? []) as PartnerDoctor[];
+    setPanelDoctor(consultationProviders(members)[0] ?? null);
+    setPanelSurgeons(treatingSurgeons(members));
   }, []);
 
   const handleSelectPanelClinic = useCallback((clinicId: string) => {
@@ -8052,7 +8065,7 @@ function RightPanel({
               {panelClinic.clinic_name}
             </div>
             {panelDoctor?.name && (
-              <div style={{ fontSize: 13, color: "#111" }}>{panelDoctor.name}</div>
+              <div style={{ fontSize: 13, color: "#111" }}>Consultation with: {consultationMemberLabel(panelDoctor)}</div>
             )}
             {(panelClinic.address || panelClinic.city || panelClinic.state) && (
               <div style={{ fontSize: 13, color: "#111" }}>
@@ -8075,7 +8088,32 @@ function RightPanel({
         )}
       </div>
 
-      {/* Section 3b — Doctor Selling Points (collapsible, between Clinic & Objections) */}
+      {panelSurgeons.length > 0 && (
+        <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
+          <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", marginBottom: 10 }}>Treating surgeon{panelSurgeons.length === 1 ? "" : "s"}</div>
+          {panelSurgeons.map((surgeon) => (
+            <div key={surgeon.id} style={{ fontSize: 13, lineHeight: 1.6, marginBottom: 12 }}>
+              <div style={{ fontWeight: 600 }}>{consultationMemberLabel(surgeon)}</div>
+              <div style={{ color: "#666" }}>Performs the procedure{surgeon.conducts_consultations ? " · Also conducts consultations" : " · Consultation is with the consultation provider above"}</div>
+              {surgeon.years_experience != null && <div>{surgeon.years_experience} years of experience</div>}
+              {[
+                ["Specialties", surgeon.specialties],
+                ["Credentials", surgeon.credentials],
+                ["Training", surgeon.training_background],
+                ["What makes them different", surgeon.what_makes_them_different],
+                ["Approach to results", surgeon.natural_results_approach],
+                ["Advanced cases", surgeon.advanced_cases],
+                ["Talking points", surgeon.talking_points],
+                ["Aftercare", surgeon.aftercare_included],
+              ].filter(([, value]) => value).map(([label, value]) => (
+                <div key={label} style={{ marginTop: 6, whiteSpace: "pre-line" }}><strong>{label}:</strong> {value}</div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Section 3b — Consultation Talking Points (collapsible, between Clinic & Objections) */}
       {panelDoctor && (
         <div style={{ padding: "14px 18px", borderTop: `0.5px solid ${COLORS.line}` }}>
           <button
@@ -8106,7 +8144,7 @@ function RightPanel({
                   setSellingPoints(points);
                   setSellingPointsForDoctorId(panelDoctor.id);
                   if (points.length === 0) {
-                    toast.message("No selling points generated — doctor profile may be empty.");
+                    toast.message("No selling points generated — team member profile may be empty.");
                   }
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "Failed to generate selling points";
@@ -8132,7 +8170,7 @@ function RightPanel({
             aria-expanded={showSellingPoints}
           >
             <span style={{ fontSize: 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", color: "#111" }}>
-              Doctor Selling Points
+              Consultation Talking Points
             </span>
             <span style={{ fontSize: 12, color: COLORS.coral, fontWeight: 600 }}>
               {showSellingPoints ? "Hide ▲" : "Show ▼"}
@@ -8151,7 +8189,7 @@ function RightPanel({
             >
               {panelDoctor?.name && (
                 <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", color: "#666", marginBottom: 6 }}>
-                  {panelDoctor.name}
+                  {consultationMemberLabel(panelDoctor)}
                 </div>
               )}
               {loadingSellingPoints ? (
@@ -8163,7 +8201,7 @@ function RightPanel({
                   ))}
                 </ul>
               ) : (
-                <div style={{ fontSize: 13, color: "#666" }}>No points available — fill in the doctor profile in Partner Clinics.</div>
+                <div style={{ fontSize: 13, color: "#666" }}>No points available — fill in the team member profile in Partner Clinics.</div>
               )}
             </div>
           )}
@@ -8420,7 +8458,7 @@ function RightPanel({
                 <div style={{ fontWeight: 600, color: "#111", marginTop: 4 }}>
                   {panelClinic?.clinic_name ?? "— no clinic selected —"}
                 </div>
-                {panelDoctor?.name ? <div>{panelDoctor.name}</div> : null}
+                {panelDoctor?.name ? <div>{consultationMemberLabel(panelDoctor)}</div> : null}
                 {panelClinic && (panelClinic.address || panelClinic.city || panelClinic.state) ? (
                   <div style={{ color: "#666" }}>
                     {[panelClinic.address, panelClinic.city, panelClinic.state].filter(Boolean).join(", ")}
@@ -9255,8 +9293,8 @@ const OBJECTIONS = [
   },
   {
     q: "Consult price",
-    a: "Normally the consult is the clinic's full price — but I want to get you in with [Dr Name], they've got some complimentary spots available. The only caveat is the refundable deposit to hold the spot, which is fully refunded when you arrive. Does that sound fair?",
-    note: "Pull the exact consult price, deposit amount and doctor name from the clinic panel on the right. Walk the price journey — don't skip steps.",
+    a: "Normally the consult is the clinic's full price — but I want to get you in with [Consultation Team Member], they've got some complimentary spots available. The only caveat is the refundable deposit to hold the spot, which is fully refunded when you arrive. Does that sound fair?",
+    note: "Pull the exact consult price, deposit amount and consultation team member’s name from the clinic panel on the right. Walk the price journey — don't skip steps.",
   },
   {
     q: "Transplant price",
@@ -9265,8 +9303,8 @@ const OBJECTIONS = [
   },
   {
     q: "Who are you",
-    a: "Great question — The Hair Transplant Group is a network of specialist clinics all around Australia. [Clinic Name] and [Dr Name] are part of our network. Some clinics have multiple doctors — the reason I'm suggesting Dr [Name] specifically is because of what you just told me about XYZ.",
-    note: "Swap [Clinic Name], [Dr Name] and XYZ with the lead's actual details from discovery.",
+    a: "Great question — The Hair Transplant Group is a network of specialist clinics all around Australia. [Clinic Name] and [Consultation Team Member] are part of our network. Some clinics have multiple consultation team members — the reason I'm suggesting [Name] specifically is because of what you just told me about XYZ.",
+    note: "Swap [Clinic Name], [Consultation Team Member] and XYZ with the lead's actual details from discovery.",
   },
 ];
 

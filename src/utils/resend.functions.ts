@@ -877,7 +877,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
     const invalidBookingLabel = (value: string | null | undefined) =>
       !value?.trim() || value.trim().startsWith("[");
     if (!data.clinicId || invalidBookingLabel(data.clinicName) || invalidBookingLabel(data.doctorName)) {
-      return { success: false, error: "Clinic and doctor details are missing. Reopen the booking and select both before sending." };
+      return { success: false, error: "Clinic and consultation team member details are missing. Reopen the booking and select both before sending." };
     }
 
     const { data: savedAppointment, error: appointmentError } = await supabase
@@ -889,7 +889,7 @@ export const sendClinicHandoverEmail = createServerFn({ method: "POST" })
       .limit(1)
       .maybeSingle();
     if (appointmentError || !savedAppointment || invalidBookingLabel(savedAppointment.doctor_name)) {
-      return { success: false, error: "The saved appointment is missing its clinic or doctor. Please save the booking again before sending." };
+      return { success: false, error: "The saved appointment is missing its clinic or consultation team member. Please save the booking again before sending." };
     }
 
     // Server-side guard: refuse to send if this lead is still mid-call, still

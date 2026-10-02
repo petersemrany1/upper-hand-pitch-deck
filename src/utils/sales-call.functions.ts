@@ -1,3 +1,4 @@
+import { consultationMemberLabel } from "@/lib/consultation-team";
 import { createServerFn } from "@tanstack/react-start";
 
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
@@ -293,7 +294,7 @@ export const saveBooking = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     if (!data.leadId || !data.clinicId || !data.doctorId || !data.date || !data.time) {
-      return { success: false as const, error: "Lead, clinic, doctor, date and time are required" };
+      return { success: false as const, error: "Lead, clinic, consultation team member, date and time are required" };
     }
     const norwood = data.norwoodLevel;
     if (norwood == null || !Number.isFinite(norwood) || norwood < 1 || norwood > 7) {
@@ -304,13 +305,14 @@ export const saveBooking = createServerFn({ method: "POST" })
     }
     const { data: doctor, error: doctorErr } = await supabaseAdmin
       .from("partner_doctors")
-      .select("id, clinic_id, name")
+      .select("id, clinic_id, name, title")
+      .eq("conducts_consultations", true)
       .eq("id", data.doctorId)
       .eq("clinic_id", data.clinicId)
       .eq("is_active", true)
       .maybeSingle();
     if (doctorErr || !doctor) {
-      return { success: false as const, error: "The selected doctor is not available at this clinic. Please select the clinic and doctor again." };
+      return { success: false as const, error: "The selected consultation team member is not available at this clinic. Please select the clinic and team member again." };
     }
     // Step 1: write booking fields on meta_leads (NOT status).
     // Also reassign rep_id to the rep actually booking — credits the booking
@@ -356,7 +358,7 @@ export const saveBooking = createServerFn({ method: "POST" })
       const payload: any = {
         clinic_id: data.clinicId,
         doctor_id: doctor.id,
-        doctor_name: doctor.name,
+        doctor_name: consultationMemberLabel(doctor),
         lead_id: data.leadId,
         patient_name: patientName,
         patient_phone: leadRow?.phone ?? null,
@@ -485,7 +487,7 @@ export const saveBooking = createServerFn({ method: "POST" })
       booking: {
         clinicId: data.clinicId,
         doctorId: doctor.id,
-        doctorName: doctor.name,
+        doctorName: consultationMemberLabel(doctor),
         date: data.date,
         time: data.time,
       },

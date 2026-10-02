@@ -61,7 +61,6 @@ export const createDepositCheckout = createServerFn({ method: "POST" })
           clinicName = partnerRow?.clinic_name?.trim() || null;
         }
       }
-      if (doctorName && !/^dr\b/i.test(doctorName)) doctorName = `Dr ${doctorName}`;
 
       const stripe = createStripeClient(data.environment);
 

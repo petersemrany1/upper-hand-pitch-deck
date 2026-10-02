@@ -31,10 +31,9 @@ type Reminder = {
 
 type Lead = { id: string; rep_id: string | null; last_name: string | null; first_name: string | null };
 
-/** "Dr. Shobhna Singh" / "Dr Jai" / "Jai" → "Dr Jai" (never "Dr Dr Jai"). */
-function withDrPrefix(name: string | null | undefined): string | null {
-  const clean = (name ?? "").replace(/^\s*dr\.?\s+/i, "").trim();
-  return clean ? `Dr ${clean}` : null;
+/** Preserve the saved consultation name; never infer a Dr prefix. */
+function consultationName(name: string | null | undefined): string | null {
+  return name?.trim() || null;
 }
 
 const COLOR = {
@@ -544,7 +543,7 @@ function Card({
             {fullName}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
-            {withDrPrefix(r.doctor_name) ?? "—"}
+            {consultationName(r.doctor_name) ?? "—"}
           </div>
           <div style={{ fontSize: 12, color: COLOR.grey, marginTop: 2 }}>
             {r.patient_phone || "—"}
@@ -883,7 +882,7 @@ function EditHandoverModal({
           <>
             <div style={{ fontSize: 12, color: COLOR.grey, marginBottom: 14, lineHeight: 1.6 }}>
               <div><b>Patient:</b> {[leadInfo?.first_name, leadInfo?.last_name].filter(Boolean).join(" ") || "—"}</div>
-              <div><b>Appointment:</b> {reminder.booking_date} {reminder.booking_time} {withDrPrefix(reminder.doctor_name) ? `— ${withDrPrefix(reminder.doctor_name)}` : ""}</div>
+              <div><b>Appointment:</b> {reminder.booking_date} {reminder.booking_time} {consultationName(reminder.doctor_name) ? `— ${consultationName(reminder.doctor_name)}` : ""}</div>
               <div><b>Clinic:</b> {clinicName || "—"}</div>
             </div>
 

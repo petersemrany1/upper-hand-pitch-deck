@@ -44,6 +44,8 @@ type PartnerDoctor = {
   clinic_id: string;
   name: string;
   title: string | null;
+  conducts_consultations: boolean;
+  performs_procedures: boolean;
   years_experience: number | null;
   specialties: string | null;
   credentials: string | null;
@@ -74,6 +76,8 @@ const emptyClinic: Omit<PartnerClinic, "id" | "is_active"> = {
 const emptyDoctor: Omit<PartnerDoctor, "id" | "clinic_id" | "is_active"> = {
   name: "",
   title: "",
+  conducts_consultations: true,
+  performs_procedures: false,
   years_experience: null,
   specialties: "",
   credentials: "",
@@ -307,7 +311,7 @@ function PartnerClinicsPage() {
               <div style={{ padding: "16px 22px" }}>
                 <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#111", opacity: 0.5 }}>
-                    Doctors ({clinicDoctors.length})
+                    Clinic team ({clinicDoctors.length})
                   </div>
                   <button
                     onClick={() => setDoctorPanel({ mode: "create", clinicId: clinic.id, data: { ...emptyDoctor } })}
@@ -322,13 +326,13 @@ function PartnerClinicsPage() {
                     }}
                   >
                     <UserPlus className="h-3.5 w-3.5" />
-                    Add Doctor
+                    Add team member
                   </button>
                 </div>
 
                 {clinicDoctors.length === 0 ? (
                   <div style={{ fontSize: 12, color: "#111", opacity: 0.5, padding: "8px 0" }}>
-                    No doctors yet
+                    No clinic team members yet
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2">
@@ -355,6 +359,9 @@ function PartnerClinicsPage() {
                                   Inactive
                                 </span>
                               )}
+                            </div>
+                            <div style={{ fontSize: 11, color: "#666", marginTop: 4 }}>
+                              {[d.conducts_consultations && "Consultation provider", d.performs_procedures && "Treating surgeon"].filter(Boolean).join(" · ")}
                             </div>
                             {d.what_makes_them_different && (
                               <div style={{ fontSize: 12, color: "#111", marginTop: 6, lineHeight: 1.5, opacity: 0.85 }}>
@@ -758,12 +765,15 @@ function DoctorPanel({ mode, clinicId, initial, onClose, onSaved }: {
   const set = <K extends keyof PartnerDoctor>(k: K, v: PartnerDoctor[K] | null | string) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
-    if (!form.name?.trim()) { toast.error("Doctor name is required"); return; }
+    if (!form.name?.trim()) { toast.error("Team member name is required"); return; }
+    if (!form.conducts_consultations && !form.performs_procedures) { toast.error("Choose at least one role for this team member"); return; }
     setSaving(true);
     const payload = {
       clinic_id: clinicId,
       name: form.name.trim(),
-      title: form.title || null,
+      title: form.title?.trim() || null,
+      conducts_consultations: form.conducts_consultations ?? true,
+      performs_procedures: form.performs_procedures ?? false,
       years_experience: form.years_experience ?? null,
       specialties: form.specialties || null,
       credentials: form.credentials || null,
@@ -779,14 +789,14 @@ function DoctorPanel({ mode, clinicId, initial, onClose, onSaved }: {
       : await supabase.from("partner_doctors").insert(payload);
     setSaving(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(mode === "edit" ? "Doctor updated" : "Doctor added");
+    toast.success(mode === "edit" ? "Team member updated" : "Team member added");
     onSaved();
   };
 
   return (
     <SlideOver
-      title={mode === "edit" ? "Edit Doctor" : "Add Doctor"}
-      subtitle="Profile shown in sales portal & clinic handovers"
+      title={mode === "edit" ? "Edit team member" : "Add team member"}
+      subtitle="Keep consultation providers and treating surgeons in separate profiles. One person can have both roles."
       onClose={onClose}
       footer={
         <>
@@ -796,17 +806,29 @@ function DoctorPanel({ mode, clinicId, initial, onClose, onSaved }: {
             disabled={saving}
             style={{ background: COLORS.coral, color: "#fff", fontSize: 13, fontWeight: 500, padding: "8px 18px", borderRadius: 6, opacity: saving ? 0.6 : 1 }}
           >
-            {saving ? "Saving…" : mode === "edit" ? "Save changes" : "Add doctor"}
+            {saving ? "Saving…" : mode === "edit" ? "Save changes" : "Add team member"}
           </button>
         </>
       }
     >
-      <Field label="Doctor Name *">
-        <TextInput value={form.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="Dr. Jane Smith" />
+      <Field label="Role in patient care">
+        <div className="flex flex-col gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={form.conducts_consultations ?? true} onChange={(e) => setForm((f) => ({ ...f, conducts_consultations: e.target.checked }))} />
+            Conducts consultations — available when booking
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={form.performs_procedures ?? false} onChange={(e) => setForm((f) => ({ ...f, performs_procedures: e.target.checked }))} />
+            Performs procedures — shown as a treating surgeon
+          </label>
+        </div>
+      </Field>
+      <Field label="Name *">
+        <TextInput value={form.name ?? ""} onChange={(e) => set("name", e.target.value)} placeholder="Debra Best or Dr. Jane Smith" />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Title">
-          <TextInput value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} placeholder="Hair Transplant Specialist" />
+        <Field label="Role / title">
+          <TextInput value={form.title ?? ""} onChange={(e) => set("title", e.target.value)} placeholder="Hair Regrowth Specialist" />
         </Field>
         <Field label="Years Experience">
           <TextInput type="number" value={form.years_experience ?? ""} onChange={(e) => set("years_experience", e.target.value === "" ? null : Number(e.target.value))} />
@@ -822,7 +844,7 @@ function DoctorPanel({ mode, clinicId, initial, onClose, onSaved }: {
         <TextArea rows={2} value={form.training_background ?? ""} onChange={(e) => set("training_background", e.target.value)} />
       </Field>
       <Field label="What Makes Them Different (key talking point)">
-        <TextArea rows={3} value={form.what_makes_them_different ?? ""} onChange={(e) => set("what_makes_them_different", e.target.value)} placeholder="The single sentence that differentiates this doctor — used in the sales portal." />
+        <TextArea rows={3} value={form.what_makes_them_different ?? ""} onChange={(e) => set("what_makes_them_different", e.target.value)} placeholder="The single sentence that differentiates this team member — used in the sales portal." />
       </Field>
       <Field label="Natural Results Approach">
         <TextArea rows={3} value={form.natural_results_approach ?? ""} onChange={(e) => set("natural_results_approach", e.target.value)} />

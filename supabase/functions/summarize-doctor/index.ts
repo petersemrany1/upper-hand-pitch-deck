@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are a sales coach generating CUE-CARD bullets for a phone rep selling a cosmetic-clinic doctor mid-call.
+    const systemPrompt = `You are a sales coach generating CUE-CARD bullets for a phone rep introducing a cosmetic-clinic consultation team member mid-call.
 Output 5–8 bullets. STRICT rules:
 - Each bullet MUST be ONE short line, max 8 words. No commas-into-clauses, no sub-points.
 - Sentence fragments only (no full sentences). Skip articles where possible.
@@ -73,6 +73,7 @@ Output 5–8 bullets. STRICT rules:
 - ORDER bullets by patient-appeal: #1 = the single most persuasive selling point a real patient would care about most (e.g. proven results, signature technique, deep experience, prestige training, safety record). Rank descending so weakest/nice-to-have points are LAST. Drop anything truly weak.
 - No greetings, preamble, headers, or closing. Just the bullets.
 - Do NOT invent facts not in the input.
+- Respect the recorded role/title. Never call someone a doctor or surgeon or imply they perform procedures unless the profile explicitly supports it.
 Examples of the right length: "15+ years in facial surgery", "Trained under Dr Smith in Paris", "Specialises in natural-looking rhinoplasty".`;
 
     const aiRes = await fetch(

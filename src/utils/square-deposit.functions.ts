@@ -1,3 +1,4 @@
+import { consultationMemberLabel } from "@/lib/consultation-team";
 import { createServerFn } from "@tanstack/react-start";
 
 const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -66,11 +67,12 @@ async function lookupClinic(leadId: string, clinicId: string | null): Promise<De
     .select("name, title")
     .eq("clinic_id", clinicId)
     .eq("is_active", true)
+    .eq("conducts_consultations", true)
     .order("created_at", { ascending: true })
     .limit(1)
     .maybeSingle();
   if (doctor?.name) {
-    doctorName = doctor.title ? `${doctor.title} ${doctor.name}` : doctor.name;
+    doctorName = consultationMemberLabel(doctor);
   }
 
   return {
