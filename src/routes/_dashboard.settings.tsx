@@ -105,14 +105,14 @@ function SettingsPage() {
           {isAdmin && <PhoneNumbersSection />}
 
           <AccountSection user={user} />
-          <NotificationsSection defaultEmail={user?.email ?? null} />
+          {isAdmin && <NotificationsSection defaultEmail={user?.email ?? null} />}
           {isAdmin && <BookingPricesSection />}
           {isAdmin && <PausedLocationsSection />}
           {isAdmin && <PriorityLocationSection />}
           {isAdmin && <BackfillSection />}
           {isAdmin && <RepBookingsSection />}
           <PracticeRecordingsSection />
-          <LogsSection />
+          {isAdmin && <LogsSection />}
         </div>
       </div>
     </div>
